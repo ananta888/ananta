@@ -1,0 +1,902 @@
+{
+  "run_id": "20260404T190423Z",
+  "started_at": "2026-04-04T19:04:23.744503+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.6,
+  "wait_tasks_seconds": 90.0,
+  "goal_wait_seconds": 120.0,
+  "goal_text": "Baue ein kleines Fibonacci-Backend mit API und einfachem Frontend-Chart, erstelle sinnvolle Folgeaufgaben und schliesse mindestens einen Task erfolgreich ab",
+  "benchmark_ticks": 8,
+  "benchmark_task_kind": "coding",
+  "bootstrap_setup": true,
+  "replay_from_report": "",
+  "status": "passed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:26.992640+00:00",
+      "ended_at": "2026-04-04T19:04:27.791140+00:00",
+      "duration_ms": 798,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:28.401219+00:00",
+      "ended_at": "2026-04-04T19:04:32.007922+00:00",
+      "duration_ms": 3606,
+      "details": {
+        "template_name": "Live UI Template 1775329469",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:32.618475+00:00",
+      "ended_at": "2026-04-04T19:04:38.445290+00:00",
+      "duration_ms": 5826,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775329474",
+        "team_name": "Live UI Team 1775329476",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:39.054631+00:00",
+      "ended_at": "2026-04-04T19:04:42.014522+00:00",
+      "duration_ms": 2959,
+      "details": {
+        "goal_name": "Baue ein kleines Fibonacci-Backend mit API und einfachem Frontend-Chart, erstelle sinnvolle Folgeaufgaben und schliesse mindestens einen Task erfolgreich ab",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 156,
+          "label_before": "Goal planen",
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "8672313b-42af-41fb-9801-bdeb992e3827"
+          }
+        },
+        "goal_result_visible": true,
+        "tasks_created": 5,
+        "created_goal_id": "58495c6a-ccad-493e-932e-4c9d5e844be1",
+        "goal_result_excerpt": "Goal angelegt 58495c6a-ccad-493e-932e-4c9d5e844be1 \u00b7 5 Tasks \u00b7 Plan 09221fd6-483f-4e88-9b1b-fb1039cea410 1. Anforderungen definierenHigh2. Design/ArchitekturHigh3. ImplementierungHigh4. Tests schreibenMedium5. DokumentationLow",
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/dashboard",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:42.623810+00:00",
+      "ended_at": "2026-04-04T19:04:44.176326+00:00",
+      "duration_ms": 1552,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/board",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:44.785597+00:00",
+      "ended_at": "2026-04-04T19:04:46.341764+00:00",
+      "duration_ms": 1556,
+      "details": {
+        "path": "/board",
+        "title": "Ananta - Agent Control",
+        "board_task_count": 44,
+        "board_has_tasks": true
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/templates",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:46.950747+00:00",
+      "ended_at": "2026-04-04T19:04:48.513740+00:00",
+      "duration_ms": 1562,
+      "details": {
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/teams",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:49.121784+00:00",
+      "ended_at": "2026-04-04T19:04:50.672683+00:00",
+      "duration_ms": 1550,
+      "details": {
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/settings",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:51.282095+00:00",
+      "ended_at": "2026-04-04T19:04:52.918455+00:00",
+      "duration_ms": 1636,
+      "details": {
+        "path": "/settings",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "benchmark",
+      "step": "goal_followup_and_model_benchmark",
+      "status": "ok",
+      "started_at": "2026-04-04T19:04:53.527511+00:00",
+      "ended_at": "2026-04-04T19:05:31.763682+00:00",
+      "duration_ms": 38236,
+      "details": {
+        "goal_id": "58495c6a-ccad-493e-932e-4c9d5e844be1",
+        "goal_summary": "Baue ein kleines Fibonacci-Backend mit API und einfachem Frontend-Chart, erstelle sinnvolle Folgeaufgaben und schliesse mindestens einen Task erfolgreich ab",
+        "worker_bind_info": {
+          "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+          "applied": false,
+          "online_worker_urls": [
+            "http://ai-agent-beta:5000",
+            "http://ai-agent-alpha:5000"
+          ],
+          "existing_member_urls": [
+            "http://ai-agent-alpha:5000",
+            "http://ai-agent-beta:5000"
+          ],
+          "needs_binding": false
+        },
+        "tasks_before": 5,
+        "tasks_after": 5,
+        "followup_created": false,
+        "terminalized": true,
+        "fibonacci_mentions_in_tasks": 0,
+        "autopilot_ticks_requested": 8,
+        "autopilot_total_ms": 11217,
+        "autopilot_start_payload": {
+          "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+          "max_concurrency": 2,
+          "security_level": "balanced"
+        },
+        "autopilot_stop_before_status": 200,
+        "autopilot_start_status": 200,
+        "autopilot_stop_status": 200,
+        "workers_available_max": 0,
+        "workers_online_max": 2,
+        "no_worker_blocker": false,
+        "autopilot_tick_results": [
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329495.4000812,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 398
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329496.6726582,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 399
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329497.9407475,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 400
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329499.190788,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 401
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329501.5805626,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 402
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329502.8301404,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 403
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329504.0765443,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 404
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 25,
+                  "total_tasks_unfiltered": 71,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329505.3271587,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 405
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 26,
+                  "total_tasks_unfiltered": 72,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329527.4024718,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 407
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 26,
+                  "total_tasks_unfiltered": 72,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329528.4481285,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 408
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 26,
+                  "total_tasks_unfiltered": 72,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329529.495355,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 409
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 26,
+                  "total_tasks_unfiltered": 72,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 0,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 14,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775329530.544554,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775329495.303391,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 410
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          }
+        ],
+        "recovery_info": {
+          "triggered": true,
+          "analyze_attempted": 3,
+          "analyze_created_total": 0,
+          "analyze_results": [
+            {
+              "task_id": "goal-81dffdec",
+              "status": 500,
+              "created": 0
+            },
+            {
+              "task_id": "goal-bc013331",
+              "status": 500,
+              "created": 0
+            },
+            {
+              "task_id": "goal-61f2704f",
+              "status": 200,
+              "created": 0
+            }
+          ],
+          "manual_followup_status": 200,
+          "extra_ticks": 4
+        },
+        "benchmark_payload": {
+          "provider": "ollama",
+          "model": "ananta-default",
+          "task_kind": "coding",
+          "success": false,
+          "quality_gate_passed": false,
+          "latency_ms": 11217,
+          "tokens_total": 0
+        },
+        "benchmark_record_status": 200,
+        "benchmark_model_key": "ollama:ananta-default",
+        "benchmark_focus": {
+          "avg_cost_units": 0,
+          "avg_latency_ms": 15991.22,
+          "avg_tokens": 0,
+          "cost_units_total": 0,
+          "quality_rate": 0,
+          "success_rate": 0,
+          "suitability_score": 14.67,
+          "total": 9
+        },
+        "task_status_after": {
+          "total": 5,
+          "completed": 0,
+          "failed": 5,
+          "open": 0
+        },
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "review",
+      "step": "final_ui_review",
+      "status": "ok",
+      "started_at": "2026-04-04T19:05:32.374802+00:00",
+      "ended_at": "2026-04-04T19:05:35.272845+00:00",
+      "duration_ms": 2898,
+      "details": {
+        "visible_error_count": 0,
+        "contains_401": false,
+        "path": "/artifacts",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "/artifacts",
+    "final_title": "Ananta - Agent Control"
+  },
+  "errors": [],
+  "session_id": "c4cd759b-1439-4d91-8959-00a2f0803a66",
+  "last_goal_id": "58495c6a-ccad-493e-932e-4c9d5e844be1",
+  "ended_at": "2026-04-04T19:05:35.873121+00:00"
+}
