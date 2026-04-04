@@ -28,6 +28,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "template_agent_name", "path": "config.template_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "team_agent_name", "path": "config.team_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "quality_gates", "path": "config.quality_gates", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "exposure_policy", "path": "config.exposure_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_retention", "path": "config.benchmark_retention", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_identity_precedence", "path": "config.benchmark_identity_precedence", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "http_timeout", "path": "config.http_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},

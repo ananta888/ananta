@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-04T01:58:00+02:00",
+  "updated": "2026-04-04T02:08:20+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -120,6 +120,11 @@
             "Remote-Ananta kann als expliziter Provider konfiguriert und im Katalog sichtbar gemacht werden.",
             "Die Integration ist additiv und bricht bestehende Provider-Namen nicht.",
             "Konfiguration und Runtime-Diagnostik zeigen klar, dass es sich um einen Remote-Hub handelt."
+          ],
+          "notes": [
+            "2026-04-04: `remote_ananta_backends` als expliziter Provider-Typ eingefuehrt und in den lokalen OpenAI-Backend-Resolver integriert.",
+            "2026-04-04: Provider-Katalog exponiert Remote-Hub-Metadaten (`provider_type=remote_ananta`, `remote_hub`, `instance_id`, `max_hops`).",
+            "Verifiziert mit: .venv/bin/pytest tests/test_config_api.py -q"
           ]
         },
         {
@@ -129,7 +134,7 @@
           "priority": "critical",
           "type": "reliability",
           "principle": "Fail-Closed, Safety, Architecture-Integrity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/openai_compat.py",
@@ -143,6 +148,12 @@
             "Self-calls derselben Instanz werden serverseitig erkannt und abgelehnt.",
             "Maximale Hop-Anzahl ist konfigurierbar und beobachtbar.",
             "Fehlerbilder sind fuer Operatoren sichtbar statt stiller Endlosschleifen."
+          ],
+          "notes": [
+            "2026-04-04: OpenAI-Compat erzwingt fail-closed Self-Loop-Guard ueber `X-Ananta-Instance-ID` gegen lokale Instanzidentitaet.",
+            "2026-04-04: Hop-Limit (`max_hops`) serverseitig eingefuehrt/validiert und via `X-Ananta-Hop-Count` kontrolliert.",
+            "2026-04-04: Outbound OpenAI-Transport setzt Instanz-/Hop-Header automatisch fuer rekursionssichere Ketten.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_openai_compat.py tests/test_config_api.py -q"
           ]
         },
         {
@@ -152,7 +163,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, Fail-Closed, Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/openai_compat.py",
@@ -485,9 +496,9 @@
   "meta": {
     "total_items": 18,
     "by_status": {
-      "completed": 2,
+      "completed": 4,
       "partial": 1,
-      "open": 15
+      "open": 13
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -497,7 +508,7 @@
       "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet.",
       "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben.",
       "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi.",
-      "AIM-003 und AIM-017 sind abgeschlossen: OpenAI-Compat ist dokumentiert/gehaertet, Expositionsgrenzen sind serverseitig explizit und getestet.",
+      "AIM-003, AIM-004, AIM-005 und AIM-017 sind abgeschlossen: OpenAI-Compat ist gehaertet, Remote-Hub-Provider additiv integriert und Rekursionsschutz serverseitig erzwungen.",
       "AIM-018 ist teilweise umgesetzt: Exposure-Policies sind in Read-Models und Capabilities sichtbar; Session-/MCP-Live-Sicht bleibt offen."
     ],
     "recommended_order": [

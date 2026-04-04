@@ -77,6 +77,25 @@ def get_local_openai_backends(
         if normalized:
             entries.append(normalized)
 
+    for raw_item in agent_cfg.get("remote_ananta_backends") or []:
+        normalized = _normalize_local_backend_entry(
+            raw_item,
+            default_provider=default_provider,
+            default_model=default_model,
+        )
+        if not normalized:
+            continue
+        normalized["provider_type"] = "remote_ananta"
+        normalized["remote_hub"] = True
+        normalized["instance_id"] = str(raw_item.get("instance_id") or "").strip() or None
+        max_hops_raw = raw_item.get("max_hops", 3)
+        try:
+            normalized["max_hops"] = max(1, int(max_hops_raw))
+        except (TypeError, ValueError):
+            normalized["max_hops"] = 3
+        normalized["source"] = "agent_config.remote_ananta_backends"
+        entries.append(normalized)
+
     deduped: list[dict[str, Any]] = []
     seen: set[str] = set()
     for entry in entries:

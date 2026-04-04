@@ -207,3 +207,28 @@ def test_openai_compat_capabilities_endpoint_reports_effective_policy(client, ap
     assert payload["object"] == "ananta.openai_compat.capabilities"
     assert (payload.get("policy") or {}).get("enabled") is True
     assert (payload.get("features") or {}).get("files") is False
+
+
+def test_openai_compat_blocks_self_call_by_instance_header(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_NAME"] = "hub-main"
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {"openai_compat": {"enabled": True, "instance_id": "hub-main"}},
+        }
+
+    res = client.get("/v1/models", headers={**admin_auth_header, "X-Ananta-Instance-ID": "hub-main"})
+    assert res.status_code == 403
+    assert (res.get_json().get("data") or {}).get("details") == "openai_compat_self_call_blocked"
+
+
+def test_openai_compat_blocks_request_when_hop_limit_exceeded(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {"openai_compat": {"enabled": True, "max_hops": 2}},
+        }
+
+    res = client.get("/v1/models", headers={**admin_auth_header, "X-Ananta-Hop-Count": "3"})
+    assert res.status_code == 403
+    assert (res.get_json().get("data") or {}).get("details") == "openai_compat_max_hops_exceeded"

@@ -91,15 +91,21 @@ def list_providers():
             for item in backend_models[:30]:
                 model_id = str(item.get("id") or "").strip()
                 if model_id:
+                    backend_display = str(backend["name"])
+                    if str(backend.get("provider_type") or "") == "remote_ananta":
+                        backend_display = f"{backend_display} (Remote Ananta)"
                     providers.append(
                         {
                             "id": f"{backend['provider']}:{model_id}",
-                            "name": f"{backend['name']} ({model_id})",
+                            "name": f"{backend_display} ({model_id})",
                             "selected": provider_default == backend["provider"] and model_default == model_id,
                         }
                     )
         else:
-            providers.append({"id": f"{backend['provider']}:model", "name": backend["name"], "selected": provider_default == backend["provider"]})
+            backend_display = str(backend["name"])
+            if str(backend.get("provider_type") or "") == "remote_ananta":
+                backend_display = f"{backend_display} (Remote Ananta)"
+            providers.append({"id": f"{backend['provider']}:model", "name": backend_display, "selected": provider_default == backend["provider"]})
 
     if not providers:
         providers = [
@@ -173,6 +179,10 @@ def list_provider_catalog():
                     "openai_compatible": True,
                     "transport_provider": backend.get("transport_provider"),
                     "supports_tool_calls": bool(backend.get("supports_tool_calls")),
+                    "provider_type": backend.get("provider_type") or "local_openai_compatible",
+                    "remote_hub": bool(backend.get("remote_hub")),
+                    "instance_id": backend.get("instance_id"),
+                    "max_hops": backend.get("max_hops"),
                 },
                 task_kind=task_kind,
             )

@@ -22,6 +22,8 @@ class ExposurePolicyService:
         "require_admin_for_user_auth": True,
         "allow_files_api": True,
         "emit_audit_events": True,
+        "instance_id": None,
+        "max_hops": 3,
     }
     _MCP_DEFAULTS = {
         "enabled": False,
@@ -32,6 +34,12 @@ class ExposurePolicyService:
 
     def _normalize_openai_compat_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw or {}
+        max_hops_raw = raw.get("max_hops", self._OPENAI_COMPAT_DEFAULTS["max_hops"])
+        try:
+            max_hops = int(max_hops_raw)
+        except (TypeError, ValueError):
+            max_hops = int(self._OPENAI_COMPAT_DEFAULTS["max_hops"])
+        max_hops = max(1, max_hops)
         return {
             "enabled": bool(raw.get("enabled", self._OPENAI_COMPAT_DEFAULTS["enabled"])),
             "allow_agent_auth": bool(raw.get("allow_agent_auth", self._OPENAI_COMPAT_DEFAULTS["allow_agent_auth"])),
@@ -41,6 +49,8 @@ class ExposurePolicyService:
             ),
             "allow_files_api": bool(raw.get("allow_files_api", self._OPENAI_COMPAT_DEFAULTS["allow_files_api"])),
             "emit_audit_events": bool(raw.get("emit_audit_events", self._OPENAI_COMPAT_DEFAULTS["emit_audit_events"])),
+            "instance_id": str(raw.get("instance_id") or "").strip() or None,
+            "max_hops": max_hops,
         }
 
     def _normalize_mcp_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -83,11 +93,20 @@ class ExposurePolicyService:
         is_user_auth: bool,
         is_admin: bool,
         endpoint_group: str = "core",
+        caller_instance_id: str | None = None,
+        local_instance_id: str | None = None,
+        hop_count: int | None = None,
     ) -> OpenAICompatAccessDecision:
         policy = self.resolve_openai_compat_policy(cfg)
         auth_source = self.resolve_auth_source(is_agent_auth=is_agent_auth, is_user_auth=is_user_auth)
+        effective_local_instance = str(policy.get("instance_id") or local_instance_id or "").strip() or None
+        effective_caller_instance = str(caller_instance_id or "").strip() or None
         if not policy["enabled"]:
             return OpenAICompatAccessDecision(False, "openai_compat_exposure_disabled", auth_source, policy)
+        if effective_local_instance and effective_caller_instance and effective_local_instance == effective_caller_instance:
+            return OpenAICompatAccessDecision(False, "openai_compat_self_call_blocked", auth_source, policy)
+        if hop_count is not None and int(hop_count) > int(policy.get("max_hops") or 3):
+            return OpenAICompatAccessDecision(False, "openai_compat_max_hops_exceeded", auth_source, policy)
         if endpoint_group == "files" and not policy["allow_files_api"]:
             return OpenAICompatAccessDecision(False, "openai_compat_files_api_disabled", auth_source, policy)
         if is_agent_auth and not policy["allow_agent_auth"]:

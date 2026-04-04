@@ -26,13 +26,21 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 
 - Endpunkte: `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `GET/POST /v1/files`, `GET /v1/ananta/capabilities`
 - Alle OpenAI-Compat-Endpunkte sind ueber `exposure_policy.openai_compat` kontrolliert.
+- Self-Loop- und Hop-Guards werden ueber `X-Ananta-Instance-ID` und `X-Ananta-Hop-Count` fail-closed erzwungen.
 - Empfohlener Betriebsmodus:
   - `enabled=true`
   - `require_admin_for_user_auth=true`
+  - `instance_id` eindeutig pro Instanz setzen
+  - `max_hops` konservativ halten (z.B. `3`)
   - `allow_files_api` nur bei Bedarf aktiv
 - Policy-Sichtbarkeit:
-  - `GET /assistant/read-model` unter `settings.summary.governance.exposure_policy`
-  - `GET /dashboard/read-model` unter `llm_configuration.exposure`
+- `GET /assistant/read-model` unter `settings.summary.governance.exposure_policy`
+- `GET /dashboard/read-model` unter `llm_configuration.exposure`
+
+## Remote-Ananta als Provider-Typ
+
+- `remote_ananta_backends` in `/config` fuegt explizite OpenAI-kompatible Remote-Hubs als additiven Provider-Typ hinzu.
+- Diese Backends erscheinen in `/providers/catalog` mit `capabilities.provider_type=remote_ananta` sowie `instance_id`/`max_hops`.
 
 ## Route-Inventory / Contract-Check
 Zum schnellen Abgleich von Dokumentation und implementierten Routen:

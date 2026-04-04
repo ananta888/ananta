@@ -27,12 +27,22 @@ def _artifact_repo():
 def _enforce_openai_compat_policy(endpoint_group: str = "core"):
     is_agent_auth = bool(getattr(g, "auth_payload", None))
     is_user_auth = bool(getattr(g, "user", None))
+    caller_instance_id = str(request.headers.get("X-Ananta-Instance-ID") or "").strip() or None
+    hop_header = request.headers.get("X-Ananta-Hop-Count")
+    try:
+        hop_count = int(hop_header) if hop_header is not None else None
+    except (TypeError, ValueError):
+        hop_count = None
+    local_instance_id = str(current_app.config.get("AGENT_NAME") or "").strip() or None
     decision = get_exposure_policy_service().evaluate_openai_compat_access(
         cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
         is_agent_auth=is_agent_auth,
         is_user_auth=is_user_auth,
         is_admin=bool(getattr(g, "is_admin", False)),
         endpoint_group=endpoint_group,
+        caller_instance_id=caller_instance_id,
+        local_instance_id=local_instance_id,
+        hop_count=hop_count,
     )
     if not decision.allowed:
         if decision.policy.get("emit_audit_events", True):
