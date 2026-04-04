@@ -101,6 +101,7 @@ class TaskExecutionService:
                         prompt=prompt,
                         urls=provider_urls,
                         api_key=openai_api_key,
+                        temperature=request_data.temperature,
                     )
                     return provider_name, self._build_proposal_payload(raw)
                 except Exception as exc:
@@ -130,6 +131,7 @@ class TaskExecutionService:
             prompt=prompt,
             urls=provider_urls,
             api_key=openai_api_key,
+            temperature=request_data.temperature,
         )
         proposal_payload = self._build_proposal_payload(raw)
 
