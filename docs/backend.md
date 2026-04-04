@@ -22,6 +22,18 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - `GET /api/sgpt/backends` liefert fuer CLI-Backends jetzt zusaetzlich `verify_command` sowie konfigurierte lokale OpenAI-kompatible Runtimes.
 - `POST /api/sgpt/execute`, `POST /tasks/{id}/step/propose` und `POST /tasks/{id}/step/execute` geben eine explizite `pipeline` mit Stages und `trace_id` zurueck.
 
+## OpenAI-kompatible Exposition (Hub)
+
+- Endpunkte: `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `GET/POST /v1/files`, `GET /v1/ananta/capabilities`
+- Alle OpenAI-Compat-Endpunkte sind ueber `exposure_policy.openai_compat` kontrolliert.
+- Empfohlener Betriebsmodus:
+  - `enabled=true`
+  - `require_admin_for_user_auth=true`
+  - `allow_files_api` nur bei Bedarf aktiv
+- Policy-Sichtbarkeit:
+  - `GET /assistant/read-model` unter `settings.summary.governance.exposure_policy`
+  - `GET /dashboard/read-model` unter `llm_configuration.exposure`
+
 ## Route-Inventory / Contract-Check
 Zum schnellen Abgleich von Dokumentation und implementierten Routen:
 

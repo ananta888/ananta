@@ -137,3 +137,73 @@ def test_openai_compat_and_llm_generate_share_hub_llm_service(client, app, admin
     )
     assert chat_res.status_code == 200
     assert len(calls) == 2
+
+
+def test_openai_compat_policy_can_disable_exposure(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {"openai_compat": {"enabled": False}},
+        }
+
+    res = client.get("/v1/models", headers=admin_auth_header)
+    assert res.status_code == 403
+    payload = res.get_json()
+    assert payload["message"] == "forbidden"
+    assert (payload.get("data") or {}).get("details") == "openai_compat_exposure_disabled"
+
+
+def test_openai_compat_policy_requires_admin_for_user_jwt(client, app):
+    from agent.auth import generate_token
+    from agent.config import settings
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {
+                "openai_compat": {
+                    "enabled": True,
+                    "allow_user_auth": True,
+                    "require_admin_for_user_auth": True,
+                }
+            },
+        }
+    token = generate_token({"sub": "user-1", "role": "user", "mfa_enabled": False}, settings.secret_key, expires_in=3600)
+    user_auth_header = {"Authorization": f"Bearer {token}"}
+
+    res = client.get("/v1/models", headers=user_auth_header)
+    assert res.status_code == 403
+    assert (res.get_json().get("data") or {}).get("details") == "openai_compat_admin_required"
+
+
+def test_openai_compat_files_can_be_disabled_by_policy(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {"openai_compat": {"enabled": True, "allow_files_api": False}},
+        }
+
+    res = client.get("/v1/files", headers=admin_auth_header)
+    assert res.status_code == 403
+    assert (res.get_json().get("data") or {}).get("details") == "openai_compat_files_api_disabled"
+
+
+def test_openai_compat_capabilities_endpoint_reports_effective_policy(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {
+                "openai_compat": {
+                    "enabled": True,
+                    "allow_files_api": False,
+                    "require_admin_for_user_auth": True,
+                }
+            },
+        }
+
+    res = client.get("/v1/ananta/capabilities", headers=admin_auth_header)
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["object"] == "ananta.openai_compat.capabilities"
+    assert (payload.get("policy") or {}).get("enabled") is True
+    assert (payload.get("features") or {}).get("files") is False

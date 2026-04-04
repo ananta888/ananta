@@ -87,6 +87,22 @@ def build_default_agent_config() -> dict:
             "escalate_on_fallback_block": True,
             "fallback_block_status": "blocked",
         },
+        "exposure_policy": {
+            "openai_compat": {
+                "enabled": True,
+                "allow_agent_auth": True,
+                "allow_user_auth": True,
+                "require_admin_for_user_auth": True,
+                "allow_files_api": True,
+                "emit_audit_events": True,
+            },
+            "mcp": {
+                "enabled": False,
+                "allow_agent_auth": False,
+                "allow_user_auth": False,
+                "require_admin_for_user_auth": True,
+            },
+        },
         "goal_plan_limits": {
             "max_plan_nodes": 8,
             "max_plan_depth": 8,
