@@ -204,6 +204,35 @@ class TestAutoPlanner:
         assert result["subtasks"] == []
         assert result["error_classification"] == "unstructured_llm_response"
 
+    def test_plan_goal_repairs_unstructured_llm_response_with_second_llm_call(self, app, monkeypatch):
+        responses = iter(
+            [
+                "{}",
+                json.dumps(
+                    [
+                        {"title": "Analyse", "description": "Goal analysieren", "priority": "High"},
+                        {"title": "Implementieren", "description": "Loesung umsetzen", "priority": "High", "depends_on": ["1"]},
+                        {"title": "Validieren", "description": "Ergebnis pruefen", "priority": "Medium", "depends_on": ["2"]},
+                    ]
+                ),
+            ]
+        )
+
+        def _fake_generate_text(prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30):
+            return next(responses)
+
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fake_generate_text)
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False)
+
+        with app.app_context():
+            result = planner.plan_goal("Test Goal", create_tasks=False, use_template=False, use_repo_context=False)
+
+        assert len(result.get("subtasks") or []) == 3
+        assert result.get("error_classification") is None
+
     def test_plan_goal_uses_template_strategy_without_llm_call(self, app, monkeypatch):
         def _fail_if_called(*args, **kwargs):
             raise AssertionError("LLM should not be called for template strategy")
