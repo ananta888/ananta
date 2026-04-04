@@ -367,7 +367,7 @@ class AutoPlanner:
             description = str(ft.get("description") or ft.get("title") or "")[:2000]
             priority = str(ft.get("priority") or self.default_priority)
 
-            _services().task_queue_service.ingest_task(
+            get_core_services().task_queue_service.ingest_task(
                 task_id=followup_id,
                 status="todo",
                 title=title,

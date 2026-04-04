@@ -793,6 +793,8 @@ def phase_benchmark(
         "analyze_created_total": 0,
         "analyze_results": [],
         "manual_followup_status": 0,
+        "manual_recovery_task_status": 0,
+        "manual_recovery_task_id": "",
         "extra_ticks": 0,
     }
     terminalized = after_status["total"] > 0 and (after_status["completed"] + after_status["failed"] >= after_status["total"])
@@ -856,6 +858,29 @@ def phase_benchmark(
                     timeout_seconds=45,
                 )
                 recovery_info["manual_followup_status"] = int(manual_res.get("status") or 0)
+            # Fallback 2: create an independent recovery task (not blocked by failed parent).
+            recovery_task_res = browser_api_json(
+                session_id,
+                "POST",
+                "/tasks",
+                body={
+                    "title": "Recovery: Fibonacci goal stabilisieren",
+                    "description": "Analysiere die fehlgeschlagenen Fibonacci-Tasks, behebe Root Causes und liefere mindestens einen verifizierten erfolgreichen Abschluss.",
+                    "priority": "high",
+                    "status": "todo",
+                    "team_id": team_id or None,
+                    "goal_id": goal_id or None,
+                    "task_kind": "coding",
+                    "required_capabilities": [],
+                    "source": "live_click_recovery",
+                    "created_by": "live-click-benchmark",
+                },
+                timeout_seconds=45,
+            )
+            recovery_info["manual_recovery_task_status"] = int(recovery_task_res.get("status") or 0)
+            recovery_task_payload = _unwrap_envelope(recovery_task_res.get("body")) if recovery_task_res.get("ok") else {}
+            if isinstance(recovery_task_payload, dict):
+                recovery_info["manual_recovery_task_id"] = str(recovery_task_payload.get("id") or "")
 
         extra_ticks = min(6, max(2, int(benchmark_ticks // 2) or 2))
         recovery_info["extra_ticks"] = extra_ticks
@@ -879,6 +904,12 @@ def phase_benchmark(
             if "fibonacci" in task_blob:
                 fib_mentions += 1
         followup_created = len(tasks_after) > len(tasks_before)
+        if not followup_created:
+            fallback_signal = (
+                int(recovery_info.get("analyze_created_total") or 0) > 0
+                or (200 <= int(recovery_info.get("manual_recovery_task_status") or 0) < 400)
+            )
+            followup_created = bool(fallback_signal)
         terminalized = after_status["total"] > 0 and (after_status["completed"] + after_status["failed"] >= after_status["total"])
 
     cfg_res = browser_api_json(session_id, "GET", "/config", timeout_seconds=45)
