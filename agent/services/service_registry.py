@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from agent.services.config_read_model_service import ConfigReadModelService
     from agent.services.cost_aggregation_service import CostAggregationService
     from agent.services.goal_service import GoalService
+    from agent.services.integration_registry_service import IntegrationRegistryService
     from agent.services.lifecycle_service import GoalLifecycleService
     from agent.services.log_service import LogService
     from agent.services.mcp_registry_service import MCPRegistryService
@@ -90,6 +91,7 @@ class CoreServiceRegistry:
     rag_helper_index_service: Any
     openai_compat_service: Any
     mcp_registry_service: Any
+    integration_registry_service: Any
 
 
 def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry:
@@ -103,6 +105,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.config_read_model_service import get_config_read_model_service
     from agent.services.cost_aggregation_service import get_cost_aggregation_service
     from agent.services.goal_service import get_goal_service
+    from agent.services.integration_registry_service import get_integration_registry_service
     from agent.services.ingestion_service import get_ingestion_service
     from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
     from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
@@ -175,6 +178,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         rag_helper_index_service=get_rag_helper_index_service(),
         openai_compat_service=get_openai_compat_service(),
         mcp_registry_service=get_mcp_registry_service(),
+        integration_registry_service=get_integration_registry_service(),
     )
 
 

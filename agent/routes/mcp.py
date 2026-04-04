@@ -64,6 +64,8 @@ def mcp_capabilities():
         return blocked
     policy = get_exposure_policy_service().resolve_mcp_policy(current_app.config.get("AGENT_CONFIG", {}) or {})
     registry = get_core_services().mcp_registry_service
+    adapters = get_core_services().integration_registry_service.list_exposure_adapters(cfg=current_app.config.get("AGENT_CONFIG", {}) or {})
+    adapter_entry = next((item for item in adapters if item.get("adapter") == "mcp"), None)
     payload = {
         "object": "ananta.mcp.capabilities",
         "exposure_mode": "mcp",
@@ -77,6 +79,7 @@ def mcp_capabilities():
             "tools": len(registry.list_tools()),
             "resources": len(registry.list_resources()),
         },
+        "adapter_registry": adapter_entry or {},
     }
     if policy.get("emit_audit_events", True):
         log_audit("mcp_capabilities_read", {"trace_id": get_correlation_id()})

@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-04T07:10:00+02:00",
+  "updated": "2026-04-04T07:45:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -64,6 +64,11 @@
             "Registries liefern Capabilities, Routing-Metadaten und Health-/Preflight-Daten aus einer konsistenten Quelle.",
             "Route-spezifische Verdrahtung wird reduziert.",
             "Neue Backend-Typen benoetigen keine Route-Explosion."
+          ],
+          "notes": [
+            "2026-04-04: Neuer `IntegrationRegistryService` eingefuehrt als zentrale Registry fuer Inference-Provider, Execution-Backends und Exposure-Adapter.",
+            "2026-04-04: `/providers`, `/providers/catalog`, `/api/sgpt/backends` und OpenAI/MCP-Capabilities nutzen Registry-Daten statt verteilter Sonderverdrahtung.",
+            "2026-04-04: OpenAI-Compat-Model-Listing wird aus derselben Provider-Registry gespeist; statische und dynamische OpenAI-kompatible Modelle bleiben kompatibel."
           ]
         }
       ]
@@ -547,9 +552,9 @@
   "meta": {
     "total_items": 18,
     "by_status": {
-      "completed": 17,
+      "completed": 18,
       "partial": 0,
-      "open": 1
+      "open": 0
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -564,7 +569,8 @@
       "AIM-008 ist abgeschlossen: Inference-Routing und Execution-Routing werden in API/Read-Models/UI getrennt sichtbar gemacht.",
       "AIM-013 bis AIM-016 sind abgeschlossen: Stateful CLI-Sessions sind modelliert, in SGPT/API nutzbar und fuer task-scoped Propose-Pfade policy-gesteuert integriert.",
       "AIM-018 ist abgeschlossen: Session-/Exposure-Modi sind in Read-Models, Backends-Diagnostik und UI sichtbar.",
-      "AIM-009 bis AIM-012 sind abgeschlossen: MCP ist als additive Expositionsschicht mit expliziter Policy, erster Tool-/Resource-Menge, Audit/Trace und Regressionstests integriert."
+      "AIM-009 bis AIM-012 sind abgeschlossen: MCP ist als additive Expositionsschicht mit expliziter Policy, erster Tool-/Resource-Menge, Audit/Trace und Regressionstests integriert.",
+      "AIM-002 ist abgeschlossen: Eine zentrale Integrations-Registry reduziert Route-spezifische Verdrahtung fuer Provider, Execution-Backends und Exposure-Adapter."
     ],
     "recommended_order": [
       "AIM-001",

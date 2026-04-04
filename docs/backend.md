@@ -7,6 +7,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - Routen: `agent/routes/`
 - Persistenz/Repositories: `agent/database.py`, `agent/repository.py`, `agent/db_models.py`
 - Auth: `agent/auth.py`
+- Integrations-Registry: `agent/services/integration_registry_service.py` (Provider, Execution-Backends, Exposure-Adapter)
 
 ## Kern-Endpoints
 - System: `/health`, `/ready`, `/metrics`, `/stats`, `/register`
