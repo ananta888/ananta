@@ -12,6 +12,7 @@ from agent.config_defaults import sync_runtime_state
 from agent.db_models import ConfigDB
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
+from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.repository_registry import get_repository_registry
 
 from . import shared
@@ -81,6 +82,17 @@ def set_config():
         strategy = str(resilience_cfg.get("retry_backoff_strategy") or "exponential").strip().lower()
         if strategy not in {"constant", "exponential"}:
             return api_response(status="error", message="invalid_retry_backoff_strategy", code=400)
+    if "exposure_policy" in new_cfg:
+        exposure_cfg = new_cfg.get("exposure_policy")
+        if not isinstance(exposure_cfg, dict):
+            return api_response(status="error", message="invalid_exposure_policy", code=400)
+        openai_cfg = exposure_cfg.get("openai_compat", {})
+        mcp_cfg = exposure_cfg.get("mcp", {})
+        if openai_cfg and not isinstance(openai_cfg, dict):
+            return api_response(status="error", message="invalid_openai_compat_exposure_policy", code=400)
+        if mcp_cfg and not isinstance(mcp_cfg, dict):
+            return api_response(status="error", message="invalid_mcp_exposure_policy", code=400)
+        new_cfg["exposure_policy"] = get_exposure_policy_service().normalize_exposure_policy(exposure_cfg)
     for key in ("llm_config", "research_backend"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):

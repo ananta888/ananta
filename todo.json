@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-03T20:57:02Z",
+  "updated": "2026-04-04T01:58:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -29,7 +29,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "SRP, OCP, Architecture-Integrity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -93,6 +93,11 @@
             "OpenAI-kompatible Endpunkte sind in den Docs vollstaendig beschrieben.",
             "Response- und Error-Formate sind fuer Clients stabil und nachvollziehbar.",
             "Capabilities und Grenzen des Pfads sind klar benannt."
+          ],
+          "notes": [
+            "2026-04-04: OpenAI-Compat um expliziten Capabilities-Endpunkt (`GET /v1/ananta/capabilities`) erweitert.",
+            "2026-04-04: API-/Backend-/README-Dokumentation fuer OpenAI-Compat-Endpunkte, Exposure-Policy und Betriebsmodus ergänzt.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_openai_compat.py tests/test_config_api.py -q"
           ]
         },
         {
@@ -102,7 +107,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "OCP, Architecture-Integrity, Compatibility",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/local_llm_backends.py",
@@ -163,6 +168,12 @@
             "OpenAI-Compat und MCP haben explizite serverseitige Enable-/Policy-Grenzen.",
             "Rollen, Token-Arten und Admin-Anforderungen sind dokumentiert und durchgesetzt.",
             "Unsichere Default-Freigaben werden vermieden."
+          ],
+          "notes": [
+            "2026-04-04: Zentrale `exposure_policy` eingefuehrt (openai_compat + mcp) inkl. Defaults in `agent/config_defaults.py`.",
+            "2026-04-04: OpenAI-Compat-Endpunkte erzwingen serverseitig Policy-Grenzen (enabled, auth-source, admin-requirement, files-api gate) mit auditierbaren Blockgruenden.",
+            "2026-04-04: `/config` validiert Exposure-Policy-Form strikt und normalisiert die Policy serverseitig.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_openai_compat.py tests/test_config_api.py -q"
           ]
         }
       ]
@@ -178,7 +189,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "Transparency, OCP, Testability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/common/sgpt.py",
@@ -352,6 +363,11 @@
             "Settings und Read-Models zeigen Exposure-Modi, Policies und Session-Faehigkeiten explizit an.",
             "Operatoren koennen aktive Integrationsarten und Schutzschranken ohne Code-Lesen erkennen.",
             "Die Begriffe bleiben konsistent mit API und Dokumentation."
+          ],
+          "notes": [
+            "2026-04-04 (partial): Dashboard- und Assistant-Read-Model zeigen jetzt Exposure-Policy (`llm_configuration.exposure` bzw. `settings.summary.governance.exposure_policy`) explizit an.",
+            "OpenAI-Compat-Capabilities sind ueber dedizierten Endpoint (`/v1/ananta/capabilities`) fuer Operator-Diagnostik verfuegbar.",
+            "Offen bleibt: Sichtbarkeit von Session-Modi sowie MCP-/Remote-Hub-Live-Status in Settings/UI."
           ]
         }
       ]
@@ -469,9 +485,9 @@
   "meta": {
     "total_items": 18,
     "by_status": {
-      "completed": 0,
-      "partial": 0,
-      "open": 18
+      "completed": 2,
+      "partial": 1,
+      "open": 15
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -480,7 +496,9 @@
       "Codex wird als priorisierter Execution-Pfad behandelt, OpenCode zunaechst als evaluierter Folgeschritt.",
       "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet.",
       "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben.",
-      "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi."
+      "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi.",
+      "AIM-003 und AIM-017 sind abgeschlossen: OpenAI-Compat ist dokumentiert/gehaertet, Expositionsgrenzen sind serverseitig explizit und getestet.",
+      "AIM-018 ist teilweise umgesetzt: Exposure-Policies sind in Read-Models und Capabilities sichtbar; Session-/MCP-Live-Sicht bleibt offen."
     ],
     "recommended_order": [
       "AIM-001",

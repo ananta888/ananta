@@ -541,6 +541,40 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     assert review_policy.get("min_risk_level_for_review") in {"high", "medium", "critical", "low"}
     assert risk_policy.get("enabled") is True
     assert risk_policy.get("default_action") in {"deny", "allow"}
+    exposure_policy = governance.get("exposure_policy") or {}
+    openai_compat = exposure_policy.get("openai_compat") or {}
+    assert openai_compat.get("enabled") in {True, False}
+    assert openai_compat.get("require_admin_for_user_auth") in {True, False}
+
+
+def test_set_config_validates_exposure_policy_shape(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    bad = client.post("/config", json={"exposure_policy": {"openai_compat": "invalid"}}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_openai_compat_exposure_policy"
+
+    ok = client.post(
+        "/config",
+        json={
+            "exposure_policy": {
+                "openai_compat": {
+                    "enabled": True,
+                    "allow_user_auth": True,
+                    "require_admin_for_user_auth": True,
+                    "allow_files_api": False,
+                },
+                "mcp": {"enabled": False},
+            }
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    openai_compat = (((cfg.json.get("data") or {}).get("exposure_policy") or {}).get("openai_compat") or {})
+    assert openai_compat.get("allow_files_api") is False
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):

@@ -237,6 +237,66 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Body:** JSON Objekt mit Konfigurationswerten.
 - **Rückgabe:** `{"status": "success", "data": {"status": "updated", "config": {...}}}`
 
+### Exposure-Policy (OpenAI-Compat / MCP)
+- **URL:** `/config`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Beschreibung:** Steuert explizit, welche Expositionspfade aktiv sind und welche Auth-Quellen erlaubt sind.
+- **Relevante Keys:**
+  ```json
+  {
+    "exposure_policy": {
+      "openai_compat": {
+        "enabled": true,
+        "allow_agent_auth": true,
+        "allow_user_auth": true,
+        "require_admin_for_user_auth": true,
+        "allow_files_api": true
+      },
+      "mcp": {
+        "enabled": false,
+        "allow_agent_auth": false,
+        "allow_user_auth": false,
+        "require_admin_for_user_auth": true
+      }
+    }
+  }
+  ```
+
+---
+
+## OpenAI-kompatible Exposition
+
+### Modelle auflisten
+- **URL:** `/v1/models`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Hinweis:** Zugriff unterliegt `exposure_policy.openai_compat`.
+
+### Chat Completions
+- **URL:** `/v1/chat/completions`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Hinweis:** Zugriff unterliegt `exposure_policy.openai_compat`.
+
+### Responses API
+- **URL:** `/v1/responses`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Hinweis:** Zugriff unterliegt `exposure_policy.openai_compat`.
+
+### Dateien (OpenAI-kompatibel)
+- **URLs:** `/v1/files`, `/v1/files/<file_id>`
+- **Methoden:** `GET`, `POST`
+- **Auth erforderlich:** Ja
+- **Hinweis:** zusaetzlich durch `exposure_policy.openai_compat.allow_files_api` gesteuert.
+
+### Ananta Capabilities fuer OpenAI-Compat
+- **URL:** `/v1/ananta/capabilities`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Liefert aktive OpenAI-Compat-Feature-Flags und effektive Exposure-Policy fuer Operator/Client-Diagnostik.
+
 ### Templates auflisten
 - **URL:** `/templates`
 - **Methode:** `GET`
