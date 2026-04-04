@@ -533,6 +533,10 @@ def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
     assert tasks.get("included") is False
     assert tasks.get("counts") == {"total": 0, "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
     assert tasks.get("recent") == []
+    llm_configuration = data.get("llm_configuration") or {}
+    runtime_telemetry = llm_configuration.get("runtime_telemetry") or {}
+    assert isinstance(runtime_telemetry.get("providers"), dict)
+    assert isinstance(runtime_telemetry.get("cli_backends"), dict)
 
 
 def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token):

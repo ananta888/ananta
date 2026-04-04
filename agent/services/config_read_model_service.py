@@ -8,6 +8,7 @@ from agent.runtime_profiles import resolve_runtime_profile
 from agent.runtime_policy import review_policy
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.integration_registry_service import get_integration_registry_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
 
@@ -41,6 +42,7 @@ class ConfigReadModelService:
         capability_meta = capabilities_describer(capability_contract, allowed_tools=allowed_tools, is_admin=is_admin)
         settings_inventory = settings_inventory_builder()
         settings_summary = settings_summary_builder(cfg, teams, templates)
+        runtime_preflight = (get_integration_registry_service().list_execution_backends(include_preflight=True).get("preflight") or {})
         return {
             "config": {"effective": cfg, "has_sensitive_redactions": True},
             "teams": {"count": len(teams), "items": teams},
@@ -49,6 +51,10 @@ class ConfigReadModelService:
             "agents": {"count": len(agents), "items": agents},
             "settings": {
                 "summary": settings_summary,
+                "runtime_telemetry": {
+                    "providers": dict(runtime_preflight.get("providers") or {}),
+                    "cli_backends": dict(runtime_preflight.get("cli_backends") or {}),
+                },
                 "editable_inventory": settings_inventory,
                 "editable_count": len(settings_inventory),
             },
@@ -84,6 +90,7 @@ class ConfigReadModelService:
         bench_rows, bench = benchmark_rows_builder(task_kind=benchmark_task_kind, top_n=8)
         valid_task_kind = benchmark_task_kind if benchmark_task_kind in benchmark_task_kinds else "analysis"
         benchmark_recommendation = benchmark_recommendation_builder(task_kind=valid_task_kind, cfg=cfg)
+        runtime_preflight = (get_integration_registry_service().list_execution_backends(include_preflight=True).get("preflight") or {})
         contract_catalog = contract_catalog_builder()
         task_status_contract = build_task_status_contract()
         task_state_machine = build_task_state_machine_contract()
@@ -239,6 +246,11 @@ class ConfigReadModelService:
                         "codex_max_hops": codex_runtime.get("max_hops"),
                         "codex_diagnostics": list(codex_runtime.get("diagnostics") or []),
                     },
+                },
+                "runtime_telemetry": {
+                    "providers": dict(runtime_preflight.get("providers") or {}),
+                    "cli_backends": dict(runtime_preflight.get("cli_backends") or {}),
+                    "research_backends": dict(runtime_preflight.get("research_backends") or {}),
                 },
             },
             "benchmarks": {

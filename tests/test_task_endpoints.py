@@ -870,6 +870,34 @@ def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, ap
     assert response.json["data"]["worker_context"]["context_bundle_id"] == "bundle-ctx-1"
 
 
+def test_task_propose_passes_temperature_to_cli_and_exposes_routing_field(client, app, admin_auth_header):
+    tid = "T-PROPOSE-TEMP-1"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(tid, "assigned", description="Implement endpoint with deterministic JSON output")
+
+    captured: dict = {}
+
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None):
+        captured["temperature"] = temperature
+        return 0, '{"reason":"ok","command":"echo temp"}', "", backend
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint", "temperature": 0.35},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["command"] == "echo temp"
+    assert abs(float(captured.get("temperature") or 0.0) - 0.35) < 0.0001
+    routing = data.get("routing") or {}
+    assert abs(float(routing.get("inference_temperature") or 0.0) - 0.35) < 0.0001
+
+
 def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admin_auth_header):
     tid = "T-STATEFUL-PROPOSE"
     with app.app_context():

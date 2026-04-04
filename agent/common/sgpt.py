@@ -201,6 +201,9 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
 def get_cli_backend_preflight() -> dict[str, dict]:
     provider_urls = _get_runtime_provider_urls()
     lmstudio_base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
+    from agent.llm_integration import _normalize_ollama_base_url
+
+    ollama_base_url = _normalize_ollama_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
     codex_runtime = resolve_codex_runtime_config()
     agent_cfg = _get_agent_config()
 
@@ -239,6 +242,54 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "candidates": [],
             }
 
+    ollama_probe = {
+        "ok": False,
+        "status": "not_configured" if not ollama_base_url else "unknown",
+        "tags_url": f"{ollama_base_url}/api/tags" if ollama_base_url else None,
+        "candidate_count": 0,
+        "models": [],
+    }
+    ollama_activity = {
+        "ok": False,
+        "status": "not_configured" if not ollama_base_url else "unknown",
+        "ps_url": f"{ollama_base_url}/api/ps" if ollama_base_url else None,
+        "active_count": 0,
+        "gpu_active": False,
+        "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
+        "active_models": [],
+    }
+    if ollama_base_url:
+        from agent.llm_integration import probe_ollama_activity, probe_ollama_runtime
+
+        try:
+            ollama_probe = probe_ollama_runtime(
+                ollama_base_url,
+                timeout=min(getattr(settings, "http_timeout", 5.0), 2.0),
+            )
+        except Exception:
+            ollama_probe = {
+                "ok": False,
+                "status": "error",
+                "tags_url": f"{ollama_base_url}/api/tags",
+                "candidate_count": 0,
+                "models": [],
+            }
+        try:
+            ollama_activity = probe_ollama_activity(
+                ollama_base_url,
+                timeout=min(getattr(settings, "http_timeout", 5.0), 2.0),
+            )
+        except Exception:
+            ollama_activity = {
+                "ok": False,
+                "status": "error",
+                "ps_url": f"{ollama_base_url}/api/ps",
+                "active_count": 0,
+                "gpu_active": False,
+                "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
+                "active_models": [],
+            }
+
     local_provider_entries = []
     for backend in get_local_openai_backends(
         agent_cfg=agent_cfg,
@@ -274,6 +325,27 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "reachable": bool(lmstudio_probe.get("ok")),
                 "models_url": lmstudio_probe.get("models_url"),
                 "candidate_count": int(lmstudio_probe.get("candidate_count") or 0),
+                "candidates": list(lmstudio_probe.get("candidates") or []),
+            },
+            "ollama": {
+                "configured": bool(ollama_base_url),
+                "base_url": ollama_base_url,
+                "host_kind": _classify_runtime_target(ollama_base_url),
+                "is_local": _is_probably_local_base_url(ollama_base_url),
+                "status": ollama_probe.get("status"),
+                "reachable": bool(ollama_probe.get("ok")),
+                "tags_url": ollama_probe.get("tags_url"),
+                "candidate_count": int(ollama_probe.get("candidate_count") or 0),
+                "models": list(ollama_probe.get("models") or []),
+                "activity": {
+                    "status": ollama_activity.get("status"),
+                    "reachable": bool(ollama_activity.get("ok")),
+                    "ps_url": ollama_activity.get("ps_url"),
+                    "active_count": int(ollama_activity.get("active_count") or 0),
+                    "gpu_active": bool(ollama_activity.get("gpu_active")),
+                    "executor_summary": dict(ollama_activity.get("executor_summary") or {"gpu": 0, "cpu": 0, "unknown": 0}),
+                    "active_models": list(ollama_activity.get("active_models") or []),
+                },
             },
             "codex": {
                 "configured": bool(codex_runtime.get("base_url")),
