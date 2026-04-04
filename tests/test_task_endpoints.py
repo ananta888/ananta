@@ -729,6 +729,53 @@ def test_task_propose_multi_provider_uses_cli_backends(client, app, admin_auth_h
     assert (data["comparisons"]["opencode:gpt-4.1-mini"].get("routing") or {}).get("effective_backend") == "opencode"
 
 
+def test_task_propose_accepts_stderr_json_as_fallback_output(client, app, admin_auth_header):
+    tid = "T-PROPOSE-STDERR-FALLBACK"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(tid, "assigned", description="Implement API from stderr-only model output")
+
+    stderr_json = '{"reason":"stderr fallback","command":"echo from-stderr"}'
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
+        mock_cli.return_value = (1, "", stderr_json, "sgpt")
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint"}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["command"] == "echo from-stderr"
+    assert data["reason"] == "stderr fallback"
+    assert (data.get("cli_result") or {}).get("output_source") == "stderr"
+
+
+def test_task_propose_multi_provider_uses_stderr_fallback_output(client, app, admin_auth_header):
+    tid = "T-MULTI-STDERR-FALLBACK"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(tid, "assigned", description="Implement API and write tests")
+
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy):
+        if backend == "aider":
+            return 1, "", '{"reason":"stderr compare","command":"echo compare"}', "aider"
+        return 1, "", "unsupported", backend
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_run_llm_cli_command):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint", "providers": ["aider:gpt-4o-mini"]},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["command"] == "echo compare"
+    assert data["reason"] == "stderr compare"
+    assert (data.get("cli_result") or {}).get("output_source") == "stderr"
+    assert isinstance(data.get("comparisons"), dict)
+    assert data["comparisons"]["aider:gpt-4o-mini"]["cli_result"]["output_source"] == "stderr"
+
+
 def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, app, admin_auth_header):
     tid = "T-WORKER-CONTEXT"
     captured = {}
