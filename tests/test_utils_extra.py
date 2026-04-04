@@ -65,6 +65,11 @@ def test_extract_tool_calls():
     assert calls[0]["name"] == "read_file"
 
 
+def test_extract_tool_calls_rejects_non_dict_entries():
+    text = 'Traceback...\n{"tool_calls":["tools"]}'
+    assert _extract_tool_calls(text) is None
+
+
 def test_json_io(tmp_path):
     test_file = tmp_path / "test.json"
     data = {"key": "value"}
