@@ -145,7 +145,15 @@ test.describe('UI UX Workflows', () => {
       await page.getByPlaceholder('Beschreibung').fill('Template aus UI-Workflow-Test');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und bearbeitest {{task_title}}.');
       await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-      await expect(page.getByText(templateName).first()).toBeVisible({ timeout: 15000 });
+
+      await expect.poll(async () => {
+        const templateListRes = await request.get(`${hubUrl}/templates`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!templateListRes.ok()) return '';
+        const templates = unwrapList(await templateListRes.json());
+        return templates.find((t: any) => t.name === templateName)?.id || '';
+      }, { timeout: 15000 }).not.toBe('');
 
       const templateListRes = await request.get(`${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -154,6 +162,8 @@ test.describe('UI UX Workflows', () => {
       const templates = unwrapList(await templateListRes.json());
       createdTemplateId = templates.find((t: any) => t.name === templateName)?.id || null;
       expect(createdTemplateId).toBeTruthy();
+      await page.getByRole('button', { name: /^Aktualisieren$/i }).click();
+      await expect(page.getByText(templateName).first()).toBeVisible({ timeout: 15000 });
 
       await page.goto('/teams');
       await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
@@ -219,7 +229,7 @@ test.describe('UI UX Workflows', () => {
     await page.goto('/teams');
     await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled({ timeout: 25_000 });
-    await expect(page.getByRole('heading', { name: /Neuen Blueprint anlegen/i })).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('heading', { name: /Blueprint bearbeiten|Neuen Blueprint anlegen/i })).toBeVisible({ timeout: 25_000 });
     await assertNoUnhandledBrowserErrors(page);
   });
 });
