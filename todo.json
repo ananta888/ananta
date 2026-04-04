@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-04T04:50:00+02:00",
+  "updated": "2026-04-04T07:10:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -51,7 +51,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "DIP, OCP, Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/service_registry.py",
@@ -277,7 +277,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "SRP, ISP, Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/common/sgpt.py",
@@ -439,6 +439,11 @@
             "MCP wird als additive Expositionsschicht des Hubs eingefuehrt.",
             "MCP umgeht keine Hub-Policies und keine zentrale Queue-/Task-Logik.",
             "Audit, Auth und trace_id bleiben durchgaengig erhalten."
+          ],
+          "notes": [
+            "2026-04-04: Neuer MCP-Expose-Pfad als additive Blueprint-Route eingefuehrt (`GET /v1/mcp/capabilities`, `POST /v1/mcp`).",
+            "2026-04-04: MCP-Zugriff wird fail-closed ueber `exposure_policy.mcp` und zentrale Auth-Seams erzwungen.",
+            "2026-04-04: MCP bleibt hub-owned und nutzt bestehende Core-Services ohne Worker-Bypass."
           ]
         },
         {
@@ -448,7 +453,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "Least Privilege, SRP, Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -461,6 +466,11 @@
             "MCP stellt nur klar freigegebene, hub-owned Funktionen bereit.",
             "Direkte Umgehungen der Orchestrierung sind ausgeschlossen.",
             "Die ersten MCP-Tools haben klare Input-/Output-Vertraege."
+          ],
+          "notes": [
+            "2026-04-04: `MCPRegistryService` als zentrale Registry/Dispatch-Quelle fuer MCP-Tools und Resources eingefuehrt.",
+            "2026-04-04: Erste Tool-Menge implementiert: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`.",
+            "2026-04-04: Erste Resources implementiert: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`."
           ]
         }
       ]
@@ -476,7 +486,7 @@
           "priority": "high",
           "type": "security-hardening",
           "principle": "Observability, Fail-Closed, Transparency",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/openai_compat.py",
@@ -490,6 +500,11 @@
             "Neue Expositionspfade erzeugen nachvollziehbare Trace- und Audit-Daten.",
             "Sicherheitsrelevante Ablehnungen sind fuer Operatoren sichtbar.",
             "Die Daten bleiben mit bestehenden Governance-Pfaden konsistent."
+          ],
+          "notes": [
+            "2026-04-04: MCP-Policy-Blockaden werden als `mcp_access_blocked` auditierbar protokolliert.",
+            "2026-04-04: Erfolgreiche MCP-Tool-/Resource-Aufrufe loggen `mcp_tool_called` bzw. `mcp_resource_read`.",
+            "2026-04-04: MCP JSON-RPC-Responses enthalten additiv `trace_id` zur Korrelation mit bestehenden Traces."
           ]
         },
         {
@@ -499,7 +514,7 @@
           "priority": "high",
           "type": "testing",
           "principle": "Reliability, Incremental-Change, Safe-Rollout",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/",
@@ -519,6 +534,11 @@
             "Regressionen decken OpenAI-Exposure, Rekursionsschutz, Codex-Zielpfade und MCP-Grundfaelle ab.",
             "Rollout kann additiv und abgesichert erfolgen.",
             "Die Doku beschreibt den empfohlenen Betriebsweg fuer jede Integrationsart."
+          ],
+          "notes": [
+            "2026-04-04: Neue Regressionstests fuer MCP-Policy, JSON-RPC-Methoden, Tool/Resource-Dispatch und Audit-Events hinzugefuegt (`tests/test_mcp_route.py`).",
+            "2026-04-04: API-/Backend-Dokumentation um MCP-Capabilities, Methodenvertrag und erste Tool-/Resource-Matrix erweitert.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_mcp_route.py tests/test_openai_compat.py tests/test_config_api.py -q"
           ]
         }
       ]
@@ -527,9 +547,9 @@
   "meta": {
     "total_items": 18,
     "by_status": {
-      "completed": 12,
+      "completed": 17,
       "partial": 0,
-      "open": 6
+      "open": 1
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -543,7 +563,8 @@
       "AIM-006 ist abgeschlossen: Codex-CLI-Targeting ist fuer lokale und Remote-Hub-Ziele transparent, inkl. expliziter Fehlkonfigurationsdiagnostik.",
       "AIM-008 ist abgeschlossen: Inference-Routing und Execution-Routing werden in API/Read-Models/UI getrennt sichtbar gemacht.",
       "AIM-013 bis AIM-016 sind abgeschlossen: Stateful CLI-Sessions sind modelliert, in SGPT/API nutzbar und fuer task-scoped Propose-Pfade policy-gesteuert integriert.",
-      "AIM-018 ist abgeschlossen: Session-/Exposure-Modi sind in Read-Models, Backends-Diagnostik und UI sichtbar."
+      "AIM-018 ist abgeschlossen: Session-/Exposure-Modi sind in Read-Models, Backends-Diagnostik und UI sichtbar.",
+      "AIM-009 bis AIM-012 sind abgeschlossen: MCP ist als additive Expositionsschicht mit expliziter Policy, erster Tool-/Resource-Menge, Audit/Trace und Regressionstests integriert."
     ],
     "recommended_order": [
       "AIM-001",

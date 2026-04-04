@@ -12,6 +12,14 @@ class OpenAICompatAccessDecision:
     policy: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class MCPAccessDecision:
+    allowed: bool
+    reason: str
+    auth_source: str
+    policy: dict[str, Any]
+
+
 class ExposurePolicyService:
     """Resolves and enforces explicit exposure policies for external API adapters."""
 
@@ -30,6 +38,7 @@ class ExposurePolicyService:
         "allow_agent_auth": False,
         "allow_user_auth": False,
         "require_admin_for_user_auth": True,
+        "emit_audit_events": True,
     }
 
     def _normalize_openai_compat_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -62,6 +71,7 @@ class ExposurePolicyService:
             "require_admin_for_user_auth": bool(
                 raw.get("require_admin_for_user_auth", self._MCP_DEFAULTS["require_admin_for_user_auth"])
             ),
+            "emit_audit_events": bool(raw.get("emit_audit_events", self._MCP_DEFAULTS["emit_audit_events"])),
         }
 
     def normalize_exposure_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -76,6 +86,10 @@ class ExposurePolicyService:
     def resolve_openai_compat_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
         normalized = self.normalize_exposure_policy((cfg or {}).get("exposure_policy"))
         return normalized["openai_compat"]
+
+    def resolve_mcp_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
+        normalized = self.normalize_exposure_policy((cfg or {}).get("exposure_policy"))
+        return normalized["mcp"]
 
     @staticmethod
     def resolve_auth_source(*, is_agent_auth: bool, is_user_auth: bool) -> str:
@@ -119,6 +133,30 @@ class ExposurePolicyService:
         if auth_source == "unknown":
             return OpenAICompatAccessDecision(False, "openai_compat_auth_source_unknown", auth_source, policy)
         return OpenAICompatAccessDecision(True, "ok", auth_source, policy)
+
+    def evaluate_mcp_access(
+        self,
+        *,
+        cfg: dict[str, Any] | None,
+        is_agent_auth: bool,
+        is_user_auth: bool,
+        is_admin: bool,
+        operation: str = "core",
+    ) -> MCPAccessDecision:
+        policy = self.resolve_mcp_policy(cfg)
+        auth_source = self.resolve_auth_source(is_agent_auth=is_agent_auth, is_user_auth=is_user_auth)
+        if not policy["enabled"]:
+            return MCPAccessDecision(False, "mcp_exposure_disabled", auth_source, policy)
+        if is_agent_auth and not policy["allow_agent_auth"]:
+            return MCPAccessDecision(False, "mcp_agent_auth_disabled", auth_source, policy)
+        if is_user_auth:
+            if not policy["allow_user_auth"]:
+                return MCPAccessDecision(False, "mcp_user_auth_disabled", auth_source, policy)
+            if policy["require_admin_for_user_auth"] and not is_admin:
+                return MCPAccessDecision(False, "mcp_admin_required", auth_source, policy)
+        if auth_source == "unknown":
+            return MCPAccessDecision(False, "mcp_auth_source_unknown", auth_source, policy)
+        return MCPAccessDecision(True, "ok", auth_source, policy)
 
 
 exposure_policy_service = ExposurePolicyService()

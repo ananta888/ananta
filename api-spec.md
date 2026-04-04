@@ -277,7 +277,8 @@ Der Token muss im `Authorization` Header gesendet werden:
         "enabled": false,
         "allow_agent_auth": false,
         "allow_user_auth": false,
-        "require_admin_for_user_auth": true
+        "require_admin_for_user_auth": true,
+        "emit_audit_events": true
       }
     }
   }
@@ -377,6 +378,34 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
 - **Beschreibung:** Liefert aktive OpenAI-Compat-Feature-Flags und effektive Exposure-Policy fuer Operator/Client-Diagnostik.
+
+---
+
+## MCP-Exposition (additiv)
+
+### MCP Capabilities
+- **URL:** `/v1/mcp/capabilities`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Hinweis:** Zugriff unterliegt `exposure_policy.mcp`.
+- **Beschreibung:** Liefert MCP-Feature-Flags, effektive Policy und Anzahl registrierter Tools/Resources.
+
+### MCP JSON-RPC Endpoint
+- **URL:** `/v1/mcp`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Hinweis:** Zugriff unterliegt `exposure_policy.mcp`.
+- **Transport:** JSON-RPC 2.0 (Response enthaelt additiv `trace_id` fuer Operator-Diagnostik).
+
+Unterstuetzte Methoden (erste Ausbaustufe):
+- `tools/list`
+- `tools/call`
+- `resources/list`
+- `resources/read`
+
+Erste freigegebene Tools/Resources:
+- Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`
+- Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`
 
 ### Templates auflisten
 - **URL:** `/templates`
