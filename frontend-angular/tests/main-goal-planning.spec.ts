@@ -28,7 +28,7 @@ test.describe('Main Goal UI Planning', () => {
     let createdTeamId: string | null = null;
     let capturedGoalPayload: any = null;
     const mockedGoals: any[] = [];
-    const cleanup = createJourneyCleanupPolicy(hubUrl, token);
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token, request);
 
     try {
       const setupTeamRes = await request.post(`${hubUrl}/teams/setup-scrum`, {
