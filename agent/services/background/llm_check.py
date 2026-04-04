@@ -32,25 +32,42 @@ def _handle_llm_probe_result(provider: str, url: str, latency: float, is_ok: boo
         logging.warning("Tipp: Fuehren Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
     return False
 
+
+def _probe_provider_reachability(provider: str, url: str, timeout_seconds: int) -> bool:
+    """
+    Provider-spezifischer Reachability-Check.
+    Vermeidet invalides GET auf /api/generate bei Ollama.
+    """
+    from agent.common.http import HttpClient
+    from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
+
+    if provider == "ollama":
+        probe = probe_ollama_runtime(url, timeout=timeout_seconds)
+        return bool(probe.get("ok"))
+    if provider == "lmstudio":
+        probe = probe_lmstudio_runtime(url, timeout=timeout_seconds)
+        return bool(probe.get("ok"))
+
+    check_client = HttpClient(timeout=timeout_seconds, retries=0)
+    res = check_client.get(url, timeout=timeout_seconds, silent=True, return_response=True)
+    return res is not None and 200 <= int(res.status_code) < 400
+
 def _run_llm_check_loop(app) -> None:
     import agent.common.context
-    from agent.common.http import HttpClient
 
     time.sleep(5)
     target = _get_llm_target(app)
     if target is None:
         return
     provider, url = target
-    check_client = HttpClient(timeout=5, retries=0)
     logging.info(f"LLM-Monitoring fuer {provider} ({url}) gestartet.")
     last_state_ok = None
 
     while not agent.common.context.shutdown_requested:
         try:
             start_time = time.time()
-            res = check_client.get(url, timeout=5, silent=True, return_response=True)
+            is_ok = _probe_provider_reachability(provider, url, timeout_seconds=5)
             latency = time.time() - start_time
-            is_ok = res is not None and res.status_code < 500
             last_state_ok = _handle_llm_probe_result(provider, url, latency, is_ok, last_state_ok)
         except Exception as e:
             if last_state_ok is not False:

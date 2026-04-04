@@ -1,0 +1,65 @@
+{
+  "run_id": "20260404T165737Z",
+  "started_at": "2026-04-04T16:57:37.096264+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 8.0,
+  "wait_tasks_seconds": 240.0,
+  "goal_wait_seconds": 240.0,
+  "bootstrap_setup": false,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-04T16:57:39.736300+00:00",
+      "ended_at": "2026-04-04T16:57:41.296520+00:00",
+      "duration_ms": 1560,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "failed",
+      "started_at": "2026-04-04T16:57:49.307653+00:00",
+      "ended_at": "2026-04-04T17:01:51.366445+00:00",
+      "duration_ms": 242058,
+      "details": {
+        "goal_name": "Live Goal 1775321870",
+        "goal_clicked": true,
+        "goal_result_visible": false,
+        "tasks_created": 0,
+        "goal_result_excerpt": "",
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "Goal submit flow failed"
+    }
+  ],
+  "session_id": "aa0f347d-d2b3-44c8-aa5a-6e50aa5507eb",
+  "ended_at": "2026-04-04T17:01:59.375400+00:00"
+}

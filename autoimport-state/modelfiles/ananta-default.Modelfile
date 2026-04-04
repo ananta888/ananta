@@ -1,1 +1,1 @@
-FROM davidau-qwen3-zero-coder-reasoning-0.8b-neo-ex-gguf-qwen3-zero-code-8221ab563223
+FROM tensorblock-deepseek-coder-v2-lite-instruct-gguf-deepseek-coder-v2-443776354e4e
