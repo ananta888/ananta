@@ -55,13 +55,17 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 ```
 Sauberer Neustart:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+scripts/compose-test-stack.sh down
+scripts/compose-test-stack.sh up
 ```
 Mit WSL2/Vulkan-Overlay:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+scripts/compose-test-stack.sh down
+scripts/compose-test-stack.sh up
+```
+Sicheres Cleanup (inkl. Volumes ausser `ollama_data`):
+```bash
+scripts/compose-test-stack.sh clean
 ```
 3. Zugriff:
 - Frontend: `http://localhost:4200`
@@ -121,6 +125,7 @@ Hinweis Ollama unter WSL2/Vulkan:
 - Das optionale Overlay `docker-compose.ollama-wsl.yml` erweitert nur den `ollama`-Service und laesst Hub/Worker unveraendert.
 - Voraussetzung ist WSL2 mit verfuegbarem `/dev/dxg`; das Overlay bindet zusaetzlich `/usr/lib/wsl` read-only in den Container ein.
 - Fuer E2E-/Klicktests ist dieser Weg jetzt Standard ueber `scripts/compose-test-stack.sh` (Overlay standardmaessig aktiv, Opt-out via `ANANTA_USE_WSL_VULKAN=0`).
+- `scripts/compose-test-stack.sh clean` loescht bewusst **nicht** das Volume `ollama_data` (LLM-Modelle bleiben erhalten).
 
 Linting:
 - Backend: `python -m flake8 agent tests`
