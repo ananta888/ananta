@@ -59,6 +59,9 @@ class TaskCliResultContract(SQLModel):
     latency_ms: int = 0
     stderr_preview: Optional[str] = None
     output_source: Optional[str] = None
+    repair_attempted: bool = False
+    repair_backend: Optional[str] = None
+    repair_model: Optional[str] = None
 
 
 class TaskRoutingContract(SQLModel):

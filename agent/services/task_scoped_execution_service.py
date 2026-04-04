@@ -26,7 +26,7 @@ from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.verification_service import get_verification_service
-from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
+from agent.utils import _extract_reason, _log_terminal_entry
 
 
 @dataclass(frozen=True)
@@ -352,10 +352,11 @@ class TaskScopedExecutionService:
                 research_res["model"] = selected_model
                 research_res["routing"] = routing
                 return entry, research_res
+            command, tool_calls = self._extract_structured_action_fields(raw_res)
             return entry, {
                 "reason": _extract_reason(raw_res),
-                "command": _extract_command(raw_res),
-                "tool_calls": _extract_tool_calls(raw_res),
+                "command": command,
+                "tool_calls": tool_calls,
                 "raw": raw_res,
                 "backend": backend_used,
                 "model": selected_model,
@@ -506,6 +507,7 @@ class TaskScopedExecutionService:
         rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
         latency_ms = int((time.time() - started_at) * 1000)
         raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
+        repair_meta = {"attempted": False, "backend": None, "model": None}
         append_stage(
             pipeline,
             name="execute",
@@ -519,14 +521,62 @@ class TaskScopedExecutionService:
             started_at=started_at,
         )
         if rc != 0 and not raw_res.strip():
-            return TaskScopedRouteResponse(
-                status="error",
-                message="llm_cli_failed",
-                data={"details": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used},
-                code=502,
+            repaired = self._repair_task_proposal(
+                cli_runner=cli_runner,
+                prompt=prompt_for_cli,
+                bad_output=(cli_err or ""),
+                timeout=timeout,
+                task_kind=task_kind,
+                policy_version=policy_version,
+                cfg=cfg,
+                primary_backend=backend_used,
+                primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                research_context=research_context,
             )
+            if repaired:
+                raw_res = repaired["raw"]
+                output_source = repaired["output_source"]
+                backend_used = repaired["backend_used"]
+                rc = int(repaired["rc"])
+                cli_err = str(repaired.get("stderr") or "")
+                repair_meta = {
+                    "attempted": True,
+                    "backend": repaired["backend_used"],
+                    "model": repaired.get("model"),
+                }
+            else:
+                return TaskScopedRouteResponse(
+                    status="error",
+                    message="llm_cli_failed",
+                    data={"details": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used},
+                    code=502,
+                )
         if not raw_res:
-            return TaskScopedRouteResponse(status="error", message="llm_failed", data={}, code=502)
+            repaired = self._repair_task_proposal(
+                cli_runner=cli_runner,
+                prompt=prompt_for_cli,
+                bad_output=(cli_err or ""),
+                timeout=timeout,
+                task_kind=task_kind,
+                policy_version=policy_version,
+                cfg=cfg,
+                primary_backend=backend_used,
+                primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                research_context=research_context,
+            )
+            if repaired:
+                raw_res = repaired["raw"]
+                output_source = repaired["output_source"]
+                backend_used = repaired["backend_used"]
+                rc = int(repaired["rc"])
+                cli_err = str(repaired.get("stderr") or "")
+                repair_meta = {
+                    "attempted": True,
+                    "backend": repaired["backend_used"],
+                    "model": repaired.get("model"),
+                }
+            else:
+                return TaskScopedRouteResponse(status="error", message="llm_failed", data={}, code=502)
 
         routing = {
             "task_kind": task_kind,
@@ -615,8 +665,33 @@ class TaskScopedExecutionService:
             return TaskScopedRouteResponse(data=response_payload)
 
         reason = _extract_reason(raw_res)
-        command = _extract_command(raw_res)
-        tool_calls = _extract_tool_calls(raw_res)
+        command, tool_calls = self._extract_structured_action_fields(raw_res)
+        if not command and not tool_calls:
+            repaired = self._repair_task_proposal(
+                cli_runner=cli_runner,
+                prompt=prompt_for_cli,
+                bad_output=raw_res,
+                timeout=timeout,
+                task_kind=task_kind,
+                policy_version=policy_version,
+                cfg=cfg,
+                primary_backend=backend_used,
+                primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                research_context=research_context,
+            )
+            if repaired:
+                raw_res = repaired["raw"]
+                output_source = repaired["output_source"]
+                backend_used = repaired["backend_used"]
+                rc = int(repaired["rc"])
+                cli_err = str(repaired.get("stderr") or "")
+                reason = _extract_reason(raw_res)
+                repair_meta = {
+                    "attempted": True,
+                    "backend": repaired["backend_used"],
+                    "model": repaired.get("model"),
+                }
+                command, tool_calls = self._extract_structured_action_fields(raw_res)
         append_stage(
             pipeline,
             name="parse",
@@ -647,6 +722,9 @@ class TaskScopedExecutionService:
                 "latency_ms": latency_ms,
                 "stderr_preview": (cli_err or "")[:240],
                 "output_source": output_source,
+                "repair_attempted": bool(repair_meta["attempted"]),
+                "repair_backend": repair_meta["backend"],
+                "repair_model": repair_meta["model"],
             },
             worker_context=worker_context_meta,
             trace=trace,
@@ -954,6 +1032,112 @@ class TaskScopedExecutionService:
         if err:
             return err, "stderr"
         return "", "none"
+
+    @staticmethod
+    def _extract_structured_action_fields(raw_text: str) -> tuple[str | None, list[dict] | None]:
+        text = str(raw_text or "").strip()
+        if not text:
+            return None, None
+        candidate = text
+        if "```json" in text:
+            try:
+                candidate = text.split("```json", 1)[1].split("```", 1)[0].strip()
+            except Exception:
+                candidate = text
+        elif text.startswith("{"):
+            last_brace = text.rfind("}")
+            if last_brace != -1:
+                candidate = text[: last_brace + 1]
+        try:
+            data = json.loads(candidate)
+        except Exception:
+            return None, None
+        if not isinstance(data, dict):
+            return None, None
+        command = str(data.get("command") or "").strip() or None
+        tool_calls = data.get("tool_calls")
+        if not isinstance(tool_calls, list):
+            tool_calls = None
+        return command, tool_calls
+
+    def _repair_task_proposal(
+        self,
+        *,
+        cli_runner: Callable,
+        prompt: str,
+        bad_output: str,
+        timeout: int,
+        task_kind: str,
+        policy_version: str,
+        cfg: dict,
+        primary_backend: str,
+        primary_model: str | None,
+        research_context: dict | None,
+    ) -> dict | None:
+        default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip() or None
+        first_backend = str(primary_backend or "sgpt").strip().lower()
+        if first_backend not in SUPPORTED_CLI_BACKENDS:
+            first_backend = "sgpt"
+        first_model = primary_model or default_model
+
+        repair_backend = str(cfg.get("task_propose_repair_backend") or "sgpt").strip().lower()
+        if repair_backend not in SUPPORTED_CLI_BACKENDS:
+            repair_backend = "sgpt"
+        repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
+        candidates: list[tuple[str, str | None]] = [(first_backend, first_model), (repair_backend, repair_model)]
+        deduped: list[tuple[str, str | None]] = []
+        seen: set[tuple[str, str]] = set()
+        for backend_name, model_name in candidates:
+            key = (backend_name, str(model_name or ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append((backend_name, model_name))
+
+        repair_prompt = self._build_repair_prompt(prompt=prompt, bad_output=bad_output)
+        for backend_name, model_name in deduped:
+            cli_kwargs = {
+                "prompt": repair_prompt,
+                "options": ["--no-interaction"],
+                "timeout": timeout,
+                "backend": backend_name,
+                "model": model_name,
+                "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
+            }
+            if research_context:
+                cli_kwargs["research_context"] = research_context
+            rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
+            raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
+            if not raw_res.strip():
+                continue
+            command, tool_calls = self._extract_structured_action_fields(raw_res)
+            if not command and not tool_calls:
+                continue
+            return {
+                "raw": raw_res,
+                "output_source": output_source,
+                "backend_used": backend_used,
+                "model": model_name,
+                "stderr": cli_err,
+                "rc": rc,
+            }
+        return None
+
+    @staticmethod
+    def _build_repair_prompt(*, prompt: str, bad_output: str) -> str:
+        preview = str(bad_output or "").strip()
+        if len(preview) > 2000:
+            preview = preview[:2000]
+        return (
+            "Der vorherige Modell-Output war leer/ungueltig oder nicht ausfuehrbar.\n"
+            "Repariere die Antwort und gib NUR ein valides JSON-Objekt zurueck.\n\n"
+            "Anforderungen:\n"
+            "- Genau ein JSON-Objekt, kein Markdown.\n"
+            "- Felder: reason (string), command (string optional), tool_calls (array optional).\n"
+            "- Mindestens eines von command oder tool_calls muss befuellt sein.\n\n"
+            f"Original-Prompt:\n{prompt}\n\n"
+            f"Fehlerhafter Output (Ausschnitt):\n{preview}\n"
+        )
 
     def _build_research_result(
         self,
