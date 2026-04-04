@@ -312,7 +312,7 @@ class TaskScopedExecutionService:
                 cli_kwargs["research_context"] = research_context
             rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
             latency_ms = int((time.time() - started_at) * 1000)
-            raw_res = cli_out or ""
+            raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
             required_capabilities = derive_required_capabilities(task, task_kind)
             routing_dimensions = self._routing_dimensions(
                 backend_used=backend_used,
@@ -328,7 +328,12 @@ class TaskScopedExecutionService:
                 "research_specialization": derive_research_specialization(task, task_kind, required_capabilities),
                 **routing_dimensions,
             }
-            cli_result = {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]}
+            cli_result = {
+                "returncode": rc,
+                "latency_ms": latency_ms,
+                "stderr_preview": (cli_err or "")[:240],
+                "output_source": output_source,
+            }
             if rc != 0 and not raw_res.strip():
                 return entry, {"error": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used, "routing": routing, "cli_result": cli_result}
             if not raw_res:
@@ -341,6 +346,7 @@ class TaskScopedExecutionService:
                     rc,
                     cli_err,
                     latency_ms,
+                    output_source=output_source,
                     research_context=research_context,
                 )
                 research_res["model"] = selected_model
@@ -499,14 +505,19 @@ class TaskScopedExecutionService:
             cli_kwargs["research_context"] = research_context
         rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
         latency_ms = int((time.time() - started_at) * 1000)
+        raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
         append_stage(
             pipeline,
             name="execute",
-            status="ok" if rc == 0 or bool(cli_out) else "error",
-            metadata={"backend_used": backend_used, "returncode": rc, "latency_ms": latency_ms},
+            status="ok" if rc == 0 or bool(raw_res) else "error",
+            metadata={
+                "backend_used": backend_used,
+                "returncode": rc,
+                "latency_ms": latency_ms,
+                "output_source": output_source,
+            },
             started_at=started_at,
         )
-        raw_res = cli_out or ""
         if rc != 0 and not raw_res.strip():
             return TaskScopedRouteResponse(
                 status="error",
@@ -541,6 +552,7 @@ class TaskScopedExecutionService:
                 rc,
                 cli_err,
                 latency_ms,
+                output_source=output_source,
                 research_context=research_context,
             )
             trace = build_trace_record(
@@ -630,7 +642,12 @@ class TaskScopedExecutionService:
             backend=backend_used,
             model=request_data.model or cfg.get("default_model") or cfg.get("model"),
             routing=routing,
-            cli_result={"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+            cli_result={
+                "returncode": rc,
+                "latency_ms": latency_ms,
+                "stderr_preview": (cli_err or "")[:240],
+                "output_source": output_source,
+            },
             worker_context=worker_context_meta,
             trace=trace,
             review=self._build_review_state(
@@ -928,6 +945,16 @@ class TaskScopedExecutionService:
         )
         return backend, reason
 
+    @staticmethod
+    def _coalesce_cli_output(stdout: str | None, stderr: str | None) -> tuple[str, str]:
+        out = str(stdout or "").strip()
+        if out:
+            return out, "stdout"
+        err = str(stderr or "").strip()
+        if err:
+            return err, "stderr"
+        return "", "none"
+
     def _build_research_result(
         self,
         raw_res: str,
@@ -936,13 +963,19 @@ class TaskScopedExecutionService:
         rc: int,
         cli_err: str,
         latency_ms: int,
+        output_source: str = "stdout",
         research_context: dict | None = None,
     ) -> dict:
         artifact = normalize_research_artifact(
             raw_res,
             backend=backend_used,
             task_id=tid,
-            cli_result={"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+            cli_result={
+                "returncode": rc,
+                "latency_ms": latency_ms,
+                "stderr_preview": (cli_err or "")[:240],
+                "output_source": output_source,
+            },
             research_context=research_context,
         )
         return {
@@ -953,7 +986,12 @@ class TaskScopedExecutionService:
             "backend": backend_used,
             "command": None,
             "tool_calls": None,
-            "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+            "cli_result": {
+                "returncode": rc,
+                "latency_ms": latency_ms,
+                "stderr_preview": (cli_err or "")[:240],
+                "output_source": output_source,
+            },
         }
 
     def _verify_research_artifact(self, research_artifact: dict | None) -> dict:
@@ -1133,11 +1171,24 @@ class TaskScopedExecutionService:
             )
         prompt_sections.append(f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}")
         prompt_sections.append(
-            "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
+            "Antworte AUSSCHLIESSLICH als JSON-Objekt ohne Markdown und ohne Zusatztext.\n"
+            "Regeln:\n"
+            "- Mindestens eines von 'command' oder 'tool_calls' muss gesetzt sein.\n"
+            "- Wenn kein Tool nötig ist, liefere einen konkreten, ausführbaren Shell-Befehl in 'command'.\n"
+            "- 'reason' muss kurz, technisch und direkt auf den Auftrag bezogen sein.\n"
+            "Schema:\n"
             "{\n"
             '  "reason": "Kurze Begründung",\n'
             '  "command": "Shell-Befehl (optional)",\n'
             '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
+            "}"
+        )
+        prompt_sections.append(
+            "Beispiel:\n"
+            '{\n'
+            '  "reason": "Lege Basisstruktur an und implementiere ersten vertikalen Slice.",\n'
+            '  "command": "mkdir -p backend frontend && printf \'%s\\n\' \'# bootstrap\' > backend/README.md",\n'
+            '  "tool_calls": []\n'
             "}"
         )
         return "\n\n".join(section for section in prompt_sections if section), {
