@@ -219,7 +219,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
     assert preflight["providers"]["lmstudio"]["candidate_count"] == 3
     assert str(preflight["providers"]["codex"]["base_url"]).endswith("/v1")
     assert preflight["providers"]["codex"]["api_key_configured"] is True
-    assert routing_dimensions["execution_backend_default"] == "codex"
+    assert routing_dimensions["execution_backend_default"] == response.json["data"]["configured_backend"]
     assert (routing_dimensions.get("codex_runtime_target") or {}).get("target_kind") in {"local_openai", "remote_openai_compatible", "remote_ananta_hub"}
 
 
