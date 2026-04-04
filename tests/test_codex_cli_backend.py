@@ -318,6 +318,57 @@ def test_get_cli_backend_preflight_reports_reachable_runtime_without_models(app)
     assert preflight["providers"]["lmstudio"]["candidate_count"] == 0
 
 
+def test_get_cli_backend_preflight_includes_ollama_activity_and_gpu_usage(app):
+    from agent.common.sgpt import get_cli_backend_preflight
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {"default_provider": "ollama"}
+        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434"}
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=None),
+            patch("agent.llm_integration.probe_ollama_runtime", return_value={
+                "ok": True,
+                "status": "ok",
+                "base_url": "http://127.0.0.1:11434",
+                "tags_url": "http://127.0.0.1:11434/api/tags",
+                "candidate_count": 1,
+                "models": [{"name": "glm-4.7"}],
+            }),
+            patch("agent.llm_integration.probe_ollama_activity", return_value={
+                "ok": True,
+                "status": "ok",
+                "base_url": "http://127.0.0.1:11434",
+                "ps_url": "http://127.0.0.1:11434/api/ps",
+                "active_count": 1,
+                "gpu_active": True,
+                "executor_summary": {"gpu": 1, "cpu": 0, "unknown": 0},
+                "active_models": [{"name": "glm-4.7", "executor": "gpu"}],
+            }),
+            patch("agent.common.sgpt.settings") as mock_settings,
+        ):
+            mock_settings.codex_path = "codex"
+            mock_settings.opencode_path = "opencode"
+            mock_settings.aider_path = "aider"
+            mock_settings.mistral_code_path = "mistral-code"
+            mock_settings.default_provider = "ollama"
+            mock_settings.lmstudio_url = ""
+            mock_settings.ollama_url = "http://127.0.0.1:11434"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.http_timeout = 5.0
+
+            preflight = get_cli_backend_preflight()
+
+    ollama = (preflight.get("providers") or {}).get("ollama") or {}
+    assert ollama.get("configured") is True
+    assert ollama.get("reachable") is True
+    assert ollama.get("candidate_count") == 1
+    activity = ollama.get("activity") or {}
+    assert activity.get("active_count") == 1
+    assert activity.get("gpu_active") is True
+    assert (activity.get("executor_summary") or {}).get("gpu") == 1
+
+
 def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_defaults(app):
     from agent.common.sgpt import resolve_codex_runtime_config
 

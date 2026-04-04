@@ -440,6 +440,13 @@ def _ollama_tags_url(base_url: str) -> Optional[str]:
     return f"{normalized}/api/tags"
 
 
+def _ollama_ps_url(base_url: str) -> Optional[str]:
+    normalized = _normalize_ollama_base_url(base_url)
+    if not normalized:
+        return None
+    return f"{normalized}/api/ps"
+
+
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
     if model and str(model).strip().lower() != "auto":
         return {"id": model}
@@ -569,6 +576,72 @@ def probe_ollama_runtime(base_url: str, timeout: int) -> dict[str, Any]:
         "tags_url": tags_url,
         "models": models,
         "candidate_count": len(models),
+    }
+
+
+def probe_ollama_activity(base_url: str, timeout: int) -> dict[str, Any]:
+    ps_url = _ollama_ps_url(base_url)
+    if not ps_url:
+        return {
+            "ok": False,
+            "status": "invalid_url",
+            "base_url": base_url,
+            "ps_url": None,
+            "active_count": 0,
+            "active_models": [],
+            "gpu_active": False,
+            "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
+        }
+    try:
+        resp = _http_get(ps_url, timeout=timeout, silent=True)
+    except Exception:
+        return {
+            "ok": False,
+            "status": "error",
+            "base_url": base_url,
+            "ps_url": ps_url,
+            "active_count": 0,
+            "active_models": [],
+            "gpu_active": False,
+            "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
+        }
+
+    raw_models = resp.get("models") if isinstance(resp, dict) else None
+    models = [item for item in (raw_models or []) if isinstance(item, dict) and str(item.get("name") or "").strip()]
+    active_models: list[dict[str, Any]] = []
+    summary = {"gpu": 0, "cpu": 0, "unknown": 0}
+    for item in models:
+        details = item.get("details") if isinstance(item.get("details"), dict) else {}
+        size_vram = int(item.get("size_vram") or 0)
+        processor = str(item.get("processor") or "").strip().lower()
+        if not processor:
+            processor = str(details.get("processor") or "").strip().lower()
+        if processor in {"gpu", "cuda", "vulkan", "metal"} or size_vram > 0:
+            executor = "gpu"
+        elif processor in {"cpu"}:
+            executor = "cpu"
+        else:
+            executor = "unknown"
+        summary[executor] = int(summary.get(executor) or 0) + 1
+        active_models.append(
+            {
+                "name": str(item.get("name") or "").strip(),
+                "size": int(item.get("size") or 0),
+                "size_vram": size_vram,
+                "expires_at": item.get("expires_at"),
+                "executor": executor,
+                "context_length": item.get("context_length") or item.get("num_ctx") or details.get("num_ctx"),
+            }
+        )
+    return {
+        "ok": True,
+        "status": "ok" if active_models else "reachable_no_active_models",
+        "base_url": base_url,
+        "ps_url": ps_url,
+        "active_count": len(active_models),
+        "active_models": active_models,
+        "gpu_active": bool(summary.get("gpu")),
+        "executor_summary": summary,
     }
 
 

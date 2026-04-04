@@ -705,3 +705,56 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
     assert model_selection.get("selected_model") == "model-temp"
     assert float(model_selection.get("selected_temperature") or 0.0) == 0.9
+
+
+def test_autopilot_skips_model_with_insufficient_context_window(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "adaptive_model_routing_enabled": False,
+        "task_kind_model_overrides": {"analysis": "model-small"},
+        "autopilot_strategy_fallback_models": [],
+        "autopilot_strategy_temperature_profiles": [],
+        "autopilot_strategy_max_attempts": 5,
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(
+        TaskDB(
+            id="strategy-ctx-1",
+            title="Context Strategy",
+            status="todo",
+            task_kind="analysis",
+            description="x" * 8000,
+        )
+    )
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-ctx:5001", name="worker-ctx", role="worker", token="tok", status="online")
+    )
+
+    monkeypatch.setattr(
+        "agent.routes.tasks.autopilot_tick_engine._runtime_model_capabilities",
+        lambda _loop: {
+            "runtime": {"default_provider": "lmstudio", "lmstudio": {"ok": True, "candidate_count": 1}},
+            "models": {"model-small": {"provider": "lmstudio", "context_length": 256}},
+        },
+    )
+
+    propose_models: list[str | None] = []
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            propose_models.append(data.get("model"))
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("strategy-ctx-1")
+
+    assert res["reason"] == "ok"
+    assert res["dispatched"] == 1
+    assert propose_models
+    assert propose_models[0] != "model-small"
+    assert updated is not None
+    assert any((entry.get("event_type") == "autopilot_strategy_attempt_skipped") for entry in (updated.history or []))
