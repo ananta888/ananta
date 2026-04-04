@@ -141,6 +141,10 @@ class HubCopilotPlanningStrategy:
         response = hub_llm.plan_with_copilot(prompt=prompt, timeout=getattr(planner, "llm_timeout", None))
         raw_response = str(response.get("text") or "")
         subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+        if not subtasks:
+            # Hub-Copilot darf den Planungsfluss nicht mit leerem/ungueltigem Output blockieren.
+            # In diesem Fall faellt die Strategie bewusst auf den naechsten Planungsweg (LLM) durch.
+            return None
         return PlanningStrategyResult(
             subtasks=subtasks,
             raw_response=raw_response,
