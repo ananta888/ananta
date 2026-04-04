@@ -309,7 +309,6 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                   </div>
                 </div>
               }
-            }
           </div>
 
         <div class="card">
