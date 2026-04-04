@@ -130,6 +130,9 @@ test.describe('UI UX Workflows', () => {
     try {
       await page.goto('/templates');
       await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
+      await expect(page.getByPlaceholder('Name')).toBeVisible();
+      await expect(page.locator('textarea[placeholder*="Platzhalter"]')).toBeVisible();
+      await expect(page.getByRole('button', { name: /Anlegen \/ Speichern/i })).toBeEnabled();
       await page.getByPlaceholder('Name').fill(templateName);
       await page.getByPlaceholder('Beschreibung').fill('Template aus UI-Workflow-Test');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und bearbeitest {{task_title}}.');
@@ -182,6 +185,11 @@ test.describe('UI UX Workflows', () => {
       await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled({ timeout: 20000 });
       const editor = page.locator('.teams-editor-panel');
       await expect(editor).toBeVisible({ timeout: 25000 });
+      await expect(editor.getByLabel('Name')).toBeVisible();
+      await expect(editor.getByLabel('Basis-Team-Typ')).toBeVisible();
+      await expect.poll(async () => {
+        return editor.getByLabel('Basis-Team-Typ').locator('option').count();
+      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
       await editor.getByLabel('Name').fill(blueprintName);
       await editor.getByLabel('Beschreibung').fill('Blueprint aus UI-Workflow-Test');
       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
@@ -208,6 +216,10 @@ test.describe('UI UX Workflows', () => {
       await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
       const instantiateCard = page.locator('.card.card-success').first();
       await expect(instantiateCard.getByLabel('Blueprint')).toBeVisible({ timeout: 15000 });
+      await expect(instantiateCard.getByLabel('Teamname')).toBeVisible();
+      await expect.poll(async () => {
+        return instantiateCard.getByLabel('Blueprint').locator('option').count();
+      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
       await instantiateCard.getByLabel('Blueprint').selectOption(String(createdBlueprintId));
       await instantiateCard.getByLabel('Teamname').fill(teamName);
       await instantiateCard.getByRole('button', { name: /^Team erstellen$/i }).click();

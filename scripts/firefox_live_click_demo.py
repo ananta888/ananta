@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import time
 from urllib import request
@@ -38,6 +39,11 @@ def wait_for(session_id: str, script: str, timeout: int = 25) -> bool:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Live Firefox click demo with configurable delays.")
+    parser.add_argument("--route-delay-seconds", type=float, default=2.2, help="Delay after each route navigation.")
+    parser.add_argument("--post-login-delay-seconds", type=float, default=1.0, help="Delay after successful login.")
+    args = parser.parse_args()
+
     caps = {
         "capabilities": {
             "alwaysMatch": {"browserName": "firefox", "acceptInsecureCerts": True}
@@ -77,7 +83,7 @@ def main():
             "return location.pathname.includes('/dashboard') || !!document.querySelector('h2')",
         )
         print("login_navigate", ok, flush=True)
-        time.sleep(1.0)
+        time.sleep(max(0.0, args.post_login_delay_seconds))
 
         routes = [
             "/dashboard",
@@ -103,7 +109,7 @@ def main():
                 """,
                 [route],
             ).get("value")
-            time.sleep(2.2)
+            time.sleep(max(0.0, args.route_delay_seconds))
             title = js(
                 session_id,
                 "const h=document.querySelector('h1,h2,h3'); return h ? h.textContent.trim() : document.title;",
