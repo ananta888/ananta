@@ -146,7 +146,7 @@ def gate_visible_errors(session_id: str, report: dict, phase: str, hard_fail: bo
         raise RuntimeError(f"Visible UI errors detected in phase '{phase}' (401={has_401})")
 
 
-def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
+def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float, bootstrap_setup: bool):
     t0 = time.time()
     wd("POST", f"/session/{session_id}/url", {"url": f"{APP_BASE}/login"})
     ok_form = wait_for(session_id, "return !!document.querySelector('input[name=\"username\"]')", 25)
@@ -171,6 +171,8 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
         raise RuntimeError("Login did not reach dashboard")
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
+    if not bootstrap_setup:
+        return
 
     # Template setup
     t1 = time.time()
@@ -327,7 +329,7 @@ def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_second
         raise RuntimeError("Goal submit flow failed")
 
 
-def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
+def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float, wait_tasks_seconds: float):
     routes = ["/dashboard", "/board", "/templates", "/teams", "/settings"]
     ok_all = True
     for route in routes:
@@ -335,9 +337,30 @@ def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_s
         step_nav(session_id, route)
         state = current_route_and_title(session_id)
         ok = bool(state["title"])
+        details = dict(state)
+        if route == "/board":
+            # Wait for task cards to appear so this run verifies UI task visibility, not just navigation.
+            has_tasks = wait_for(
+                session_id,
+                """
+                const items = document.querySelectorAll('.board-item').length;
+                return items > 0;
+                """,
+                int(max(5, wait_tasks_seconds)),
+            )
+            task_count = int(
+                js(
+                    session_id,
+                    "return document.querySelectorAll('.board-item').length;",
+                ).get("value")
+                or 0
+            )
+            details["board_task_count"] = task_count
+            details["board_has_tasks"] = has_tasks
+            ok = ok and has_tasks and task_count > 0
         ok_all = ok_all and ok
         print("route", route, "title", state["title"], flush=True)
-        record_step(report, "execution", f"navigate:{route}", t0, ok, state)
+        record_step(report, "execution", f"navigate:{route}", t0, ok, details)
         settle(step_delay_seconds)
         gate_visible_errors(session_id, report, "execution", hard_fail)
     if not ok_all:
@@ -364,13 +387,21 @@ def phase_review(session_id: str, report: dict, hard_fail: bool, step_delay_seco
             raise RuntimeError("Final review detected visible UI errors")
 
 
-def run_phase(session_id: str, phase: str, report: dict, hard_fail: bool, step_delay_seconds: float):
+def run_phase(
+    session_id: str,
+    phase: str,
+    report: dict,
+    hard_fail: bool,
+    step_delay_seconds: float,
+    wait_tasks_seconds: float,
+    bootstrap_setup: bool,
+):
     if phase == "setup":
-        phase_setup(session_id, report, hard_fail, step_delay_seconds)
+        phase_setup(session_id, report, hard_fail, step_delay_seconds, bootstrap_setup)
     elif phase == "goal":
         phase_goal(session_id, report, hard_fail, step_delay_seconds)
     elif phase == "execution":
-        phase_execution(session_id, report, hard_fail, step_delay_seconds)
+        phase_execution(session_id, report, hard_fail, step_delay_seconds, wait_tasks_seconds)
     elif phase == "review":
         phase_review(session_id, report, hard_fail, step_delay_seconds)
     else:
@@ -407,6 +438,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional delay added after each major step (slow-mode for live observation).",
     )
     p.add_argument(
+        "--wait-tasks-seconds",
+        type=float,
+        default=90.0,
+        help="How long execution phase waits on /board for visible task cards.",
+    )
+    p.add_argument(
+        "--skip-setup-bootstrap",
+        action="store_true",
+        help="Run only login in setup phase (no template/blueprint/team bootstrap).",
+    )
+    p.add_argument(
         "--replay-from-report",
         default="",
         help="Reuse phases/settings from an existing JSON report file.",
@@ -433,6 +475,8 @@ def main():
         hard_fail = bool(replay_report.get("hard_fail_visible_errors", True))
 
     step_delay_seconds = max(0.0, float(args.step_delay_seconds))
+    wait_tasks_seconds = max(5.0, float(args.wait_tasks_seconds))
+    bootstrap_setup = not args.skip_setup_bootstrap
     if replay_report and step_delay_seconds == 0.0:
         step_delay_seconds = float(replay_report.get("step_delay_seconds") or 0.0)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -445,6 +489,8 @@ def main():
         "phases_requested": phases,
         "hard_fail_visible_errors": hard_fail,
         "step_delay_seconds": step_delay_seconds,
+        "wait_tasks_seconds": wait_tasks_seconds,
+        "bootstrap_setup": bootstrap_setup,
         "replay_from_report": replay_source,
         "status": "running",
         "steps": [],
@@ -468,7 +514,15 @@ def main():
     try:
         for phase in phases:
             print("phase_start", phase, flush=True)
-            run_phase(session_id, phase, report, hard_fail, step_delay_seconds)
+            run_phase(
+                session_id,
+                phase,
+                report,
+                hard_fail,
+                step_delay_seconds,
+                wait_tasks_seconds,
+                bootstrap_setup,
+            )
             print("phase_done", phase, flush=True)
         report["status"] = "passed"
     except Exception as exc:
