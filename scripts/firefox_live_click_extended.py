@@ -299,10 +299,17 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
 
-def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float, goal_wait_seconds: float):
+def phase_goal(
+    session_id: str,
+    report: dict,
+    hard_fail: bool,
+    step_delay_seconds: float,
+    goal_wait_seconds: float,
+    goal_text: str,
+):
     t0 = time.time()
     step_nav(session_id, "/auto-planner")
-    goal_name = f"Live Goal {int(time.time())}"
+    goal_name = (goal_text or "").strip() or f"Live Goal {int(time.time())}"
     goal_clicked = bool(
         js(
             session_id,
@@ -317,6 +324,7 @@ def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_second
             [goal_name],
         ).get("value")
     )
+    print("goal_submit_started", goal_name, flush=True)
     goal_result = wait_for(
         session_id,
         "return !!document.querySelector('[data-testid=\"goal-submit-result\"]')",
@@ -423,11 +431,12 @@ def run_phase(
     wait_tasks_seconds: float,
     goal_wait_seconds: float,
     bootstrap_setup: bool,
+    goal_text: str,
 ):
     if phase == "setup":
         phase_setup(session_id, report, hard_fail, step_delay_seconds, bootstrap_setup)
     elif phase == "goal":
-        phase_goal(session_id, report, hard_fail, step_delay_seconds, goal_wait_seconds)
+        phase_goal(session_id, report, hard_fail, step_delay_seconds, goal_wait_seconds, goal_text)
     elif phase == "execution":
         phase_execution(session_id, report, hard_fail, step_delay_seconds, wait_tasks_seconds)
     elif phase == "review":
@@ -487,6 +496,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Reuse phases/settings from an existing JSON report file.",
     )
+    p.add_argument(
+        "--goal-text",
+        default="",
+        help="Optional explicit goal text for the goal phase.",
+    )
     return p
 
 
@@ -511,6 +525,7 @@ def main():
     step_delay_seconds = max(0.0, float(args.step_delay_seconds))
     wait_tasks_seconds = max(5.0, float(args.wait_tasks_seconds))
     goal_wait_seconds = max(20.0, float(args.goal_wait_seconds))
+    goal_text = str(args.goal_text or "").strip()
     bootstrap_setup = not args.skip_setup_bootstrap
     if replay_report and step_delay_seconds == 0.0:
         step_delay_seconds = float(replay_report.get("step_delay_seconds") or 0.0)
@@ -526,6 +541,7 @@ def main():
         "step_delay_seconds": step_delay_seconds,
         "wait_tasks_seconds": wait_tasks_seconds,
         "goal_wait_seconds": goal_wait_seconds,
+        "goal_text": goal_text,
         "bootstrap_setup": bootstrap_setup,
         "replay_from_report": replay_source,
         "status": "running",
@@ -559,6 +575,7 @@ def main():
                 wait_tasks_seconds,
                 goal_wait_seconds,
                 bootstrap_setup,
+                goal_text,
             )
             print("phase_done", phase, flush=True)
         report["status"] = "passed"
