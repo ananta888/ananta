@@ -9,6 +9,7 @@ class TaskStepProposeRequest(SQLModel):
     provider: Optional[str] = None
     providers: Optional[List[str]] = None
     model: Optional[str] = None
+    temperature: Optional[float] = None
     task_id: Optional[str] = None
     research_context: Optional["ResearchContextInputContract"] = None
 
@@ -71,6 +72,7 @@ class TaskRoutingContract(SQLModel):
     execution_backend: Optional[str] = None
     inference_provider: Optional[str] = None
     inference_model: Optional[str] = None
+    inference_temperature: Optional[float] = None
     inference_base_url: Optional[str] = None
     inference_target_kind: Optional[str] = None
     inference_target_provider_type: Optional[str] = None

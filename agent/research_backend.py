@@ -184,10 +184,18 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
     return entries
 
 
-def _build_command_args(cfg: dict[str, Any], *, prompt: str, model: str | None, context_file: str | None = None) -> list[str]:
+def _build_command_args(
+    cfg: dict[str, Any],
+    *,
+    prompt: str,
+    model: str | None,
+    temperature: float | None = None,
+    context_file: str | None = None,
+) -> list[str]:
     args: list[str] = []
     injected_prompt = False
     injected_model = False
+    injected_temperature = False
     injected_context_file = False
     for token in cfg["command_tokens"]:
         if "{prompt}" in token:
@@ -196,6 +204,9 @@ def _build_command_args(cfg: dict[str, Any], *, prompt: str, model: str | None, 
         if "{model}" in token:
             token = token.replace("{model}", str(model or ""))
             injected_model = True
+        if "{temperature}" in token:
+            token = token.replace("{temperature}", "" if temperature is None else str(float(temperature)))
+            injected_temperature = True
         if "{context_file}" in token:
             token = token.replace("{context_file}", str(context_file or ""))
             injected_context_file = True
@@ -204,6 +215,8 @@ def _build_command_args(cfg: dict[str, Any], *, prompt: str, model: str | None, 
         args.append(prompt)
     if model and not injected_model and "{model}" in cfg["command"]:
         args.append(model)
+    if temperature is not None and not injected_temperature and "{temperature}" in cfg["command"]:
+        args.append(str(float(temperature)))
     if context_file and not injected_context_file and "{context_file}" in cfg["command"]:
         args.append(context_file)
     return args
@@ -226,6 +239,7 @@ def _execute_research_backend_sandbox(
     provider: str,
     timeout: int | None = None,
     model: str | None = None,
+    temperature: float | None = None,
     research_context: dict[str, Any] | None = None,
 ) -> tuple[int, str, str]:
     cfg = resolve_research_backend_config(provider_override=provider)
@@ -253,17 +267,21 @@ def _execute_research_backend_sandbox(
                 cfg,
                 prompt=combined_prompt,
                 model=model,
+                temperature=temperature,
                 context_file=f"{context_mount_dir.rstrip('/')}/research-context.json",
             )
         )
         try:
+            env = os.environ.copy()
+            if temperature is not None:
+                env["ANANTA_LLM_TEMPERATURE"] = str(float(temperature))
             result = subprocess.run(
                 args,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                env=os.environ.copy(),
+                env=env,
                 timeout=max(30, int(timeout or cfg["timeout_seconds"])),
             )
             return result.returncode, result.stdout, result.stderr
@@ -280,6 +298,7 @@ def _execute_research_backend_cli(
     provider: str,
     timeout: int | None = None,
     model: str | None = None,
+    temperature: float | None = None,
     research_context: dict[str, Any] | None = None,
 ) -> tuple[int, str, str]:
     cfg = resolve_research_backend_config(provider_override=provider)
@@ -291,6 +310,7 @@ def _execute_research_backend_cli(
             provider=provider,
             timeout=timeout,
             model=model,
+            temperature=temperature,
             research_context=research_context,
         )
     if cfg["mode"] != "cli":
@@ -302,9 +322,16 @@ def _execute_research_backend_cli(
     if cfg["working_dir"] and not cfg["working_dir_exists"]:
         return -1, "", f"Configured {cfg['display_name']} working_dir does not exist: {cfg['working_dir']}"
 
-    args = _build_command_args(cfg, prompt=_compose_research_prompt(prompt, research_context), model=model)
+    args = _build_command_args(
+        cfg,
+        prompt=_compose_research_prompt(prompt, research_context),
+        model=model,
+        temperature=temperature,
+    )
     cwd = cfg["working_dir"] or None
     env = os.environ.copy()
+    if temperature is not None:
+        env["ANANTA_LLM_TEMPERATURE"] = str(float(temperature))
     actual_timeout = max(30, int(timeout or cfg["timeout_seconds"]))
     try:
         logging.info("%s-Aufruf: %s (cwd=%s)", cfg["display_name"], args, cwd)
@@ -336,6 +363,7 @@ class ResearchBackendAdapter:
         prompt: str,
         timeout: int | None = None,
         model: str | None = None,
+        temperature: float | None = None,
         task_id: str | None = None,
         research_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -348,6 +376,7 @@ class ResearchBackendAdapter:
             provider=self.provider,
             timeout=timeout,
             model=model,
+            temperature=temperature,
             research_context=research_context,
         )
         status = "completed" if rc == 0 or bool(out) else "failed"
@@ -419,6 +448,7 @@ class ResearchBackendAdapter:
         prompt: str,
         timeout: int | None = None,
         model: str | None = None,
+        temperature: float | None = None,
         task_id: str | None = None,
         research_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -426,6 +456,7 @@ class ResearchBackendAdapter:
             prompt=prompt,
             timeout=timeout,
             model=model,
+            temperature=temperature,
             task_id=task_id,
             research_context=research_context,
         )
@@ -453,6 +484,7 @@ def run_research_backend_command(
     prompt: str,
     timeout: int | None = None,
     model: str | None = None,
+    temperature: float | None = None,
     provider: str | None = None,
     research_context: dict[str, Any] | None = None,
 ) -> tuple[int, str, str]:
@@ -461,14 +493,26 @@ def run_research_backend_command(
         prompt=prompt,
         timeout=timeout,
         model=model,
+        temperature=temperature,
         research_context=research_context,
     )
     payload = result.get("result") or {}
     return int(payload.get("returncode") or 0), str(payload.get("stdout") or ""), str(payload.get("stderr") or "")
 
 
-def run_deerflow_command(prompt: str, timeout: int | None = None, model: str | None = None) -> tuple[int, str, str]:
-    return run_research_backend_command(prompt=prompt, timeout=timeout, model=model, provider="deerflow")
+def run_deerflow_command(
+    prompt: str,
+    timeout: int | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+) -> tuple[int, str, str]:
+    return run_research_backend_command(
+        prompt=prompt,
+        timeout=timeout,
+        model=model,
+        temperature=temperature,
+        provider="deerflow",
+    )
 
 
 def _extract_source_records(text: str) -> list[dict[str, Any]]:

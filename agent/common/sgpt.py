@@ -780,6 +780,7 @@ def run_llm_cli_command(
     timeout: int = 60,
     backend: str = "sgpt",
     model: str | None = None,
+    temperature: float | None = None,
     routing_policy: dict | None = None,
     research_context: dict | None = None,
 ) -> tuple[int, str, str, str]:
@@ -808,6 +809,7 @@ def run_llm_cli_command(
             rc, out, err = run_research_backend_command(
                 prompt=prompt,
                 model=model,
+                temperature=temperature,
                 timeout=timeout,
                 provider=name,
                 research_context=research_context,
