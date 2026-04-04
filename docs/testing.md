@@ -176,6 +176,40 @@ Artifacts:
 ## Mocking-Standard fuer E2E
 - Richtlinien und Beispiele: `docs/e2e-mock-strategy.md`
 
+## Live-Klicktests im Firefox-VNC (phasenbasiert)
+
+Der erweiterte Runner `scripts/firefox_live_click_extended.py` ist phasenbasiert und erzeugt pro Lauf ein JSON-Protokoll.
+
+Standard (alle Phasen):
+```bash
+python3 scripts/firefox_live_click_extended.py
+```
+
+Nur einzelne Phasen:
+```bash
+python3 scripts/firefox_live_click_extended.py --phases setup
+python3 scripts/firefox_live_click_extended.py --phases goal,execution,review
+```
+
+Explizite Report-Datei:
+```bash
+python3 scripts/firefox_live_click_extended.py --report-file test-reports/live-click/manual-run.json
+```
+
+Standard-Phasen:
+- `setup`: Login, Template, Blueprint, Team
+- `goal`: Goal im Auto-Planner senden und Ergebnis-Signal pruefen
+- `execution`: Kernnavigation durch die wichtigsten Operate-/Config-Routen
+- `review`: Finale Sichtpruefung inkl. Fehleroverlays
+
+Reporting:
+- Default-Output: `test-reports/live-click/firefox-live-click-<timestamp>.json`
+- Enthalten sind: Schrittstatus, Dauer, Phase, Route/Titel, sichtbare Fehlertexte, 401-Indikator.
+
+Harte Fehler-Gates:
+- Sichtbare UI-Fehler (`.notification.error`, `.toast.toast-error`, `[role="alert"]`) brechen den Run standardmaessig sofort ab.
+- Fuer reine Beobachtung ohne Abbruch: `--allow-visible-errors`
+
 ## Bekannte Probleme
 
 ### Windows Docker Hot-Reload Caching

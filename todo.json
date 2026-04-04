@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2.4",
+  "version": "5.2.5",
   "created": "2026-04-04",
-  "updated": "2026-04-04T15:28:00+02:00",
+  "updated": "2026-04-04T16:02:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -218,7 +218,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, Operability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/firefox_live_click_extended.py",
@@ -227,6 +227,10 @@
           "acceptance": [
             "Jede Phase kann separat gestartet werden.",
             "Fehler lassen sich reproduzierbar einer Phase zuordnen."
+          ],
+          "notes": [
+            "2026-04-04: `firefox_live_click_extended.py` auf CLI-Phasen (`--phases setup,goal,execution,review`) umgestellt; Phasen sind separat oder kombiniert startbar.",
+            "Validiert via `python3 scripts/firefox_live_click_extended.py --help`."
           ]
         },
         {
@@ -236,11 +240,12 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Observability, Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/firefox_live_click_extended.py",
-            "test-reports/"
+            "test-reports/",
+            "docs/testing.md"
           ],
           "dependencies": [
             "E2E-020"
@@ -248,6 +253,10 @@
           "acceptance": [
             "Jeder Live-Run erzeugt ein nachvollziehbares JSON-Protokoll.",
             "Protokolle sind fuer Fehleranalyse zwischen Runs vergleichbar."
+          ],
+          "notes": [
+            "2026-04-04: Strukturierter JSON-Report pro Run eingefuehrt (`test-reports/live-click/firefox-live-click-<timestamp>.json`) mit Schrittstatus, Dauer, Route/Titel und Fehler-Signalen.",
+            "Doku in `docs/testing.md` um Aufruf/Report-Pfade erweitert."
           ]
         },
         {
@@ -257,18 +266,20 @@
           "priority": "critical",
           "type": "test-hardening",
           "principle": "Fail-Fast, UX",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/firefox_live_click_extended.py",
-            "frontend-angular/tests/utils.ts"
+            "docs/testing.md"
           ],
           "acceptance": [
             "Live-Run markiert sichtbare API-Fehler als fehlschlagend.",
             "Fehlertext und Route sind im Report enthalten."
           ],
           "notes": [
-            "Grundlegende Sichtbarkeitspruefung ist bereits im Python-Skript vorhanden und soll auf harte Gates + Reporting ausgebaut werden."
+            "2026-04-04: Sichtbare UI-Fehler (`.notification.error`, `.toast.toast-error`, `[role=alert]`) fuehren standardmaessig zu hartem Run-Abbruch.",
+            "401-Indikator sowie Fehlertext+Route werden im JSON-Report als Signal protokolliert.",
+            "Optionaler Beobachtungsmodus ohne Abbruch via `--allow-visible-errors`."
           ]
         }
       ]
@@ -418,9 +429,9 @@
     },
     "total_items": 15,
     "by_status": {
-      "completed": 7,
-      "partial": 1,
-      "open": 7
+      "completed": 10,
+      "partial": 0,
+      "open": 5
     },
     "notes": [
       "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
