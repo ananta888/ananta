@@ -1188,6 +1188,11 @@ def run_phase(
     goal_text: str,
     benchmark_ticks: int,
     benchmark_task_kind: str,
+    require_followup: bool,
+    require_artifact_summary: bool,
+    require_multi_file_output: bool,
+    min_distinct_files: int,
+    min_distinct_dirs: int,
 ):
     if phase == "setup":
         phase_setup(session_id, report, hard_fail, step_delay_seconds, bootstrap_setup)
@@ -1203,6 +1208,11 @@ def run_phase(
             step_delay_seconds,
             benchmark_ticks=benchmark_ticks,
             benchmark_task_kind=benchmark_task_kind,
+            require_followup=require_followup,
+            require_artifact_summary=require_artifact_summary,
+            require_multi_file_output=require_multi_file_output,
+            min_distinct_files=min_distinct_files,
+            min_distinct_dirs=min_distinct_dirs,
         )
     elif phase == "review":
         phase_review(session_id, report, hard_fail, step_delay_seconds)
@@ -1277,6 +1287,33 @@ def build_parser() -> argparse.ArgumentParser:
         default="coding",
         help="Task-kind bucket for /llm/benchmarks record/list (analysis|coding|planning|review).",
     )
+    p.add_argument(
+        "--require-followup",
+        action="store_true",
+        help="Fail benchmark phase if no explicit follow-up/new task chain is visible.",
+    )
+    p.add_argument(
+        "--require-artifact-summary",
+        action="store_true",
+        help="Fail benchmark phase if goal detail has no artifact summary/headline evidence.",
+    )
+    p.add_argument(
+        "--require-multi-file-output",
+        action="store_true",
+        help="Fail benchmark phase if outputs do not show multiple file paths across directories.",
+    )
+    p.add_argument(
+        "--min-distinct-files",
+        type=int,
+        default=3,
+        help="Minimum distinct file paths required when --require-multi-file-output is set.",
+    )
+    p.add_argument(
+        "--min-distinct-dirs",
+        type=int,
+        default=2,
+        help="Minimum distinct directories required when --require-multi-file-output is set.",
+    )
     return p
 
 
@@ -1306,6 +1343,11 @@ def main():
     benchmark_task_kind = str(args.benchmark_task_kind or "coding").strip().lower() or "coding"
     if benchmark_task_kind not in {"analysis", "coding", "planning", "review"}:
         benchmark_task_kind = "coding"
+    require_followup = bool(args.require_followup)
+    require_artifact_summary = bool(args.require_artifact_summary)
+    require_multi_file_output = bool(args.require_multi_file_output)
+    min_distinct_files = max(1, int(args.min_distinct_files))
+    min_distinct_dirs = max(1, int(args.min_distinct_dirs))
     bootstrap_setup = not args.skip_setup_bootstrap
     if replay_report and step_delay_seconds == 0.0:
         step_delay_seconds = float(replay_report.get("step_delay_seconds") or 0.0)
@@ -1324,6 +1366,11 @@ def main():
         "goal_text": goal_text,
         "benchmark_ticks": benchmark_ticks,
         "benchmark_task_kind": benchmark_task_kind,
+        "require_followup": require_followup,
+        "require_artifact_summary": require_artifact_summary,
+        "require_multi_file_output": require_multi_file_output,
+        "min_distinct_files": min_distinct_files,
+        "min_distinct_dirs": min_distinct_dirs,
         "bootstrap_setup": bootstrap_setup,
         "replay_from_report": replay_source,
         "status": "running",
@@ -1369,6 +1416,11 @@ def main():
                 goal_text,
                 benchmark_ticks,
                 benchmark_task_kind,
+                require_followup,
+                require_artifact_summary,
+                require_multi_file_output,
+                min_distinct_files,
+                min_distinct_dirs,
             )
             print("phase_done", phase, flush=True)
         report["status"] = "passed"
