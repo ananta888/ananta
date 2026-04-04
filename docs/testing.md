@@ -48,6 +48,26 @@ Troubleshooting je Stufe:
 - Execution faellt aus: Worker-Registrierung, Agent-Health und Autopilot-Ticks pruefen.
 - Observability faellt aus: Console-Errors, sichtbare Error-Toasts, Tab-Selektoren und API-Mocks pruefen.
 
+## Deterministischer Scrum-Seed (E2E-030)
+
+Frontend-E2E in Compose startet mit einem idempotenten Scrum-Seed:
+- Schalter: `E2E_DETERMINISTIC_SCRUM_SEED=1`
+- Seed-Teamname: `E2E_SCRUM_SEED_TEAM_NAME` (Default: `E2E Seed Scrum Team`)
+- Wird in `frontend-angular/tests/global-setup.ts` gesetzt (API: `/teams/setup-scrum`)
+
+Damit koennen Journey-Tests auf leerem oder geteiltem Zustand ohne manuelle UI-Vorkonfiguration starten.
+
+## Einheitliche Cleanup-Policy (E2E-031)
+
+Grosse Journey-Tests nutzen den zentralen Tracker:
+- Helper: `createJourneyCleanupPolicy(...)` in `frontend-angular/tests/utils.ts`
+- Reihenfolge: Tasks -> Teams -> Blueprints -> Templates
+- Verhalten: best-effort Cleanup, 404 tolerant, robuste Retries
+
+Empfehlung:
+- Ressourcen direkt nach Erstellung tracken (`trackTask`, `trackTeam`, `trackBlueprint`, `trackTemplate`)
+- Cleanup nur zentral im `finally` via `await cleanup.run()`
+
 ## Lite Compose Standard (E2E)
 
 Standard for local E2E runs is the existing lite docker environment:
@@ -277,6 +297,20 @@ In Windows-Umgebungen mit Docker Desktop kann es vorkommen, dass Änderungen im 
 
 ## Flaky Tests
 Einige Tests sind als `@flaky` markiert. Diese sollten in CI-Umgebungen mit speziellen Einstellungen (z.B. `--retries`) ausgeführt werden.
+
+## Flaky-Haertung / Timeout-Profil (E2E-032)
+
+Playwright-Timeouts sind jetzt env-gesteuert:
+- `E2E_TEST_TIMEOUT_MS` (Default: `60000`, Live-LLM: `120000`)
+- `E2E_EXPECT_TIMEOUT_MS` (Default: `15000`)
+- `E2E_ACTION_TIMEOUT_MS` (Default: `15000`)
+- `E2E_NAV_TIMEOUT_MS` (Default: `30000`)
+- `E2E_WEBSERVER_TIMEOUT_MS` (wie bisher)
+
+Beispiel fuer langsamere Umgebungen:
+```bash
+E2E_EXPECT_TIMEOUT_MS=20000 E2E_NAV_TIMEOUT_MS=45000 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test
+```
 
 ### Liste der Flaky Tests
 1. `execute manual command on worker` in `frontend-angular/tests/agents.spec.ts`

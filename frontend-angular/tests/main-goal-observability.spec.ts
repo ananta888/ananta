@@ -52,7 +52,7 @@ test.describe('Main Goal Observability Journey', () => {
     const { hubUrl, token } = await getHubInfo(page);
     expect(token).toBeTruthy();
     const authToken = token as string;
-    const cleanup = createJourneyCleanupPolicy(hubUrl, authToken);
+    const cleanup = createJourneyCleanupPolicy(hubUrl, authToken, request);
 
     const title = `E2E Observe Task ${Date.now()}`;
     let createdTaskId: string | null = null;

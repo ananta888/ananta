@@ -76,7 +76,7 @@ test.describe('Main Goal Execution Journey', () => {
     const { hubUrl, token } = await getHubInfo(page);
     expect(token).toBeTruthy();
     const authToken = token as string;
-    const cleanup = createJourneyCleanupPolicy(hubUrl, authToken);
+    const cleanup = createJourneyCleanupPolicy(hubUrl, authToken, request);
 
     let createdTeamId: string | null = null;
     const createdTaskIds: string[] = [];
