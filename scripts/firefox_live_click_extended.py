@@ -309,21 +309,66 @@ def phase_goal(
 ):
     t0 = time.time()
     step_nav(session_id, "/auto-planner")
-    goal_name = (goal_text or "").strip() or f"Live Goal {int(time.time())}"
-    goal_clicked = bool(
-        js(
-            session_id,
-            """
-            const goal=arguments[0];
-            const input=document.querySelector('[data-testid="auto-planner-goal-input"]');
-            const btn=document.querySelector('[data-testid="auto-planner-goal-plan"]');
-            if(input){input.focus();input.value=goal;input.dispatchEvent(new Event('input',{bubbles:true}));}
-            if(btn){btn.click(); return true;}
-            return false;
-            """,
-            [goal_name],
-        ).get("value")
+    form_ready = wait_for(
+        session_id,
+        "return !!document.querySelector('[data-testid=\"auto-planner-goal-input\"]') && !!document.querySelector('[data-testid=\"auto-planner-goal-plan\"]')",
+        35,
     )
+    if not form_ready:
+        record_step(
+            report,
+            "goal",
+            "goal_plan_submit",
+            t0,
+            False,
+            {"error": "auto_planner_form_not_ready", **current_route_and_title(session_id)},
+        )
+        raise RuntimeError("Auto-planner goal form not ready")
+    goal_name = (goal_text or "").strip() or f"Live Goal {int(time.time())}"
+    goal_clicked = False
+    click_debug: Dict[str, str | int | bool] = {}
+    for _ in range(3):
+        click_state = (
+            js(
+                session_id,
+                """
+                const goal = arguments[0];
+                const input = document.querySelector('[data-testid="auto-planner-goal-input"]');
+                const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
+                if (!input || !btn) return { clicked:false, reason:'missing_controls' };
+                input.scrollIntoView({ block:'center', inline:'nearest' });
+                input.focus();
+                const proto = Object.getPrototypeOf(input);
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+                if (setter) setter.call(input, goal); else input.value = goal;
+                input.dispatchEvent(new Event('input', { bubbles:true }));
+                input.dispatchEvent(new Event('change', { bubbles:true }));
+                const disabledBefore = !!btn.disabled;
+                const labelBefore = (btn.textContent || '').trim();
+                if (!btn.disabled) {
+                  btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
+                }
+                const disabledAfter = !!btn.disabled;
+                const labelAfter = (btn.textContent || '').trim();
+                const clicked = !disabledBefore || disabledAfter || /Plane/i.test(labelAfter);
+                return {
+                  clicked,
+                  disabled_before: disabledBefore,
+                  disabled_after: disabledAfter,
+                  label_before: labelBefore,
+                  label_after: labelAfter,
+                  goal_length: (input.value || '').length
+                };
+                """,
+                [goal_name],
+            ).get("value")
+            or {}
+        )
+        click_debug = click_state if isinstance(click_state, dict) else {}
+        goal_clicked = bool(click_debug.get("clicked"))
+        if goal_clicked:
+            break
+        time.sleep(1.2)
     print("goal_submit_started", goal_name, flush=True)
     goal_result = wait_for(
         session_id,
@@ -352,6 +397,7 @@ def phase_goal(
         {
             "goal_name": goal_name,
             "goal_clicked": goal_clicked,
+            "click_debug": click_debug,
             "goal_result_visible": goal_result,
             "tasks_created": tasks_created,
             "goal_result_excerpt": str(goal_result_details.get("text") or ""),
