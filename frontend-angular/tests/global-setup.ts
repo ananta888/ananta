@@ -88,6 +88,56 @@ async function isHealthy(url: string) {
   }
 }
 
+async function getAdminToken(hubUrl: string, username: string, password: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${hubUrl.replace(/\/+$/, '')}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => ({} as any));
+    return body?.data?.access_token || body?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+async function unwrapResponseList(res: Response): Promise<any[]> {
+  const body = await res.json().catch(() => ({} as any));
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.data)) return body.data;
+  if (Array.isArray(body?.items)) return body.items;
+  return [];
+}
+
+async function ensureDeterministicScrumSeed(hubUrl: string, token: string, teamName: string) {
+  const headers = { Authorization: `Bearer ${token}` };
+  const teamsRes = await fetch(`${hubUrl.replace(/\/+$/, '')}/teams`, { headers });
+  if (teamsRes.ok) {
+    const teams = await unwrapResponseList(teamsRes);
+    for (const team of teams) {
+      const id = String(team?.id || '').trim();
+      const name = String(team?.name || '').toLowerCase();
+      if (!id) continue;
+      if (!name.startsWith('e2e seed scrum team')) continue;
+      try {
+        await fetch(`${hubUrl.replace(/\/+$/, '')}/teams/${id}`, { method: 'DELETE', headers });
+      } catch {}
+    }
+  }
+
+  const seedRes = await fetch(`${hubUrl.replace(/\/+$/, '')}/teams/setup-scrum`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: teamName }),
+  });
+  if (!seedRes.ok) {
+    const body = await seedRes.text().catch(() => '');
+    throw new Error(`Deterministic scrum seed failed: status=${seedRes.status} body=${body}`);
+  }
+}
+
 async function removeDirWithRetries(dirPath: string, attempts = 6, waitMs = 400) {
   for (let i = 0; i < attempts; i += 1) {
     try {
@@ -290,4 +340,13 @@ export default async function globalSetup() {
 
   const frontendWaitMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '45000');
   await waitForFrontendReady(frontendBaseUrl, frontendWaitMs);
+
+  if (process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1') {
+    const token = await getAdminToken(hubUrl, adminUser, adminPassword);
+    if (!token) {
+      throw new Error('Could not acquire admin token for deterministic scrum seed');
+    }
+    const seedTeamName = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
+    await ensureDeterministicScrumSeed(hubUrl, token, seedTeamName);
+  }
 }

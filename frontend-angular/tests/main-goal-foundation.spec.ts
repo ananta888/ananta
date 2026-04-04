@@ -1,19 +1,11 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, loginFast } from './utils';
+import { test, expect, type Page } from '@playwright/test';
+import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, createJourneyCleanupPolicy, loginFast } from './utils';
 
 function unwrapList(body: any): any[] {
   if (Array.isArray(body)) return body;
   if (Array.isArray(body?.data)) return body.data;
   if (Array.isArray(body?.items)) return body.items;
   return [];
-}
-
-async function apiDelete(request: APIRequestContext, url: string, token: string | null) {
-  try {
-    await request.delete(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  } catch {}
 }
 
 async function getHubInfo(page: Page): Promise<{
@@ -75,6 +67,7 @@ test.describe('Main Goal UI Foundation', () => {
     let createdBlueprintId: string | null = null;
     let createdTeamId: string | null = null;
     let capturedInstantiateMemberCount = 0;
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token);
 
     try {
       await page.goto('/templates');
@@ -99,6 +92,7 @@ test.describe('Main Goal UI Foundation', () => {
       const templates = unwrapList(await templateRes.json());
       createdTemplateId = templates.find((tpl: any) => tpl.name === templateName)?.id || null;
       expect(createdTemplateId).toBeTruthy();
+      cleanup.trackTemplate(createdTemplateId);
 
       await page.goto('/teams');
       await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
@@ -126,6 +120,7 @@ test.describe('Main Goal UI Foundation', () => {
       const blueprints = unwrapList(await blueprintsRes.json());
       createdBlueprintId = blueprints.find((bp: any) => bp.name === blueprintName)?.id || null;
       expect(createdBlueprintId).toBeTruthy();
+      cleanup.trackBlueprint(createdBlueprintId);
 
       await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
       const instantiateCard = page.locator('.card.card-success').first();
@@ -178,13 +173,12 @@ test.describe('Main Goal UI Foundation', () => {
       const teams = unwrapList(await teamsRes.json());
       createdTeamId = teams.find((t: any) => t.name === teamName)?.id || null;
       expect(createdTeamId).toBeTruthy();
+      cleanup.trackTeam(createdTeamId);
 
       await assertErrorOverlaysInViewport(page);
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTeamId) await apiDelete(request, `${hubUrl}/teams/${createdTeamId}`, token);
-      if (createdBlueprintId) await apiDelete(request, `${hubUrl}/teams/blueprints/${createdBlueprintId}`, token);
-      if (createdTemplateId) await apiDelete(request, `${hubUrl}/templates/${createdTemplateId}`, token);
+      await cleanup.run();
     }
   });
 });

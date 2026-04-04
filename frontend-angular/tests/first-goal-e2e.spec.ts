@@ -8,6 +8,7 @@ import {
   getAccessToken,
   ADMIN_USERNAME,
   ADMIN_PASSWORD,
+  createJourneyCleanupPolicy,
 } from './utils';
 
 type HubInfo = { hubUrl: string; token: string };
@@ -197,54 +198,57 @@ test.describe('First Goal E2E', () => {
   test('uses local LLM, creates subtasks, assigns to team members, and monitors execution', async () => {
     test.setTimeout(300_000);
     const { hubUrl, token } = await getHubInfo();
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token);
+    const createdTaskIds: string[] = [];
 
-    // 1) LLM default config -> local compose runtime.
-    const provider = liveProvider();
-    const baseUrl = liveBaseUrl();
-    const model = await resolveLiveModel();
-    const cfgGet = await apiJson('GET', `${hubUrl}/config`, token);
-    expect(cfgGet.res.ok, `GET /config failed: ${JSON.stringify(cfgGet.body)}`).toBeTruthy();
-    const cfg = unwrap<any>(cfgGet.body) || {};
-    cfg.llm_config = {
-      ...(cfg.llm_config || {}),
-      provider,
-      model,
-      base_url: baseUrl
-    };
-    cfg.default_provider = provider;
-    cfg.default_model = cfg.llm_config.model;
-    cfg.provider = provider;
-    cfg.model = cfg.llm_config.model;
-    const cfgSet = await apiJson('POST', `${hubUrl}/config`, token, cfg);
-    expect(cfgSet.res.ok, `POST /config failed: ${JSON.stringify(cfgSet.body)}`).toBeTruthy();
+    try {
+      // 1) LLM default config -> local compose runtime.
+      const provider = liveProvider();
+      const baseUrl = liveBaseUrl();
+      const model = await resolveLiveModel();
+      const cfgGet = await apiJson('GET', `${hubUrl}/config`, token);
+      expect(cfgGet.res.ok, `GET /config failed: ${JSON.stringify(cfgGet.body)}`).toBeTruthy();
+      const cfg = unwrap<any>(cfgGet.body) || {};
+      cfg.llm_config = {
+        ...(cfg.llm_config || {}),
+        provider,
+        model,
+        base_url: baseUrl
+      };
+      cfg.default_provider = provider;
+      cfg.default_model = cfg.llm_config.model;
+      cfg.provider = provider;
+      cfg.model = cfg.llm_config.model;
+      const cfgSet = await apiJson('POST', `${hubUrl}/config`, token, cfg);
+      expect(cfgSet.res.ok, `POST /config failed: ${JSON.stringify(cfgSet.body)}`).toBeTruthy();
 
-    // 2) Verify local LLM is actually used.
-    const llmCheck = await apiJson(
-      'POST',
-      `${hubUrl}/llm/generate`,
-      token,
-      {
-        prompt: 'Antworte nur mit: LLM_LOCAL_OK',
-        config: {
-          provider,
-          model,
-          base_url: baseUrl,
-          timeout: Math.ceil(llmTimeoutMs() / 1000)
+      // 2) Verify local LLM is actually used.
+      const llmCheck = await apiJson(
+        'POST',
+        `${hubUrl}/llm/generate`,
+        token,
+        {
+          prompt: 'Antworte nur mit: LLM_LOCAL_OK',
+          config: {
+            provider,
+            model,
+            base_url: baseUrl,
+            timeout: Math.ceil(llmTimeoutMs() / 1000)
+          }
         }
-      }
-    );
-    expect(llmCheck.res.ok, `POST /llm/generate failed: ${JSON.stringify(llmCheck.body)}`).toBeTruthy();
-    const llmData = unwrap<any>(llmCheck.body) || {};
-    expect(typeof llmData.response, 'LLM response should be present').toBe('string');
-    expect(llmData.routing?.effective?.provider, 'LLM provider should match configured local runtime').toBe(provider);
-    expect(llmData.routing?.effective?.base_url, 'LLM base URL should match configured local runtime').toBe(baseUrl);
+      );
+      expect(llmCheck.res.ok, `POST /llm/generate failed: ${JSON.stringify(llmCheck.body)}`).toBeTruthy();
+      const llmData = unwrap<any>(llmCheck.body) || {};
+      expect(typeof llmData.response, 'LLM response should be present').toBe('string');
+      expect(llmData.routing?.effective?.provider, 'LLM provider should match configured local runtime').toBe(provider);
+      expect(llmData.routing?.effective?.base_url, 'LLM base URL should match configured local runtime').toBe(baseUrl);
 
-    // 3) Build/activate a small team with role mapping to workers.
-    const typesRes = await apiJson('GET', `${hubUrl}/teams/types`, token);
-    expect(typesRes.res.ok, `GET /teams/types failed: ${JSON.stringify(typesRes.body)}`).toBeTruthy();
-    const types = unwrap<any[]>(typesRes.body) || [];
-    const scrum = types.find((t: any) => (t.name || '').toLowerCase() === 'scrum');
-    expect(scrum?.id, 'Scrum team type must exist').toBeTruthy();
+      // 3) Build/activate a small team with role mapping to workers.
+      const typesRes = await apiJson('GET', `${hubUrl}/teams/types`, token);
+      expect(typesRes.res.ok, `GET /teams/types failed: ${JSON.stringify(typesRes.body)}`).toBeTruthy();
+      const types = unwrap<any[]>(typesRes.body) || [];
+      const scrum = types.find((t: any) => (t.name || '').toLowerCase() === 'scrum');
+      expect(scrum?.id, 'Scrum team type must exist').toBeTruthy();
 
     const rolesRes = await apiJson('GET', `${hubUrl}/teams/roles`, token);
     expect(rolesRes.res.ok, `GET /teams/roles failed: ${JSON.stringify(rolesRes.body)}`).toBeTruthy();
@@ -262,19 +266,20 @@ test.describe('First Goal E2E', () => {
     // Ensure workers are present/online in hub registry before team creation (FK: team_members.agent_url).
     await ensureWorkersRegistered(hubUrl, [alphaAgent, betaAgent]);
 
-    const teamName = `E2E First Goal ${Date.now()}`;
-    const teamCreate = await apiJson('POST', `${hubUrl}/teams`, token, {
-      name: teamName,
-      description: 'E2E: local LLM + auto planner + autopilot',
-      team_type_id: scrum.id,
-      members: [
-        { agent_url: alphaAgent.url, role_id: devRole.id },
-        { agent_url: betaAgent.url, role_id: poRole.id }
-      ]
-    });
-    expect(teamCreate.res.status, `POST /teams failed: ${JSON.stringify(teamCreate.body)}`).toBe(201);
-    const team = unwrap<any>(teamCreate.body);
-    expect(team?.id).toBeTruthy();
+      const teamName = `E2E First Goal ${Date.now()}`;
+      const teamCreate = await apiJson('POST', `${hubUrl}/teams`, token, {
+        name: teamName,
+        description: 'E2E: local LLM + auto planner + autopilot',
+        team_type_id: scrum.id,
+        members: [
+          { agent_url: alphaAgent.url, role_id: devRole.id },
+          { agent_url: betaAgent.url, role_id: poRole.id }
+        ]
+      });
+      expect(teamCreate.res.status, `POST /teams failed: ${JSON.stringify(teamCreate.body)}`).toBe(201);
+      const team = unwrap<any>(teamCreate.body);
+      expect(team?.id).toBeTruthy();
+      cleanup.trackTeam(team?.id);
 
     const teamActivate = await apiJson('POST', `${hubUrl}/teams/${team.id}/activate`, token, {});
     expect(teamActivate.res.ok, `POST /teams/{id}/activate failed: ${JSON.stringify(teamActivate.body)}`).toBeTruthy();
@@ -313,16 +318,17 @@ test.describe('First Goal E2E', () => {
       use_repo_context: false
     });
     expect(planRes.res.status, `POST /tasks/auto-planner/plan failed: ${JSON.stringify(planRes.body)}`).toBe(201);
-    const planData = unwrap<any>(planRes.body) || {};
-    const createdTaskIds: string[] = planData.created_task_ids || [];
-    expect(createdTaskIds.length, 'Planner should create multiple subtasks').toBeGreaterThanOrEqual(2);
-    for (const taskId of createdTaskIds) {
+      const planData = unwrap<any>(planRes.body) || {};
+      createdTaskIds.push(...(planData.created_task_ids || []));
+      cleanup.trackTasks(createdTaskIds);
+      expect(createdTaskIds.length, 'Planner should create multiple subtasks').toBeGreaterThanOrEqual(2);
+      for (const taskId of createdTaskIds) {
       const forceTodo = await apiJson('PATCH', `${hubUrl}/tasks/${taskId}`, token, {
         status: 'todo',
         depends_on: []
       });
       expect(forceTodo.res.ok, `PATCH /tasks/${taskId} normalize failed: ${JSON.stringify(forceTodo.body)}`).toBeTruthy();
-    }
+      }
 
     // 5) Manual autopilot ticks + monitoring.
     const assignedWorkers = new Set<string>();
@@ -368,12 +374,15 @@ test.describe('First Goal E2E', () => {
       expect([alphaAgent.url, betaAgent.url], `Unexpected assigned worker: ${worker}`).toContain(worker);
     }
 
-    expect(
-      dispatchedTotal > 0 || terminalCount > 0,
-      'Autopilot should dispatch at least one LLM-generated subtask in monitoring window'
-    ).toBeTruthy();
-    for (const t of finalSnapshot) {
-      expect(t?.team_id, `Task ${t?.id} must stay in created team context`).toBe(team.id);
+      expect(
+        dispatchedTotal > 0 || terminalCount > 0,
+        'Autopilot should dispatch at least one LLM-generated subtask in monitoring window'
+      ).toBeTruthy();
+      for (const t of finalSnapshot) {
+        expect(t?.team_id, `Task ${t?.id} must stay in created team context`).toBe(team.id);
+      }
+    } finally {
+      await cleanup.run();
     }
   });
 });

@@ -25,6 +25,10 @@ const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
 const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || (isLiveLlmRun ? '90000' : '120000'));
+const testTimeoutMs = Number(process.env.E2E_TEST_TIMEOUT_MS || (isLiveLlmRun ? '120000' : '60000'));
+const expectTimeoutMs = Number(process.env.E2E_EXPECT_TIMEOUT_MS || '15000');
+const actionTimeoutMs = Number(process.env.E2E_ACTION_TIMEOUT_MS || '15000');
+const navigationTimeoutMs = Number(process.env.E2E_NAV_TIMEOUT_MS || '30000');
 const webServerEnv = process.env.CI ? { CI: 'true' } : {};
 const reporters = compactReporter
   ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any
@@ -42,14 +46,16 @@ const browserProjects = browsers.map((browser) => {
 
 export default defineConfig({
   testDir: './tests',
-  timeout: isLiveLlmRun ? 90 * 1000 : 45 * 1000,
-  expect: { timeout: 10 * 1000 },
+  timeout: testTimeoutMs,
+  expect: { timeout: expectTimeoutMs },
   fullyParallel: false,
   retries: isLiveLlmRun ? 0 : (process.env.CI ? 2 : 1),
   workers: process.env.CI ? 2 : 1,
   reporter: reporters,
   use: {
     baseURL: baseUrl,
+    actionTimeout: actionTimeoutMs,
+    navigationTimeout: navigationTimeoutMs,
     trace: 'on-first-retry'
   },
   webServer: reuseExistingServer

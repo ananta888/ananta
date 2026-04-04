@@ -407,10 +407,12 @@ async function apiRequestWithRetry(
   url: string,
   token: string | null,
   body?: any,
-  attempts = 3,
+  attempts = 5,
 ): Promise<Response | null> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const res = await fetch(url, {
         method,
@@ -419,6 +421,7 @@ async function apiRequestWithRetry(
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: method === 'GET' || method === 'DELETE' ? undefined : JSON.stringify(body ?? {}),
+        signal: controller.signal,
       });
       return res;
     } catch (err) {
@@ -426,6 +429,8 @@ async function apiRequestWithRetry(
       if (i < attempts - 1) {
         await sleep(300 * (i + 1));
       }
+    } finally {
+      clearTimeout(timer);
     }
   }
   console.warn(`apiRequestWithRetry failed for ${method} ${url}: ${String((lastError as any)?.message || lastError)}`);
@@ -451,22 +456,17 @@ function unwrapList(body: any): any[] {
 async function ensureDeterministicScrumSeedInternal(token: string | null): Promise<void> {
   if (!ENABLE_DETERMINISTIC_SCRUM_SEED || deterministicScrumSeedReady) return;
 
-  const teamsRes = await apiRequestWithRetry('GET', `${HUB_URL}/teams`, token);
-  const teamsBody = await unwrapJson(teamsRes);
-  const teams = unwrapList(teamsBody);
-  const staleSeedTeams = teams.filter((t: any) => String(t?.name || '').toLowerCase().startsWith('e2e seed scrum team'));
-
-  for (const team of staleSeedTeams) {
-    const id = String(team?.id || '').trim();
-    if (!id) continue;
-    await apiRequestWithRetry('DELETE', `${HUB_URL}/teams/${id}`, token);
-  }
-
   const seedRes = await apiRequestWithRetry('POST', `${HUB_URL}/teams/setup-scrum`, token, { name: E2E_SCRUM_SEED_TEAM_NAME });
   if (!seedRes?.ok) {
     const status = seedRes?.status || 'unknown';
     const payload = await unwrapJson(seedRes);
-    throw new Error(`deterministic scrum seed failed: status=${status} body=${JSON.stringify(payload)}`);
+    const teamsRes = await apiRequestWithRetry('GET', `${HUB_URL}/teams`, token, undefined, 2);
+    const teamsBody = await unwrapJson(teamsRes);
+    const teams = unwrapList(teamsBody);
+    const exists = teams.some((t: any) => String(t?.name || '').trim() === E2E_SCRUM_SEED_TEAM_NAME);
+    if (!exists) {
+      throw new Error(`deterministic scrum seed failed: status=${status} body=${JSON.stringify(payload)}`);
+    }
   }
   deterministicScrumSeedReady = true;
 }
@@ -495,7 +495,11 @@ export type JourneyCleanupPolicy = {
   run: () => Promise<void>;
 };
 
-export function createJourneyCleanupPolicy(hubUrl: string, token: string | null): JourneyCleanupPolicy {
+export function createJourneyCleanupPolicy(
+  hubUrl: string,
+  token: string | null,
+  requestContext?: APIRequestContext,
+): JourneyCleanupPolicy {
   const templateIds = new Set<string>();
   const blueprintIds = new Set<string>();
   const teamIds = new Set<string>();
@@ -504,6 +508,32 @@ export function createJourneyCleanupPolicy(hubUrl: string, token: string | null)
   const track = (set: Set<string>, id: string | null | undefined) => {
     const value = String(id || '').trim();
     if (value) set.add(value);
+  };
+
+  const requestJson = async (
+    method: 'GET' | 'POST' | 'DELETE',
+    url: string,
+    data?: any,
+  ): Promise<{ status: number; ok: boolean }> => {
+    if (!requestContext) {
+      const res = await apiRequestWithRetry(method, url, token, data);
+      return { status: res?.status || 0, ok: !!res?.ok };
+    }
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      if (method === 'GET') {
+        const res = await requestContext.get(url, { headers, timeout: 20_000 });
+        return { status: res.status(), ok: res.ok() };
+      }
+      if (method === 'POST') {
+        const res = await requestContext.post(url, { headers, data, timeout: 20_000 });
+        return { status: res.status(), ok: res.ok() };
+      }
+      const res = await requestContext.delete(url, { headers, timeout: 20_000 });
+      return { status: res.status(), ok: res.ok() || res.status() === 404 };
+    } catch {
+      return { status: 0, ok: false };
+    }
   };
 
   return {
@@ -515,30 +545,30 @@ export function createJourneyCleanupPolicy(hubUrl: string, token: string | null)
     run: async () => {
       const tasks = [...taskIds];
       if (tasks.length > 0) {
-        const cleanupRes = await apiRequestWithRetry('POST', `${hubUrl}/tasks/cleanup`, token, { mode: 'delete', task_ids: tasks });
-        if (!cleanupRes?.ok) {
-          console.warn(`cleanup warning: /tasks/cleanup returned ${cleanupRes?.status ?? 'no-response'}`);
+        const cleanupRes = await requestJson('POST', `${hubUrl}/tasks/cleanup`, { mode: 'delete', task_ids: tasks });
+        if (!cleanupRes.ok) {
+          console.warn(`cleanup warning: /tasks/cleanup returned ${cleanupRes.status || 'no-response'}`);
         }
       }
 
       for (const id of [...teamIds]) {
-        const res = await apiRequestWithRetry('DELETE', `${hubUrl}/teams/${id}`, token);
-        if (res && ![200, 204, 404].includes(res.status)) {
-          console.warn(`cleanup warning: DELETE /teams/${id} -> ${res.status}`);
+        const res = await requestJson('DELETE', `${hubUrl}/teams/${id}`);
+        if (![200, 204, 404].includes(res.status) && !res.ok) {
+          console.warn(`cleanup warning: DELETE /teams/${id} -> ${res.status || 'no-response'}`);
         }
       }
 
       for (const id of [...blueprintIds]) {
-        const res = await apiRequestWithRetry('DELETE', `${hubUrl}/teams/blueprints/${id}`, token);
-        if (res && ![200, 204, 404].includes(res.status)) {
-          console.warn(`cleanup warning: DELETE /teams/blueprints/${id} -> ${res.status}`);
+        const res = await requestJson('DELETE', `${hubUrl}/teams/blueprints/${id}`);
+        if (![200, 204, 404].includes(res.status) && !res.ok) {
+          console.warn(`cleanup warning: DELETE /teams/blueprints/${id} -> ${res.status || 'no-response'}`);
         }
       }
 
       for (const id of [...templateIds]) {
-        const res = await apiRequestWithRetry('DELETE', `${hubUrl}/templates/${id}`, token);
-        if (res && ![200, 204, 404].includes(res.status)) {
-          console.warn(`cleanup warning: DELETE /templates/${id} -> ${res.status}`);
+        const res = await requestJson('DELETE', `${hubUrl}/templates/${id}`);
+        if (![200, 204, 404].includes(res.status) && !res.ok) {
+          console.warn(`cleanup warning: DELETE /templates/${id} -> ${res.status || 'no-response'}`);
         }
       }
     },

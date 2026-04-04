@@ -1,5 +1,5 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, loginFast } from './utils';
+import { test, expect, type Page } from '@playwright/test';
+import { HUB_URL, assertNoUnhandledBrowserErrors, createJourneyCleanupPolicy, loginFast } from './utils';
 
 async function getHubInfo(page: Page): Promise<{ hubUrl: string; token: string | null }> {
   return page.evaluate((defaultHubUrl: string) => {
@@ -23,14 +23,6 @@ function unwrapList(body: any): any[] {
   if (Array.isArray(body?.data)) return body.data;
   if (Array.isArray(body?.items)) return body.items;
   return [];
-}
-
-async function apiDelete(request: APIRequestContext, url: string, token: string | null) {
-  try {
-    await request.delete(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  } catch {}
 }
 
 test.describe('UI UX Workflows', () => {
@@ -134,6 +126,7 @@ test.describe('UI UX Workflows', () => {
     const { hubUrl, token } = await getHubInfo(page);
     const templateName = `E2E UI Template ${Date.now()}`;
     let createdTemplateId: string | null = null;
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token, request);
     try {
       await page.goto('/templates');
       await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
@@ -155,9 +148,10 @@ test.describe('UI UX Workflows', () => {
       const templates = unwrapList(await templateListRes.json());
       createdTemplateId = templates.find((t: any) => t.name === templateName)?.id || null;
       expect(createdTemplateId).toBeTruthy();
+      cleanup.trackTemplate(createdTemplateId);
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTemplateId) await apiDelete(request, `${hubUrl}/templates/${createdTemplateId}`, token);
+      await cleanup.run();
     }
   });
 
@@ -171,6 +165,7 @@ test.describe('UI UX Workflows', () => {
     let createdTemplateId: string | null = null;
     let createdBlueprintId: string | null = null;
     let createdTeamId: string | null = null;
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token, request);
     try {
       const templateCreate = await request.post(`${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -180,6 +175,7 @@ test.describe('UI UX Workflows', () => {
       const tplBody = await templateCreate.json();
       createdTemplateId = (tplBody?.data || tplBody)?.id || null;
       expect(createdTemplateId).toBeTruthy();
+      cleanup.trackTemplate(createdTemplateId);
 
       await page.goto('/teams');
       await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
@@ -207,6 +203,7 @@ test.describe('UI UX Workflows', () => {
       const blueprints = unwrapList(await blueprintsRes.json());
       createdBlueprintId = blueprints.find((b: any) => b.name === blueprintName)?.id || null;
       expect(createdBlueprintId).toBeTruthy();
+      cleanup.trackBlueprint(createdBlueprintId);
 
       await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
       const instantiateCard = page.locator('.card.card-success').first();
@@ -229,11 +226,10 @@ test.describe('UI UX Workflows', () => {
       const teams = unwrapList(await teamsRes.json());
       createdTeamId = teams.find((t: any) => t.name === teamName)?.id || null;
       expect(createdTeamId).toBeTruthy();
+      cleanup.trackTeam(createdTeamId);
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTeamId) await apiDelete(request, `${hubUrl}/teams/${createdTeamId}`, token);
-      if (createdBlueprintId) await apiDelete(request, `${hubUrl}/teams/blueprints/${createdBlueprintId}`, token);
-      if (createdTemplateId) await apiDelete(request, `${hubUrl}/templates/${createdTemplateId}`, token);
+      await cleanup.run();
     }
   });
 
