@@ -369,6 +369,7 @@ class TaskExecutionTrackingService:
             "role_name": str(selection_meta.get("role_name") or "").strip(),
             "template_name": str(selection_meta.get("template_name") or "").strip(),
             "selection_source": str(selection_meta.get("source") or "").strip(),
+            "selected_temperature": str(selection_meta.get("selected_temperature") or "").strip(),
             "task_kind": str(cost_summary.get("task_kind") or "").strip().lower(),
         }
         persist_benchmark_sample(
