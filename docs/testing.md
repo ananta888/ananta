@@ -266,6 +266,15 @@ Replay eines frueheren Laufs (Phasen/Flags aus Report wiederverwenden):
 python3 scripts/firefox_live_click_extended.py --replay-from-report test-reports/live-click/manual-run.json
 ```
 
+Vollstaendiger Dual-Benchmark (Single-Model + Mixed-Models mit Rollen/Task-Kind-Zuordnung):
+```bash
+python3 scripts/run_live_click_dual_benchmark.py
+```
+Dieser Lauf erzwingt zusaetzlich:
+- sichtbare Follow-up-/Task-Kette
+- Goal-Artifact-Summary im Endzustand
+- Mehrdatei-/Mehrordner-Evidenz aus Task-Outputs (standard: >=3 Dateien, >=2 Ordner)
+
 Standard-Phasen:
 - `setup`: Login, Template, Blueprint, Team
 - `goal`: Goal im Auto-Planner senden und Ergebnis-Signal pruefen
