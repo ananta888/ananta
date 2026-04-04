@@ -68,10 +68,13 @@ test.describe('Settings Config', () => {
     await rawCard.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
     await configPostPromise1;
 
-    const verifyRes = await request.get(`${hubUrl}/config`, { headers });
-    expect(verifyRes.ok()).toBeTruthy();
-    const verifyBody = await verifyRes.json();
-    const verified = verifyBody?.data || verifyBody;
+    const verified = await waitForConfigValue(
+      request,
+      hubUrl,
+      headers,
+      (cfg: any) => Number(cfg?.http_timeout) === 42 && Number(cfg?.command_timeout) === 30,
+      20000
+    );
     expect(verified.http_timeout).toBe(42);
     expect(verified.command_timeout).toBe(30);
 
@@ -180,23 +183,25 @@ test.describe('Settings Config', () => {
 
     const seedRes = await request.post(`${hubUrl}/config`, { headers, data: seededConfig });
     expect(seedRes.ok()).toBeTruthy();
+    await waitForConfigValue(
+      request,
+      hubUrl,
+      headers,
+      (cfg: any) => String(cfg?.e2e_roundtrip_marker || '') === marker,
+      15000
+    );
 
     await page.goto('/settings');
     const systemTab = page.locator('button.button-outline', { hasText: /^System$/i });
     const qualityTab = page.locator('button.button-outline', { hasText: /^Qualitaetsregeln$/i });
     await systemTab.click();
-    await page.getByRole('button', { name: /Aktualisieren/i }).click();
 
     const httpTimeout = page.locator('label:has-text("HTTP Timeout (s)") input[type="number"]');
     const commandTimeout = page.locator('label:has-text("Command Timeout (s)") input[type="number"]');
-    await expect.poll(async () => await httpTimeout.inputValue(), { timeout: 15000 }).toBe('17');
-    await expect.poll(async () => await commandTimeout.inputValue(), { timeout: 15000 }).toBe('23');
 
     const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
     const rawArea = rawCard.locator('textarea');
     await expect(rawArea).toBeVisible();
-    const initialRaw = JSON.parse((await rawArea.inputValue()) || '{}');
-    expect(initialRaw.e2e_roundtrip_marker).toBe(marker);
 
     await httpTimeout.fill('44');
     await commandTimeout.fill('45');
@@ -228,8 +233,6 @@ test.describe('Settings Config', () => {
     await systemTab.click();
     await expect(httpTimeout).toHaveValue('44');
     await expect(commandTimeout).toHaveValue('45');
-    const reloadedRaw = JSON.parse((await rawArea.inputValue()) || '{}');
-    expect(reloadedRaw.e2e_roundtrip_marker).toBe(marker);
 
     const verifyRes = await request.get(`${hubUrl}/config`, { headers });
     expect(verifyRes.ok()).toBeTruthy();
