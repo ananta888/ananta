@@ -1,0 +1,157 @@
+{
+  "run_id": "20260404T131306Z",
+  "started_at": "2026-04-04T13:13:06.037336+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.0,
+  "replay_from_report": "",
+  "status": "passed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:08.397192+00:00",
+      "ended_at": "2026-04-04T13:13:09.559525+00:00",
+      "duration_ms": 1162,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:11.807545+00:00",
+      "ended_at": "2026-04-04T13:13:15.443442+00:00",
+      "duration_ms": 3635,
+      "details": {
+        "template_name": "Live UI Template 1775308393",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:15.458931+00:00",
+      "ended_at": "2026-04-04T13:13:21.336576+00:00",
+      "duration_ms": 5877,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775308397",
+        "team_name": "Live UI Team 1775308399",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:21.348535+00:00",
+      "ended_at": "2026-04-04T13:13:22.956105+00:00",
+      "duration_ms": 1607,
+      "details": {
+        "goal_name": "Live Goal 1775308402",
+        "goal_clicked": true,
+        "goal_result_visible": true,
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/dashboard",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:22.968054+00:00",
+      "ended_at": "2026-04-04T13:13:24.547220+00:00",
+      "duration_ms": 1579,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/board",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:24.559438+00:00",
+      "ended_at": "2026-04-04T13:13:26.110850+00:00",
+      "duration_ms": 1551,
+      "details": {
+        "path": "/board",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/templates",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:26.120894+00:00",
+      "ended_at": "2026-04-04T13:13:27.685610+00:00",
+      "duration_ms": 1564,
+      "details": {
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/teams",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:27.696535+00:00",
+      "ended_at": "2026-04-04T13:13:29.240963+00:00",
+      "duration_ms": 1544,
+      "details": {
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/settings",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:29.251930+00:00",
+      "ended_at": "2026-04-04T13:13:30.844734+00:00",
+      "duration_ms": 1592,
+      "details": {
+        "path": "/settings",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "review",
+      "step": "final_ui_review",
+      "status": "ok",
+      "started_at": "2026-04-04T13:13:30.856934+00:00",
+      "ended_at": "2026-04-04T13:13:32.137351+00:00",
+      "duration_ms": 1280,
+      "details": {
+        "visible_error_count": 0,
+        "contains_401": false,
+        "path": "/artifacts",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "/artifacts",
+    "final_title": "Ananta - Agent Control"
+  },
+  "errors": [],
+  "session_id": "b5250d94-252e-461a-971a-d46f19f44709",
+  "ended_at": "2026-04-04T13:13:32.137467+00:00"
+}
