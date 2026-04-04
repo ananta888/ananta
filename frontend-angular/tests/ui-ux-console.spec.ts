@@ -36,16 +36,15 @@ test.describe('UI UX console and visibility', () => {
 
     const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
     await rawCard.locator('textarea').fill('{');
-    await rawCard.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
+    const rawSave = rawCard.getByRole('button', { name: /Roh-Daten Speichern/i });
+    await rawSave.click();
 
-    const toast = page.locator('.notification.error').first();
-    await expect(toast).toBeVisible({ timeout: 10000 });
+    const inlineError = rawCard.locator('.error-text');
+    await expect(inlineError).toBeVisible({ timeout: 10000 });
+    await expect(rawSave).toBeDisabled();
     await page.waitForTimeout(350);
 
     await assertErrorOverlaysInViewport(page);
-
-    await toast.locator('.notification-close').click();
-    await expect(page.locator('.notification.error')).toHaveCount(0);
   });
 
   test('templates form stays editable when usage lookups fail', async ({ page }) => {
@@ -74,5 +73,27 @@ test.describe('UI UX console and visibility', () => {
     await expect(nameInput).toBeEnabled({ timeout: 15000 });
     await nameInput.fill(`E2E UX ${Date.now()}`);
     await expect(nameInput).toHaveValue(/E2E UX/);
+  });
+
+  test('dashboard, templates, and teams settle without stuck loading states', async ({ page }) => {
+    await login(page);
+
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByText(/Lade Statistiken von Hub/i)).toHaveCount(0, { timeout: 35000 });
+    await expect(page.locator('app-ui-skeleton')).toHaveCount(0, { timeout: 30000 });
+
+    await page.goto('/templates', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
+    await expect(page.getByPlaceholder('Name')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('app-ui-skeleton')).toHaveCount(0, { timeout: 30000 });
+    await expect(page.getByText(/Nutzungsinformationen werden geladen/i)).toHaveCount(0, { timeout: 25000 });
+
+    await page.goto('/teams', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
+    await expect(page.locator('.teams-editor-panel')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('app-ui-skeleton')).toHaveCount(0, { timeout: 30000 });
+
+    await assertNoUnhandledBrowserErrors(page);
   });
 });
