@@ -5,16 +5,36 @@ from typing import Any
 
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.services.verification_policy_service import evaluate_quality_gates
+from agent.utils import _extract_command, _extract_reason, _extract_tool_calls
 
 
 class AutopilotDecisionService:
     """Pure helper logic for proposal snapshots, tool guardrails, and execution result normalization."""
 
+    def normalize_proposal_data(self, propose_data: dict | None) -> dict[str, Any]:
+        normalized: dict[str, Any] = dict(propose_data or {})
+        if normalized.get("command") or normalized.get("tool_calls"):
+            return normalized
+        raw = normalized.get("raw")
+        if raw is None:
+            return normalized
+        command = _extract_command(str(raw))
+        tool_calls = _extract_tool_calls(str(raw))
+        reason = _extract_reason(str(raw))
+        if command and command != str(raw).strip():
+            normalized["command"] = command
+        if tool_calls:
+            normalized["tool_calls"] = tool_calls
+        if reason and (not normalized.get("reason") or str(normalized.get("reason")).strip() == str(raw).strip()):
+            normalized["reason"] = reason
+        return normalized
+
     def build_proposal_snapshot(self, propose_data: dict) -> dict[str, Any]:
-        reason = propose_data.get("reason")
-        command = propose_data.get("command")
-        tool_calls = propose_data.get("tool_calls")
-        raw = propose_data.get("raw")
+        normalized = self.normalize_proposal_data(propose_data)
+        reason = normalized.get("reason")
+        command = normalized.get("command")
+        tool_calls = normalized.get("tool_calls")
+        raw = normalized.get("raw")
         raw_preview = str(raw or "")[:280] if raw is not None else None
         snapshot: dict[str, Any] = {
             "reason": reason,
@@ -22,12 +42,12 @@ class AutopilotDecisionService:
             "tool_calls": tool_calls,
             "raw_preview": raw_preview,
         }
-        if propose_data.get("backend") is not None:
-            snapshot["backend"] = propose_data.get("backend")
-        if isinstance(propose_data.get("routing"), dict):
-            snapshot["routing"] = propose_data.get("routing")
-        if isinstance(propose_data.get("cli_result"), dict):
-            snapshot["cli_result"] = propose_data.get("cli_result")
+        if normalized.get("backend") is not None:
+            snapshot["backend"] = normalized.get("backend")
+        if isinstance(normalized.get("routing"), dict):
+            snapshot["routing"] = normalized.get("routing")
+        if isinstance(normalized.get("cli_result"), dict):
+            snapshot["cli_result"] = normalized.get("cli_result")
         return snapshot
 
     def evaluate_tool_guardrails_for_autopilot(

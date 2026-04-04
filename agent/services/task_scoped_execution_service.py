@@ -26,7 +26,7 @@ from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.verification_service import get_verification_service
-from agent.utils import _extract_reason, _log_terminal_entry
+from agent.utils import _extract_json_payload, _extract_reason, _log_terminal_entry
 
 
 @dataclass(frozen=True)
@@ -1070,21 +1070,11 @@ class TaskScopedExecutionService:
 
     @staticmethod
     def _extract_structured_action_fields(raw_text: str) -> tuple[str | None, list[dict] | None]:
-        text = str(raw_text or "").strip()
-        if not text:
+        json_payload = _extract_json_payload(str(raw_text or ""))
+        if not json_payload:
             return None, None
-        candidate = text
-        if "```json" in text:
-            try:
-                candidate = text.split("```json", 1)[1].split("```", 1)[0].strip()
-            except Exception:
-                candidate = text
-        elif text.startswith("{"):
-            last_brace = text.rfind("}")
-            if last_brace != -1:
-                candidate = text[: last_brace + 1]
         try:
-            data = json.loads(candidate)
+            data = json.loads(json_payload)
         except Exception:
             return None, None
         if not isinstance(data, dict):

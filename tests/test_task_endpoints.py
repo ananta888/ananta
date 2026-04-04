@@ -776,6 +776,31 @@ def test_task_propose_multi_provider_uses_stderr_fallback_output(client, app, ad
     assert data["comparisons"]["aider:gpt-4o-mini"]["cli_result"]["output_source"] == "stderr"
 
 
+def test_task_propose_extracts_embedded_json_after_traceback_output(client, app, admin_auth_header):
+    tid = "T-PROPOSE-TRACEBACK-JSON"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(tid, "assigned", description="Implement API from traceback-prefixed model output")
+
+    traceback_json = (
+        "Traceback (most recent call last):\n"
+        "  File \"/tmp/runner.py\", line 1, in <module>\n"
+        "ValueError: transient parse issue\n"
+        '{"reason":"embedded json","command":"echo rescued"}'
+    )
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
+        mock_cli.return_value = (1, "", traceback_json, "sgpt")
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint"}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["command"] == "echo rescued"
+    assert data["reason"] == "embedded json"
+    assert (data.get("cli_result") or {}).get("output_source") == "stderr"
+    assert (data.get("cli_result") or {}).get("repair_attempted") is False
+
+
 def test_task_propose_repairs_invalid_output_with_followup_prompt(client, app, admin_auth_header):
     tid = "T-PROPOSE-REPAIR-FOLLOWUP"
     with app.app_context():

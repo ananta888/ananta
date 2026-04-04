@@ -176,6 +176,11 @@ def _extract_reason(text: str) -> str:
     return extraction_utils.extract_reason(text)
 
 
+def _extract_json_payload(text: str) -> Optional[str]:
+    """Proxy für extraction_utils.extract_json_payload."""
+    return extraction_utils.extract_json_payload(text)
+
+
 def _extract_tool_calls(text: str) -> Optional[List[dict]]:
     """Proxy für extraction_utils.extract_tool_calls."""
     return extraction_utils.extract_tool_calls(text)
