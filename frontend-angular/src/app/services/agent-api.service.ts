@@ -15,13 +15,18 @@ export class AgentApiService {
 
   private getHeaders(baseUrl: string, token?: string) {
     let headers = new HttpHeaders();
+    const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
+
+    // Do not send raw agent shared-secrets as bearer token.
+    // For worker URLs, AuthInterceptor will generate short-lived JWTs.
+    if (token && agent?.token && token === agent.token) {
+      token = undefined;
+    }
+
     if (!token) {
       const hub = this.dir.list().find(a => a.role === 'hub');
       if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
         token = this.userAuth.token;
-      } else {
-        const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
-        token = agent?.token;
       }
     }
     if (token) {

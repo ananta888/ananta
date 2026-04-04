@@ -26,13 +26,18 @@ export class HubApiCoreService {
 
   getHeaders(baseUrl: string, token?: string) {
     let headers = new HttpHeaders();
+    const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
+
+    // Never forward raw per-agent shared secret as bearer token.
+    // AuthInterceptor signs worker requests with short-lived JWTs.
+    if (token && agent?.token && token === agent.token) {
+      token = undefined;
+    }
+
     if (!token) {
       const hub = this.dir.list().find(a => a.role === 'hub');
       if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
         token = this.userAuth.token;
-      } else {
-        const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
-        token = agent?.token;
       }
     }
     if (token) headers = headers.set('Authorization', `Bearer ${token}`);

@@ -271,6 +271,22 @@ def main():
             ).get("value")
             print("route", route, "title", title, flush=True)
             time.sleep(0.8)
+
+        visible_error_texts = js(
+            session_id,
+            """
+            const nodes=[...document.querySelectorAll('.notification.error,.toast.toast-error,[role="alert"]')];
+            const texts=nodes
+              .map(n=>(n.textContent||'').trim())
+              .filter(Boolean)
+              .slice(0,10);
+            return texts;
+            """,
+        ).get("value") or []
+        has_401 = any("401" in str(t) for t in visible_error_texts)
+        print("visible_errors", len(visible_error_texts), "contains_401", has_401, flush=True)
+        if visible_error_texts:
+            print("visible_error_texts", json.dumps(visible_error_texts, ensure_ascii=True), flush=True)
     finally:
         try:
             wd("DELETE", f"/session/{session_id}")
