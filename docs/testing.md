@@ -1,5 +1,23 @@
 # Testing Guide
 
+## Kanonischer UI-Hauptprozess (Testvertrag)
+
+Der zentrale Frontend-Flow fuer die Plattform wird als verbindlicher Testvertrag behandelt:
+
+1. Login als Admin im laufenden Compose-Stack.
+2. Template ueber `/templates` anlegen.
+3. Blueprint ueber `/teams` aufbauen und Rolle->Template verbinden.
+4. Team aus Blueprint erzeugen und (wenn verfuegbar) mit beiden Workern besetzen.
+5. Goal ueber `/auto-planner` planen/starten.
+6. Prozess ueber Board/Detail/Logs/Artefakte nachvollziehen und steuern.
+
+Aufbauende E2E-Abdeckung:
+- Foundation-Flow (Schritte 1-4): `frontend-angular/tests/main-goal-foundation.spec.ts`
+- Erweiterte Workflow-Checks: `frontend-angular/tests/ui-ux-workflows.spec.ts`
+- Tiefer Live-Flow mit echter Ausfuehrung: `frontend-angular/tests/first-goal-e2e.spec.ts`
+
+Ziel ist, dass ein Nutzer ohne grosse Vor-Konfiguration direkt ueber die Oberflaeche einen sinnvollen Scrum-Startpunkt nutzen kann und der gesamte Hub->Worker-Prozess sichtbar bleibt.
+
 ## Lite Compose Standard (E2E)
 
 Standard for local E2E runs is the existing lite docker environment:
