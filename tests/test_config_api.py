@@ -577,6 +577,17 @@ def test_set_config_validates_exposure_policy_shape(client, admin_token):
     assert openai_compat.get("allow_files_api") is False
 
 
+def test_set_config_rejects_invalid_openai_compat_max_hops(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    res = client.post(
+        "/config",
+        json={"exposure_policy": {"openai_compat": {"max_hops": 0}}},
+        headers=headers,
+    )
+    assert res.status_code == 400
+    assert res.json["message"] == "invalid_openai_compat_max_hops"
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 
@@ -599,6 +610,40 @@ def test_provider_catalog_cache_has_bounded_size(client, admin_token):
             assert res.status_code == 200
 
     assert len(config_routes._LMSTUDIO_CATALOG_CACHE) <= config_routes._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES
+
+
+def test_provider_catalog_exposes_remote_ananta_backend_metadata(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={
+            "default_provider": "ananta_remote_prod",
+            "default_model": "gpt-4o",
+            "remote_ananta_backends": [
+                {
+                    "id": "ananta_remote_prod",
+                    "name": "Ananta Remote Prod",
+                    "base_url": "https://ananta-remote.example/v1/chat/completions",
+                    "models": ["gpt-4o", "gpt-5-codex"],
+                    "instance_id": "remote-prod-1",
+                    "max_hops": 5,
+                }
+            ],
+        },
+        headers=headers,
+    )
+    with patch("agent.routes.config._list_lmstudio_candidates", return_value=[]):
+        res = client.get("/providers/catalog?force_refresh=1", headers=headers)
+    assert res.status_code == 200
+    providers = (res.json.get("data") or {}).get("providers") or []
+    remote = next((item for item in providers if item.get("provider") == "ananta_remote_prod"), None)
+    assert remote is not None
+    assert remote.get("available") is True
+    caps = remote.get("capabilities") or {}
+    assert caps.get("provider_type") == "remote_ananta"
+    assert caps.get("remote_hub") is True
+    assert caps.get("instance_id") == "remote-prod-1"
+    assert caps.get("max_hops") == 5
 
 
 def test_llm_generate_uses_benchmark_recommendation_for_available_model(client, app, admin_token, tmp_path):

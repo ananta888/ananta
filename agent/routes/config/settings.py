@@ -92,6 +92,12 @@ def set_config():
             return api_response(status="error", message="invalid_openai_compat_exposure_policy", code=400)
         if mcp_cfg and not isinstance(mcp_cfg, dict):
             return api_response(status="error", message="invalid_mcp_exposure_policy", code=400)
+        if isinstance(openai_cfg, dict) and "max_hops" in openai_cfg:
+            try:
+                if int(openai_cfg.get("max_hops")) < 1:
+                    return api_response(status="error", message="invalid_openai_compat_max_hops", code=400)
+            except (TypeError, ValueError):
+                return api_response(status="error", message="invalid_openai_compat_max_hops", code=400)
         new_cfg["exposure_policy"] = get_exposure_policy_service().normalize_exposure_policy(exposure_cfg)
     for key in ("llm_config", "research_backend"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)

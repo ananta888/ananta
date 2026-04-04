@@ -251,7 +251,9 @@ Der Token muss im `Authorization` Header gesendet werden:
         "allow_agent_auth": true,
         "allow_user_auth": true,
         "require_admin_for_user_auth": true,
-        "allow_files_api": true
+        "allow_files_api": true,
+        "instance_id": "hub-main",
+        "max_hops": 3
       },
       "mcp": {
         "enabled": false,
@@ -278,12 +280,33 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 - **Hinweis:** Zugriff unterliegt `exposure_policy.openai_compat`.
+- **Hop-/Loop-Guard:** Header `X-Ananta-Instance-ID` und `X-Ananta-Hop-Count` werden serverseitig geprueft.
 
 ### Responses API
 - **URL:** `/v1/responses`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 - **Hinweis:** Zugriff unterliegt `exposure_policy.openai_compat`.
+- **Hop-/Loop-Guard:** Header `X-Ananta-Instance-ID` und `X-Ananta-Hop-Count` werden serverseitig geprueft.
+
+### Remote-Ananta Provider (additiv)
+- **URL:** `/config` (`POST`)
+- **Beschreibung:** `remote_ananta_backends` erlaubt explizite OpenAI-kompatible Remote-Hub-Ziele als Provider-Typ.
+- **Beispiel:**
+  ```json
+  {
+    "remote_ananta_backends": [
+      {
+        "id": "ananta_remote_prod",
+        "name": "Ananta Remote Prod",
+        "base_url": "https://ananta-remote.example/v1/chat/completions",
+        "models": ["gpt-4o"],
+        "instance_id": "remote-prod-1",
+        "max_hops": 5
+      }
+    ]
+  }
+  ```
 
 ### Dateien (OpenAI-kompatibel)
 - **URLs:** `/v1/files`, `/v1/files/<file_id>`

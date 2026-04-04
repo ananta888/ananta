@@ -90,9 +90,11 @@ Wichtige Runtime-Checks:
 - `GET /api/sgpt/backends` fuer CLI-Preflight, `verify_command` und lokale Runtime-Ziele
 - `POST /llm/generate` fuer benchmark-basierte Modellwahl ohne explizite Provider-/Modellvorgabe
 - `GET /v1/ananta/capabilities` fuer aktive OpenAI-Compat-Funktionen und effektive Exposure-Policy
+- OpenAI-Compat Self-Loop-/Hop-Guards basieren auf `X-Ananta-Instance-ID` und `X-Ananta-Hop-Count`
 
 Wichtige Security-Policy:
 - OpenAI-Compat und zukuenftige MCP-Exposition werden ueber `exposure_policy` in `/config` explizit gesteuert.
+- Remote-Hub-Ziele koennen additiv ueber `remote_ananta_backends` konfiguriert werden und sind im Provider-Katalog sichtbar.
 
 Hinweis Redis (Host-Tuning):
 - Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:

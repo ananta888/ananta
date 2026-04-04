@@ -95,6 +95,8 @@ def build_default_agent_config() -> dict:
                 "require_admin_for_user_auth": True,
                 "allow_files_api": True,
                 "emit_audit_events": True,
+                "instance_id": None,
+                "max_hops": 3,
             },
             "mcp": {
                 "enabled": False,

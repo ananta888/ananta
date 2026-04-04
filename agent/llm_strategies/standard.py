@@ -1,7 +1,33 @@
 from typing import Any, Optional
 
+from flask import current_app, has_app_context, has_request_context, request
+
 from agent.llm_strategies.base import LLMStrategy
 from agent.utils import _http_post
+
+
+def _ananta_hop_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    instance_id = None
+    if has_app_context():
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        exposure_policy = (cfg.get("exposure_policy") or {}).get("openai_compat", {})
+        if isinstance(exposure_policy, dict):
+            instance_id = str(exposure_policy.get("instance_id") or "").strip() or None
+        if not instance_id:
+            instance_id = str(current_app.config.get("AGENT_NAME") or "").strip() or None
+    if instance_id:
+        headers["X-Ananta-Instance-ID"] = instance_id
+
+    hop_count = 0
+    if has_request_context():
+        raw_hop = request.headers.get("X-Ananta-Hop-Count")
+        try:
+            hop_count = max(0, int(raw_hop or 0))
+        except (TypeError, ValueError):
+            hop_count = 0
+    headers["X-Ananta-Hop-Count"] = str(hop_count + 1)
+    return headers
 
 
 class OpenAIStrategy(LLMStrategy):
@@ -20,6 +46,7 @@ class OpenAIStrategy(LLMStrategy):
         idempotency_key: Optional[str] = None,
     ) -> Any:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        headers.update(_ananta_hop_headers())
         messages = self._build_chat_messages(prompt, history)
 
         payload = {
