@@ -48,6 +48,15 @@ export class AuthInterceptor implements HttpInterceptor {
           })
         );
       }
+      // Priorität 3: Fallback auf User-JWT, wenn fuer Worker kein Agent-Token hinterlegt ist.
+      // Vermeidet 401->refresh->retry bei read-only Worker-Requests (z.B. /config).
+      else if (this.userAuth.token) {
+        request = req.clone({
+          setHeaders: {
+            Authorization: `Bearer ${this.userAuth.token}`
+          }
+        });
+      }
     }
 
     return next.handle(request).pipe(

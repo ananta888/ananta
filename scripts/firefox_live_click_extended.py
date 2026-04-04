@@ -277,6 +277,10 @@ def main():
             """
             const nodes=[...document.querySelectorAll('.notification.error,.toast.toast-error,[role="alert"]')];
             const texts=nodes
+              .filter(n => {
+                const style = window.getComputedStyle(n);
+                return style.display !== 'none' && style.visibility !== 'hidden' && n.getBoundingClientRect().height > 0;
+              })
               .map(n=>(n.textContent||'').trim())
               .filter(Boolean)
               .slice(0,10);
