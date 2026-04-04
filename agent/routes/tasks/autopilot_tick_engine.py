@@ -5,6 +5,7 @@ import time
 from typing import Any, Callable
 
 from agent.config import settings
+from agent.llm_benchmarks import recommend_model_for_context, recommend_models_for_context
 from agent.services.repository_registry import get_repository_registry
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
@@ -35,11 +36,48 @@ def _normalize_override_map(raw: Any) -> dict[str, str]:
     return out
 
 
-def _select_model_for_task(*, loop: Any, task: Any) -> tuple[str | None, dict[str, Any]]:
+def _normalize_model_list(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        model_name = str(item or "").strip()
+        if not model_name or model_name in seen:
+            continue
+        seen.add(model_name)
+        out.append(model_name)
+    return out
+
+
+def _strategy_cfg(loop: Any) -> dict[str, Any]:
+    cfg = loop._agent_config() or {}
+    return {
+        "max_attempts": max(1, min(int(cfg.get("autopilot_strategy_max_attempts") or 3), 8)),
+        "cooldown_seconds": max(0, min(int(cfg.get("autopilot_strategy_retry_delay_seconds") or 20), 600)),
+        "fallback_models": _normalize_model_list(cfg.get("autopilot_strategy_fallback_models")),
+        "adaptive_top_k": max(1, min(int(cfg.get("adaptive_model_routing_top_k") or 3), 10)),
+    }
+
+
+def _extract_strategy_state(task: Any) -> dict[str, Any]:
+    verification = dict(getattr(task, "verification_status", None) or {})
+    strategy = dict(verification.get("autopilot_strategy") or {})
+    failed_models = _normalize_model_list(strategy.get("failed_models"))
+    failed_sources = [str(item or "").strip() for item in list(strategy.get("failed_sources") or []) if str(item or "").strip()]
+    return {
+        "failed_models": failed_models,
+        "failed_sources": failed_sources,
+        "attempt_count": max(0, int(strategy.get("attempt_count") or 0)),
+    }
+
+
+def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | None = None) -> tuple[str | None, dict[str, Any]]:
     cfg = loop._agent_config() or {}
     role_overrides = _normalize_override_map(cfg.get("role_model_overrides"))
     template_overrides = _normalize_override_map(cfg.get("template_model_overrides"))
     task_kind_overrides = _normalize_override_map(cfg.get("task_kind_model_overrides"))
+    excluded = {str(item or "").strip() for item in (excluded_models or set()) if str(item or "").strip()}
 
     role_id = str(getattr(task, "assigned_role_id", None) or "").strip()
     team_id = str(getattr(task, "team_id", None) or "").strip()
@@ -85,17 +123,45 @@ def _select_model_for_task(*, loop: Any, task: Any) -> tuple[str | None, dict[st
     selected_model = None
     source = "none"
     if role_name and role_name.lower() in role_overrides:
-        selected_model = role_overrides[role_name.lower()]
+        candidate = role_overrides[role_name.lower()]
+        if candidate not in excluded:
+            selected_model = candidate
         source = "role_model_overrides"
     elif template_name and template_name.lower() in template_overrides:
-        selected_model = template_overrides[template_name.lower()]
+        candidate = template_overrides[template_name.lower()]
+        if candidate not in excluded:
+            selected_model = candidate
         source = "template_model_overrides:name"
     elif template_id and template_id.lower() in template_overrides:
-        selected_model = template_overrides[template_id.lower()]
+        candidate = template_overrides[template_id.lower()]
+        if candidate not in excluded:
+            selected_model = candidate
         source = "template_model_overrides:id"
     elif task_kind and task_kind in task_kind_overrides:
-        selected_model = task_kind_overrides[task_kind]
+        candidate = task_kind_overrides[task_kind]
+        if candidate not in excluded:
+            selected_model = candidate
         source = "task_kind_model_overrides"
+    elif bool(cfg.get("adaptive_model_routing_enabled", True)):
+        try:
+            app = getattr(loop, "_app", None)
+            data_dir = (getattr(app, "config", {}) or {}).get("DATA_DIR") or "data"
+            learned = recommend_model_for_context(
+                data_dir=data_dir,
+                task_kind=task_kind or "analysis",
+                role_name=role_name or None,
+                template_name=template_name or None,
+                min_samples=int(cfg.get("adaptive_model_routing_min_samples") or 3),
+            )
+            if isinstance(learned, dict) and str(learned.get("model") or "").strip():
+                candidate = str(learned.get("model") or "").strip()
+                if candidate not in excluded:
+                    selected_model = candidate
+                    source = str(learned.get("selection_source") or "benchmark_context_learning")
+                else:
+                    source = "benchmark_context_learning:excluded"
+        except Exception:
+            pass
 
     return selected_model, {
         "selected_model": selected_model,
@@ -106,6 +172,62 @@ def _select_model_for_task(*, loop: Any, task: Any) -> tuple[str | None, dict[st
         "template_name": template_name or None,
         "task_kind": task_kind or None,
     }
+
+
+def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict[str, Any], state: dict[str, Any]) -> list[dict[str, Any]]:
+    cfg = loop._agent_config() or {}
+    strategy_cfg = _strategy_cfg(loop)
+    failed_models = set(state.get("failed_models") or [])
+    role_name = str(base_model_meta.get("role_name") or "").strip() or None
+    template_name = str(base_model_meta.get("template_name") or "").strip() or None
+    task_kind = str(base_model_meta.get("task_kind") or "analysis").strip().lower() or "analysis"
+
+    candidates: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def _append(model: str | None, source: str) -> None:
+        normalized = str(model or "").strip() or None
+        key = normalized or "__none__"
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append({"model": normalized, "source": source})
+
+    selected = str(base_model_meta.get("selected_model") or "").strip()
+    if selected and selected not in failed_models:
+        _append(selected, str(base_model_meta.get("source") or "base_selection"))
+
+    if bool(cfg.get("adaptive_model_routing_enabled", True)):
+        try:
+            app = getattr(loop, "_app", None)
+            data_dir = (getattr(app, "config", {}) or {}).get("DATA_DIR") or "data"
+            learned = recommend_models_for_context(
+                data_dir=data_dir,
+                task_kind=task_kind or "analysis",
+                role_name=role_name,
+                template_name=template_name,
+                min_samples=int(cfg.get("adaptive_model_routing_min_samples") or 3),
+                limit=int(strategy_cfg["adaptive_top_k"]),
+                exclude_models=list(failed_models),
+            )
+            for entry in learned:
+                model = str((entry or {}).get("model") or "").strip()
+                if model:
+                    _append(model, "benchmark_context_learning:ranked")
+        except Exception:
+            pass
+
+    for model in list(strategy_cfg["fallback_models"]):
+        if model not in failed_models:
+            _append(model, "autopilot_strategy_fallback_models")
+
+    default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip()
+    if default_model and default_model not in failed_models:
+        _append(default_model, "agent_default_model")
+
+    _append(None, "worker_default_no_override")
+    max_attempts = int(strategy_cfg["max_attempts"])
+    return candidates[:max_attempts]
 
 
 def execute_autopilot_tick(
@@ -289,17 +411,118 @@ def execute_autopilot_tick(
         )
 
         model_meta: dict[str, Any] = {}
+        strategy_state = _extract_strategy_state(task)
         try:
-            selected_model, model_meta = _select_model_for_task(loop=loop, task=task)
-            propose_payload: dict[str, Any] = {"task_id": task.id}
-            if selected_model:
-                propose_payload["model"] = selected_model
-            propose_data = loop._forward_with_retry(
-                target_worker.url,
-                f"/tasks/{task.id}/step/propose",
-                propose_payload,
-                token=target_worker.token,
+            selected_model, model_meta = _select_model_for_task(
+                loop=loop,
+                task=task,
+                excluded_models=set(strategy_state.get("failed_models") or []),
             )
+            model_meta["selected_model"] = selected_model
+            strategy_candidates = _proposal_strategy_candidates(
+                loop=loop,
+                task=task,
+                base_model_meta=model_meta,
+                state=strategy_state,
+            )
+            propose_data = None
+            strategy_failures: list[dict[str, Any]] = []
+            selected_attempt_meta: dict[str, Any] = {}
+            for attempt_index, candidate in enumerate(strategy_candidates, start=1):
+                propose_payload: dict[str, Any] = {"task_id": task.id}
+                candidate_model = candidate.get("model")
+                candidate_source = str(candidate.get("source") or "strategy")
+                if candidate_model:
+                    propose_payload["model"] = candidate_model
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_attempt",
+                    delegated_to=target_worker.url,
+                    attempt=attempt_index,
+                    model=candidate_model,
+                    source=candidate_source,
+                )
+                try:
+                    candidate_data = loop._forward_with_retry(
+                        target_worker.url,
+                        f"/tasks/{task.id}/step/propose",
+                        propose_payload,
+                        token=target_worker.token,
+                    )
+                except Exception as strategy_exc:
+                    strategy_failures.append(
+                        {
+                            "attempt": attempt_index,
+                            "model": candidate_model,
+                            "source": candidate_source,
+                            "reason": str(strategy_exc),
+                            "failure_type": "forward_error",
+                        }
+                    )
+                    continue
+                candidate_snapshot = services.autopilot_decision_service.build_proposal_snapshot(candidate_data)
+                if candidate_snapshot.get("command") or candidate_snapshot.get("tool_calls"):
+                    selected_attempt_meta = {
+                        "attempt": attempt_index,
+                        "source": candidate_source,
+                        "selected_model": candidate_model,
+                    }
+                    propose_data = candidate_data
+                    break
+                strategy_failures.append(
+                    {
+                        "attempt": attempt_index,
+                        "model": candidate_model,
+                        "source": candidate_source,
+                        "reason": str(candidate_snapshot.get("reason") or "autopilot_no_executable_step"),
+                        "failure_type": "invalid_proposal",
+                        "raw_preview": candidate_snapshot.get("raw_preview"),
+                    }
+                )
+
+            if propose_data is None:
+                strategy_cfg = _strategy_cfg(loop)
+                cooldown_seconds = int(strategy_cfg["cooldown_seconds"])
+                now_ts = time.time()
+                failed_models = list(strategy_state.get("failed_models") or [])
+                failed_sources = list(strategy_state.get("failed_sources") or [])
+                for item in strategy_failures:
+                    model = str(item.get("model") or "").strip()
+                    if model and model not in failed_models:
+                        failed_models.append(model)
+                    source = str(item.get("source") or "").strip()
+                    if source and source not in failed_sources:
+                        failed_sources.append(source)
+                verification_status = {
+                    **dict(getattr(task, "verification_status", None) or {}),
+                    "autopilot_strategy": {
+                        "attempt_count": int(strategy_state.get("attempt_count") or 0) + len(strategy_failures),
+                        "failed_models": failed_models,
+                        "failed_sources": failed_sources,
+                        "last_failures": strategy_failures[-5:],
+                        "last_failed_at": now_ts,
+                        "next_retry_after": (now_ts + cooldown_seconds) if cooldown_seconds > 0 else now_ts,
+                    },
+                }
+                update_local_task_status(
+                    task.id,
+                    "todo",
+                    error="autopilot_strategy_exhausted",
+                    verification_status=verification_status,
+                    manual_override_until=(now_ts + cooldown_seconds) if cooldown_seconds > 0 else None,
+                    last_proposal={"strategy_failures": strategy_failures[-5:]},
+                )
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_exhausted",
+                    delegated_to=target_worker.url,
+                    failures=strategy_failures[-5:],
+                    cooldown_seconds=cooldown_seconds,
+                )
+                loop.failed_count += 1
+                continue
+
+            model_meta.update(selected_attempt_meta)
         except Exception as e:
             update_local_task_status(task.id, "failed", error=str(e))
             append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
@@ -326,6 +549,8 @@ def execute_autopilot_tick(
         tool_calls = propose_data.get("tool_calls")
         reason = propose_data.get("reason")
         proposal_snapshot = services.autopilot_decision_service.build_proposal_snapshot(propose_data)
+        if isinstance(model_meta, dict):
+            proposal_snapshot["model_selection"] = dict(model_meta)
         raw_preview = proposal_snapshot.get("raw_preview")
         if not command and not tool_calls:
             update_local_task_status(
