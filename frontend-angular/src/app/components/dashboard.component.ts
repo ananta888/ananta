@@ -792,6 +792,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private sub?: Subscription;
   private connectedTaskCollectionHubUrl: string | null = null;
   private refreshSafetyTimer?: ReturnType<typeof setTimeout>;
+  private dashboardReadModelInFlight = false;
 
   ngOnInit() {
     if (this.hub?.url) this.ensureTaskCollection();
@@ -814,6 +815,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.hub = this.dir.list().find(a => a.role === 'hub');
     }
     if (!this.hub) return;
+    if (this.dashboardReadModelInFlight) return;
     this.liveState.ensureSystemEvents(this.hub.url);
     this.ensureTaskCollection();
 
@@ -822,10 +824,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.refreshSafetyTimer = undefined;
     }
     this.viewState = { loading: true, error: null, empty: false };
+    this.dashboardReadModelInFlight = true;
     this.refreshSafetyTimer = setTimeout(() => {
       if (this.viewState.loading) {
         this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
       }
+      this.dashboardReadModelInFlight = false;
       this.refreshSafetyTimer = undefined;
     }, 15000);
     this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
@@ -834,6 +838,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           clearTimeout(this.refreshSafetyTimer);
           this.refreshSafetyTimer = undefined;
         }
+        this.dashboardReadModelInFlight = false;
         const sharedTasks = this.taskFacade.tasks();
         const counts = this.buildTaskCounts(sharedTasks);
         this.systemHealth = rm?.system_health || null;
@@ -890,6 +895,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           clearTimeout(this.refreshSafetyTimer);
           this.refreshSafetyTimer = undefined;
         }
+        this.dashboardReadModelInFlight = false;
         this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
         this.ns.error('Dashboard-Daten konnten nicht geladen werden');
       }
