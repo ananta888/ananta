@@ -41,6 +41,24 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - `GET /dashboard/read-model` unter `llm_configuration.exposure`
 - OpenAI-Compat Responses koennen additive Conversation-Metadaten transportieren (`conversation_id`/`session_id` Echo + `turn_id`), ohne bestehende Clients zu brechen.
 
+## MCP-Exposition (additiv)
+
+- Endpunkte: `GET /v1/mcp/capabilities`, `POST /v1/mcp`
+- Der MCP-Pfad bleibt additiv zur OpenAI-Compat-Exposition und nutzt dieselben Hub-Services statt Worker-direkter Steuerung.
+- Alle MCP-Aufrufe sind ueber `exposure_policy.mcp` fail-closed kontrolliert (`enabled`, `allow_agent_auth`, `allow_user_auth`, `require_admin_for_user_auth`).
+- Erste erlaubte JSON-RPC-Methoden:
+  - `tools/list`
+  - `tools/call`
+  - `resources/list`
+  - `resources/read`
+- Erste Hub-owned Tools/Resources:
+  - Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`
+  - Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`
+- Observability:
+  - Jede erfolgreiche Tool-/Resource-Ausfuehrung wird auditierbar protokolliert (`mcp_tool_called`, `mcp_resource_read`).
+  - Policy-Blockierungen werden als `mcp_access_blocked` sichtbar.
+  - MCP-Responses enthalten additiv `trace_id` zur Korrelation.
+
 ## Stateful Session-Modus (CLI)
 
 - Das Session-Modell ist bewusst getrennt von Inference-Providern (SRP): Sessions gehoeren zu Execution-Backends.

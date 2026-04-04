@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from agent.services.goal_service import GoalService
     from agent.services.lifecycle_service import GoalLifecycleService
     from agent.services.log_service import LogService
+    from agent.services.mcp_registry_service import MCPRegistryService
     from agent.services.openai_compat_service import OpenAICompatService
     from agent.services.planning_service import PlanningService
     from agent.services.rag_service import RagService
@@ -88,6 +89,7 @@ class CoreServiceRegistry:
     knowledge_index_retrieval_service: Any
     rag_helper_index_service: Any
     openai_compat_service: Any
+    mcp_registry_service: Any
 
 
 def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry:
@@ -106,6 +108,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
     from agent.services.lifecycle_service import get_goal_lifecycle_service
     from agent.services.log_service import get_log_service
+    from agent.services.mcp_registry_service import get_mcp_registry_service
     from agent.services.openai_compat_service import get_openai_compat_service
     from agent.services.planning_service import get_planning_service
     from agent.services.rag_service import get_rag_service
@@ -171,6 +174,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
         rag_helper_index_service=get_rag_helper_index_service(),
         openai_compat_service=get_openai_compat_service(),
+        mcp_registry_service=get_mcp_registry_service(),
     )
 
 

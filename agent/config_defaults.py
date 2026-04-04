@@ -103,6 +103,7 @@ def build_default_agent_config() -> dict:
                 "allow_agent_auth": False,
                 "allow_user_auth": False,
                 "require_admin_for_user_auth": True,
+                "emit_audit_events": True,
             },
         },
         "goal_plan_limits": {
