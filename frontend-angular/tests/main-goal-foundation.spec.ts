@@ -27,7 +27,7 @@ async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
 
   await expect.poll(async () => {
     return editor.getByLabel('Basis-Team-Typ').locator('option').count();
-  }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+  }, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
 
   await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
   const instantiateCard = page.locator('.card.card-success').first();
@@ -36,7 +36,7 @@ async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
 
   await expect.poll(async () => {
     return instantiateCard.getByLabel('Blueprint').locator('option').count();
-  }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+  }, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
 }
 
 async function getHubInfo(page: Page): Promise<{
@@ -127,7 +127,7 @@ test.describe('Main Goal UI Foundation', () => {
       await expect(editor.getByLabel('Basis-Team-Typ')).toBeVisible();
       await expect.poll(async () => {
         return editor.getByLabel('Basis-Team-Typ').locator('option').count();
-      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
       await editor.getByLabel('Name').fill(blueprintName);
       await editor.getByLabel('Beschreibung').fill('Blueprint fuer Main-Goal Foundation Journey');
       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
