@@ -39,6 +39,14 @@ Alternative ohne WSL2/Vulkan-Overlay:
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml up -d --build
 ```
 
+Wichtig fuer lokale Browser-Nutzung:
+- Der Test-Overlay `docker-compose.test.yml` setzt fuer Services wie `angular-frontend` explizit `ports: !reset []`.
+- Damit sind Frontend/Hub/Worker im Test-Stack fuer den Host absichtlich nicht direkt ueber `localhost:*` veroeffentlicht.
+- Fuer Browser-Zugriff wieder ohne Test-Overlay starten:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+```
+
 Backend:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-test
@@ -98,6 +106,17 @@ Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml down -v --remove-orphans
 ```
+
+## Windows + WSL2 (Docker in Linux-Distro)
+
+Wenn Docker direkt in Ihrer WSL2-Distro laeuft (nicht ueber Docker Desktop), kann `http://localhost:4200` auf Windows trotz aktivem Port-Mapping nicht automatisch funktionieren.
+
+Optionen:
+- Direkter Zugriff ueber WSL-IP: `http://<wsl-ip>:4200`
+- Oder `portproxy` auf Windows einrichten (Administrator-PowerShell), damit `localhost:4200` nach WSL weitergeleitet wird.
+
+Vorbereitetes Setup im Projekt:
+- `setup_host_services.ps1` richtet Firewall und `netsh interface portproxy` bereits fuer relevante Ports inkl. `4200` ein.
 
 Optional fuer lange lokale Laeufe:
 
