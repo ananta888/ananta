@@ -295,7 +295,7 @@ def test_task_propose_attaches_research_context_bridge(client, app, admin_auth_h
         _update_local_task_status(tid, "assigned", description="research competitor landscape")
         readme_path = str(app.root_path)
 
-    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
         captured["prompt"] = prompt
         captured["research_context"] = research_context
         return 0, "# Research Report\n\nSource: https://example.com/context", "", "deerflow"

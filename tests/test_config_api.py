@@ -613,6 +613,8 @@ def test_set_config_validates_cli_session_mode_shape(client, admin_token):
                 "max_turns_per_session": 12,
                 "max_sessions": 150,
                 "allow_task_scoped_auto_session": True,
+                "reuse_scope": "role",
+                "native_opencode_sessions": True,
             }
         },
         headers=headers,
@@ -623,6 +625,8 @@ def test_set_config_validates_cli_session_mode_shape(client, admin_token):
     mode = ((cfg.json.get("data") or {}).get("cli_session_mode") or {})
     assert mode.get("enabled") is True
     assert mode.get("max_turns_per_session") == 12
+    assert mode.get("reuse_scope") == "role"
+    assert mode.get("native_opencode_sessions") is True
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):

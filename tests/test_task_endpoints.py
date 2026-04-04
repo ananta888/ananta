@@ -702,7 +702,7 @@ def test_task_propose_multi_provider_uses_cli_backends(client, app, admin_auth_h
 
     calls = []
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy):
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, session=None):
         calls.append({"backend": backend, "model": model, "routing_policy": routing_policy})
         if backend == "aider":
             return 0, '{"reason":"aider path","command":"pytest -q"}', "", "aider"
@@ -755,7 +755,7 @@ def test_task_propose_multi_provider_uses_stderr_fallback_output(client, app, ad
 
         _update_local_task_status(tid, "assigned", description="Implement API and write tests")
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy):
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, session=None):
         if backend == "aider":
             return 1, "", '{"reason":"stderr compare","command":"echo compare"}', "aider"
         return 1, "", "unsupported", backend
@@ -814,7 +814,7 @@ def test_task_propose_repairs_invalid_output_with_followup_prompt(client, app, a
 
     calls = {"count": 0}
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
         calls["count"] += 1
         if calls["count"] == 1:
             assert model == "primary-model-a"
@@ -866,7 +866,7 @@ def test_task_propose_repairs_invalid_output_after_opencode_failure(client, app,
 
     calls = []
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
         calls.append({"backend": backend, "model": model, "prompt": prompt})
         if len(calls) == 1:
             assert backend == "opencode"
@@ -932,7 +932,7 @@ def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, ap
             {"name": "blocked_tool", "description": "Blocked"},
         ]
 
-    def _fake_cli(prompt, options, timeout, backend, model, routing_policy):
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, session=None):
         captured["prompt"] = prompt
         return 0, '{"reason":"ok","command":"echo done"}', "", "aider"
 
@@ -959,7 +959,7 @@ def test_task_propose_passes_temperature_to_cli_and_exposes_routing_field(client
 
     captured: dict = {}
 
-    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None):
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None, session=None):
         captured["temperature"] = temperature
         return 0, '{"reason":"ok","command":"echo temp"}', "", backend
 
@@ -1001,7 +1001,7 @@ def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admi
 
     prompts = []
 
-    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
         prompts.append(prompt)
         if len(prompts) == 1:
             return 0, '{"reason":"turn-1","command":"echo one"}', "", "opencode"

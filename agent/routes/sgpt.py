@@ -76,7 +76,15 @@ def _cli_session_policy() -> dict:
         "stateful_backends": backends,
         "max_turns_per_session": max(1, min(int(mode.get("max_turns_per_session") or 40), 200)),
         "max_sessions": max(1, min(int(mode.get("max_sessions") or 200), 2000)),
+        "reuse_scope": str(mode.get("reuse_scope") or "task").strip().lower() or "task",
+        "native_opencode_sessions": bool(mode.get("native_opencode_sessions", False)),
     }
+
+
+def _has_native_opencode_runtime(session: dict | None) -> bool:
+    metadata = (session or {}).get("metadata") if isinstance((session or {}).get("metadata"), dict) else {}
+    runtime_meta = metadata.get("opencode_runtime") if isinstance(metadata.get("opencode_runtime"), dict) else {}
+    return str(runtime_meta.get("kind") or "").strip().lower() == "native_server"
 
 
 def _build_cli_error_details(errors: str, backend_used: str) -> dict | None:
@@ -410,10 +418,19 @@ def create_cli_session():
     session = get_cli_session_service().create_session(
         backend=backend,
         model=data.get("model"),
-        metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
+        metadata={
+            **(data.get("metadata") if isinstance(data.get("metadata"), dict) else {}),
+            "scope_kind": "conversation" if str(data.get("conversation_id") or "").strip() else "session",
+            "scope_key": str(data.get("conversation_id") or "").strip() or f"session:{uuid.uuid4()}",
+        },
         task_id=data.get("task_id"),
         conversation_id=data.get("conversation_id"),
     )
+    if backend == "opencode" and policy.get("native_opencode_sessions"):
+        from agent.services.opencode_runtime_service import get_opencode_runtime_service
+
+        get_opencode_runtime_service().ensure_session_runtime(session, model=data.get("model"))
+        session = get_cli_session_service().get_session(session["id"], include_history=False) or session
     get_cli_session_service().prune_sessions(max_sessions=policy["max_sessions"])
     return api_response(data={"session": session, "policy": policy}, code=201)
 
@@ -474,11 +491,13 @@ def run_cli_session_turn(session_id: str):
     if backend == "sgpt" and "--no-interaction" not in safe_options:
         safe_options.append("--no-interaction")
     policy = _cli_session_policy()
-    effective_prompt = get_cli_session_service().build_prompt_with_history(
-        session_id=session_id,
-        prompt=prompt,
-        max_turns=policy["max_turns_per_session"],
-    ) or prompt
+    effective_prompt = prompt
+    if not _has_native_opencode_runtime(session):
+        effective_prompt = get_cli_session_service().build_prompt_with_history(
+            session_id=session_id,
+            prompt=prompt,
+            max_turns=policy["max_turns_per_session"],
+        ) or prompt
     task_kind = normalize_task_kind(data.get("task_kind"), prompt)
     rc, out, err, backend_used = run_llm_cli_command(
         effective_prompt,
@@ -486,6 +505,7 @@ def run_cli_session_turn(session_id: str):
         backend=backend,
         model=data.get("model") or session.get("model"),
         routing_policy={"mode": "stateful_session", "task_kind": task_kind, "policy_version": "session-v1"},
+        session=session,
     )
     if rc != 0 and not out:
         return api_response(status="error", message=err or f"backend '{backend_used}' failed with exit code {rc}", code=500)

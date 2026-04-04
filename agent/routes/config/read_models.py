@@ -104,6 +104,8 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
                 "max_turns_per_session": int(cli_session_mode.get("max_turns_per_session") or 40),
                 "max_sessions": int(cli_session_mode.get("max_sessions") or 200),
                 "allow_task_scoped_auto_session": bool(cli_session_mode.get("allow_task_scoped_auto_session", True)),
+                "reuse_scope": str(cli_session_mode.get("reuse_scope") or "task"),
+                "native_opencode_sessions": bool(cli_session_mode.get("native_opencode_sessions", False)),
                 "runtime": get_cli_session_service().snapshot(),
             },
         },

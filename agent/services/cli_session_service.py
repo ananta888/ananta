@@ -73,6 +73,32 @@ class CliSessionService:
             entry.pop("history", None)
             return deepcopy(entry)
 
+    def find_active_session(
+        self,
+        *,
+        backend: str | None = None,
+        scope_key: str | None = None,
+        scope_kind: str | None = None,
+    ) -> dict | None:
+        backend_name = str(backend or "").strip().lower() or None
+        scope_value = str(scope_key or "").strip() or None
+        scope_type = str(scope_kind or "").strip().lower() or None
+        with self._lock:
+            items = list(self._sessions.values())
+        items.sort(key=lambda item: float(item.get("updated_at") or 0), reverse=True)
+        for item in items:
+            if str(item.get("status") or "").strip().lower() != "active":
+                continue
+            if backend_name and str(item.get("backend") or "").strip().lower() != backend_name:
+                continue
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            if scope_value and str(metadata.get("scope_key") or "").strip() != scope_value:
+                continue
+            if scope_type and str(metadata.get("scope_kind") or "").strip().lower() != scope_type:
+                continue
+            return deepcopy(item)
+        return None
+
     def close_session(self, session_id: str) -> dict | None:
         sid = str(session_id or "").strip()
         if not sid:
@@ -129,6 +155,32 @@ class CliSessionService:
             if model:
                 item["model"] = str(model).strip()
             return deepcopy(turn)
+
+    def update_session(
+        self,
+        session_id: str,
+        *,
+        model: str | None = None,
+        status: str | None = None,
+        metadata_updates: dict | None = None,
+    ) -> dict | None:
+        sid = str(session_id or "").strip()
+        if not sid:
+            return None
+        with self._lock:
+            item = self._sessions.get(sid)
+            if item is None:
+                return None
+            if model is not None:
+                item["model"] = str(model).strip() or None
+            if status is not None:
+                item["status"] = str(status).strip() or item.get("status")
+            if metadata_updates:
+                merged = dict(item.get("metadata") or {})
+                merged.update(dict(metadata_updates))
+                item["metadata"] = merged
+            item["updated_at"] = time.time()
+            return deepcopy(item)
 
     def build_prompt_with_history(self, *, session_id: str, prompt: str, max_turns: int = 8) -> str | None:
         session = self.get_session(session_id, include_history=True)

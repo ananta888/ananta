@@ -39,6 +39,8 @@ def build_worker_execution_config(
             "max_turns_per_session": 40,
             "max_sessions": 200,
             "allow_task_scoped_auto_session": True,
+            "reuse_scope": "role" if execution_backend == "opencode" else "task",
+            "native_opencode_sessions": execution_backend == "opencode",
         },
         "role_model_overrides": role_model_overrides,
         "template_model_overrides": {},
