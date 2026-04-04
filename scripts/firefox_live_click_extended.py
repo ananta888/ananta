@@ -299,7 +299,7 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
 
-def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
+def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float, goal_wait_seconds: float):
     t0 = time.time()
     step_nav(session_id, "/auto-planner")
     goal_name = f"Live Goal {int(time.time())}"
@@ -317,7 +317,11 @@ def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_second
             [goal_name],
         ).get("value")
     )
-    goal_result = wait_for(session_id, "return !!document.querySelector('[data-testid=\"goal-submit-result\"]')", 35)
+    goal_result = wait_for(
+        session_id,
+        "return !!document.querySelector('[data-testid=\"goal-submit-result\"]')",
+        int(max(20, goal_wait_seconds)),
+    )
     goal_result_details = js(
         session_id,
         """
@@ -417,12 +421,13 @@ def run_phase(
     hard_fail: bool,
     step_delay_seconds: float,
     wait_tasks_seconds: float,
+    goal_wait_seconds: float,
     bootstrap_setup: bool,
 ):
     if phase == "setup":
         phase_setup(session_id, report, hard_fail, step_delay_seconds, bootstrap_setup)
     elif phase == "goal":
-        phase_goal(session_id, report, hard_fail, step_delay_seconds)
+        phase_goal(session_id, report, hard_fail, step_delay_seconds, goal_wait_seconds)
     elif phase == "execution":
         phase_execution(session_id, report, hard_fail, step_delay_seconds, wait_tasks_seconds)
     elif phase == "review":
@@ -467,6 +472,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="How long execution phase waits on /board for visible task cards.",
     )
     p.add_argument(
+        "--goal-wait-seconds",
+        type=float,
+        default=90.0,
+        help="How long goal phase waits for a visible goal result panel.",
+    )
+    p.add_argument(
         "--skip-setup-bootstrap",
         action="store_true",
         help="Run only login in setup phase (no template/blueprint/team bootstrap).",
@@ -499,6 +510,7 @@ def main():
 
     step_delay_seconds = max(0.0, float(args.step_delay_seconds))
     wait_tasks_seconds = max(5.0, float(args.wait_tasks_seconds))
+    goal_wait_seconds = max(20.0, float(args.goal_wait_seconds))
     bootstrap_setup = not args.skip_setup_bootstrap
     if replay_report and step_delay_seconds == 0.0:
         step_delay_seconds = float(replay_report.get("step_delay_seconds") or 0.0)
@@ -513,6 +525,7 @@ def main():
         "hard_fail_visible_errors": hard_fail,
         "step_delay_seconds": step_delay_seconds,
         "wait_tasks_seconds": wait_tasks_seconds,
+        "goal_wait_seconds": goal_wait_seconds,
         "bootstrap_setup": bootstrap_setup,
         "replay_from_report": replay_source,
         "status": "running",
@@ -544,6 +557,7 @@ def main():
                 hard_fail,
                 step_delay_seconds,
                 wait_tasks_seconds,
+                goal_wait_seconds,
                 bootstrap_setup,
             )
             print("phase_done", phase, flush=True)
