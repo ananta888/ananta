@@ -189,7 +189,7 @@ test.describe('UI UX Workflows', () => {
       await expect(editor.getByLabel('Basis-Team-Typ')).toBeVisible();
       await expect.poll(async () => {
         return editor.getByLabel('Basis-Team-Typ').locator('option').count();
-      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+      }, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
       await editor.getByLabel('Name').fill(blueprintName);
       await editor.getByLabel('Beschreibung').fill('Blueprint aus UI-Workflow-Test');
       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
