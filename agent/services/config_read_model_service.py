@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 
+from agent.common.sgpt import resolve_codex_runtime_config
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_profiles import resolve_runtime_profile
 from agent.runtime_policy import review_policy
@@ -109,6 +110,7 @@ class ConfigReadModelService:
             },
         }
         recommended_runtime = benchmark_recommendation.get("recommended") if isinstance(benchmark_recommendation, dict) else None
+        codex_runtime = resolve_codex_runtime_config()
         effective_runtime = {
             "provider": (recommended_runtime or {}).get("provider") or configured_runtime["provider"],
             "model": (recommended_runtime or {}).get("model") or configured_runtime["model"],
@@ -208,6 +210,23 @@ class ConfigReadModelService:
                 "exposure": {
                     "openai_compat": exposure_policy.get("openai_compat") or {},
                     "mcp": exposure_policy.get("mcp") or {},
+                },
+                "routing_split": {
+                    "inference": {
+                        "default_provider": effective_default_provider,
+                        "default_model": effective_default_model,
+                    },
+                    "execution": {
+                        "default_backend": str(cfg.get("sgpt_execution_backend") or "sgpt").strip().lower(),
+                        "codex_target_provider": codex_runtime.get("target_provider"),
+                        "codex_target_kind": codex_runtime.get("target_kind"),
+                        "codex_target_provider_type": codex_runtime.get("target_provider_type"),
+                        "codex_target_base_url": codex_runtime.get("base_url"),
+                        "codex_remote_hub": bool(codex_runtime.get("remote_hub")),
+                        "codex_instance_id": codex_runtime.get("instance_id"),
+                        "codex_max_hops": codex_runtime.get("max_hops"),
+                        "codex_diagnostics": list(codex_runtime.get("diagnostics") or []),
+                    },
                 },
             },
             "benchmarks": {

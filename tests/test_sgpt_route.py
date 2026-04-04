@@ -171,6 +171,7 @@ def test_sgpt_backends_endpoint(client, admin_auth_header):
     assert "supported_backends" in data
     assert "runtime" in data
     assert "preflight" in data
+    assert "routing_dimensions" in data
     assert "sgpt" in data["supported_backends"]
     assert "codex" in data["supported_backends"]
     assert "opencode" in data["supported_backends"]
@@ -209,6 +210,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
 
     assert response.status_code == 200
     preflight = response.json["data"]["preflight"]
+    routing_dimensions = response.json["data"]["routing_dimensions"]
     assert preflight["cli_backends"]["codex"]["binary_available"] is True
     assert preflight["cli_backends"]["aider"]["binary_available"] is False
     assert preflight["cli_backends"]["codex"]["install_hint"] == "npm i -g @openai/codex"
@@ -217,6 +219,8 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
     assert preflight["providers"]["lmstudio"]["candidate_count"] == 3
     assert str(preflight["providers"]["codex"]["base_url"]).endswith("/v1")
     assert preflight["providers"]["codex"]["api_key_configured"] is True
+    assert routing_dimensions["execution_backend_default"] == "codex"
+    assert (routing_dimensions.get("codex_runtime_target") or {}).get("target_kind") in {"local_openai", "remote_openai_compatible", "remote_ananta_hub"}
 
 
 def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_auth_header):
@@ -243,6 +247,7 @@ def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_
     assert response.status_code == 200
     providers = response.json["data"]["preflight"]["providers"]["local_openai"]
     assert any(item["provider"] == "vllm_local" and item["base_url"] == "http://127.0.0.1:8010/v1" for item in providers)
+    assert any(item["provider"] == "vllm_local" and item["provider_type"] == "local_openai_compatible" for item in providers)
 
 
 def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client, admin_auth_header):

@@ -24,6 +24,8 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
         assert response.json["data"]["backend"] == "aider"
         assert response.json["data"]["pipeline"]["pipeline"] == "task_propose"
         assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "codex", "opencode", "mistral_code"}
+        assert response.json["data"]["routing"]["execution_backend"] in {"aider", "sgpt", "codex", "opencode", "mistral_code"}
+        assert "inference_provider" in response.json["data"]["routing"]
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
 
@@ -45,6 +47,7 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
         assert response.status_code == 200
         assert response.json["data"]["output"] == "hello"
         assert response.json["data"]["cost_summary"]["cost_units"] >= 0
+        assert "execution_backend" in response.json["data"]["cost_summary"]
         assert response.json["data"]["pipeline"]["pipeline"] == "task_execute"
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
@@ -55,6 +58,7 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
             execution_events = [h for h in hist if h.get("event_type") == "execution_result"]
             assert execution_events
             assert execution_events[-1]["cost_summary"]["tokens_total"] > 0
+            assert ((t.get("verification_status") or {}).get("execution_routing") or {}).get("execution_backend")
 
 
 def test_task_specific_endpoints_old_path_fail(client, admin_auth_header):

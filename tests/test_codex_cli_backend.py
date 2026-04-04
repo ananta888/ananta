@@ -165,6 +165,7 @@ def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
     assert preflight["providers"]["codex"]["base_url"] == "http://192.168.1.25:1234/v1"
     assert preflight["providers"]["codex"]["base_url_source"] == "lmstudio_url"
     assert preflight["providers"]["codex"]["api_key_source"] == "local_dummy"
+    assert preflight["providers"]["codex"]["target_kind"] in {"local_openai", "remote_openai_compatible", "remote_ananta_hub"}
 
 
 def test_get_cli_backend_preflight_normalizes_lmstudio_models_url_input(app):
@@ -371,6 +372,64 @@ def test_resolve_codex_runtime_config_supports_custom_local_openai_target(app):
     assert resolved["target_provider"] == "vllm_local"
     assert resolved["base_url_source"] == "codex_cli.target_provider:vllm_local"
     assert resolved["api_key"] == "sk-local-vllm"
+    assert resolved["target_kind"] == "local_openai"
+
+
+def test_resolve_codex_runtime_config_marks_remote_ananta_target_kind(app):
+    from agent.common.sgpt import resolve_codex_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "codex_cli": {"target_provider": "ananta_remote_prod"},
+            "remote_ananta_backends": [
+                {
+                    "id": "ananta_remote_prod",
+                    "base_url": "https://remote-ananta.example/v1/chat/completions",
+                    "instance_id": "hub-remote-1",
+                    "max_hops": 6,
+                }
+            ],
+        }
+        app.config["PROVIDER_URLS"] = {}
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "openai"
+            mock_settings.lmstudio_url = ""
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = "sk-cloud"
+
+            resolved = resolve_codex_runtime_config()
+
+    assert resolved["target_provider"] == "ananta_remote_prod"
+    assert resolved["target_kind"] == "remote_ananta_hub"
+    assert resolved["remote_hub"] is True
+    assert resolved["instance_id"] == "hub-remote-1"
+    assert resolved["max_hops"] == 6
+
+
+def test_run_codex_command_fails_closed_when_runtime_target_missing(app):
+    from agent.common.sgpt import run_codex_command
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {"default_provider": "openai", "codex_cli": {"prefer_lmstudio": False}}
+        app.config["PROVIDER_URLS"] = {}
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\codex.cmd"),
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.subprocess.run") as mock_run,
+        ):
+            mock_settings.codex_path = "codex"
+            mock_settings.codex_default_model = "gpt-5-codex"
+            mock_settings.default_provider = "openai"
+            mock_settings.openai_url = ""
+            mock_settings.openai_api_key = None
+            mock_settings.lmstudio_url = ""
+
+            rc, out, err = run_codex_command("generate fix")
+
+    assert rc == -1
+    assert out == ""
+    assert "missing OpenAI-compatible base_url" in err
+    mock_run.assert_not_called()
 
 
 def test_run_llm_cli_command_falls_back_from_codex_to_opencode_for_degraded_auto_mode():

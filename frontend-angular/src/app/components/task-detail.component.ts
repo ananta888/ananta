@@ -113,6 +113,14 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                 <div class="muted">Provider / Model</div>
                 <strong>{{ latestExecutionCostSummary()?.provider || '—' }} / {{ latestExecutionCostSummary()?.model || '—' }}</strong>
               </div>
+              <div>
+                <div class="muted">Inference Routing</div>
+                <strong>{{ effectiveExecutionRoutingSummary()?.inference_provider || '—' }} / {{ effectiveExecutionRoutingSummary()?.inference_model || '—' }}</strong>
+              </div>
+              <div>
+                <div class="muted">Execution Backend</div>
+                <strong>{{ effectiveExecutionRoutingSummary()?.execution_backend || '—' }}</strong>
+              </div>
             </div>
           </div>
         }
@@ -854,5 +862,33 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     const history = Array.isArray(this.task?.history) ? [...this.task.history].reverse() : [];
     const executionEvent = history.find((ev: any) => ev?.cost_summary && (ev?.event_type === 'execution_result' || ev?.event_type === 'proposal_result'));
     return executionEvent?.cost_summary || null;
+  }
+
+  proposalRoutingDimensions(): any {
+    const routing = this.task?.last_proposal?.routing;
+    if (!routing || typeof routing !== 'object') return null;
+    return routing;
+  }
+
+  effectiveExecutionRoutingSummary(): any {
+    const verified = this.task?.verification_status?.execution_routing;
+    if (verified && typeof verified === 'object') return verified;
+    const cost = this.latestExecutionCostSummary();
+    if (cost && typeof cost === 'object' && (cost.inference_provider || cost.execution_backend)) {
+      return {
+        inference_provider: cost.inference_provider,
+        inference_model: cost.inference_model,
+        execution_backend: cost.execution_backend,
+      };
+    }
+    const proposalRouting = this.proposalRoutingDimensions();
+    if (proposalRouting && typeof proposalRouting === 'object') {
+      return {
+        inference_provider: proposalRouting.inference_provider,
+        inference_model: proposalRouting.inference_model,
+        execution_backend: proposalRouting.execution_backend || proposalRouting.effective_backend,
+      };
+    }
+    return null;
   }
 }

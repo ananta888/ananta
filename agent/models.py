@@ -44,6 +44,9 @@ class TaskStepExecuteResponse(SQLModel):
 class CostSummaryContract(SQLModel):
     provider: Optional[str] = None
     model: Optional[str] = None
+    inference_provider: Optional[str] = None
+    inference_model: Optional[str] = None
+    execution_backend: Optional[str] = None
     task_kind: Optional[str] = None
     tokens_total: int = 0
     cost_units: float = 0.0
@@ -60,6 +63,16 @@ class TaskCliResultContract(SQLModel):
 class TaskRoutingContract(SQLModel):
     task_kind: Optional[str] = None
     effective_backend: Optional[str] = None
+    requested_backend: Optional[str] = None
+    execution_backend: Optional[str] = None
+    inference_provider: Optional[str] = None
+    inference_model: Optional[str] = None
+    inference_base_url: Optional[str] = None
+    inference_target_kind: Optional[str] = None
+    inference_target_provider_type: Optional[str] = None
+    remote_hub: bool = False
+    instance_id: Optional[str] = None
+    max_hops: Optional[int] = None
     reason: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
     research_specialization: Optional[str] = None

@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-04T02:08:20+02:00",
+  "updated": "2026-04-04T03:05:10+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -200,7 +200,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "Transparency, OCP, Testability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/common/sgpt.py",
@@ -213,6 +213,11 @@
             "Codex-CLI-Zielkonfiguration ist fuer Nutzer und Preflight klar sichtbar.",
             "Lokale OpenAI-kompatible Ziele und Remote-Hubs werden sauber unterschieden.",
             "Fehlkonfigurationen fuehren zu expliziten Diagnosen."
+          ],
+          "notes": [
+            "2026-04-04: Codex-Runtime expose't jetzt `target_kind`/`target_provider_type`/`remote_hub`/`instance_id`/`max_hops` konsistent in Runtime+Preflight.",
+            "2026-04-04: Fail-closed Diagnostik fuer fehlendes Codex-Base-URL/API-Key bei Remote-Zielen in `run_codex_command` eingefuehrt.",
+            "2026-04-04: Tests fuer Remote-Ananta-Targeting und fehlende Codex-Runtime-Konfiguration ergaenzt."
           ]
         },
         {
@@ -222,7 +227,7 @@
           "priority": "high",
           "type": "spike",
           "principle": "Explicit-Decision, Reliability, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/common/sgpt.py",
@@ -258,6 +263,11 @@
             "Read-Models unterscheiden explizit zwischen inference_provider und execution_backend.",
             "Task-/Pipeline-Metadaten zeigen beide Dimensionen nachvollziehbar.",
             "UI und API verwenden konsistente Begriffe."
+          ],
+          "notes": [
+            "2026-04-04: Task-Routing erweitert um getrennte Routing-Dimensionen (`execution_backend` vs `inference_provider`/`inference_model`) inkl. Codex-Target-Metadaten.",
+            "2026-04-04: Execution-Kostensummary/Verification persistieren jetzt explizite Routing-Dimensionen fuer Task-Historie und Read-Back.",
+            "2026-04-04: UI zeigt getrennte Inference-/Execution-Routingwerte in Settings und Task-Detail an."
           ]
         },
         {
@@ -496,9 +506,9 @@
   "meta": {
     "total_items": 18,
     "by_status": {
-      "completed": 4,
-      "partial": 1,
-      "open": 13
+      "completed": 6,
+      "partial": 0,
+      "open": 12
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -509,6 +519,8 @@
       "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben.",
       "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi.",
       "AIM-003, AIM-004, AIM-005 und AIM-017 sind abgeschlossen: OpenAI-Compat ist gehaertet, Remote-Hub-Provider additiv integriert und Rekursionsschutz serverseitig erzwungen.",
+      "AIM-006 ist abgeschlossen: Codex-CLI-Targeting ist fuer lokale und Remote-Hub-Ziele transparent, inkl. expliziter Fehlkonfigurationsdiagnostik.",
+      "AIM-008 ist abgeschlossen: Inference-Routing und Execution-Routing werden in API/Read-Models/UI getrennt sichtbar gemacht.",
       "AIM-018 ist teilweise umgesetzt: Exposure-Policies sind in Read-Models und Capabilities sichtbar; Session-/MCP-Live-Sicht bleibt offen."
     ],
     "recommended_order": [
