@@ -51,7 +51,12 @@
           "options": {
             "buildTarget": "ananta-angular:build:development",
             "port": 4200,
-            "host": "127.0.0.1"
+            "host": "127.0.0.1",
+            "allowedHosts": [
+              "localhost",
+              "127.0.0.1",
+              "angular-frontend"
+            ]
           },
           "configurations": {
             "development": {
