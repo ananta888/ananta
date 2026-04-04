@@ -636,6 +636,14 @@ def phase_benchmark(
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
 
     tick_results: List[dict] = []
+    autopilot_start_payload = {
+        "team_id": team_id or None,
+        "max_concurrency": 2,
+        "security_level": "medium",
+    }
+    autopilot_start_res = browser_api_json(
+        session_id, "POST", "/tasks/autopilot/start", body=autopilot_start_payload, timeout_seconds=45
+    )
     tick_start = time.time()
     for _ in range(max(0, int(benchmark_ticks))):
         tick_body = {"team_id": team_id} if team_id else {}
@@ -708,6 +716,8 @@ def phase_benchmark(
             bench_focus = item.get("focus") if isinstance(item.get("focus"), dict) else {}
             break
 
+    autopilot_stop_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
+
     workers_available_max = 0
     workers_online_max = 0
     for tick in tick_results:
@@ -719,6 +729,9 @@ def phase_benchmark(
     no_worker_blocker = workers_available_max == 0 and workers_online_max == 0
 
     ok = (
+        bool(autopilot_start_res.get("ok"))
+        and int(autopilot_start_res.get("status") or 0) < 400
+        and
         bool(bench_record_res.get("ok"))
         and int(bench_record_res.get("status") or 0) < 400
         and after_status["total"] > 0
@@ -739,6 +752,9 @@ def phase_benchmark(
             "fibonacci_mentions_in_tasks": fib_mentions,
             "autopilot_ticks_requested": int(benchmark_ticks),
             "autopilot_total_ms": autopilot_total_ms,
+            "autopilot_start_payload": autopilot_start_payload,
+            "autopilot_start_status": int(autopilot_start_res.get("status") or 0),
+            "autopilot_stop_status": int(autopilot_stop_res.get("status") or 0),
             "workers_available_max": workers_available_max,
             "workers_online_max": workers_online_max,
             "no_worker_blocker": no_worker_blocker,
