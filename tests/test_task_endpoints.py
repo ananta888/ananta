@@ -847,6 +847,61 @@ def test_task_propose_repairs_invalid_output_with_followup_prompt(client, app, a
     assert cli_result.get("repair_model") == "repair-model-x"
 
 
+def test_task_propose_repairs_invalid_output_after_opencode_failure(client, app, admin_auth_header):
+    tid = "T-PROPOSE-REPAIR-OPENCODE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["sgpt_routing"] = {
+            "policy_version": "v3",
+            "default_backend": "opencode",
+            "task_kind_backend": {"coding": "opencode"},
+        }
+        cfg["sgpt_execution_backend"] = "opencode"
+        cfg["task_propose_repair_backend"] = "sgpt"
+        cfg["task_propose_repair_model"] = "repair-model-x"
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="Implement endpoint robustly with opencode")
+
+    calls = []
+
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+        calls.append({"backend": backend, "model": model, "prompt": prompt})
+        if len(calls) == 1:
+            assert backend == "opencode"
+            assert model == "primary-model-a"
+            return 1, "", "", "opencode"
+        if len(calls) == 2:
+            assert backend == "opencode"
+            assert "Repariere die Antwort" in prompt
+            assert model == "primary-model-a"
+            return 0, '{"reason":"still invalid","tool_calls":[]}', "", "opencode"
+        assert backend == "sgpt"
+        assert "Repariere die Antwort" in prompt
+        assert model == "repair-model-x"
+        return 0, '{"reason":"repaired via fallback","command":"echo repaired"}', "", "sgpt"
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_run_llm_cli_command):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint", "model": "primary-model-a"},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert [entry["backend"] for entry in calls] == ["opencode", "opencode", "sgpt"]
+    assert data["backend"] == "sgpt"
+    assert data["command"] == "echo repaired"
+    assert data["reason"] == "repaired via fallback"
+    assert (data.get("routing") or {}).get("effective_backend") == "opencode"
+    cli_result = data.get("cli_result") or {}
+    assert cli_result.get("repair_attempted") is True
+    assert cli_result.get("repair_backend") == "sgpt"
+    assert cli_result.get("repair_model") == "repair-model-x"
+
+
 def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, app, admin_auth_header):
     tid = "T-WORKER-CONTEXT"
     captured = {}

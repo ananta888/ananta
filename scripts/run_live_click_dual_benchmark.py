@@ -10,6 +10,41 @@ from typing import Any
 from urllib import request
 
 
+def build_worker_execution_config(
+    *,
+    default_provider: str,
+    default_model: str,
+    execution_backend: str,
+    repair_backend: str,
+    repair_model: str,
+    role_model_overrides: dict[str, str],
+    task_kind_model_overrides: dict[str, str],
+) -> dict[str, Any]:
+    routed_task_kinds = ("analysis", "coding", "doc", "ops")
+    return {
+        "default_provider": default_provider,
+        "default_model": default_model,
+        "sgpt_execution_backend": execution_backend,
+        "task_propose_repair_backend": repair_backend,
+        "task_propose_repair_model": repair_model,
+        "sgpt_routing": {
+            "policy_version": "v3",
+            "default_backend": execution_backend,
+            "task_kind_backend": {task_kind: execution_backend for task_kind in routed_task_kinds},
+        },
+        "cli_session_mode": {
+            "enabled": execution_backend in {"opencode", "codex"},
+            "stateful_backends": ["opencode", "codex"],
+            "max_turns_per_session": 40,
+            "max_sessions": 200,
+            "allow_task_scoped_auto_session": True,
+        },
+        "role_model_overrides": role_model_overrides,
+        "template_model_overrides": {},
+        "task_kind_model_overrides": task_kind_model_overrides,
+    }
+
+
 def req(base: str, method: str, path: str, body: Any | None = None, token: str | None = None, timeout: int = 60) -> dict:
     headers = {"Content-Type": "application/json"}
     if token:
@@ -197,6 +232,8 @@ def main() -> int:
         "--repair-model",
         default="tensorblock-deepseek-coder-v2-lite-instruct-gguf-deepseek-coder-v2-443776354e4e:latest",
     )
+    parser.add_argument("--execution-backend", default="opencode")
+    parser.add_argument("--repair-backend", default="sgpt")
     parser.add_argument("--report-dir", default="test-reports/live-click")
     args = parser.parse_args()
 
@@ -221,21 +258,23 @@ def main() -> int:
             admin_password = container_password
 
     # Run 1: single model only
-    single_cfg_payload = {
-            "default_provider": "ollama",
-            "default_model": args.single_model,
-            "task_propose_repair_backend": "sgpt",
-            "task_propose_repair_model": args.repair_model,
-            "role_model_overrides": {},
-            "template_model_overrides": {},
-            "task_kind_model_overrides": {},
-        }
+    single_cfg_payload = build_worker_execution_config(
+        default_provider="ollama",
+        default_model=args.single_model,
+        execution_backend=args.execution_backend,
+        repair_backend=args.repair_backend,
+        repair_model=args.repair_model,
+        role_model_overrides={},
+        task_kind_model_overrides={},
+    )
     cfg_single = (
         set_config_via_hub_container(args.hub_container, single_cfg_payload)
         if use_container_config
         else set_config(args.hub_base_url.rstrip("/"), token, single_cfg_payload)
     )
     print("single_config_default_model", cfg_single.get("default_model"), flush=True)
+    print("single_config_execution_backend", cfg_single.get("sgpt_execution_backend"), flush=True)
+    print("single_config_routing", cfg_single.get("sgpt_routing"), flush=True)
     results: dict[str, Any] = {"single": {}, "mixed": {}}
     try:
         run_click_test(single_report, args.goal_text, admin_user, admin_password, [])
@@ -245,29 +284,32 @@ def main() -> int:
         results["single"]["error"] = str(exc)
 
     # Run 2: mixed model assignment by role + task-kind
-    mixed_cfg_payload = {
-            "default_provider": "ollama",
-            "default_model": args.mixed_planning_model,
-            "task_propose_repair_backend": "sgpt",
-            "task_propose_repair_model": args.repair_model,
-            "role_model_overrides": {
-                "implementer": args.mixed_coding_model,
-                "reviewer": args.mixed_review_model,
-            },
-            "task_kind_model_overrides": {
-                "planning": args.mixed_planning_model,
-                "coding": args.mixed_coding_model,
-                "review": args.mixed_review_model,
-            },
-        }
+    mixed_cfg_payload = build_worker_execution_config(
+        default_provider="ollama",
+        default_model=args.mixed_planning_model,
+        execution_backend=args.execution_backend,
+        repair_backend=args.repair_backend,
+        repair_model=args.repair_model,
+        role_model_overrides={
+            "implementer": args.mixed_coding_model,
+            "reviewer": args.mixed_review_model,
+        },
+        task_kind_model_overrides={
+            "planning": args.mixed_planning_model,
+            "coding": args.mixed_coding_model,
+            "review": args.mixed_review_model,
+        },
+    )
     cfg_mixed = (
         set_config_via_hub_container(args.hub_container, mixed_cfg_payload)
         if use_container_config
         else set_config(args.hub_base_url.rstrip("/"), token, mixed_cfg_payload)
     )
     print("mixed_config_default_model", cfg_mixed.get("default_model"), flush=True)
+    print("mixed_config_execution_backend", cfg_mixed.get("sgpt_execution_backend"), flush=True)
     print("mixed_config_role_model_overrides", cfg_mixed.get("role_model_overrides"), flush=True)
     print("mixed_config_task_kind_model_overrides", cfg_mixed.get("task_kind_model_overrides"), flush=True)
+    print("mixed_config_routing", cfg_mixed.get("sgpt_routing"), flush=True)
     try:
         run_click_test(mixed_report, args.goal_text, admin_user, admin_password, [])
         results["mixed"] = collect_benchmark_result(mixed_report)
