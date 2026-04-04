@@ -207,6 +207,25 @@ def _should_skip_threads_for_reloader() -> bool:
     return os.environ.get("WERKZEUG_RUN_MAIN") != "true" and os.environ.get("FLASK_DEBUG") == "1"
 
 
+def _check_token_rotation(app: Flask) -> None:
+    """Backward-compatible token-rotation check used by legacy tests."""
+    token_path = str((app.config or {}).get("TOKEN_PATH") or settings.token_path or "").strip()
+    if not token_path or not os.path.exists(token_path):
+        return
+    try:
+        token_data = read_json(token_path) or {}
+        last_rotation = float(token_data.get("last_rotation") or 0)
+        rotation_interval = int(settings.token_rotation_days or 7) * 86400
+        if time.time() - last_rotation > rotation_interval:
+            logging.info("Token-Rotations-Intervall erreicht. Starte Rotation...")
+            with app.app_context():
+                from agent.auth import rotate_token
+
+                rotate_token()
+    except Exception as exc:
+        logging.error(f"Fehler bei der Prüfung der Token-Rotation: {exc}")
+
+
 def _start_background_services(app: Flask) -> None:
     from agent.lifecycle import BackgroundServiceManager
     BackgroundServiceManager(app).start_all()
