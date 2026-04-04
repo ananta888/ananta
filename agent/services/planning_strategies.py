@@ -57,6 +57,35 @@ class LLMPlanningStrategy:
     def __init__(self, use_repo_context: bool) -> None:
         self._use_repo_context = bool(use_repo_context)
 
+    @staticmethod
+    def _build_planning_repair_prompt(
+        *,
+        goal: str,
+        context: str | None,
+        max_subtasks: int,
+        previous_output: str,
+    ) -> str:
+        prompt = (
+            "Der vorherige Planungs-Output war unstrukturiert oder leer.\n"
+            "Erzeuge jetzt einen reparierten Plan als strikt valides JSON.\n\n"
+            f"ZIEL:\n{goal}\n\n"
+            "ANFORDERUNGEN:\n"
+            f"1. Liefere mindestens 3 und hoechstens {max_subtasks} Teilaufgaben\n"
+            "2. Jede Teilaufgabe muss title, description, priority enthalten\n"
+            "3. priority nur: High, Medium, Low\n"
+            "4. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"])\n"
+            "5. Keine Erklaerungen, keine Markdown-Fences\n\n"
+            "AUSGABEFORMAT (nur JSON-Array):\n"
+            "[\n"
+            '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
+            "]\n\n"
+            "VORHERIGER FEHLERHAFTER OUTPUT:\n"
+            f"{(previous_output or '').strip()[:3000]}"
+        )
+        if context:
+            prompt = f"{prompt}\n\nKONTEXT:\n{context}"
+        return prompt
+
     def execute(self, planner: PlannerLike, goal: str, context: str | None) -> PlanningStrategyResult | None:
         resolved_context = context
         if self._use_repo_context and not resolved_context:
@@ -68,6 +97,21 @@ class LLMPlanningStrategy:
         llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
         subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+        if not subtasks:
+            repair_prompt = self._build_planning_repair_prompt(
+                goal=goal,
+                context=resolved_context,
+                max_subtasks=planner.max_subtasks_per_goal,
+                previous_output=raw_response,
+            )
+            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
+            repaired_subtasks = parse_subtasks_from_llm_response(
+                repaired_response,
+                default_priority=planner.default_priority,
+            )
+            if repaired_subtasks:
+                raw_response = repaired_response
+                subtasks = repaired_subtasks
         return PlanningStrategyResult(
             subtasks=subtasks,
             raw_response=raw_response,
