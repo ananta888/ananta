@@ -50,12 +50,41 @@ def _normalize_model_list(raw: Any) -> list[str]:
     return out
 
 
+def _normalize_temperature_value(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        normalized = float(value)
+    except (TypeError, ValueError):
+        return None
+    if normalized < 0.0:
+        normalized = 0.0
+    if normalized > 2.0:
+        normalized = 2.0
+    return round(normalized, 3)
+
+
+def _normalize_temperature_list(raw: Any) -> list[float]:
+    if not isinstance(raw, list):
+        return []
+    out: list[float] = []
+    seen: set[float] = set()
+    for item in raw:
+        normalized = _normalize_temperature_value(item)
+        if normalized is None or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
+
+
 def _strategy_cfg(loop: Any) -> dict[str, Any]:
     cfg = loop._agent_config() or {}
     return {
         "max_attempts": max(1, min(int(cfg.get("autopilot_strategy_max_attempts") or 3), 8)),
         "cooldown_seconds": max(0, min(int(cfg.get("autopilot_strategy_retry_delay_seconds") or 20), 600)),
         "fallback_models": _normalize_model_list(cfg.get("autopilot_strategy_fallback_models")),
+        "temperature_profiles": _normalize_temperature_list(cfg.get("autopilot_strategy_temperature_profiles")),
         "adaptive_top_k": max(1, min(int(cfg.get("adaptive_model_routing_top_k") or 3), 10)),
     }
 
@@ -64,9 +93,11 @@ def _extract_strategy_state(task: Any) -> dict[str, Any]:
     verification = dict(getattr(task, "verification_status", None) or {})
     strategy = dict(verification.get("autopilot_strategy") or {})
     failed_models = _normalize_model_list(strategy.get("failed_models"))
+    failed_temperatures = _normalize_temperature_list(strategy.get("failed_temperatures"))
     failed_sources = [str(item or "").strip() for item in list(strategy.get("failed_sources") or []) if str(item or "").strip()]
     return {
         "failed_models": failed_models,
+        "failed_temperatures": failed_temperatures,
         "failed_sources": failed_sources,
         "attempt_count": max(0, int(strategy.get("attempt_count") or 0)),
     }
@@ -178,24 +209,40 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
     cfg = loop._agent_config() or {}
     strategy_cfg = _strategy_cfg(loop)
     failed_models = set(state.get("failed_models") or [])
+    failed_temperatures = set(state.get("failed_temperatures") or [])
     role_name = str(base_model_meta.get("role_name") or "").strip() or None
     template_name = str(base_model_meta.get("template_name") or "").strip() or None
     task_kind = str(base_model_meta.get("task_kind") or "analysis").strip().lower() or "analysis"
+    configured_default_temperature = _normalize_temperature_value((cfg.get("llm_config") or {}).get("temperature"))
+    temperature_profiles = list(strategy_cfg.get("temperature_profiles") or [])
+    effective_temperatures: list[float | None] = []
+    if configured_default_temperature is not None and configured_default_temperature not in failed_temperatures:
+        effective_temperatures.append(configured_default_temperature)
+    for temp in temperature_profiles:
+        if temp in failed_temperatures or temp in effective_temperatures:
+            continue
+        effective_temperatures.append(temp)
+    if not effective_temperatures:
+        effective_temperatures = [None]
 
     candidates: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
 
-    def _append(model: str | None, source: str) -> None:
+    def _append(model: str | None, source: str, temperature: float | None) -> None:
         normalized = str(model or "").strip() or None
-        key = normalized or "__none__"
+        normalized_temperature = _normalize_temperature_value(temperature)
+        if normalized_temperature is not None and normalized_temperature in failed_temperatures:
+            return
+        key = (normalized or "__none__", str(normalized_temperature))
         if key in seen:
             return
         seen.add(key)
-        candidates.append({"model": normalized, "source": source})
+        candidates.append({"model": normalized, "source": source, "temperature": normalized_temperature})
 
     selected = str(base_model_meta.get("selected_model") or "").strip()
     if selected and selected not in failed_models:
-        _append(selected, str(base_model_meta.get("source") or "base_selection"))
+        for temperature in effective_temperatures:
+            _append(selected, str(base_model_meta.get("source") or "base_selection"), temperature)
 
     if bool(cfg.get("adaptive_model_routing_enabled", True)):
         try:
@@ -213,19 +260,23 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
             for entry in learned:
                 model = str((entry or {}).get("model") or "").strip()
                 if model:
-                    _append(model, "benchmark_context_learning:ranked")
+                    for temperature in effective_temperatures:
+                        _append(model, "benchmark_context_learning:ranked", temperature)
         except Exception:
             pass
 
     for model in list(strategy_cfg["fallback_models"]):
         if model not in failed_models:
-            _append(model, "autopilot_strategy_fallback_models")
+            for temperature in effective_temperatures:
+                _append(model, "autopilot_strategy_fallback_models", temperature)
 
     default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip()
     if default_model and default_model not in failed_models:
-        _append(default_model, "agent_default_model")
+        for temperature in effective_temperatures:
+            _append(default_model, "agent_default_model", temperature)
 
-    _append(None, "worker_default_no_override")
+    for temperature in effective_temperatures:
+        _append(None, "worker_default_no_override", temperature)
     max_attempts = int(strategy_cfg["max_attempts"])
     return candidates[:max_attempts]
 
@@ -432,14 +483,18 @@ def execute_autopilot_tick(
                 propose_payload: dict[str, Any] = {"task_id": task.id}
                 candidate_model = candidate.get("model")
                 candidate_source = str(candidate.get("source") or "strategy")
+                candidate_temperature = _normalize_temperature_value(candidate.get("temperature"))
                 if candidate_model:
                     propose_payload["model"] = candidate_model
+                if candidate_temperature is not None:
+                    propose_payload["temperature"] = candidate_temperature
                 append_trace_event(
                     task.id,
                     "autopilot_strategy_attempt",
                     delegated_to=target_worker.url,
                     attempt=attempt_index,
                     model=candidate_model,
+                    temperature=candidate_temperature,
                     source=candidate_source,
                 )
                 try:
@@ -454,6 +509,7 @@ def execute_autopilot_tick(
                         {
                             "attempt": attempt_index,
                             "model": candidate_model,
+                            "temperature": candidate_temperature,
                             "source": candidate_source,
                             "reason": str(strategy_exc),
                             "failure_type": "forward_error",
@@ -466,6 +522,7 @@ def execute_autopilot_tick(
                         "attempt": attempt_index,
                         "source": candidate_source,
                         "selected_model": candidate_model,
+                        "selected_temperature": candidate_temperature,
                     }
                     propose_data = candidate_data
                     break
@@ -473,6 +530,7 @@ def execute_autopilot_tick(
                     {
                         "attempt": attempt_index,
                         "model": candidate_model,
+                        "temperature": candidate_temperature,
                         "source": candidate_source,
                         "reason": str(candidate_snapshot.get("reason") or "autopilot_no_executable_step"),
                         "failure_type": "invalid_proposal",
@@ -485,11 +543,15 @@ def execute_autopilot_tick(
                 cooldown_seconds = int(strategy_cfg["cooldown_seconds"])
                 now_ts = time.time()
                 failed_models = list(strategy_state.get("failed_models") or [])
+                failed_temperatures = list(strategy_state.get("failed_temperatures") or [])
                 failed_sources = list(strategy_state.get("failed_sources") or [])
                 for item in strategy_failures:
                     model = str(item.get("model") or "").strip()
                     if model and model not in failed_models:
                         failed_models.append(model)
+                    temperature = _normalize_temperature_value(item.get("temperature"))
+                    if temperature is not None and temperature not in failed_temperatures:
+                        failed_temperatures.append(temperature)
                     source = str(item.get("source") or "").strip()
                     if source and source not in failed_sources:
                         failed_sources.append(source)
@@ -498,6 +560,7 @@ def execute_autopilot_tick(
                     "autopilot_strategy": {
                         "attempt_count": int(strategy_state.get("attempt_count") or 0) + len(strategy_failures),
                         "failed_models": failed_models,
+                        "failed_temperatures": failed_temperatures,
                         "failed_sources": failed_sources,
                         "last_failures": strategy_failures[-5:],
                         "last_failed_at": now_ts,
@@ -579,6 +642,7 @@ def execute_autopilot_tick(
             command=command,
             tool_calls=tool_calls,
             model_override=(model_meta.get("selected_model") if isinstance(model_meta, dict) else None),
+            temperature_override=(model_meta.get("selected_temperature") if isinstance(model_meta, dict) else None),
             model_override_source=(model_meta.get("source") if isinstance(model_meta, dict) else None),
             backend=proposal_snapshot.get("backend"),
             routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),

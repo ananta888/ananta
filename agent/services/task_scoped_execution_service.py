@@ -40,6 +40,20 @@ class TaskScopedRouteResponse:
 class TaskScopedExecutionService:
     """Owns task-scoped proposal/execution orchestration so routes stay thin."""
 
+    @staticmethod
+    def _normalize_temperature(value: float | int | str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return None
+        if normalized < 0.0:
+            normalized = 0.0
+        if normalized > 2.0:
+            normalized = 2.0
+        return normalized
+
     def propose_task_step(
         self,
         tid: str,
@@ -274,6 +288,7 @@ class TaskScopedExecutionService:
         cfg: dict,
     ) -> TaskScopedRouteResponse:
         task_kind = normalize_task_kind(None, base_prompt)
+        requested_temperature = self._normalize_temperature(getattr(request_data, "temperature", None))
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
         compare_policy = resolve_execution_policy(
             TaskStepExecuteRequest(timeout=timeout),
@@ -308,6 +323,8 @@ class TaskScopedExecutionService:
                 "model": selected_model,
                 "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
             }
+            if requested_temperature is not None:
+                cli_kwargs["temperature"] = requested_temperature
             if research_context:
                 cli_kwargs["research_context"] = research_context
             rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
@@ -317,6 +334,7 @@ class TaskScopedExecutionService:
             routing_dimensions = self._routing_dimensions(
                 backend_used=backend_used,
                 model=selected_model,
+                temperature=requested_temperature,
                 requested_backend=requested_backend,
                 agent_cfg=cfg,
             )
@@ -484,6 +502,14 @@ class TaskScopedExecutionService:
             agent_cfg=cfg,
         )
         prompt_for_cli = prompt
+        requested_temperature = self._normalize_temperature(getattr(request_data, "temperature", None))
+        if requested_temperature is not None:
+            prompt_for_cli = (
+                f"{prompt_for_cli}\n\n"
+                f"[Sampling-Hinweis]\n"
+                f"Ziel-Temperatur fuer diese Antwort: {requested_temperature:.2f}\n"
+                "Behalte strikt das JSON-Output-Schema ein."
+            )
         if session_payload:
             prompt_for_cli = (
                 get_cli_session_service().build_prompt_with_history(
@@ -502,6 +528,8 @@ class TaskScopedExecutionService:
             "model": request_data.model,
             "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
         }
+        if requested_temperature is not None:
+            cli_kwargs["temperature"] = requested_temperature
         if research_context:
             cli_kwargs["research_context"] = research_context
         rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
@@ -532,6 +560,7 @@ class TaskScopedExecutionService:
                 cfg=cfg,
                 primary_backend=backend_used,
                 primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                primary_temperature=requested_temperature,
                 research_context=research_context,
             )
             if repaired:
@@ -564,6 +593,7 @@ class TaskScopedExecutionService:
                 cfg=cfg,
                 primary_backend=backend_used,
                 primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                primary_temperature=requested_temperature,
                 research_context=research_context,
             )
             if repaired:
@@ -589,6 +619,7 @@ class TaskScopedExecutionService:
             **self._routing_dimensions(
                 backend_used=backend_used,
                 model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                temperature=requested_temperature,
                 requested_backend="auto",
                 agent_cfg=cfg,
             ),
@@ -680,6 +711,7 @@ class TaskScopedExecutionService:
                 cfg=cfg,
                 primary_backend=backend_used,
                 primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                primary_temperature=requested_temperature,
                 research_context=research_context,
             )
             if repaired:
@@ -1076,7 +1108,8 @@ class TaskScopedExecutionService:
         cfg: dict,
         primary_backend: str,
         primary_model: str | None,
-        research_context: dict | None,
+        primary_temperature: float | None = None,
+        research_context: dict | None = None,
     ) -> dict | None:
         default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip() or None
         first_backend = str(primary_backend or "sgpt").strip().lower()
@@ -1088,18 +1121,21 @@ class TaskScopedExecutionService:
         if repair_backend not in SUPPORTED_CLI_BACKENDS:
             repair_backend = "sgpt"
         repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
-        candidates: list[tuple[str, str | None]] = [(first_backend, first_model), (repair_backend, repair_model)]
-        deduped: list[tuple[str, str | None]] = []
-        seen: set[tuple[str, str]] = set()
-        for backend_name, model_name in candidates:
-            key = (backend_name, str(model_name or ""))
+        candidates: list[tuple[str, str | None, float | None]] = [
+            (first_backend, first_model, self._normalize_temperature(primary_temperature)),
+            (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
+        ]
+        deduped: list[tuple[str, str | None, float | None]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for backend_name, model_name, temperature in candidates:
+            key = (backend_name, str(model_name or ""), str(temperature))
             if key in seen:
                 continue
             seen.add(key)
-            deduped.append((backend_name, model_name))
+            deduped.append((backend_name, model_name, temperature))
 
         repair_prompt = self._build_repair_prompt(prompt=prompt, bad_output=bad_output, validation_error=validation_error)
-        for backend_name, model_name in deduped:
+        for backend_name, model_name, temperature in deduped:
             cli_kwargs = {
                 "prompt": repair_prompt,
                 "options": ["--no-interaction"],
@@ -1108,6 +1144,8 @@ class TaskScopedExecutionService:
                 "model": model_name,
                 "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
             }
+            if temperature is not None:
+                cli_kwargs["temperature"] = temperature
             if research_context:
                 cli_kwargs["research_context"] = research_context
             rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
@@ -1122,6 +1160,7 @@ class TaskScopedExecutionService:
                 "output_source": output_source,
                 "backend_used": backend_used,
                 "model": model_name,
+                "temperature": temperature,
                 "stderr": cli_err,
                 "rc": rc,
             }
@@ -1447,6 +1486,7 @@ class TaskScopedExecutionService:
         *,
         backend_used: str,
         model: str | None,
+        temperature: float | None = None,
         requested_backend: str = "auto",
         agent_cfg: dict | None = None,
     ) -> dict:
@@ -1457,6 +1497,7 @@ class TaskScopedExecutionService:
             "execution_backend": backend or requested or "sgpt",
             "inference_provider": None,
             "inference_model": str(model or "").strip() or None,
+            "inference_temperature": TaskScopedExecutionService._normalize_temperature(temperature),
             "inference_base_url": None,
             "inference_target_kind": None,
             "inference_target_provider_type": None,

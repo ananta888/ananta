@@ -85,6 +85,7 @@ def build_default_agent_config() -> dict:
         "autopilot_strategy_max_attempts": 3,
         "autopilot_strategy_retry_delay_seconds": 20,
         "autopilot_strategy_fallback_models": [],
+        "autopilot_strategy_temperature_profiles": [0.2, 0.5, 0.8],
         "adaptive_model_routing_enabled": True,
         "adaptive_model_routing_min_samples": 3,
         "adaptive_model_routing_top_k": 3,

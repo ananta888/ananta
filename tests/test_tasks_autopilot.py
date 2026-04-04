@@ -667,3 +667,41 @@ def test_autopilot_strategy_exhaustion_returns_task_to_hub_queue(app, monkeypatc
     assert "model-a" in list(strategy_state.get("failed_models") or [])
     assert "model-b" in list(strategy_state.get("failed_models") or [])
     assert any((entry.get("event_type") == "autopilot_strategy_exhausted") for entry in (updated.history or []))
+
+
+def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "adaptive_model_routing_enabled": False,
+        "task_kind_model_overrides": {"analysis": "model-temp"},
+        "autopilot_strategy_fallback_models": [],
+        "autopilot_strategy_temperature_profiles": [0.2, 0.9],
+        "autopilot_strategy_max_attempts": 3,
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="strategy-temp-1", title="Temp Strategy", status="todo", task_kind="analysis"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-temp:5001", name="worker-temp", role="worker", token="tok", status="online")
+    )
+    propose_attempts: list[tuple[str | None, float | None]] = []
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            propose_attempts.append((data.get("model"), data.get("temperature")))
+            if len(propose_attempts) == 1:
+                return {"status": "success", "data": {"reason": "bad", "raw": "{}"}}
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": "{\"command\":\"echo ok\"}"}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("strategy-temp-1")
+    assert res["reason"] == "ok"
+    assert res["dispatched"] == 1
+    assert propose_attempts[:2] == [("model-temp", 0.2), ("model-temp", 0.9)]
+    assert updated is not None and updated.status == "completed"
+    model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
+    assert model_selection.get("selected_model") == "model-temp"
+    assert float(model_selection.get("selected_temperature") or 0.0) == 0.9
