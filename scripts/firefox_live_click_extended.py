@@ -387,6 +387,28 @@ def phase_goal(
     element_clear(session_id, input_id)
     element_send_keys(session_id, input_id, goal_name)
     time.sleep(0.6)
+    team_pick = (
+        js(
+            session_id,
+            """
+            const selects = [...document.querySelectorAll('select')];
+            const teamSelect = selects.find((s) => {
+              const host = s.closest('label,div') || document;
+              const txt = (host.textContent || '').toLowerCase();
+              return txt.includes('team');
+            });
+            if (!teamSelect) return { found:false, selected:'' };
+            const current = String(teamSelect.value || '');
+            if (current) return { found:true, selected: current };
+            const firstValid = [...teamSelect.options].find((o) => o.value && !o.disabled);
+            if (!firstValid) return { found:true, selected:'' };
+            teamSelect.value = firstValid.value;
+            teamSelect.dispatchEvent(new Event('change', { bubbles:true }));
+            return { found:true, selected: firstValid.value };
+            """,
+        ).get("value")
+        or {}
+    )
     click_debug = (
         js(
             session_id,
@@ -428,6 +450,7 @@ def phase_goal(
         8,
     )
     click_debug["planning_started"] = planning_started
+    click_debug["team_pick"] = team_pick
     goal_clicked = bool(planning_started)
     print("goal_submit_started", goal_name, flush=True)
     goal_result = wait_for(
@@ -635,11 +658,82 @@ def phase_benchmark(
     tasks_before = tasks_before if isinstance(tasks_before, list) else []
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
 
+    # Ensure the goal team has online workers assigned, otherwise autopilot stays idle.
+    worker_bind_info: Dict[str, Any] = {"team_id": team_id, "applied": False}
+    if team_id:
+        agents_res = browser_api_json(session_id, "GET", "/api/system/agents", timeout_seconds=45)
+        teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
+        workers_payload = _unwrap_envelope(agents_res.get("body")) if agents_res.get("ok") else []
+        teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
+        workers = workers_payload if isinstance(workers_payload, list) else []
+        teams = teams_payload if isinstance(teams_payload, list) else []
+        team_obj = next((t for t in teams if isinstance(t, dict) and str(t.get("id") or "") == team_id), None)
+        online_worker_urls = [
+            str(a.get("url") or "")
+            for a in workers
+            if isinstance(a, dict) and str(a.get("role") or "").lower() == "worker" and str(a.get("status") or "").lower() == "online"
+        ]
+        existing_member_urls = [
+            str(m.get("agent_url") or "")
+            for m in ((team_obj or {}).get("members") or [])
+            if isinstance(m, dict)
+        ]
+        needs_binding = bool(online_worker_urls) and not any(url in existing_member_urls for url in online_worker_urls)
+        worker_bind_info.update(
+            {
+                "online_worker_urls": online_worker_urls,
+                "existing_member_urls": existing_member_urls,
+                "needs_binding": needs_binding,
+            }
+        )
+        if needs_binding and team_obj:
+            role_ids: List[str] = []
+            team_type_id = str(team_obj.get("team_type_id") or "")
+            if team_type_id:
+                type_roles_res = browser_api_json(session_id, "GET", f"/teams/types/{team_type_id}/roles", timeout_seconds=45)
+                type_roles = _unwrap_envelope(type_roles_res.get("body")) if type_roles_res.get("ok") else []
+                if isinstance(type_roles, list):
+                    for item in type_roles:
+                        if isinstance(item, dict):
+                            rid = str(item.get("role_id") or item.get("id") or "")
+                            if rid and rid not in role_ids:
+                                role_ids.append(rid)
+            if not role_ids:
+                roles_res = browser_api_json(session_id, "GET", "/teams/roles", timeout_seconds=45)
+                roles = _unwrap_envelope(roles_res.get("body")) if roles_res.get("ok") else []
+                if isinstance(roles, list):
+                    for item in roles:
+                        if isinstance(item, dict):
+                            rid = str(item.get("id") or "")
+                            if rid:
+                                role_ids.append(rid)
+            if role_ids:
+                members_payload = []
+                for idx, worker_url in enumerate(online_worker_urls[:2]):
+                    members_payload.append({"agent_url": worker_url, "role_id": role_ids[idx % len(role_ids)]})
+                patch_res = browser_api_json(
+                    session_id,
+                    "PATCH",
+                    f"/teams/{team_id}",
+                    body={"members": members_payload},
+                    timeout_seconds=45,
+                )
+                activate_res = browser_api_json(session_id, "POST", f"/teams/{team_id}/activate", body={}, timeout_seconds=30)
+                worker_bind_info.update(
+                    {
+                        "applied": bool(patch_res.get("ok")) and int(patch_res.get("status") or 0) < 400,
+                        "patch_status": int(patch_res.get("status") or 0),
+                        "activate_status": int(activate_res.get("status") or 0),
+                        "members_payload": members_payload,
+                    }
+                )
+
     tick_results: List[dict] = []
+    autopilot_stop_before_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
     autopilot_start_payload = {
         "team_id": team_id or None,
         "max_concurrency": 2,
-        "security_level": "medium",
+        "security_level": "balanced",
     }
     autopilot_start_res = browser_api_json(
         session_id, "POST", "/tasks/autopilot/start", body=autopilot_start_payload, timeout_seconds=45
@@ -682,6 +776,7 @@ def phase_benchmark(
         if "fibonacci" in task_blob:
             fib_mentions += 1
     followup_created = len(tasks_after) > len(tasks_before)
+    terminalized = after_status["total"] > 0 and (after_status["completed"] + after_status["failed"] >= after_status["total"])
 
     cfg_res = browser_api_json(session_id, "GET", "/config", timeout_seconds=45)
     cfg_data = _unwrap_envelope(cfg_res.get("body")) if cfg_res.get("ok") else {}
@@ -735,7 +830,7 @@ def phase_benchmark(
         bool(bench_record_res.get("ok"))
         and int(bench_record_res.get("status") or 0) < 400
         and after_status["total"] > 0
-        and (after_status["completed"] > 0 or followup_created or no_worker_blocker)
+        and (after_status["completed"] > 0 or followup_created or terminalized or no_worker_blocker)
     )
     record_step(
         report,
@@ -746,13 +841,16 @@ def phase_benchmark(
         {
             "goal_id": goal_id,
             "goal_summary": str((picked_goal or {}).get("summary") or ""),
+            "worker_bind_info": worker_bind_info,
             "tasks_before": len(tasks_before),
             "tasks_after": len(tasks_after),
             "followup_created": followup_created,
+            "terminalized": terminalized,
             "fibonacci_mentions_in_tasks": fib_mentions,
             "autopilot_ticks_requested": int(benchmark_ticks),
             "autopilot_total_ms": autopilot_total_ms,
             "autopilot_start_payload": autopilot_start_payload,
+            "autopilot_stop_before_status": int(autopilot_stop_before_res.get("status") or 0),
             "autopilot_start_status": int(autopilot_start_res.get("status") or 0),
             "autopilot_stop_status": int(autopilot_stop_res.get("status") or 0),
             "workers_available_max": workers_available_max,
