@@ -16,13 +16,9 @@ export class AgentDirectoryService {
 
   constructor() {
     this.load();
+    this.applyRuntimeDefaults();
     if (this.agents.length === 0) {
-      // sensible defaults matching docker-compose
-      this.agents = [
-        { name: 'hub', url: 'http://localhost:5000', token: '', role: 'hub' },
-        { name: 'alpha', url: 'http://localhost:5001', token: '', role: 'worker' },
-        { name: 'beta', url: 'http://localhost:5002', token: '', role: 'worker' }
-      ];
+      this.agents = this.defaultAgentsForCurrentHost();
       this.save();
     }
   }
@@ -60,5 +56,57 @@ export class AgentDirectoryService {
       }));
       localStorage.setItem(LS_KEY, JSON.stringify(toSave));
     } catch {}
+  }
+
+  private currentHostname(): string {
+    try {
+      return (globalThis?.location?.hostname || '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }
+
+  private isComposeInternalFrontendHost(): boolean {
+    return this.currentHostname() === 'angular-frontend';
+  }
+
+  private defaultAgentsForCurrentHost(): AgentEntry[] {
+    if (this.isComposeInternalFrontendHost()) {
+      return [
+        { name: 'hub', url: 'http://ai-agent-hub:5000', token: '', role: 'hub' },
+        { name: 'alpha', url: 'http://ai-agent-alpha:5000', token: '', role: 'worker' },
+        { name: 'beta', url: 'http://ai-agent-beta:5000', token: '', role: 'worker' }
+      ];
+    }
+    // sensible defaults for host/browser usage
+    return [
+      { name: 'hub', url: 'http://localhost:5000', token: '', role: 'hub' },
+      { name: 'alpha', url: 'http://localhost:5001', token: '', role: 'worker' },
+      { name: 'beta', url: 'http://localhost:5002', token: '', role: 'worker' }
+    ];
+  }
+
+  private applyRuntimeDefaults() {
+    if (!this.isComposeInternalFrontendHost() || this.agents.length === 0) return;
+
+    let changed = false;
+    const byName: Record<string, string> = {
+      hub: 'http://ai-agent-hub:5000',
+      alpha: 'http://ai-agent-alpha:5000',
+      beta: 'http://ai-agent-beta:5000',
+    };
+
+    this.agents = this.agents.map((a) => {
+      const expectedUrl = byName[a.name || ''];
+      if (!expectedUrl) return a;
+      const current = (a.url || '').toLowerCase();
+      if (current.includes('localhost') || current.includes('127.0.0.1')) {
+        changed = true;
+        return { ...a, url: expectedUrl };
+      }
+      return a;
+    });
+
+    if (changed) this.save();
   }
 }
