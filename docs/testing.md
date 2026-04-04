@@ -18,6 +18,36 @@ Aufbauende E2E-Abdeckung:
 
 Ziel ist, dass ein Nutzer ohne grosse Vor-Konfiguration direkt ueber die Oberflaeche einen sinnvollen Scrum-Startpunkt nutzen kann und der gesamte Hub->Worker-Prozess sichtbar bleibt.
 
+## Runbook: Aufbauende E2E-Reihenfolge
+
+Empfohlene Reihenfolge von klein nach gross:
+
+1. `main-goal-foundation.spec.ts` (Setup-Sicherheit)
+2. `main-goal-planning.spec.ts` (Goal+Team-Zuordnung)
+3. `main-goal-execution.spec.ts` (Hub->Worker Ausfuehrung)
+4. `main-goal-observability.spec.ts` (Board/Details/Logs/Artifacts)
+5. `ui-ux-console.spec.ts` (Browser-Fehler + sichtbare Error-Overlays)
+
+Beispielaufrufe:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-foundation.spec.ts --reporter=line
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-planning.spec.ts --reporter=line
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-execution.spec.ts --reporter=line
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-observability.spec.ts --reporter=line
+```
+
+Erwartete Signale je Stufe:
+- Foundation: reproduzierbare Erstellung von Template/Blueprint/Team.
+- Planning: Goal-Request enthaelt korrektes `team_id`.
+- Execution: mindestens ein Task wird einem Worker zugewiesen und erreicht terminalen Status.
+- Observability: Board/Task-Detail/Logs/Artifacts sind bedienbar und konsistent.
+
+Troubleshooting je Stufe:
+- Foundation faellt aus: zuerst `templates`/`teams` im UI pruefen und Testdaten bereinigen.
+- Planning faellt aus: Team-Auswahl und Planner-Konfiguration (`/tasks/auto-planner/configure`) pruefen.
+- Execution faellt aus: Worker-Registrierung, Agent-Health und Autopilot-Ticks pruefen.
+- Observability faellt aus: Console-Errors, sichtbare Error-Toasts, Tab-Selektoren und API-Mocks pruefen.
+
 ## Lite Compose Standard (E2E)
 
 Standard for local E2E runs is the existing lite docker environment:
@@ -191,9 +221,19 @@ python3 scripts/firefox_live_click_extended.py --phases setup
 python3 scripts/firefox_live_click_extended.py --phases goal,execution,review
 ```
 
+Beobachtbarer Slow-Mode:
+```bash
+python3 scripts/firefox_live_click_extended.py --phases all --step-delay-seconds 1.5
+```
+
 Explizite Report-Datei:
 ```bash
 python3 scripts/firefox_live_click_extended.py --report-file test-reports/live-click/manual-run.json
+```
+
+Replay eines frueheren Laufs (Phasen/Flags aus Report wiederverwenden):
+```bash
+python3 scripts/firefox_live_click_extended.py --replay-from-report test-reports/live-click/manual-run.json
 ```
 
 Standard-Phasen:
@@ -209,6 +249,17 @@ Reporting:
 Harte Fehler-Gates:
 - Sichtbare UI-Fehler (`.notification.error`, `.toast.toast-error`, `[role="alert"]`) brechen den Run standardmaessig sofort ab.
 - Fuer reine Beobachtung ohne Abbruch: `--allow-visible-errors`
+
+Firefox-VNC Container:
+```bash
+scripts/start-firefox-vnc.sh start
+scripts/start-firefox-vnc.sh status
+scripts/start-firefox-vnc.sh stop
+```
+
+Hinweis:
+- noVNC-URL: `http://localhost:7900`
+- Standardpasswort im Selenium-Firefox-Container: `secret`
 
 ## Bekannte Probleme
 

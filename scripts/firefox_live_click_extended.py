@@ -100,6 +100,11 @@ def step_nav(session_id: str, route: str, settle_s: float = 1.5):
     time.sleep(settle_s)
 
 
+def settle(extra_seconds: float):
+    if extra_seconds > 0:
+        time.sleep(extra_seconds)
+
+
 def parse_phases(raw: str) -> List[str]:
     allowed = {"setup", "goal", "execution", "review", "all"}
     parts = [p.strip().lower() for p in raw.split(",") if p.strip()]
@@ -141,7 +146,7 @@ def gate_visible_errors(session_id: str, report: dict, phase: str, hard_fail: bo
         raise RuntimeError(f"Visible UI errors detected in phase '{phase}' (401={has_401})")
 
 
-def phase_setup(session_id: str, report: dict, hard_fail: bool):
+def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
     t0 = time.time()
     wd("POST", f"/session/{session_id}/url", {"url": f"{APP_BASE}/login"})
     ok_form = wait_for(session_id, "return !!document.querySelector('input[name=\"username\"]')", 25)
@@ -164,6 +169,7 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool):
     record_step(report, "setup", "login", t0, ok_login, current_route_and_title(session_id))
     if not ok_login:
         raise RuntimeError("Login did not reach dashboard")
+    settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
     # Template setup
@@ -195,6 +201,7 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool):
     time.sleep(2.0)
     print("template_create_clicked", template_created, "template", template_name, flush=True)
     record_step(report, "setup", "template_create", t1, template_created, {"template_name": template_name, **current_route_and_title(session_id)})
+    settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
     # Blueprint + Team setup
@@ -281,10 +288,11 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool):
         ok,
         {"blueprint_name": blueprint_name, "team_name": team_name, **current_route_and_title(session_id)},
     )
+    settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
 
-def phase_goal(session_id: str, report: dict, hard_fail: bool):
+def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
     t0 = time.time()
     step_nav(session_id, "/auto-planner")
     goal_name = f"Live Goal {int(time.time())}"
@@ -313,12 +321,13 @@ def phase_goal(session_id: str, report: dict, hard_fail: bool):
         ok,
         {"goal_name": goal_name, "goal_clicked": goal_clicked, "goal_result_visible": goal_result, **current_route_and_title(session_id)},
     )
+    settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "goal", hard_fail)
     if not ok:
         raise RuntimeError("Goal submit flow failed")
 
 
-def phase_execution(session_id: str, report: dict, hard_fail: bool):
+def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
     routes = ["/dashboard", "/board", "/templates", "/teams", "/settings"]
     ok_all = True
     for route in routes:
@@ -329,12 +338,13 @@ def phase_execution(session_id: str, report: dict, hard_fail: bool):
         ok_all = ok_all and ok
         print("route", route, "title", state["title"], flush=True)
         record_step(report, "execution", f"navigate:{route}", t0, ok, state)
+        settle(step_delay_seconds)
         gate_visible_errors(session_id, report, "execution", hard_fail)
     if not ok_all:
         raise RuntimeError("One or more execution navigation steps failed")
 
 
-def phase_review(session_id: str, report: dict, hard_fail: bool):
+def phase_review(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
     t0 = time.time()
     step_nav(session_id, "/artifacts", settle_s=1.2)
     state = current_route_and_title(session_id)
@@ -346,6 +356,7 @@ def phase_review(session_id: str, report: dict, hard_fail: bool):
     report["ui_signals"]["final_title"] = state["title"]
     ok = len(errors) == 0
     record_step(report, "review", "final_ui_review", t0, ok, {"visible_error_count": len(errors), "contains_401": has_401, **state})
+    settle(step_delay_seconds)
     if errors:
         print("visible_errors", len(errors), "contains_401", has_401, flush=True)
         print("visible_error_texts", json.dumps(errors, ensure_ascii=True), flush=True)
@@ -353,15 +364,15 @@ def phase_review(session_id: str, report: dict, hard_fail: bool):
             raise RuntimeError("Final review detected visible UI errors")
 
 
-def run_phase(session_id: str, phase: str, report: dict, hard_fail: bool):
+def run_phase(session_id: str, phase: str, report: dict, hard_fail: bool, step_delay_seconds: float):
     if phase == "setup":
-        phase_setup(session_id, report, hard_fail)
+        phase_setup(session_id, report, hard_fail, step_delay_seconds)
     elif phase == "goal":
-        phase_goal(session_id, report, hard_fail)
+        phase_goal(session_id, report, hard_fail, step_delay_seconds)
     elif phase == "execution":
-        phase_execution(session_id, report, hard_fail)
+        phase_execution(session_id, report, hard_fail, step_delay_seconds)
     elif phase == "review":
-        phase_review(session_id, report, hard_fail)
+        phase_review(session_id, report, hard_fail, step_delay_seconds)
     else:
         raise RuntimeError(f"Unsupported phase: {phase}")
 
@@ -389,13 +400,41 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not fail hard when visible UI errors/toasts are detected.",
     )
+    p.add_argument(
+        "--step-delay-seconds",
+        type=float,
+        default=0.0,
+        help="Optional delay added after each major step (slow-mode for live observation).",
+    )
+    p.add_argument(
+        "--replay-from-report",
+        default="",
+        help="Reuse phases/settings from an existing JSON report file.",
+    )
     return p
 
 
 def main():
     args = build_parser().parse_args()
-    phases = parse_phases(args.phases)
+    replay_source = ""
+    replay_report = None
+    if args.replay_from_report:
+        replay_source = args.replay_from_report
+        replay_report = json.loads(Path(args.replay_from_report).read_text(encoding="utf-8"))
+
+    phase_source = args.phases
+    if replay_report and phase_source == "all":
+        phase_source = ",".join(replay_report.get("phases_requested") or DEFAULT_PHASES)
+    phases = parse_phases(phase_source)
+
     hard_fail = not args.allow_visible_errors
+    if replay_report and not args.allow_visible_errors:
+        # Preserve previous run semantics unless explicitly overridden.
+        hard_fail = bool(replay_report.get("hard_fail_visible_errors", True))
+
+    step_delay_seconds = max(0.0, float(args.step_delay_seconds))
+    if replay_report and step_delay_seconds == 0.0:
+        step_delay_seconds = float(replay_report.get("step_delay_seconds") or 0.0)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_path = Path(args.report_file) if args.report_file else (DEFAULT_REPORT_DIR / f"firefox-live-click-{ts}.json")
 
@@ -405,6 +444,8 @@ def main():
         "base": {"selenium": BASE, "frontend": APP_BASE},
         "phases_requested": phases,
         "hard_fail_visible_errors": hard_fail,
+        "step_delay_seconds": step_delay_seconds,
+        "replay_from_report": replay_source,
         "status": "running",
         "steps": [],
         "ui_signals": {
@@ -427,7 +468,7 @@ def main():
     try:
         for phase in phases:
             print("phase_start", phase, flush=True)
-            run_phase(session_id, phase, report, hard_fail)
+            run_phase(session_id, phase, report, hard_fail, step_delay_seconds)
             print("phase_done", phase, flush=True)
         report["status"] = "passed"
     except Exception as exc:

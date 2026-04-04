@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2.5",
+  "version": "5.2.6",
   "created": "2026-04-04",
-  "updated": "2026-04-04T16:02:00+02:00",
+  "updated": "2026-04-04T16:23:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -369,7 +369,7 @@
           "priority": "high",
           "type": "documentation",
           "principle": "Operability, Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/testing.md",
@@ -384,6 +384,10 @@
           "acceptance": [
             "Operator kann die komplette Journey ohne Rueckfragen ausfuehren.",
             "Fehlerstellen sind einer Teststufe eindeutig zuordenbar."
+          ],
+          "notes": [
+            "2026-04-04: Runbook-Reihenfolge klein->gross in `docs/testing.md` aufgenommen (Stufen, Kommandos, erwartete Signale, Troubleshooting je Stufe).",
+            "Checklisten-Referenz in `docs/ui-ux-regression-checklist.md` um Stufenabfolge erweitert."
           ]
         },
         {
@@ -393,7 +397,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Operability, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/testing.md",
@@ -407,6 +411,10 @@
           "acceptance": [
             "Live-Durchlaeufe sind fuer Reviews/Abnahmen reproduzierbar und nachvollziehbar.",
             "Team kann denselben Lauf mit denselben Parametern wiederholen."
+          ],
+          "notes": [
+            "2026-04-04: Live-VNC-Slow-Mode (`--step-delay-seconds`) und Replay (`--replay-from-report`) in `scripts/firefox_live_click_extended.py` ergaenzt.",
+            "Doku erweitert: noVNC-Zugriff/Passwort, Slow-Mode-Start, Replay aus Report in `docs/testing.md` und `docs/ui-ux-regression-checklist.md`."
           ]
         }
       ]
@@ -429,9 +437,9 @@
     },
     "total_items": 15,
     "by_status": {
-      "completed": 10,
+      "completed": 12,
       "partial": 0,
-      "open": 5
+      "open": 3
     },
     "notes": [
       "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
