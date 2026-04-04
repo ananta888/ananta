@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2.1",
+  "version": "5.2.3",
   "created": "2026-04-04",
-  "updated": "2026-04-04T13:44:00+02:00",
+  "updated": "2026-04-04T14:02:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -132,9 +132,10 @@
           "priority": "critical",
           "type": "test",
           "principle": "Testability, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
+            "frontend-angular/tests/main-goal-planning.spec.ts",
             "frontend-angular/tests/auto-planner.spec.ts",
             "frontend-angular/tests/ui-ux-workflows.spec.ts"
           ],
@@ -144,6 +145,10 @@
           "acceptance": [
             "Goal wird ueber UI erstellt und dem erzeugten Team zugeordnet.",
             "Detail-/Plan-/Trace-Bereiche sind sichtbar und konsistent."
+          ],
+          "notes": [
+            "2026-04-04: Neue aufbauende Suite `main-goal-planning.spec.ts` implementiert (Team via setup-scrum, Teamauswahl im Auto-Planner, Verifikation `team_id` im Goal-Request).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-planning.spec.ts --reporter=line"
           ]
         },
         {
@@ -153,9 +158,10 @@
           "priority": "critical",
           "type": "test",
           "principle": "Architecture-Integrity, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
+            "frontend-angular/tests/main-goal-execution.spec.ts",
             "frontend-angular/tests/first-goal-e2e.spec.ts",
             "frontend-angular/tests/hub-flow.spec.ts",
             "frontend-angular/tests/ui-ux-workflows.spec.ts"
@@ -166,6 +172,10 @@
           "acceptance": [
             "Der Test weist nach, dass Hub-Delegation und Worker-Ausfuehrung mit zwei Workern funktioniert.",
             "Mindestens ein Goal laeuft bis zu nachvollziehbaren Artefakten/Ergebnissen."
+          ],
+          "notes": [
+            "2026-04-04: Neue große Journey-Suite `main-goal-execution.spec.ts` implementiert (2 Worker-Setup, Planner/Fallback-Tasks, Autopilot-Ticks, Assignment/Terminal-Nachweis, UI-Inspektion).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-execution.spec.ts --reporter=line"
           ]
         },
         {
@@ -403,9 +413,9 @@
     },
     "total_items": 15,
     "by_status": {
-      "completed": 4,
+      "completed": 6,
       "partial": 1,
-      "open": 10
+      "open": 8
     },
     "notes": [
       "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
