@@ -126,7 +126,7 @@ class IntegrationRegistryService:
                     "display_name": backend.get("name") or backend["provider"],
                     "base_url": backend.get("base_url"),
                     "available": bool(backend.get("base_url")),
-                    "models": list(backend.get("models") or []),
+                    "models": list(backend.get("configured_models") or []),
                     "transport_provider": backend.get("transport_provider"),
                     "supports_tool_calls": bool(backend.get("supports_tool_calls")),
                     "provider_type": backend.get("provider_type") or "local_openai_compatible",
