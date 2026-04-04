@@ -15,6 +15,68 @@ export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.
 const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
 let hubHealthReady = false;
 let hubHealthWarningLogged = false;
+type BrowserGuardState = {
+  consoleErrors: string[];
+  pageErrors: string[];
+};
+const browserGuardState = new WeakMap<Page, BrowserGuardState>();
+
+function shouldIgnoreConsoleError(text: string): boolean {
+  if (!text) return true;
+  if (text.includes('favicon.ico')) return true;
+  if (text.includes('Failed to load resource: the server responded with a status of 401')) return true;
+  return false;
+}
+
+export function attachBrowserErrorGuards(page: Page): void {
+  if (browserGuardState.has(page)) return;
+  const state: BrowserGuardState = { consoleErrors: [], pageErrors: [] };
+  browserGuardState.set(page, state);
+
+  page.on('console', (msg) => {
+    if (msg.type() !== 'error') return;
+    const text = msg.text().trim();
+    if (shouldIgnoreConsoleError(text)) return;
+    state.consoleErrors.push(text);
+  });
+
+  page.on('pageerror', (err) => {
+    const text = (err?.message || String(err)).trim();
+    if (!text) return;
+    state.pageErrors.push(text);
+  });
+}
+
+export function clearBrowserErrorGuards(page: Page): void {
+  const state = browserGuardState.get(page);
+  if (!state) return;
+  state.consoleErrors.length = 0;
+  state.pageErrors.length = 0;
+}
+
+export async function assertNoUnhandledBrowserErrors(page: Page): Promise<void> {
+  const state = browserGuardState.get(page);
+  expect(state?.consoleErrors || [], `Console errors:\n${(state?.consoleErrors || []).join('\n')}`).toEqual([]);
+  expect(state?.pageErrors || [], `Page errors:\n${(state?.pageErrors || []).join('\n')}`).toEqual([]);
+}
+
+export async function assertErrorOverlaysInViewport(page: Page): Promise<void> {
+  const viewport = page.viewportSize();
+  if (!viewport) return;
+
+  const overlays = page.locator('.notification.error, .toast.toast-error');
+  const count = await overlays.count();
+  for (let i = 0; i < count; i += 1) {
+    const item = overlays.nth(i);
+    if (!(await item.isVisible().catch(() => false))) continue;
+    const box = await item.boundingBox();
+    if (!box) continue;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  }
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -162,6 +224,7 @@ export async function resetUserAuthStateViaApi(username: string, password?: stri
 }
 
 export async function prepareLoginPage(page: Page) {
+  attachBrowserErrorGuards(page);
   const hubReady = await waitForHub();
   if (!hubReady && !hubHealthWarningLogged) {
     hubHealthWarningLogged = true;
@@ -180,6 +243,7 @@ export async function prepareLoginPage(page: Page) {
 }
 
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
+  attachBrowserErrorGuards(page);
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
   try { await ensureLoginAttemptsCleared(); } catch {}
@@ -260,6 +324,7 @@ export async function loginFast(
   username = ADMIN_USERNAME,
   password = ADMIN_PASSWORD
 ) {
+  attachBrowserErrorGuards(page);
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
 
