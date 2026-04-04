@@ -958,15 +958,15 @@
       "provider": "ollama",
       "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
       "overall": {
-        "total": 21,
+        "total": 22,
         "success": 0,
-        "failed": 21,
+        "failed": 22,
         "quality_pass": 0,
-        "quality_fail": 21,
-        "latency_ms_total": 343804,
+        "quality_fail": 22,
+        "latency_ms_total": 429608,
         "tokens_total": 0,
         "cost_units_total": 0.0,
-        "last_seen": 1775340747,
+        "last_seen": 1775340876,
         "samples": [
           {
             "ts": 1775332016,
@@ -1135,20 +1135,28 @@
             "latency_ms": 15632,
             "tokens_total": 0,
             "cost_units": 0.0
+          },
+          {
+            "ts": 1775340876,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 85804,
+            "tokens_total": 0,
+            "cost_units": 0.0
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 21,
+          "total": 22,
           "success": 0,
-          "failed": 21,
+          "failed": 22,
           "quality_pass": 0,
-          "quality_fail": 21,
-          "latency_ms_total": 343804,
+          "quality_fail": 22,
+          "latency_ms_total": 429608,
           "tokens_total": 0,
           "cost_units_total": 0.0,
-          "last_seen": 1775340747,
+          "last_seen": 1775340876,
           "samples": [
             {
               "ts": 1775332016,
@@ -1317,11 +1325,19 @@
               "latency_ms": 15632,
               "tokens_total": 0,
               "cost_units": 0.0
+            },
+            {
+              "ts": 1775340876,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 85804,
+              "tokens_total": 0,
+              "cost_units": 0.0
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1775340747
+  "updated_at": 1775340876
 }
