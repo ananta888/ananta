@@ -118,6 +118,29 @@ Optionen:
 Vorbereitetes Setup im Projekt:
 - `setup_host_services.ps1` richtet Firewall und `netsh interface portproxy` bereits fuer relevante Ports inkl. `4200` ein.
 
+Pragmatischer Weg fuer laufende Test-Instanz:
+- Starten Sie einen Browser-Container im gleichen Docker-Netz wie die Test-Services:
+```bash
+scripts/start-firefox-vnc.sh start
+```
+- Host-Zugriff: `http://localhost:7900`
+- Im Browser-Container: `http://angular-frontend:4200`
+- Stoppen:
+```bash
+scripts/start-firefox-vnc.sh stop
+```
+
+Dauerhafte Windows-`localhost`-Weiterleitung nach WSL:
+- Administrator-PowerShell:
+```powershell
+.\setup_wsl_localhost_portproxy.ps1 -Distro Ubuntu -Ports 4200,7900
+```
+- Entfernen der Regeln:
+```powershell
+.\setup_wsl_localhost_portproxy.ps1 -Distro Ubuntu -Ports 4200,7900 -RemoveOnly
+```
+- Hinweis: Nach `wsl --shutdown` kann sich die WSL-IP aendern, dann Skript erneut ausfuehren.
+
 Optional fuer lange lokale Laeufe:
 
 ```powershell

@@ -15,6 +15,7 @@ Diese Matrix konsolidiert die relevanten lokalen URL-/DNS-Pfade fuer Docker Comp
 | Quelle | Ziel | Bevorzugte URL | Fallbacks | Hinweis |
 |---|---|---|---|---|
 | Browser auf Host | Frontend | `http://localhost:4200` | - | Angular Dev-/Build-Output |
+| Browser auf Host | Browser-in-Container (noVNC) | `http://localhost:7900` | `http://<wsl-ip>:7900` | Fuer Sichtpruefung bei internem Test-Stack |
 | Browser auf Host | Hub API | `http://localhost:5000` | - | Standard fuer lokale Bedienung |
 | Browser auf Host | Worker APIs | `http://localhost:5001`, `http://localhost:5002` | - | Nur fuer direkte Diagnose |
 | Compose-Container | Hub | `http://ai-agent-hub:5000` | `http://localhost:5000` nur im Hub-Container selbst | Compose-DNS statt Host-Loopback |
@@ -50,6 +51,7 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 
 Hinweis fuer Docker in nativer WSL2-Distro:
 - Wenn Windows `localhost` nicht zur WSL-Instanz durchreicht, nutzen Sie `http://<wsl-ip>:4200` oder richten Sie `portproxy` ein (`setup_host_services.ps1`).
+- Alternativ ohne Windows-Proxy: Browser im Compose-Netz starten (`scripts/start-firefox-vnc.sh`) und dort `http://angular-frontend:4200` oeffnen.
 
 ## Live-Test-Reihenfolge fuer Ollama
 
