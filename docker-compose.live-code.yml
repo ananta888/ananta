@@ -1,0 +1,27 @@
+services:
+  ai-agent-hub:
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - ./:/app
+      - ./data/hub:/app/data
+
+  ai-agent-alpha:
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - ./:/app
+      - ./data/alpha:/app/data
+
+  ai-agent-beta:
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - ./:/app
+      - ./data/beta:/app/data
+
+  angular-frontend:
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright

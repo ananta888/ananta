@@ -796,6 +796,7 @@ def test_task_propose_repairs_invalid_output_with_followup_prompt(client, app, a
             return 1, "", "", "sgpt"
         if calls["count"] == 2:
             assert "Repariere die Antwort" in prompt
+            assert "Validator/Fehlergrund:" in prompt
             # first repair attempt keeps the same model
             assert model == "primary-model-a"
             return 0, '{"reason":"still invalid","tool_calls":[]}', "", "sgpt"
