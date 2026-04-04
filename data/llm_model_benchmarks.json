@@ -3212,15 +3212,15 @@
       "provider": "deerflow",
       "model": "gpt-4o",
       "overall": {
-        "total": 2,
-        "success": 2,
+        "total": 4,
+        "success": 4,
         "failed": 0,
-        "quality_pass": 2,
+        "quality_pass": 4,
         "quality_fail": 0,
         "latency_ms_total": 0,
-        "tokens_total": 12,
+        "tokens_total": 24,
         "cost_units_total": 0.0,
-        "last_seen": 1775267063,
+        "last_seen": 1775331821,
         "samples": [
           {
             "ts": 1775267062,
@@ -3237,20 +3237,36 @@
             "latency_ms": 0,
             "tokens_total": 6,
             "cost_units": 0.0
+          },
+          {
+            "ts": 1775331820,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0
+          },
+          {
+            "ts": 1775331821,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0
           }
         ]
       },
       "task_kinds": {
         "research": {
-          "total": 2,
-          "success": 2,
+          "total": 4,
+          "success": 4,
           "failed": 0,
-          "quality_pass": 2,
+          "quality_pass": 4,
           "quality_fail": 0,
           "latency_ms_total": 0,
-          "tokens_total": 12,
+          "tokens_total": 24,
           "cost_units_total": 0.0,
-          "last_seen": 1775267063,
+          "last_seen": 1775331821,
           "samples": [
             {
               "ts": 1775267062,
@@ -3262,6 +3278,22 @@
             },
             {
               "ts": 1775267063,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0
+            },
+            {
+              "ts": 1775331820,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0
+            },
+            {
+              "ts": 1775331821,
               "success": true,
               "quality_passed": true,
               "latency_ms": 0,
@@ -3401,5 +3433,5 @@
       }
     }
   },
-  "updated_at": 1775267328
+  "updated_at": 1775331821
 }
