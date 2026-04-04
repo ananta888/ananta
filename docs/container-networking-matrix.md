@@ -32,6 +32,7 @@ Diese Matrix konsolidiert die relevanten lokalen URL-/DNS-Pfade fuer Docker Comp
 3. Fuer Live-Tests standardmaessig den Compose-Ollama-Service verwenden.
 4. LM Studio ist nur Fallback und sollte nicht als Test-Standard konfiguriert werden.
 5. WSL2/Vulkan aendert nur den `ollama`-Service via Overlay, nicht die Hub-Worker-Architektur.
+6. `docker-compose.test.yml` kann Host-Port-Publishings explizit entfernen (`ports: !reset []`); in diesem Modus sind `localhost:4200/5000/...` vom Host aus nicht garantiert erreichbar.
 
 ## WSL2 / Vulkan
 
@@ -46,6 +47,9 @@ Teststart:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml up -d --build
 ```
+
+Hinweis fuer Docker in nativer WSL2-Distro:
+- Wenn Windows `localhost` nicht zur WSL-Instanz durchreicht, nutzen Sie `http://<wsl-ip>:4200` oder richten Sie `portproxy` ein (`setup_host_services.ps1`).
 
 ## Live-Test-Reihenfolge fuer Ollama
 

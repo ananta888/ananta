@@ -67,6 +67,11 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 - Frontend: `http://localhost:4200`
 - Hub API: `http://localhost:5000`
 
+Hinweis zum Test-Compose-Stack:
+- `docker-compose.test.yml` entfernt Host-Port-Mappings absichtlich (`ports: !reset []`), damit Tests intern ueber Compose-DNS laufen.
+- Wenn Sie danach wieder lokal im Browser auf `http://localhost:4200` zugreifen wollen, starten Sie den Frontend-Service wieder mit `docker-compose.base.yml` + `docker-compose-lite.yml` (ohne `docker-compose.test.yml`).
+- Bei Docker in einer nativen WSL2-Distro (ohne Docker-Desktop-Loopback) kann unter Windows zusaetzlich ein `portproxy` noetig sein. Dafuer ist `setup_host_services.ps1` vorbereitet (inkl. Port `4200`).
+
 ## Entwicklung und Qualitaet
 - Backend lokal: `agent/README.md`
 - Frontend lokal: `frontend-angular/README.md`
