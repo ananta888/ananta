@@ -5,8 +5,10 @@ import time
 from typing import Any, Callable
 
 from agent.config import settings
+from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
 from agent.llm_benchmarks import recommend_model_for_context, recommend_models_for_context
 from agent.services.repository_registry import get_repository_registry
+from agent.tool_guardrails import estimate_text_tokens
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
     dispatch_queue_positions,
@@ -101,6 +103,73 @@ def _extract_strategy_state(task: Any) -> dict[str, Any]:
         "failed_sources": failed_sources,
         "attempt_count": max(0, int(strategy.get("attempt_count") or 0)),
     }
+
+
+def _safe_context_length(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
+
+
+def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
+    app = getattr(loop, "_app", None)
+    app_cfg = (getattr(app, "config", {}) or {})
+    provider_urls = dict(app_cfg.get("PROVIDER_URLS") or {})
+    llm_cfg = ((loop._agent_config() or {}).get("llm_config") or {})
+    default_provider = str(llm_cfg.get("provider") or (loop._agent_config() or {}).get("default_provider") or "").strip().lower() or None
+    default_provider = default_provider if default_provider in {"lmstudio", "ollama"} else None
+    lmstudio_url = str(provider_urls.get("lmstudio") or "").strip()
+    ollama_url = str(provider_urls.get("ollama") or "").strip()
+    capabilities: dict[str, dict[str, Any]] = {}
+    runtime = {
+        "default_provider": default_provider,
+        "lmstudio": {"ok": False, "candidate_count": 0},
+        "ollama": {"ok": False, "candidate_count": 0},
+    }
+    timeout_seconds = 3
+
+    if lmstudio_url:
+        try:
+            probe = probe_lmstudio_runtime(lmstudio_url, timeout=timeout_seconds)
+            runtime["lmstudio"] = {"ok": bool(probe.get("ok")), "status": probe.get("status"), "candidate_count": int(probe.get("candidate_count") or 0)}
+            for item in list(probe.get("candidates") or []):
+                model_id = str((item or {}).get("id") or "").strip()
+                if not model_id:
+                    continue
+                capabilities[model_id] = {
+                    "provider": "lmstudio",
+                    "context_length": _safe_context_length((item or {}).get("context_length")),
+                }
+        except Exception:
+            pass
+
+    if ollama_url:
+        try:
+            probe = probe_ollama_runtime(ollama_url, timeout=timeout_seconds)
+            runtime["ollama"] = {"ok": bool(probe.get("ok")), "status": probe.get("status"), "candidate_count": int(probe.get("candidate_count") or 0)}
+            for item in list(probe.get("models") or []):
+                model_id = str((item or {}).get("name") or "").strip()
+                if not model_id:
+                    continue
+                details = (item or {}).get("details") if isinstance((item or {}).get("details"), dict) else {}
+                ctx = (
+                    _safe_context_length((item or {}).get("context_length"))
+                    or _safe_context_length((item or {}).get("num_ctx"))
+                    or _safe_context_length(details.get("context_length"))
+                    or _safe_context_length(details.get("num_ctx"))
+                )
+                capabilities[model_id] = {
+                    "provider": "ollama",
+                    "context_length": ctx,
+                }
+        except Exception:
+            pass
+
+    return {"runtime": runtime, "models": capabilities}
 
 
 def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | None = None) -> tuple[str | None, dict[str, Any]]:
@@ -365,6 +434,7 @@ def execute_autopilot_tick(
     dispatched = 0
     policy = loop._security_policy()
     fallback_policy = _fallback_policy(loop)
+    runtime_caps = _runtime_model_capabilities(loop)
     effective_concurrency = resolve_effective_concurrency(
         requested_max_concurrency=loop.max_concurrency,
         security_policy=policy,
@@ -479,11 +549,47 @@ def execute_autopilot_tick(
             propose_data = None
             strategy_failures: list[dict[str, Any]] = []
             selected_attempt_meta: dict[str, Any] = {}
+            required_context_tokens = max(
+                1024,
+                estimate_text_tokens(getattr(task, "title", None))
+                + estimate_text_tokens(getattr(task, "description", None))
+                + 768,
+            )
             for attempt_index, candidate in enumerate(strategy_candidates, start=1):
                 propose_payload: dict[str, Any] = {"task_id": task.id}
                 candidate_model = candidate.get("model")
                 candidate_source = str(candidate.get("source") or "strategy")
                 candidate_temperature = _normalize_temperature_value(candidate.get("temperature"))
+                runtime_model_caps = dict((runtime_caps.get("models") or {}).get(str(candidate_model or "").strip()) or {})
+                model_context_length = _safe_context_length(runtime_model_caps.get("context_length"))
+                runtime_provider = str(runtime_model_caps.get("provider") or "") or None
+                if model_context_length is not None and model_context_length < required_context_tokens:
+                    strategy_failures.append(
+                        {
+                            "attempt": attempt_index,
+                            "model": candidate_model,
+                            "temperature": candidate_temperature,
+                            "source": candidate_source,
+                            "reason": "insufficient_context_window",
+                            "required_context_tokens": required_context_tokens,
+                            "model_context_length": model_context_length,
+                            "runtime_provider": runtime_provider,
+                            "failure_type": "preflight_context_limit",
+                        }
+                    )
+                    append_trace_event(
+                        task.id,
+                        "autopilot_strategy_attempt_skipped",
+                        delegated_to=target_worker.url,
+                        attempt=attempt_index,
+                        model=candidate_model,
+                        temperature=candidate_temperature,
+                        reason="insufficient_context_window",
+                        required_context_tokens=required_context_tokens,
+                        model_context_length=model_context_length,
+                        runtime_provider=runtime_provider,
+                    )
+                    continue
                 if candidate_model:
                     propose_payload["model"] = candidate_model
                 if candidate_temperature is not None:
@@ -495,6 +601,9 @@ def execute_autopilot_tick(
                     attempt=attempt_index,
                     model=candidate_model,
                     temperature=candidate_temperature,
+                    runtime_provider=runtime_provider,
+                    model_context_length=model_context_length,
+                    required_context_tokens=required_context_tokens,
                     source=candidate_source,
                 )
                 try:
@@ -512,6 +621,9 @@ def execute_autopilot_tick(
                             "temperature": candidate_temperature,
                             "source": candidate_source,
                             "reason": str(strategy_exc),
+                            "runtime_provider": runtime_provider,
+                            "model_context_length": model_context_length,
+                            "required_context_tokens": required_context_tokens,
                             "failure_type": "forward_error",
                         }
                     )
@@ -523,6 +635,9 @@ def execute_autopilot_tick(
                         "source": candidate_source,
                         "selected_model": candidate_model,
                         "selected_temperature": candidate_temperature,
+                        "runtime_provider": runtime_provider,
+                        "model_context_length": model_context_length,
+                        "required_context_tokens": required_context_tokens,
                     }
                     propose_data = candidate_data
                     break
@@ -533,6 +648,9 @@ def execute_autopilot_tick(
                         "temperature": candidate_temperature,
                         "source": candidate_source,
                         "reason": str(candidate_snapshot.get("reason") or "autopilot_no_executable_step"),
+                        "runtime_provider": runtime_provider,
+                        "model_context_length": model_context_length,
+                        "required_context_tokens": required_context_tokens,
                         "failure_type": "invalid_proposal",
                         "raw_preview": candidate_snapshot.get("raw_preview"),
                     }
@@ -562,6 +680,7 @@ def execute_autopilot_tick(
                         "failed_models": failed_models,
                         "failed_temperatures": failed_temperatures,
                         "failed_sources": failed_sources,
+                        "runtime": dict(runtime_caps.get("runtime") or {}),
                         "last_failures": strategy_failures[-5:],
                         "last_failed_at": now_ts,
                         "next_retry_after": (now_ts + cooldown_seconds) if cooldown_seconds > 0 else now_ts,
