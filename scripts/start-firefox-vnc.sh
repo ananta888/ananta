@@ -5,6 +5,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-ananta-firefox-vnc}"
 IMAGE="${IMAGE:-selenium/standalone-firefox:latest}"
 NETWORK_NAME="${NETWORK_NAME:-ananta_default}"
 VNC_PORT="${VNC_PORT:-7900}"
+SELENIUM_PORT="${SELENIUM_PORT:-4444}"
 SHM_SIZE="${SHM_SIZE:-2g}"
 
 usage() {
@@ -20,10 +21,12 @@ Env overrides:
   IMAGE            (default: selenium/standalone-firefox:latest)
   NETWORK_NAME     (default: ananta_default)
   VNC_PORT         (default: 7900)
+  SELENIUM_PORT    (default: 4444)
   SHM_SIZE         (default: 2g)
 
 Notes:
   - Browser URL from Windows/Host: http://localhost:<VNC_PORT>
+  - WebDriver URL from Host:      http://localhost:<SELENIUM_PORT>/wd/hub
   - Inside browser use: http://angular-frontend:4200
 EOF
 }
@@ -44,9 +47,11 @@ start_container() {
     --name "$CONTAINER_NAME" \
     --network "$NETWORK_NAME" \
     -p "${VNC_PORT}:7900" \
+    -p "${SELENIUM_PORT}:4444" \
     --shm-size "$SHM_SIZE" \
     "$IMAGE" >/dev/null
   echo "Started $CONTAINER_NAME on http://localhost:${VNC_PORT}"
+  echo "WebDriver endpoint: http://localhost:${SELENIUM_PORT}/wd/hub"
   echo "Open inside browser: http://angular-frontend:4200"
 }
 
@@ -71,4 +76,3 @@ case "$cmd" in
     exit 1
     ;;
 esac
-
