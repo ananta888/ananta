@@ -953,7 +953,71 @@
           ]
         }
       }
+    },
+    "ollama:lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest": {
+      "provider": "ollama",
+      "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
+      "overall": {
+        "total": 2,
+        "success": 0,
+        "failed": 2,
+        "quality_pass": 0,
+        "quality_fail": 2,
+        "latency_ms_total": 35366,
+        "tokens_total": 0,
+        "cost_units_total": 0.0,
+        "last_seen": 1775332117,
+        "samples": [
+          {
+            "ts": 1775332016,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 17607,
+            "tokens_total": 0,
+            "cost_units": 0.0
+          },
+          {
+            "ts": 1775332117,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 17759,
+            "tokens_total": 0,
+            "cost_units": 0.0
+          }
+        ]
+      },
+      "task_kinds": {
+        "coding": {
+          "total": 2,
+          "success": 0,
+          "failed": 2,
+          "quality_pass": 0,
+          "quality_fail": 2,
+          "latency_ms_total": 35366,
+          "tokens_total": 0,
+          "cost_units_total": 0.0,
+          "last_seen": 1775332117,
+          "samples": [
+            {
+              "ts": 1775332016,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 17607,
+              "tokens_total": 0,
+              "cost_units": 0.0
+            },
+            {
+              "ts": 1775332117,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 17759,
+              "tokens_total": 0,
+              "cost_units": 0.0
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1775330563
+  "updated_at": 1775332117
 }

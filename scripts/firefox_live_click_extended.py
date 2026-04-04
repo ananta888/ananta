@@ -15,6 +15,7 @@ LOGIN_USER = os.getenv("E2E_ADMIN_USER", os.getenv("INITIAL_ADMIN_USER", "admin"
 LOGIN_PASS = os.getenv("E2E_ADMIN_PASSWORD", os.getenv("INITIAL_ADMIN_PASSWORD", "AnantaAdminPassword123!"))
 DEFAULT_REPORT_DIR = Path("test-reports/live-click")
 DEFAULT_PHASES = ["setup", "goal", "execution", "benchmark", "review"]
+FILE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_./-])(?:[A-Za-z0-9_.-]+/){1,}[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,10}")
 
 
 def wd(method: str, path: str, payload=None):
@@ -631,6 +632,61 @@ def _summarize_tasks(tasks: List[dict]) -> Dict[str, int]:
     return status
 
 
+def _collect_goal_tasks_snapshot(
+    session_id: str,
+    *,
+    goal_id: str,
+    goal_trace_id: str,
+    timeout_seconds: int = 60,
+) -> List[Dict[str, Any]]:
+    res = browser_api_json(session_id, "GET", "/tasks?limit=2000", timeout_seconds=timeout_seconds)
+    if not res.get("ok") or int(res.get("status") or 0) >= 400:
+        return []
+    payload = _unwrap_envelope(res.get("body"))
+    tasks = payload if isinstance(payload, list) else []
+    filtered: List[Dict[str, Any]] = []
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        t_goal_id = str(task.get("goal_id") or "").strip()
+        t_trace = str(task.get("goal_trace_id") or "").strip()
+        if goal_id and t_goal_id == goal_id:
+            filtered.append(task)
+            continue
+        if goal_trace_id and t_trace and t_trace == goal_trace_id:
+            filtered.append(task)
+    return filtered
+
+
+def _extract_file_path_evidence(tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    paths: set[str] = set()
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        text = str(task.get("last_output") or "")
+        if not text:
+            continue
+        for match in FILE_PATH_PATTERN.findall(text):
+            candidate = match.strip().lstrip("./")
+            if not candidate:
+                continue
+            if candidate.startswith("http/") or candidate.startswith("https/"):
+                continue
+            paths.add(candidate)
+    sorted_paths = sorted(paths)
+    dirs: set[str] = set()
+    for path in sorted_paths:
+        parts = path.split("/")
+        if len(parts) > 1 and parts[0]:
+            dirs.add(parts[0])
+    return {
+        "file_paths": sorted_paths,
+        "distinct_file_count": len(sorted_paths),
+        "distinct_dirs": sorted(dirs),
+        "distinct_dir_count": len(dirs),
+    }
+
+
 def phase_benchmark(
     session_id: str,
     report: dict,
@@ -638,6 +694,11 @@ def phase_benchmark(
     step_delay_seconds: float,
     benchmark_ticks: int,
     benchmark_task_kind: str,
+    require_followup: bool,
+    require_artifact_summary: bool,
+    require_multi_file_output: bool,
+    min_distinct_files: int,
+    min_distinct_dirs: int,
 ):
     t0 = time.time()
     step_nav(session_id, "/auto-planner")
@@ -683,6 +744,14 @@ def phase_benchmark(
     detail_before = _unwrap_envelope(detail_before_res.get("body")) or {}
     tasks_before = detail_before.get("tasks") if isinstance(detail_before, dict) else []
     tasks_before = tasks_before if isinstance(tasks_before, list) else []
+    goal_trace_id = str((detail_before.get("trace") or {}).get("trace_id") or "")
+    tasks_before_full = _collect_goal_tasks_snapshot(
+        session_id,
+        goal_id=goal_id,
+        goal_trace_id=goal_trace_id,
+        timeout_seconds=75,
+    )
+    tasks_before_full_ids = {str(task.get("id") or "") for task in tasks_before_full if isinstance(task, dict)}
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
 
     # Ensure the goal team has online workers assigned, otherwise autopilot stays idle.
@@ -786,6 +855,13 @@ def phase_benchmark(
     detail_after = detail_after if isinstance(detail_after, dict) else {}
     tasks_after = detail_after.get("tasks") if isinstance(detail_after, dict) else []
     tasks_after = tasks_after if isinstance(tasks_after, list) else []
+    tasks_after_full = _collect_goal_tasks_snapshot(
+        session_id,
+        goal_id=goal_id,
+        goal_trace_id=goal_trace_id,
+        timeout_seconds=75,
+    )
+    tasks_after_full_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
 
     after_status = _summarize_tasks(tasks_after)
     fib_mentions = 0
@@ -795,7 +871,19 @@ def phase_benchmark(
         task_blob = f"{task.get('title', '')} {task.get('description', '')}".lower()
         if "fibonacci" in task_blob:
             fib_mentions += 1
-    followup_created = len(tasks_after) > len(tasks_before)
+    new_task_ids = sorted(task_id for task_id in tasks_after_full_ids if task_id and task_id not in tasks_before_full_ids)
+    followup_task_ids: List[str] = []
+    for task in tasks_after_full:
+        if not isinstance(task, dict):
+            continue
+        tid = str(task.get("id") or "")
+        if not tid:
+            continue
+        parent_id = str(task.get("parent_task_id") or "")
+        source_id = str(task.get("source_task_id") or "")
+        if (parent_id and parent_id in tasks_before_full_ids) or (source_id and source_id in tasks_before_full_ids):
+            followup_task_ids.append(tid)
+    followup_created = len(followup_task_ids) > 0 or len(new_task_ids) > 0
     recovery_info: Dict[str, Any] = {
         "triggered": False,
         "analyze_attempted": 0,
@@ -904,6 +992,13 @@ def phase_benchmark(
         detail_after = detail_after if isinstance(detail_after, dict) else {}
         tasks_after = detail_after.get("tasks") if isinstance(detail_after, dict) else []
         tasks_after = tasks_after if isinstance(tasks_after, list) else []
+        tasks_after_full = _collect_goal_tasks_snapshot(
+            session_id,
+            goal_id=goal_id,
+            goal_trace_id=goal_trace_id,
+            timeout_seconds=75,
+        )
+        tasks_after_full_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
         after_status = _summarize_tasks(tasks_after)
         fib_mentions = 0
         for task in tasks_after:
@@ -912,7 +1007,19 @@ def phase_benchmark(
             task_blob = f"{task.get('title', '')} {task.get('description', '')}".lower()
             if "fibonacci" in task_blob:
                 fib_mentions += 1
-        followup_created = len(tasks_after) > len(tasks_before)
+        new_task_ids = sorted(task_id for task_id in tasks_after_full_ids if task_id and task_id not in tasks_before_full_ids)
+        followup_task_ids = []
+        for task in tasks_after_full:
+            if not isinstance(task, dict):
+                continue
+            tid = str(task.get("id") or "")
+            if not tid:
+                continue
+            parent_id = str(task.get("parent_task_id") or "")
+            source_id = str(task.get("source_task_id") or "")
+            if (parent_id and parent_id in tasks_before_full_ids) or (source_id and source_id in tasks_before_full_ids):
+                followup_task_ids.append(tid)
+        followup_created = len(followup_task_ids) > 0 or len(new_task_ids) > 0
         if not followup_created:
             fallback_signal = (
                 int(recovery_info.get("analyze_created_total") or 0) > 0
@@ -930,7 +1037,27 @@ def phase_benchmark(
     if not model:
         model = str((llm_cfg.get("model") if isinstance(llm_cfg, dict) else "") or "").strip() or "ananta-default:latest"
 
-    benchmark_success = after_status["completed"] > 0 and after_status["failed"] == 0
+    artifacts_summary = (detail_after.get("artifacts") or {}) if isinstance(detail_after, dict) else {}
+    result_summary = (artifacts_summary.get("result_summary") or {}) if isinstance(artifacts_summary, dict) else {}
+    headline_artifact = (artifacts_summary.get("headline_artifact") or {}) if isinstance(artifacts_summary, dict) else {}
+    artifact_entries = (artifacts_summary.get("artifacts") or []) if isinstance(artifacts_summary, dict) else []
+    artifact_summary_ok = bool(result_summary) and (
+        bool((headline_artifact or {}).get("preview"))
+        or (isinstance(artifact_entries, list) and len(artifact_entries) > 0)
+    )
+    file_evidence = _extract_file_path_evidence(tasks_after_full)
+    multi_file_output_ok = (
+        int(file_evidence.get("distinct_file_count") or 0) >= int(max(1, min_distinct_files))
+        and int(file_evidence.get("distinct_dir_count") or 0) >= int(max(1, min_distinct_dirs))
+    )
+
+    benchmark_success = after_status["completed"] > 0
+    if require_followup:
+        benchmark_success = benchmark_success and followup_created
+    if require_artifact_summary:
+        benchmark_success = benchmark_success and artifact_summary_ok
+    if require_multi_file_output:
+        benchmark_success = benchmark_success and multi_file_output_ok
     benchmark_payload = {
         "provider": provider,
         "model": model,
@@ -987,9 +1114,23 @@ def phase_benchmark(
             "worker_bind_info": worker_bind_info,
             "tasks_before": len(tasks_before),
             "tasks_after": len(tasks_after),
+            "tasks_before_full": len(tasks_before_full),
+            "tasks_after_full": len(tasks_after_full),
+            "new_task_ids": new_task_ids,
+            "followup_task_ids": followup_task_ids,
             "followup_created": followup_created,
             "terminalized": terminalized,
             "fibonacci_mentions_in_tasks": fib_mentions,
+            "artifacts_summary_present": artifact_summary_ok,
+            "result_summary": result_summary if isinstance(result_summary, dict) else {},
+            "headline_artifact_preview": str((headline_artifact or {}).get("preview") or "")[:280],
+            "file_output_evidence": file_evidence,
+            "multi_file_output_ok": multi_file_output_ok,
+            "require_followup": require_followup,
+            "require_artifact_summary": require_artifact_summary,
+            "require_multi_file_output": require_multi_file_output,
+            "min_distinct_files": int(max(1, min_distinct_files)),
+            "min_distinct_dirs": int(max(1, min_distinct_dirs)),
             "autopilot_ticks_requested": int(benchmark_ticks),
             "autopilot_total_ms": autopilot_total_ms,
             "autopilot_start_payload": autopilot_start_payload,
