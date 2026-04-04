@@ -169,9 +169,8 @@ test.describe('UI UX Workflows', () => {
       await page.goto('/teams');
       await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
       await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled({ timeout: 20000 });
-
-      await page.getByRole('button', { name: /^Neu$/i }).click();
       const editor = page.locator('.teams-editor-panel');
+      await expect(editor.getByRole('heading', { name: /Blueprint bearbeiten|Neuen Blueprint anlegen/i })).toBeVisible({ timeout: 15000 });
       await editor.getByLabel('Name').fill(blueprintName);
       await editor.getByLabel('Beschreibung').fill('Blueprint aus UI-Workflow-Test');
       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
