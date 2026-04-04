@@ -169,6 +169,11 @@ Stop:
 ```bash
 scripts/compose-test-stack.sh down
 ```
+Sicheres Cleanup (inkl. Volumes ausser `ollama_data`):
+```bash
+scripts/compose-test-stack.sh clean
+```
+`clean` entfernt Test-Stack-Datenvolumes, laesst `ollama_data` (LLM-Modelle) aber explizit bestehen.
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash

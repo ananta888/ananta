@@ -29,21 +29,22 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 
 Oder noch gruendlicher:
 ```bash
-docker compose down -v --remove-orphans
-docker compose up -d --build
+scripts/compose-test-stack.sh clean
+scripts/compose-test-stack.sh up
 ```
 
 Repo-spezifisch:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+scripts/compose-test-stack.sh clean
+scripts/compose-test-stack.sh up
 ```
 
 Mit WSL2/Vulkan:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+scripts/compose-test-stack.sh clean
+scripts/compose-test-stack.sh up
 ```
+Hinweis: `clean` loescht bewusst nicht `ollama_data`, damit vorhandene LLM-Modelle erhalten bleiben.
 
 Wenn unter Windows Fehler wie `invalid volume specification` auftreten:
 ```powershell

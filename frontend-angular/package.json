@@ -10,6 +10,7 @@
     "stop:e2e:backend": "node ./scripts/stop-e2e-backend.js",
     "e2e:stack:up": "bash ../scripts/compose-test-stack.sh up",
     "e2e:stack:down": "bash ../scripts/compose-test-stack.sh down",
+    "e2e:stack:clean": "bash ../scripts/compose-test-stack.sh clean",
     "e2e:stack:ps": "bash ../scripts/compose-test-stack.sh ps",
     "e2e:stack:up:cpu": "ANANTA_USE_WSL_VULKAN=0 bash ../scripts/compose-test-stack.sh up",
     "build": "ng build",
