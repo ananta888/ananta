@@ -41,11 +41,11 @@ type BlueprintArtifactForm = {
             Rollen, Start-Artefakte und Basistypen leben im Blueprint. Low-level Pflege bleibt im Advanced-Modus erhalten.
           </p>
         </div>
-        <div class="teams-hero-actions">
-          <button class="btn-primary" (click)="currentTab = 'blueprints'">Blueprints</button>
-          <button class="btn-secondary" (click)="currentTab = 'teams'">Team erstellen</button>
-          <button class="btn-secondary" (click)="refresh()" [disabled]="busy">Aktualisieren</button>
-        </div>
+      <div class="teams-hero-actions">
+        <button class="btn-primary" (click)="currentTab = 'blueprints'">Blueprints</button>
+        <button class="btn-secondary" (click)="currentTab = 'teams'">Team erstellen</button>
+        <button class="btn-secondary" (click)="refresh()">Aktualisieren</button>
+      </div>
       </div>
 
       <div class="tabs teams-tabs">
@@ -524,6 +524,7 @@ export class TeamsComponent implements OnInit {
 
   hub = this.dir.list().find(a => a.role === 'hub');
   allAgents = this.dir.list();
+  private refreshSafetyTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit() {
     this.userAuth.user$.subscribe(user => {
@@ -538,14 +539,28 @@ export class TeamsComponent implements OnInit {
 
   refresh() {
     if (!this.hub) return;
+    if (this.refreshSafetyTimer) {
+      clearTimeout(this.refreshSafetyTimer);
+      this.refreshSafetyTimer = undefined;
+    }
     this.busy = true;
     this.loading = true;
+    this.refreshSafetyTimer = setTimeout(() => {
+      this.busy = false;
+      this.loading = false;
+      this.refreshSafetyTimer = undefined;
+      this.ns.info('Teams-Ansicht wurde mit Safe-Timeout entsperrt. Sie koennen weiterarbeiten.');
+    }, 20000);
     let pending = 6;
     const done = () => {
       pending -= 1;
       if (pending <= 0) {
         this.busy = false;
         this.loading = false;
+        if (this.refreshSafetyTimer) {
+          clearTimeout(this.refreshSafetyTimer);
+          this.refreshSafetyTimer = undefined;
+        }
       }
     };
 
