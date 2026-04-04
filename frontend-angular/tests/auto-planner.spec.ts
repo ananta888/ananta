@@ -112,6 +112,7 @@ test.describe('Auto-Planner', () => {
     await page.getByTestId('goal-list').getByText('Ship release').first().click();
     await expect(page.getByTestId('goal-detail-panel')).toBeVisible();
     await expect(page.getByTestId('goal-artifact-summary')).toContainText('Release notes generated');
+    await page.getByTestId('goal-admin-drilldown-toggle').click();
     await expect(page.getByTestId('goal-governance-panel')).toBeVisible();
     await expect(page.getByTestId('goal-trace-panel')).toBeVisible();
   });
