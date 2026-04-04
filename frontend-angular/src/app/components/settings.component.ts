@@ -224,6 +224,14 @@ export function resolveContextBundlePolicyValue(config: any): any {
               <div class="muted">API Key</div>
               <div>{{ requiresApiKey(getEffectiveProvider()) ? (hasApiKey(getEffectiveProvider()) ? 'ok' : 'missing') : 'not required' }}</div>
             </div>
+            <div>
+              <div class="muted">CLI Session Mode</div>
+              <div>{{ config?.cli_session_mode?.enabled ? 'enabled' : 'disabled' }}</div>
+            </div>
+            <div>
+              <div class="muted">Stateful Backends</div>
+              <div>{{ (config?.cli_session_mode?.stateful_backends || []).join(', ') || 'n/a' }}</div>
+            </div>
           </div>
         </div>
         <div class="card">

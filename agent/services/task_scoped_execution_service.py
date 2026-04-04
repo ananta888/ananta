@@ -19,6 +19,7 @@ from agent.research_backend import is_research_backend, normalize_research_artif
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.security_risk import classify_command_risk, classify_tool_calls_risk, has_file_access_signal, has_terminal_signal, max_risk_level
 from agent.services.repository_registry import get_repository_registry
+from agent.services.cli_session_service import get_cli_session_service
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
@@ -468,9 +469,26 @@ class TaskScopedExecutionService:
             status="ok",
             metadata={"effective_backend": effective_backend, "reason": routing_reason},
         )
+        session_payload = self._prepare_task_cli_session(
+            tid=tid,
+            task=task,
+            backend=effective_backend,
+            model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+            agent_cfg=cfg,
+        )
+        prompt_for_cli = prompt
+        if session_payload:
+            prompt_for_cli = (
+                get_cli_session_service().build_prompt_with_history(
+                    session_id=session_payload["id"],
+                    prompt=prompt,
+                    max_turns=int(session_payload.get("max_turns_per_session") or 40),
+                )
+                or prompt
+            )
         started_at = time.time()
         cli_kwargs = {
-            "prompt": prompt,
+            "prompt": prompt_for_cli,
             "options": ["--no-interaction"],
             "timeout": timeout,
             "backend": effective_backend,
@@ -512,6 +530,9 @@ class TaskScopedExecutionService:
                 agent_cfg=cfg,
             ),
         }
+        if session_payload:
+            routing["session_mode"] = "stateful"
+            routing["session_id"] = session_payload["id"]
         if is_research_backend(backend_used):
             research_res = self._build_research_result(
                 raw_res,
@@ -567,6 +588,18 @@ class TaskScopedExecutionService:
                     "trace": trace,
                 },
             )
+            if session_payload:
+                turn = get_cli_session_service().append_turn(
+                    session_id=session_payload["id"],
+                    prompt=prompt,
+                    output=raw_res,
+                    model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                    trace_id=str(trace.get("trace_id") or ""),
+                    metadata={"backend_used": backend_used, "task_id": tid, "proposal_mode": "research"},
+                )
+                if isinstance(turn, dict):
+                    response_payload.setdefault("routing", {})
+                    response_payload["routing"]["session_turn_id"] = turn.get("id")
             return TaskScopedRouteResponse(data=response_payload)
 
         reason = _extract_reason(raw_res)
@@ -621,6 +654,18 @@ class TaskScopedExecutionService:
                 "trace": trace,
             },
         )
+        if session_payload:
+            turn = get_cli_session_service().append_turn(
+                session_id=session_payload["id"],
+                prompt=prompt,
+                output=raw_res,
+                model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                trace_id=str(trace.get("trace_id") or ""),
+                metadata={"backend_used": backend_used, "task_id": tid, "proposal_mode": "command"},
+            )
+            if isinstance(turn, dict):
+                response_payload.setdefault("routing", {})
+                response_payload["routing"]["session_turn_id"] = turn.get("id")
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
         return TaskScopedRouteResponse(data=response_payload)
@@ -993,6 +1038,64 @@ class TaskScopedExecutionService:
         if allowed_tools:
             return tool_definitions_resolver(allowlist=allowed_tools)
         return tool_definitions_resolver()
+
+    @staticmethod
+    def _cli_session_policy(agent_cfg: dict | None) -> dict:
+        cfg = agent_cfg or {}
+        mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
+        backends = [str(item or "").strip().lower() for item in list(mode.get("stateful_backends") or ["opencode", "codex"]) if str(item or "").strip()]
+        return {
+            "enabled": bool(mode.get("enabled", False)),
+            "stateful_backends": backends,
+            "max_turns_per_session": max(1, min(int(mode.get("max_turns_per_session") or 40), 200)),
+            "max_sessions": max(1, min(int(mode.get("max_sessions") or 200), 2000)),
+            "allow_task_scoped_auto_session": bool(mode.get("allow_task_scoped_auto_session", True)),
+        }
+
+    def _prepare_task_cli_session(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        backend: str,
+        model: str | None,
+        agent_cfg: dict | None,
+    ) -> dict | None:
+        policy = self._cli_session_policy(agent_cfg)
+        backend_name = str(backend or "").strip().lower()
+        if not policy["enabled"] or not policy["allow_task_scoped_auto_session"]:
+            return None
+        if backend_name not in set(policy["stateful_backends"]):
+            return None
+        verification = dict(task.get("verification_status") or {})
+        session_meta = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
+        existing_id = str(session_meta.get("session_id") or "").strip()
+        session = get_cli_session_service().get_session(existing_id, include_history=False) if existing_id else None
+        if session and str(session.get("status") or "").strip().lower() == "active" and str(session.get("backend") or "").strip().lower() == backend_name:
+            session_payload = dict(session)
+        else:
+            session_payload = get_cli_session_service().create_session(
+                backend=backend_name,
+                model=model,
+                metadata={"source": "task_propose_auto_session", "task_id": tid},
+                task_id=tid,
+                conversation_id=f"task:{tid}",
+            )
+            verification["cli_session"] = {
+                "session_id": session_payload.get("id"),
+                "backend": backend_name,
+                "model": model,
+                "status": "active",
+                "updated_at": time.time(),
+            }
+            update_local_task_status(
+                tid,
+                str(task.get("status") or "assigned"),
+                verification_status=verification,
+            )
+        get_cli_session_service().prune_sessions(max_sessions=policy["max_sessions"])
+        session_payload["max_turns_per_session"] = policy["max_turns_per_session"]
+        return session_payload
 
     def _build_task_propose_prompt(
         self,

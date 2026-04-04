@@ -109,6 +109,8 @@ Fuer den operativen Check sind drei Endpunkte relevant:
 - `GET /health`
 - `GET /ready`
 - `GET /api/sgpt/backends`
+- `POST /api/sgpt/sessions`
+- `POST /api/sgpt/sessions/{session_id}/turn`
 
 `/api/sgpt/backends` liefert:
 
@@ -137,6 +139,28 @@ Wichtige Preflight-Felder:
 - `preflight.providers.local_openai`
 
 `GET /api/sgpt/backends` liefert zusaetzlich `routing_dimensions`, damit Inference-Default und Execution-Default explizit getrennt sichtbar sind.
+
+## Stateful CLI-Sessions
+
+Fuer iterative Multi-Turn-Backends gibt es jetzt ein explizites Session-Modell:
+
+- Session erstellen: `POST /api/sgpt/sessions`
+- Turn ausfuehren: `POST /api/sgpt/sessions/{session_id}/turn`
+- Session lesen/listen/schliessen: `GET /api/sgpt/sessions`, `GET /api/sgpt/sessions/{session_id}`, `DELETE /api/sgpt/sessions/{session_id}`
+
+Konfiguration in `AGENT_CONFIG.cli_session_mode`:
+
+- `enabled`: aktiviert stateful Sessions
+- `stateful_backends`: zulaessige Backends (typisch `opencode`, `codex`)
+- `max_turns_per_session`: wie viele Turns beim naechsten Prompt zur Fortsetzung eingebettet werden
+- `max_sessions`: Upper Bound fuer den In-Memory Session-Store
+- `allow_task_scoped_auto_session`: erlaubt automatische Session-Fortsetzung in task-scoped Propose-Pfaden
+
+Produktentscheidung fuer OpenCode (`AIM-007`):
+
+- OpenCode bleibt ein Execution-Backend und wird nicht als Inference-Provider umdefiniert.
+- OpenAI-kompatibles Ziel-Targeting fuer OpenCode ist nicht Teil des Provider-Routings.
+- Iterative Multi-Turn-Nutzung erfolgt additiv ueber das stateful CLI-Session-Modell.
 
 Ergaenzend dazu fuehrt `setup_host_services.ps1` auf Windows jetzt einen lokalen Host-Preflight aus fuer:
 

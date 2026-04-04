@@ -207,6 +207,32 @@ def test_openai_compat_capabilities_endpoint_reports_effective_policy(client, ap
     assert payload["object"] == "ananta.openai_compat.capabilities"
     assert (payload.get("policy") or {}).get("enabled") is True
     assert (payload.get("features") or {}).get("files") is False
+    assert (payload.get("features") or {}).get("session_metadata") is True
+
+
+def test_openai_chat_completions_echoes_session_metadata(client, admin_auth_header, monkeypatch):
+    monkeypatch.setattr(
+        "agent.services.openai_compat_service.generate_text_and_usage",
+        lambda **kwargs: (
+            "assistant reply",
+            {"prompt_tokens": 3, "completion_tokens": 4, "total_tokens": 7},
+            {"text": "assistant reply"},
+        ),
+    )
+    res = client.post(
+        "/v1/chat/completions",
+        headers=admin_auth_header,
+        json={
+            "model": "lmstudio:qwen2.5-coder",
+            "messages": [{"role": "user", "content": "hello"}],
+            "metadata": {"conversation_id": "conv-123"},
+        },
+    )
+    assert res.status_code == 200
+    payload = res.get_json()
+    conv = payload.get("conversation") or {}
+    assert conv.get("conversation_id") == "conv-123"
+    assert conv.get("turn_id")
 
 
 def test_openai_compat_blocks_self_call_by_instance_header(client, app, admin_auth_header):

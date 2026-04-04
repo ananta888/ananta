@@ -237,6 +237,24 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Body:** JSON Objekt mit Konfigurationswerten.
 - **Rückgabe:** `{"status": "success", "data": {"status": "updated", "config": {...}}}`
 
+### CLI Session Mode (stateful Execution-Backends)
+- **URL:** `/config`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Beschreibung:** Aktiviert optionale stateful Multi-Turn-Sessions fuer CLI-Execution-Backends (z. B. OpenCode/Codex).
+- **Relevante Keys:**
+  ```json
+  {
+    "cli_session_mode": {
+      "enabled": true,
+      "stateful_backends": ["opencode", "codex"],
+      "max_turns_per_session": 40,
+      "max_sessions": 200,
+      "allow_task_scoped_auto_session": true
+    }
+  }
+  ```
+
 ### Exposure-Policy (OpenAI-Compat / MCP)
 - **URL:** `/config`
 - **Methode:** `POST`
@@ -264,6 +282,46 @@ Der Token muss im `Authorization` Header gesendet werden:
     }
   }
   ```
+
+### SGPT Stateful Sessions
+
+#### Session erstellen
+- **URL:** `/api/sgpt/sessions`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Body (Beispiel):**
+  ```json
+  {
+    "backend": "opencode",
+    "model": "opencode/glm-5-free",
+    "conversation_id": "conv-123"
+  }
+  ```
+
+#### Session-Turn ausfuehren
+- **URL:** `/api/sgpt/sessions/{session_id}/turn`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Body (Beispiel):**
+  ```json
+  {
+    "prompt": "Bitte fuehre den naechsten Schritt aus"
+  }
+  ```
+- **Rückgabe:** Additiv mit `session_id`, `session_turn`, `routing.session_mode=stateful`.
+
+#### Session lesen/listen/schliessen
+- `GET /api/sgpt/sessions`
+- `GET /api/sgpt/sessions/{session_id}`
+- `DELETE /api/sgpt/sessions/{session_id}`
+
+### OpenAI-Compat Conversation-Metadaten (additiv)
+- `POST /v1/chat/completions` und `POST /v1/responses` akzeptieren optional `metadata.conversation_id`/`session_id` (oder Top-Level).
+- Antworten enthalten bei gesetzten Metadaten additiv ein `conversation`-Objekt:
+  - `conversation_id`
+  - `session_id`
+  - `turn_id`
+  - `mode`
 
 ---
 

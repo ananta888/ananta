@@ -13,6 +13,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - Tasks: `/tasks`, `/tasks/{id}`, `/tasks/{id}/assign`, `/tasks/{id}/step/propose`, `/tasks/{id}/step/execute`, `/tasks/{id}/logs`
 - Auth (kanonisch): `/login`, `/refresh-token`, `/me`, `/change-password`, `/users/*`, `/mfa/*`
 - SGPT/CLI: `/api/sgpt/execute`, `/api/sgpt/backends`, `/api/sgpt/context`
+- SGPT Stateful Sessions: `/api/sgpt/sessions`, `/api/sgpt/sessions/{id}`, `/api/sgpt/sessions/{id}/turn`
 - Terminal (WebSocket): `/ws/terminal?mode=interactive|read&token=<jwt-or-agent-token>&forward_param=<optional>`
 
 ## Runtime- und Pipeline-Metadaten
@@ -20,7 +21,9 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - `GET /providers/catalog` bildet jetzt neben LM Studio auch weitere konfigurierte `local_openai_backends` ab.
 - `POST /llm/generate` kann ohne explizite Modellwahl benchmark-basiert auf ein verfuegbares Modell routen.
 - `GET /api/sgpt/backends` liefert fuer CLI-Backends jetzt zusaetzlich `verify_command` sowie konfigurierte lokale OpenAI-kompatible Runtimes.
+- `GET /api/sgpt/backends` zeigt ausserdem `cli_session_mode` und `cli_session_runtime`.
 - `POST /api/sgpt/execute`, `POST /tasks/{id}/step/propose` und `POST /tasks/{id}/step/execute` geben eine explizite `pipeline` mit Stages und `trace_id` zurueck.
+- Task-Propose kann optional dieselbe CLI-Session ueber mehrere Turns fortsetzen (`routing.session_mode=stateful`, `routing.session_id`).
 
 ## OpenAI-kompatible Exposition (Hub)
 
@@ -36,6 +39,17 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - Policy-Sichtbarkeit:
 - `GET /assistant/read-model` unter `settings.summary.governance.exposure_policy`
 - `GET /dashboard/read-model` unter `llm_configuration.exposure`
+- OpenAI-Compat Responses koennen additive Conversation-Metadaten transportieren (`conversation_id`/`session_id` Echo + `turn_id`), ohne bestehende Clients zu brechen.
+
+## Stateful Session-Modus (CLI)
+
+- Das Session-Modell ist bewusst getrennt von Inference-Providern (SRP): Sessions gehoeren zu Execution-Backends.
+- Session-Lifecycle ist explizit:
+  - create
+  - turn append
+  - read/list
+  - close
+- Task-scoped Nutzung ist policy-gesteuert ueber `cli_session_mode.allow_task_scoped_auto_session`.
 
 ## Remote-Ananta als Provider-Typ
 

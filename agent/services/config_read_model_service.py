@@ -6,6 +6,7 @@ from agent.common.sgpt import resolve_codex_runtime_config
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_profiles import resolve_runtime_profile
 from agent.runtime_policy import review_policy
+from agent.services.cli_session_service import get_cli_session_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
@@ -132,6 +133,7 @@ class ConfigReadModelService:
         research_backend_cfg = resolve_research_backend_config(agent_cfg=cfg)
         research_backend_review = review_policy(cfg, research_backend_cfg.get("provider"), "research")
         exposure_policy = get_exposure_policy_service().normalize_exposure_policy((cfg or {}).get("exposure_policy"))
+        cli_session_mode = (cfg or {}).get("cli_session_mode") if isinstance((cfg or {}).get("cli_session_mode"), dict) else {}
         task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
         recent_timeline = []
         if include_task_snapshot:
@@ -210,6 +212,16 @@ class ConfigReadModelService:
                 "exposure": {
                     "openai_compat": exposure_policy.get("openai_compat") or {},
                     "mcp": exposure_policy.get("mcp") or {},
+                },
+                "cli_sessions": {
+                    "policy": {
+                        "enabled": bool(cli_session_mode.get("enabled", False)),
+                        "stateful_backends": list(cli_session_mode.get("stateful_backends") or []),
+                        "max_turns_per_session": int(cli_session_mode.get("max_turns_per_session") or 40),
+                        "max_sessions": int(cli_session_mode.get("max_sessions") or 200),
+                        "allow_task_scoped_auto_session": bool(cli_session_mode.get("allow_task_scoped_auto_session", True)),
+                    },
+                    "runtime": get_cli_session_service().snapshot(),
                 },
                 "routing_split": {
                     "inference": {

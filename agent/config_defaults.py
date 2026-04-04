@@ -200,6 +200,13 @@ def build_default_agent_config() -> dict:
             "api_key_profile": None,
             "prefer_lmstudio": True,
         },
+        "cli_session_mode": {
+            "enabled": False,
+            "stateful_backends": ["opencode", "codex"],
+            "max_turns_per_session": 40,
+            "max_sessions": 200,
+            "allow_task_scoped_auto_session": True,
+        },
         "research_backend": {
             "provider": "deerflow",
             "enabled": False,

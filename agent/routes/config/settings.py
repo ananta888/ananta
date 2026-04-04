@@ -99,6 +99,30 @@ def set_config():
             except (TypeError, ValueError):
                 return api_response(status="error", message="invalid_openai_compat_max_hops", code=400)
         new_cfg["exposure_policy"] = get_exposure_policy_service().normalize_exposure_policy(exposure_cfg)
+    if "cli_session_mode" in new_cfg:
+        mode_cfg = new_cfg.get("cli_session_mode")
+        if not isinstance(mode_cfg, dict):
+            return api_response(status="error", message="invalid_cli_session_mode", code=400)
+        backends = [str(item or "").strip().lower() for item in list(mode_cfg.get("stateful_backends") or []) if str(item or "").strip()]
+        for backend in backends:
+            if backend not in {"sgpt", "codex", "opencode", "aider", "mistral_code", "deerflow", "ananta_research"}:
+                return api_response(status="error", message="invalid_cli_session_backend", code=400)
+        try:
+            max_turns = int(mode_cfg.get("max_turns_per_session", 40))
+            max_sessions = int(mode_cfg.get("max_sessions", 200))
+        except (TypeError, ValueError):
+            return api_response(status="error", message="invalid_cli_session_limits", code=400)
+        if max_turns < 1 or max_turns > 200:
+            return api_response(status="error", message="invalid_cli_session_max_turns", code=400)
+        if max_sessions < 1 or max_sessions > 2000:
+            return api_response(status="error", message="invalid_cli_session_max_sessions", code=400)
+        new_cfg["cli_session_mode"] = {
+            "enabled": bool(mode_cfg.get("enabled", False)),
+            "stateful_backends": backends or ["opencode", "codex"],
+            "max_turns_per_session": max_turns,
+            "max_sessions": max_sessions,
+            "allow_task_scoped_auto_session": bool(mode_cfg.get("allow_task_scoped_auto_session", True)),
+        }
     for key in ("llm_config", "research_backend"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):

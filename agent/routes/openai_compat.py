@@ -75,7 +75,7 @@ def capabilities():
             "chat_completions": True,
             "responses": True,
             "files": bool(policy.get("allow_files_api")),
-            "session_metadata": False,
+            "session_metadata": True,
         },
     }
     if policy.get("emit_audit_events", True):
@@ -103,7 +103,11 @@ def chat_completions():
         return blocked
     payload = request.get_json(silent=True) or {}
     try:
-        return get_openai_compat_service().chat_completion(payload=payload)
+        response = get_openai_compat_service().chat_completion(payload=payload)
+        conversation = response.get("conversation") if isinstance(response, dict) else None
+        if isinstance(conversation, dict):
+            log_audit("openai_compat_session_turn", {"endpoint": "chat.completions", "conversation": conversation})
+        return response
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc
 
@@ -116,7 +120,11 @@ def responses():
         return blocked
     payload = request.get_json(silent=True) or {}
     try:
-        return get_openai_compat_service().response_api(payload=payload)
+        response = get_openai_compat_service().response_api(payload=payload)
+        conversation = response.get("conversation") if isinstance(response, dict) else None
+        if isinstance(conversation, dict):
+            log_audit("openai_compat_session_turn", {"endpoint": "responses", "conversation": conversation})
+        return response
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc
 
