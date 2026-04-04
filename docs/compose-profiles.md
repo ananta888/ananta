@@ -36,17 +36,22 @@ Validation:
 ## Recommended Lite Dev/Test Start
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml ps
+scripts/compose-test-stack.sh down
+scripts/compose-test-stack.sh up
+scripts/compose-test-stack.sh ps
 ```
 
 WSL2 mit Vulkan fuer den Compose-Ollama-Service:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml ps
+scripts/compose-test-stack.sh down
+scripts/compose-test-stack.sh up
+scripts/compose-test-stack.sh ps
+```
+
+Sicheres Deep-Cleanup (Volumes ausser `ollama_data`):
+```bash
+scripts/compose-test-stack.sh clean
 ```
 
 ## E2E Against Existing Lite Environment
