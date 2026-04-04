@@ -52,7 +52,7 @@ test.describe('Main Goal UI Foundation', () => {
     await page.goto('/teams');
     await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
     await expect(page.locator('.teams-hero-actions').getByRole('button', { name: /^Blueprints$/i })).toBeVisible();
-    await expect(page.locator('.teams-tablist').getByRole('button', { name: /^Teams aus Blueprint$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Teams aus Blueprint$/i }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled();
 
     await page.goto('/auto-planner');
@@ -142,13 +142,22 @@ test.describe('Main Goal UI Foundation', () => {
       if (workerAgentUrls.length >= 2) {
         await instantiateCard.getByRole('button', { name: /Mitglied hinzufuegen/i }).click();
         await instantiateCard.getByRole('button', { name: /Mitglied hinzufuegen/i }).click();
+        const roleSelects = instantiateCard.getByLabel('Blueprint-Rolle');
         const agentSelects = instantiateCard.getByLabel('Agent');
+        await expect(roleSelects).toHaveCount(2);
         await expect(agentSelects).toHaveCount(2);
+        await roleSelects.nth(0).selectOption({ index: 1 });
+        await roleSelects.nth(1).selectOption({ index: 1 });
         await agentSelects.nth(0).selectOption(workerAgentUrls[0]);
         await agentSelects.nth(1).selectOption(workerAgentUrls[1]);
       }
 
+      const instantiateResponse = page.waitForResponse((res) => {
+        return res.url().includes('/teams/blueprints/') && res.url().includes('/instantiate');
+      });
       await instantiateCard.getByRole('button', { name: /^Team erstellen$/i }).click();
+      const response = await instantiateResponse;
+      expect(response.ok(), `Blueprint instantiate failed: ${response.status()}`).toBeTruthy();
 
       await expect.poll(async () => {
         const res = await request.get(`${hubUrl}/teams`, {

@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2",
+  "version": "5.2.1",
   "created": "2026-04-04",
-  "updated": "2026-04-04T13:24:00+02:00",
+  "updated": "2026-04-04T13:44:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -28,7 +28,7 @@
           "priority": "medium",
           "type": "process",
           "principle": "Clarity, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "todo.json",
@@ -37,6 +37,9 @@
           "acceptance": [
             "Bei jedem Update ist begruendet, warum Major/Minor/Patch erhoeht wurde.",
             "Version in Dateikopf und Change-Kontext ist konsistent."
+          ],
+          "notes": [
+            "2026-04-04: Verbindliches Schema in `meta.versioning_policy` hinterlegt und auf 5.x-Linie fixiert."
           ]
         }
       ]
@@ -72,7 +75,7 @@
           "priority": "critical",
           "type": "test-design",
           "principle": "SRP, Architecture-Integrity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/tests/",
@@ -84,6 +87,9 @@
           "acceptance": [
             "Ein eindeutiger End-to-End-Vertrag fuer den UI-Hauptprozess ist dokumentiert.",
             "Alle nachfolgenden Suiten referenzieren denselben Prozess."
+          ],
+          "notes": [
+            "2026-04-04: Kanonischer UI-Hauptprozess als Testvertrag in `docs/testing.md` dokumentiert."
           ]
         }
       ]
@@ -99,9 +105,10 @@
           "priority": "critical",
           "type": "test",
           "principle": "SRP, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
+            "frontend-angular/tests/main-goal-foundation.spec.ts",
             "frontend-angular/tests/ui-ux-workflows.spec.ts",
             "frontend-angular/tests/teams.spec.ts",
             "frontend-angular/tests/templates-crud.spec.ts"
@@ -112,6 +119,10 @@
           "acceptance": [
             "Template-/Blueprint-/Team-Erstellung laeuft deterministisch in Docker-Compose.",
             "Cleanup ist robust gegen Teilfehler."
+          ],
+          "notes": [
+            "2026-04-04: Neue Foundation-Suite `main-goal-foundation.spec.ts` implementiert (Template->Blueprint->Team mit Worker-Zuweisung und Cleanup).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-foundation.spec.ts --reporter=line"
           ]
         },
         {
@@ -392,9 +403,9 @@
     },
     "total_items": 15,
     "by_status": {
-      "completed": 1,
+      "completed": 4,
       "partial": 1,
-      "open": 13
+      "open": 10
     },
     "notes": [
       "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
