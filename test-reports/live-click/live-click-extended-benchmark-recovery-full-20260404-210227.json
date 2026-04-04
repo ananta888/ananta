@@ -1,0 +1,170 @@
+{
+  "run_id": "20260404T190227Z",
+  "started_at": "2026-04-04T19:02:27.814029+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.6,
+  "wait_tasks_seconds": 90.0,
+  "goal_wait_seconds": 120.0,
+  "goal_text": "Baue ein kleines Fibonacci-Backend mit API und einfachem Frontend-Chart, erstelle sinnvolle Folgeaufgaben und schliesse mindestens einen Task erfolgreich ab",
+  "benchmark_ticks": 8,
+  "benchmark_task_kind": "coding",
+  "bootstrap_setup": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:30.229448+00:00",
+      "ended_at": "2026-04-04T19:02:31.668346+00:00",
+      "duration_ms": 1438,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:32.277323+00:00",
+      "ended_at": "2026-04-04T19:02:35.883061+00:00",
+      "duration_ms": 3605,
+      "details": {
+        "template_name": "Live UI Template 1775329353",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:36.493531+00:00",
+      "ended_at": "2026-04-04T19:02:42.312872+00:00",
+      "duration_ms": 5819,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775329358",
+        "team_name": "Live UI Team 1775329360",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:42.923506+00:00",
+      "ended_at": "2026-04-04T19:02:48.544206+00:00",
+      "duration_ms": 5620,
+      "details": {
+        "goal_name": "Baue ein kleines Fibonacci-Backend mit API und einfachem Frontend-Chart, erstelle sinnvolle Folgeaufgaben und schliesse mindestens einen Task erfolgreich ab",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 156,
+          "label_before": "Goal planen",
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "8672313b-42af-41fb-9801-bdeb992e3827"
+          }
+        },
+        "goal_result_visible": true,
+        "tasks_created": 5,
+        "created_goal_id": "df224b65-7572-4df5-bde0-4c527b544939",
+        "goal_result_excerpt": "Goal angelegt df224b65-7572-4df5-bde0-4c527b544939 \u00b7 5 Tasks \u00b7 Plan 4bd325fc-96d5-4d89-8aac-0c8d975f672d 1. Anforderungen definierenHigh2. Design/ArchitekturHigh3. ImplementierungHigh4. Tests schreibenMedium5. DokumentationLow",
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/dashboard",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:49.151326+00:00",
+      "ended_at": "2026-04-04T19:02:50.708434+00:00",
+      "duration_ms": 1557,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/board",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:51.329502+00:00",
+      "ended_at": "2026-04-04T19:02:52.881880+00:00",
+      "duration_ms": 1552,
+      "details": {
+        "path": "/board",
+        "title": "Ananta - Agent Control",
+        "board_task_count": 43,
+        "board_has_tasks": true
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/templates",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:53.489859+00:00",
+      "ended_at": "2026-04-04T19:02:55.056060+00:00",
+      "duration_ms": 1566,
+      "details": {
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/teams",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:55.663988+00:00",
+      "ended_at": "2026-04-04T19:02:57.205595+00:00",
+      "duration_ms": 1541,
+      "details": {
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/settings",
+      "status": "ok",
+      "started_at": "2026-04-04T19:02:57.814365+00:00",
+      "ended_at": "2026-04-04T19:02:59.425760+00:00",
+      "duration_ms": 1611,
+      "details": {
+        "path": "/settings",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "HTTP Error 500: Internal Server Error"
+    }
+  ],
+  "session_id": "0120bdac-a4b7-4e07-a047-7a1a3590e6b9",
+  "last_goal_id": "df224b65-7572-4df5-bde0-4c527b544939",
+  "ended_at": "2026-04-04T19:03:47.845628+00:00"
+}
