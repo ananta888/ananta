@@ -60,7 +60,7 @@ type BlueprintArtifactForm = {
         </div>
       }
 
-      @if (!loading && currentTab === 'blueprints') {
+      @if (currentTab === 'blueprints') {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-primary teams-list-panel">
             <div class="row flex-between">
@@ -193,7 +193,7 @@ type BlueprintArtifactForm = {
         </div>
       }
 
-      @if (!loading && currentTab === 'teams') {
+      @if (currentTab === 'teams') {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-success">
             <h3 class="no-margin">Team aus Blueprint erstellen</h3>
@@ -318,7 +318,7 @@ type BlueprintArtifactForm = {
         </div>
       }
 
-      @if (!loading && currentTab === 'advanced') {
+      @if (currentTab === 'advanced') {
         <div class="card teams-advanced-panel">
           <div class="row flex-between">
             <div>
@@ -543,10 +543,8 @@ export class TeamsComponent implements OnInit {
       clearTimeout(this.refreshSafetyTimer);
       this.refreshSafetyTimer = undefined;
     }
-    this.busy = true;
     this.loading = true;
     this.refreshSafetyTimer = setTimeout(() => {
-      this.busy = false;
       this.loading = false;
       this.refreshSafetyTimer = undefined;
       this.ns.info('Teams-Ansicht wurde mit Safe-Timeout entsperrt. Sie koennen weiterarbeiten.');
@@ -555,7 +553,6 @@ export class TeamsComponent implements OnInit {
     const done = () => {
       pending -= 1;
       if (pending <= 0) {
-        this.busy = false;
         this.loading = false;
         if (this.refreshSafetyTimer) {
           clearTimeout(this.refreshSafetyTimer);

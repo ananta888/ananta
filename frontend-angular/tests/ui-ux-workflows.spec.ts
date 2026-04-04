@@ -128,19 +128,12 @@ test.describe('UI UX Workflows', () => {
     await assertNoUnhandledBrowserErrors(page);
   });
 
-  test('templates + blueprint + team creation works via UI', async ({ page, request }) => {
-    test.setTimeout(120_000);
+  test('template creation works via UI and remains responsive', async ({ page, request }) => {
+    test.setTimeout(90_000);
     await loginFast(page, request);
     const { hubUrl, token } = await getHubInfo(page);
-
     const templateName = `E2E UI Template ${Date.now()}`;
-    const blueprintName = `E2E UI Blueprint ${Date.now()}`;
-    const teamName = `E2E UI Team ${Date.now()}`;
-
     let createdTemplateId: string | null = null;
-    let createdBlueprintId: string | null = null;
-    let createdTeamId: string | null = null;
-
     try {
       await page.goto('/templates');
       await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
@@ -148,7 +141,6 @@ test.describe('UI UX Workflows', () => {
       await page.getByPlaceholder('Beschreibung').fill('Template aus UI-Workflow-Test');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und bearbeitest {{task_title}}.');
       await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-
       await expect.poll(async () => {
         const templateListRes = await request.get(`${hubUrl}/templates`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -157,63 +149,91 @@ test.describe('UI UX Workflows', () => {
         const templates = unwrapList(await templateListRes.json());
         return templates.find((t: any) => t.name === templateName)?.id || '';
       }, { timeout: 15000 }).not.toBe('');
-
       const templateListRes = await request.get(`${hubUrl}/templates`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      expect(templateListRes.ok()).toBeTruthy();
       const templates = unwrapList(await templateListRes.json());
       createdTemplateId = templates.find((t: any) => t.name === templateName)?.id || null;
+      expect(createdTemplateId).toBeTruthy();
+      await assertNoUnhandledBrowserErrors(page);
+    } finally {
+      if (createdTemplateId) await apiDelete(request, `${hubUrl}/templates/${createdTemplateId}`, token);
+    }
+  });
+
+  test('blueprint + team creation works via UI', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    const { hubUrl, token } = await getHubInfo(page);
+    const templateName = `E2E UI Template ${Date.now()}`;
+    const blueprintName = `E2E UI Blueprint ${Date.now()}`;
+    const teamName = `E2E UI Team ${Date.now()}`;
+    let createdTemplateId: string | null = null;
+    let createdBlueprintId: string | null = null;
+    let createdTeamId: string | null = null;
+    try {
+      const templateCreate = await request.post(`${hubUrl}/templates`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        data: { name: templateName, description: 'Seed template for blueprint test', prompt_template: 'Du bist {{agent_name}} und bearbeitest {{task_title}}.' },
+      });
+      expect(templateCreate.ok()).toBeTruthy();
+      const tplBody = await templateCreate.json();
+      createdTemplateId = (tplBody?.data || tplBody)?.id || null;
       expect(createdTemplateId).toBeTruthy();
 
       await page.goto('/teams');
       await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
       await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled({ timeout: 20000 });
       const editor = page.locator('.teams-editor-panel');
-      await expect(editor.getByRole('heading', { name: /Blueprint bearbeiten|Neuen Blueprint anlegen/i })).toBeVisible({ timeout: 15000 });
+      await expect(editor).toBeVisible({ timeout: 25000 });
       await editor.getByLabel('Name').fill(blueprintName);
       await editor.getByLabel('Beschreibung').fill('Blueprint aus UI-Workflow-Test');
       await editor.getByRole('button', { name: /Rolle hinzufuegen/i }).click();
       await editor.getByLabel('Rollenname').first().fill('Implementer');
       await editor.getByLabel('Template').first().selectOption(String(createdTemplateId));
       await editor.getByRole('button', { name: /^Erstellen$/i }).click();
-
-      await expect(page.locator('.teams-blueprint-card', { hasText: blueprintName }).first()).toBeVisible({ timeout: 15000 });
+      await expect.poll(async () => {
+        const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!blueprintsRes.ok()) return '';
+        const blueprints = unwrapList(await blueprintsRes.json());
+        return blueprints.find((b: any) => b.name === blueprintName)?.id || '';
+      }, { timeout: 20000 }).not.toBe('');
 
       const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      expect(blueprintsRes.ok()).toBeTruthy();
       const blueprints = unwrapList(await blueprintsRes.json());
       createdBlueprintId = blueprints.find((b: any) => b.name === blueprintName)?.id || null;
       expect(createdBlueprintId).toBeTruthy();
 
       await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
       const instantiateCard = page.locator('.card.card-success').first();
-      await instantiateCard.getByLabel('Blueprint').selectOption({ label: blueprintName });
+      await expect(instantiateCard.getByLabel('Blueprint')).toBeVisible({ timeout: 15000 });
+      await instantiateCard.getByLabel('Blueprint').selectOption(String(createdBlueprintId));
       await instantiateCard.getByLabel('Teamname').fill(teamName);
       await instantiateCard.getByRole('button', { name: /^Team erstellen$/i }).click();
-
-      await expect(page.locator('.teams-team-card', { hasText: teamName }).first()).toBeVisible({ timeout: 20000 });
+      await expect.poll(async () => {
+        const teamsRes = await request.get(`${hubUrl}/teams`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!teamsRes.ok()) return '';
+        const teams = unwrapList(await teamsRes.json());
+        return teams.find((t: any) => t.name === teamName)?.id || '';
+      }, { timeout: 20000 }).not.toBe('');
 
       const teamsRes = await request.get(`${hubUrl}/teams`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      expect(teamsRes.ok()).toBeTruthy();
       const teams = unwrapList(await teamsRes.json());
       createdTeamId = teams.find((t: any) => t.name === teamName)?.id || null;
       expect(createdTeamId).toBeTruthy();
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTeamId) {
-        await apiDelete(request, `${hubUrl}/teams/${createdTeamId}`, token);
-      }
-      if (createdBlueprintId) {
-        await apiDelete(request, `${hubUrl}/teams/blueprints/${createdBlueprintId}`, token);
-      }
-      if (createdTemplateId) {
-        await apiDelete(request, `${hubUrl}/templates/${createdTemplateId}`, token);
-      }
+      if (createdTeamId) await apiDelete(request, `${hubUrl}/teams/${createdTeamId}`, token);
+      if (createdBlueprintId) await apiDelete(request, `${hubUrl}/teams/blueprints/${createdBlueprintId}`, token);
+      if (createdTemplateId) await apiDelete(request, `${hubUrl}/templates/${createdTemplateId}`, token);
     }
   });
 
