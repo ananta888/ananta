@@ -1596,7 +1596,15 @@ def delete_role(role_id):
 @check_auth
 @admin_required
 def delete_team(team_id):
-    if _repos().team_repo.delete(team_id):
+    repos = _repos()
+    team = repos.team_repo.get_by_id(team_id)
+    if not team:
+        return _team_error("not_found", 404)
+
+    # Team-Mitglieder zuerst entfernen, damit FK-Constraints das Team-Delete nicht blockieren.
+    repos.team_member_repo.delete_by_team(team_id)
+
+    if repos.team_repo.delete(team_id):
         log_audit("team_deleted", {"team_id": team_id})
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)

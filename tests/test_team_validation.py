@@ -1,4 +1,4 @@
-from sqlmodel import Session, delete
+from sqlmodel import Session, delete, select
 
 from agent.database import engine
 from agent.db_models import AgentInfoDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
@@ -111,3 +111,52 @@ def test_team_member_template_validation(client):
     )
     assert response.status_code == 404
     assert response.json["message"] == "template_not_found"
+
+
+def test_delete_team_with_members_cleans_members_first(client):
+    response = client.post("/login", json={"username": "admin", "password": "admin"})
+    assert response.status_code == 200
+    admin_token = response.json["data"]["access_token"]
+
+    with Session(engine) as session:
+        session.exec(delete(TeamMemberDB))
+        session.exec(delete(TeamDB))
+        session.exec(delete(TeamTypeRoleLink))
+        session.exec(delete(TeamTypeDB))
+        session.exec(delete(RoleDB))
+        session.exec(delete(AgentInfoDB))
+        session.commit()
+
+    team_type = TeamTypeDB(name="DeleteType", description="Delete flow")
+    team_type_repo.save(team_type)
+
+    role = RoleDB(name="DeleteRole")
+    role_repo.save(role)
+
+    with Session(engine) as session:
+        session.add(TeamTypeRoleLink(team_type_id=team_type.id, role_id=role.id))
+        session.commit()
+
+    agent = AgentInfoDB(url="http://agent-delete", name="Agent Delete")
+    agent_repo.save(agent)
+
+    team = TeamDB(name="DeleteTeam", team_type_id=team_type.id)
+    team_repo.save(team)
+
+    patch_res = client.patch(
+        f"/teams/{team.id}",
+        json={"members": [{"agent_url": agent.url, "role_id": role.id}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert patch_res.status_code == 200
+
+    delete_res = client.delete(
+        f"/teams/{team.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert delete_res.status_code == 200
+
+    with Session(engine) as session:
+        assert session.get(TeamDB, team.id) is None
+        members = session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team.id)).all()
+    assert members == []
