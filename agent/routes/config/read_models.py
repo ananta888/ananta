@@ -7,6 +7,7 @@ from agent.common.errors import api_response
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.cli_session_service import get_cli_session_service
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
@@ -25,6 +26,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "research_backend", "path": "config.research_backend", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "hub_copilot", "path": "config.hub_copilot", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "context_bundle_policy", "path": "config.context_bundle_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "cli_session_mode", "path": "config.cli_session_mode", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "template_agent_name", "path": "config.template_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "team_agent_name", "path": "config.team_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "quality_gates", "path": "config.quality_gates", "type": "object", "editable": True, "endpoint": "POST /config"},
@@ -60,6 +62,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
     review_cfg = cfg.get("review_policy") if isinstance(cfg.get("review_policy"), dict) else {}
     risk_cfg = cfg.get("execution_risk_policy") if isinstance(cfg.get("execution_risk_policy"), dict) else {}
     exposure_policy = get_exposure_policy_service().normalize_exposure_policy(cfg.get("exposure_policy"))
+    cli_session_mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
     return {
         "llm": {
             "default_provider": cfg.get("default_provider"),
@@ -95,6 +98,14 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             },
             "hub_copilot": shared.hub_copilot_settings_summary(cfg),
             "context_bundle_policy": shared.context_bundle_policy_settings_summary(cfg),
+            "cli_session_mode": {
+                "enabled": bool(cli_session_mode.get("enabled", False)),
+                "stateful_backends": list(cli_session_mode.get("stateful_backends") or []),
+                "max_turns_per_session": int(cli_session_mode.get("max_turns_per_session") or 40),
+                "max_sessions": int(cli_session_mode.get("max_sessions") or 200),
+                "allow_task_scoped_auto_session": bool(cli_session_mode.get("allow_task_scoped_auto_session", True)),
+                "runtime": get_cli_session_service().snapshot(),
+            },
         },
         "system": {
             "log_level": cfg.get("log_level"),

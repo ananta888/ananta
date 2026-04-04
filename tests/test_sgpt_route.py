@@ -456,3 +456,52 @@ def test_sgpt_execute_returns_context_limit_diagnostics_for_opencode_errors(clie
     diagnostics = (response.json.get("data") or {}).get("diagnostics") or {}
     assert diagnostics.get("type") == "context_limit_mismatch"
     assert diagnostics.get("backend") == "opencode"
+
+
+def test_sgpt_stateful_sessions_create_and_turn(client, app, admin_auth_header):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "cli_session_mode": {
+            "enabled": True,
+            "stateful_backends": ["opencode", "codex"],
+            "max_turns_per_session": 6,
+            "max_sessions": 50,
+        },
+    }
+    create_res = client.post(
+        "/api/sgpt/sessions",
+        json={"backend": "opencode", "model": "opencode/glm-5-free", "conversation_id": "conv-1"},
+        headers=admin_auth_header,
+    )
+    assert create_res.status_code == 201
+    payload = create_res.json["data"]
+    session_id = (payload.get("session") or {}).get("id")
+    assert session_id
+
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "turn-1-output", "", "opencode")
+        turn_res = client.post(
+            f"/api/sgpt/sessions/{session_id}/turn",
+            json={"prompt": "first turn"},
+            headers=admin_auth_header,
+        )
+    assert turn_res.status_code == 200
+    turn_payload = turn_res.json["data"]
+    assert turn_payload["session_id"] == session_id
+    assert turn_payload["output"] == "turn-1-output"
+    assert (turn_payload.get("routing") or {}).get("session_mode") == "stateful"
+    assert (turn_payload.get("session_turn") or {}).get("index") == 1
+
+    get_res = client.get(f"/api/sgpt/sessions/{session_id}?include_history=1", headers=admin_auth_header)
+    assert get_res.status_code == 200
+    assert len((get_res.json.get("data") or {}).get("history") or []) == 1
+
+
+def test_sgpt_stateful_sessions_reject_when_disabled(client, app, admin_auth_header):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "cli_session_mode": {"enabled": False, "stateful_backends": ["opencode"]},
+    }
+    res = client.post("/api/sgpt/sessions", json={"backend": "opencode"}, headers=admin_auth_header)
+    assert res.status_code == 403
+    assert res.json["message"] == "cli_sessions_disabled"

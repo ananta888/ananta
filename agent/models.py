@@ -73,6 +73,9 @@ class TaskRoutingContract(SQLModel):
     remote_hub: bool = False
     instance_id: Optional[str] = None
     max_hops: Optional[int] = None
+    session_mode: Optional[str] = None
+    session_id: Optional[str] = None
+    session_turn_id: Optional[str] = None
     reason: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
     research_specialization: Optional[str] = None
@@ -616,6 +619,21 @@ class SgptContextRequest(SQLModel):
 class SgptSourceRequest(SQLModel):
     source_path: Optional[str] = None
     max_chars: Optional[int] = 1600
+
+
+class SgptSessionCreateRequest(SQLModel):
+    backend: Optional[str] = None
+    model: Optional[str] = None
+    conversation_id: Optional[str] = None
+    task_id: Optional[str] = None
+    session_metadata: Optional[dict] = None
+
+
+class SgptSessionTurnRequest(SQLModel):
+    prompt: Optional[str] = None
+    model: Optional[str] = None
+    options: Optional[List[str]] = Field(default_factory=list)
+    task_kind: Optional[str] = None
 
 
 class TriggerConfigureRequest(SQLModel):

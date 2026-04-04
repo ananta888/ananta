@@ -509,6 +509,9 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     runtime_profile = llm_configuration.get("runtime_profile") or {}
     assert runtime_profile.get("effective") in {"local-dev", "trusted-lab", "compose-safe", "distributed-strict"}
     assert runtime_profile.get("validation", {}).get("status") in {"ok", "error"}
+    cli_sessions = llm_configuration.get("cli_sessions") or {}
+    assert (cli_sessions.get("policy") or {}).get("enabled") in {True, False}
+    assert (cli_sessions.get("runtime") or {}).get("total") is not None
     routing_split = llm_configuration.get("routing_split") or {}
     assert (routing_split.get("inference") or {}).get("default_provider") is not None
     assert (routing_split.get("execution") or {}).get("default_backend") in {"sgpt", "codex", "opencode", "aider", "mistral_code", "auto"}
@@ -589,6 +592,33 @@ def test_set_config_rejects_invalid_openai_compat_max_hops(client, admin_token):
     )
     assert res.status_code == 400
     assert res.json["message"] == "invalid_openai_compat_max_hops"
+
+
+def test_set_config_validates_cli_session_mode_shape(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    bad = client.post("/config", json={"cli_session_mode": {"max_turns_per_session": 0}}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_cli_session_max_turns"
+
+    ok = client.post(
+        "/config",
+        json={
+            "cli_session_mode": {
+                "enabled": True,
+                "stateful_backends": ["opencode", "codex"],
+                "max_turns_per_session": 12,
+                "max_sessions": 150,
+                "allow_task_scoped_auto_session": True,
+            }
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    mode = ((cfg.json.get("data") or {}).get("cli_session_mode") or {})
+    assert mode.get("enabled") is True
+    assert mode.get("max_turns_per_session") == 12
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):

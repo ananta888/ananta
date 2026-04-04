@@ -19,9 +19,11 @@ from agent.common.sgpt import (
 from agent.config import settings
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
+from agent.models import SgptSessionCreateRequest, SgptSessionTurnRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
+from agent.services.cli_session_service import get_cli_session_service
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
@@ -65,6 +67,18 @@ SOURCE_ALLOWED_EXTENSIONS = {
     ".js",
     ".jsx",
 }
+
+
+def _cli_session_policy() -> dict:
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
+    backends = [str(item or "").strip().lower() for item in list(mode.get("stateful_backends") or ["opencode", "codex"]) if str(item or "").strip()]
+    return {
+        "enabled": bool(mode.get("enabled", False)),
+        "stateful_backends": backends,
+        "max_turns_per_session": max(1, min(int(mode.get("max_turns_per_session") or 40), 200)),
+        "max_sessions": max(1, min(int(mode.get("max_sessions") or 200), 2000)),
+    }
 
 
 def _build_cli_error_details(errors: str, backend_used: str) -> dict | None:
@@ -332,6 +346,8 @@ def list_cli_backends():
     default_provider = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "").strip().lower() or None
     data = {
         "configured_backend": configured_backend,
+        "cli_session_mode": _cli_session_policy(),
+        "cli_session_runtime": get_cli_session_service().snapshot(),
         "routing_dimensions": {
             "inference_provider_default": default_provider,
             "execution_backend_default": configured_backend,
@@ -375,6 +391,130 @@ def capability_matrix():
             }
         )
     return api_response(data={"items": matrix, "policy": "capability_matrix_v1"})
+
+
+@sgpt_bp.route("/sessions", methods=["POST"])
+@check_auth
+@validate_request(SgptSessionCreateRequest)
+def create_cli_session():
+    policy = _cli_session_policy()
+    if not policy["enabled"]:
+        return api_response(status="error", message="cli_sessions_disabled", code=403)
+    data = request.get_json(silent=True) or {}
+    backend = str(data.get("backend") or settings.sgpt_execution_backend or "opencode").strip().lower()
+    if backend == "auto":
+        backend = "opencode"
+    if backend not in SUPPORTED_CLI_BACKENDS:
+        return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=400)
+    if backend not in set(policy["stateful_backends"]):
+        return api_response(status="error", message="backend_not_stateful_enabled", code=400)
+    session = get_cli_session_service().create_session(
+        backend=backend,
+        model=data.get("model"),
+        metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
+        task_id=data.get("task_id"),
+        conversation_id=data.get("conversation_id"),
+    )
+    get_cli_session_service().prune_sessions(max_sessions=policy["max_sessions"])
+    return api_response(data={"session": session, "policy": policy}, code=201)
+
+
+@sgpt_bp.route("/sessions", methods=["GET"])
+@check_auth
+def list_cli_sessions():
+    include_history = str(request.args.get("include_history") or "").strip().lower() in {"1", "true", "yes"}
+    backend = str(request.args.get("backend") or "").strip().lower() or None
+    limit = int(request.args.get("limit") or 100)
+    items = get_cli_session_service().list_sessions(backend=backend, include_history=include_history, limit=limit)
+    return api_response(data={"items": items, "count": len(items), "runtime": get_cli_session_service().snapshot()})
+
+
+@sgpt_bp.route("/sessions/<session_id>", methods=["GET"])
+@check_auth
+def get_cli_session(session_id: str):
+    include_history = str(request.args.get("include_history") or "1").strip().lower() in {"1", "true", "yes"}
+    payload = get_cli_session_service().get_session(session_id, include_history=include_history)
+    if payload is None:
+        return api_response(status="error", message="session_not_found", code=404)
+    return api_response(data=payload)
+
+
+@sgpt_bp.route("/sessions/<session_id>", methods=["DELETE"])
+@check_auth
+def close_cli_session(session_id: str):
+    closed = get_cli_session_service().close_session(session_id)
+    if closed is None:
+        return api_response(status="error", message="session_not_found", code=404)
+    return api_response(data={"status": "closed", "session": closed})
+
+
+@sgpt_bp.route("/sessions/<session_id>/turn", methods=["POST"])
+@check_auth
+@validate_request(SgptSessionTurnRequest)
+def run_cli_session_turn(session_id: str):
+    session = get_cli_session_service().get_session(session_id, include_history=True)
+    if session is None:
+        return api_response(status="error", message="session_not_found", code=404)
+    if str(session.get("status") or "").strip().lower() != "active":
+        return api_response(status="error", message="session_closed", code=409)
+    data = request.get_json(silent=True) or {}
+    prompt = str(data.get("prompt") or "").strip()
+    if not prompt:
+        return api_response(status="error", message="Missing prompt", code=400)
+    backend = str(session.get("backend") or "").strip().lower() or "opencode"
+    options = data.get("options", [])
+    if not isinstance(options, list) or not all(isinstance(opt, str) for opt in options):
+        return api_response(status="error", message="options must contain only strings", code=400)
+    safe_options, rejected = normalize_backend_flags(backend, options)
+    if rejected:
+        return api_response(
+            status="error",
+            message=f"Unsupported options for backend '{backend}': {rejected}",
+            code=400,
+        )
+    if backend == "sgpt" and "--no-interaction" not in safe_options:
+        safe_options.append("--no-interaction")
+    policy = _cli_session_policy()
+    effective_prompt = get_cli_session_service().build_prompt_with_history(
+        session_id=session_id,
+        prompt=prompt,
+        max_turns=policy["max_turns_per_session"],
+    ) or prompt
+    task_kind = normalize_task_kind(data.get("task_kind"), prompt)
+    rc, out, err, backend_used = run_llm_cli_command(
+        effective_prompt,
+        safe_options,
+        backend=backend,
+        model=data.get("model") or session.get("model"),
+        routing_policy={"mode": "stateful_session", "task_kind": task_kind, "policy_version": "session-v1"},
+    )
+    if rc != 0 and not out:
+        return api_response(status="error", message=err or f"backend '{backend_used}' failed with exit code {rc}", code=500)
+    turn = get_cli_session_service().append_turn(
+        session_id=session_id,
+        prompt=prompt,
+        output=out or "",
+        model=data.get("model") or session.get("model"),
+        metadata={"backend_used": backend_used, "returncode": rc, "stderr_preview": (err or "")[:240]},
+    )
+    updated = get_cli_session_service().get_session(session_id, include_history=False)
+    return api_response(
+        data={
+            "output": out or "",
+            "errors": err or "",
+            "backend": backend_used,
+            "session_id": session_id,
+            "session_turn": turn,
+            "session": updated,
+            "routing": {
+                "task_kind": task_kind,
+                "requested_backend": backend,
+                "effective_backend": backend_used,
+                "reason": "stateful_cli_session",
+                "session_mode": "stateful",
+            },
+        }
+    )
 
 
 @sgpt_bp.route("/context", methods=["POST"])

@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-04T03:05:10+02:00",
+  "updated": "2026-04-04T04:50:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -79,7 +79,7 @@
           "priority": "critical",
           "type": "feature",
           "principle": "API-Compatibility, Transparency, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/openai_compat.py",
@@ -249,7 +249,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, SRP, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/config/providers.py",
@@ -291,6 +291,11 @@
             "Es gibt ein dokumentiertes Session-Modell fuer iterative CLI-Chats.",
             "Session, Turn, Verlauf und Lebenszyklus sind klar benannt.",
             "Das Modell trennt stateful Chat-Fortsetzung von stateless Einmalaufrufen."
+          ],
+          "notes": [
+            "2026-04-04: Neues `CliSessionService` eingefuehrt (create/list/get/close/delete/append_turn/history-compose) als explizites stateful Session-Modell.",
+            "2026-04-04: Session-Requests als eigene Contracts (`SgptSessionCreateRequest`, `SgptSessionTurnRequest`) modelliert.",
+            "2026-04-04: Dokumentation fuer Session-Lifecycle und Konfiguration (`cli_session_mode`) in `docs/local-llm-cli-strategy.md` und `docs/backend.md` ergänzt."
           ]
         },
         {
@@ -300,7 +305,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "OCP, Reliability, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/common/sgpt.py",
@@ -314,6 +319,11 @@
             "OpenCode kann optional mit Session-ID und Folge-Turns betrieben werden.",
             "Antworten koennen iterativ gelesen und der Verlauf kontrolliert fortgesetzt werden.",
             "Bestehende stateless run-Pfade bleiben kompatibel."
+          ],
+          "notes": [
+            "2026-04-04: Neue API-Endpunkte fuer stateful CLI-Sessions hinzugefuegt: `POST/GET /api/sgpt/sessions`, `GET/DELETE /api/sgpt/sessions/{id}`, `POST /api/sgpt/sessions/{id}/turn`.",
+            "2026-04-04: OpenCode/Codex koennen policy-gesteuert als stateful Backends betrieben werden (`cli_session_mode.stateful_backends`).",
+            "2026-04-04: Stateless `run`-Pfade bleiben unveraendert kompatibel; Session-Flow ist additiv."
           ]
         },
         {
@@ -323,7 +333,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "DIP, Reuse, Safe-Autonomy",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/task_scoped_execution_service.py",
@@ -337,6 +347,11 @@
             "Worker-Pfade koennen optional dieselbe CLI-Session ueber mehrere Turns fortsetzen.",
             "Session-Nutzung bleibt policy-gesteuert und beobachtbar.",
             "Fallback auf stateless Verhalten bleibt verfuegbar."
+          ],
+          "notes": [
+            "2026-04-04: Task-scoped Propose-Flow kann optional dieselbe CLI-Session wiederverwenden (`verification_status.cli_session`, `routing.session_id`).",
+            "2026-04-04: Session-Aktivierung ist policy-gesteuert (`cli_session_mode.enabled`, `allow_task_scoped_auto_session`, `stateful_backends`).",
+            "2026-04-04: Bei deaktivierter Policy oder nicht-freigegebenem Backend bleibt der Pfad stateless."
           ]
         },
         {
@@ -346,7 +361,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, Compatibility, Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/openai_compat.py",
@@ -360,6 +375,11 @@
             "Iterative Flows koennen ueber Session-/Conversation-Metadaten nachvollzogen werden.",
             "Die Metadaten bleiben additiv und brechen bestehende Clients nicht.",
             "Trace- und Audit-Pfade bleiben durchgaengig erhalten."
+          ],
+          "notes": [
+            "2026-04-04: OpenAI-Compat Capabilities markieren `session_metadata=true`.",
+            "2026-04-04: `/v1/chat/completions` und `/v1/responses` echoen additive `conversation`-Metadaten (`conversation_id`/`session_id`/`turn_id`).",
+            "2026-04-04: Session-Turns im OpenAI-Compat-Pfad werden auditierbar als `openai_compat_session_turn` protokolliert."
           ]
         },
         {
@@ -369,7 +389,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, UX, SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/config_read_model_service.py",
@@ -388,7 +408,8 @@
           "notes": [
             "2026-04-04 (partial): Dashboard- und Assistant-Read-Model zeigen jetzt Exposure-Policy (`llm_configuration.exposure` bzw. `settings.summary.governance.exposure_policy`) explizit an.",
             "OpenAI-Compat-Capabilities sind ueber dedizierten Endpoint (`/v1/ananta/capabilities`) fuer Operator-Diagnostik verfuegbar.",
-            "Offen bleibt: Sichtbarkeit von Session-Modi sowie MCP-/Remote-Hub-Live-Status in Settings/UI."
+            "2026-04-04: Session-Modi sind jetzt in `/api/sgpt/backends` (`cli_session_mode`, `cli_session_runtime`) sowie in Dashboard/Assistant-Read-Models (`llm_configuration.cli_sessions`, `settings.summary.llm.cli_session_mode`) sichtbar.",
+            "2026-04-04: Settings-/Task-Detail-UI zeigt Session-Modus, stateful Backends und aktive Session-ID explizit."
           ]
         }
       ]
@@ -506,9 +527,9 @@
   "meta": {
     "total_items": 18,
     "by_status": {
-      "completed": 6,
+      "completed": 12,
       "partial": 0,
-      "open": 12
+      "open": 6
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -521,7 +542,8 @@
       "AIM-003, AIM-004, AIM-005 und AIM-017 sind abgeschlossen: OpenAI-Compat ist gehaertet, Remote-Hub-Provider additiv integriert und Rekursionsschutz serverseitig erzwungen.",
       "AIM-006 ist abgeschlossen: Codex-CLI-Targeting ist fuer lokale und Remote-Hub-Ziele transparent, inkl. expliziter Fehlkonfigurationsdiagnostik.",
       "AIM-008 ist abgeschlossen: Inference-Routing und Execution-Routing werden in API/Read-Models/UI getrennt sichtbar gemacht.",
-      "AIM-018 ist teilweise umgesetzt: Exposure-Policies sind in Read-Models und Capabilities sichtbar; Session-/MCP-Live-Sicht bleibt offen."
+      "AIM-013 bis AIM-016 sind abgeschlossen: Stateful CLI-Sessions sind modelliert, in SGPT/API nutzbar und fuer task-scoped Propose-Pfade policy-gesteuert integriert.",
+      "AIM-018 ist abgeschlossen: Session-/Exposure-Modi sind in Read-Models, Backends-Diagnostik und UI sichtbar."
     ],
     "recommended_order": [
       "AIM-001",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Any
 
 from flask import current_app
@@ -90,6 +91,19 @@ class OpenAICompatService:
             return provider.strip() or None, model.strip() or None
         return None, value
 
+    def _session_metadata(self, payload: dict[str, Any]) -> dict[str, Any]:
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        session_id = str(payload.get("session_id") or metadata.get("session_id") or "").strip() or None
+        conversation_id = str(payload.get("conversation_id") or metadata.get("conversation_id") or "").strip() or None
+        if not session_id and not conversation_id:
+            return {}
+        return {
+            "session_id": session_id,
+            "conversation_id": conversation_id,
+            "turn_id": f"turn-{uuid.uuid4()}",
+            "mode": "metadata_echo_v1",
+        }
+
     def chat_completion(self, *, payload: dict[str, Any]) -> dict[str, Any]:
         messages = payload.get("messages") or []
         if not isinstance(messages, list) or not messages:
@@ -120,7 +134,7 @@ class OpenAICompatService:
         )
         created = int(time.time())
         response_model = payload.get("model") or f"{provider_override}:{model_name}" if provider_override and model_name else (model_name or "")
-        return {
+        response = {
             "id": f"chatcmpl-{created}",
             "object": "chat.completion",
             "created": created,
@@ -135,6 +149,10 @@ class OpenAICompatService:
             "usage": usage,
             "trace_id": (result.get("trace_id") if isinstance(result, dict) else None),
         }
+        session_meta = self._session_metadata(payload)
+        if session_meta:
+            response["conversation"] = session_meta
+        return response
 
     def response_api(self, *, payload: dict[str, Any]) -> dict[str, Any]:
         raw_input = payload.get("input")
@@ -152,7 +170,7 @@ class OpenAICompatService:
         )
         created = int(time.time())
         response_model = payload.get("model") or f"{provider_override}:{model_name}" if provider_override and model_name else (model_name or "")
-        return {
+        response = {
             "id": f"resp-{created}",
             "object": "response",
             "created_at": created,
@@ -168,6 +186,10 @@ class OpenAICompatService:
             "usage": usage,
             "trace_id": (result.get("trace_id") if isinstance(result, dict) else None),
         }
+        session_meta = self._session_metadata(payload)
+        if session_meta:
+            response["conversation"] = session_meta
+        return response
 
     def list_files(self) -> list[dict[str, Any]]:
         return [self._serialize_file(item.id) for item in artifact_repo.get_all()]

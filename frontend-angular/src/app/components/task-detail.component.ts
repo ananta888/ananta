@@ -331,6 +331,14 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <div class="muted">Goal Trace</div>
               <strong>{{ task?.goal_trace_id || task?.last_proposal?.trace?.trace_id || '—' }}</strong>
             </div>
+            <div>
+              <div class="muted">CLI Session</div>
+              <strong>{{ task?.last_proposal?.routing?.session_id || task?.verification_status?.cli_session?.session_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Session Mode</div>
+              <strong>{{ task?.last_proposal?.routing?.session_mode || 'stateless' }}</strong>
+            </div>
           </div>
           @if (isAdmin && showAdminDrilldown && (task?.last_proposal?.trace || task?.history?.length)) {
             <div class="mt-10">

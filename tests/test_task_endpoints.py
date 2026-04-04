@@ -775,3 +775,54 @@ def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, ap
     assert "blocked_tool" not in prompt
     assert '"required"' in prompt
     assert response.json["data"]["worker_context"]["context_bundle_id"] == "bundle-ctx-1"
+
+
+def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admin_auth_header):
+    tid = "T-STATEFUL-PROPOSE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["sgpt_routing"] = {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {"ops": "opencode"},
+        }
+        cfg["cli_session_mode"] = {
+            "enabled": True,
+            "stateful_backends": ["opencode"],
+            "max_turns_per_session": 8,
+            "max_sessions": 100,
+            "allow_task_scoped_auto_session": True,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="deploy and restart services")
+
+    prompts = []
+
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+        prompts.append(prompt)
+        if len(prompts) == 1:
+            return 0, '{"reason":"turn-1","command":"echo one"}', "", "opencode"
+        return 0, '{"reason":"turn-2","command":"echo two"}', "", "opencode"
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
+        first = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "deploy now"}, headers=admin_auth_header)
+        second = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "restart kubernetes pods and verify rollout"}, headers=admin_auth_header)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_routing = (first.json.get("data") or {}).get("routing") or {}
+    second_routing = (second.json.get("data") or {}).get("routing") or {}
+    assert first_routing.get("session_mode") == "stateful"
+    assert second_routing.get("session_mode") == "stateful"
+    assert first_routing.get("session_id")
+    assert second_routing.get("session_id") == first_routing.get("session_id")
+    assert len(prompts) == 2
+    assert "Turn 1 Assistant" in prompts[1]
+    assert '"reason":"turn-1"' in prompts[1]
+
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        cli_session_meta = ((task.get("verification_status") or {}).get("cli_session") or {})
+        assert cli_session_meta.get("session_id") == first_routing.get("session_id")
