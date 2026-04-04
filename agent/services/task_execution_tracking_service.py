@@ -322,6 +322,10 @@ class TaskExecutionTrackingService:
         tool_calls: list[dict] | None,
         execution_duration_ms: int,
     ) -> dict:
+        routing = (proposal_meta or {}).get("routing") or {}
+        inference_provider = str(routing.get("inference_provider") or "").strip() or None
+        inference_model = str(routing.get("inference_model") or "").strip() or None
+        execution_backend = str(routing.get("execution_backend") or (proposal_meta or {}).get("backend") or "").strip() or None
         bench_provider, bench_model = shared_resolve_benchmark_identity(
             proposal_meta,
             current_app.config.get("AGENT_CONFIG", {}) or {},
@@ -342,6 +346,9 @@ class TaskExecutionTrackingService:
         return {
             "provider": bench_provider,
             "model": bench_model,
+            "inference_provider": inference_provider or bench_provider,
+            "inference_model": inference_model or bench_model,
+            "execution_backend": execution_backend,
             "task_kind": bench_task_kind,
             "tokens_total": estimated_tokens,
             "cost_units": cost_units,
@@ -408,6 +415,9 @@ class TaskExecutionTrackingService:
             "output": output,
             "exit_code": exit_code,
             "backend": proposal_meta.get("backend"),
+            "execution_backend": ((proposal_meta.get("routing") or {}).get("execution_backend")) or proposal_meta.get("backend"),
+            "inference_provider": ((proposal_meta.get("routing") or {}).get("inference_provider")) or cost_summary.get("inference_provider"),
+            "inference_model": ((proposal_meta.get("routing") or {}).get("inference_model")) or cost_summary.get("inference_model"),
             "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
             "retries_used": retries_used,
             "retry_history": list(retry_history or []),
@@ -435,6 +445,13 @@ class TaskExecutionTrackingService:
             verification_status["execution_scope"] = scope_summary
         if provenance:
             verification_status["execution_provenance"] = provenance
+        verification_status["execution_routing"] = {
+            "inference_provider": cost_summary.get("inference_provider"),
+            "inference_model": cost_summary.get("inference_model"),
+            "execution_backend": cost_summary.get("execution_backend"),
+            "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
+            "updated_at": time.time(),
+        }
         update_local_task_status(
             tid,
             status,

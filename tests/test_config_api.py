@@ -509,6 +509,9 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     runtime_profile = llm_configuration.get("runtime_profile") or {}
     assert runtime_profile.get("effective") in {"local-dev", "trusted-lab", "compose-safe", "distributed-strict"}
     assert runtime_profile.get("validation", {}).get("status") in {"ok", "error"}
+    routing_split = llm_configuration.get("routing_split") or {}
+    assert (routing_split.get("inference") or {}).get("default_provider") is not None
+    assert (routing_split.get("execution") or {}).get("default_backend") in {"sgpt", "codex", "opencode", "aider", "mistral_code", "auto"}
     research_backend = llm_configuration.get("research_backend") or {}
     assert research_backend.get("provider") == "deerflow"
     assert research_backend.get("enabled") is True

@@ -13,6 +13,7 @@ from agent.common.sgpt import (
     get_cli_backend_preflight,
     get_cli_backend_runtime_status,
     normalize_backend_flags,
+    resolve_codex_runtime_config,
     run_llm_cli_command,
 )
 from agent.config import settings
@@ -327,7 +328,28 @@ def list_cli_backends():
     runtime = get_cli_backend_runtime_status()
     preflight = get_cli_backend_preflight()
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-    data = {"configured_backend": configured_backend, "supported_backends": capabilities, "runtime": runtime, "preflight": preflight}
+    codex_runtime = resolve_codex_runtime_config()
+    default_provider = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "").strip().lower() or None
+    data = {
+        "configured_backend": configured_backend,
+        "routing_dimensions": {
+            "inference_provider_default": default_provider,
+            "execution_backend_default": configured_backend,
+            "codex_runtime_target": {
+                "target_provider": codex_runtime.get("target_provider"),
+                "target_kind": codex_runtime.get("target_kind"),
+                "target_provider_type": codex_runtime.get("target_provider_type"),
+                "base_url": codex_runtime.get("base_url"),
+                "remote_hub": bool(codex_runtime.get("remote_hub")),
+                "instance_id": codex_runtime.get("instance_id"),
+                "max_hops": codex_runtime.get("max_hops"),
+                "diagnostics": list(codex_runtime.get("diagnostics") or []),
+            },
+        },
+        "supported_backends": capabilities,
+        "runtime": runtime,
+        "preflight": preflight,
+    }
     return api_response(data=data)
 
 

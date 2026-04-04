@@ -128,7 +128,15 @@ Wichtige Preflight-Felder:
 - `preflight.providers.codex.base_url`
 - `preflight.providers.codex.base_url_source`
 - `preflight.providers.codex.api_key_configured`
+- `preflight.providers.codex.target_kind`
+- `preflight.providers.codex.target_provider_type`
+- `preflight.providers.codex.remote_hub`
+- `preflight.providers.codex.instance_id`
+- `preflight.providers.codex.max_hops`
+- `preflight.providers.codex.diagnostics`
 - `preflight.providers.local_openai`
+
+`GET /api/sgpt/backends` liefert zusaetzlich `routing_dimensions`, damit Inference-Default und Execution-Default explizit getrennt sichtbar sind.
 
 Ergaenzend dazu fuehrt `setup_host_services.ps1` auf Windows jetzt einen lokalen Host-Preflight aus fuer:
 

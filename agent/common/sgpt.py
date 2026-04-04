@@ -185,9 +185,15 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["target_provider"] = codex_runtime["target_provider"]
             runtime_entry["target_base_url_source"] = codex_runtime["base_url_source"]
             runtime_entry["target_is_local"] = codex_runtime["is_local"]
+            runtime_entry["target_kind"] = codex_runtime.get("target_kind")
+            runtime_entry["target_provider_type"] = codex_runtime.get("target_provider_type")
+            runtime_entry["remote_hub"] = bool(codex_runtime.get("remote_hub"))
+            runtime_entry["instance_id"] = codex_runtime.get("instance_id")
+            runtime_entry["max_hops"] = codex_runtime.get("max_hops")
             runtime_entry["api_key_configured"] = bool(codex_runtime["api_key"])
             runtime_entry["api_key_source"] = codex_runtime["api_key_source"]
             runtime_entry["prefer_lmstudio"] = codex_runtime["prefer_lmstudio"]
+            runtime_entry["diagnostics"] = list(codex_runtime.get("diagnostics") or [])
         data[name] = runtime_entry
     return data
 
@@ -248,6 +254,10 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "supports_tool_calls": bool(backend.get("supports_tool_calls")),
                 "transport_provider": backend.get("transport_provider"),
                 "api_key_profile": backend.get("api_key_profile"),
+                "provider_type": backend.get("provider_type") or "local_openai_compatible",
+                "remote_hub": bool(backend.get("remote_hub")),
+                "instance_id": backend.get("instance_id"),
+                "max_hops": backend.get("max_hops"),
             }
         )
 
@@ -275,6 +285,12 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "api_key_configured": bool(codex_runtime.get("api_key")),
                 "api_key_source": codex_runtime.get("api_key_source"),
                 "prefer_lmstudio": bool(codex_runtime.get("prefer_lmstudio")),
+                "target_kind": codex_runtime.get("target_kind"),
+                "target_provider_type": codex_runtime.get("target_provider_type"),
+                "remote_hub": bool(codex_runtime.get("remote_hub")),
+                "instance_id": codex_runtime.get("instance_id"),
+                "max_hops": codex_runtime.get("max_hops"),
+                "diagnostics": list(codex_runtime.get("diagnostics") or []),
             },
             "local_openai": local_provider_entries,
         },
@@ -548,7 +564,18 @@ def _is_probably_local_base_url(url: str | None) -> bool:
     return any(marker in raw for marker in local_markers)
 
 
-def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
+def _build_codex_runtime_diagnostics(*, base_url: str | None, api_key: str | None, is_local: bool) -> list[str]:
+    diagnostics: list[str] = []
+    if not base_url:
+        diagnostics.append("codex_runtime_missing_base_url")
+    if not api_key and not is_local:
+        diagnostics.append("codex_runtime_missing_api_key_for_remote_target")
+    if base_url and _classify_runtime_target(base_url) == "unknown":
+        diagnostics.append("codex_runtime_target_host_kind_unknown")
+    return diagnostics
+
+
+def resolve_codex_runtime_config() -> dict:
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
     codex_cfg = agent_cfg.get("codex_cli") or {}
@@ -596,14 +623,27 @@ def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
     if not api_key and _is_probably_local_base_url(base_url):
         api_key = "sk-no-key-needed"
         api_key_source = "local_dummy"
+    is_local = _is_probably_local_base_url(base_url)
+    target_kind = "local_openai"
+    if local_target and bool(local_target.get("remote_hub")):
+        target_kind = "remote_ananta_hub"
+    elif not is_local:
+        target_kind = "remote_openai_compatible"
+    diagnostics = _build_codex_runtime_diagnostics(base_url=base_url, api_key=api_key, is_local=is_local)
     return {
         "base_url": base_url,
         "api_key": api_key,
         "target_provider": target_provider or ("lmstudio" if prefer_lmstudio else None),
         "base_url_source": base_url_source if base_url else None,
         "api_key_source": api_key_source,
-        "is_local": _is_probably_local_base_url(base_url),
+        "is_local": is_local,
         "prefer_lmstudio": bool(prefer_lmstudio),
+        "target_kind": target_kind,
+        "target_provider_type": (local_target or {}).get("provider_type") if isinstance(local_target, dict) else None,
+        "remote_hub": bool((local_target or {}).get("remote_hub")) if isinstance(local_target, dict) else False,
+        "instance_id": (local_target or {}).get("instance_id") if isinstance(local_target, dict) else None,
+        "max_hops": (local_target or {}).get("max_hops") if isinstance(local_target, dict) else None,
+        "diagnostics": diagnostics,
     }
 
 
@@ -630,12 +670,19 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         runtime_cfg = resolve_codex_runtime_config()
         base_url = runtime_cfg["base_url"]
         api_key = runtime_cfg["api_key"]
+        diagnostics = list(runtime_cfg.get("diagnostics") or [])
+        if not base_url:
+            return -1, "", "Codex runtime target is not configured: missing OpenAI-compatible base_url"
+        if not api_key and not bool(runtime_cfg.get("is_local")):
+            return -1, "", "Codex runtime target requires API key for remote endpoint"
         if base_url:
             env["OPENAI_BASE_URL"] = base_url
             env["OPENAI_API_BASE"] = base_url
 
         if api_key:
             env["OPENAI_API_KEY"] = api_key
+        if diagnostics:
+            logging.warning("Codex runtime diagnostics: %s", ",".join(diagnostics))
 
         try:
             logging.info(f"Zentraler Codex-Aufruf: {args}")

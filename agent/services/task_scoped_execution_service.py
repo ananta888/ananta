@@ -10,7 +10,7 @@ from flask import current_app
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import TaskConflictError, TaskNotFoundError, WorkerForwardingError
-from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
+from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, resolve_codex_runtime_config
 from agent.config import settings
 from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
 from agent.models import TaskStepExecuteRequest
@@ -313,12 +313,18 @@ class TaskScopedExecutionService:
             latency_ms = int((time.time() - started_at) * 1000)
             raw_res = cli_out or ""
             required_capabilities = derive_required_capabilities(task, task_kind)
+            routing_dimensions = self._routing_dimensions(
+                backend_used=backend_used,
+                model=selected_model,
+                requested_backend=requested_backend,
+            )
             routing = {
                 "task_kind": task_kind,
                 "effective_backend": effective_backend,
                 "reason": routing_reason,
                 "required_capabilities": required_capabilities,
                 "research_specialization": derive_research_specialization(task, task_kind, required_capabilities),
+                **routing_dimensions,
             }
             cli_result = {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]}
             if rc != 0 and not raw_res.strip():
@@ -498,6 +504,11 @@ class TaskScopedExecutionService:
             "reason": routing_reason,
             "required_capabilities": required_capabilities,
             "research_specialization": research_specialization,
+            **self._routing_dimensions(
+                backend_used=backend_used,
+                model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                requested_backend="auto",
+            ),
         }
         if is_research_backend(backend_used):
             research_res = self._build_research_result(
@@ -1092,3 +1103,36 @@ task_scoped_execution_service = TaskScopedExecutionService()
 
 def get_task_scoped_execution_service() -> TaskScopedExecutionService:
     return task_scoped_execution_service
+    @staticmethod
+    def _routing_dimensions(*, backend_used: str, model: str | None, requested_backend: str = "auto") -> dict:
+        backend = str(backend_used or "").strip().lower()
+        requested = str(requested_backend or "auto").strip().lower()
+        dimensions = {
+            "requested_backend": requested or "auto",
+            "execution_backend": backend or requested or "sgpt",
+            "inference_provider": None,
+            "inference_model": str(model or "").strip() or None,
+            "inference_base_url": None,
+            "inference_target_kind": None,
+            "inference_target_provider_type": None,
+            "remote_hub": False,
+            "instance_id": None,
+            "max_hops": None,
+        }
+        if backend == "codex":
+            runtime_cfg = resolve_codex_runtime_config()
+            dimensions.update(
+                {
+                    "inference_provider": runtime_cfg.get("target_provider") or "openai_compatible",
+                    "inference_base_url": runtime_cfg.get("base_url"),
+                    "inference_target_kind": runtime_cfg.get("target_kind"),
+                    "inference_target_provider_type": runtime_cfg.get("target_provider_type"),
+                    "remote_hub": bool(runtime_cfg.get("remote_hub")),
+                    "instance_id": runtime_cfg.get("instance_id"),
+                    "max_hops": runtime_cfg.get("max_hops"),
+                }
+            )
+            return dimensions
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        dimensions["inference_provider"] = str(cfg.get("default_provider") or "").strip().lower() or None
+        return dimensions

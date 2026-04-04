@@ -213,6 +213,14 @@ export function resolveContextBundlePolicyValue(config: any): any {
               <div>{{ getProviderRuntimeKind(getEffectiveProvider()) }}</div>
             </div>
             <div>
+              <div class="muted">Execution Backend</div>
+              <div>{{ (config?.sgpt_execution_backend || 'sgpt') }}</div>
+            </div>
+            <div>
+              <div class="muted">Codex Target</div>
+              <div>{{ (config?.codex_cli?.target_provider || 'default') }} / {{ (config?.codex_cli?.base_url || getEffectiveBaseUrl()) }}</div>
+            </div>
+            <div>
               <div class="muted">API Key</div>
               <div>{{ requiresApiKey(getEffectiveProvider()) ? (hasApiKey(getEffectiveProvider()) ? 'ok' : 'missing') : 'not required' }}</div>
             </div>
