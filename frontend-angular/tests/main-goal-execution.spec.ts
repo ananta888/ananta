@@ -7,6 +7,7 @@ import {
   BETA_AGENT_TOKEN,
   assertNoUnhandledBrowserErrors,
   assertErrorOverlaysInViewport,
+  createJourneyCleanupPolicy,
   loginFast,
 } from './utils';
 
@@ -43,9 +44,9 @@ async function apiCall(
 ) {
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   if (method === 'GET') return request.get(url, { headers });
-  if (method === 'POST') return request.post(url, { headers, data });
-  if (method === 'PATCH') return request.patch(url, { headers, data });
-  return request.delete(url, { headers });
+  if (method === 'POST') return request.post(url, { headers, data, timeout: 45_000 });
+  if (method === 'PATCH') return request.patch(url, { headers, data, timeout: 30_000 });
+  return request.delete(url, { headers, timeout: 30_000 });
 }
 
 async function ensureWorkersRegistered(request: APIRequestContext, hubUrl: string, token: string) {
@@ -75,6 +76,7 @@ test.describe('Main Goal Execution Journey', () => {
     const { hubUrl, token } = await getHubInfo(page);
     expect(token).toBeTruthy();
     const authToken = token as string;
+    const cleanup = createJourneyCleanupPolicy(hubUrl, authToken);
 
     let createdTeamId: string | null = null;
     const createdTaskIds: string[] = [];
@@ -110,6 +112,7 @@ test.describe('Main Goal Execution Journey', () => {
       const createdTeam = unwrap<any>(await teamCreate.json());
       createdTeamId = createdTeam?.id || null;
       expect(createdTeamId).toBeTruthy();
+      cleanup.trackTeam(createdTeamId);
 
       const activateRes = await apiCall(request, 'POST', `${hubUrl}/teams/${createdTeamId}/activate`, authToken, {});
       expect(activateRes.ok()).toBeTruthy();
@@ -161,6 +164,7 @@ test.describe('Main Goal Execution Journey', () => {
         }
       }
       expect(createdTaskIds.length).toBeGreaterThanOrEqual(1);
+      cleanup.trackTasks(createdTaskIds);
 
       for (const taskId of createdTaskIds) {
         const normalizeRes = await apiCall(request, 'PATCH', `${hubUrl}/tasks/${taskId}`, authToken, {
@@ -206,11 +210,7 @@ test.describe('Main Goal Execution Journey', () => {
       await assertErrorOverlaysInViewport(page);
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTeamId) {
-        try {
-          await apiCall(request, 'DELETE', `${hubUrl}/teams/${createdTeamId}`, authToken);
-        } catch {}
-      }
+      await cleanup.run();
     }
   });
 });

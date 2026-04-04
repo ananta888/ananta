@@ -1,5 +1,5 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, loginFast } from './utils';
+import { test, expect, type Page } from '@playwright/test';
+import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, createJourneyCleanupPolicy, loginFast } from './utils';
 
 async function getHubInfo(page: Page): Promise<{ hubUrl: string; token: string | null }> {
   return page.evaluate((defaultHubUrl: string) => {
@@ -18,14 +18,6 @@ async function getHubInfo(page: Page): Promise<{ hubUrl: string; token: string |
   }, HUB_URL);
 }
 
-async function apiDelete(request: APIRequestContext, url: string, token: string | null) {
-  try {
-    await request.delete(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  } catch {}
-}
-
 test.describe('Main Goal UI Planning', () => {
   test('plans goal via UI with explicit team mapping', async ({ page, request }) => {
     test.setTimeout(120_000);
@@ -36,6 +28,7 @@ test.describe('Main Goal UI Planning', () => {
     let createdTeamId: string | null = null;
     let capturedGoalPayload: any = null;
     const mockedGoals: any[] = [];
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token);
 
     try {
       const setupTeamRes = await request.post(`${hubUrl}/teams/setup-scrum`, {
@@ -46,6 +39,7 @@ test.describe('Main Goal UI Planning', () => {
       const setupBody = await setupTeamRes.json();
       createdTeamId = setupBody?.data?.team?.id || setupBody?.team?.id || null;
       expect(createdTeamId).toBeTruthy();
+      cleanup.trackTeam(createdTeamId);
 
       await page.route('**/goals', async route => {
         const method = route.request().method();
@@ -131,7 +125,7 @@ test.describe('Main Goal UI Planning', () => {
       await assertErrorOverlaysInViewport(page);
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTeamId) await apiDelete(request, `${hubUrl}/teams/${createdTeamId}`, token);
+      await cleanup.run();
     }
   });
 });

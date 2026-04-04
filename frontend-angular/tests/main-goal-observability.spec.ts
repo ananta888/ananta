@@ -4,6 +4,7 @@ import {
   loginFast,
   assertErrorOverlaysInViewport,
   assertNoUnhandledBrowserErrors,
+  createJourneyCleanupPolicy,
 } from './utils';
 
 type HubInfo = { hubUrl: string; token: string | null };
@@ -51,6 +52,7 @@ test.describe('Main Goal Observability Journey', () => {
     const { hubUrl, token } = await getHubInfo(page);
     expect(token).toBeTruthy();
     const authToken = token as string;
+    const cleanup = createJourneyCleanupPolicy(hubUrl, authToken);
 
     const title = `E2E Observe Task ${Date.now()}`;
     let createdTaskId: string | null = null;
@@ -84,6 +86,7 @@ test.describe('Main Goal Observability Journey', () => {
       const created = unwrap<any>(await createRes.json());
       createdTaskId = created?.id || null;
       expect(createdTaskId).toBeTruthy();
+      cleanup.trackTask(createdTaskId);
 
       await page.goto('/board', { waitUntil: 'domcontentloaded' });
       await expect(page.getByRole('heading', { name: /^Board$/i })).toBeVisible();
@@ -117,9 +120,7 @@ test.describe('Main Goal Observability Journey', () => {
       await assertErrorOverlaysInViewport(page);
       await assertNoUnhandledBrowserErrors(page);
     } finally {
-      if (createdTaskId) {
-        await apiCall(request, 'POST', `${hubUrl}/tasks/cleanup`, authToken, { mode: 'delete', task_ids: [createdTaskId] });
-      }
+      await cleanup.run();
       if (!page.isClosed()) {
         await page.unroute('**/tasks/*/stream-logs**');
       }
