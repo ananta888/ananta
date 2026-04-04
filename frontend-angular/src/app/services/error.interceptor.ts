@@ -35,6 +35,7 @@ export class ErrorInterceptor implements HttpInterceptor {
         
         // Zentrale Benachrichtigung
         this.ns.error(errorMessage);
+        (error as any).__anantaHandledByInterceptor = true;
         
         // Fehler weiterreichen, damit Komponenten bei Bedarf noch spezifisch reagieren können
         return throwError(() => error);

@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 
+import { JsonPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -110,10 +111,21 @@ export function resolveContextBundlePolicyValue(config: any): any {
   return { ...normalized, include_context_text: true, max_chunks: null };
 }
 
+function createDefaultSettingsConfig(): any {
+  return {
+    hub_copilot: normalizeHubCopilotConfigValue(undefined),
+    context_bundle_policy: normalizeContextBundlePolicyConfigValue(undefined),
+    research_backend: normalizeResearchBackendConfigValue(undefined),
+    codex_cli: { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true },
+    cli_session_mode: { enabled: false, stateful_backends: [] },
+    local_openai_backends: [],
+  };
+}
+
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [FormsModule, ChangePasswordComponent, UserManagementComponent, MfaSetupComponent, TooltipDirective],
+  imports: [FormsModule, JsonPipe, ChangePasswordComponent, UserManagementComponent, MfaSetupComponent, TooltipDirective],
   template: `
     <div class="row flex-between">
       <h2>System-Einstellungen</h2>
@@ -792,7 +804,7 @@ export class SettingsComponent implements OnInit {
 
   hub = this.system.resolveHubAgent();
   allAgents = this.system.listConfiguredAgents();
-  config: any = {};
+  config: any = createDefaultSettingsConfig();
   configRaw = '';
   llmHistory: any[] = [];
   isAdmin = false;
@@ -853,6 +865,7 @@ export class SettingsComponent implements OnInit {
     this.system.getConfig(this.hub.url).subscribe({
       next: cfg => {
         this.config = {
+          ...createDefaultSettingsConfig(),
           ...(cfg && typeof cfg === 'object' ? cfg : {}),
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
           context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
