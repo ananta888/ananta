@@ -35,6 +35,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.hubCopilotStatus = null;
     cmp.contextPolicyStatus = null;
     cmp.researchBackendStatus = null;
+    cmp.runtimeTelemetry = null;
     cmp.goalsList = [];
     cmp.selectedGoalId = '';
     cmp.goalDetail = null;
@@ -165,6 +166,67 @@ describe('DashboardComponent (benchmarks)', () => {
 
     expect(cmp.benchmarkData).toEqual([]);
     expect(cmp.benchmarkUpdatedAt).toBe(1);
+  });
+
+  it('derives active inference runtime tile data from telemetry', () => {
+    const cmp = createComponent();
+    cmp.llmEffectiveRuntime = { provider: 'ollama', model: 'glm-4.7', temperature: 0.35 };
+    cmp.runtimeTelemetry = {
+      providers: {
+        ollama: {
+          status: 'ok',
+          reachable: true,
+          candidate_count: 2,
+          models: [{ name: 'glm-4.7', details: { num_ctx: 8192 } }],
+          activity: {
+            gpu_active: true,
+            executor_summary: { gpu: 1, cpu: 0, unknown: 0 },
+            active_models: [{ name: 'glm-4.7', executor: 'gpu' }],
+          },
+        },
+      },
+    };
+
+    const tile = cmp.activeInferenceRuntime();
+    expect(tile).not.toBeNull();
+    expect(tile.provider).toBe('ollama');
+    expect(tile.model).toBe('glm-4.7');
+    expect(tile.contextLengthLabel).toContain('8192');
+    expect(tile.gpuActiveLabel).toBe('yes');
+    expect(tile.executorLabel).toBe('GPU');
+    expect(tile.temperatureLabel).toBe('0.35');
+  });
+
+  it('builds live runtime model rows from ollama and lmstudio telemetry', () => {
+    const cmp = createComponent();
+    cmp.llmEffectiveRuntime = { provider: 'ollama', model: 'glm-4.7' };
+    cmp.runtimeTelemetry = {
+      providers: {
+        ollama: {
+          models: [{ name: 'glm-4.7', details: { num_ctx: 8192 } }],
+          activity: {
+            active_models: [{ name: 'glm-4.7', executor: 'gpu' }],
+          },
+        },
+        lmstudio: {
+          candidates: [
+            { id: 'qwen2.5-coder', context_length: 16384, loaded: true },
+          ],
+        },
+      },
+    };
+
+    const rows = cmp.liveRuntimeModels();
+    expect(rows).toHaveLength(2);
+    expect(rows[0].provider).toBe('ollama');
+    expect(rows[0].statusLabel).toBe('active runtime');
+    expect(rows[0].executorLabel).toBe('GPU');
+    expect(rows[0].contextLengthLabel).toContain('8192');
+
+    expect(rows[1].provider).toBe('lmstudio');
+    expect(rows[1].model).toBe('qwen2.5-coder');
+    expect(rows[1].statusLabel).toBe('loaded');
+    expect(rows[1].contextLengthLabel).toContain('16384');
   });
 
   it('loads goal governance and cost reporting for the latest goal', () => {

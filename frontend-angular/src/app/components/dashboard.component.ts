@@ -340,6 +340,69 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               </div>
             </div>
           </div>
+          @if (activeInferenceRuntime()) {
+            <div class="grid cols-4 mt-sm">
+              <div class="card card-light">
+                <div class="muted">Active Inference Runtime</div>
+                <strong>{{ activeInferenceRuntime()?.provider || '-' }} / {{ activeInferenceRuntime()?.model || '-' }}</strong>
+                <div class="muted status-text-sm-alt">
+                  Context: {{ activeInferenceRuntime()?.contextLengthLabel || '-' }}
+                </div>
+                <div class="muted status-text-sm-alt">
+                  Temperature: {{ activeInferenceRuntime()?.temperatureLabel || '-' }}
+                </div>
+              </div>
+              <div class="card card-light">
+                <div class="muted">Runtime Executor</div>
+                <strong>{{ activeInferenceRuntime()?.executorLabel || '-' }}</strong>
+                <div class="muted status-text-sm-alt">
+                  GPU Active: {{ activeInferenceRuntime()?.gpuActiveLabel || 'unknown' }}
+                </div>
+              </div>
+              <div class="card card-light">
+                <div class="muted">Provider Health</div>
+                <strong>{{ activeInferenceRuntime()?.providerStatus || '-' }}</strong>
+                <div class="muted status-text-sm-alt">
+                  Reachable: {{ activeInferenceRuntime()?.providerReachableLabel || '-' }}
+                </div>
+              </div>
+              <div class="card card-light">
+                <div class="muted">Model Inventory</div>
+                <strong>{{ activeInferenceRuntime()?.candidateCountLabel || '-' }}</strong>
+                <div class="muted status-text-sm-alt">
+                  Source: {{ activeInferenceRuntime()?.telemetrySource || '-' }}
+                </div>
+              </div>
+            </div>
+            @if (liveRuntimeModels().length) {
+              <div class="table-scroll mt-sm">
+                <table class="standard-table table-min-600">
+                  <thead>
+                    <tr class="card-light">
+                      <th>Provider</th>
+                      <th>Model</th>
+                      <th>Executor</th>
+                      <th>Context</th>
+                      <th>Status</th>
+                      <th>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of liveRuntimeModels(); track row.id) {
+                      <tr>
+                        <td>{{ row.provider }}</td>
+                        <td class="font-mono font-sm">{{ row.model }}</td>
+                        <td>{{ row.executorLabel }}</td>
+                        <td>{{ row.contextLengthLabel }}</td>
+                        <td>{{ row.statusLabel }}</td>
+                        <td class="font-mono font-sm">{{ row.sourceLabel }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
           @if (researchBackendStatus?.providers) {
             <div class="table-scroll mt-sm">
               <table class="standard-table table-min-600">
@@ -776,6 +839,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   hubCopilotStatus: any = null;
   contextPolicyStatus: any = null;
   researchBackendStatus: any = null;
+  runtimeTelemetry: any = null;
   goalsList: any[] = [];
   selectedGoalId = '';
   goalDetail: any = null;
@@ -874,6 +938,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.hubCopilotStatus = rm?.llm_configuration?.hub_copilot || null;
         this.contextPolicyStatus = rm?.llm_configuration?.context_bundle_policy || null;
         this.researchBackendStatus = rm?.llm_configuration?.research_backend || null;
+        this.runtimeTelemetry = rm?.llm_configuration?.runtime_telemetry || null;
         this.activeTeam = this.teamsList.find(t => t.is_active);
         const recentTasks = sharedTasks
           .slice()
@@ -957,6 +1022,152 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const providers = this.researchBackendStatus?.providers;
     if (!providers || typeof providers !== 'object') return [];
     return Object.values(providers) as any[];
+  }
+
+  activeInferenceRuntime(): any | null {
+    const runtimeProviders = this.runtimeTelemetry?.providers;
+    if (!runtimeProviders || typeof runtimeProviders !== 'object') return null;
+    const provider = String(
+      this.llmEffectiveRuntime?.provider ||
+      this.llmDefaults?.provider ||
+      this.llmExplicitOverride?.provider ||
+      ''
+    ).trim().toLowerCase();
+    if (!provider) return null;
+
+    const model = String(
+      this.llmEffectiveRuntime?.model ||
+      this.llmDefaults?.model ||
+      this.llmExplicitOverride?.model ||
+      ''
+    ).trim();
+    const providerState = runtimeProviders?.[provider] || null;
+    if (!providerState) return null;
+
+    const contextLength = this.resolveContextLength(provider, model, providerState);
+    const ollamaActivity = provider === 'ollama' ? (providerState?.activity || null) : null;
+    const executorSummary = ollamaActivity?.executor_summary || {};
+    const gpuActive = ollamaActivity?.gpu_active;
+    const temperatureRaw = this.llmEffectiveRuntime?.temperature ?? this.hubCopilotStatus?.effective?.temperature ?? null;
+    const temperature = Number.isFinite(Number(temperatureRaw)) ? Number(temperatureRaw) : null;
+    const activeEntry = provider === 'ollama'
+      ? ((Array.isArray(ollamaActivity?.active_models) ? ollamaActivity.active_models : []).find((item: any) => String(item?.name || '').trim() === model) || null)
+      : null;
+    const executor = String(activeEntry?.executor || '').trim().toLowerCase();
+    const executorLabel = executor ? executor.toUpperCase() : (
+      Number(executorSummary?.gpu || 0) > 0 ? 'GPU'
+      : Number(executorSummary?.cpu || 0) > 0 ? 'CPU'
+      : 'unknown'
+    );
+
+    return {
+      provider,
+      model: model || '-',
+      contextLengthLabel: contextLength ? `${contextLength} tokens` : 'unknown',
+      temperatureLabel: temperature === null ? 'default' : temperature.toFixed(2),
+      executorLabel,
+      gpuActiveLabel: gpuActive === true ? 'yes' : gpuActive === false ? 'no' : 'unknown',
+      providerStatus: String(providerState?.status || 'unknown'),
+      providerReachableLabel: providerState?.reachable === true ? 'yes' : providerState?.reachable === false ? 'no' : 'unknown',
+      candidateCountLabel: String(
+        provider === 'ollama'
+          ? Number(providerState?.candidate_count || 0)
+          : Number(providerState?.candidate_count || 0)
+      ),
+      telemetrySource: provider === 'ollama' ? '/api/tags + /api/ps' : '/v1/models',
+    };
+  }
+
+  liveRuntimeModels(): any[] {
+    const runtimeProviders = this.runtimeTelemetry?.providers;
+    if (!runtimeProviders || typeof runtimeProviders !== 'object') return [];
+    const rows: any[] = [];
+    const activeProvider = String(this.llmEffectiveRuntime?.provider || '').trim().toLowerCase();
+    const activeModel = String(this.llmEffectiveRuntime?.model || '').trim();
+
+    const ollama = runtimeProviders?.ollama;
+    if (ollama && typeof ollama === 'object') {
+      const ollamaModels = Array.isArray(ollama?.models) ? ollama.models : [];
+      const activeModels = Array.isArray(ollama?.activity?.active_models) ? ollama.activity.active_models : [];
+      for (const entry of activeModels) {
+        const model = String(entry?.name || '').trim();
+        if (!model) continue;
+        const modelDef = ollamaModels.find((item: any) => String(item?.name || '').trim() === model) || null;
+        const contextLength = Number(
+          entry?.context_length ||
+          entry?.num_ctx ||
+          modelDef?.context_length ||
+          modelDef?.num_ctx ||
+          modelDef?.details?.context_length ||
+          modelDef?.details?.num_ctx ||
+          0
+        );
+        const contextLengthLabel = Number.isFinite(contextLength) && contextLength > 0 ? `${contextLength} tokens` : 'unknown';
+        const executor = String(entry?.executor || '').trim().toLowerCase();
+        rows.push({
+          id: `ollama:${model}:${executor || 'unknown'}`,
+          provider: 'ollama',
+          model,
+          executorLabel: executor ? executor.toUpperCase() : 'unknown',
+          contextLengthLabel,
+          statusLabel: activeProvider === 'ollama' && activeModel === model ? 'active runtime' : 'active',
+          sourceLabel: '/api/ps',
+        });
+      }
+    }
+
+    const lmstudio = runtimeProviders?.lmstudio;
+    if (lmstudio && typeof lmstudio === 'object') {
+      const candidates = Array.isArray(lmstudio?.candidates) ? lmstudio.candidates : [];
+      for (const entry of candidates) {
+        const model = String(entry?.id || entry?.name || '').trim();
+        if (!model) continue;
+        const contextLength = Number(entry?.context_length || entry?.num_ctx || 0);
+        const contextLengthLabel = Number.isFinite(contextLength) && contextLength > 0 ? `${contextLength} tokens` : 'unknown';
+        const isActiveRuntime = activeProvider === 'lmstudio' && activeModel === model;
+        const loaded = entry?.loaded === true;
+        rows.push({
+          id: `lmstudio:${model}`,
+          provider: 'lmstudio',
+          model,
+          executorLabel: loaded ? 'loaded' : 'unknown',
+          contextLengthLabel,
+          statusLabel: isActiveRuntime ? 'active runtime' : (loaded ? 'loaded' : 'available'),
+          sourceLabel: '/v1/models',
+        });
+      }
+    }
+
+    rows.sort((left: any, right: any) => {
+      const leftActive = String(left?.statusLabel || '').includes('active') ? 1 : 0;
+      const rightActive = String(right?.statusLabel || '').includes('active') ? 1 : 0;
+      if (leftActive !== rightActive) return rightActive - leftActive;
+      return String(left?.model || '').localeCompare(String(right?.model || ''));
+    });
+    return rows;
+  }
+
+  private resolveContextLength(provider: string, model: string, providerState: any): number | null {
+    if (!model) return null;
+    if (provider === 'lmstudio') {
+      const candidates = Array.isArray(providerState?.candidates) ? providerState.candidates : [];
+      const candidate = candidates.find((item: any) => String(item?.id || '').trim() === model);
+      const value = Number(candidate?.context_length || 0);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+    if (provider === 'ollama') {
+      const models = Array.isArray(providerState?.models) ? providerState.models : [];
+      const item = models.find((entry: any) => String(entry?.name || '').trim() === model);
+      const value = Number(
+        item?.context_length ||
+        item?.num_ctx ||
+        item?.details?.context_length ||
+        item?.details?.num_ctx ||
+        0
+      );
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+    return null;
   }
 
   startAutopilot() {
