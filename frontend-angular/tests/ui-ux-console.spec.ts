@@ -1,30 +1,14 @@
-import { test, expect, type Page } from '@playwright/test';
-import { login } from './utils';
-
-function attachConsoleCollectors(page: Page) {
-  const consoleErrors: string[] = [];
-  const pageErrors: string[] = [];
-
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') {
-      const text = msg.text().trim();
-      if (!text) return;
-      if (text.includes('favicon.ico')) return;
-      if (text.includes('Failed to load resource: the server responded with a status of 401')) return;
-      consoleErrors.push(text);
-    }
-  });
-
-  page.on('pageerror', (err) => {
-    pageErrors.push((err?.message || String(err)).trim());
-  });
-
-  return { consoleErrors, pageErrors };
-}
+import { test, expect } from '@playwright/test';
+import {
+  assertErrorOverlaysInViewport,
+  assertNoUnhandledBrowserErrors,
+  clearBrowserErrorGuards,
+  login,
+} from './utils';
 
 test.describe('UI UX console and visibility', () => {
   test('core navigation has no browser console/page errors', async ({ page }) => {
-    const logs = attachConsoleCollectors(page);
+    clearBrowserErrorGuards(page);
     await login(page);
 
     const checks: Array<{ path: string; heading: RegExp }> = [
@@ -42,8 +26,7 @@ test.describe('UI UX console and visibility', () => {
       await page.waitForTimeout(250);
     }
 
-    expect(logs.consoleErrors, `Console errors:\n${logs.consoleErrors.join('\n')}`).toEqual([]);
-    expect(logs.pageErrors, `Page errors:\n${logs.pageErrors.join('\n')}`).toEqual([]);
+    await assertNoUnhandledBrowserErrors(page);
   });
 
   test('error notification is visible in viewport and closeable', async ({ page }) => {
@@ -59,16 +42,7 @@ test.describe('UI UX console and visibility', () => {
     await expect(toast).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(350);
 
-    const viewport = page.viewportSize();
-    expect(viewport).toBeTruthy();
-    const box = await toast.boundingBox();
-    expect(box).toBeTruthy();
-    if (viewport && box) {
-      expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.y).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
-    }
+    await assertErrorOverlaysInViewport(page);
 
     await toast.locator('.notification-close').click();
     await expect(page.locator('.notification.error')).toHaveCount(0);
