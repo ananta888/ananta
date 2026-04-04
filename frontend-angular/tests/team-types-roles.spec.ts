@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { loginFast } from './utils';
 
 test.describe('Team Types and Roles', () => {
   test('create type, role, link role, map template, cleanup', async ({ page }) => {
@@ -7,7 +7,7 @@ test.describe('Team Types and Roles', () => {
     const extractId = (payload: any): string | undefined =>
       payload?.id || payload?.data?.id || payload?.data?.data?.id;
 
-    await login(page);
+    await loginFast(page, page.request);
 
     const templateName = `E2E Template ${Date.now()}`;
     const roleName = `E2E Role ${Date.now()}`;
@@ -16,8 +16,10 @@ test.describe('Team Types and Roles', () => {
     const templatesPromise1 = page.waitForResponse(res => res.url().includes('/templates') && res.request().method() === 'GET');
     await page.goto('/templates');
     await templatesPromise1;
-    
-    await page.getByPlaceholder('Name').fill(templateName);
+
+    const templateNameInput = page.getByPlaceholder('Name');
+    await expect(templateNameInput).toBeEnabled({ timeout: 20000 });
+    await templateNameInput.fill(templateName);
     await page.getByPlaceholder('Beschreibung').fill('E2E Template Beschreibung');
     await page.getByLabel('Prompt Template').fill('Du bist {{agent_name}}.');
     
