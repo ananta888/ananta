@@ -8,7 +8,7 @@ from flask import Flask
 
 from agent.common.http import get_default_client
 from agent.config import settings
-from agent.llm_integration import probe_lmstudio_runtime
+from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
 from agent.repository import agent_repo, task_repo
 from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.background.registration import get_registration_state
@@ -78,6 +78,11 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
         url = provider_urls.get(provider)
         if not url:
             return provider, None
+        if provider == "ollama":
+            probe = probe_ollama_runtime(url, timeout=min(settings.http_timeout, 3.0))
+            if probe["ok"]:
+                return provider, ("ok" if probe["candidate_count"] > 0 else "unstable")
+            return provider, "unreachable" if probe["status"] != "invalid_url" else "error"
         if provider == "lmstudio":
             probe = probe_lmstudio_runtime(url, timeout=min(settings.http_timeout, 3.0))
             if probe["ok"]:

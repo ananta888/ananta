@@ -100,6 +100,32 @@ def test_health_endpoint_marks_lmstudio_unstable_when_reachable_without_models(c
     assert checks["llm_providers"]["lmstudio"] == "unstable"
 
 
+def test_health_endpoint_marks_ollama_ok_via_tags_probe_without_get_generate(client, app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "default_provider": "ollama",
+    }
+    app.config["PROVIDER_URLS"] = {"ollama": "http://runtime-ollama:11434/api/generate"}
+
+    with patch(
+        "agent.services.system_health_service.probe_ollama_runtime",
+        return_value={
+            "ok": True,
+            "status": "ok",
+            "tags_url": "http://runtime-ollama:11434/api/tags",
+            "candidate_count": 2,
+            "models": [{"name": "m1"}, {"name": "m2"}],
+        },
+    ) as mock_probe, patch("agent.services.system_health_service.http_client.get") as mock_http_get:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    checks = response.json["data"]["checks"]
+    assert checks["llm_providers"]["ollama"] == "ok"
+    mock_probe.assert_called_once()
+    mock_http_get.assert_not_called()
+
+
 def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     response = client.get("/api/system/contracts", headers=admin_auth_header)
 
