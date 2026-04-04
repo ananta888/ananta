@@ -67,7 +67,7 @@ test.describe('Main Goal UI Foundation', () => {
     let createdBlueprintId: string | null = null;
     let createdTeamId: string | null = null;
     let capturedInstantiateMemberCount = 0;
-    const cleanup = createJourneyCleanupPolicy(hubUrl, token);
+    const cleanup = createJourneyCleanupPolicy(hubUrl, token, request);
 
     try {
       await page.goto('/templates');

@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2.6",
+  "version": "5.2.7",
   "created": "2026-04-04",
-  "updated": "2026-04-04T16:23:00+02:00",
+  "updated": "2026-04-04T16:58:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -295,7 +295,7 @@
           "priority": "critical",
           "type": "test-infra",
           "principle": "Determinism, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docker-compose.test.yml",
@@ -308,6 +308,10 @@
           "acceptance": [
             "Tests koennen auf leerem Zustand starten und reproduzierbar denselben Scrum-Setup herstellen.",
             "Keine manuelle UI-Konfiguration vor Testbeginn noetig."
+          ],
+          "notes": [
+            "2026-04-04: Deterministischer Scrum-Seed als fester Teststandard fuer die Journey-Runs uebernommen und im Runbook in `docs/testing.md` klar beschrieben.",
+            "Die offenen Journey-Suites laufen damit reproduzierbar ohne manuelle Scrum-Vorkonfiguration."
           ]
         },
         {
@@ -317,7 +321,7 @@
           "priority": "high",
           "type": "test-infra",
           "principle": "Maintainability, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/tests/utils.ts",
@@ -330,6 +334,10 @@
           "acceptance": [
             "Keine dauerhaft verwaisten Testobjekte nach Testlaeufen.",
             "Cleanup ist auch bei Timeout/Fail robust."
+          ],
+          "notes": [
+            "2026-04-04: Grosse Journey-Suites auf die einheitliche Cleanup-Policy mit Request-Kontext umgestellt (`main-goal-foundation.spec.ts`, `main-goal-execution.spec.ts`, `main-goal-observability.spec.ts`).",
+            "Cleanup bleibt zentral im `finally` und folgt der stabilen Reihenfolge (Tasks -> Teams -> Blueprints -> Templates)."
           ]
         },
         {
@@ -339,7 +347,7 @@
           "priority": "high",
           "type": "test-hardening",
           "principle": "Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/tests/",
@@ -354,6 +362,10 @@
           "acceptance": [
             "Wiederholte Runs zeigen deutlich weniger intermittierende Ausfaelle.",
             "Known-Flaky-Liste ist fuer diese Journey minimiert."
+          ],
+          "notes": [
+            "2026-04-04: Timeout-/Flaky-Haertungsprofil als Betriebsstandard in `docs/testing.md` dokumentiert (env-gesteuerte Zeitprofile fuer langsamere Umgebungen).",
+            "Zusatzhaertung in Journey-Tests: erhoehte API-Timeouts fuer Planner-Pfade in `main-goal-execution.spec.ts`."
           ]
         }
       ]
@@ -437,9 +449,9 @@
     },
     "total_items": 15,
     "by_status": {
-      "completed": 12,
+      "completed": 15,
       "partial": 0,
-      "open": 3
+      "open": 0
     },
     "notes": [
       "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
