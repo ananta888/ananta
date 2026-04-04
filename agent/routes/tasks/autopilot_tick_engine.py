@@ -613,6 +613,7 @@ def execute_autopilot_tick(
                         propose_payload,
                         token=target_worker.token,
                     )
+                    candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
                 except Exception as strategy_exc:
                     strategy_failures.append(
                         {

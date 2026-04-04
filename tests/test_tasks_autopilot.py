@@ -632,6 +632,48 @@ def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):
     assert model_selection.get("attempt") == 2
 
 
+def test_autopilot_recovers_embedded_json_from_raw_proposal(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "adaptive_model_routing_enabled": False,
+        "task_kind_model_overrides": {"coding": "model-a"},
+        "autopilot_strategy_fallback_models": ["model-b"],
+        "autopilot_strategy_max_attempts": 2,
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="strategy-embedded-1", title="Embedded JSON Strategy", status="todo", task_kind="coding"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-embedded:5001", name="worker-embedded", role="worker", token="tok", status="online")
+    )
+    propose_models: list[str | None] = []
+    raw_output = (
+        "Traceback (most recent call last):\n"
+        "ValueError: transient parse issue\n"
+        '{"reason":"embedded json","command":"echo ok"}'
+    )
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            propose_models.append(data.get("model"))
+            return {"status": "success", "data": {"reason": raw_output, "raw": raw_output}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("strategy-embedded-1")
+    assert res["reason"] == "ok"
+    assert res["dispatched"] == 1
+    assert propose_models == ["model-a"]
+    assert updated is not None and updated.status == "completed"
+    assert (updated.last_proposal or {}).get("reason") == "embedded json"
+    assert (updated.last_proposal or {}).get("command") == "echo ok"
+    model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
+    assert model_selection.get("selected_model") == "model-a"
+    assert model_selection.get("attempt") == 1
+
+
 def test_autopilot_strategy_exhaustion_returns_task_to_hub_queue(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_CONFIG"] = {
