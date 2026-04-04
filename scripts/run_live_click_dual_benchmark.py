@@ -193,6 +193,10 @@ def main() -> int:
         "--mixed-review-model",
         default="lmstudio-community-phi-4-mini-reasoning-gguf-phi-4-mini-reasoning-q4_k_m:latest",
     )
+    parser.add_argument(
+        "--repair-model",
+        default="tensorblock-deepseek-coder-v2-lite-instruct-gguf-deepseek-coder-v2-443776354e4e:latest",
+    )
     parser.add_argument("--report-dir", default="test-reports/live-click")
     args = parser.parse_args()
 
@@ -220,6 +224,8 @@ def main() -> int:
     single_cfg_payload = {
             "default_provider": "ollama",
             "default_model": args.single_model,
+            "task_propose_repair_backend": "sgpt",
+            "task_propose_repair_model": args.repair_model,
             "role_model_overrides": {},
             "template_model_overrides": {},
             "task_kind_model_overrides": {},
@@ -242,6 +248,8 @@ def main() -> int:
     mixed_cfg_payload = {
             "default_provider": "ollama",
             "default_model": args.mixed_planning_model,
+            "task_propose_repair_backend": "sgpt",
+            "task_propose_repair_model": args.repair_model,
             "role_model_overrides": {
                 "implementer": args.mixed_coding_model,
                 "reviewer": args.mixed_review_model,
