@@ -308,10 +308,17 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
         seen.add(key)
         candidates.append({"model": normalized, "source": source, "temperature": normalized_temperature})
 
+    ordered_models: list[tuple[str | None, str]] = []
+
+    def _queue_model(model: str | None, source: str) -> None:
+        normalized = str(model or "").strip() or None
+        if normalized is not None and normalized in failed_models:
+            return
+        ordered_models.append((normalized, source))
+
     selected = str(base_model_meta.get("selected_model") or "").strip()
     if selected and selected not in failed_models:
-        for temperature in effective_temperatures:
-            _append(selected, str(base_model_meta.get("source") or "base_selection"), temperature)
+        _queue_model(selected, str(base_model_meta.get("source") or "base_selection"))
 
     if bool(cfg.get("adaptive_model_routing_enabled", True)):
         try:
@@ -329,23 +336,22 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
             for entry in learned:
                 model = str((entry or {}).get("model") or "").strip()
                 if model:
-                    for temperature in effective_temperatures:
-                        _append(model, "benchmark_context_learning:ranked", temperature)
+                    _queue_model(model, "benchmark_context_learning:ranked")
         except Exception:
             pass
 
     for model in list(strategy_cfg["fallback_models"]):
         if model not in failed_models:
-            for temperature in effective_temperatures:
-                _append(model, "autopilot_strategy_fallback_models", temperature)
+            _queue_model(model, "autopilot_strategy_fallback_models")
 
     default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip()
     if default_model and default_model not in failed_models:
-        for temperature in effective_temperatures:
-            _append(default_model, "agent_default_model", temperature)
+        _queue_model(default_model, "agent_default_model")
 
+    _queue_model(None, "worker_default_no_override")
     for temperature in effective_temperatures:
-        _append(None, "worker_default_no_override", temperature)
+        for model, source in ordered_models:
+            _append(model, source, temperature)
     max_attempts = int(strategy_cfg["max_attempts"])
     return candidates[:max_attempts]
 
