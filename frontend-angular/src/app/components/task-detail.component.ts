@@ -310,6 +310,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                 </div>
               }
           </div>
+          }
+        </div>
 
         <div class="card">
           <h3 class="no-margin">Worker-Run & Provenance</h3>
