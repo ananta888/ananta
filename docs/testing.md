@@ -93,6 +93,15 @@ cd frontend-angular
 npm run test:e2e:compose
 ```
 
+Live-Code-Modus (Python + Angular direkt aus Workspace, ohne jedes Mal kompletten Rebuild):
+```bash
+ANANTA_LIVE_CODE_MOUNT=1 scripts/compose-test-stack.sh down
+ANANTA_LIVE_CODE_MOUNT=1 scripts/compose-test-stack.sh up-live
+```
+- Backend/Worker/Hub nutzen dann den lokalen Code via Bind-Mount.
+- Angular-Frontend nutzt den lokalen `frontend-angular`-Ordner via Bind-Mount.
+- Fuer Python-Codeaenderungen ist i.d.R. weiterhin ein Container-Neustart sinnvoll; Angular `ng serve` aktualisiert ueblicherweise direkt.
+
 ## Compose-Standard mit Ollama
 
 Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Frontend und `ollama` als lokalem LLM-Service.

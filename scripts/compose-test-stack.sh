@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 # Default: WSL2/Vulkan overlay enabled for test/e2e stack.
 USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-1}"
+USE_LIVE_CODE_MOUNT="${ANANTA_LIVE_CODE_MOUNT:-0}"
 
 compose_files=(
   "docker-compose.base.yml"
@@ -14,6 +15,10 @@ compose_files=(
 
 if [[ "$USE_WSL_VULKAN" == "1" ]]; then
   compose_files+=("docker-compose.ollama-wsl.yml")
+fi
+
+if [[ "$USE_LIVE_CODE_MOUNT" == "1" ]]; then
+  compose_files+=("docker-compose.live-code.yml")
 fi
 
 compose_files+=("docker-compose.test.yml")
@@ -27,6 +32,7 @@ usage() {
   cat <<'EOF'
 Usage:
   scripts/compose-test-stack.sh up
+  scripts/compose-test-stack.sh up-live
   scripts/compose-test-stack.sh down
   scripts/compose-test-stack.sh clean
   scripts/compose-test-stack.sh ps
@@ -40,6 +46,8 @@ Usage:
 Env:
   ANANTA_USE_WSL_VULKAN=1   Default. Includes docker-compose.ollama-wsl.yml.
   ANANTA_USE_WSL_VULKAN=0   Disable WSL2/Vulkan overlay.
+  ANANTA_LIVE_CODE_MOUNT=1  Adds docker-compose.live-code.yml (bind mounts + dev watch behavior).
+                            Python worker/hub and Angular frontend use local code directly.
 
 Safety:
   - 'down' keeps Docker volumes (including ollama_data).
@@ -96,6 +104,9 @@ shift || true
 case "$cmd" in
   up)
     "${compose_cmd[@]}" up -d --build
+    ;;
+  up-live)
+    ANANTA_LIVE_CODE_MOUNT=1 "${compose_cmd[@]}" up -d
     ;;
   down)
     "${compose_cmd[@]}" down --remove-orphans

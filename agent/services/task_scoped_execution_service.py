@@ -525,6 +525,7 @@ class TaskScopedExecutionService:
                 cli_runner=cli_runner,
                 prompt=prompt_for_cli,
                 bad_output=(cli_err or ""),
+                validation_error="empty_or_failed_cli_response",
                 timeout=timeout,
                 task_kind=task_kind,
                 policy_version=policy_version,
@@ -556,6 +557,7 @@ class TaskScopedExecutionService:
                 cli_runner=cli_runner,
                 prompt=prompt_for_cli,
                 bad_output=(cli_err or ""),
+                validation_error="empty_cli_response",
                 timeout=timeout,
                 task_kind=task_kind,
                 policy_version=policy_version,
@@ -671,6 +673,7 @@ class TaskScopedExecutionService:
                 cli_runner=cli_runner,
                 prompt=prompt_for_cli,
                 bad_output=raw_res,
+                validation_error="missing_required_fields: command_or_tool_calls",
                 timeout=timeout,
                 task_kind=task_kind,
                 policy_version=policy_version,
@@ -1066,6 +1069,7 @@ class TaskScopedExecutionService:
         cli_runner: Callable,
         prompt: str,
         bad_output: str,
+        validation_error: str,
         timeout: int,
         task_kind: str,
         policy_version: str,
@@ -1094,7 +1098,7 @@ class TaskScopedExecutionService:
             seen.add(key)
             deduped.append((backend_name, model_name))
 
-        repair_prompt = self._build_repair_prompt(prompt=prompt, bad_output=bad_output)
+        repair_prompt = self._build_repair_prompt(prompt=prompt, bad_output=bad_output, validation_error=validation_error)
         for backend_name, model_name in deduped:
             cli_kwargs = {
                 "prompt": repair_prompt,
@@ -1124,13 +1128,14 @@ class TaskScopedExecutionService:
         return None
 
     @staticmethod
-    def _build_repair_prompt(*, prompt: str, bad_output: str) -> str:
+    def _build_repair_prompt(*, prompt: str, bad_output: str, validation_error: str) -> str:
         preview = str(bad_output or "").strip()
         if len(preview) > 2000:
             preview = preview[:2000]
         return (
             "Der vorherige Modell-Output war leer/ungueltig oder nicht ausfuehrbar.\n"
             "Repariere die Antwort und gib NUR ein valides JSON-Objekt zurueck.\n\n"
+            f"Validator/Fehlergrund: {validation_error}\n\n"
             "Anforderungen:\n"
             "- Genau ein JSON-Objekt, kein Markdown.\n"
             "- Felder: reason (string), command (string optional), tool_calls (array optional).\n"
