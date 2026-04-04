@@ -109,6 +109,7 @@ def append_sample(
     tokens_total: int,
     cost_units: float,
     retention: dict[str, int],
+    context_tags: dict[str, Any] | None = None,
 ) -> None:
     min_ts = int(now) - (int(retention["max_days"]) * 86400)
     samples = target.setdefault("samples", [])
@@ -117,16 +118,24 @@ def append_sample(
         target["samples"] = samples
     else:
         samples[:] = [s for s in samples if int((s or {}).get("ts") or 0) >= min_ts]
-    samples.append(
-        {
-            "ts": int(now),
-            "success": bool(success),
-            "quality_passed": bool(quality_passed),
-            "latency_ms": max(0, int(latency_ms or 0)),
-            "tokens_total": max(0, int(tokens_total or 0)),
-            "cost_units": max(0.0, float(cost_units or 0.0)),
-        }
-    )
+    sample = {
+        "ts": int(now),
+        "success": bool(success),
+        "quality_passed": bool(quality_passed),
+        "latency_ms": max(0, int(latency_ms or 0)),
+        "tokens_total": max(0, int(tokens_total or 0)),
+        "cost_units": max(0.0, float(cost_units or 0.0)),
+    }
+    normalized_context: dict[str, Any] = {}
+    if isinstance(context_tags, dict):
+        for key, value in context_tags.items():
+            norm_key = str(key or "").strip().lower()
+            norm_value = str(value or "").strip()
+            if norm_key and norm_value:
+                normalized_context[norm_key] = norm_value
+    if normalized_context:
+        sample["context"] = normalized_context
+    samples.append(sample)
     if len(samples) > int(retention["max_samples"]):
         del samples[: len(samples) - int(retention["max_samples"])]
 
@@ -143,6 +152,7 @@ def record_benchmark_sample(
     latency_ms: int,
     tokens_total: int,
     cost_units: float = 0.0,
+    context_tags: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     provider = str(provider or "").strip().lower()
     model = str(model or "").strip()
@@ -182,6 +192,7 @@ def record_benchmark_sample(
             tokens_total=tokens_total,
             cost_units=cost_units,
             retention=retention,
+            context_tags=context_tags,
         )
 
     _apply(bucket)
@@ -189,6 +200,103 @@ def record_benchmark_sample(
     db["updated_at"] = now
     save_benchmarks(data_dir, db)
     return {"recorded": True, "model_key": model_key, "task_kind": task_kind, "db": db}
+
+
+def recommend_model_for_context(
+    *,
+    data_dir: str,
+    task_kind: str,
+    role_name: str | None = None,
+    template_name: str | None = None,
+    min_samples: int = 3,
+) -> dict[str, Any] | None:
+    ranked = recommend_models_for_context(
+        data_dir=data_dir,
+        task_kind=task_kind,
+        role_name=role_name,
+        template_name=template_name,
+        min_samples=min_samples,
+        limit=1,
+    )
+    if not ranked:
+        return None
+    best = dict(ranked[0] or {})
+    best["selection_source"] = "benchmark_context_learning"
+    best["context"] = {
+        "role_name": str(role_name or "").strip().lower() or None,
+        "template_name": str(template_name or "").strip().lower() or None,
+    }
+    return best
+
+
+def recommend_models_for_context(
+    *,
+    data_dir: str,
+    task_kind: str,
+    role_name: str | None = None,
+    template_name: str | None = None,
+    min_samples: int = 3,
+    limit: int = 3,
+    exclude_models: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    normalized_task_kind = str(task_kind or "").strip().lower()
+    if normalized_task_kind not in BENCH_TASK_KINDS:
+        normalized_task_kind = "analysis"
+    role_match = str(role_name or "").strip().lower()
+    template_match = str(template_name or "").strip().lower()
+    excluded = {str(item or "").strip() for item in list(exclude_models or []) if str(item or "").strip()}
+    db = load_benchmarks(data_dir)
+    candidates: list[dict[str, Any]] = []
+
+    for _model_key, entry in (db.get("models") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        model = str(entry.get("model") or "").strip()
+        provider = str(entry.get("provider") or "").strip().lower()
+        if not provider or not model or model in excluded:
+            continue
+        bucket = (entry.get("task_kinds") or {}).get(normalized_task_kind) or {}
+        samples = list(bucket.get("samples") or [])
+        if not isinstance(samples, list) or not samples:
+            continue
+        filtered = []
+        for sample in samples:
+            if not isinstance(sample, dict):
+                continue
+            context = sample.get("context") if isinstance(sample.get("context"), dict) else {}
+            sample_role = str(context.get("role_name") or "").strip().lower()
+            sample_template = str(context.get("template_name") or "").strip().lower()
+            if role_match and sample_role != role_match:
+                continue
+            if template_match and sample_template != template_match:
+                continue
+            filtered.append(sample)
+        if len(filtered) < max(1, int(min_samples or 1)):
+            continue
+        aggregate = {
+            "total": len(filtered),
+            "success": sum(1 for s in filtered if bool(s.get("success"))),
+            "quality_pass": sum(1 for s in filtered if bool(s.get("quality_passed"))),
+            "latency_ms_total": sum(max(0, int(s.get("latency_ms") or 0)) for s in filtered),
+            "tokens_total": sum(max(0, int(s.get("tokens_total") or 0)) for s in filtered),
+            "cost_units_total": sum(max(0.0, float(s.get("cost_units") or 0.0)) for s in filtered),
+        }
+        scored = score_bucket(aggregate)
+        candidate = {
+            "provider": provider,
+            "model": model,
+            "task_kind": normalized_task_kind,
+            "sample_count": aggregate["total"],
+            "score": scored,
+        }
+        candidates.append(candidate)
+
+    candidates.sort(
+        key=lambda item: float(((item.get("score") or {}).get("suitability_score") or 0.0)),
+        reverse=True,
+    )
+    capped = max(1, min(int(limit or 1), 20))
+    return candidates[:capped]
 
 
 def score_bucket(bucket: dict[str, Any]) -> dict[str, Any]:

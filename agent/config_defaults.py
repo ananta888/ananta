@@ -82,6 +82,12 @@ def build_default_agent_config() -> dict:
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
         },
+        "autopilot_strategy_max_attempts": 3,
+        "autopilot_strategy_retry_delay_seconds": 20,
+        "autopilot_strategy_fallback_models": [],
+        "adaptive_model_routing_enabled": True,
+        "adaptive_model_routing_min_samples": 3,
+        "adaptive_model_routing_top_k": 3,
         "execution_fallback_policy": {
             "allow_hub_worker_fallback": True,
             "escalate_on_fallback_block": True,

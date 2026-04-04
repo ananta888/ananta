@@ -362,7 +362,15 @@ class TaskExecutionTrackingService:
         cost_summary: dict,
         success: bool,
         quality_gate_passed: bool,
+        proposal_meta: dict | None = None,
     ) -> None:
+        selection_meta = (proposal_meta or {}).get("model_selection") if isinstance((proposal_meta or {}).get("model_selection"), dict) else {}
+        context_tags = {
+            "role_name": str(selection_meta.get("role_name") or "").strip(),
+            "template_name": str(selection_meta.get("template_name") or "").strip(),
+            "selection_source": str(selection_meta.get("source") or "").strip(),
+            "task_kind": str(cost_summary.get("task_kind") or "").strip().lower(),
+        }
         persist_benchmark_sample(
             data_dir=current_app.config.get("DATA_DIR") or "data",
             agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
@@ -374,6 +382,7 @@ class TaskExecutionTrackingService:
             latency_ms=int(cost_summary.get("latency_ms") or 0),
             tokens_total=int(cost_summary.get("tokens_total") or 0),
             cost_units=float(cost_summary.get("cost_units") or 0.0),
+            context_tags=context_tags,
         )
 
     def finalize_execution_result(
@@ -466,6 +475,7 @@ class TaskExecutionTrackingService:
                 cost_summary=cost_summary,
                 success=(status == "completed"),
                 quality_gate_passed=quality_passed,
+                proposal_meta=proposal_meta,
             )
         except Exception as exc:
             current_app.logger.warning("Benchmark ingestion failed for task %s: %s", tid, exc)
