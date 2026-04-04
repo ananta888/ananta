@@ -883,7 +883,8 @@ def phase_benchmark(
         source_id = str(task.get("source_task_id") or "")
         if (parent_id and parent_id in tasks_before_full_ids) or (source_id and source_id in tasks_before_full_ids):
             followup_task_ids.append(tid)
-    followup_created = len(followup_task_ids) > 0 or len(new_task_ids) > 0
+    followup_observed = len(followup_task_ids) > 0 or len(new_task_ids) > 0
+    followup_created = followup_observed
     recovery_info: Dict[str, Any] = {
         "triggered": False,
         "analyze_attempted": 0,
@@ -1019,7 +1020,8 @@ def phase_benchmark(
             source_id = str(task.get("source_task_id") or "")
             if (parent_id and parent_id in tasks_before_full_ids) or (source_id and source_id in tasks_before_full_ids):
                 followup_task_ids.append(tid)
-        followup_created = len(followup_task_ids) > 0 or len(new_task_ids) > 0
+        followup_observed = len(followup_task_ids) > 0 or len(new_task_ids) > 0
+        followup_created = followup_observed
         if not followup_created:
             fallback_signal = (
                 int(recovery_info.get("analyze_created_total") or 0) > 0
@@ -1053,7 +1055,7 @@ def phase_benchmark(
 
     benchmark_success = after_status["completed"] > 0
     if require_followup:
-        benchmark_success = benchmark_success and followup_created
+        benchmark_success = benchmark_success and followup_observed
     if require_artifact_summary:
         benchmark_success = benchmark_success and artifact_summary_ok
     if require_multi_file_output:
@@ -1102,6 +1104,8 @@ def phase_benchmark(
         and after_status["total"] > 0
         and (after_status["completed"] > 0 or followup_created or terminalized or no_worker_blocker)
     )
+    if require_followup or require_artifact_summary or require_multi_file_output:
+        ok = ok and benchmark_success
     record_step(
         report,
         "benchmark",
@@ -1119,6 +1123,7 @@ def phase_benchmark(
             "new_task_ids": new_task_ids,
             "followup_task_ids": followup_task_ids,
             "followup_created": followup_created,
+            "followup_observed": followup_observed,
             "terminalized": terminalized,
             "fibonacci_mentions_in_tasks": fib_mentions,
             "artifacts_summary_present": artifact_summary_ok,
