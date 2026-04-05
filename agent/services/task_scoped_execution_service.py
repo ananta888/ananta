@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import inspect
 import json
 import time
 from dataclasses import dataclass
@@ -56,6 +57,20 @@ class TaskScopedExecutionService:
         if normalized > 2.0:
             normalized = 2.0
         return normalized
+
+    @staticmethod
+    def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
+        try:
+            return cli_runner(**cli_kwargs)
+        except TypeError as exc:
+            message = str(exc)
+            if "unexpected keyword argument" not in message:
+                raise
+            signature = inspect.signature(cli_runner)
+            if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
+                raise
+            filtered_kwargs = {key: value for key, value in cli_kwargs.items() if key in signature.parameters}
+            return cli_runner(**filtered_kwargs)
 
     def propose_task_step(
         self,
@@ -350,7 +365,7 @@ class TaskScopedExecutionService:
                 cli_kwargs["temperature"] = requested_temperature
             if research_context:
                 cli_kwargs["research_context"] = research_context
-            rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
+            rc, cli_out, cli_err, backend_used = self._invoke_cli_runner(cli_runner, **cli_kwargs)
             latency_ms = int((time.time() - started_at) * 1000)
             raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
             required_capabilities = derive_required_capabilities(task, task_kind)
@@ -558,7 +573,7 @@ class TaskScopedExecutionService:
             cli_kwargs["temperature"] = requested_temperature
         if research_context:
             cli_kwargs["research_context"] = research_context
-        rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
+        rc, cli_out, cli_err, backend_used = self._invoke_cli_runner(cli_runner, **cli_kwargs)
         latency_ms = int((time.time() - started_at) * 1000)
         raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
         repair_meta = {"attempted": False, "backend": None, "model": None}
@@ -1214,7 +1229,7 @@ class TaskScopedExecutionService:
                 cli_kwargs["research_context"] = research_context
             if session:
                 cli_kwargs["session"] = session
-            rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
+            rc, cli_out, cli_err, backend_used = self._invoke_cli_runner(cli_runner, **cli_kwargs)
             raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
             if not raw_res.strip():
                 continue
