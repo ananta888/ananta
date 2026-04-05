@@ -205,6 +205,38 @@ def test_context_bundle_policy_is_normalized_and_merged(client, admin_token):
     }
 
 
+def test_artifact_flow_config_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    first = {
+        "artifact_flow": {
+            "enabled": True,
+            "rag_enabled": True,
+            "rag_top_k": 0,
+            "rag_include_content": True,
+            "max_tasks": 9999,
+            "max_worker_jobs_per_task": -5,
+        }
+    }
+    response = client.post("/config", json=first, headers=headers)
+    assert response.status_code == 200
+
+    second = {"artifact_flow": {"rag_enabled": False}}
+    response = client.post("/config", json=second, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["artifact_flow"] == {
+        "enabled": True,
+        "rag_enabled": False,
+        "rag_top_k": 1,
+        "rag_include_content": True,
+        "max_tasks": 200,
+        "max_worker_jobs_per_task": 1,
+    }
+
+
 def test_set_config_updates_runtime_provider_urls_for_flat_keys(client, admin_token, app):
     headers = {"Authorization": f"Bearer {admin_token}"}
     payload = {
@@ -506,6 +538,7 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     assert effective_runtime.get("selection_source") == "benchmarks_available_top_ranked"
     assert "hub_copilot" in llm_configuration
     assert "context_bundle_policy" in llm_configuration
+    assert "artifact_flow" in llm_configuration
     runtime_profile = llm_configuration.get("runtime_profile") or {}
     assert runtime_profile.get("effective") in {"local-dev", "trusted-lab", "compose-safe", "distributed-strict"}
     assert runtime_profile.get("validation", {}).get("status") in {"ok", "error"}
@@ -544,6 +577,8 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     res = client.get("/assistant/read-model", headers=headers)
     assert res.status_code == 200
     summary = (((res.json.get("data") or {}).get("settings") or {}).get("summary") or {})
+    llm = summary.get("llm") or {}
+    assert "artifact_flow" in llm
     governance = summary.get("governance") or {}
     review_policy = governance.get("review_policy") or {}
     risk_policy = governance.get("execution_risk_policy") or {}

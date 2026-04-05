@@ -26,6 +26,17 @@ def _services():
     return get_core_services()
 
 
+def _parse_bool(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return None
+
+
 @orchestration_bp.route("/tasks/<tid>/delegate", methods=["POST"])
 @check_auth
 def delegate_task(tid):
@@ -147,5 +158,29 @@ def complete_task():
 @check_auth
 def orchestration_read_model():
     payload = _services().task_claim_service.orchestration_read_model(task_queue_service=_services().task_queue_service)
-    payload["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
+    tracking_service = get_task_execution_tracking_service()
+    payload["worker_execution_reconciliation"] = tracking_service.build_execution_reconciliation_snapshot()
+    overrides = {}
+    artifact_flow_enabled = _parse_bool(request.args.get("artifact_flow_enabled"))
+    if artifact_flow_enabled is not None:
+        overrides["enabled"] = artifact_flow_enabled
+    rag_enabled = _parse_bool(request.args.get("artifact_flow_rag_enabled"))
+    if rag_enabled is not None:
+        overrides["rag_enabled"] = rag_enabled
+    rag_include_content = _parse_bool(request.args.get("artifact_flow_rag_include_content"))
+    if rag_include_content is not None:
+        overrides["rag_include_content"] = rag_include_content
+    for query_key, cfg_key in (
+        ("artifact_flow_rag_top_k", "rag_top_k"),
+        ("artifact_flow_max_tasks", "max_tasks"),
+        ("artifact_flow_max_worker_jobs_per_task", "max_worker_jobs_per_task"),
+    ):
+        raw = request.args.get(query_key)
+        if raw is None:
+            continue
+        try:
+            overrides[cfg_key] = int(raw)
+        except (TypeError, ValueError):
+            continue
+    payload["artifact_flow"] = tracking_service.build_artifact_flow_read_model(overrides=overrides)
     return api_response(data=payload)

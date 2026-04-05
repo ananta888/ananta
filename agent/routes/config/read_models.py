@@ -26,6 +26,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "research_backend", "path": "config.research_backend", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "hub_copilot", "path": "config.hub_copilot", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "context_bundle_policy", "path": "config.context_bundle_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "artifact_flow", "path": "config.artifact_flow", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "cli_session_mode", "path": "config.cli_session_mode", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "template_agent_name", "path": "config.template_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "team_agent_name", "path": "config.team_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
@@ -98,6 +99,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             },
             "hub_copilot": shared.hub_copilot_settings_summary(cfg),
             "context_bundle_policy": shared.context_bundle_policy_settings_summary(cfg),
+            "artifact_flow": shared.artifact_flow_settings_summary(cfg),
             "cli_session_mode": {
                 "enabled": bool(cli_session_mode.get("enabled", False)),
                 "stateful_backends": list(cli_session_mode.get("stateful_backends") or []),
@@ -184,5 +186,6 @@ def dashboard_read_model():
             contract_catalog_builder=lambda: get_system_contract_service().build_contract_catalog(),
             hub_copilot_summary_builder=shared.hub_copilot_settings_summary,
             context_policy_summary_builder=shared.context_bundle_policy_settings_summary,
+            artifact_flow_summary_builder=shared.artifact_flow_settings_summary,
         )
     )
