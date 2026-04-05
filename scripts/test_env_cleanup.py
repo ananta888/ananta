@@ -61,25 +61,21 @@ def login_token(base: str, username: str, password: str) -> str:
 
 
 def _docker_exec_hub_python(container_name: str, script_body: str) -> str:
-    shell_script = f"""if command -v python3 >/dev/null 2>&1; then
-python3 - <<'PY'
-{script_body}
-PY
-else
-python - <<'PY'
-{script_body}
-PY
-fi"""
-    cmd = [
-        "docker",
-        "exec",
-        container_name,
-        "/bin/sh",
-        "-lc",
-        shell_script,
-    ]
-    res = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    return (res.stdout or "").strip()
+    last_error: subprocess.CalledProcessError | None = None
+    for python_bin in ("python3", "python"):
+        cmd = ["docker", "exec", container_name, python_bin, "-c", script_body]
+        try:
+            res = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            return (res.stdout or "").strip()
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+            stderr = str(exc.stderr or "")
+            stdout = str(exc.stdout or "")
+            if "executable file not found" not in stderr and "not found" not in stderr and "not found" not in stdout:
+                raise
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("docker_exec_python_unavailable")
 
 
 def get_admin_from_hub_container(container_name: str) -> tuple[str, str]:
