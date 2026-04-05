@@ -216,10 +216,14 @@ import { TerminalMode } from '../services/terminal.service';
             </select>
           </label>
         </div>
+        <label>Forward Param (optional)
+          <input [(ngModel)]="terminalForwardParam" placeholder="z. B. cli-... fuer taskgebundene Live-Terminals" />
+        </label>
         <app-terminal
           [baseUrl]="agent.url"
           [token]="getRequestToken()"
           [mode]="terminalMode"
+          [forwardParam]="terminalForwardParam || undefined"
         ></app-terminal>
       </div>
     }
@@ -258,6 +262,7 @@ export class AgentPanelComponent {
   testPrompt = '';
   testResult = '';
   terminalMode: TerminalMode = 'interactive';
+  terminalForwardParam = '';
 
   constructor() {
     const name = this.route.snapshot.paramMap.get('name')!;

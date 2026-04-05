@@ -75,7 +75,10 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     tool_mode = str(payload.get("tool_mode") or "full").strip().lower()
     if tool_mode not in {"full", "readonly", "toolless"}:
         tool_mode = "full"
-    return {"tool_mode": tool_mode}
+    execution_mode = str(payload.get("execution_mode") or "backend").strip().lower()
+    if execution_mode not in {"backend", "live_terminal"}:
+        execution_mode = "backend"
+    return {"tool_mode": tool_mode, "execution_mode": execution_mode}
 
 
 def normalize_model_override_map(value: dict | None) -> dict[str, str]:
@@ -95,7 +98,10 @@ def opencode_runtime_settings_summary(cfg: dict) -> dict:
     return {
         "requested": requested,
         "effective": requested,
-        "source": {"tool_mode": "opencode_runtime.tool_mode"},
+        "source": {
+            "tool_mode": "opencode_runtime.tool_mode",
+            "execution_mode": "opencode_runtime.execution_mode",
+        },
     }
 
 

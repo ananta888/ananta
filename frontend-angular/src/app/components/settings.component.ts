@@ -100,8 +100,10 @@ export function normalizeArtifactFlowConfigValue(value: any): any {
 export function normalizeOpencodeRuntimeConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const toolMode = String(raw.tool_mode || 'full').trim().toLowerCase();
+  const executionMode = String(raw.execution_mode || 'backend').trim().toLowerCase();
   return {
     tool_mode: ['full', 'readonly', 'toolless'].includes(toolMode) ? toolMode : 'full',
+    execution_mode: ['backend', 'live_terminal'].includes(executionMode) ? executionMode : 'backend',
   };
 }
 
@@ -515,6 +517,10 @@ function createDefaultSettingsConfig(): any {
               <div>{{ config?.opencode_runtime?.tool_mode || 'full' }}</div>
             </div>
             <div>
+              <div class="muted">OpenCode Ausfuehrung</div>
+              <div>{{ config?.opencode_runtime?.execution_mode || 'backend' }}</div>
+            </div>
+            <div>
               <div class="muted">Worker Workspace Root</div>
               <div>{{ config?.worker_runtime?.workspace_root || '(default)' }}</div>
             </div>
@@ -686,7 +692,7 @@ function createDefaultSettingsConfig(): any {
         </div>
         <div class="card card-info mt-lg">
           <h3>Worker Workspace & OpenCode</h3>
-          <p class="muted">Steuert den OpenCode-Toolmodus und den Root-Pfad fuer task-spezifische Worker-Workspaces mit den Unterordnern artifacts und rag_helper.</p>
+          <p class="muted">Steuert den OpenCode-Toolmodus, den Ausfuehrungsmodus und den Root-Pfad fuer task-spezifische Worker-Workspaces mit den Unterordnern artifacts und rag_helper.</p>
           <div class="grid cols-2 mt-lg">
             <label>OpenCode Tool-Modus
               <select [(ngModel)]="config.opencode_runtime.tool_mode">
@@ -695,12 +701,18 @@ function createDefaultSettingsConfig(): any {
                 <option value="toolless">toolless</option>
               </select>
             </label>
+            <label>OpenCode Ausfuehrungsmodus
+              <select [(ngModel)]="config.opencode_runtime.execution_mode">
+                <option value="backend">backend</option>
+                <option value="live_terminal">live_terminal</option>
+              </select>
+            </label>
             <label>Workspace Root (optional)
               <input [(ngModel)]="config.worker_runtime.workspace_root" placeholder="z.B. /data/worker-runtime" />
             </label>
           </div>
           <div class="muted font-sm mt-md">
-            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
+            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Ausfuehrung {{ config.opencode_runtime.execution_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
