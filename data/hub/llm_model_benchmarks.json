@@ -1689,7 +1689,55 @@
           ]
         }
       }
+    },
+    "openai:gpt-4o": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "overall": {
+        "total": 1,
+        "success": 0,
+        "failed": 1,
+        "quality_pass": 0,
+        "quality_fail": 1,
+        "latency_ms_total": 262602,
+        "tokens_total": 0,
+        "cost_units_total": 0.0,
+        "last_seen": 1775404126,
+        "samples": [
+          {
+            "ts": 1775404126,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 262602,
+            "tokens_total": 0,
+            "cost_units": 0.0
+          }
+        ]
+      },
+      "task_kinds": {
+        "coding": {
+          "total": 1,
+          "success": 0,
+          "failed": 1,
+          "quality_pass": 0,
+          "quality_fail": 1,
+          "latency_ms_total": 262602,
+          "tokens_total": 0,
+          "cost_units_total": 0.0,
+          "last_seen": 1775404126,
+          "samples": [
+            {
+              "ts": 1775404126,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 262602,
+              "tokens_total": 0,
+              "cost_units": 0.0
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1775401608
+  "updated_at": 1775404126
 }
