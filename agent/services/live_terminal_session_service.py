@@ -54,6 +54,7 @@ class ManagedLiveTerminalSession:
         self._closed = False
         self._temp_dirs: list[tempfile.TemporaryDirectory[str]] = []
         self._runtime_cache: dict[str, object] = {}
+        self._workdir: str | None = None
         self.created_at = time.time()
         self.updated_at = self.created_at
         self._reader: threading.Thread | None = None
@@ -165,6 +166,13 @@ class ManagedLiveTerminalSession:
             f"printf '\\n{marker} %s\\n' \"$__ananta_rc\"\n"
         )
 
+    def _build_cd_command(self, workdir: str) -> str:
+        normalized = os.path.abspath(str(workdir))
+        if os.name == "nt":
+            escaped = normalized.replace('"', '""')
+            return f'cd /d "{escaped}"'
+        return f"cd {shlex.quote(normalized)}"
+
     def run_command(
         self,
         command: str,
@@ -195,6 +203,16 @@ class ManagedLiveTerminalSession:
                         return int(match.group("rc")), output, ""
                 self.wait_for_update(cursor, min(0.25, max(0.05, deadline - time.time())))
             return -1, "".join(collected).strip(), "Timeout"
+
+    def ensure_workdir(self, workdir: str | None) -> None:
+        normalized = os.path.abspath(str(workdir or "")).strip() if workdir else ""
+        if not normalized or normalized == self._workdir:
+            return
+        rc, _, err = self.run_command(self._build_cd_command(normalized), timeout=10)
+        if rc != 0:
+            LOGGER.warning("Failed to switch live terminal %s to workdir %s: %s", self.id, normalized, err or rc)
+            return
+        self._workdir = normalized
 
     def close(self) -> None:
         with self._condition:
@@ -262,23 +280,34 @@ class LiveTerminalSessionService:
         session = self.ensure_session(session_id)
         session.write(data)
 
-    def ensure_session_for_cli(self, cli_session: dict | None, *, execution_mode: str | None = None) -> dict | None:
+    def ensure_session_for_cli(
+        self,
+        cli_session: dict | None,
+        *,
+        execution_mode: str | None = None,
+        workdir: str | None = None,
+    ) -> dict | None:
         if not isinstance(cli_session, dict):
             return None
         session_id = str(cli_session.get("id") or "").strip()
         if not session_id:
             return None
         session = self.ensure_session(session_id)
+        metadata = cli_session.get("metadata") if isinstance(cli_session.get("metadata"), dict) else {}
+        session_workdir = workdir or (metadata.get("opencode_workdir") if isinstance(metadata, dict) else None)
         mode = _normalize_terminal_execution_mode(
             execution_mode
-            or ((cli_session.get("metadata") or {}).get("opencode_execution_mode") if isinstance(cli_session.get("metadata"), dict) else None)
+            or (metadata.get("opencode_execution_mode") if isinstance(metadata, dict) else None)
         )
+        if session_workdir:
+            session.ensure_workdir(str(session_workdir))
         return {
             "terminal_session_id": session.id,
             "forward_param": session.id,
             "shell": session.shell,
             "transport": session.transport,
             "execution_mode": mode,
+            "workdir": session._workdir,
             "status": "closed" if session.closed else "active",
             "created_at": session.created_at,
             "updated_at": session.updated_at,
@@ -300,7 +329,7 @@ class LiveTerminalSessionService:
         if opencode_resolved is None:
             return -1, "", f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai"
 
-        session_meta = self.ensure_session_for_cli(cli_session) or {}
+        session_meta = self.ensure_session_for_cli(cli_session, workdir=workdir) or {}
         if not session_meta:
             return -1, "", "live_terminal_session_missing"
         session = self.ensure_session(str(session_meta.get("terminal_session_id") or ""))
