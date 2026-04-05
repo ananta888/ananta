@@ -143,6 +143,67 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           </table>
         }
       </div>
+      <div class="card card-mt">
+        <div class="row flex-between">
+          <h3 class="no-margin">Artifact Flow</h3>
+          <button class="button-outline btn-xs" (click)="toggleArtifactFlowDetails()">
+            {{ showArtifactFlowDetails ? 'Details ausblenden' : 'Details anzeigen' }}
+          </button>
+        </div>
+        @if (rmLoading) {
+          <div class="mt-sm">
+            <app-ui-skeleton [count]="1" [lineCount]="4"></app-ui-skeleton>
+          </div>
+        } @else if (!artifactFlow()) {
+          <div class="muted mt-sm">Kein Artifact-Flow Read-Model verfuegbar.</div>
+        } @else {
+          <div class="grid cols-4 mt-sm">
+            <div class="card card-light">
+              <div class="muted">Status</div>
+              <strong>{{ artifactFlow()?.enabled ? 'enabled' : 'disabled' }}</strong>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Tasks im Flow</div>
+              <strong>{{ artifactFlowCount('tasks') }}</strong>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Worker-Jobs</div>
+              <strong>{{ artifactFlowCount('worker_jobs') }}</strong>
+            </div>
+            <div class="card card-light">
+              <div class="muted">RAG</div>
+              <strong>{{ artifactFlow()?.config?.rag_enabled ? 'on' : 'off' }}</strong>
+              <div class="muted status-text-sm">Top-K {{ artifactFlow()?.config?.rag_top_k || '-' }}</div>
+            </div>
+          </div>
+          <div class="muted font-sm mt-sm">
+            Max Tasks: {{ artifactFlow()?.config?.max_tasks || '-' }}
+            · Max Jobs/Task: {{ artifactFlow()?.config?.max_worker_jobs_per_task || '-' }}
+            · Include Content: {{ artifactFlow()?.config?.rag_include_content ? 'yes' : 'no' }}
+          </div>
+          @if (showArtifactFlowDetails) {
+            <div class="table-scroll mt-sm">
+              <table class="table-full">
+                <thead>
+                  <tr><th>Task</th><th>Status</th><th>Sent</th><th>Returned</th><th>Jobs</th><th>RAG</th></tr>
+                </thead>
+                <tbody>
+                  @for (item of artifactFlowItems(); track item.task_id) {
+                    <tr>
+                      <td class="font-mono-cell">{{ item.task_id }}</td>
+                      <td>{{ item.status || '-' }}</td>
+                      <td>{{ (item.sent_artifact_ids || []).length }}</td>
+                      <td>{{ (item.returned_artifact_ids || []).length }}</td>
+                      <td>{{ (item.worker_jobs || []).length }}</td>
+                      <td>{{ (item.rag_context || []).length }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+      </div>
     }
   `,
 })
@@ -157,6 +218,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
   autoPlannerStatus: any = null;
   autoPlannerLoading = false;
   autoPlannerRecentGoals: any[] = [];
+  showArtifactFlowDetails = false;
   private refreshSub?: Subscription;
 
   ngOnInit() {
@@ -230,5 +292,24 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
       next: () => this.reload(),
       error: () => this.ns.error('Complete fehlgeschlagen'),
     });
+  }
+
+  artifactFlow(): any | null {
+    const flow = this.rm?.artifact_flow;
+    return flow && typeof flow === 'object' ? flow : null;
+  }
+
+  artifactFlowItems(): any[] {
+    const items = this.artifactFlow()?.items;
+    return Array.isArray(items) ? items.slice(0, 30) : [];
+  }
+
+  artifactFlowCount(key: 'tasks' | 'worker_jobs' | 'worker_results' | 'memory_entries'): number {
+    const value = Number(this.artifactFlow()?.counts?.[key] || 0);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  toggleArtifactFlowDetails() {
+    this.showArtifactFlowDetails = !this.showArtifactFlowDetails;
   }
 }

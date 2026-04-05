@@ -128,3 +128,34 @@ def test_task_scoped_repair_proposal_preserves_cli_session():
 
     assert repaired is not None
     assert captured.get("session") == session_payload
+
+
+def test_task_scoped_repair_skips_primary_backend_after_timeout():
+    app = Flask(__name__)
+    service = get_task_scoped_execution_service()
+    backends: list[str] = []
+
+    def _fake_cli_runner(**kwargs):
+        backends.append(str(kwargs.get("backend") or ""))
+        return 0, '{"reason":"repair","command":"echo ok"}', "", str(kwargs.get("backend") or "")
+
+    with app.app_context():
+        repaired = service._repair_task_proposal(
+            cli_runner=_fake_cli_runner,
+            prompt="Original prompt",
+            bad_output="Timeout",
+            validation_error="empty_or_failed_cli_response",
+            timeout=60,
+            task_kind="coding",
+            policy_version="v1",
+            cfg={
+                "default_model": "model-a",
+                "task_propose_repair_backend": "sgpt",
+                "task_propose_repair_model": "repair-model",
+            },
+            primary_backend="opencode",
+            primary_model="model-a",
+        )
+
+    assert repaired is not None
+    assert backends == ["sgpt"]
