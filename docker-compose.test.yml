@@ -25,6 +25,9 @@ services:
       context: .
       dockerfile: Dockerfile.compose-test
     ports: !reset []
+    volumes:
+      - ./:/app
+      - ./data/hub:/app/data
     environment:
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${OLLAMA_MODEL:-ananta-default}"
@@ -42,6 +45,9 @@ services:
       context: .
       dockerfile: Dockerfile.compose-test
     ports: !reset []
+    volumes:
+      - ./:/app
+      - ./data/alpha:/app/data
     environment:
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${OLLAMA_MODEL:-ananta-default}"
@@ -60,6 +66,9 @@ services:
       context: .
       dockerfile: Dockerfile.compose-test
     ports: !reset []
+    volumes:
+      - ./:/app
+      - ./data/beta:/app/data
     environment:
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${OLLAMA_MODEL:-ananta-default}"
@@ -196,4 +205,8 @@ services:
 
   angular-frontend:
     image: ananta-frontend-compose-test:local
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
     ports: !reset []
