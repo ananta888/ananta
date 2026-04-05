@@ -221,6 +221,12 @@ def build_default_agent_config() -> dict:
             "reuse_scope": "task",
             "native_opencode_sessions": False,
         },
+        "opencode_runtime": {
+            "tool_mode": "full",
+        },
+        "worker_runtime": {
+            "workspace_root": None,
+        },
         "research_backend": {
             "provider": "deerflow",
             "enabled": False,

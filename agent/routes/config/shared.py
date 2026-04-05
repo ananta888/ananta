@@ -70,6 +70,39 @@ def artifact_flow_settings_summary(cfg: dict) -> dict:
     }
 
 
+def normalize_opencode_runtime_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    tool_mode = str(payload.get("tool_mode") or "full").strip().lower()
+    if tool_mode not in {"full", "readonly", "toolless"}:
+        tool_mode = "full"
+    return {"tool_mode": tool_mode}
+
+
+def opencode_runtime_settings_summary(cfg: dict) -> dict:
+    requested = normalize_opencode_runtime_config((cfg or {}).get("opencode_runtime") if isinstance(cfg, dict) else {})
+    return {
+        "requested": requested,
+        "effective": requested,
+        "source": {"tool_mode": "opencode_runtime.tool_mode"},
+    }
+
+
+def normalize_worker_runtime_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    workspace_root = payload.get("workspace_root")
+    workspace_root = str(workspace_root).strip() if workspace_root is not None else None
+    return {"workspace_root": workspace_root or None}
+
+
+def worker_runtime_settings_summary(cfg: dict) -> dict:
+    requested = normalize_worker_runtime_config((cfg or {}).get("worker_runtime") if isinstance(cfg, dict) else {})
+    return {
+        "requested": requested,
+        "effective": requested,
+        "source": {"workspace_root": "worker_runtime.workspace_root"},
+    }
+
+
 def parse_bool_query_flag(value: str | None) -> bool:
     normalized = str(value or "").strip().lower()
     return normalized in {"1", "true", "yes", "y", "on"}

@@ -511,6 +511,7 @@ def run_opencode_command(
     model: str | None = None,
     timeout: int = 60,
     session: dict | None = None,
+    workdir: str | None = None,
 ) -> tuple[int, str, str]:
     """
     Führt einen OpenCode-CLI-Aufruf aus.
@@ -565,7 +566,14 @@ def run_opencode_command(
                     env["OPENCODE_CONFIG_CONTENT"] = json.dumps(runtime_cfg["provider_config"], ensure_ascii=True)
                 logging.info(f"Zentraler OpenCode-Aufruf: {args}")
                 result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
-                    args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
+                    args,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    env=env,
+                    timeout=timeout,
+                    cwd=workdir or None,
                 )
                 return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -749,9 +757,18 @@ def _build_opencode_theless_agent_config() -> dict[str, object]:
     }
 
 
+def _normalize_opencode_tool_mode(value: str | None) -> str:
+    mode = str(value or "").strip().lower()
+    if mode in {"toolless", "readonly", "full"}:
+        return mode
+    return "full"
+
+
 def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
+    opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
+    tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
     configured_default_model = str(agent_cfg.get("opencode_default_model") or settings.opencode_default_model or "").strip()
     raw_model = str(model or configured_default_model or "").strip() or None
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
@@ -816,7 +833,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         }
         provider_config["model"] = f"{target_provider}/{target_model}"
         provider_config["small_model"] = f"{target_provider}/{target_model}"
-        if target_provider == "ollama":
+        if target_provider == "ollama" and tool_mode == "toolless":
             provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
             provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
@@ -830,6 +847,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         "base_url_source": base_url_source,
         "target_kind": target_kind,
         "target_provider_type": target_provider_type,
+        "tool_mode": tool_mode,
         "provider_config": provider_config,
         "diagnostics": diagnostics,
     }
@@ -1044,6 +1062,7 @@ def run_llm_cli_command(
     routing_policy: dict | None = None,
     research_context: dict | None = None,
     session: dict | None = None,
+    workdir: str | None = None,
 ) -> tuple[int, str, str, str]:
     """
     Führt den konfigurierten CLI-Backend-Aufruf aus.
@@ -1061,7 +1080,13 @@ def run_llm_cli_command(
         elif name == "codex":
             rc, out, err = run_codex_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "opencode":
-            rc, out, err = run_opencode_command(prompt=prompt, model=model, timeout=timeout, session=session)
+            rc, out, err = run_opencode_command(
+                prompt=prompt,
+                model=model,
+                timeout=timeout,
+                session=session,
+                workdir=workdir,
+            )
         elif name == "aider":
             rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "mistral_code":

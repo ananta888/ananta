@@ -127,7 +127,10 @@ class OpencodeRuntimeService:
             config["small_model"] = model_name
 
         agent_name = None
-        if str(runtime_cfg.get("target_provider") or "").strip().lower() == "ollama":
+        if (
+            str(runtime_cfg.get("target_provider") or "").strip().lower() == "ollama"
+            and str(runtime_cfg.get("tool_mode") or "").strip().lower() == "toolless"
+        ):
             agent_name = cls._toolless_agent_name()
             config.setdefault("agent", {})[agent_name] = _build_opencode_theless_agent_config()
             config["default_agent"] = agent_name

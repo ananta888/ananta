@@ -94,7 +94,16 @@ class TestWorkerJobFlow:
                 }
 
             def build_execution_context(
-                self, *, instructions, context_bundle, context_policy, allowed_tools, expected_output_schema, routing_decision
+                self,
+                *,
+                instructions,
+                context_bundle,
+                context_policy,
+                workspace,
+                artifact_sync,
+                allowed_tools,
+                expected_output_schema,
+                routing_decision,
             ):
                 return {
                     "version": "v1",
@@ -108,6 +117,8 @@ class TestWorkerJobFlow:
                         "bundle_metadata": dict(context_bundle.bundle_metadata or {}),
                     },
                     "context_policy": dict(context_policy or {}),
+                    "workspace": dict(workspace or {}),
+                    "artifact_sync": dict(artifact_sync or {}),
                     "allowed_tools": list(allowed_tools or []),
                     "expected_output_schema": dict(expected_output_schema or {}),
                     "routing": dict(routing_decision or {}),

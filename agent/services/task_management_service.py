@@ -277,6 +277,10 @@ class TaskManagementService:
                     item["last_output"] = payload["last_output"]
                 if "last_exit_code" in payload:
                     item["last_exit_code"] = payload["last_exit_code"]
+                if "worker_job_id" in payload:
+                    item["worker_job_id"] = payload["worker_job_id"]
+                if isinstance(payload.get("artifacts"), list):
+                    item["artifacts"] = payload.get("artifacts")
                 updated = True
                 break
         if not updated:

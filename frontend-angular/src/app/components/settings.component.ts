@@ -97,6 +97,22 @@ export function normalizeArtifactFlowConfigValue(value: any): any {
   };
 }
 
+export function normalizeOpencodeRuntimeConfigValue(value: any): any {
+  const raw = value && typeof value === 'object' ? value : {};
+  const toolMode = String(raw.tool_mode || 'full').trim().toLowerCase();
+  return {
+    tool_mode: ['full', 'readonly', 'toolless'].includes(toolMode) ? toolMode : 'full',
+  };
+}
+
+export function normalizeWorkerRuntimeConfigValue(value: any): any {
+  const raw = value && typeof value === 'object' ? value : {};
+  const workspaceRoot = String(raw.workspace_root || '').trim();
+  return {
+    workspace_root: workspaceRoot || null,
+  };
+}
+
 export function normalizeResearchBackendConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const provider = ['deerflow', 'ananta_research'].includes(String(raw.provider || '').trim().toLowerCase())
@@ -133,6 +149,8 @@ function createDefaultSettingsConfig(): any {
     hub_copilot: normalizeHubCopilotConfigValue(undefined),
     context_bundle_policy: normalizeContextBundlePolicyConfigValue(undefined),
     artifact_flow: normalizeArtifactFlowConfigValue(undefined),
+    opencode_runtime: normalizeOpencodeRuntimeConfigValue(undefined),
+    worker_runtime: normalizeWorkerRuntimeConfigValue(undefined),
     research_backend: normalizeResearchBackendConfigValue(undefined),
     codex_cli: { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true },
     cli_session_mode: { enabled: false, stateful_backends: [] },
@@ -261,6 +279,14 @@ function createDefaultSettingsConfig(): any {
             <div>
               <div class="muted">Stateful Backends</div>
               <div>{{ (config?.cli_session_mode?.stateful_backends || []).join(', ') || 'n/a' }}</div>
+            </div>
+            <div>
+              <div class="muted">OpenCode Tool-Modus</div>
+              <div>{{ config?.opencode_runtime?.tool_mode || 'full' }}</div>
+            </div>
+            <div>
+              <div class="muted">Worker Workspace Root</div>
+              <div>{{ config?.worker_runtime?.workspace_root || '(default)' }}</div>
             </div>
           </div>
         </div>
@@ -423,6 +449,28 @@ function createDefaultSettingsConfig(): any {
             · Top-K: {{ config.artifact_flow.rag_top_k }}
             · Max Tasks: {{ config.artifact_flow.max_tasks }}
             · Max Jobs/Task: {{ config.artifact_flow.max_worker_jobs_per_task }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Worker Workspace & OpenCode</h3>
+          <p class="muted">Steuert den OpenCode-Toolmodus und den Root-Pfad fuer task-spezifische Worker-Workspaces mit den Unterordnern artifacts und rag_helper.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>OpenCode Tool-Modus
+              <select [(ngModel)]="config.opencode_runtime.tool_mode">
+                <option value="full">full</option>
+                <option value="readonly">readonly</option>
+                <option value="toolless">toolless</option>
+              </select>
+            </label>
+            <label>Workspace Root (optional)
+              <input [(ngModel)]="config.worker_runtime.workspace_root" placeholder="z.B. /data/worker-runtime" />
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
@@ -925,6 +973,8 @@ export class SettingsComponent implements OnInit {
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
           context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
           artifact_flow: normalizeArtifactFlowConfigValue(cfg?.artifact_flow),
+          opencode_runtime: normalizeOpencodeRuntimeConfigValue(cfg?.opencode_runtime),
+          worker_runtime: normalizeWorkerRuntimeConfigValue(cfg?.worker_runtime),
           research_backend: normalizeResearchBackendConfigValue(cfg?.research_backend),
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
@@ -1083,6 +1133,8 @@ export class SettingsComponent implements OnInit {
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
       context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
       artifact_flow: normalizeArtifactFlowConfigValue(this.config?.artifact_flow),
+      opencode_runtime: normalizeOpencodeRuntimeConfigValue(this.config?.opencode_runtime),
+      worker_runtime: normalizeWorkerRuntimeConfigValue(this.config?.worker_runtime),
       research_backend: normalizeResearchBackendConfigValue(this.config?.research_backend),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {

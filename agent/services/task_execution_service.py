@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import shlex
 import time
 from dataclasses import dataclass
 
@@ -241,6 +242,7 @@ class TaskExecutionService:
         tool_calls: list[dict] | None,
         execution_policy: TaskExecutionPolicyContract,
         guard_cfg: dict,
+        working_directory: str | None = None,
         pipeline: dict | None = None,
         exec_started_at: float | None = None,
     ) -> LocalExecutionResult:
@@ -382,6 +384,7 @@ class TaskExecutionService:
                 tid=tid,
                 command=command,
                 execution_policy=execution_policy,
+                working_directory=working_directory,
             )
             output_parts.append(command_output)
             if command_exit_code != 0:
@@ -631,6 +634,7 @@ class TaskExecutionService:
         tid: str | None,
         command: str,
         execution_policy: TaskExecutionPolicyContract,
+        working_directory: str | None = None,
     ) -> tuple[str, int | None, int, str, list[dict]]:
         shell = get_shell()
         retries_used = 0
@@ -639,10 +643,14 @@ class TaskExecutionService:
         latest_exit_code: int | None = -1
         failure_type = "success"
         retry_history: list[dict] = []
+        effective_command = command
+        if working_directory:
+            quoted = shlex.quote(str(working_directory))
+            effective_command = f"cd {quoted} && {command}"
 
         while True:
             attempt += 1
-            latest_output, latest_exit_code = shell.execute(command, timeout=execution_policy.timeout_seconds)
+            latest_output, latest_exit_code = shell.execute(effective_command, timeout=execution_policy.timeout_seconds)
             failure_type = classify_execution_failure(latest_exit_code, latest_output)
             if latest_exit_code == 0:
                 return latest_output, latest_exit_code, retries_used, failure_type, retry_history

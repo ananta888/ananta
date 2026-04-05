@@ -249,10 +249,43 @@ class TaskOrchestrationService:
         )
         if routing_hint:
             routing_decision["copilot_hint"] = dict(routing_hint)
+        worker_job = worker_job_service.create_worker_job(
+            parent_task_id=task_id,
+            subtask_id=subtask_id,
+            worker_url=agent_url,
+            context_bundle_id=context_bundle.id,
+            allowed_tools=allowed_tools,
+            expected_output_schema=expected_output_schema,
+            metadata=worker_contract_service.build_job_metadata(
+                routing_decision=routing_decision,
+                task_kind=effective_task_kind,
+                required_capabilities=effective_required_capabilities,
+                context_policy=context_policy,
+                extra_metadata={"selected_by_policy": selected_by_policy},
+            ),
+        )
+        worker_workspace = {
+            "mode": "task_scoped_workspace",
+            "task_id": subtask_id,
+            "parent_task_id": task_id,
+            "worker_job_id": worker_job.id,
+            "agent_url": agent_url,
+            "agent_name": str(agent_url or "worker").rstrip("/").split("/")[-1] or "worker",
+            "scope_key": f"{subtask_id}:{worker_job.id}",
+        }
+        artifact_sync = {
+            "enabled": True,
+            "sync_to_hub": True,
+            "collection_name": "task-execution-results",
+            "max_changed_files": 30,
+            "max_file_size_bytes": 2 * 1024 * 1024,
+        }
         worker_execution_context = worker_contract_service.build_execution_context(
             instructions=data.subtask_description,
             context_bundle=context_bundle,
             context_policy=context_policy,
+            workspace=worker_workspace,
+            artifact_sync=artifact_sync,
             allowed_tools=allowed_tools,
             expected_output_schema=expected_output_schema,
             routing_decision=routing_decision,
@@ -277,21 +310,6 @@ class TaskOrchestrationService:
             "created_by": settings.agent_name or "hub",
             "context_bundle_policy": dict(context_policy),
         }
-        worker_job = worker_job_service.create_worker_job(
-            parent_task_id=task_id,
-            subtask_id=subtask_id,
-            worker_url=agent_url,
-            context_bundle_id=context_bundle.id,
-            allowed_tools=allowed_tools,
-            expected_output_schema=expected_output_schema,
-            metadata=worker_contract_service.build_job_metadata(
-                routing_decision=routing_decision,
-                task_kind=effective_task_kind,
-                required_capabilities=effective_required_capabilities,
-                context_policy=context_policy,
-                extra_metadata={"selected_by_policy": selected_by_policy},
-            ),
-        )
         try:
             if not selected_by_policy:
                 policy_decision = persist_policy_decision(
@@ -388,6 +406,7 @@ class TaskOrchestrationService:
         )
         worker_job_id = str(payload.get("worker_job_id") or task.get("current_worker_job_id") or "").strip() or None
         actor = str(payload.get("actor") or "system")
+        payload_artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), list) else None
         if worker_job_id:
             worker_job_service.record_worker_result(
                 worker_job_id=worker_job_id,
@@ -404,7 +423,7 @@ class TaskOrchestrationService:
             worker_job_id=worker_job_id,
             title=task.get("title"),
             output=str(payload.get("output") or ""),
-            artifact_refs=[{"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}],
+            artifact_refs=list(payload_artifacts or [{"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}]),
             retrieval_tags=[
                 value
                 for value in [
