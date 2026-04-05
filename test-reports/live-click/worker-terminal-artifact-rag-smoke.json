@@ -1,0 +1,83 @@
+{
+  "run_id": "20260405T105421Z",
+  "started_at": "2026-04-05T10:54:21.312441+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 1.2,
+  "wait_tasks_seconds": 240.0,
+  "goal_wait_seconds": 180.0,
+  "goal_text": "Erstelle eine kleine Fullstack-Fibonacci-Demo: Backend-Endpoint zur Fibonacci-Berechnung, Frontend-Ansicht mit Eingabefeld und Ergebnisanzeige, plus kurzer Test/Validierung.",
+  "benchmark_ticks": 12,
+  "benchmark_task_kind": "coding",
+  "require_followup": true,
+  "require_artifact_summary": true,
+  "require_multi_file_output": true,
+  "min_distinct_files": 3,
+  "min_distinct_dirs": 2,
+  "bootstrap_setup": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-05T10:54:23.799802+00:00",
+      "ended_at": "2026-04-05T10:54:24.969838+00:00",
+      "duration_ms": 1170,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-05T10:54:26.181255+00:00",
+      "ended_at": "2026-04-05T10:54:33.112583+00:00",
+      "duration_ms": 6931,
+      "details": {
+        "template_name": "Live UI Template 1775386467",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-05T10:54:34.326578+00:00",
+      "ended_at": "2026-04-05T10:54:40.197895+00:00",
+      "duration_ms": 5871,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775386475",
+        "team_name": "Live UI Team 1775386478",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "HTTP Error 400: Bad Request"
+    }
+  ],
+  "session_id": "cd9e4c05-e310-43a1-ae99-b1f6979792fa",
+  "ended_at": "2026-04-05T10:54:43.281230+00:00"
+}
