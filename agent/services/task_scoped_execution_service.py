@@ -676,6 +676,7 @@ class TaskScopedExecutionService:
         if session_payload:
             routing["session_mode"] = "stateful"
             routing["session_id"] = session_payload["id"]
+            session_metadata = session_payload.get("metadata") if isinstance(session_payload.get("metadata"), dict) else {}
             live_terminal_meta = (
                 dict(session_metadata.get("opencode_live_terminal") or {})
                 if isinstance(session_metadata.get("opencode_live_terminal"), dict)
