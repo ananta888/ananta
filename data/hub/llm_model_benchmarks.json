@@ -702,15 +702,15 @@
       "provider": "ollama",
       "model": "ananta-default",
       "overall": {
-        "total": 10,
-        "success": 0,
-        "failed": 10,
-        "quality_pass": 0,
-        "quality_fail": 10,
-        "latency_ms_total": 160528,
-        "tokens_total": 0,
+        "total": 16,
+        "success": 4,
+        "failed": 12,
+        "quality_pass": 4,
+        "quality_fail": 12,
+        "latency_ms_total": 161083,
+        "tokens_total": 26,
         "cost_units_total": 0.0,
-        "last_seen": 1775329695,
+        "last_seen": 1775420563,
         "samples": [
           {
             "ts": 1775327586,
@@ -791,6 +791,72 @@
             "latency_ms": 16607,
             "tokens_total": 0,
             "cost_units": 0.0
+          },
+          {
+            "ts": 1775420458,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 72,
+            "tokens_total": 1,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420478,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 144,
+            "tokens_total": 5,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420479,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 103,
+            "tokens_total": 7,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420549,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 77,
+            "tokens_total": 1,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420562,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 76,
+            "tokens_total": 5,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420563,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 83,
+            "tokens_total": 7,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
@@ -885,6 +951,85 @@
               "latency_ms": 16607,
               "tokens_total": 0,
               "cost_units": 0.0
+            }
+          ]
+        },
+        "analysis": {
+          "total": 6,
+          "success": 4,
+          "failed": 2,
+          "quality_pass": 4,
+          "quality_fail": 2,
+          "latency_ms_total": 555,
+          "tokens_total": 26,
+          "cost_units_total": 0.0,
+          "last_seen": 1775420563,
+          "samples": [
+            {
+              "ts": 1775420458,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 72,
+              "tokens_total": 1,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420478,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 144,
+              "tokens_total": 5,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420479,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 103,
+              "tokens_total": 7,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420549,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 77,
+              "tokens_total": 1,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420562,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 76,
+              "tokens_total": 5,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420563,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 83,
+              "tokens_total": 7,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         }
@@ -1913,7 +2058,105 @@
           ]
         }
       }
+    },
+    "ananta_remote_prod:gpt-4o": {
+      "provider": "ananta_remote_prod",
+      "model": "gpt-4o",
+      "overall": {
+        "total": 3,
+        "success": 2,
+        "failed": 1,
+        "quality_pass": 2,
+        "quality_fail": 1,
+        "latency_ms_total": 244,
+        "tokens_total": 13,
+        "cost_units_total": 0.0,
+        "last_seen": 1775420405,
+        "samples": [
+          {
+            "ts": 1775420391,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 95,
+            "tokens_total": 1,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420404,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 67,
+            "tokens_total": 5,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1775420405,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 82,
+            "tokens_total": 7,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          }
+        ]
+      },
+      "task_kinds": {
+        "analysis": {
+          "total": 3,
+          "success": 2,
+          "failed": 1,
+          "quality_pass": 2,
+          "quality_fail": 1,
+          "latency_ms_total": 244,
+          "tokens_total": 13,
+          "cost_units_total": 0.0,
+          "last_seen": 1775420405,
+          "samples": [
+            {
+              "ts": 1775420391,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 95,
+              "tokens_total": 1,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420404,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 67,
+              "tokens_total": 5,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1775420405,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 82,
+              "tokens_total": 7,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1775419590
+  "updated_at": 1775420563
 }
