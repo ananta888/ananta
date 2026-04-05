@@ -76,3 +76,31 @@ def test_setup_scrum_creates_tasks(client):
         tasks = session.exec(select(TaskDB).where(TaskDB.title.startswith(f"{team_name}:"))).all()
     found_titles = {t.title.replace(f"{team_name}: ", "") for t in tasks}
     assert expected_titles.issubset(found_titles)
+
+
+def test_setup_scrum_supports_opencode_blueprint(client):
+    _clear_team_data()
+    admin_token = _login_admin(client)
+    team_name = "OpenCode Scrum Team"
+
+    response = client.post(
+        "/teams/setup-scrum",
+        json={"name": team_name, "blueprint_name": "Scrum-OpenCode"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    assert response.json["status"] == "success"
+    assert response.json["data"]["team"]["name"] == team_name
+    assert response.json["data"]["blueprint"]["name"] == "Scrum-OpenCode"
+
+    expected_titles = {
+        "Backlog Intake And Story Slicing",
+        "Execution Cascade Agreement",
+        "Workspace And Artifact Sync",
+        "Vertical Slice Delivery",
+        "Review And Definition Of Done",
+    }
+    with Session(engine) as session:
+        tasks = session.exec(select(TaskDB).where(TaskDB.title.startswith(f"{team_name}:"))).all()
+    found_titles = {t.title.replace(f"{team_name}: ", "") for t in tasks}
+    assert expected_titles.issubset(found_titles)

@@ -709,6 +709,7 @@ class AutoPlannerAnalyzeRequest(SQLModel):
 
 class TeamSetupScrumRequest(SQLModel):
     name: Optional[str] = "Neues Scrum Team"
+    blueprint_name: Optional[str] = None
 
 
 class TeamTypeRoleLinkCreateRequest(SQLModel):

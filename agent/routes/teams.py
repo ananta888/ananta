@@ -94,6 +94,39 @@ such as setting up access levels or adding new members to your team.""",
     },
 ]
 
+SCRUM_OPENCODE_INITIAL_TASKS = [
+    {
+        "title": "Backlog Intake And Story Slicing",
+        "description": "Shape the current goal into sprint-ready stories with explicit acceptance criteria, dependencies, and handoff notes for worker execution.",
+        "status": "backlog",
+        "priority": "High",
+    },
+    {
+        "title": "Execution Cascade Agreement",
+        "description": "Define when the team should use OpenCode sessions, ShellGPT, or direct terminal commands so every worker follows the same execution contract.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Workspace And Artifact Sync",
+        "description": "Establish how workspace files, artifact outputs, and rag_helper context are read, updated, and returned to the hub after each task.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Vertical Slice Delivery",
+        "description": "Implement one end-to-end increment in OpenCode-first mode, including changed files, verification evidence, and artifact handoff.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Review And Definition Of Done",
+        "description": "Review code, artifacts, and verification results before closing sprint work. Capture residual risks and any follow-up tasks explicitly.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
 KANBAN_INITIAL_TASKS = [
     {
         "title": "Kanban Board",
@@ -221,6 +254,7 @@ def _policy_artifact(*, title: str, sort_order: int, policy: dict) -> dict:
 SEED_BLUEPRINTS = {
     "Scrum": {
         "description": "Standard Scrum blueprint with canonical Scrum roles and starter artifacts.",
+        "base_team_type_name": "Scrum",
         "roles": [
             {
                 "name": "Product Owner",
@@ -249,8 +283,67 @@ SEED_BLUEPRINTS = {
         ],
         "artifacts": _task_artifacts(SCRUM_INITIAL_TASKS),
     },
+    "Scrum-OpenCode": {
+        "description": "Scrum blueprint adapted for OpenCode-centered delivery with explicit execution cascade for OpenCode, ShellGPT, and direct terminal work.",
+        "base_team_type_name": "Scrum",
+        "roles": [
+            {
+                "name": "Product Owner",
+                "description": "Owns backlog readiness, acceptance criteria, and artifact expectations.",
+                "template_name": "OpenCode Scrum - Product Owner",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {
+                    "responsibility": "backlog",
+                    "execution_mode": "planning",
+                    "preferred_backend": "sgpt",
+                    "fallback_backends": ["opencode", "terminal"],
+                },
+            },
+            {
+                "name": "Scrum Master",
+                "description": "Facilitates delivery flow, blocker removal, and explicit handoffs.",
+                "template_name": "OpenCode Scrum - Scrum Master",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {
+                    "responsibility": "facilitation",
+                    "execution_mode": "coordination",
+                    "preferred_backend": "sgpt",
+                    "fallback_backends": ["terminal", "opencode"],
+                },
+            },
+            {
+                "name": "Developer",
+                "description": "Implements, verifies, and returns code/artifact changes through the OpenCode workspace flow.",
+                "template_name": "OpenCode Scrum - Developer",
+                "sort_order": 30,
+                "is_required": True,
+                "config": {
+                    "responsibility": "delivery",
+                    "execution_mode": "implementation",
+                    "preferred_backend": "opencode",
+                    "fallback_backends": ["terminal", "sgpt"],
+                },
+            },
+        ],
+        "artifacts": _task_artifacts(SCRUM_OPENCODE_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="OpenCode Scrum Default Policy",
+                sort_order=100,
+                policy={
+                    "task_kind": "coding",
+                    "security_level": "balanced",
+                    "verification_required": True,
+                    "artifact_flow_expected": True,
+                },
+            )
+        ],
+    },
     "Kanban": {
         "description": "Standard Kanban blueprint with flow-oriented roles and starter artifacts.",
+        "base_team_type_name": "Kanban",
         "roles": [
             {
                 "name": "Service Delivery Manager",
@@ -281,6 +374,7 @@ SEED_BLUEPRINTS = {
     },
     "Research": {
         "description": "Operational research blueprint for evidence collection, synthesis, and reporting.",
+        "base_team_type_name": "Research",
         "roles": [
             {
                 "name": "Research Lead",
@@ -318,6 +412,7 @@ SEED_BLUEPRINTS = {
     },
     "Code-Repair": {
         "description": "Operational code-repair blueprint for incident triage, patching, and regression checks.",
+        "base_team_type_name": "Code-Repair",
         "roles": [
             {
                 "name": "Repair Lead",
@@ -355,6 +450,7 @@ SEED_BLUEPRINTS = {
     },
     "Security-Review": {
         "description": "Operational security-review blueprint for control validation and remediation guidance.",
+        "base_team_type_name": "Security-Review",
         "roles": [
             {
                 "name": "Security Lead",
@@ -392,6 +488,7 @@ SEED_BLUEPRINTS = {
     },
     "Release-Prep": {
         "description": "Operational release-preparation blueprint for readiness, verification, and rollout planning.",
+        "base_team_type_name": "Release-Prep",
         "roles": [
             {
                 "name": "Release Manager",
@@ -461,6 +558,18 @@ Engineering guardrails for every proposal, change, refactoring, and implementati
 - Do not deliver merely working code. Deliver robust, modular, extensible, testable, and maintainable solutions.
 """.strip()
 
+SCRUM_OPENCODE_WORKFLOW_APPENDIX = """
+
+Execution cascade:
+
+1. Prefer OpenCode for multi-step coding, repository-aware edits, iterative debugging, and any task that benefits from a stateful worker session.
+2. Prefer ShellGPT/SGPT for concise synthesis, backlog refinement, drafting acceptance criteria, and short analytical turns that do not require a persistent coding session.
+3. Prefer direct terminal commands for deterministic, auditable operations such as ls/find/rg, tests, builds, formatting, git status, and exact environment checks.
+4. When switching backend, say why briefly and keep the change intentional instead of mixing tools arbitrarily.
+5. Use the worker workspace, artifact directory, and rag_helper context as the source of truth for exchanged files; return concrete changed-file and artifact outcomes to the hub.
+6. Surface blockers, assumptions, missing context, and verification gaps explicitly instead of hiding them in vague summaries.
+""".strip()
+
 
 def normalize_team_type_name(team_type_name: str) -> str:
     if not team_type_name:
@@ -481,6 +590,23 @@ def normalize_team_type_name(team_type_name: str) -> str:
 
 
 ROLE_PROFILE_DEFAULTS = {
+    "Scrum": {
+        "Product Owner": {
+            "capability_defaults": ["planning", "analysis", "backlog"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["acceptance_criteria_defined"]},
+        },
+        "Scrum Master": {
+            "capability_defaults": ["coordination", "analysis", "verification"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["blockers_reviewed"]},
+        },
+        "Developer": {
+            "capability_defaults": ["coding", "testing", "verification"],
+            "risk_profile": "high",
+            "verification_defaults": {"required": True, "gates": ["implementation_verified"]},
+        },
+    },
     "Research": {
         "Research Lead": {
             "capability_defaults": ["research", "analysis", "synthesis"],
@@ -653,6 +779,57 @@ def ensure_default_templates(team_type_name: str):
             (
                 "You are a Developer in a Scrum team. Implement backlog items, "
                 "review work, and deliver increments for {{team_goal}}.\n\n"
+                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+            ),
+        )
+        ensure_template(
+            "OpenCode Scrum - Product Owner",
+            "Prompt template for an OpenCode-adapted Scrum Product Owner.",
+            (
+                "You are the Product Owner in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
+                "Your focus:\n"
+                "- keep backlog items decision-ready\n"
+                "- define acceptance criteria and artifact expectations\n"
+                "- clarify what must be returned to the hub after worker execution\n\n"
+                "Backend emphasis:\n"
+                "- prefer SGPT for story slicing, prioritization, and concise synthesis\n"
+                "- use OpenCode when repository-aware investigation or artifact-producing analysis is needed\n"
+                "- use the terminal only for exact evidence gathering and deterministic checks\n\n"
+                f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
+                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+            ),
+        )
+        ensure_template(
+            "OpenCode Scrum - Scrum Master",
+            "Prompt template for an OpenCode-adapted Scrum Master.",
+            (
+                "You are the Scrum Master in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
+                "Your focus:\n"
+                "- remove blockers and keep work flowing through the hub-worker model\n"
+                "- make handoffs explicit between planning, execution, review, and follow-up\n"
+                "- ensure Definition of Done includes verification and artifact return paths\n\n"
+                "Backend emphasis:\n"
+                "- prefer SGPT for coordination, summarization, and decision framing\n"
+                "- use the terminal for environment diagnostics or exact verification commands\n"
+                "- use OpenCode when you need a stateful investigation across multiple related files or steps\n\n"
+                f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
+                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+            ),
+        )
+        ensure_template(
+            "OpenCode Scrum - Developer",
+            "Prompt template for an OpenCode-adapted Scrum Developer.",
+            (
+                "You are a Developer in an OpenCode-adapted Scrum team delivering {{team_goal}}.\n\n"
+                "Your focus:\n"
+                "- implement working increments with minimal blast radius\n"
+                "- keep changed files, artifact outputs, and verification evidence synchronized back to the hub\n"
+                "- make follow-up work explicit when a slice cannot be completed in one pass\n\n"
+                "Backend emphasis:\n"
+                "- prefer OpenCode for implementation, repair loops, code review passes, and stateful coding sessions\n"
+                "- use the terminal for deterministic commands, builds, tests, formatters, and exact repo inspection\n"
+                "- use SGPT for short explanations, tradeoff summaries, or draft reasoning when no persistent coding loop is required\n\n"
+                f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
                 f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
             ),
         )
@@ -885,7 +1062,10 @@ def _persist_blueprint_children(
 
 def ensure_seed_blueprints() -> None:
     for blueprint_name, blueprint_definition in SEED_BLUEPRINTS.items():
-        ensure_default_templates(blueprint_name)
+        base_team_type_name = normalize_team_type_name(
+            str(blueprint_definition.get("base_team_type_name") or blueprint_name)
+        )
+        ensure_default_templates(base_team_type_name)
         templates_by_name = {template.name: template for template in _repos().template_repo.get_all()}
         blueprint = _repos().team_blueprint_repo.get_by_name(blueprint_name)
         existing_roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id) if blueprint else []
@@ -894,17 +1074,17 @@ def ensure_seed_blueprints() -> None:
             blueprint = TeamBlueprintDB(
                 name=blueprint_name,
                 description=blueprint_definition["description"],
-                base_team_type_name=blueprint_name,
+                base_team_type_name=base_team_type_name or None,
                 is_seed=True,
             )
             blueprint = _repos().team_blueprint_repo.save(blueprint)
         elif (
             blueprint.description != blueprint_definition["description"]
-            or blueprint.base_team_type_name != blueprint_name
+            or blueprint.base_team_type_name != (base_team_type_name or None)
             or blueprint.is_seed is not True
         ):
             blueprint.description = blueprint_definition["description"]
-            blueprint.base_team_type_name = blueprint_name
+            blueprint.base_team_type_name = base_team_type_name or None
             blueprint.is_seed = True
             blueprint.updated_at = time.time()
             blueprint = _repos().team_blueprint_repo.save(blueprint)
@@ -913,7 +1093,7 @@ def ensure_seed_blueprints() -> None:
             changed = False
             for existing_role in existing_roles:
                 enriched = _with_role_profile_defaults(
-                    blueprint_name,
+                    base_team_type_name,
                     existing_role.name,
                     existing_role.config,
                 )
@@ -937,7 +1117,7 @@ def ensure_seed_blueprints() -> None:
                     sort_order=role_definition["sort_order"],
                     is_required=role_definition["is_required"],
                     config=_with_role_profile_defaults(
-                        blueprint_name,
+                        base_team_type_name,
                         role_definition["name"],
                         role_definition["config"],
                     ),
@@ -1526,15 +1706,16 @@ def setup_scrum():
     data: TeamSetupScrumRequest = g.validated_data
     team_name = data.name or "Neues Scrum Team"
     ensure_seed_blueprints()
-    scrum_blueprint = _repos().team_blueprint_repo.get_by_name("Scrum")
+    blueprint_name = str(data.blueprint_name or "Scrum").strip() or "Scrum"
+    scrum_blueprint = _repos().team_blueprint_repo.get_by_name(blueprint_name)
     if not scrum_blueprint:
-        return _team_error("scrum_blueprint_not_found", 404)
+        return _team_error("scrum_blueprint_not_found", 404, blueprint_name=blueprint_name)
 
     instantiated = _instantiate_blueprint(
         scrum_blueprint,
         TeamBlueprintInstantiateRequest(
             name=team_name,
-            description="Automatisch erstelltes Scrum Team aus dem Seed-Blueprint.",
+            description=f"Automatisch erstelltes Scrum Team aus dem Seed-Blueprint '{scrum_blueprint.name}'.",
             activate=True,
             members=[],
         ),
@@ -1542,7 +1723,15 @@ def setup_scrum():
     if isinstance(instantiated, tuple):
         return instantiated
 
-    log_audit("team_scrum_setup", {"team_id": instantiated.id, "name": instantiated.name, "blueprint_id": scrum_blueprint.id})
+    log_audit(
+        "team_scrum_setup",
+        {
+            "team_id": instantiated.id,
+            "name": instantiated.name,
+            "blueprint_id": scrum_blueprint.id,
+            "blueprint_name": scrum_blueprint.name,
+        },
+    )
     return api_response(
         message=f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
         data={"team": instantiated.model_dump(), "blueprint": _serialize_blueprint(scrum_blueprint)},
