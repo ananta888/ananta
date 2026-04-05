@@ -329,3 +329,46 @@ def test_seed_research_blueprint_instantiation_materializes_tasks(client):
         persisted_tasks = session.exec(select(TaskDB).where(TaskDB.team_id == team["id"])).all()
 
     assert any(task.title == "Research Pod Alpha: Research Intake" for task in persisted_tasks)
+
+
+def test_delete_blueprint_blocks_when_team_references_it(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    create_response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Delete Guard Blueprint",
+            "description": "should be protected while in use",
+            "roles": [
+                {
+                    "name": "Engineer",
+                    "description": "builds features",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "config": {},
+                }
+            ],
+            "artifacts": [],
+        },
+        headers=auth_header,
+    )
+    assert create_response.status_code == 201
+    blueprint = create_response.json["data"]
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{blueprint['id']}/instantiate",
+        json={"name": "Delete Guard Team", "activate": False, "members": []},
+        headers=auth_header,
+    )
+    assert instantiate_response.status_code == 201
+    team = instantiate_response.json["data"]["team"]
+
+    delete_response = client.delete(f"/teams/blueprints/{blueprint['id']}", headers=auth_header)
+
+    assert delete_response.status_code == 409
+    assert delete_response.json["message"] == "blueprint_in_use"
+    data = delete_response.json["data"]
+    assert data["blueprint_id"] == blueprint["id"]
+    assert data["team_count"] == 1
+    assert team["id"] in (data["team_ids"] or [])

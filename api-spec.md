@@ -783,6 +783,7 @@ Blueprint-first ist jetzt der bevorzugte Team-Workflow. Seed-Blueprints fuer `Sc
 - **URL:** `/teams/blueprints/<blueprint_id>`
 - **Methode:** `DELETE`
 - **Auth erforderlich:** Ja (Admin)
+- **Verhalten:** Referenzierte Blueprints werden nicht geloescht; bei bestehenden Team-Referenzen antwortet die API mit `409 blueprint_in_use`.
 
 ### Team aus Blueprint instanziieren
 - **URL:** `/teams/blueprints/<blueprint_id>/instantiate`

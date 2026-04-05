@@ -115,6 +115,7 @@ Wichtige Runtime-Checks:
 Wichtige Security-Policy:
 - OpenAI-Compat und zukuenftige MCP-Exposition werden ueber `exposure_policy` in `/config` explizit gesteuert.
 - Remote-Hub-Ziele koennen additiv ueber `remote_ananta_backends` konfiguriert werden und sind im Provider-Katalog sichtbar.
+- Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte `{{variablen}}` mit 4xx blockieren.
 
 Hinweis Redis (Host-Tuning):
 - Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:

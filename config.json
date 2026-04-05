@@ -169,6 +169,9 @@
   "models": [
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
   ],
+  "template_variable_validation": {
+    "strict": false
+  },
   "goal_workflow_enabled": true,
   "persisted_plans_enabled": true,
   "feature_flags": {
