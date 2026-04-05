@@ -1,3 +1,5 @@
+import uuid
+
 from agent.db_models import GoalDB, RoleDB, TaskDB, TeamDB, TemplateDB
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
@@ -24,6 +26,7 @@ def test_system_prompt_uses_team_role_template_and_goal(app):
         goal = repos.goal_repo.save(GoalDB(goal="Ship artifact sync", team_id=team.id))
         task = repos.task_repo.save(
             TaskDB(
+                id=str(uuid.uuid4()),
                 title="Implement artifact flow",
                 description="Wire artifact sync",
                 team_id=team.id,
