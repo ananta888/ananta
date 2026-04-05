@@ -8,6 +8,11 @@ const e2ePort = Number(process.env.E2E_PORT || '4200');
 function resolveFrontendBaseUrl(rawUrl) {
     try {
         const parsed = new URL(rawUrl);
+        if (parsed.hostname === '127.0.0.1')
+            return rawUrl;
+        if (parsed.hostname === 'localhost') {
+            return `${parsed.protocol}//127.0.0.1${parsed.port ? `:${parsed.port}` : ''}`;
+        }
         if (['localhost', '127.0.0.1'].includes(parsed.hostname))
             return rawUrl;
         const resolvedHost = execSync(`getent hosts ${parsed.hostname} | awk '{print $1; exit}'`, { encoding: 'utf-8' }).trim();
@@ -19,7 +24,7 @@ function resolveFrontendBaseUrl(rawUrl) {
         return rawUrl;
     }
 }
-const configuredBaseUrl = process.env.E2E_FRONTEND_URL || `http://localhost:${e2ePort}`;
+const configuredBaseUrl = process.env.E2E_FRONTEND_URL || `http://127.0.0.1:${e2ePort}`;
 const baseUrl = resolveFrontendBaseUrl(configuredBaseUrl);
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
