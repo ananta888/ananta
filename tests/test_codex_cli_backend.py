@@ -294,6 +294,34 @@ def test_run_opencode_command_uses_live_terminal_session(app):
     assert call.kwargs["workdir"] == "/tmp/live"
 
 
+def test_run_opencode_command_uses_interactive_terminal_session(app):
+    from agent.common.sgpt import run_opencode_command
+
+    session = {
+        "id": "cli-2",
+        "metadata": {
+            "opencode_execution_mode": "interactive_terminal",
+            "opencode_live_terminal": {"terminal_session_id": "cli-2", "forward_param": "cli-2"},
+        },
+    }
+    runtime_service = MagicMock()
+    runtime_service.run_opencode_turn.return_value = (0, "interactive-output", "")
+
+    with (
+        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("agent.services.live_terminal_session_service.get_live_terminal_session_service", return_value=runtime_service),
+    ):
+        rc, out, err = run_opencode_command("say hi", session=session, workdir="/tmp/interactive")
+
+    assert rc == 0
+    assert out == "interactive-output"
+    assert err == ""
+    runtime_service.run_opencode_turn.assert_called_once()
+    call = runtime_service.run_opencode_turn.call_args
+    assert call.args[0]["id"] == "cli-2"
+    assert call.kwargs["workdir"] == "/tmp/interactive"
+
+
 def test_opencode_runtime_service_reuses_existing_server_without_deepcopying_process():
     from agent.services.opencode_runtime_service import OpencodeRuntimeService
 

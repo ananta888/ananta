@@ -283,12 +283,12 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     if not ok_login:
         raise RuntimeError("Login did not reach dashboard")
     t_mode = time.time()
-    mode_res = ensure_opencode_execution_mode(session_id, mode="live_terminal", timeout_seconds=60)
+    mode_res = ensure_opencode_execution_mode(session_id, mode="interactive_terminal", timeout_seconds=60)
     mode_ok = bool(mode_res.get("ok"))
     print("opencode_execution_mode", json.dumps(mode_res, ensure_ascii=True), flush=True)
     record_step(report, "setup", "set_opencode_execution_mode", t_mode, mode_ok, mode_res)
     if not mode_ok:
-        raise RuntimeError("Failed to switch opencode execution mode to live_terminal")
+        raise RuntimeError("Failed to switch opencode execution mode to interactive_terminal")
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
     if not bootstrap_setup:
@@ -770,7 +770,7 @@ def browser_api_json(session_id: str, method: str, path: str, body: Optional[dic
     return out
 
 
-def ensure_opencode_execution_mode(session_id: str, mode: str = "live_terminal", timeout_seconds: int = 90) -> dict:
+def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_terminal", timeout_seconds: int = 90) -> dict:
     try:
         out = (
             js_async(

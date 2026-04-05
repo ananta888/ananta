@@ -100,10 +100,10 @@ export function normalizeArtifactFlowConfigValue(value: any): any {
 export function normalizeOpencodeRuntimeConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const toolMode = String(raw.tool_mode || 'full').trim().toLowerCase();
-  const executionMode = String(raw.execution_mode || 'backend').trim().toLowerCase();
+  const executionMode = String(raw.execution_mode || 'interactive_terminal').trim().toLowerCase();
   return {
     tool_mode: ['full', 'readonly', 'toolless'].includes(toolMode) ? toolMode : 'full',
-    execution_mode: ['backend', 'live_terminal'].includes(executionMode) ? executionMode : 'backend',
+    execution_mode: ['backend', 'live_terminal', 'interactive_terminal'].includes(executionMode) ? executionMode : 'interactive_terminal',
   };
 }
 
@@ -518,7 +518,7 @@ function createDefaultSettingsConfig(): any {
             </div>
             <div>
               <div class="muted">OpenCode Ausfuehrung</div>
-              <div>{{ config?.opencode_runtime?.execution_mode || 'backend' }}</div>
+              <div>{{ config?.opencode_runtime?.execution_mode || 'interactive_terminal' }}</div>
             </div>
             <div>
               <div class="muted">Worker Workspace Root</div>
@@ -705,6 +705,7 @@ function createDefaultSettingsConfig(): any {
               <select [(ngModel)]="config.opencode_runtime.execution_mode">
                 <option value="backend">backend</option>
                 <option value="live_terminal">live_terminal</option>
+                <option value="interactive_terminal">interactive_terminal</option>
               </select>
             </label>
             <label>Workspace Root (optional)

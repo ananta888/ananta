@@ -223,7 +223,7 @@ def build_default_agent_config() -> dict:
         },
         "opencode_runtime": {
             "tool_mode": "full",
-            "execution_mode": "backend",
+            "execution_mode": "interactive_terminal",
         },
         "worker_runtime": {
             "workspace_root": None,

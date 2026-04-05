@@ -712,7 +712,7 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
 
     ok = client.post(
         "/config",
-        json={"opencode_runtime": {"tool_mode": "readonly", "execution_mode": "live_terminal"}},
+        json={"opencode_runtime": {"tool_mode": "readonly", "execution_mode": "interactive_terminal"}},
         headers=headers,
     )
     assert ok.status_code == 200
@@ -721,7 +721,7 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
     assert cfg.status_code == 200
     runtime_cfg = ((cfg.json.get("data") or {}).get("opencode_runtime") or {})
     assert runtime_cfg.get("tool_mode") == "readonly"
-    assert runtime_cfg.get("execution_mode") == "live_terminal"
+    assert runtime_cfg.get("execution_mode") == "interactive_terminal"
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):

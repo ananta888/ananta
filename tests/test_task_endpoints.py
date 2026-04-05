@@ -1133,3 +1133,60 @@ def test_task_propose_creates_live_terminal_session_metadata_when_enabled(client
         assert cli_session_meta.get("execution_mode") == "live_terminal"
         assert cli_session_meta.get("forward_param") == "cli-live-1"
         assert (verification.get("opencode_live_terminal") or {}).get("terminal_session_id") == "cli-live-1"
+
+
+def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled(client, app, admin_auth_header):
+    tid = "T-INTERACTIVE-TERMINAL-PROPOSE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["sgpt_routing"] = {
+            "policy_version": "v2",
+            "default_backend": "opencode",
+            "task_kind_backend": {"ops": "opencode"},
+        }
+        cfg["cli_session_mode"] = {"enabled": False, "stateful_backends": ["opencode"]}
+        cfg["opencode_runtime"] = {"tool_mode": "full", "execution_mode": "interactive_terminal"}
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="restart services in interactive terminal")
+
+    captured_sessions: list[dict | None] = []
+
+    def _fake_cli(prompt, options=None, timeout=None, backend=None, model=None, routing_policy=None, research_context=None, session=None, workdir=None, **kwargs):
+        captured_sessions.append(session)
+        return 0, '{"reason":"turn-interactive","command":"echo interactive"}', "", "opencode"
+
+    terminal_service = MagicMock()
+    terminal_service.ensure_session_for_cli.return_value = {
+        "terminal_session_id": "cli-interactive-1",
+        "forward_param": "cli-interactive-1",
+        "status": "active",
+        "shell": "/bin/sh",
+        "transport": "pty",
+        "execution_mode": "interactive_terminal",
+    }
+
+    with (
+        patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli),
+        patch("agent.services.task_scoped_execution_service.get_live_terminal_session_service", return_value=terminal_service),
+    ):
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "restart now"}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    routing = data.get("routing") or {}
+    assert routing.get("session_mode") == "stateful"
+    assert routing.get("execution_mode") == "interactive_terminal"
+    assert (routing.get("live_terminal") or {}).get("forward_param") == "cli-interactive-1"
+    assert captured_sessions
+    assert captured_sessions[0] is not None
+    assert ((captured_sessions[0] or {}).get("metadata") or {}).get("opencode_execution_mode") == "interactive_terminal"
+
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        verification = dict(task.get("verification_status") or {})
+        cli_session_meta = verification.get("cli_session") or {}
+        assert cli_session_meta.get("execution_mode") == "interactive_terminal"
+        assert cli_session_meta.get("forward_param") == "cli-interactive-1"
+        assert (verification.get("opencode_live_terminal") or {}).get("terminal_session_id") == "cli-interactive-1"
