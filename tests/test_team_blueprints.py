@@ -191,6 +191,110 @@ def test_blueprint_validation_rejects_duplicate_role_names(client):
     assert response.json["message"] == "duplicate_blueprint_role_name"
 
 
+def test_blueprint_validation_rejects_duplicate_role_sort_order(client):
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Broken Role Order Blueprint",
+            "roles": [
+                {"name": "Developer", "sort_order": 10, "is_required": True, "config": {}},
+                {"name": "Reviewer", "sort_order": 10, "is_required": True, "config": {}},
+            ],
+            "artifacts": [],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "duplicate_blueprint_role_sort_order"
+
+
+def test_blueprint_validation_rejects_duplicate_artifact_titles(client):
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Broken Artifact Title Blueprint",
+            "roles": [],
+            "artifacts": [
+                {"kind": "task", "title": "Kickoff", "sort_order": 10, "payload": {}},
+                {"kind": "task", "title": " kickoff ", "sort_order": 20, "payload": {}},
+            ],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "duplicate_blueprint_artifact_title"
+
+
+def test_blueprint_validation_rejects_duplicate_artifact_sort_order(client):
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Broken Artifact Order Blueprint",
+            "roles": [],
+            "artifacts": [
+                {"kind": "task", "title": "Kickoff", "sort_order": 10, "payload": {}},
+                {"kind": "policy", "title": "Policy", "sort_order": 10, "payload": {}},
+            ],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "duplicate_blueprint_artifact_sort_order"
+
+
+def test_blueprint_validation_rejects_invalid_artifact_kind(client):
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Broken Artifact Kind Blueprint",
+            "roles": [],
+            "artifacts": [
+                {"kind": "note", "title": "Kickoff", "sort_order": 10, "payload": {}},
+            ],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "blueprint_artifact_kind_invalid"
+
+
+def test_blueprint_validation_rejects_missing_role_template_reference(client):
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Broken Template Ref Blueprint",
+            "roles": [
+                {
+                    "name": "Developer",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "template_id": "missing-template-id",
+                    "config": {},
+                }
+            ],
+            "artifacts": [],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json["message"] == "template_not_found"
+
+
 def test_seed_research_blueprint_instantiation_materializes_tasks(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}

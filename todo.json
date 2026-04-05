@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.3.0",
   "created": "2026-04-05",
-  "updated": "2026-04-05T15:28:00+02:00",
+  "updated": "2026-04-05T12:05:04Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -91,7 +91,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "Safety, Transparency",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/teams.py",
@@ -114,7 +114,7 @@
           "priority": "critical",
           "type": "test",
           "principle": "Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/",
@@ -138,7 +138,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Operability, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/",
@@ -236,7 +236,7 @@
           "priority": "high",
           "type": "validation",
           "principle": "Fail-Fast, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/routes/teams.py",
@@ -255,7 +255,7 @@
           "priority": "high",
           "type": "validation",
           "principle": "Correctness",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/routes/teams.py",
@@ -386,7 +386,7 @@
           "priority": "high",
           "type": "test",
           "principle": "Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -525,9 +525,9 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 0,
+      "completed": 3,
       "partial": 0,
-      "open": 20
+      "open": 17
     },
     "notes": [
       "Diese Todo-Version startet bewusst als neue Linie fuer Backend-Qualitaet bei Blueprints/Templates.",

@@ -981,8 +981,12 @@ def _serialize_blueprint(
     return blueprint_dict
 
 
+ALLOWED_BLUEPRINT_ARTIFACT_KINDS = {"task", "policy"}
+
+
 def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
     seen_names: set[str] = set()
+    seen_sort_orders: set[int] = set()
     for role in roles:
         normalized_name = role.name.strip()
         if not normalized_name:
@@ -990,6 +994,9 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
         if normalized_name.lower() in seen_names:
             return False, ("duplicate_blueprint_role_name", 400, {"role_name": normalized_name})
         seen_names.add(normalized_name.lower())
+        if role.sort_order in seen_sort_orders:
+            return False, ("duplicate_blueprint_role_sort_order", 400, {"sort_order": role.sort_order})
+        seen_sort_orders.add(role.sort_order)
         if role.template_id and not _repos().template_repo.get_by_id(role.template_id):
             return False, ("template_not_found", 404, {"template_id": role.template_id})
         role_config = dict(role.config or {})
@@ -1006,11 +1013,27 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
 
 
 def _validate_blueprint_artifacts(artifacts: list) -> tuple[bool, tuple | None]:
+    seen_titles: set[str] = set()
+    seen_sort_orders: set[int] = set()
     for artifact in artifacts:
-        if not artifact.kind.strip():
+        normalized_kind = artifact.kind.strip().lower()
+        normalized_title = artifact.title.strip()
+        if not normalized_kind:
             return False, ("blueprint_artifact_kind_required", 400, {})
-        if not artifact.title.strip():
+        if normalized_kind not in ALLOWED_BLUEPRINT_ARTIFACT_KINDS:
+            return False, (
+                "blueprint_artifact_kind_invalid",
+                400,
+                {"kind": artifact.kind, "allowed_kinds": sorted(ALLOWED_BLUEPRINT_ARTIFACT_KINDS)},
+            )
+        if not normalized_title:
             return False, ("blueprint_artifact_title_required", 400, {})
+        if normalized_title.lower() in seen_titles:
+            return False, ("duplicate_blueprint_artifact_title", 400, {"title": normalized_title})
+        seen_titles.add(normalized_title.lower())
+        if artifact.sort_order in seen_sort_orders:
+            return False, ("duplicate_blueprint_artifact_sort_order", 400, {"sort_order": artifact.sort_order})
+        seen_sort_orders.add(artifact.sort_order)
     return True, None
 
 
