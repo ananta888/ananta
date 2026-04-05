@@ -75,9 +75,9 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     tool_mode = str(payload.get("tool_mode") or "full").strip().lower()
     if tool_mode not in {"full", "readonly", "toolless"}:
         tool_mode = "full"
-    execution_mode = str(payload.get("execution_mode") or "backend").strip().lower()
-    if execution_mode not in {"backend", "live_terminal"}:
-        execution_mode = "backend"
+    execution_mode = str(payload.get("execution_mode") or "interactive_terminal").strip().lower()
+    if execution_mode not in {"backend", "live_terminal", "interactive_terminal"}:
+        execution_mode = "interactive_terminal"
     return {"tool_mode": tool_mode, "execution_mode": execution_mode}
 
 

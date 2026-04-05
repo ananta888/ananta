@@ -198,9 +198,9 @@ class ConfigReadModelService:
                     "tool_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("tool_mode") or "full")).strip().lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)
                     else "full",
-                    "execution_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("execution_mode") or "backend")).strip().lower()
+                    "execution_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("execution_mode") or "interactive_terminal")).strip().lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)
-                    else "backend",
+                    else "interactive_terminal",
                 },
                 "worker_runtime": {
                     "workspace_root": (

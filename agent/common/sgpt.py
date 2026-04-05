@@ -537,7 +537,7 @@ def run_opencode_command(
             timeout=timeout,
             model=model,
         )
-    if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() == "live_terminal":
+    if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() in {"live_terminal", "interactive_terminal"}:
         from agent.services.live_terminal_session_service import get_live_terminal_session_service
 
         return get_live_terminal_session_service().run_opencode_turn(
@@ -776,9 +776,9 @@ def _normalize_opencode_tool_mode(value: str | None) -> str:
 
 def _normalize_opencode_execution_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
-    if mode in {"backend", "live_terminal"}:
+    if mode in {"backend", "live_terminal", "interactive_terminal"}:
         return mode
-    return "backend"
+    return "interactive_terminal"
 
 
 def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:

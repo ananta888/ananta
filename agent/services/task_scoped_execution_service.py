@@ -676,7 +676,6 @@ class TaskScopedExecutionService:
         if session_payload:
             routing["session_mode"] = "stateful"
             routing["session_id"] = session_payload["id"]
-            session_metadata = session_payload.get("metadata") if isinstance(session_payload.get("metadata"), dict) else {}
             live_terminal_meta = (
                 dict(session_metadata.get("opencode_live_terminal") or {})
                 if isinstance(session_metadata.get("opencode_live_terminal"), dict)
@@ -684,10 +683,10 @@ class TaskScopedExecutionService:
             )
             config_execution_mode = self._resolve_opencode_execution_mode(cfg)
             if (
-                str(session_metadata.get("opencode_execution_mode") or "").strip().lower() == "live_terminal"
-                or (effective_backend == "opencode" and config_execution_mode == "live_terminal")
+                str(session_metadata.get("opencode_execution_mode") or "").strip().lower() in {"live_terminal", "interactive_terminal"}
+                or (effective_backend == "opencode" and config_execution_mode in {"live_terminal", "interactive_terminal"})
             ):
-                routing["execution_mode"] = "live_terminal"
+                routing["execution_mode"] = str(session_metadata.get("opencode_execution_mode") or config_execution_mode).strip().lower()
                 if not live_terminal_meta:
                     live_terminal_meta = (
                         dict((task.get("verification_status") or {}).get("opencode_live_terminal") or {})
@@ -1425,8 +1424,8 @@ class TaskScopedExecutionService:
     def _resolve_opencode_execution_mode(agent_cfg: dict | None) -> str:
         cfg = agent_cfg or {}
         runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
-        mode = str(runtime_cfg.get("execution_mode") or "backend").strip().lower()
-        return mode if mode in {"backend", "live_terminal"} else "backend"
+        mode = str(runtime_cfg.get("execution_mode") or "interactive_terminal").strip().lower()
+        return mode if mode in {"backend", "live_terminal", "interactive_terminal"} else "interactive_terminal"
 
     def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
         task_record = get_repository_registry().task_repo.get_by_id(tid)
@@ -1472,10 +1471,13 @@ class TaskScopedExecutionService:
     ) -> dict | None:
         policy = self._cli_session_policy(agent_cfg)
         backend_name = str(backend or "").strip().lower()
-        live_terminal_mode = backend_name == "opencode" and self._resolve_opencode_execution_mode(agent_cfg) == "live_terminal"
-        if not live_terminal_mode and (not policy["enabled"] or not policy["allow_task_scoped_auto_session"]):
+        opencode_execution_mode = self._resolve_opencode_execution_mode(agent_cfg)
+        terminal_execution_mode = (
+            opencode_execution_mode if backend_name == "opencode" and opencode_execution_mode in {"live_terminal", "interactive_terminal"} else None
+        )
+        if not terminal_execution_mode and (not policy["enabled"] or not policy["allow_task_scoped_auto_session"]):
             return None
-        if not live_terminal_mode and backend_name not in set(policy["stateful_backends"]):
+        if not terminal_execution_mode and backend_name not in set(policy["stateful_backends"]):
             return None
         scope_kind, scope_key, role_name = self._resolve_task_session_scope(tid=tid, task=task, policy=policy)
         verification = dict(task.get("verification_status") or {})
@@ -1522,7 +1524,7 @@ class TaskScopedExecutionService:
                 str(task.get("status") or "assigned"),
                 verification_status=verification,
             )
-        if backend_name == "opencode" and not live_terminal_mode:
+        if backend_name == "opencode" and not terminal_execution_mode:
             session_payload = (
                 get_cli_session_service().update_session(
                     str(session_payload.get("id") or ""),
@@ -1547,13 +1549,19 @@ class TaskScopedExecutionService:
                 str(task.get("status") or "assigned"),
                 verification_status=verification,
             )
-        if live_terminal_mode:
-            terminal_meta = get_live_terminal_session_service().ensure_session_for_cli(session_payload) or {}
+        if terminal_execution_mode:
+            terminal_meta = (
+                get_live_terminal_session_service().ensure_session_for_cli(
+                    session_payload,
+                    execution_mode=terminal_execution_mode,
+                )
+                or {}
+            )
             session_payload = (
                 get_cli_session_service().update_session(
                     str(session_payload.get("id") or ""),
                     metadata_updates={
-                        "opencode_execution_mode": "live_terminal",
+                        "opencode_execution_mode": terminal_execution_mode,
                         "opencode_live_terminal": terminal_meta,
                     },
                 )
@@ -1561,7 +1569,7 @@ class TaskScopedExecutionService:
             )
             verification["cli_session"] = {
                 **verification.get("cli_session", {}),
-                "execution_mode": "live_terminal",
+                "execution_mode": terminal_execution_mode,
                 "terminal_session_id": terminal_meta.get("terminal_session_id"),
                 "forward_param": terminal_meta.get("forward_param"),
                 "terminal_status": terminal_meta.get("status"),
