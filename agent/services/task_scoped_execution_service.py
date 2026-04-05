@@ -1481,6 +1481,8 @@ class TaskScopedExecutionService:
         if not terminal_execution_mode and backend_name not in set(policy["stateful_backends"]):
             return None
         scope_kind, scope_key, role_name = self._resolve_task_session_scope(tid=tid, task=task, policy=policy)
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
+        workspace_dir = str(workspace_context.workspace_dir)
         verification = dict(task.get("verification_status") or {})
         session_meta = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
         existing_id = str(session_meta.get("session_id") or "").strip()
@@ -1507,6 +1509,7 @@ class TaskScopedExecutionService:
                     "scope_kind": scope_kind,
                     "scope_key": scope_key,
                     "role_name": role_name,
+                    "opencode_workdir": workspace_dir,
                 },
                 task_id=tid,
                 conversation_id=scope_key,
@@ -1555,6 +1558,7 @@ class TaskScopedExecutionService:
                 get_live_terminal_session_service().ensure_session_for_cli(
                     session_payload,
                     execution_mode=terminal_execution_mode,
+                    workdir=workspace_dir,
                 )
                 or {}
             )
@@ -1564,6 +1568,7 @@ class TaskScopedExecutionService:
                     metadata_updates={
                         "opencode_execution_mode": terminal_execution_mode,
                         "opencode_live_terminal": terminal_meta,
+                        "opencode_workdir": workspace_dir,
                     },
                 )
                 or session_payload

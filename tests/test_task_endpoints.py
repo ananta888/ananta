@@ -1125,9 +1125,15 @@ def test_task_propose_creates_live_terminal_session_metadata_when_enabled(client
     assert captured_sessions
     assert captured_sessions[0] is not None
     assert ((captured_sessions[0] or {}).get("metadata") or {}).get("opencode_execution_mode") == "live_terminal"
+    terminal_call = terminal_service.ensure_session_for_cli.call_args
+    assert terminal_call.kwargs["workdir"]
 
     with app.app_context():
+        from agent.services.worker_workspace_service import get_worker_workspace_service
+
         task = _get_local_task_status(tid)
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
+        assert terminal_call.kwargs["workdir"] == str(workspace_context.workspace_dir)
         verification = dict(task.get("verification_status") or {})
         cli_session_meta = verification.get("cli_session") or {}
         assert cli_session_meta.get("execution_mode") == "live_terminal"
@@ -1182,9 +1188,15 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
     assert captured_sessions
     assert captured_sessions[0] is not None
     assert ((captured_sessions[0] or {}).get("metadata") or {}).get("opencode_execution_mode") == "interactive_terminal"
+    terminal_call = terminal_service.ensure_session_for_cli.call_args
+    assert terminal_call.kwargs["workdir"]
 
     with app.app_context():
+        from agent.services.worker_workspace_service import get_worker_workspace_service
+
         task = _get_local_task_status(tid)
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
+        assert terminal_call.kwargs["workdir"] == str(workspace_context.workspace_dir)
         verification = dict(task.get("verification_status") or {})
         cli_session_meta = verification.get("cli_session") or {}
         assert cli_session_meta.get("execution_mode") == "interactive_terminal"

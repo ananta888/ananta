@@ -116,3 +116,7 @@ __pycache__/
 /frontend-angular/.e2e-runtime/
 /data/artifacts/
 /rag-helper/.venv/
+/data/beta/worker-runtime/
+/data/alpha/worker-runtime/
+/data/beta/
+/data/alpha/
