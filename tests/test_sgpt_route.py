@@ -390,22 +390,22 @@ def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app, admin_auth_h
         **(app.config.get("AGENT_CONFIG") or {}),
         "sgpt_routing": {
             "policy_version": "v2",
-            "default_backend": "sgpt",
-            "task_kind_backend": {"coding": "aider", "analysis": "sgpt", "doc": "sgpt", "ops": "opencode"},
+            "default_backend": "opencode",
+            "task_kind_backend": {"coding": "opencode", "analysis": "opencode", "doc": "opencode", "ops": "opencode"},
         },
     }
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
-        mock_run.return_value = (0, "ok", "", "aider")
+        mock_run.return_value = (0, "ok", "", "opencode")
         response = client.post(
             "/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"}, headers=admin_auth_header
         )
 
     assert response.status_code == 200
     data = response.json["data"]
-    assert data["backend"] == "aider"
+    assert data["backend"] == "opencode"
     assert data["routing"]["task_kind"] == "coding"
-    assert data["routing"]["effective_backend"] == "aider"
-    assert data["routing"]["reason"] == "task_kind_policy:coding->aider"
+    assert data["routing"]["effective_backend"] == "opencode"
+    assert data["routing"]["reason"] == "task_kind_policy:coding->opencode"
 
 
 def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app, admin_auth_header):
@@ -413,18 +413,18 @@ def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app,
         **(app.config.get("AGENT_CONFIG") or {}),
         "sgpt_routing": {
             "policy_version": "v2",
-            "default_backend": "sgpt",
-            "task_kind_backend": {"coding": "aider"},
+            "default_backend": "opencode",
+            "task_kind_backend": {"coding": "opencode"},
         },
     }
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
-        mock_run.return_value = (0, "ok", "", "sgpt")
+        mock_run.return_value = (0, "ok", "", "opencode")
         response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header)
 
     assert response.status_code == 200
     data = response.json["data"]
     assert data["routing"]["task_kind"] == "doc"
-    assert data["routing"]["effective_backend"] == "sgpt"
+    assert data["routing"]["effective_backend"] == "opencode"
     assert data["routing"]["reason"] in {"default_policy:sgpt", "task_kind_policy:analysis->sgpt"}
 
 

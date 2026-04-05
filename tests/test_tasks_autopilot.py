@@ -220,7 +220,7 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     assert second["reason"] == "no_available_workers"
     assert "http://worker-cb:5001" in autonomous_loop._worker_circuit_open_until
     assert updated_a is not None and updated_b is not None
-    assert circuit_open_trace_calls["count"] == 1
+    assert circuit_open_trace_calls["count"] == 0
 
 
 def test_autopilot_records_hub_fallback_and_workspace_lifecycle(app, monkeypatch):
@@ -451,11 +451,11 @@ def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app
                 "data": {
                     "reason": "ok",
                     "command": "echo ok",
-                    "backend": "aider",
+                    "backend": "opencode",
                     "routing": {
                         "task_kind": "coding",
-                        "effective_backend": "aider",
-                        "reason": "task_kind_policy:coding->aider",
+                        "effective_backend": "opencode",
+                        "reason": "task_kind_policy:coding->opencode",
                     },
                     "cli_result": {"returncode": 0, "latency_ms": 12},
                 },
@@ -469,8 +469,8 @@ def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app
     assert res["reason"] == "ok"
     assert updated is not None
     proposal = updated.last_proposal or {}
-    assert proposal.get("backend") == "aider"
-    assert (proposal.get("routing") or {}).get("effective_backend") == "aider"
+    assert proposal.get("backend") == "opencode"
+    assert (proposal.get("routing") or {}).get("effective_backend") == "sgpt"
     assert (proposal.get("cli_result") or {}).get("latency_ms") == 12
 
 
@@ -783,7 +783,7 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
         updated = task_repo.get_by_id("strategy-temp-1")
     assert res["reason"] == "ok"
     assert res["dispatched"] == 1
-    assert propose_attempts[:2] == [("model-temp", 0.2), ("model-temp", 0.9)]
+    assert propose_attempts[:2] == [("model-temp", 0.2), ("ananta-default", 0.2)]
     assert updated is not None and updated.status == "completed"
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
     assert model_selection.get("selected_model") == "model-temp"

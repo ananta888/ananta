@@ -215,6 +215,19 @@ def parse_phases(raw: str) -> List[str]:
     return parts
 
 
+def default_goal_text_for_benchmark(task_kind: str) -> str:
+    normalized = str(task_kind or "").strip().lower()
+    if normalized == "analysis":
+        return "Analyze a small Python Fibonacci helper, identify two concrete improvements, and provide a short implementation plan."
+    if normalized == "planning":
+        return "Create a concrete implementation plan for a Python Fibonacci helper with tests, validation steps, and a short delivery summary."
+    if normalized == "review":
+        return "Review a small Python Fibonacci helper change, identify issues, propose fixes, and summarize verification steps."
+    return (
+        "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation."
+    )
+
+
 def record_step(report: dict, phase: str, step: str, started_at: float, ok: bool, details: Optional[dict] = None):
     ended = time.time()
     report["steps"].append(
@@ -455,10 +468,32 @@ def phase_goal(
         if not set_input_value_via_js(session_id, '[data-testid="auto-planner-goal-input"]', goal_name):
             raise
     time.sleep(0.6)
+    expected_team_name = ""
+    cleanup_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+    if isinstance(cleanup_targets, dict):
+        team_names = cleanup_targets.get("team_names")
+        if isinstance(team_names, list) and team_names:
+            expected_team_name = str(team_names[-1] or "").strip()
+    wait_for(
+        session_id,
+        """
+        const selects = [...document.querySelectorAll('select')];
+        const teamSelect = selects.find((s) => {
+          const host = s.closest('label,div') || document;
+          const txt = (host.textContent || '').toLowerCase();
+          return txt.includes('team');
+        });
+        if (!teamSelect) return false;
+        const validOptions = [...teamSelect.options].filter((o) => o.value && !o.disabled);
+        return validOptions.length > 0;
+        """,
+        20,
+    )
     team_pick = (
         js(
             session_id,
             """
+            const expectedName = String(arguments[0] || '').trim().toLowerCase();
             const selects = [...document.querySelectorAll('select')];
             const teamSelect = selects.find((s) => {
               const host = s.closest('label,div') || document;
@@ -468,12 +503,18 @@ def phase_goal(
             if (!teamSelect) return { found:false, selected:'' };
             const current = String(teamSelect.value || '');
             if (current) return { found:true, selected: current };
-            const firstValid = [...teamSelect.options].find((o) => o.value && !o.disabled);
+            const validOptions = [...teamSelect.options].filter((o) => o.value && !o.disabled);
+            const matched = expectedName
+              ? validOptions.find((o) => String(o.textContent || '').trim().toLowerCase() === expectedName)
+              : null;
+            const firstValid = matched || validOptions[0];
             if (!firstValid) return { found:true, selected:'' };
             teamSelect.value = firstValid.value;
+            teamSelect.dispatchEvent(new Event('input', { bubbles:true }));
             teamSelect.dispatchEvent(new Event('change', { bubbles:true }));
-            return { found:true, selected: firstValid.value };
+            return { found:true, selected: firstValid.value, selectedLabel: String(firstValid.textContent || '').trim() };
             """,
+            [expected_team_name],
         ).get("value")
         or {}
     )
@@ -985,6 +1026,49 @@ def phase_benchmark(
     )
     tasks_before_full_ids = {str(task.get("id") or "") for task in tasks_before_full if isinstance(task, dict)}
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
+    task_team_patch_info: Dict[str, Any] = {"resolved_team_id": team_id, "patched_task_ids": [], "patch_statuses": []}
+    if not team_id:
+        cleanup_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+        expected_team_name = ""
+        if isinstance(cleanup_targets, dict):
+            team_names = cleanup_targets.get("team_names")
+            if isinstance(team_names, list) and team_names:
+                expected_team_name = str(team_names[-1] or "").strip()
+        if expected_team_name:
+            teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
+            teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
+            teams = teams_payload if isinstance(teams_payload, list) else []
+            matched_team = next(
+                (
+                    item
+                    for item in teams
+                    if isinstance(item, dict) and str(item.get("name") or "").strip() == expected_team_name
+                ),
+                None,
+            )
+            resolved_team_id = str((matched_team or {}).get("id") or "").strip()
+            if resolved_team_id:
+                for task in tasks_before_full:
+                    if not isinstance(task, dict):
+                        continue
+                    task_id = str(task.get("id") or "").strip()
+                    if not task_id:
+                        continue
+                    patch_res = browser_api_json(
+                        session_id,
+                        "PATCH",
+                        f"/tasks/{task_id}",
+                        body={"team_id": resolved_team_id},
+                        timeout_seconds=45,
+                    )
+                    task_team_patch_info["patch_statuses"].append(
+                        {"task_id": task_id, "status": int(patch_res.get("status") or 0)}
+                    )
+                    if patch_res.get("ok") and int(patch_res.get("status") or 0) < 400:
+                        task_team_patch_info["patched_task_ids"].append(task_id)
+                if task_team_patch_info["patched_task_ids"]:
+                    team_id = resolved_team_id
+                    task_team_patch_info["resolved_team_id"] = resolved_team_id
     if team_id:
         report.setdefault("cleanup_targets", {}).setdefault("team_ids", []).append(team_id)
 
@@ -1429,6 +1513,7 @@ def phase_benchmark(
             "goal_id": goal_id,
             "goal_summary": str((picked_goal or {}).get("summary") or ""),
             "worker_bind_info": worker_bind_info,
+            "task_team_patch_info": task_team_patch_info,
             "worker_terminal": terminal_view,
             "tasks_before": len(tasks_before),
             "tasks_after": len(tasks_after),
@@ -1665,11 +1750,11 @@ def main():
     step_delay_seconds = max(0.0, float(args.step_delay_seconds))
     wait_tasks_seconds = max(5.0, float(args.wait_tasks_seconds))
     goal_wait_seconds = max(20.0, float(args.goal_wait_seconds))
-    goal_text = str(args.goal_text or "").strip()
     benchmark_ticks = max(0, int(args.benchmark_ticks))
     benchmark_task_kind = str(args.benchmark_task_kind or "coding").strip().lower() or "coding"
     if benchmark_task_kind not in {"analysis", "coding", "planning", "review"}:
         benchmark_task_kind = "coding"
+    goal_text = str(args.goal_text or "").strip() or default_goal_text_for_benchmark(benchmark_task_kind)
     require_followup = bool(args.require_followup)
     require_artifact_summary = bool(args.require_artifact_summary)
     require_multi_file_output = bool(args.require_multi_file_output)

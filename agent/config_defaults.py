@@ -197,11 +197,11 @@ def build_default_agent_config() -> dict:
         },
         "sgpt_routing": {
             "policy_version": "v2",
-            "default_backend": "sgpt",
+            "default_backend": "opencode",
             "task_kind_backend": {
-                "coding": "aider",
-                "analysis": "sgpt",
-                "doc": "sgpt",
+                "coding": "opencode",
+                "analysis": "opencode",
+                "doc": "opencode",
                 "ops": "opencode",
                 "research": "deerflow",
             },

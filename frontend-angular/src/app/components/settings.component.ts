@@ -840,8 +840,8 @@ function createDefaultSettingsConfig(): any {
             </label>
           </div>
           <div class="muted font-sm mt-md">
-            Beispiel Rolle: <span class="font-mono">{"backend developer": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest"}</span><br />
-            Beispiel Template: <span class="font-mono">{"documentation": "lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest"}</span>
+            Beispiel Rolle: <span class="font-mono">&#123;"backend developer": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest"&#125;</span><br />
+            Beispiel Template: <span class="font-mono">&#123;"documentation": "lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest"&#125;</span>
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
@@ -864,7 +864,7 @@ function createDefaultSettingsConfig(): any {
               <input [(ngModel)]="config.research_backend.mode" placeholder="cli" />
             </label>
             <label class="col-span-full">Command
-              <input [(ngModel)]="config.research_backend.command" placeholder="z.B. python main.py {prompt}" />
+              <input [(ngModel)]="config.research_backend.command" placeholder="z.B. python main.py &#123;prompt&#125;" />
             </label>
             <label>Working Dir
               <input [(ngModel)]="config.research_backend.working_dir" placeholder="optional, z.B. /opt/deer-flow" />

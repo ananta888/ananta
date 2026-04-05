@@ -61,7 +61,9 @@ export class HubApiService {
     return this.tasks.patchGoalPlanNode(baseUrl, goalId, nodeId, patch, token);
   }
   getGoalGovernanceSummary(baseUrl: string, goalId: string, token?: string): Observable<any> { return this.tasks.getGoalGovernanceSummary(baseUrl, goalId, token); }
-  createGoal(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.createGoal(baseUrl, body, token); }
+  createGoal(baseUrl: string, body: any, token?: string, timeoutMs?: number): Observable<any> {
+    return this.tasks.createGoal(baseUrl, body, token, timeoutMs);
+  }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.tasks.taskLogs(baseUrl, id, token); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.streamTaskLogs(baseUrl, id, token); }
   listArchivedTasks(baseUrl: string, token?: string, limit = 100, offset = 0): Observable<any[]> {

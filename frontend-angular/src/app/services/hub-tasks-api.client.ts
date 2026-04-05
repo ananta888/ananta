@@ -40,7 +40,9 @@ export class HubTasksApiClient {
   getGoalGovernanceSummary(baseUrl: string, goalId: string, token?: string): Observable<any> {
     return this.core.get<any>(`${baseUrl}/goals/${goalId}/governance-summary`, baseUrl, token, true);
   }
-  createGoal(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/goals`, body, baseUrl, token, false, 60000); }
+  createGoal(baseUrl: string, body: any, token?: string, timeoutMs = 180000): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/goals`, body, baseUrl, token, false, timeoutMs);
+  }
 
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks/${id}/logs`, baseUrl, token, true); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.streamTaskLogs(baseUrl, id, token); }
