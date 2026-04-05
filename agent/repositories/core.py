@@ -26,6 +26,10 @@ class TeamRepository:
         with Session(engine) as session:
             return session.exec(select(TeamDB)).all()
 
+    def get_by_name(self, name: str):
+        with Session(engine) as session:
+            return session.exec(select(TeamDB).where(TeamDB.name == name)).first()
+
     def get_by_id(self, team_id: str):
         with Session(engine) as session:
             return session.get(TeamDB, team_id)
@@ -51,6 +55,10 @@ class TemplateRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(TemplateDB)).all()
+
+    def get_by_name(self, name: str):
+        with Session(engine) as session:
+            return session.exec(select(TemplateDB).where(TemplateDB.name == name)).first()
 
     def get_by_id(self, template_id: str):
         with Session(engine) as session:
