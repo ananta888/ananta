@@ -1,1 +1,1 @@
-FROM tensorblock-deepseek-coder-v2-lite-instruct-gguf-deepseek-coder-v2-443776354e4e
+FROM lmstudio-community-gemma-4-e2b-it-gguf-gemma-4-e2b-it-q4_k_m

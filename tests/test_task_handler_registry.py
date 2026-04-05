@@ -96,3 +96,35 @@ def test_task_scoped_execution_service_uses_registered_handler(monkeypatch):
         assert execute_response.data["status"] == "completed"
         assert execute_response.data["output"] == "plugin-output"
         assert (execute_response.data.get("handler_contract") or {}).get("verification_hooks") == ["plugin_smoke"]
+
+
+def test_task_scoped_repair_proposal_preserves_cli_session():
+    app = Flask(__name__)
+    service = get_task_scoped_execution_service()
+    captured: dict = {}
+    session_payload = {
+        "id": "sess-1",
+        "metadata": {"opencode_runtime": {"kind": "native_server", "native_session_id": "native-1"}},
+    }
+
+    def _fake_cli_runner(**kwargs):
+        captured.update(kwargs)
+        return 0, '{"reason":"repair","command":"echo ok"}', "", str(kwargs.get("backend") or "")
+
+    with app.app_context():
+        repaired = service._repair_task_proposal(
+            cli_runner=_fake_cli_runner,
+            prompt="Original prompt",
+            bad_output="{}",
+            validation_error="missing_required_fields: command_or_tool_calls",
+            timeout=60,
+            task_kind="coding",
+            policy_version="v1",
+            cfg={"default_model": "model-a", "task_propose_repair_backend": "opencode"},
+            primary_backend="opencode",
+            primary_model="model-a",
+            session=session_payload,
+        )
+
+    assert repaired is not None
+    assert captured.get("session") == session_payload
