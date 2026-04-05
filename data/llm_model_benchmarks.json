@@ -508,15 +508,15 @@
       "provider": "lmstudio",
       "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1",
       "overall": {
-        "total": 62,
+        "total": 63,
         "success": 43,
-        "failed": 19,
+        "failed": 20,
         "quality_pass": 43,
-        "quality_fail": 19,
-        "latency_ms_total": 1650,
-        "tokens_total": 244,
+        "quality_fail": 20,
+        "latency_ms_total": 1664,
+        "tokens_total": 251,
         "cost_units_total": 0.0,
-        "last_seen": 1775261983,
+        "last_seen": 1775349433,
         "samples": [
           {
             "ts": 1771425898,
@@ -999,20 +999,31 @@
             "latency_ms": 9,
             "tokens_total": 7,
             "cost_units": 0.0
+          },
+          {
+            "ts": 1775349433,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 14,
+            "tokens_total": 7,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 62,
+          "total": 63,
           "success": 43,
-          "failed": 19,
+          "failed": 20,
           "quality_pass": 43,
-          "quality_fail": 19,
-          "latency_ms_total": 1650,
-          "tokens_total": 244,
+          "quality_fail": 20,
+          "latency_ms_total": 1664,
+          "tokens_total": 251,
           "cost_units_total": 0.0,
-          "last_seen": 1775261983,
+          "last_seen": 1775349433,
           "samples": [
             {
               "ts": 1771425898,
@@ -1495,6 +1506,17 @@
               "latency_ms": 9,
               "tokens_total": 7,
               "cost_units": 0.0
+            },
+            {
+              "ts": 1775349433,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 14,
+              "tokens_total": 7,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         }
@@ -3721,5 +3743,5 @@
       }
     }
   },
-  "updated_at": 1775336169
+  "updated_at": 1775349433
 }

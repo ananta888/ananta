@@ -472,6 +472,57 @@ def test_task_execute_forwarding_unwraps_nested_data(client, app, admin_auth_hea
         assert res.json["data"]["status"] == "completed"
 
 
+def test_task_execute_forwarding_persists_execution_artifacts_and_provenance(client, app, admin_auth_header):
+    tid = "T-FWD-EXEC-RICH"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        _update_local_task_status(
+            tid,
+            "assigned",
+            assigned_agent_url="http://worker-y:5001",
+            assigned_agent_token="tok",
+            description="forward exec rich",
+        )
+        before = _get_local_task_status(tid)
+        assert before is not None
+
+    with patch("agent.routes.tasks.execution._forward_to_worker") as mock_fwd:
+        mock_fwd.return_value = {
+            "status": "success",
+            "data": {
+                "data": {
+                    "status": "completed",
+                    "output": "ok",
+                    "exit_code": 0,
+                    "artifacts": [{"artifact_id": "artifact-1", "title": "patch.diff"}],
+                    "execution_scope": {"workspace_id": "ws-1", "lifecycle_status": "completed"},
+                    "execution_provenance": {"execution_mode": "remote_worker", "worker_url": "http://worker-y:5001"},
+                    "review": {"summary": "done"},
+                }
+            },
+        }
+        res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"}, headers=admin_auth_header)
+        assert res.status_code == 200
+        assert res.json["data"]["status"] == "completed"
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        assert task is not None
+        assert task["last_output"] == "ok"
+        assert task["last_exit_code"] == 0
+        verification = dict(task.get("verification_status") or {})
+        assert verification["execution_scope"]["workspace_id"] == "ws-1"
+        assert verification["execution_provenance"]["execution_mode"] == "remote_worker"
+        assert verification["execution_artifacts"][0]["artifact_id"] == "artifact-1"
+        assert verification["execution_review"]["summary"] == "done"
+        history = list(task.get("history") or [])
+        assert history
+        assert history[-1]["artifacts"][0]["artifact_id"] == "artifact-1"
+
+
 def test_task_execute_forwarding_failure_uses_retryable_domain_error(client, app, admin_auth_header):
     tid = "T-FWD-EXEC-FAIL"
     with app.app_context():

@@ -1,7 +1,10 @@
 import time
 from typing import Any
 
+from flask import current_app
+
 from agent.db_models import TaskDB
+from agent.config import settings
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import _subscribers_lock, _task_subscribers, append_task_history_event, notify_task_update
 from agent.services.task_status_service import normalize_task_status
@@ -62,5 +65,16 @@ def _update_local_task_status(
 
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
+    timeout = int(getattr(settings, "http_timeout", 60) or 60)
+    try:
+        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if current_app else {}
+    except RuntimeError:
+        agent_cfg = {}
+    command_timeout = max(1, int(agent_cfg.get("command_timeout") or timeout or 60))
+    endpoint_name = str(endpoint or "").strip().lower()
+    if endpoint_name.endswith("/step/propose"):
+        timeout = max(timeout, command_timeout + 60, 120)
+    else:
+        timeout = max(timeout, command_timeout)
     headers = {"Authorization": f"Bearer {token}"} if token else None
-    return _http_post(f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}", data=data, headers=headers)
+    return _http_post(f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}", data=data, headers=headers, timeout=timeout)
