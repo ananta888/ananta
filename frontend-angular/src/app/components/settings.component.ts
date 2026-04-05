@@ -113,6 +113,37 @@ export function normalizeWorkerRuntimeConfigValue(value: any): any {
   };
 }
 
+export function normalizeModelOverrideMapValue(value: any): Record<string, string> {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const normalized: Record<string, string> = {};
+  for (const [key, model] of Object.entries(raw)) {
+    const normalizedKey = String(key || '').trim().toLowerCase();
+    const normalizedModel = String(model || '').trim();
+    if (!normalizedKey || !normalizedModel) continue;
+    normalized[normalizedKey] = normalizedModel;
+  }
+  return normalized;
+}
+
+type OllamaStrategyRow = {
+  id: string;
+  category: string;
+  recommended_use: string;
+  opencode_worker: string;
+  note: string;
+};
+
+type ProjectModelRoutingRecommendation = {
+  default_provider: string;
+  default_model: string;
+  hub_copilot_provider: string;
+  hub_copilot_model: string;
+  task_kind_model_overrides: Record<string, string>;
+  role_model_overrides: Record<string, string>;
+  template_model_overrides: Record<string, string>;
+  warnings: string[];
+};
+
 export function normalizeResearchBackendConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const provider = ['deerflow', 'ananta_research'].includes(String(raw.provider || '').trim().toLowerCase())
@@ -144,6 +175,202 @@ export function resolveContextBundlePolicyValue(config: any): any {
   return { ...normalized, include_context_text: true, max_chunks: null };
 }
 
+function findFirstModelByTokens(modelIds: string[], tokenSets: string[][]): string {
+  const normalizedIds = modelIds
+    .map((id) => String(id || '').trim())
+    .filter(Boolean);
+  for (const tokenSet of tokenSets) {
+    const match = normalizedIds.find((id) => {
+      const lower = id.toLowerCase();
+      return tokenSet.every((token) => lower.includes(token));
+    });
+    if (match) return match;
+  }
+  return '';
+}
+
+function classifyOllamaModel(modelId: string): Omit<OllamaStrategyRow, 'id'> {
+  const lower = String(modelId || '').trim().toLowerCase();
+  if (!lower) {
+    return {
+      category: 'general',
+      recommended_use: 'Fallback / manuelle Zuordnung',
+      opencode_worker: 'bedingt',
+      note: 'Keine Heuristik verfuegbar.',
+    };
+  }
+  if (lower.includes('ananta-default')) {
+    return {
+      category: 'general',
+      recommended_use: 'Nicht fuer produktive OpenCode-Worker verwenden',
+      opencode_worker: 'nein',
+      note: 'Live-Click zeigte fehlende Tool-Unterstuetzung im Worker-Pfad.',
+    };
+  }
+  if (lower.includes('mmproj') || lower.includes('voxtral')) {
+    return {
+      category: 'multimodal',
+      recommended_use: 'Multimodale Experimente, Audio/Bild-nahe Spezialfaelle',
+      opencode_worker: 'nein',
+      note: 'Nicht die beste Standardwahl fuer Shell-/Code-Delegation.',
+    };
+  }
+  if (lower.includes('coder')) {
+    if (lower.includes('14b') || lower.includes('20b') || lower.includes('7b') || lower.includes('deepseek-coder-v2-lite')) {
+      return {
+        category: 'coding',
+        recommended_use: 'OpenCode-Worker fuer Implementierung, Refactoring und Tool-Aufrufe',
+        opencode_worker: 'ja',
+        note: 'Code-orientierte Modelle fuer Shell-, Edit- und Multi-File-Tasks.',
+      };
+    }
+    return {
+      category: 'coding',
+      recommended_use: 'Schnelle Coding-Hilfe, Vorentwuerfe und leichte Worker-Aufgaben',
+      opencode_worker: 'bedingt',
+      note: 'Gut fuer guenstige Drafts, aber schwacher fuer lange Tool-Loops.',
+    };
+  }
+  if (lower.includes('reasoning') || lower.includes('thinking') || lower.includes('glm-z1')) {
+    return {
+      category: 'reasoning',
+      recommended_use: 'Hub-Planung, Review, Analyse, Triage',
+      opencode_worker: 'bedingt',
+      note: 'Eher fuer Planen/Bewerten als fuer direkte Code-Ausfuehrung.',
+    };
+  }
+  if (lower.includes('lfm2.5')) {
+    return {
+      category: 'planning',
+      recommended_use: 'Leichter Hub-Planer, Routing, Backlog-Triage',
+      opencode_worker: 'bedingt',
+      note: 'Projektweit oft genutzt, aber bisher schwache strikte Benchmark-Signale.',
+    };
+  }
+  if (lower.includes('phi-4') || lower.includes('glm-4-9b')) {
+    return {
+      category: 'review',
+      recommended_use: 'Review, Architekturabgleich, Fehleranalyse',
+      opencode_worker: 'bedingt',
+      note: 'Solider Zweitpfad fuer Bewertung und technische Rueckkopplung.',
+    };
+  }
+  if (lower.includes('ministral') || lower.includes('mistral') || lower.includes('llama') || lower.includes('qwen2.5-0.5b-instruct') || lower.includes('openai-7b')) {
+    return {
+      category: 'general',
+      recommended_use: 'Dokumentation, Template-Texte, allgemeine Assists',
+      opencode_worker: 'bedingt',
+      note: 'Generalisten fuer textlastige oder leichte Assistenz-Aufgaben.',
+    };
+  }
+  if (lower.includes('gemma')) {
+    return {
+      category: 'general',
+      recommended_use: 'Template-/Prompt-Ausarbeitung und leichte Wissensaufgaben',
+      opencode_worker: 'bedingt',
+      note: 'Eher fuer Struktur/Text als fuer komplexe Tool-Loops.',
+    };
+  }
+  if (lower.includes('gpt-oss-20b')) {
+    return {
+      category: 'general',
+      recommended_use: 'Schwere Generalisten- oder Coding-Fallbacks',
+      opencode_worker: 'ja',
+      note: 'Leistungsstark, aber ressourcenintensiver als kleinere Standardpfade.',
+    };
+  }
+  return {
+    category: 'general',
+    recommended_use: 'Manuelle Einordnung je Task',
+    opencode_worker: 'bedingt',
+    note: 'Noch keine projektspezifische Sonderregel hinterlegt.',
+  };
+}
+
+export function buildOllamaModelStrategyRowsValue(modelIds: string[]): OllamaStrategyRow[] {
+  return modelIds
+    .map((id) => String(id || '').trim())
+    .filter(Boolean)
+    .map((id) => ({
+      id,
+      ...classifyOllamaModel(id),
+    }));
+}
+
+export function buildProjectModelRoutingRecommendationValue(modelIds: string[]): ProjectModelRoutingRecommendation {
+  const normalizedIds = modelIds
+    .map((id) => String(id || '').trim())
+    .filter(Boolean);
+  const plannerModel = findFirstModelByTokens(normalizedIds, [
+    ['lfm2.5'],
+    ['phi-4', 'reasoning'],
+    ['glm-z1'],
+    ['qwen2.5-0.5b-instruct'],
+  ]);
+  const codingPrimary = findFirstModelByTokens(normalizedIds, [
+    ['qwen2.5', 'coder', '14b'],
+    ['gpt-oss-20b', 'coder'],
+    ['qwen2.5', 'coder', '7b'],
+    ['deepseek-coder-v2-lite'],
+    ['qwen2.5', 'coder', '3b'],
+    ['qwen2.5', 'coder', '0.5b'],
+  ]);
+  const reviewModel = findFirstModelByTokens(normalizedIds, [
+    ['glm-4-9b'],
+    ['phi-4', 'reasoning'],
+    ['meta-llama', '8b'],
+    ['mistral-7b'],
+  ]);
+  const docsModel = findFirstModelByTokens(normalizedIds, [
+    ['ministral', '3b'],
+    ['qwen2.5-0.5b-instruct'],
+    ['gemma-4', 'e2b-it'],
+    ['mistral-7b'],
+  ]);
+  const fallbackModel = codingPrimary || reviewModel || plannerModel || docsModel || normalizedIds[0] || '';
+  const warnings: string[] = [];
+  if (normalizedIds.some((id) => id.toLowerCase().includes('ananta-default'))) {
+    warnings.push('ananta-default ist vorhanden, sollte aber fuer OpenCode-Worker nicht als Default genutzt werden.');
+  }
+  if (!codingPrimary) {
+    warnings.push('Kein klarer Coder-Favorit erkannt; Coding-Tasks fallen auf den allgemeinen Fallback zurueck.');
+  }
+  return {
+    default_provider: 'ollama',
+    default_model: plannerModel || fallbackModel,
+    hub_copilot_provider: 'ollama',
+    hub_copilot_model: plannerModel || reviewModel || fallbackModel,
+    task_kind_model_overrides: normalizeModelOverrideMapValue({
+      planning: plannerModel || fallbackModel,
+      analysis: reviewModel || plannerModel || fallbackModel,
+      research: reviewModel || plannerModel || fallbackModel,
+      coding: codingPrimary || fallbackModel,
+      testing: codingPrimary || reviewModel || fallbackModel,
+      review: reviewModel || plannerModel || fallbackModel,
+      documentation: docsModel || plannerModel || fallbackModel,
+    }),
+    role_model_overrides: normalizeModelOverrideMapValue({
+      architect: reviewModel || plannerModel || fallbackModel,
+      'product owner': plannerModel || reviewModel || fallbackModel,
+      'scrum master': plannerModel || reviewModel || fallbackModel,
+      'backend developer': codingPrimary || fallbackModel,
+      'frontend developer': codingPrimary || fallbackModel,
+      'fullstack developer': codingPrimary || fallbackModel,
+      'devops engineer': codingPrimary || reviewModel || fallbackModel,
+      'qa/test engineer': reviewModel || codingPrimary || fallbackModel,
+      reviewer: reviewModel || plannerModel || fallbackModel,
+      'fullstack reviewer': reviewModel || plannerModel || fallbackModel,
+    }),
+    template_model_overrides: normalizeModelOverrideMapValue({
+      'backend implementation': codingPrimary || fallbackModel,
+      'frontend implementation': codingPrimary || fallbackModel,
+      'code review': reviewModel || plannerModel || fallbackModel,
+      documentation: docsModel || plannerModel || fallbackModel,
+    }),
+    warnings,
+  };
+}
+
 function createDefaultSettingsConfig(): any {
   return {
     hub_copilot: normalizeHubCopilotConfigValue(undefined),
@@ -151,6 +378,9 @@ function createDefaultSettingsConfig(): any {
     artifact_flow: normalizeArtifactFlowConfigValue(undefined),
     opencode_runtime: normalizeOpencodeRuntimeConfigValue(undefined),
     worker_runtime: normalizeWorkerRuntimeConfigValue(undefined),
+    role_model_overrides: {},
+    template_model_overrides: {},
+    task_kind_model_overrides: {},
     research_backend: normalizeResearchBackendConfigValue(undefined),
     codex_cli: { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true },
     cli_session_mode: { enabled: false, stateful_backends: [] },
@@ -471,6 +701,147 @@ function createDefaultSettingsConfig(): any {
           </div>
           <div class="muted font-sm mt-md">
             Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Ollama Strategie fuer Hub, Scrum-Rollen und OpenCode</h3>
+          <p class="muted">Leitet aus den aktuell im Ollama-Katalog sichtbaren Modellen eine projektgeeignete Zuordnung fuer Hub-Planung, Scrum-/Worker-Rollen, Task-Kinds und template-nahe Flows ab.</p>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Empfohlener Hub-Planer</div>
+              <div>{{ getProjectModelRoutingRecommendation().hub_copilot_model || '-' }}</div>
+            </div>
+            <div>
+              <div class="muted">Empfohlener Coding-Worker</div>
+              <div>{{ getProjectModelRoutingRecommendation().task_kind_model_overrides.coding || '-' }}</div>
+            </div>
+            <div>
+              <div class="muted">Empfohlener Review-/Analyse-Pfad</div>
+              <div>{{ getProjectModelRoutingRecommendation().task_kind_model_overrides.review || '-' }}</div>
+            </div>
+            <div>
+              <div class="muted">Empfohlener Doku-/Template-Pfad</div>
+              <div>{{ getProjectModelRoutingRecommendation().task_kind_model_overrides.documentation || '-' }}</div>
+            </div>
+          </div>
+          @if (getProjectModelRoutingRecommendation().warnings.length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getProjectModelRoutingRecommendation().warnings; track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          }
+          <div class="row mt-md gap-sm">
+            <button class="button-outline" (click)="applyProjectModelRoutingRecommendation()">Empfohlene Zuordnung uebernehmen</button>
+          </div>
+          @if (getOllamaModelStrategyRows().length) {
+            <table class="standard-table mt-lg">
+              <thead>
+                <tr>
+                  <th>Ollama-Modell</th>
+                  <th>Klasse</th>
+                  <th>Empfohlene Nutzung</th>
+                  <th>OpenCode-Worker</th>
+                  <th>Hinweis</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of getOllamaModelStrategyRows(); track row.id) {
+                  <tr>
+                    <td class="font-mono font-sm">{{ row.id }}</td>
+                    <td>{{ row.category }}</td>
+                    <td>{{ row.recommended_use }}</td>
+                    <td>{{ row.opencode_worker }}</td>
+                    <td>{{ row.note }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <div class="muted font-sm mt-md">Noch keine Ollama-Modelle im Provider-Katalog erkannt.</div>
+          }
+        </div>
+        <div class="card mt-lg">
+          <h3>Routing Overrides fuer Rollen, Templates und Task-Kinds</h3>
+          <p class="muted">Task-Kind-Overrides greifen global. Role- und Template-Overrides matchen case-insensitiv auf exakte Namen und ergaenzen die bestehende Hub/Worker-Orchestrierung ohne neue Nebenpfade.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>Task-Kind planning
+              <select [ngModel]="getTaskKindModelOverride('planning')" (ngModelChange)="setTaskKindModelOverride('planning', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind analysis
+              <select [ngModel]="getTaskKindModelOverride('analysis')" (ngModelChange)="setTaskKindModelOverride('analysis', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind research
+              <select [ngModel]="getTaskKindModelOverride('research')" (ngModelChange)="setTaskKindModelOverride('research', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind coding
+              <select [ngModel]="getTaskKindModelOverride('coding')" (ngModelChange)="setTaskKindModelOverride('coding', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind testing
+              <select [ngModel]="getTaskKindModelOverride('testing')" (ngModelChange)="setTaskKindModelOverride('testing', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind review
+              <select [ngModel]="getTaskKindModelOverride('review')" (ngModelChange)="setTaskKindModelOverride('review', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+            <label>Task-Kind documentation
+              <select [ngModel]="getTaskKindModelOverride('documentation')" (ngModelChange)="setTaskKindModelOverride('documentation', $event)">
+                <option value="">Default / Hub-Fallback</option>
+                @for (m of getCatalogModels('ollama'); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <label class="col-span-full">Role Overrides (JSON)
+              <textarea [(ngModel)]="roleModelOverridesRaw" rows="8" class="font-mono w-full" [class.input-error]="roleModelOverridesError"></textarea>
+              @if (roleModelOverridesError) {
+                <span class="error-text">{{ roleModelOverridesError }}</span>
+              }
+            </label>
+            <label class="col-span-full">Template Overrides (JSON)
+              <textarea [(ngModel)]="templateModelOverridesRaw" rows="8" class="font-mono w-full" [class.input-error]="templateModelOverridesError"></textarea>
+              @if (templateModelOverridesError) {
+                <span class="error-text">{{ templateModelOverridesError }}</span>
+              }
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Beispiel Rolle: <span class="font-mono">{"backend developer": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest"}</span><br />
+            Beispiel Template: <span class="font-mono">{"documentation": "lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest"}</span>
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
@@ -929,6 +1300,10 @@ export class SettingsComponent implements OnInit {
   agentLlmDrafts: Record<string, any> = {};
   llmApiKeyProfilesRaw = '{}';
   llmApiKeyProfilesError = '';
+  roleModelOverridesRaw = '{}';
+  templateModelOverridesRaw = '{}';
+  roleModelOverridesError = '';
+  templateModelOverridesError = '';
   researchBackendStatus: any = null;
 
   ngOnInit() {
@@ -975,6 +1350,9 @@ export class SettingsComponent implements OnInit {
           artifact_flow: normalizeArtifactFlowConfigValue(cfg?.artifact_flow),
           opencode_runtime: normalizeOpencodeRuntimeConfigValue(cfg?.opencode_runtime),
           worker_runtime: normalizeWorkerRuntimeConfigValue(cfg?.worker_runtime),
+          role_model_overrides: normalizeModelOverrideMapValue(cfg?.role_model_overrides),
+          template_model_overrides: normalizeModelOverrideMapValue(cfg?.template_model_overrides),
+          task_kind_model_overrides: normalizeModelOverrideMapValue(cfg?.task_kind_model_overrides),
           research_backend: normalizeResearchBackendConfigValue(cfg?.research_backend),
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
@@ -991,6 +1369,7 @@ export class SettingsComponent implements OnInit {
         this.configRaw = JSON.stringify(cfg, null, 2);
         this.llmApiKeyProfilesRaw = JSON.stringify(cfg?.llm_api_key_profiles || {}, null, 2);
         this.llmApiKeyProfilesError = '';
+        this.syncModelOverrideEditorsFromConfig();
         this.syncQualityGatesFromConfig(cfg);
         this.loadProviderCatalog();
         this.loadResearchBackendStatus();
@@ -1128,6 +1507,15 @@ export class SettingsComponent implements OnInit {
 
   save() {
     if (!this.hub) return;
+    let roleModelOverrides: Record<string, string> = {};
+    let templateModelOverrides: Record<string, string> = {};
+    try {
+      roleModelOverrides = this.parseModelOverrideEditor(this.roleModelOverridesRaw, 'role');
+      templateModelOverrides = this.parseModelOverrideEditor(this.templateModelOverridesRaw, 'template');
+    } catch {
+      this.ns.error('Model-Override JSON ist ungueltig');
+      return;
+    }
     this.config = {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
@@ -1135,6 +1523,9 @@ export class SettingsComponent implements OnInit {
       artifact_flow: normalizeArtifactFlowConfigValue(this.config?.artifact_flow),
       opencode_runtime: normalizeOpencodeRuntimeConfigValue(this.config?.opencode_runtime),
       worker_runtime: normalizeWorkerRuntimeConfigValue(this.config?.worker_runtime),
+      role_model_overrides: roleModelOverrides,
+      template_model_overrides: templateModelOverrides,
+      task_kind_model_overrides: normalizeModelOverrideMapValue(this.config?.task_kind_model_overrides),
       research_backend: normalizeResearchBackendConfigValue(this.config?.research_backend),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
@@ -1219,6 +1610,50 @@ export class SettingsComponent implements OnInit {
 
   getEffectiveContextBundlePolicy(): any {
     return resolveContextBundlePolicyValue(this.config);
+  }
+
+  getOllamaCatalogModelIds(): string[] {
+    return this.getCatalogModels('ollama').map((model) => model.id);
+  }
+
+  getOllamaModelStrategyRows(): OllamaStrategyRow[] {
+    return buildOllamaModelStrategyRowsValue(this.getOllamaCatalogModelIds());
+  }
+
+  getProjectModelRoutingRecommendation(): ProjectModelRoutingRecommendation {
+    return buildProjectModelRoutingRecommendationValue(this.getOllamaCatalogModelIds());
+  }
+
+  applyProjectModelRoutingRecommendation() {
+    const recommendation = this.getProjectModelRoutingRecommendation();
+    this.config.default_provider = recommendation.default_provider;
+    this.config.default_model = recommendation.default_model;
+    this.config.hub_copilot = {
+      ...normalizeHubCopilotConfigValue(this.config?.hub_copilot),
+      enabled: true,
+      provider: recommendation.hub_copilot_provider,
+      model: recommendation.hub_copilot_model,
+    };
+    this.config.task_kind_model_overrides = { ...recommendation.task_kind_model_overrides };
+    this.config.role_model_overrides = { ...recommendation.role_model_overrides };
+    this.config.template_model_overrides = { ...recommendation.template_model_overrides };
+    this.syncModelOverrideEditorsFromConfig();
+  }
+
+  getTaskKindModelOverride(taskKind: string): string {
+    return String(this.config?.task_kind_model_overrides?.[String(taskKind || '').trim().toLowerCase()] || '').trim();
+  }
+
+  setTaskKindModelOverride(taskKind: string, modelId: string) {
+    const normalizedTaskKind = String(taskKind || '').trim().toLowerCase();
+    if (!normalizedTaskKind) return;
+    const normalizedModel = String(modelId || '').trim();
+    this.config.task_kind_model_overrides = normalizeModelOverrideMapValue(this.config?.task_kind_model_overrides);
+    if (!normalizedModel) {
+      delete this.config.task_kind_model_overrides[normalizedTaskKind];
+      return;
+    }
+    this.config.task_kind_model_overrides[normalizedTaskKind] = normalizedModel;
   }
 
   requiresApiKey(provider: string): boolean {
@@ -1377,6 +1812,41 @@ export class SettingsComponent implements OnInit {
 
   private normalizeOpenAICompatibleBaseUrl(url: any): string {
     return normalizeOpenAICompatibleBaseUrlValue(url);
+  }
+
+  private syncModelOverrideEditorsFromConfig() {
+    this.config.role_model_overrides = normalizeModelOverrideMapValue(this.config?.role_model_overrides);
+    this.config.template_model_overrides = normalizeModelOverrideMapValue(this.config?.template_model_overrides);
+    this.config.task_kind_model_overrides = normalizeModelOverrideMapValue(this.config?.task_kind_model_overrides);
+    this.roleModelOverridesRaw = JSON.stringify(this.config.role_model_overrides, null, 2);
+    this.templateModelOverridesRaw = JSON.stringify(this.config.template_model_overrides, null, 2);
+    this.roleModelOverridesError = '';
+    this.templateModelOverridesError = '';
+  }
+
+  private parseModelOverrideEditor(text: string, kind: 'role' | 'template'): Record<string, string> {
+    const raw = String(text || '').trim();
+    try {
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Root muss ein Objekt sein.');
+      }
+      const normalized = normalizeModelOverrideMapValue(parsed);
+      if (kind === 'role') {
+        this.roleModelOverridesError = '';
+      } else {
+        this.templateModelOverridesError = '';
+      }
+      return normalized;
+    } catch (error) {
+      const message = `Ungueltiges JSON: ${error instanceof Error ? error.message : String(error)}`;
+      if (kind === 'role') {
+        this.roleModelOverridesError = message;
+      } else {
+        this.templateModelOverridesError = message;
+      }
+      throw error;
+    }
   }
 
   getConfiguredLocalBackends(): Array<{

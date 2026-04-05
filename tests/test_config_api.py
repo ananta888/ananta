@@ -237,6 +237,46 @@ def test_artifact_flow_config_is_normalized_and_merged(client, admin_token):
     }
 
 
+def test_model_override_maps_are_normalized(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = client.post(
+        "/config",
+        json={
+            "role_model_overrides": {
+                " Backend Developer ": " qwen2.5-coder-14b ",
+                "": "ignored",
+            },
+            "template_model_overrides": {
+                " Scrum Sprint ": " glm-4-9b-0414 ",
+            },
+            "task_kind_model_overrides": {
+                " CODING ": " qwen2.5-coder-7b ",
+                "analysis": "",
+            },
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["role_model_overrides"] == {"backend developer": "qwen2.5-coder-14b"}
+    assert cfg["template_model_overrides"] == {"scrum sprint": "glm-4-9b-0414"}
+    assert cfg["task_kind_model_overrides"] == {"coding": "qwen2.5-coder-7b"}
+
+
+def test_model_override_maps_reject_non_objects(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = client.post(
+        "/config",
+        json={"role_model_overrides": ["invalid"]},
+        headers=headers,
+    )
+    assert response.status_code == 400
+    assert response.json["message"] == "invalid_role_model_overrides"
+
+
 def test_set_config_updates_runtime_provider_urls_for_flat_keys(client, admin_token, app):
     headers = {"Authorization": f"Bearer {admin_token}"}
     payload = {

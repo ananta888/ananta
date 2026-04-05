@@ -1,6 +1,9 @@
 import { of, throwError } from 'rxjs';
 
 import {
+  buildOllamaModelStrategyRowsValue,
+  buildProjectModelRoutingRecommendationValue,
+  normalizeModelOverrideMapValue,
   SettingsComponent,
 } from './settings.component.ts';
 
@@ -31,6 +34,10 @@ describe('SettingsComponent (benchmark config)', () => {
       'getHubCopilotProviderSource',
       'getHubCopilotModelSource',
       'isHubCopilotActive',
+      'getProjectModelRoutingRecommendation',
+      'applyProjectModelRoutingRecommendation',
+      'getTaskKindModelOverride',
+      'setTaskKindModelOverride',
     ]) {
       if (typeof proto[methodName] === 'function') {
         (cmp as any)[methodName] = proto[methodName].bind(cmp);
@@ -258,6 +265,77 @@ describe('SettingsComponent (benchmark config)', () => {
       'LM Studio ist Default-Provider, aber die LM-Studio-URL ist nicht gesetzt.',
       'Codex CLI zeigt auf eine Cloud/OpenAI-kompatible Runtime, aber weder API-Key-Profil noch globaler Key sind erkennbar.',
     ]));
+  });
+
+  it('normalizes model override maps by trimming values and lowercasing keys', () => {
+    expect(normalizeModelOverrideMapValue({
+      ' Backend Developer ': ' qwen2.5-coder-14b ',
+      '': 'ignored',
+      review: '',
+    })).toEqual({
+      'backend developer': 'qwen2.5-coder-14b',
+    });
+  });
+
+  it('derives a project routing recommendation from available ollama models', () => {
+    const recommendation = buildProjectModelRoutingRecommendationValue([
+      'ananta-default:latest',
+      'lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest',
+      'lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest',
+      'matrixportalx-glm-4-9b-0414-q4_k_m-gguf-glm-4-9b-0414-q4_k_m:latest',
+      'lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest',
+    ]);
+
+    expect(recommendation.default_provider).toBe('ollama');
+    expect(recommendation.hub_copilot_model).toContain('lfm2.5');
+    expect(recommendation.task_kind_model_overrides.coding).toContain('qwen2.5-coder-14b');
+    expect(recommendation.task_kind_model_overrides.review).toContain('glm-4-9b');
+    expect(recommendation.task_kind_model_overrides.documentation).toContain('ministral');
+    expect(recommendation.warnings).toContain('ananta-default ist vorhanden, sollte aber fuer OpenCode-Worker nicht als Default genutzt werden.');
+  });
+
+  it('flags ananta-default as unsuitable for opencode workers in the strategy table', () => {
+    const rows = buildOllamaModelStrategyRowsValue([
+      'ananta-default:latest',
+      'lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest',
+    ]);
+
+    expect(rows.find((row) => row.id === 'ananta-default:latest')).toMatchObject({
+      opencode_worker: 'nein',
+    });
+    expect(rows.find((row) => row.id.includes('qwen2.5-coder-14b'))).toMatchObject({
+      opencode_worker: 'ja',
+      category: 'coding',
+    });
+  });
+
+  it('applies the recommended routing to the current config', () => {
+    const cmp = createComponent() as any;
+    cmp.providerCatalog = {
+      providers: [
+        {
+          provider: 'ollama',
+          models: [
+            { id: 'ananta-default:latest', display_name: 'ananta-default:latest' },
+            { id: 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest', display_name: 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest' },
+            { id: 'lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest', display_name: 'lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest' },
+            { id: 'matrixportalx-glm-4-9b-0414-q4_k_m-gguf-glm-4-9b-0414-q4_k_m:latest', display_name: 'matrixportalx-glm-4-9b-0414-q4_k_m-gguf-glm-4-9b-0414-q4_k_m:latest' },
+            { id: 'lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest', display_name: 'lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-instruct-2512-q4_k_m:latest' },
+          ],
+        },
+      ],
+    };
+    cmp.config = { hub_copilot: {} };
+    cmp.syncModelOverrideEditorsFromConfig = vi.fn();
+
+    cmp.applyProjectModelRoutingRecommendation();
+
+    expect(cmp.config.default_provider).toBe('ollama');
+    expect(cmp.config.default_model).toContain('lfm2.5');
+    expect(cmp.config.hub_copilot.provider).toBe('ollama');
+    expect(cmp.config.task_kind_model_overrides.coding).toContain('qwen2.5-coder-14b');
+    expect(cmp.config.role_model_overrides['backend developer']).toContain('qwen2.5-coder-14b');
+    expect(cmp.syncModelOverrideEditorsFromConfig).toHaveBeenCalled();
   });
 
   it('normalizes codex runtime URLs during load and save', () => {
