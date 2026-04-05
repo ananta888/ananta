@@ -151,6 +151,7 @@ test.describe('Teams CRUD', () => {
       expect(createdBlueprint).toBeTruthy();
       createdBlueprintId = createdBlueprint.id;
 
+      await blueprintList.locator('.teams-blueprint-card').filter({ hasText: blueprintName }).first().click();
       await blueprintEditor.getByRole('button', { name: /^Fuer Team-Erstellung uebernehmen$/i }).click();
       await expect(instantiatePanel.getByRole('heading', { name: /^Team aus Blueprint erstellen$/i })).toBeVisible();
       await instantiatePanel.getByLabel('Teamname').fill(teamName);
