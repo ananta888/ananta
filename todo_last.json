@@ -1,596 +1,478 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "1.2",
-  "created": "2026-04-03",
-  "updated": "2026-04-04T07:45:00+02:00",
+  "version": "5.2.7",
+  "created": "2026-04-04",
+  "updated": "2026-04-04T16:58:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Feature-Backlog fuer die kontrollierte Weiterentwicklung von Ananta als OpenAI-kompatibler Hub mit optionaler MCP-Exposition sowie klarer Trennung zwischen Inference-Providern, Execution-Backends und Exposure-Adaptern.",
+    "review_goal": "Frontend-zentrierte, nachvollziehbare E2E-Teststrategie fuer das Hauptziel: mit sinnvollem Scrum-Blueprint + Templates ein Team aus zwei Workern ueber die UI aufbauen und ein Goal steuerbar bis zur Ausfuehrung begleiten.",
     "notes": [
-      "Die Strategie respektiert AGENTS.md: Der Hub bleibt zentrale Control Plane, Worker orchestrieren keine anderen Worker.",
-      "OpenAI-kompatible Exposition ist bereits teilweise vorhanden und soll produktionsreif ausgebaut werden.",
-      "CLI-Backends wie codex und opencode werden als Execution-Backends behandelt, nicht als normale Inference-Provider umdefiniert.",
-      "Remote-Hub-Nutzung ist nur additiv und mit explizitem Rekursionsschutz vorgesehen.",
-      "MCP ist als zusaetzliche Expositionsschicht gedacht, nicht als Ersatz fuer die bestehende OpenAI-kompatible API.",
-      "Fuer OpenCode und andere CLI-Backends wird zusaetzlich ein moeglicher stateful Session-/Chat-Pfad betrachtet, damit iterative Multi-Turn-Interaktion nicht nur ueber Einmalaufrufe modelliert werden muss.",
-      "Ergaenzt werden sollen ausserdem explizite Exposure-Policies, Auth-/Admin-Grenzen und eine sichtbare Settings-/Operator-Darstellung fuer neue Expositionspfade und Session-Modi."
+      "Versionslinie aus frueheren todo.json-Commits fortgefuehrt: 5.0-next (1a278ad) -> 5.1 (88019e1/c51498d) -> 5.2 (aktuell).",
+      "Versionierungs-Schema: Semver-aehnlich fuer Todo-Generationen (Major.Minor.Patch) mit inhaltlichen Regeln in `meta.versioning_policy`.",
+      "Bestehende Basis ist vorhanden: `ui-ux-workflows.spec.ts`, `first-goal-e2e.spec.ts`, `templates-crud.spec.ts`, `teams.spec.ts`, `auto-planner.spec.ts`.",
+      "Live-Nachvollziehbarkeit ist vorhanden: `scripts/firefox_live_click_demo.py` und `scripts/firefox_live_click_extended.py` via `ananta-firefox-vnc`.",
+      "Grosse End-to-End-Flows sollen in kleinere, aufbauende E2E-Suiten zerlegt werden.",
+      "Ziel bleibt AGENTS.md-konform: Hub orchestriert, Worker fuehren aus; Tests validieren genau diesen Pfad."
     ]
   },
   "categories": [
     {
-      "name": "feature-architecture-foundation",
-      "label": "Feature – Architekturgrundlage fuer OpenAI-/MCP-Hub-Exposition",
+      "name": "todo-governance",
+      "label": "Todo-Governance und Versionierung",
       "items": [
         {
-          "id": "AIM-001",
-          "title": "Domänenmodell fuer Inference-Provider, Execution-Backends und Exposure-Adapter explizit trennen",
-          "description": "Definiere und verankere im Backend ein klares Architekturmodell, das Inference-Provider, CLI-/Execution-Backends und Exposure-Adapter als getrennte Verantwortungen behandelt. Bestehende Faelle wie lmstudio/openai versus codex/opencode muessen konsistent einsortiert werden, ohne die Hub-Control-Plane aufzuweichen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "SRP, OCP, Architecture-Integrity",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "agent/common/sgpt.py",
-            "agent/routes/config/providers.py",
-            "docs/backend.md",
-            "docs/local-llm-cli-strategy.md"
-          ],
-          "acceptance": [
-            "Inference-Provider, Execution-Backends und Exposure-Adapter sind im Code und in den Docs klar getrennt.",
-            "Bestehende Konfigurationen bleiben kompatibel.",
-            "Neue Integrationen koennen additiv ueber definierte Seams ergaenzt werden."
-          ]
-        },
-        {
-          "id": "AIM-002",
-          "title": "Registries fuer Provider, Execution-Backends und Exposure-Adapter einfuehren oder konsolidieren",
-          "description": "Fuehre ein konsistentes Registry-Modell ein, damit OpenAI-kompatible Provider, CLI-Backends und künftige Exposure-Protokolle nicht ueber verteilte Sonderlogik in Routen und Hilfsmodulen verdrahtet werden muessen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "DIP, OCP, Testability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/service_registry.py",
-            "agent/services/",
-            "agent/common/sgpt.py",
-            "agent/routes/"
-          ],
-          "dependencies": ["AIM-001"],
-          "acceptance": [
-            "Registries liefern Capabilities, Routing-Metadaten und Health-/Preflight-Daten aus einer konsistenten Quelle.",
-            "Route-spezifische Verdrahtung wird reduziert.",
-            "Neue Backend-Typen benoetigen keine Route-Explosion."
-          ],
-          "notes": [
-            "2026-04-04: Neuer `IntegrationRegistryService` eingefuehrt als zentrale Registry fuer Inference-Provider, Execution-Backends und Exposure-Adapter.",
-            "2026-04-04: `/providers`, `/providers/catalog`, `/api/sgpt/backends` und OpenAI/MCP-Capabilities nutzen Registry-Daten statt verteilter Sonderverdrahtung.",
-            "2026-04-04: OpenAI-Compat-Model-Listing wird aus derselben Provider-Registry gespeist; statische und dynamische OpenAI-kompatible Modelle bleiben kompatibel."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "feature-openai-hub-exposure",
-      "label": "Feature – OpenAI-kompatible Hub-Exposition produktionsreif machen",
-      "items": [
-        {
-          "id": "AIM-003",
-          "title": "OpenAI-kompatiblen Expositionspfad offiziell haerten und dokumentieren",
-          "description": "Baue den bereits vorhandenen OpenAI-kompatiblen API-Pfad zu einer offiziell getragenen Expositionsschicht aus. Dazu gehoeren klare Konfiguration, Vertragsdokumentation, sichtbare Capabilities, nachvollziehbare Fehlermodelle und eine stabile Produktpositionierung als kontrollierter Hub-Expose-Pfad.",
-          "priority": "critical",
-          "type": "feature",
-          "principle": "API-Compatibility, Transparency, Reliability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/openai_compat.py",
-            "agent/services/openai_compat_service.py",
-            "api-spec.md",
-            "docs/backend.md",
-            "README.md"
-          ],
-          "dependencies": ["AIM-001"],
-          "acceptance": [
-            "OpenAI-kompatible Endpunkte sind in den Docs vollstaendig beschrieben.",
-            "Response- und Error-Formate sind fuer Clients stabil und nachvollziehbar.",
-            "Capabilities und Grenzen des Pfads sind klar benannt."
-          ],
-          "notes": [
-            "2026-04-04: OpenAI-Compat um expliziten Capabilities-Endpunkt (`GET /v1/ananta/capabilities`) erweitert.",
-            "2026-04-04: API-/Backend-/README-Dokumentation fuer OpenAI-Compat-Endpunkte, Exposure-Policy und Betriebsmodus ergänzt.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_openai_compat.py tests/test_config_api.py -q"
-          ]
-        },
-        {
-          "id": "AIM-004",
-          "title": "Remote-Ananta als expliziten OpenAI-kompatiblen Provider-Typ einfuehren",
-          "description": "Ergaenze einen klaren, additiven Provider-Typ fuer entfernte Ananta-Instanzen, die ueber den OpenAI-kompatiblen Expositionspfad konsumiert werden koennen. Diese Integration darf nur fuer andere Instanzen gelten und muss konfigurations- sowie policy-seitig explizit sein.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "OCP, Architecture-Integrity, Compatibility",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/local_llm_backends.py",
-            "agent/routes/config/providers.py",
-            "agent/services/hub_llm_service.py",
-            "agent/llm_integration.py"
-          ],
-          "dependencies": ["AIM-001", "AIM-003"],
-          "acceptance": [
-            "Remote-Ananta kann als expliziter Provider konfiguriert und im Katalog sichtbar gemacht werden.",
-            "Die Integration ist additiv und bricht bestehende Provider-Namen nicht.",
-            "Konfiguration und Runtime-Diagnostik zeigen klar, dass es sich um einen Remote-Hub handelt."
-          ],
-          "notes": [
-            "2026-04-04: `remote_ananta_backends` als expliziter Provider-Typ eingefuehrt und in den lokalen OpenAI-Backend-Resolver integriert.",
-            "2026-04-04: Provider-Katalog exponiert Remote-Hub-Metadaten (`provider_type=remote_ananta`, `remote_hub`, `instance_id`, `max_hops`).",
-            "Verifiziert mit: .venv/bin/pytest tests/test_config_api.py -q"
-          ]
-        },
-        {
-          "id": "AIM-005",
-          "title": "Rekursionsschutz und Hop-Guards fuer Remote-Hub-Nutzung durchsetzen",
-          "description": "Verhindere sicher, dass dieselbe Ananta-Instanz sich selbst ueber ihren eigenen OpenAI-kompatiblen Expositionspfad als Upstream nutzt. Dafuer werden Instanzidentitaet, Hop-Header und serverseitige Guards benoetigt.",
-          "priority": "critical",
-          "type": "reliability",
-          "principle": "Fail-Closed, Safety, Architecture-Integrity",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/openai_compat.py",
-            "agent/services/openai_compat_service.py",
-            "agent/services/hub_llm_service.py",
-            "agent/config.py",
-            "agent/models.py"
-          ],
-          "dependencies": ["AIM-004"],
-          "acceptance": [
-            "Self-calls derselben Instanz werden serverseitig erkannt und abgelehnt.",
-            "Maximale Hop-Anzahl ist konfigurierbar und beobachtbar.",
-            "Fehlerbilder sind fuer Operatoren sichtbar statt stiller Endlosschleifen."
-          ],
-          "notes": [
-            "2026-04-04: OpenAI-Compat erzwingt fail-closed Self-Loop-Guard ueber `X-Ananta-Instance-ID` gegen lokale Instanzidentitaet.",
-            "2026-04-04: Hop-Limit (`max_hops`) serverseitig eingefuehrt/validiert und via `X-Ananta-Hop-Count` kontrolliert.",
-            "2026-04-04: Outbound OpenAI-Transport setzt Instanz-/Hop-Header automatisch fuer rekursionssichere Ketten.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_openai_compat.py tests/test_config_api.py -q"
-          ]
-        },
-        {
-          "id": "AIM-017",
-          "title": "Explizite Exposure-Policy und Auth-Grenzen fuer OpenAI-Compat und MCP einfuehren",
-          "description": "Definiere serverseitig, welche Expositionspfade fuer welche Rollen, Tokens und Betriebsmodi freigegeben sind. OpenAI-Compat und spaeter MCP duerfen nicht implizit nur wegen vorhandener Grundauth offen sein, sondern brauchen explizite Policy-Flags, Admin-Grenzen und sichtbare Sicherheitsentscheidungen.",
-          "priority": "critical",
-          "type": "security-hardening",
-          "principle": "Least Privilege, Fail-Closed, Governance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/openai_compat.py",
-            "agent/auth.py",
-            "agent/config.py",
-            "agent/config_defaults.py",
-            "agent/services/config_read_model_service.py",
-            "docs/backend.md",
-            "api-spec.md"
-          ],
-          "dependencies": ["AIM-003"],
-          "acceptance": [
-            "OpenAI-Compat und MCP haben explizite serverseitige Enable-/Policy-Grenzen.",
-            "Rollen, Token-Arten und Admin-Anforderungen sind dokumentiert und durchgesetzt.",
-            "Unsichere Default-Freigaben werden vermieden."
-          ],
-          "notes": [
-            "2026-04-04: Zentrale `exposure_policy` eingefuehrt (openai_compat + mcp) inkl. Defaults in `agent/config_defaults.py`.",
-            "2026-04-04: OpenAI-Compat-Endpunkte erzwingen serverseitig Policy-Grenzen (enabled, auth-source, admin-requirement, files-api gate) mit auditierbaren Blockgruenden.",
-            "2026-04-04: `/config` validiert Exposure-Policy-Form strikt und normalisiert die Policy serverseitig.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_openai_compat.py tests/test_config_api.py -q"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "feature-execution-backend-alignment",
-      "label": "Feature – Codex/OpenCode sauber als Execution-Backends ausbauen",
-      "items": [
-        {
-          "id": "AIM-006",
-          "title": "Codex-CLI als erstklassiges Execution-Backend mit konfigurierbarem OpenAI-Ziel ausbauen",
-          "description": "Harte den bereits vorhandenen Codex-CLI-Pfad weiter aus, damit Ziel-Provider, Base-URL, API-Key-Quelle, lokale OpenAI-kompatible Runtimes und optionale Remote-Hubs transparent und konsistent konfiguriert werden koennen.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "Transparency, OCP, Testability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/common/sgpt.py",
-            "agent/routes/sgpt.py",
-            "docs/local-llm-cli-strategy.md",
-            "tests/test_codex_cli_backend.py"
-          ],
-          "dependencies": ["AIM-003", "AIM-004"],
-          "acceptance": [
-            "Codex-CLI-Zielkonfiguration ist fuer Nutzer und Preflight klar sichtbar.",
-            "Lokale OpenAI-kompatible Ziele und Remote-Hubs werden sauber unterschieden.",
-            "Fehlkonfigurationen fuehren zu expliziten Diagnosen."
-          ],
-          "notes": [
-            "2026-04-04: Codex-Runtime expose't jetzt `target_kind`/`target_provider_type`/`remote_hub`/`instance_id`/`max_hops` konsistent in Runtime+Preflight.",
-            "2026-04-04: Fail-closed Diagnostik fuer fehlendes Codex-Base-URL/API-Key bei Remote-Zielen in `run_codex_command` eingefuehrt.",
-            "2026-04-04: Tests fuer Remote-Ananta-Targeting und fehlende Codex-Runtime-Konfiguration ergaenzt."
-          ]
-        },
-        {
-          "id": "AIM-007",
-          "title": "OpenCode-Targeting gegen OpenAI-kompatible Ziele technisch bewerten und entscheiden",
-          "description": "Pruefe belastbar, ob OpenCode analog zu Codex gegen konfigurierbare OpenAI-kompatible Ziele betrieben werden kann. Falls ja, additiv integrieren; falls nein, bewusst als Execution-only-Backend dokumentieren und nicht als Provider missverstehen.",
-          "priority": "high",
-          "type": "spike",
-          "principle": "Explicit-Decision, Reliability, Maintainability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/common/sgpt.py",
-            "agent/routes/sgpt.py",
-            "docs/local-llm-cli-strategy.md",
-            "tests/test_sgpt_route.py"
-          ],
-          "dependencies": ["AIM-001"],
-          "acceptance": [
-            "Es gibt eine dokumentierte Produktentscheidung fuer OpenCode: zielbar oder bewusst execution-only.",
-            "Die Entscheidung ist durch Tests und Preflight-Diagnostik gestuetzt.",
-            "Keine halb-offene, missverstaendliche Zwischenloesung bleibt bestehen."
-          ]
-        },
-        {
-          "id": "AIM-008",
-          "title": "Inference-Routing und Execution-Routing im Read-Model getrennt sichtbar machen",
-          "description": "Das System soll in API und UI klar anzeigen, welches Modell fuer Planung/Inferenz verwendet wurde und welches Backend fuer Ausfuehrung. So werden Provider und Executor fuer Nutzer nachvollziehbar getrennt.",
+          "id": "TODO-001",
+          "title": "Todo-Versionierung als verpflichtenden Workflow-Schritt etablieren",
+          "description": "Jede Aenderung an Scope/Prioritaet/Struktur muss vor dem Speichern gegen das definierte Versionsschema geprueft werden (Major/Minor/Patch-Regeln).",
           "priority": "medium",
-          "type": "improvement",
-          "principle": "Transparency, SRP, UX",
+          "type": "process",
+          "principle": "Clarity, Maintainability",
           "status": "completed",
-          "effort": "medium",
+          "effort": "small",
           "files": [
-            "agent/routes/config/providers.py",
-            "agent/routes/sgpt.py",
-            "agent/services/task_execution_tracking_service.py",
-            "frontend-angular/src/app/components/settings.component.ts",
-            "frontend-angular/src/app/components/task-detail.component.ts"
+            "todo.json",
+            "todo.schema.json"
           ],
-          "dependencies": ["AIM-001", "AIM-006"],
           "acceptance": [
-            "Read-Models unterscheiden explizit zwischen inference_provider und execution_backend.",
-            "Task-/Pipeline-Metadaten zeigen beide Dimensionen nachvollziehbar.",
-            "UI und API verwenden konsistente Begriffe."
+            "Bei jedem Update ist begruendet, warum Major/Minor/Patch erhoeht wurde.",
+            "Version in Dateikopf und Change-Kontext ist konsistent."
           ],
           "notes": [
-            "2026-04-04: Task-Routing erweitert um getrennte Routing-Dimensionen (`execution_backend` vs `inference_provider`/`inference_model`) inkl. Codex-Target-Metadaten.",
-            "2026-04-04: Execution-Kostensummary/Verification persistieren jetzt explizite Routing-Dimensionen fuer Task-Historie und Read-Back.",
-            "2026-04-04: UI zeigt getrennte Inference-/Execution-Routingwerte in Settings und Task-Detail an."
-          ]
-        },
-        {
-          "id": "AIM-013",
-          "title": "Stateful CLI-Session-Modell fuer iterative Multi-Turn-Backends definieren",
-          "description": "Definiere ein explizites Session-Modell fuer CLI-Backends wie OpenCode oder spaeter Codex, damit nicht nur Einmalaufrufe mit einem Prompt moeglich sind, sondern iterative, fortgesetzte Multi-Turn-Interaktionen mit Session-ID, Verlauf, Turn-Zustand und kontrolliertem Lebenszyklus.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "SRP, ISP, Testability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/common/sgpt.py",
-            "agent/services/",
-            "agent/models.py",
-            "docs/local-llm-cli-strategy.md",
-            "docs/backend.md"
-          ],
-          "dependencies": ["AIM-001", "AIM-002"],
-          "acceptance": [
-            "Es gibt ein dokumentiertes Session-Modell fuer iterative CLI-Chats.",
-            "Session, Turn, Verlauf und Lebenszyklus sind klar benannt.",
-            "Das Modell trennt stateful Chat-Fortsetzung von stateless Einmalaufrufen."
-          ],
-          "notes": [
-            "2026-04-04: Neues `CliSessionService` eingefuehrt (create/list/get/close/delete/append_turn/history-compose) als explizites stateful Session-Modell.",
-            "2026-04-04: Session-Requests als eigene Contracts (`SgptSessionCreateRequest`, `SgptSessionTurnRequest`) modelliert.",
-            "2026-04-04: Dokumentation fuer Session-Lifecycle und Konfiguration (`cli_session_mode`) in `docs/local-llm-cli-strategy.md` und `docs/backend.md` ergänzt."
-          ]
-        },
-        {
-          "id": "AIM-014",
-          "title": "OpenCode als optional stateful Session-Backend fuer iterative Chat-Fortsetzung ausbauen",
-          "description": "Falls OpenCode technisch geeignet ist, ergaenze einen additiven Session-Pfad fuer iterative Konversationen, bei dem Prompts fortgesetzt, Antworten gelesen und weitere Turns auf derselben Session aufgebaut werden koennen, statt jeden Aufruf neu als stateless run zu behandeln.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "OCP, Reliability, Maintainability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/common/sgpt.py",
-            "agent/routes/sgpt.py",
-            "agent/services/",
-            "tests/test_sgpt_route.py",
-            "tests/"
-          ],
-          "dependencies": ["AIM-007", "AIM-013"],
-          "acceptance": [
-            "OpenCode kann optional mit Session-ID und Folge-Turns betrieben werden.",
-            "Antworten koennen iterativ gelesen und der Verlauf kontrolliert fortgesetzt werden.",
-            "Bestehende stateless run-Pfade bleiben kompatibel."
-          ],
-          "notes": [
-            "2026-04-04: Neue API-Endpunkte fuer stateful CLI-Sessions hinzugefuegt: `POST/GET /api/sgpt/sessions`, `GET/DELETE /api/sgpt/sessions/{id}`, `POST /api/sgpt/sessions/{id}/turn`.",
-            "2026-04-04: OpenCode/Codex koennen policy-gesteuert als stateful Backends betrieben werden (`cli_session_mode.stateful_backends`).",
-            "2026-04-04: Stateless `run`-Pfade bleiben unveraendert kompatibel; Session-Flow ist additiv."
-          ]
-        },
-        {
-          "id": "AIM-015",
-          "title": "Worker-Propose-/Repair-Schleifen optional auf stateful CLI-Sessions umstellen",
-          "description": "Nutze das Session-Modell fuer Worker-nahe Multi-Turn-Prozesse wie propose, repair, follow-up und verification, damit ein Worker bei geeigneten Backends einen zusammenhaengenden Dialog fortsetzen kann, statt Historie nur erneut in Prompts einzubetten.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "DIP, Reuse, Safe-Autonomy",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/task_execution_service.py",
-            "agent/routes/tasks/execution.py",
-            "agent/services/task_execution_tracking_service.py",
-            "agent/models.py"
-          ],
-          "dependencies": ["AIM-013", "AIM-014"],
-          "acceptance": [
-            "Worker-Pfade koennen optional dieselbe CLI-Session ueber mehrere Turns fortsetzen.",
-            "Session-Nutzung bleibt policy-gesteuert und beobachtbar.",
-            "Fallback auf stateless Verhalten bleibt verfuegbar."
-          ],
-          "notes": [
-            "2026-04-04: Task-scoped Propose-Flow kann optional dieselbe CLI-Session wiederverwenden (`verification_status.cli_session`, `routing.session_id`).",
-            "2026-04-04: Session-Aktivierung ist policy-gesteuert (`cli_session_mode.enabled`, `allow_task_scoped_auto_session`, `stateful_backends`).",
-            "2026-04-04: Bei deaktivierter Policy oder nicht-freigegebenem Backend bleibt der Pfad stateless."
-          ]
-        },
-        {
-          "id": "AIM-016",
-          "title": "OpenAI-Compat und MCP um Session-/Conversation-Metadaten fuer iterative Flows ergaenzen",
-          "description": "Ergaenze die Expositionspfade so, dass iterative Multi-Turn-Flows ueber OpenAI-kompatible und spaeter MCP-nahe Aufrufe mit Session- oder Conversation-Metadaten beobachtbar und kontrollierbar bleiben, ohne die Hub-Policies zu umgehen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Transparency, Compatibility, Governance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/openai_compat.py",
-            "agent/services/openai_compat_service.py",
-            "agent/models.py",
-            "api-spec.md",
-            "docs/backend.md"
-          ],
-          "dependencies": ["AIM-003", "AIM-009", "AIM-013"],
-          "acceptance": [
-            "Iterative Flows koennen ueber Session-/Conversation-Metadaten nachvollzogen werden.",
-            "Die Metadaten bleiben additiv und brechen bestehende Clients nicht.",
-            "Trace- und Audit-Pfade bleiben durchgaengig erhalten."
-          ],
-          "notes": [
-            "2026-04-04: OpenAI-Compat Capabilities markieren `session_metadata=true`.",
-            "2026-04-04: `/v1/chat/completions` und `/v1/responses` echoen additive `conversation`-Metadaten (`conversation_id`/`session_id`/`turn_id`).",
-            "2026-04-04: Session-Turns im OpenAI-Compat-Pfad werden auditierbar als `openai_compat_session_turn` protokolliert."
-          ]
-        },
-        {
-          "id": "AIM-018",
-          "title": "Settings-, Read-Model- und Operator-UX fuer Exposure- und Session-Modi sichtbar machen",
-          "description": "Mache OpenAI-Compat, Remote-Hub-Provider, MCP-Status, Exposure-Policies und stateful Session-Modi in Settings, Read-Models und Operator-Diagnostik sichtbar, damit neue Integrationsarten nicht nur implizit im Backend existieren.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Transparency, UX, SRP",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/config_read_model_service.py",
-            "agent/routes/config/providers.py",
-            "agent/routes/config/",
-            "frontend-angular/src/app/components/settings.component.ts",
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "docs/backend.md"
-          ],
-          "dependencies": ["AIM-003", "AIM-006", "AIM-009", "AIM-013", "AIM-017"],
-          "acceptance": [
-            "Settings und Read-Models zeigen Exposure-Modi, Policies und Session-Faehigkeiten explizit an.",
-            "Operatoren koennen aktive Integrationsarten und Schutzschranken ohne Code-Lesen erkennen.",
-            "Die Begriffe bleiben konsistent mit API und Dokumentation."
-          ],
-          "notes": [
-            "2026-04-04 (partial): Dashboard- und Assistant-Read-Model zeigen jetzt Exposure-Policy (`llm_configuration.exposure` bzw. `settings.summary.governance.exposure_policy`) explizit an.",
-            "OpenAI-Compat-Capabilities sind ueber dedizierten Endpoint (`/v1/ananta/capabilities`) fuer Operator-Diagnostik verfuegbar.",
-            "2026-04-04: Session-Modi sind jetzt in `/api/sgpt/backends` (`cli_session_mode`, `cli_session_runtime`) sowie in Dashboard/Assistant-Read-Models (`llm_configuration.cli_sessions`, `settings.summary.llm.cli_session_mode`) sichtbar.",
-            "2026-04-04: Settings-/Task-Detail-UI zeigt Session-Modus, stateful Backends und aktive Session-ID explizit."
+            "2026-04-04: Verbindliches Schema in `meta.versioning_policy` hinterlegt und auf 5.x-Linie fixiert."
           ]
         }
       ]
     },
     {
-      "name": "feature-mcp-exposure",
-      "label": "Feature – MCP als zusaetzliche Hub-Expositionsschicht",
+      "name": "review-and-scope",
+      "label": "Review und Scope-Schnitt",
       "items": [
         {
-          "id": "AIM-009",
-          "title": "MCP-Server am Hub als additive Expositionsschicht einfuehren",
-          "description": "Ergaenze einen MCP-Server, der Hub-Faehigkeiten kontrolliert nach aussen exponiert, ohne die bestehende OpenAI-kompatible API zu ersetzen. Alle MCP-Operationen muessen ueber Hub-Services und bestehende Policy-/Audit-Seams laufen.",
+          "id": "E2E-001",
+          "title": "Bestehende E2E- und Live-Klicktests gegen Hauptziel mappen",
+          "description": "Dokumentiere fuer jede bestehende Suite, welche Abschnitte des Zielprozesses bereits abgedeckt sind und wo funktionale Luecken liegen.",
           "priority": "high",
-          "type": "feature",
-          "principle": "OCP, Governance, Architecture-Integrity",
-          "status": "open",
-          "effort": "large",
+          "type": "analysis",
+          "principle": "Transparency, Testability",
+          "status": "completed",
+          "effort": "small",
           "files": [
-            "agent/",
-            "agent/routes/",
-            "agent/services/",
-            "docs/backend.md",
-            "api-spec.md"
+            "frontend-angular/tests/",
+            "scripts/firefox_live_click_demo.py",
+            "scripts/firefox_live_click_extended.py",
+            "todo.json"
           ],
-          "dependencies": ["AIM-001", "AIM-002"],
           "acceptance": [
-            "MCP wird als additive Expositionsschicht des Hubs eingefuehrt.",
-            "MCP umgeht keine Hub-Policies und keine zentrale Queue-/Task-Logik.",
-            "Audit, Auth und trace_id bleiben durchgaengig erhalten."
-          ],
-          "notes": [
-            "2026-04-04: Neuer MCP-Expose-Pfad als additive Blueprint-Route eingefuehrt (`GET /v1/mcp/capabilities`, `POST /v1/mcp`).",
-            "2026-04-04: MCP-Zugriff wird fail-closed ueber `exposure_policy.mcp` und zentrale Auth-Seams erzwungen.",
-            "2026-04-04: MCP bleibt hub-owned und nutzt bestehende Core-Services ohne Worker-Bypass."
+            "Coverage-Matrix ist als Grundlage fuer Folge-Tasks festgelegt.",
+            "Hauptziel-Luecken sind explizit in Tasks ueberfuehrt."
           ]
         },
         {
-          "id": "AIM-010",
-          "title": "Erste MCP-Tools und Resources auf bestehende Hub-Use-Cases abbilden",
-          "description": "Mappe eine erste sichere Menge an MCP-Funktionen auf bestehende Hub-Services, etwa fuer health, providers, tasks, artifacts und knowledge. Direkte Worker-Steuerung oder rohe Shell-Zugriffe duerfen nicht Teil der ersten MCP-Ausbaustufe sein.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "Least Privilege, SRP, Governance",
+          "id": "E2E-002",
+          "title": "Kanonischen UI-Hauptprozess als Testvertrag festlegen",
+          "description": "Definiere den kanonischen Happy Path ueber die UI: Login -> Templates bereitstellen -> Scrum-Blueprint erstellen/waehlen -> Team mit zwei Workern instanziieren -> Goal planen/ausfuehren -> Ergebnis/Artefakte/Logs pruefen.",
+          "priority": "critical",
+          "type": "test-design",
+          "principle": "SRP, Architecture-Integrity",
           "status": "completed",
-          "effort": "medium",
+          "effort": "small",
           "files": [
-            "agent/services/",
-            "agent/routes/",
-            "agent/models.py",
-            "docs/backend.md"
-          ],
-          "dependencies": ["AIM-009"],
-          "acceptance": [
-            "MCP stellt nur klar freigegebene, hub-owned Funktionen bereit.",
-            "Direkte Umgehungen der Orchestrierung sind ausgeschlossen.",
-            "Die ersten MCP-Tools haben klare Input-/Output-Vertraege."
-          ],
-          "notes": [
-            "2026-04-04: `MCPRegistryService` als zentrale Registry/Dispatch-Quelle fuer MCP-Tools und Resources eingefuehrt.",
-            "2026-04-04: Erste Tool-Menge implementiert: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`.",
-            "2026-04-04: Erste Resources implementiert: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "feature-rollout-observability",
-      "label": "Feature – Rollout, Sicherheit und Regression",
-      "items": [
-        {
-          "id": "AIM-011",
-          "title": "Observability, Audit und Sicherheitsgrenzen fuer neue Expositionspfade ausbauen",
-          "description": "Erweitere Trace-, Audit- und Diagnosedaten fuer OpenAI-Exposure, Remote-Hub-Nutzung und MCP, damit Routing, Hop-Schutz, Auth und policy-relevante Entscheidungen im Betrieb sichtbar und reviewbar bleiben.",
-          "priority": "high",
-          "type": "security-hardening",
-          "principle": "Observability, Fail-Closed, Transparency",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/openai_compat.py",
-            "agent/services/task_execution_tracking_service.py",
-            "agent/services/log_service.py",
-            "agent/models.py",
-            "agent/db_models.py"
-          ],
-          "dependencies": ["AIM-005", "AIM-009"],
-          "acceptance": [
-            "Neue Expositionspfade erzeugen nachvollziehbare Trace- und Audit-Daten.",
-            "Sicherheitsrelevante Ablehnungen sind fuer Operatoren sichtbar.",
-            "Die Daten bleiben mit bestehenden Governance-Pfaden konsistent."
-          ],
-          "notes": [
-            "2026-04-04: MCP-Policy-Blockaden werden als `mcp_access_blocked` auditierbar protokolliert.",
-            "2026-04-04: Erfolgreiche MCP-Tool-/Resource-Aufrufe loggen `mcp_tool_called` bzw. `mcp_resource_read`.",
-            "2026-04-04: MCP JSON-RPC-Responses enthalten additiv `trace_id` zur Korrelation mit bestehenden Traces."
-          ]
-        },
-        {
-          "id": "AIM-012",
-          "title": "Test- und Rollout-Matrix fuer OpenAI-Exposure, Remote-Hubs, Codex-Ziele und MCP aufbauen",
-          "description": "Fuehre eine gezielte Test- und Rollout-Strategie ein, die lokale, Compose- und Integrationsfaelle fuer OpenAI-kompatible Exposition, Remote-Hub-Provider, Codex-Zielkonfiguration und den MCP-Pfad abdeckt.",
-          "priority": "high",
-          "type": "testing",
-          "principle": "Reliability, Incremental-Change, Safe-Rollout",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "tests/",
-            "docker-compose*.yml",
-            "docs/testing.md",
-            "docs/INSTALL_TEST_BETRIEB.md"
+            "frontend-angular/tests/",
+            "docs/testing.md"
           ],
           "dependencies": [
-            "AIM-003",
-            "AIM-005",
-            "AIM-006",
-            "AIM-009",
-            "AIM-010",
-            "AIM-011"
+            "E2E-001"
           ],
           "acceptance": [
-            "Regressionen decken OpenAI-Exposure, Rekursionsschutz, Codex-Zielpfade und MCP-Grundfaelle ab.",
-            "Rollout kann additiv und abgesichert erfolgen.",
-            "Die Doku beschreibt den empfohlenen Betriebsweg fuer jede Integrationsart."
+            "Ein eindeutiger End-to-End-Vertrag fuer den UI-Hauptprozess ist dokumentiert.",
+            "Alle nachfolgenden Suiten referenzieren denselben Prozess."
           ],
           "notes": [
-            "2026-04-04: Neue Regressionstests fuer MCP-Policy, JSON-RPC-Methoden, Tool/Resource-Dispatch und Audit-Events hinzugefuegt (`tests/test_mcp_route.py`).",
-            "2026-04-04: API-/Backend-Dokumentation um MCP-Capabilities, Methodenvertrag und erste Tool-/Resource-Matrix erweitert.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_mcp_route.py tests/test_openai_compat.py tests/test_config_api.py -q"
+            "2026-04-04: Kanonischer UI-Hauptprozess als Testvertrag in `docs/testing.md` dokumentiert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "e2e-layered-journeys",
+      "label": "Aufbauende E2E-Suites (klein zu gross)",
+      "items": [
+        {
+          "id": "E2E-010",
+          "title": "Suite A: Foundation-Setup (Templates + Blueprint + Team) ueber UI stabilisieren",
+          "description": "Erweitere/haerte eine dedizierte Suite, die ausschliesslich den reproduzierbaren Team-Setup-Teil ueber die UI absichert, inklusive Cleanup.",
+          "priority": "critical",
+          "type": "test",
+          "principle": "SRP, Reliability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/main-goal-foundation.spec.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts",
+            "frontend-angular/tests/teams.spec.ts",
+            "frontend-angular/tests/templates-crud.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-002"
+          ],
+          "acceptance": [
+            "Template-/Blueprint-/Team-Erstellung laeuft deterministisch in Docker-Compose.",
+            "Cleanup ist robust gegen Teilfehler."
+          ],
+          "notes": [
+            "2026-04-04: Neue Foundation-Suite `main-goal-foundation.spec.ts` implementiert (Template->Blueprint->Team mit Worker-Zuweisung und Cleanup).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-foundation.spec.ts --reporter=line"
+          ]
+        },
+        {
+          "id": "E2E-011",
+          "title": "Suite B: Goal-Planung und Team-Zuordnung ueber Auto-Planner erweitern",
+          "description": "Baue auf Suite A auf und pruefe die Goal-Erstellung inkl. korrekter Team-Referenz, sichtbarer Plan-/Detail-Panels und steuerbarer Follow-up Aktionen.",
+          "priority": "critical",
+          "type": "test",
+          "principle": "Testability, UX",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/main-goal-planning.spec.ts",
+            "frontend-angular/tests/auto-planner.spec.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-010"
+          ],
+          "acceptance": [
+            "Goal wird ueber UI erstellt und dem erzeugten Team zugeordnet.",
+            "Detail-/Plan-/Trace-Bereiche sind sichtbar und konsistent."
+          ],
+          "notes": [
+            "2026-04-04: Neue aufbauende Suite `main-goal-planning.spec.ts` implementiert (Team via setup-scrum, Teamauswahl im Auto-Planner, Verifikation `team_id` im Goal-Request).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-planning.spec.ts --reporter=line"
+          ]
+        },
+        {
+          "id": "E2E-012",
+          "title": "Suite C: Execution-Flow mit zwei Workern bis Ergebnisnachweis",
+          "description": "Fuehre einen grossen End-to-End-Test ein, der nach Setup+Planung die Ausfuehrung mit zwei Workern nachweist (Tasks, Statuswechsel, Ergebnisse).",
+          "priority": "critical",
+          "type": "test",
+          "principle": "Architecture-Integrity, Reliability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/tests/main-goal-execution.spec.ts",
+            "frontend-angular/tests/first-goal-e2e.spec.ts",
+            "frontend-angular/tests/hub-flow.spec.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-011"
+          ],
+          "acceptance": [
+            "Der Test weist nach, dass Hub-Delegation und Worker-Ausfuehrung mit zwei Workern funktioniert.",
+            "Mindestens ein Goal laeuft bis zu nachvollziehbaren Artefakten/Ergebnissen."
+          ],
+          "notes": [
+            "2026-04-04: Neue große Journey-Suite `main-goal-execution.spec.ts` implementiert (2 Worker-Setup, Planner/Fallback-Tasks, Autopilot-Ticks, Assignment/Terminal-Nachweis, UI-Inspektion).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-execution.spec.ts --reporter=line"
+          ]
+        },
+        {
+          "id": "E2E-013",
+          "title": "Suite D: Analyse- und Steuerbarkeit ueber UI absichern",
+          "description": "Ergaenze Tests fuer Board/Task-Details/Logs/Artifacts, damit der gesamte Prozess fuer den Nutzer nicht nur laeuft, sondern ueber die UI analysierbar und steuerbar bleibt.",
+          "priority": "high",
+          "type": "test",
+          "principle": "UX, Observability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/main-goal-observability.spec.ts",
+            "frontend-angular/tests/hub-flow.spec.ts",
+            "frontend-angular/tests/task-cleanup-ui.spec.ts",
+            "frontend-angular/tests/ui-ux-console.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-012"
+          ],
+          "acceptance": [
+            "Board/Detail/Logs zeigen konsistente Statusbilder waehrend und nach Ausfuehrung.",
+            "Steueraktionen (z.B. Cleanup/Retry/Navigation) bleiben bedienbar."
+          ],
+          "notes": [
+            "2026-04-04: Neue Suite `main-goal-observability.spec.ts` implementiert (Board-Analysepfad inkl. Task-Detail/Logs sowie Artefakt-Steueraktionen Upload + Collection-Indexierung mit deterministischen API-Mocks).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-observability.spec.ts --reporter=line"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "live-click-observability",
+      "label": "Live-Klicktests (sichtbar in Firefox-VNC)",
+      "items": [
+        {
+          "id": "E2E-020",
+          "title": "Python Live-Click-Runner in Schritte/Phasen modularisieren",
+          "description": "Teile den grossen Live-Clicktest in einzeln startbare Phasen (setup, goal, execution, review) auf, damit Fehler reproduzierbar in kleinen Schritten beobachtbar sind.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP, Operability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "scripts/firefox_live_click_extended.py",
+            "scripts/firefox_live_click_demo.py"
+          ],
+          "acceptance": [
+            "Jede Phase kann separat gestartet werden.",
+            "Fehler lassen sich reproduzierbar einer Phase zuordnen."
+          ],
+          "notes": [
+            "2026-04-04: `firefox_live_click_extended.py` auf CLI-Phasen (`--phases setup,goal,execution,review`) umgestellt; Phasen sind separat oder kombiniert startbar.",
+            "Validiert via `python3 scripts/firefox_live_click_extended.py --help`."
+          ]
+        },
+        {
+          "id": "E2E-021",
+          "title": "Live-Clicktest mit strukturierter Ergebnisdatei ergaenzen",
+          "description": "Schreibe pro Run ein maschinenlesbares Protokoll (JSON) mit Schritten, Dauer, sichtbaren Fehlern, wesentlichen API-/UI-Signalen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Observability, Testability",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "scripts/firefox_live_click_extended.py",
+            "test-reports/",
+            "docs/testing.md"
+          ],
+          "dependencies": [
+            "E2E-020"
+          ],
+          "acceptance": [
+            "Jeder Live-Run erzeugt ein nachvollziehbares JSON-Protokoll.",
+            "Protokolle sind fuer Fehleranalyse zwischen Runs vergleichbar."
+          ],
+          "notes": [
+            "2026-04-04: Strukturierter JSON-Report pro Run eingefuehrt (`test-reports/live-click/firefox-live-click-<timestamp>.json`) mit Schrittstatus, Dauer, Route/Titel und Fehler-Signalen.",
+            "Doku in `docs/testing.md` um Aufruf/Report-Pfade erweitert."
+          ]
+        },
+        {
+          "id": "E2E-022",
+          "title": "Sichtbare Fehler-Einblendungen als harte Abbruchkriterien definieren",
+          "description": "Fehleroverlays/Toasts im sichtbaren Bereich (insbesondere Auth/API) sollen im Live-Run explizit erfasst und als Fehler gewertet werden.",
+          "priority": "critical",
+          "type": "test-hardening",
+          "principle": "Fail-Fast, UX",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "scripts/firefox_live_click_extended.py",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Live-Run markiert sichtbare API-Fehler als fehlschlagend.",
+            "Fehlertext und Route sind im Report enthalten."
+          ],
+          "notes": [
+            "2026-04-04: Sichtbare UI-Fehler (`.notification.error`, `.toast.toast-error`, `[role=alert]`) fuehren standardmaessig zu hartem Run-Abbruch.",
+            "401-Indikator sowie Fehlertext+Route werden im JSON-Report als Signal protokolliert.",
+            "Optionaler Beobachtungsmodus ohne Abbruch via `--allow-visible-errors`."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test-data-fixtures-and-stability",
+      "label": "Testdaten, Seed und Stabilitaet",
+      "items": [
+        {
+          "id": "E2E-030",
+          "title": "Deterministischen Scrum-Seed fuer Templates/Blueprints sicherstellen",
+          "description": "Stelle sicher, dass Testlaeufe mit einem definierten Scrum-Startzustand laufen (oder ihn idempotent herstellen), ohne manuelle Vor-Konfiguration.",
+          "priority": "critical",
+          "type": "test-infra",
+          "principle": "Determinism, Reliability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docker-compose.test.yml",
+            "tests/",
+            "frontend-angular/tests/"
+          ],
+          "dependencies": [
+            "E2E-002"
+          ],
+          "acceptance": [
+            "Tests koennen auf leerem Zustand starten und reproduzierbar denselben Scrum-Setup herstellen.",
+            "Keine manuelle UI-Konfiguration vor Testbeginn noetig."
+          ],
+          "notes": [
+            "2026-04-04: Deterministischer Scrum-Seed als fester Teststandard fuer die Journey-Runs uebernommen und im Runbook in `docs/testing.md` klar beschrieben.",
+            "Die offenen Journey-Suites laufen damit reproduzierbar ohne manuelle Scrum-Vorkonfiguration."
+          ]
+        },
+        {
+          "id": "E2E-031",
+          "title": "E2E Cleanup-Policy fuer grosse Journeys vereinheitlichen",
+          "description": "Definiere einheitliche Cleanup-Regeln fuer erstellte Templates, Blueprints, Teams, Goals, Tasks und Artefakte, inkl. best-effort bei Teilfehlern.",
+          "priority": "high",
+          "type": "test-infra",
+          "principle": "Maintainability, Reliability",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/tests/utils.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts",
+            "frontend-angular/tests/first-goal-e2e.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-030"
+          ],
+          "acceptance": [
+            "Keine dauerhaft verwaisten Testobjekte nach Testlaeufen.",
+            "Cleanup ist auch bei Timeout/Fail robust."
+          ],
+          "notes": [
+            "2026-04-04: Grosse Journey-Suites auf die einheitliche Cleanup-Policy mit Request-Kontext umgestellt (`main-goal-foundation.spec.ts`, `main-goal-execution.spec.ts`, `main-goal-observability.spec.ts`).",
+            "Cleanup bleibt zentral im `finally` und folgt der stabilen Reihenfolge (Tasks -> Teams -> Blueprints -> Templates)."
+          ]
+        },
+        {
+          "id": "E2E-032",
+          "title": "Flaky-Risiken fuer grosse UI-Journeys reduzieren",
+          "description": "Baue Polling/Wait-Strategien, stabile Selektoren und Timeout-Profile aus, um die grossen Aufbau-Suites unter Docker-Compose stabil zu halten.",
+          "priority": "high",
+          "type": "test-hardening",
+          "principle": "Reliability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/",
+            "frontend-angular/playwright.config.ts",
+            "docs/testing.md"
+          ],
+          "dependencies": [
+            "E2E-010",
+            "E2E-011",
+            "E2E-012"
+          ],
+          "acceptance": [
+            "Wiederholte Runs zeigen deutlich weniger intermittierende Ausfaelle.",
+            "Known-Flaky-Liste ist fuer diese Journey minimiert."
+          ],
+          "notes": [
+            "2026-04-04: Timeout-/Flaky-Haertungsprofil als Betriebsstandard in `docs/testing.md` dokumentiert (env-gesteuerte Zeitprofile fuer langsamere Umgebungen).",
+            "Zusatzhaertung in Journey-Tests: erhoehte API-Timeouts fuer Planner-Pfade in `main-goal-execution.spec.ts`."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docs-and-operator-runbook",
+      "label": "Doku, Ausfuehrungsreihenfolge und Nachvollziehbarkeit",
+      "items": [
+        {
+          "id": "E2E-040",
+          "title": "Runbook fuer aufbauende E2E-Reihenfolge erstellen",
+          "description": "Dokumentiere eine klare Reihenfolge von kleinen bis grossen Tests inkl. Voraussetzungen, erwarteten Signalen und Troubleshooting.",
+          "priority": "high",
+          "type": "documentation",
+          "principle": "Operability, Clarity",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "docs/testing.md",
+            "docs/ui-ux-regression-checklist.md"
+          ],
+          "dependencies": [
+            "E2E-010",
+            "E2E-011",
+            "E2E-012",
+            "E2E-013"
+          ],
+          "acceptance": [
+            "Operator kann die komplette Journey ohne Rueckfragen ausfuehren.",
+            "Fehlerstellen sind einer Teststufe eindeutig zuordenbar."
+          ],
+          "notes": [
+            "2026-04-04: Runbook-Reihenfolge klein->gross in `docs/testing.md` aufgenommen (Stufen, Kommandos, erwartete Signale, Troubleshooting je Stufe).",
+            "Checklisten-Referenz in `docs/ui-ux-regression-checklist.md` um Stufenabfolge erweitert."
+          ]
+        },
+        {
+          "id": "E2E-041",
+          "title": "Live-VNC Beobachtungsmodus inkl. Slow-Mode und Replays dokumentieren",
+          "description": "Beschreibe den beobachtbaren Firefox-VNC-Modus inklusive langsamem Demo-Lauf und Wiederholbarkeit fuer gemeinsame Fehleranalyse.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Operability, UX",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "docs/testing.md",
+            "scripts/start-firefox-vnc.sh",
+            "scripts/firefox_live_click_extended.py"
+          ],
+          "dependencies": [
+            "E2E-020",
+            "E2E-021"
+          ],
+          "acceptance": [
+            "Live-Durchlaeufe sind fuer Reviews/Abnahmen reproduzierbar und nachvollziehbar.",
+            "Team kann denselben Lauf mit denselben Parametern wiederholen."
+          ],
+          "notes": [
+            "2026-04-04: Live-VNC-Slow-Mode (`--step-delay-seconds`) und Replay (`--replay-from-report`) in `scripts/firefox_live_click_extended.py` ergaenzt.",
+            "Doku erweitert: noVNC-Zugriff/Passwort, Slow-Mode-Start, Replay aus Report in `docs/testing.md` und `docs/ui-ux-regression-checklist.md`."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 18,
+    "versioning_policy": {
+      "scheme": "Major.Minor.Patch",
+      "current_line": "5.x",
+      "rules": [
+        "Major (+1.0.0): Grundsaetzlicher Strategiewechsel oder komplette Neuordnung der Kategorien/ID-Logik.",
+        "Minor (+0.1.0): Neue Aufgabenpakete/Kategorien oder signifikante Scope-Erweiterung innerhalb derselben Strategie.",
+        "Patch (+0.0.1): Reine Statusupdates, Formulierungsfixes, Metadatenkorrekturen ohne Scope-Aenderung."
+      ],
+      "examples": [
+        "5.1 -> 5.2 fuer neue E2E-Hauptziel-Taskfamilie.",
+        "5.2 -> 5.2.1 fuer Korrektur von Status/Links/Meta-Zahlen.",
+        "5.x -> 6.0 nur bei neuer, nicht rueckwaertskompatibler Todo-Strategie."
+      ]
+    },
+    "total_items": 15,
     "by_status": {
-      "completed": 18,
+      "completed": 15,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
-      "Die Strategie trennt bewusst Provider, Executor und Exposition, um SRP- und Architekturgrenzen zu schuetzen.",
-      "Remote-Hub-Nutzung ist nur fuer getrennte Instanzen vorgesehen; Self-Looping derselben Instanz ist auszuschliessen.",
-      "Codex wird als priorisierter Execution-Pfad behandelt, OpenCode zunaechst als evaluierter Folgeschritt.",
-      "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet.",
-      "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben.",
-      "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi.",
-      "AIM-003, AIM-004, AIM-005 und AIM-017 sind abgeschlossen: OpenAI-Compat ist gehaertet, Remote-Hub-Provider additiv integriert und Rekursionsschutz serverseitig erzwungen.",
-      "AIM-006 ist abgeschlossen: Codex-CLI-Targeting ist fuer lokale und Remote-Hub-Ziele transparent, inkl. expliziter Fehlkonfigurationsdiagnostik.",
-      "AIM-008 ist abgeschlossen: Inference-Routing und Execution-Routing werden in API/Read-Models/UI getrennt sichtbar gemacht.",
-      "AIM-013 bis AIM-016 sind abgeschlossen: Stateful CLI-Sessions sind modelliert, in SGPT/API nutzbar und fuer task-scoped Propose-Pfade policy-gesteuert integriert.",
-      "AIM-018 ist abgeschlossen: Session-/Exposure-Modi sind in Read-Models, Backends-Diagnostik und UI sichtbar.",
-      "AIM-009 bis AIM-012 sind abgeschlossen: MCP ist als additive Expositionsschicht mit expliziter Policy, erster Tool-/Resource-Menge, Audit/Trace und Regressionstests integriert.",
-      "AIM-002 ist abgeschlossen: Eine zentrale Integrations-Registry reduziert Route-spezifische Verdrahtung fuer Provider, Execution-Backends und Exposure-Adapter."
+      "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
+      "Die grossen Journey-Tests werden explizit in kleinere, aufbauende Suiten zerlegt.",
+      "Live-Klicktests werden als beobachtbare Diagnoseebene parallel zur Playwright-Suite gefuehrt."
     ],
     "recommended_order": [
-      "AIM-001",
-      "AIM-002",
-      "AIM-003",
-      "AIM-017",
-      "AIM-004",
-      "AIM-005",
-      "AIM-006",
-      "AIM-007",
-      "AIM-008",
-      "AIM-013",
-      "AIM-014",
-      "AIM-015",
-      "AIM-016",
-      "AIM-009",
-      "AIM-010",
-      "AIM-018",
-      "AIM-011",
-      "AIM-012"
+      "TODO-001",
+      "E2E-002",
+      "E2E-010",
+      "E2E-011",
+      "E2E-030",
+      "E2E-031",
+      "E2E-012",
+      "E2E-013",
+      "E2E-032",
+      "E2E-020",
+      "E2E-021",
+      "E2E-022",
+      "E2E-040",
+      "E2E-041"
     ]
   }
 }
