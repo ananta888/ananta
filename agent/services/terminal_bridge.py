@@ -7,6 +7,15 @@ import threading
 from dataclasses import dataclass
 
 
+def _write_all(fd: int, payload: bytes, *, writer=os.write) -> None:
+    total_written = 0
+    while total_written < len(payload):
+        written = writer(fd, payload[total_written:])
+        if written <= 0:
+            raise OSError("pty_write_failed")
+        total_written += written
+
+
 @dataclass
 class PtyBridge:
     shell: str
@@ -63,7 +72,7 @@ class PtyBridge:
     def write(self, data: str) -> None:
         if self.master_fd is None:
             return
-        os.write(self.master_fd, data.encode("utf-8", errors="ignore"))
+        _write_all(self.master_fd, data.encode("utf-8", errors="ignore"))
 
     def drain(self) -> list[str]:
         chunks: list[str] = []
