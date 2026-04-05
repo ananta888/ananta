@@ -34,6 +34,8 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 10s
@@ -164,7 +166,14 @@ services:
 
 volumes:
   postgres_data:
+    name: ananta_postgres_data
+  redis_data:
+    name: ananta_redis_data
   prometheus_data:
+    name: ananta_prometheus_data
   certbot-etc:
+    name: ananta_certbot_etc
   certbot-var:
+    name: ananta_certbot_var
   webroot:
+    name: ananta_webroot
