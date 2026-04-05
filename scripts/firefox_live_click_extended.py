@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib import request
 
+from test_env_cleanup import cleanup_test_environment
+
 BASE = os.getenv("ANANTA_SELENIUM_URL", "http://127.0.0.1:4444/wd/hub")
 APP_BASE = os.getenv("ANANTA_FRONTEND_URL", "http://angular-frontend:4200")
+HUB_BASE = os.getenv("HUB_BASE_URL", "http://127.0.0.1:5000")
+HUB_CONTAINER = os.getenv("ANANTA_HUB_CONTAINER", "ananta-ai-agent-hub-1")
 DEFAULT_REPORT_DIR = Path("test-reports/live-click")
 DEFAULT_PHASES = ["setup", "goal", "execution", "benchmark", "review"]
 FILE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_./-])(?:[A-Za-z0-9_.-]+/){1,}[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,10}")
@@ -299,6 +303,7 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     time.sleep(2.0)
     print("template_create_clicked", template_created, "template", template_name, flush=True)
     record_step(report, "setup", "template_create", t1, template_created, {"template_name": template_name, **current_route_and_title(session_id)})
+    report.setdefault("cleanup_targets", {}).setdefault("template_names", []).append(template_name)
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
@@ -395,6 +400,8 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
         ok,
         {"blueprint_name": blueprint_name, "team_name": team_name, **current_route_and_title(session_id)},
     )
+    report.setdefault("cleanup_targets", {}).setdefault("blueprint_names", []).append(blueprint_name)
+    report.setdefault("cleanup_targets", {}).setdefault("team_names", []).append(team_name)
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
@@ -585,6 +592,7 @@ def phase_goal(
         tasks_created = max(tasks_created, len(detail_tasks))
     if created_goal_id:
         report["last_goal_id"] = created_goal_id
+        report.setdefault("cleanup_targets", {}).setdefault("goal_ids", []).append(created_goal_id)
     click_debug["goals_after"] = len(goals_after)
     click_debug["goals_after_ids"] = [
         str(item.get("id") or "")
@@ -856,7 +864,7 @@ def _open_worker_terminal_panel(session_id: str, worker_name: str, mode: str = "
 
 
 def _open_operations_console_artifact_flow(session_id: str) -> Dict[str, Any]:
-    step_nav(session_id, "/operations-console", settle_s=1.0)
+    step_nav(session_id, "/operations", settle_s=1.0)
     heading_ready = wait_for(
         session_id,
         "return !![...document.querySelectorAll('h1,h2,h3')].find((node) => /operations konsole/i.test((node.textContent || '').trim()));",
@@ -977,6 +985,8 @@ def phase_benchmark(
     )
     tasks_before_full_ids = {str(task.get("id") or "") for task in tasks_before_full if isinstance(task, dict)}
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
+    if team_id:
+        report.setdefault("cleanup_targets", {}).setdefault("team_ids", []).append(team_id)
 
     # Ensure the goal team has online workers assigned, otherwise autopilot stays idle.
     worker_bind_info: Dict[str, Any] = {"team_id": team_id, "applied": False}
@@ -1551,6 +1561,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional explicit JSON report path (default: test-reports/live-click/<timestamp>.json)",
     )
     p.add_argument(
+        "--skip-created-resource-cleanup",
+        action="store_true",
+        help="Keep test-created templates/blueprints/teams/tasks/goals instead of cleaning them up.",
+    )
+    p.add_argument(
         "--allow-visible-errors",
         action="store_true",
         help="Do not fail hard when visible UI errors/toasts are detected.",
@@ -1684,9 +1699,17 @@ def main():
         "min_distinct_files": min_distinct_files,
         "min_distinct_dirs": min_distinct_dirs,
         "bootstrap_setup": bootstrap_setup,
+        "cleanup_created_resources": not args.skip_created_resource_cleanup,
         "replay_from_report": replay_source,
         "status": "running",
         "steps": [],
+        "cleanup_targets": {
+            "template_names": [],
+            "blueprint_names": [],
+            "team_names": [],
+            "goal_ids": [],
+            "team_ids": [],
+        },
         "ui_signals": {
             "visible_errors": [],
             "visible_errors_contains_401": False,
@@ -1748,6 +1771,21 @@ def main():
         except Exception as e:
             report["errors"].append({"message": f"quit_error: {e}"})
             print("quit_error", str(e), flush=True)
+        if not args.skip_created_resource_cleanup:
+            try:
+                explicit_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+                cleanup = cleanup_test_environment(
+                    hub_base_url=HUB_BASE,
+                    hub_container=HUB_CONTAINER,
+                    admin_user=LOGIN_USER,
+                    admin_password=LOGIN_PASS,
+                    explicit_targets=explicit_targets,
+                )
+                report["cleanup"] = cleanup
+            except Exception as e:
+                report["errors"].append({"message": f"cleanup_error: {e}"})
+                report["cleanup"] = {"error": str(e)}
+                print("cleanup_error", str(e), flush=True)
         write_report(report, report_path)
 
 

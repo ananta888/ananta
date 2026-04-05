@@ -1,6 +1,6 @@
 {
-  "run_id": "20260405T105544Z",
-  "started_at": "2026-04-05T10:55:44.553328+00:00",
+  "run_id": "20260405T110206Z",
+  "started_at": "2026-04-05T11:02:06.841453+00:00",
   "base": {
     "selenium": "http://127.0.0.1:4444/wd/hub",
     "frontend": "http://angular-frontend:4200"
@@ -31,9 +31,9 @@
       "phase": "setup",
       "step": "login",
       "status": "ok",
-      "started_at": "2026-04-05T10:55:47.143404+00:00",
-      "ended_at": "2026-04-05T10:55:48.388740+00:00",
-      "duration_ms": 1245,
+      "started_at": "2026-04-05T11:02:11.966937+00:00",
+      "ended_at": "2026-04-05T11:02:13.203834+00:00",
+      "duration_ms": 1236,
       "details": {
         "path": "/dashboard",
         "title": "Ananta - Agent Control"
@@ -43,11 +43,11 @@
       "phase": "setup",
       "step": "template_create",
       "status": "ok",
-      "started_at": "2026-04-05T10:55:49.599200+00:00",
-      "ended_at": "2026-04-05T10:55:53.225416+00:00",
-      "duration_ms": 3626,
+      "started_at": "2026-04-05T11:02:14.414995+00:00",
+      "ended_at": "2026-04-05T11:02:18.038821+00:00",
+      "duration_ms": 3623,
       "details": {
-        "template_name": "Live UI Template 1775386551",
+        "template_name": "Live UI Template 1775386935",
         "path": "/templates",
         "title": "Ananta - Agent Control"
       }
@@ -56,12 +56,12 @@
       "phase": "setup",
       "step": "blueprint_team_create",
       "status": "ok",
-      "started_at": "2026-04-05T10:55:54.437593+00:00",
-      "ended_at": "2026-04-05T10:56:00.300722+00:00",
-      "duration_ms": 5863,
+      "started_at": "2026-04-05T11:02:19.250922+00:00",
+      "ended_at": "2026-04-05T11:02:25.148614+00:00",
+      "duration_ms": 5897,
       "details": {
-        "blueprint_name": "Live UI Blueprint 1775386555",
-        "team_name": "Live UI Team 1775386558",
+        "blueprint_name": "Live UI Blueprint 1775386940",
+        "team_name": "Live UI Team 1775386943",
         "path": "/teams",
         "title": "Ananta - Agent Control"
       }
@@ -70,9 +70,9 @@
       "phase": "goal",
       "step": "goal_plan_submit",
       "status": "ok",
-      "started_at": "2026-04-05T10:56:01.511530+00:00",
-      "ended_at": "2026-04-05T10:56:05.173630+00:00",
-      "duration_ms": 3662,
+      "started_at": "2026-04-05T11:02:26.358266+00:00",
+      "ended_at": "2026-04-05T11:02:30.065255+00:00",
+      "duration_ms": 3706,
       "details": {
         "goal_name": "Erstelle eine kleine Fullstack-Fibonacci-Demo: Backend-Endpoint zur Fibonacci-Berechnung, Frontend-Ansicht mit Eingabefeld und Ergebnisanzeige, plus kurzer Test/Validierung.",
         "goal_clicked": true,
@@ -80,7 +80,7 @@
           "disabled_before": false,
           "goal_length": 173,
           "label_before": "Goal planen",
-          "goals_before": 66,
+          "goals_before": 67,
           "goals_before_ids": [
             "1d61e2b8-b5f4-402a-8739-f9a22e00237d",
             "efeec2ee-8557-4f1c-bc75-d6b34c491f30",
@@ -94,7 +94,7 @@
             "found": true,
             "selected": "8672313b-42af-41fb-9801-bdeb992e3827"
           },
-          "goals_after": 67,
+          "goals_after": 68,
           "goals_after_ids": [
             "1d61e2b8-b5f4-402a-8739-f9a22e00237d",
             "efeec2ee-8557-4f1c-bc75-d6b34c491f30",
@@ -105,8 +105,8 @@
         },
         "goal_result_visible": true,
         "tasks_created": 5,
-        "created_goal_id": "683da8dc-ced2-4da1-855a-d9fd56ffe201",
-        "goal_result_excerpt": "Goal angelegt 683da8dc-ced2-4da1-855a-d9fd56ffe201 \u00b7 5 Tasks \u00b7 Plan 65405f12-7276-4591-88a7-9335952afbe6 1. Anforderungen definierenHigh2. Design/ArchitekturHigh3. ImplementierungHigh4. Tests schreibenMedium5. DokumentationLow",
+        "created_goal_id": "3175e287-e56a-4890-b5b9-2c383ecdb92a",
+        "goal_result_excerpt": "Goal angelegt 3175e287-e56a-4890-b5b9-2c383ecdb92a \u00b7 5 Tasks \u00b7 Plan a6913e4e-dce4-48c8-a8a2-7075e0325a2a 1. Anforderungen definierenHigh2. Design/ArchitekturHigh3. ImplementierungHigh4. Tests schreibenMedium5. DokumentationLow",
         "detail_tasks_after_fallback": 0,
         "path": "/auto-planner",
         "title": "Ananta - Agent Control"
@@ -116,9 +116,9 @@
       "phase": "execution",
       "step": "navigate:/dashboard",
       "status": "ok",
-      "started_at": "2026-04-05T10:56:06.385181+00:00",
-      "ended_at": "2026-04-05T10:56:07.939218+00:00",
-      "duration_ms": 1554,
+      "started_at": "2026-04-05T11:02:31.275678+00:00",
+      "ended_at": "2026-04-05T11:02:32.859016+00:00",
+      "duration_ms": 1583,
       "details": {
         "path": "/dashboard",
         "title": "Ananta - Agent Control"
@@ -128,9 +128,9 @@
       "phase": "execution",
       "step": "navigate:/board",
       "status": "ok",
-      "started_at": "2026-04-05T10:56:09.151571+00:00",
-      "ended_at": "2026-04-05T10:56:10.709353+00:00",
-      "duration_ms": 1557,
+      "started_at": "2026-04-05T11:02:34.068593+00:00",
+      "ended_at": "2026-04-05T11:02:35.637630+00:00",
+      "duration_ms": 1569,
       "details": {
         "path": "/board",
         "title": "Ananta - Agent Control",
@@ -142,9 +142,9 @@
       "phase": "execution",
       "step": "navigate:/templates",
       "status": "ok",
-      "started_at": "2026-04-05T10:56:11.920671+00:00",
-      "ended_at": "2026-04-05T10:56:13.490682+00:00",
-      "duration_ms": 1570,
+      "started_at": "2026-04-05T11:02:36.846591+00:00",
+      "ended_at": "2026-04-05T11:02:38.427377+00:00",
+      "duration_ms": 1580,
       "details": {
         "path": "/templates",
         "title": "Ananta - Agent Control"
@@ -154,9 +154,9 @@
       "phase": "execution",
       "step": "navigate:/teams",
       "status": "ok",
-      "started_at": "2026-04-05T10:56:14.701314+00:00",
-      "ended_at": "2026-04-05T10:56:18.190739+00:00",
-      "duration_ms": 3489,
+      "started_at": "2026-04-05T11:02:39.640585+00:00",
+      "ended_at": "2026-04-05T11:02:41.219066+00:00",
+      "duration_ms": 1578,
       "details": {
         "path": "/teams",
         "title": "Ananta - Agent Control"
@@ -166,9 +166,9 @@
       "phase": "execution",
       "step": "navigate:/settings",
       "status": "ok",
-      "started_at": "2026-04-05T10:56:19.406426+00:00",
-      "ended_at": "2026-04-05T10:56:21.112813+00:00",
-      "duration_ms": 1706,
+      "started_at": "2026-04-05T11:02:42.427776+00:00",
+      "ended_at": "2026-04-05T11:02:46.808119+00:00",
+      "duration_ms": 4380,
       "details": {
         "path": "/settings",
         "title": "Ananta - Agent Control"
@@ -178,11 +178,11 @@
       "phase": "benchmark",
       "step": "goal_followup_and_model_benchmark",
       "status": "failed",
-      "started_at": "2026-04-05T10:56:22.325273+00:00",
-      "ended_at": "2026-04-05T11:00:56.115540+00:00",
-      "duration_ms": 273790,
+      "started_at": "2026-04-05T11:02:48.018012+00:00",
+      "ended_at": "2026-04-05T11:05:30.553658+00:00",
+      "duration_ms": 162535,
       "details": {
-        "goal_id": "683da8dc-ced2-4da1-855a-d9fd56ffe201",
+        "goal_id": "3175e287-e56a-4890-b5b9-2c383ecdb92a",
         "goal_summary": "Erstelle eine kleine Fullstack-Fibonacci-Demo: Backend-Endpoint zur Fibonacci-Berechnung, Frontend-Ansicht mit Eingabefeld und Ergebnisanzeige, plus kurzer Test/Validierung.",
         "worker_bind_info": {
           "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
@@ -205,7 +205,7 @@
           "opened": true,
           "connected": true,
           "status_text": "Status: connected",
-          "buffer_excerpt": "ull, \"task_id\": \"goal-602634fe\"}\n{\"timestamp\": 1775385298.0252848, \"timestamp_iso\": \"2026-04-05T10:34:58.025294+00:00\", \"session_id\": \"ws-43b2a057-626d-4106-b823-0781dba6f2d7\", \"event\": \"session_close\", \"mode\": \"read\", \"principal\": \"admin\"}\n{\"timestamp\": 1775386585.2714894, \"timestamp_iso\": \"2026-04-05T10:56:25.271490+00:00\", \"session_id\": \"ws-a0b2df97-89e8-4b62-96ca-8208185b9929\", \"event\": \"session_open\", \"mode\": \"read\", \"principal\": \"admin\", \"forward_param\": null, \"remote_addr\": \"172.19.0.7\"}\n",
+          "buffer_excerpt": "ull, \"task_id\": \"goal-73e40d6b\"}\n{\"timestamp\": 1775386802.9995117, \"timestamp_iso\": \"2026-04-05T11:00:02.999521+00:00\", \"session_id\": \"ws-a0b2df97-89e8-4b62-96ca-8208185b9929\", \"event\": \"session_close\", \"mode\": \"read\", \"principal\": \"admin\"}\n{\"timestamp\": 1775386970.8115542, \"timestamp_iso\": \"2026-04-05T11:02:50.811555+00:00\", \"session_id\": \"ws-9a77a22f-9251-4cbb-98df-6315cee59908\", \"event\": \"session_open\", \"mode\": \"read\", \"principal\": \"admin\", \"forward_param\": null, \"remote_addr\": \"172.19.0.7\"}\n",
           "path": "/panel/alpha?tab=terminal&mode=read",
           "title": "Ananta - Agent Control"
         },
@@ -234,9 +234,23 @@
                 "provider": null,
                 "source": "unavailable",
                 "status": "blocked",
-                "task_id": "goal-7388cf89",
+                "task_id": "goal-69803054",
                 "task_kind": "template",
-                "title": "Tests schreiben",
+                "title": "Implementierung",
+                "tokens_total": 0
+              },
+              {
+                "available": false,
+                "cost_units": 0,
+                "latency_ms": null,
+                "model": null,
+                "pricing_source": null,
+                "provider": null,
+                "source": "unavailable",
+                "status": "blocked",
+                "task_id": "goal-bd2073c9",
+                "task_kind": "template",
+                "title": "Dokumentation",
                 "tokens_total": 0
               },
               {
@@ -248,7 +262,7 @@
                 "provider": null,
                 "source": "unavailable",
                 "status": "todo",
-                "task_id": "goal-7f329c63",
+                "task_id": "goal-911a3387",
                 "task_kind": "template",
                 "title": "Anforderungen definieren",
                 "tokens_total": 0
@@ -262,9 +276,9 @@
                 "provider": null,
                 "source": "unavailable",
                 "status": "blocked",
-                "task_id": "goal-5a02f39f",
+                "task_id": "goal-b649210f",
                 "task_kind": "template",
-                "title": "Dokumentation",
+                "title": "Tests schreiben",
                 "tokens_total": 0
               },
               {
@@ -276,23 +290,9 @@
                 "provider": null,
                 "source": "unavailable",
                 "status": "blocked",
-                "task_id": "goal-6aa31444",
+                "task_id": "goal-79fc84b3",
                 "task_kind": "template",
                 "title": "Design/Architektur",
-                "tokens_total": 0
-              },
-              {
-                "available": false,
-                "cost_units": 0,
-                "latency_ms": null,
-                "model": null,
-                "pricing_source": null,
-                "provider": null,
-                "source": "unavailable",
-                "status": "blocked",
-                "task_id": "goal-02c38f10",
-                "task_kind": "template",
-                "title": "Implementierung",
                 "tokens_total": 0
               }
             ],
@@ -339,13 +339,13 @@
           "issues": []
         },
         "operations_console": {
-          "opened": false,
-          "details_toggled": false,
-          "artifact_flow_visible": false,
-          "table_rows": 0,
+          "opened": true,
+          "details_toggled": true,
+          "artifact_flow_visible": true,
+          "table_rows": 40,
           "rag_label_present": false,
-          "page_excerpt": "Ananta - Agent Control\nadmin (admin)\nDunkel\nAbmelden\nBETRIEB\nDashboard\nAgenten\nBoard\nOperationen\nArtifacts\nArchiv\nGraph\nAUTOMATISIERUNG\nAuto-Planner\nWebhooks\nKONFIGURATION\nTemplates\nTeams\nAudit-Logs\nEinstellungen\n\ud83c\udfe0\n/\nOperations-console\nBereich: Operate | Route: /operations-console\n404\nSeite nicht gefunden\n\nDie angeforderte Seite existiert nicht oder wurde verschoben.\n\nHilfreiche Links:\n\ud83d\udcca\nDashboard\n\ud83d\udccb\nBoard\n\ud83e\udd16\nAgents\n\u2699\ufe0f\nSettings\nAI Assistant\n^",
-          "path": "/operations-console",
+          "page_excerpt": "Ananta - Agent Control\nadmin (admin)\nDunkel\nAbmelden\nBETRIEB\nDashboard\nAgenten\nBoard\nOperationen\nArtifacts\nArchiv\nGraph\nAUTOMATISIERUNG\nAuto-Planner\nWebhooks\nKONFIGURATION\nTemplates\nTeams\nAudit-Logs\nEinstellungen\n\ud83c\udfe0\n/\nOperations Console\nBereich: Operate | Route: /operations\nOperations Konsole\n\nZentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.\n\nAktualisieren\nHub: http://ai-agent-hub:5000 | Live Sync: idle\nOffen\n43\nZugewiesen\n0\nIn Bearbeitung\n0\nFehlgeschlagen\n202\nTask-Aufnahme\nTitle \nPriority \nSource \nDescription \nIn zentrale Queue einstellen\nAuto-Planner Aktivitaet\nKonfi",
+          "path": "/operations",
           "title": "Ananta - Agent Control"
         },
         "file_output_evidence": {
@@ -361,7 +361,7 @@
         "min_distinct_files": 3,
         "min_distinct_dirs": 2,
         "autopilot_ticks_requested": 12,
-        "autopilot_total_ms": 213843,
+        "autopilot_total_ms": 153615,
         "autopilot_start_payload": {
           "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
           "max_concurrency": 2,
@@ -370,17 +370,11 @@
         "autopilot_stop_before_status": 200,
         "autopilot_start_status": 200,
         "autopilot_stop_status": 200,
-        "workers_available_max": 0,
-        "workers_online_max": 0,
-        "no_worker_blocker": true,
+        "workers_available_max": 2,
+        "workers_online_max": 2,
+        "no_worker_blocker": false,
         "autopilot_tick_results": [
           {
-            "ok": false,
-            "error": "webdriver_async_error: HTTP Error 500: Internal Server Error",
-            "status": 0,
-            "path": "/tasks/autopilot/tick"
-          },
-          {
             "body": {
               "data": {
                 "budget_label": "",
@@ -394,12 +388,12 @@
                 },
                 "completed_count": 0,
                 "debug": {
-                  "candidate_count": 2,
+                  "candidate_count": 4,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
-                  "workers_available_count": 0,
-                  "workers_online_count": 0
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
+                  "workers_available_count": 2,
+                  "workers_online_count": 2
                 },
                 "dispatched": 0,
                 "dispatched_count": 9,
@@ -413,18 +407,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 426,
                 "goal": "",
                 "interval_seconds": 20,
-                "last_error": "no_available_workers",
-                "last_tick_at": 1775386783.6265433,
+                "last_error": null,
+                "last_tick_at": 1775387110.826551,
                 "max_concurrency": 2,
-                "reason": "no_available_workers",
+                "reason": "ok",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2464
+                "tick_count": 2481
               },
               "status": "success"
             },
@@ -448,8 +442,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -465,18 +459,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 426,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386784.9695294,
+                "last_tick_at": 1775387112.1638694,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2465
+                "tick_count": 2482
               },
               "status": "success"
             },
@@ -500,8 +494,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -517,18 +511,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386789.7980158,
+                "last_tick_at": 1775387113.4951637,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2466
+                "tick_count": 2484
               },
               "status": "success"
             },
@@ -552,8 +546,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -569,18 +563,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386791.1418805,
+                "last_tick_at": 1775387115.0298915,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2467
+                "tick_count": 2485
               },
               "status": "success"
             },
@@ -604,8 +598,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -621,18 +615,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386792.4902165,
+                "last_tick_at": 1775387116.372131,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2468
+                "tick_count": 2486
               },
               "status": "success"
             },
@@ -656,8 +650,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -673,18 +667,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386793.8357403,
+                "last_tick_at": 1775387117.722911,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2469
+                "tick_count": 2487
               },
               "status": "success"
             },
@@ -708,8 +702,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -725,18 +719,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 418,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386795.3524415,
+                "last_tick_at": 1775387119.245161,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2470
+                "tick_count": 2488
               },
               "status": "success"
             },
@@ -760,8 +754,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -777,18 +771,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 419,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386796.693715,
+                "last_tick_at": 1775387120.5768683,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2472
+                "tick_count": 2489
               },
               "status": "success"
             },
@@ -812,8 +806,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -829,18 +823,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 419,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386798.0293622,
+                "last_tick_at": 1775387121.9203086,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2473
+                "tick_count": 2490
               },
               "status": "success"
             },
@@ -864,8 +858,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -881,18 +875,18 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 420,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386799.5299578,
+                "last_tick_at": 1775387123.2701688,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2475
+                "tick_count": 2491
               },
               "status": "success"
             },
@@ -916,8 +910,8 @@
                 "debug": {
                   "candidate_count": 2,
                   "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
-                  "total_tasks_scoped": 300,
-                  "total_tasks_unfiltered": 346,
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
                   "workers_available_count": 0,
                   "workers_online_count": 0
                 },
@@ -933,18 +927,70 @@
                   "level": "balanced",
                   "max_concurrency_cap": 2
                 },
-                "failed_count": 420,
+                "failed_count": 427,
                 "goal": "",
                 "interval_seconds": 20,
                 "last_error": "no_available_workers",
-                "last_tick_at": 1775386800.85078,
+                "last_tick_at": 1775387124.773106,
                 "max_concurrency": 2,
                 "reason": "no_available_workers",
                 "running": true,
                 "security_level": "balanced",
-                "started_at": 1775386588.2084916,
+                "started_at": 1775386973.712732,
                 "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
-                "tick_count": 2476
+                "tick_count": 2492
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0,
+                    "http://ai-agent-beta:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 2,
+                  "team_id_scope": "8672313b-42af-41fb-9801-bdeb992e3827",
+                  "total_tasks_scoped": 305,
+                  "total_tasks_unfiltered": 351,
+                  "workers_available_count": 0,
+                  "workers_online_count": 0
+                },
+                "dispatched": 0,
+                "dispatched_count": 9,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 427,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": "no_available_workers",
+                "last_tick_at": 1775387126.1251967,
+                "max_concurrency": 2,
+                "reason": "no_available_workers",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775386973.712732,
+                "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+                "tick_count": 2493
               },
               "status": "success"
             },
@@ -969,20 +1015,20 @@
           "task_kind": "coding",
           "success": false,
           "quality_gate_passed": false,
-          "latency_ms": 213843,
+          "latency_ms": 153615,
           "tokens_total": 0
         },
         "benchmark_record_status": 200,
         "benchmark_model_key": "ollama:lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
         "benchmark_focus": {
           "avg_cost_units": 0,
-          "avg_latency_ms": 59569.27,
+          "avg_latency_ms": 62044.16,
           "avg_tokens": 0,
           "cost_units_total": 0,
           "quality_rate": 0,
           "success_rate": 0,
           "suitability_score": 10,
-          "total": 37
+          "total": 38
         },
         "task_status_after": {
           "total": 5,
@@ -990,7 +1036,7 @@
           "failed": 0,
           "open": 5
         },
-        "path": "/operations-console",
+        "path": "/operations",
         "title": "Ananta - Agent Control"
       }
     }
@@ -1006,7 +1052,7 @@
       "message": "Benchmark phase failed"
     }
   ],
-  "session_id": "9657b5fe-0e60-4d68-8167-8618d7cc8cee",
-  "last_goal_id": "683da8dc-ced2-4da1-855a-d9fd56ffe201",
-  "ended_at": "2026-04-05T11:01:00.611835+00:00"
+  "session_id": "29b98961-b505-40e6-8b42-8cafe6eb5cb0",
+  "last_goal_id": "3175e287-e56a-4890-b5b9-2c383ecdb92a",
+  "ended_at": "2026-04-05T11:05:31.761820+00:00"
 }
