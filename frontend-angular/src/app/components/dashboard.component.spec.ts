@@ -34,6 +34,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.llmEffectiveRuntime = null;
     cmp.hubCopilotStatus = null;
     cmp.contextPolicyStatus = null;
+    cmp.artifactFlowStatus = null;
     cmp.researchBackendStatus = null;
     cmp.runtimeTelemetry = null;
     cmp.goalsList = [];
@@ -117,6 +118,7 @@ describe('DashboardComponent (benchmarks)', () => {
           },
           hub_copilot: { enabled: true, active: true, strategy_mode: 'planning_and_routing' },
           context_bundle_policy: { effective: { mode: 'standard', compact_max_chunks: 2, standard_max_chunks: 12 } },
+          artifact_flow: { effective: { enabled: true, rag_enabled: true, rag_top_k: 4 } },
           research_backend: {
             provider: 'deerflow',
             enabled: true,
@@ -150,6 +152,7 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.llmEffectiveRuntime?.benchmark_applied).toBe(true);
     expect(cmp.hubCopilotStatus?.active).toBe(true);
     expect(cmp.contextPolicyStatus?.effective?.mode).toBe('standard');
+    expect(cmp.artifactFlowStatus?.effective?.rag_top_k).toBe(4);
     expect(cmp.researchBackendStatus?.provider).toBe('deerflow');
     expect(cmp.researchBackendProviderEntries()).toHaveLength(2);
     expect(cmp.stats.tasks.total).toBe(2);

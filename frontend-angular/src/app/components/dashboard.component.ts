@@ -312,6 +312,13 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               </div>
             </div>
             <div class="card card-light">
+              <div class="muted">Artifact Flow</div>
+              <strong>{{ artifactFlowStatus?.effective?.enabled ? 'enabled' : 'disabled' }}</strong>
+              <div class="muted status-text-sm-alt">
+                RAG: {{ artifactFlowStatus?.effective?.rag_enabled ? 'on' : 'off' }} · Top-K: {{ artifactFlowStatus?.effective?.rag_top_k || '-' }}
+              </div>
+            </div>
+            <div class="card card-light">
               <div class="muted">Effektive Runtime ohne Override</div>
               <strong>{{ llmEffectiveRuntime?.provider || '-' }} / {{ llmEffectiveRuntime?.model || '-' }}</strong>
               <div class="muted status-text-sm-alt">
@@ -838,6 +845,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   llmEffectiveRuntime: any = null;
   hubCopilotStatus: any = null;
   contextPolicyStatus: any = null;
+  artifactFlowStatus: any = null;
   researchBackendStatus: any = null;
   runtimeTelemetry: any = null;
   goalsList: any[] = [];
@@ -937,6 +945,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.llmEffectiveRuntime = rm?.llm_configuration?.effective_runtime || null;
         this.hubCopilotStatus = rm?.llm_configuration?.hub_copilot || null;
         this.contextPolicyStatus = rm?.llm_configuration?.context_bundle_policy || null;
+        this.artifactFlowStatus = rm?.llm_configuration?.artifact_flow || null;
         this.researchBackendStatus = rm?.llm_configuration?.research_backend || null;
         this.runtimeTelemetry = rm?.llm_configuration?.runtime_telemetry || null;
         this.activeTeam = this.teamsList.find(t => t.is_active);

@@ -1142,10 +1142,19 @@ class TaskScopedExecutionService:
         if repair_backend not in SUPPORTED_CLI_BACKENDS:
             repair_backend = "sgpt"
         repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
-        candidates: list[tuple[str, str | None, float | None]] = [
-            (first_backend, first_model, self._normalize_temperature(primary_temperature)),
-            (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
-        ]
+        timeout_like_failure = self._is_timeout_like_repair_failure(
+            validation_error=validation_error,
+            bad_output=bad_output,
+        )
+        if timeout_like_failure:
+            candidates: list[tuple[str, str | None, float | None]] = [
+                (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
+            ]
+        else:
+            candidates = [
+                (first_backend, first_model, self._normalize_temperature(primary_temperature)),
+                (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
+            ]
         deduped: list[tuple[str, str | None, float | None]] = []
         seen: set[tuple[str, str, str]] = set()
         for backend_name, model_name, temperature in candidates:
@@ -1188,6 +1197,16 @@ class TaskScopedExecutionService:
                 "rc": rc,
             }
         return None
+
+    @staticmethod
+    def _is_timeout_like_repair_failure(*, validation_error: str, bad_output: str) -> bool:
+        error_marker = str(validation_error or "").strip().lower()
+        output_marker = str(bad_output or "").strip().lower()
+        if error_marker in {"empty_or_failed_cli_response", "empty_cli_response"}:
+            if not output_marker:
+                return True
+            return "timeout" in output_marker or "timed out" in output_marker
+        return "timeout" in output_marker or "timed out" in output_marker
 
     @staticmethod
     def _build_repair_prompt(*, prompt: str, bad_output: str, validation_error: str) -> str:

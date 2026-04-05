@@ -80,6 +80,23 @@ export function normalizeContextBundlePolicyConfigValue(value: any): any {
   };
 }
 
+export function normalizeArtifactFlowConfigValue(value: any): any {
+  const raw = value && typeof value === 'object' ? value : {};
+  const ragTopK = Number(raw.rag_top_k);
+  const maxTasks = Number(raw.max_tasks);
+  const maxWorkerJobsPerTask = Number(raw.max_worker_jobs_per_task);
+  return {
+    enabled: raw.enabled !== false,
+    rag_enabled: raw.rag_enabled !== false,
+    rag_top_k: Number.isFinite(ragTopK) ? Math.max(1, Math.min(20, ragTopK)) : 3,
+    rag_include_content: raw.rag_include_content === true,
+    max_tasks: Number.isFinite(maxTasks) ? Math.max(1, Math.min(200, maxTasks)) : 30,
+    max_worker_jobs_per_task: Number.isFinite(maxWorkerJobsPerTask)
+      ? Math.max(1, Math.min(20, maxWorkerJobsPerTask))
+      : 5,
+  };
+}
+
 export function normalizeResearchBackendConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const provider = ['deerflow', 'ananta_research'].includes(String(raw.provider || '').trim().toLowerCase())
@@ -115,6 +132,7 @@ function createDefaultSettingsConfig(): any {
   return {
     hub_copilot: normalizeHubCopilotConfigValue(undefined),
     context_bundle_policy: normalizeContextBundlePolicyConfigValue(undefined),
+    artifact_flow: normalizeArtifactFlowConfigValue(undefined),
     research_backend: normalizeResearchBackendConfigValue(undefined),
     codex_cli: { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true },
     cli_session_mode: { enabled: false, stateful_backends: [] },
@@ -368,6 +386,43 @@ function createDefaultSettingsConfig(): any {
               <div class="muted">Effektive Chunk-Grenze</div>
               <div>{{ getEffectiveContextBundlePolicy().max_chunks ?? 'unbegrenzt / Vollkontext' }}</div>
             </div>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Artifact Flow & RAG</h3>
+          <p class="muted">Konfiguriert Nachvollziehbarkeit und optionale RAG-Anreicherung fuer den Artefakt-Fluss im Orchestrierungs-Read-Model.</p>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.artifact_flow.enabled" />
+            Artifact-Flow Read-Model aktivieren
+          </label>
+          <label class="row gap-sm mt-sm">
+            <input type="checkbox" [(ngModel)]="config.artifact_flow.rag_enabled" [disabled]="!config.artifact_flow.enabled" />
+            Direkte RAG-Anreicherung aktivieren
+          </label>
+          <label class="row gap-sm mt-sm">
+            <input type="checkbox" [(ngModel)]="config.artifact_flow.rag_include_content" [disabled]="!config.artifact_flow.enabled || !config.artifact_flow.rag_enabled" />
+            RAG-Content im Read-Model anzeigen
+          </label>
+          <div class="grid cols-2 mt-lg">
+            <label>RAG Top-K
+              <input type="number" min="1" max="20" [(ngModel)]="config.artifact_flow.rag_top_k" [disabled]="!config.artifact_flow.enabled || !config.artifact_flow.rag_enabled" />
+            </label>
+            <label>Max Tasks im Flow
+              <input type="number" min="1" max="200" [(ngModel)]="config.artifact_flow.max_tasks" [disabled]="!config.artifact_flow.enabled" />
+            </label>
+            <label>Max Worker-Jobs je Task
+              <input type="number" min="1" max="20" [(ngModel)]="config.artifact_flow.max_worker_jobs_per_task" [disabled]="!config.artifact_flow.enabled" />
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Effektiv: {{ config.artifact_flow.enabled ? 'enabled' : 'disabled' }}
+            · RAG: {{ config.artifact_flow.rag_enabled ? 'on' : 'off' }}
+            · Top-K: {{ config.artifact_flow.rag_top_k }}
+            · Max Tasks: {{ config.artifact_flow.max_tasks }}
+            · Max Jobs/Task: {{ config.artifact_flow.max_worker_jobs_per_task }}
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
@@ -869,6 +924,7 @@ export class SettingsComponent implements OnInit {
           ...(cfg && typeof cfg === 'object' ? cfg : {}),
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
           context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
+          artifact_flow: normalizeArtifactFlowConfigValue(cfg?.artifact_flow),
           research_backend: normalizeResearchBackendConfigValue(cfg?.research_backend),
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
@@ -1026,6 +1082,7 @@ export class SettingsComponent implements OnInit {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
       context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
+      artifact_flow: normalizeArtifactFlowConfigValue(this.config?.artifact_flow),
       research_backend: normalizeResearchBackendConfigValue(this.config?.research_backend),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {

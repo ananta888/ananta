@@ -100,6 +100,23 @@ describe('SettingsComponent (benchmark config)', () => {
     };
   }
 
+  function normalizeArtifactFlow(config: any): any {
+    const raw = config && typeof config === 'object' ? config : {};
+    const ragTopK = Number(raw.rag_top_k);
+    const maxTasks = Number(raw.max_tasks);
+    const maxWorkerJobsPerTask = Number(raw.max_worker_jobs_per_task);
+    return {
+      enabled: raw.enabled !== false,
+      rag_enabled: raw.rag_enabled !== false,
+      rag_top_k: Number.isFinite(ragTopK) ? Math.max(1, Math.min(20, ragTopK)) : 3,
+      rag_include_content: raw.rag_include_content === true,
+      max_tasks: Number.isFinite(maxTasks) ? Math.max(1, Math.min(200, maxTasks)) : 30,
+      max_worker_jobs_per_task: Number.isFinite(maxWorkerJobsPerTask)
+        ? Math.max(1, Math.min(20, maxWorkerJobsPerTask))
+        : 5,
+    };
+  }
+
   function resolveContextBundlePolicy(config: any): any {
     const normalized = normalizeContextBundlePolicy(config?.context_bundle_policy);
     if (normalized.mode === 'compact') {
@@ -443,6 +460,67 @@ describe('SettingsComponent (benchmark config)', () => {
       include_context_text: true,
       max_chunks: 12,
     });
+  });
+
+  it('normalizes artifact flow config with bounds and defaults', () => {
+    const cmp = createComponent() as any;
+    cmp.config = {
+      artifact_flow: {
+        enabled: true,
+        rag_enabled: true,
+        rag_top_k: 0,
+        rag_include_content: true,
+        max_tasks: 9999,
+        max_worker_jobs_per_task: -2,
+      },
+    };
+
+    cmp.config.artifact_flow = normalizeArtifactFlow(cmp.config.artifact_flow);
+
+    expect(cmp.config.artifact_flow).toEqual({
+      enabled: true,
+      rag_enabled: true,
+      rag_top_k: 1,
+      rag_include_content: true,
+      max_tasks: 200,
+      max_worker_jobs_per_task: 1,
+    });
+  });
+
+  it('normalizes artifact flow values before saving', () => {
+    const cmp = createComponent() as any;
+    cmp.config = {
+      default_provider: 'lmstudio',
+      hub_copilot: { enabled: false, provider: '', model: '', base_url: '', temperature: 0.2, strategy_mode: 'planning_only' },
+      context_bundle_policy: { mode: 'full', compact_max_chunks: 3, standard_max_chunks: 8 },
+      artifact_flow: {
+        enabled: true,
+        rag_enabled: true,
+        rag_top_k: 999,
+        rag_include_content: false,
+        max_tasks: 0,
+        max_worker_jobs_per_task: 999,
+      },
+      research_backend: { provider: 'deerflow', enabled: false, mode: 'cli', command: '', timeout_seconds: 900, result_format: 'markdown' },
+      codex_cli: { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true },
+      local_openai_backends: [],
+    };
+
+    cmp.save();
+
+    expect(systemMock.setConfig).toHaveBeenCalledWith(
+      'http://hub:5000',
+      expect.objectContaining({
+        artifact_flow: {
+          enabled: true,
+          rag_enabled: true,
+          rag_top_k: 20,
+          rag_include_content: false,
+          max_tasks: 1,
+          max_worker_jobs_per_task: 20,
+        },
+      }),
+    );
   });
 
   it('resolves codex target provider via configured local backend', () => {
