@@ -51,6 +51,7 @@ def build_worker_execution_config(
     *,
     default_provider: str,
     default_model: str,
+    planner_model: str | None,
     execution_backend: str,
     repair_backend: str,
     repair_model: str,
@@ -59,19 +60,20 @@ def build_worker_execution_config(
 ) -> dict[str, Any]:
     routed_task_kinds = ("analysis", "coding", "doc", "ops")
     llm_base_url = _provider_base_url(default_provider)
+    effective_planner_model = str(planner_model or default_model).strip() or default_model
     return {
         "default_provider": default_provider,
         "default_model": default_model,
         "llm_config": {
             "provider": default_provider,
-            "model": default_model,
+            "model": effective_planner_model,
             "base_url": llm_base_url,
             "lmstudio_api_mode": "chat",
         },
         "hub_copilot": {
             "enabled": True,
             "provider": default_provider,
-            "model": default_model,
+            "model": effective_planner_model,
             "base_url": llm_base_url,
             "strategy_mode": "planning_and_routing",
         },
@@ -315,6 +317,10 @@ def main() -> int:
         default="lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
     )
     parser.add_argument(
+        "--planner-model",
+        default="mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6:latest",
+    )
+    parser.add_argument(
         "--mixed-planning-model",
         default="lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
     )
@@ -367,6 +373,7 @@ def main() -> int:
     single_cfg_payload = build_worker_execution_config(
         default_provider="ollama",
         default_model=args.single_model,
+        planner_model=args.planner_model,
         execution_backend=args.execution_backend,
         repair_backend=args.repair_backend,
         repair_model=args.repair_model,
@@ -399,6 +406,7 @@ def main() -> int:
     mixed_cfg_payload = build_worker_execution_config(
         default_provider="ollama",
         default_model=args.mixed_planning_model,
+        planner_model=args.planner_model,
         execution_backend=args.execution_backend,
         repair_backend=args.repair_backend,
         repair_model=args.repair_model,
