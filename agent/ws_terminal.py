@@ -296,7 +296,7 @@ def register_ws_terminal(app: Any) -> None:
                 )
             return
 
-        bridge = _build_terminal_bridge(_safe_shell())
+        bridge = build_terminal_bridge(_safe_shell())
         try:
             bridge.start()
         except RuntimeError as exc:
