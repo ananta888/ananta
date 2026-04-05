@@ -78,6 +78,18 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     return {"tool_mode": tool_mode}
 
 
+def normalize_model_override_map(value: dict | None) -> dict[str, str]:
+    payload = value if isinstance(value, dict) else {}
+    normalized: dict[str, str] = {}
+    for key, model in payload.items():
+        normalized_key = str(key or "").strip().lower()
+        normalized_model = str(model or "").strip()
+        if not normalized_key or not normalized_model:
+            continue
+        normalized[normalized_key] = normalized_model
+    return normalized
+
+
 def opencode_runtime_settings_summary(cfg: dict) -> dict:
     requested = normalize_opencode_runtime_config((cfg or {}).get("opencode_runtime") if isinstance(cfg, dict) else {})
     return {

@@ -139,6 +139,7 @@ Linting:
 ## Weiterfuehrende Dokumentation
 - `docs/INSTALL_TEST_BETRIEB.md`
 - `docs/local-llm-cli-strategy.md`
+- `docs/ollama-model-routing.md`
 - `docs/deerflow-integration.md`
 - `docs/testing.md`
 - `README_VERGLEICHSPROJEKTE.md`

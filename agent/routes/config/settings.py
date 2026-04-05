@@ -143,6 +143,13 @@ def set_config():
         workspace_root = worker_runtime_cfg.get("workspace_root")
         workspace_root = str(workspace_root).strip() if workspace_root is not None else None
         new_cfg["worker_runtime"] = {"workspace_root": workspace_root or None}
+    for key in ("role_model_overrides", "template_model_overrides", "task_kind_model_overrides"):
+        if key not in new_cfg:
+            continue
+        override_cfg = new_cfg.get(key)
+        if not isinstance(override_cfg, dict):
+            return api_response(status="error", message=f"invalid_{key}", code=400)
+        new_cfg[key] = shared.normalize_model_override_map(override_cfg)
     for key in ("llm_config", "research_backend", "opencode_runtime", "worker_runtime"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):
