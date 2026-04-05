@@ -61,7 +61,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
-      E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-AnantaAdminPassword123!}
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
