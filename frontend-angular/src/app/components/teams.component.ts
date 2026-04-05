@@ -1070,13 +1070,18 @@ export class TeamsComponent implements OnInit {
       invalid_role_for_team_type: data.role_id ? `Rolle nicht erlaubt: ${data.role_id}` : 'Rolle nicht fuer Team-Typ erlaubt.',
       template_not_found: data.template_id ? `Template nicht gefunden: ${data.template_id}` : 'Template nicht gefunden.',
       role_id_required: 'Rollen-ID erforderlich.',
+      blueprint_in_use: data.team_count ? `Blueprint wird noch von ${data.team_count} Team(s) verwendet.` : 'Blueprint wird noch verwendet.',
       blueprint_name_exists: 'Ein Blueprint mit diesem Namen existiert bereits.',
       blueprint_name_required: 'Blueprint-Name ist erforderlich.',
       blueprint_role_not_found: data.blueprint_role_id ? `Blueprint-Rolle nicht gefunden: ${data.blueprint_role_id}` : 'Blueprint-Rolle nicht gefunden.',
       duplicate_blueprint_role_name: data.role_name ? `Blueprint-Rolle doppelt: ${data.role_name}` : 'Blueprint-Rollen muessen eindeutig sein.',
+      duplicate_blueprint_role_sort_order: data.sort_order ? `Blueprint-Rollen-Sortierung doppelt: ${data.sort_order}` : 'Blueprint-Rollen-Sortierungen muessen eindeutig sein.',
       blueprint_role_name_required: 'Jede Blueprint-Rolle benoetigt einen Namen.',
+      duplicate_blueprint_artifact_title: data.title ? `Blueprint-Artefakt doppelt: ${data.title}` : 'Blueprint-Artefakt-Titel muessen eindeutig sein.',
+      duplicate_blueprint_artifact_sort_order: data.sort_order ? `Blueprint-Artefakt-Sortierung doppelt: ${data.sort_order}` : 'Blueprint-Artefakt-Sortierungen muessen eindeutig sein.',
       blueprint_artifact_title_required: 'Jedes Blueprint-Artefakt benoetigt einen Titel.',
       blueprint_artifact_kind_required: 'Jedes Blueprint-Artefakt benoetigt einen Typ.',
+      blueprint_artifact_kind_invalid: data.kind ? `Blueprint-Artefakt-Typ ungueltig: ${data.kind}` : 'Blueprint-Artefakt-Typ ungueltig.',
     };
     if (message && hints[message]) {
       this.ns.error(hints[message]);

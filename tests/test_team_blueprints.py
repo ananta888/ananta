@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
+from agent.repository import audit_repo
 
 
 def _login_admin(client):
@@ -427,6 +428,59 @@ def test_seed_blueprints_reconcile_drift_and_preserve_ids(client):
     assert all(artifact["title"] != "Temporary Drift Artifact" for artifact in scrum_blueprint["artifacts"])
 
 
+def test_seed_blueprint_reconcile_keeps_instantiation_contract(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    assert blueprints_response.status_code == 200
+    scrum_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum")
+    developer_role = next(role for role in scrum_blueprint["roles"] if role["name"] == "Developer")
+
+    with Session(engine) as session:
+        persisted_role = session.get(BlueprintRoleDB, developer_role["id"])
+        persisted_role.description = "temporary drift"
+        session.add(
+            BlueprintArtifactDB(
+                blueprint_id=scrum_blueprint["id"],
+                kind="task",
+                title="Drift Artifact",
+                description="should be removed before instantiate",
+                sort_order=95,
+                payload={"status": "todo"},
+            )
+        )
+        session.commit()
+
+    reconcile_response = client.get("/teams/blueprints", headers=auth_header)
+    assert reconcile_response.status_code == 200
+    reconciled_scrum = next(blueprint for blueprint in reconcile_response.json["data"] if blueprint["name"] == "Scrum")
+    reconciled_developer = next(role for role in reconciled_scrum["roles"] if role["name"] == "Developer")
+    assert reconciled_developer["id"] == developer_role["id"]
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{reconciled_scrum['id']}/instantiate",
+        json={
+            "name": "Reconciled Scrum Team",
+            "activate": False,
+            "members": [{"agent_url": "http://worker-dev", "blueprint_role_id": reconciled_developer["id"]}],
+        },
+        headers=auth_header,
+    )
+    assert instantiate_response.status_code == 201
+    team = instantiate_response.json["data"]["team"]
+    assert team["blueprint_snapshot"]["name"] == "Scrum"
+    assert all(artifact["title"] != "Drift Artifact" for artifact in (team["blueprint_snapshot"].get("artifacts") or []))
+
+    with Session(engine) as session:
+        persisted_members = session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team["id"])).all()
+        persisted_tasks = session.exec(select(TaskDB).where(TaskDB.team_id == team["id"])).all()
+
+    assert len(persisted_members) == 1
+    assert persisted_members[0].blueprint_role_id == reconciled_developer["id"]
+    assert any(task.title == "Reconciled Scrum Team: Scrum Backlog" for task in persisted_tasks)
+
+
 def test_blueprint_update_preserves_existing_child_ids(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
@@ -477,6 +531,93 @@ def test_blueprint_update_preserves_existing_child_ids(client):
     assert kickoff_artifact_after["description"] == "updated"
     assert reviewer_role["id"] != developer_role["id"]
     assert dod_artifact["id"] != kickoff_artifact["id"]
+
+
+def test_blueprint_audit_log_contains_child_change_sets(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    create_response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Audit Blueprint",
+            "description": "audit create",
+            "roles": [{"name": "Developer", "description": "initial", "sort_order": 10, "is_required": True, "config": {}}],
+            "artifacts": [{"kind": "task", "title": "Kickoff", "description": "initial", "sort_order": 10, "payload": {"status": "todo"}}],
+        },
+        headers=auth_header,
+    )
+    assert create_response.status_code == 201
+    blueprint = create_response.json["data"]
+
+    create_log = next(log for log in audit_repo.get_all(limit=50) if log.action == "team_blueprint_created" and log.details.get("blueprint_id") == blueprint["id"])
+    assert create_log.details["changes"]["blueprint_fields"] == ["name", "description", "base_team_type_name", "is_seed"]
+    assert create_log.details["changes"]["roles"]["created"] == [{"name": "Developer"}]
+    assert create_log.details["changes"]["artifacts"]["created"] == [{"title": "Kickoff", "kind": "task"}]
+
+    update_response = client.patch(
+        f"/teams/blueprints/{blueprint['id']}",
+        json={
+            "description": "audit update",
+            "roles": [{"name": "Developer", "description": "updated", "sort_order": 10, "is_required": True, "config": {"focus": "build"}}],
+            "artifacts": [{"kind": "task", "title": "Kickoff", "description": "updated", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}}],
+        },
+        headers=auth_header,
+    )
+    assert update_response.status_code == 200
+
+    update_log = next(log for log in audit_repo.get_all(limit=50) if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == blueprint["id"])
+    assert update_log.details["changes"]["blueprint_fields"] == ["description"]
+    assert update_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description", "config"]}]
+    assert update_log.details["changes"]["artifacts"]["updated"] == [{"title": "Kickoff", "fields": ["description", "payload"]}]
+
+
+def test_seed_reconcile_writes_audit_diff(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    assert blueprints_response.status_code == 200
+    scrum_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum")
+    developer_role = next(role for role in scrum_blueprint["roles"] if role["name"] == "Developer")
+    backlog_artifact = next(artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog")
+
+    with Session(engine) as session:
+        persisted_role = session.get(BlueprintRoleDB, developer_role["id"])
+        persisted_artifact = session.get(BlueprintArtifactDB, backlog_artifact["id"])
+        persisted_role.description = "drift"
+        persisted_artifact.description = "drift"
+        session.add(
+            BlueprintRoleDB(
+                blueprint_id=scrum_blueprint["id"],
+                name="Audit Drift Role",
+                description="remove me",
+                sort_order=90,
+                is_required=False,
+                config={},
+            )
+        )
+        session.add(
+            BlueprintArtifactDB(
+                blueprint_id=scrum_blueprint["id"],
+                kind="task",
+                title="Audit Drift Artifact",
+                description="remove me",
+                sort_order=90,
+                payload={},
+            )
+        )
+        session.commit()
+
+    reconcile_response = client.get("/teams/blueprints", headers=auth_header)
+    assert reconcile_response.status_code == 200
+
+    reconcile_log = next(log for log in audit_repo.get_all(limit=100) if log.action == "team_blueprint_reconciled" and log.details.get("blueprint_id") == scrum_blueprint["id"])
+    assert reconcile_log.details["source"] == "seed_sync"
+    assert reconcile_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description"]}]
+    assert reconcile_log.details["changes"]["roles"]["deleted"] == [{"name": "Audit Drift Role"}]
+    assert reconcile_log.details["changes"]["artifacts"]["updated"] == [{"title": "Scrum Backlog", "fields": ["description"]}]
+    assert reconcile_log.details["changes"]["artifacts"]["deleted"] == [{"title": "Audit Drift Artifact", "kind": "task"}]
 
 
 def test_blueprint_constraints_block_duplicate_rows_on_db_level():

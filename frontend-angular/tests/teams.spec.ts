@@ -107,4 +107,67 @@ test.describe('Teams CRUD', () => {
     const res = await request.delete(`${hubUrl}/teams/${missingId}`, { headers });
     expect(res.status()).toBe(404);
   });
+
+  test('blueprint editor shows validation errors and can instantiate a custom blueprint', async ({ page, request }) => {
+    await login(page);
+    await page.goto('/teams');
+    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    const blueprintName = `UI Blueprint ${Date.now()}`;
+    const teamName = `${blueprintName} Team`;
+    let createdBlueprintId: string | undefined;
+    let createdTeamId: string | undefined;
+
+    try {
+      await page.getByRole('button', { name: /^Blueprints$/i }).click();
+      await page.getByRole('button', { name: /^Neu$/i }).click();
+      await page.getByLabel('Name').fill(blueprintName);
+
+      await page.getByRole('button', { name: /^Rolle hinzufuegen$/i }).click();
+      await page.getByRole('button', { name: /^Rolle hinzufuegen$/i }).click();
+      await page.getByLabel('Rollenname').nth(0).fill('Engineer');
+      await page.getByLabel('Rollenname').nth(1).fill('Reviewer');
+      await page.getByLabel('Sortierung').nth(0).fill('10');
+      await page.getByLabel('Sortierung').nth(1).fill('10');
+      await page.getByRole('button', { name: /^Erstellen$/i }).click();
+
+      await expect(page.locator('.notification.error .notification-message')).toHaveText(/Blueprint-Rollen-Sortierung doppelt: 10/i);
+
+      await page.getByLabel('Sortierung').nth(1).fill('20');
+      await page.getByRole('button', { name: /^Erstellen$/i }).click();
+      await expect(page.locator('.notification.success .notification-message')).toHaveText(/Blueprint erstellt/i);
+
+      const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers });
+      expect(blueprintsRes.ok()).toBeTruthy();
+      const blueprintsBody = await blueprintsRes.json();
+      const blueprints = Array.isArray(blueprintsBody) ? blueprintsBody : (blueprintsBody?.data || []);
+      const createdBlueprint = blueprints.find((blueprint: any) => blueprint.name === blueprintName);
+      expect(createdBlueprint).toBeTruthy();
+      createdBlueprintId = createdBlueprint.id;
+
+      await page.getByRole('button', { name: /^Fuer Team-Erstellung uebernehmen$/i }).click();
+      await expect(page.getByRole('heading', { name: /^Team aus Blueprint erstellen$/i })).toBeVisible();
+      await page.getByLabel('Teamname').fill(teamName);
+      await page.getByRole('button', { name: /^Team erstellen$/i }).click();
+      await expect(page.locator('.notification.success .notification-message')).toHaveText(/Team aus Blueprint erstellt/i);
+
+      const teamsRes = await request.get(`${hubUrl}/teams`, { headers });
+      expect(teamsRes.ok()).toBeTruthy();
+      const teamsBody = await teamsRes.json();
+      const teams = Array.isArray(teamsBody) ? teamsBody : (teamsBody?.data || []);
+      const createdTeam = teams.find((team: any) => team.name === teamName);
+      expect(createdTeam).toBeTruthy();
+      expect(createdTeam.blueprint_id).toBe(createdBlueprintId);
+      createdTeamId = createdTeam.id;
+    } finally {
+      if (createdTeamId) {
+        await request.delete(`${hubUrl}/teams/${createdTeamId}`, { headers });
+      }
+      if (createdBlueprintId) {
+        await request.delete(`${hubUrl}/teams/blueprints/${createdBlueprintId}`, { headers });
+      }
+    }
+  });
 });

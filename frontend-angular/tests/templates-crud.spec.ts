@@ -112,4 +112,34 @@ test.describe('Templates CRUD', () => {
     const templates = Array.isArray(templatesResponse) ? templatesResponse : (templatesResponse?.data || []);
     expect(templates.find((t: any) => t.id === tpl.id)).toBeFalsy();
   });
+
+  test('template editor surfaces strict variable validation errors', async ({ page, request }) => {
+    await login(page);
+    await page.goto('/templates');
+    await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
+
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    const name = `UI Strict Template ${Date.now()}`;
+
+    try {
+      const strictRes = await request.post(`${hubUrl}/config`, {
+        headers,
+        data: { template_variable_validation: { strict: true } }
+      });
+      expect(strictRes.ok()).toBeTruthy();
+
+      await page.getByLabel('Name').fill(name);
+      await page.getByLabel('Prompt Template').fill('Hallo {{agent_name}} und {{unknown_variable}}');
+      await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
+
+      await expect(page.locator('.notification.error .notification-message')).toHaveText(/Unbekannte Variablen: unknown_variable/i);
+      await expect(page.locator('.unknown-vars')).toContainText('unknown_variable');
+    } finally {
+      await request.post(`${hubUrl}/config`, {
+        headers,
+        data: { template_variable_validation: { strict: false } }
+      });
+    }
+  });
 });

@@ -80,3 +80,67 @@ def test_template_update_rejects_unknown_variables_in_strict_mode(client):
 
     assert response.status_code == 400
     assert response.json["message"] == "unknown_template_variables"
+
+
+def test_template_create_rejects_duplicate_name(client):
+    admin_token = _login_admin(client)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    create_response = client.post(
+        "/templates",
+        json={
+            "name": "Duplicate Template",
+            "description": "first",
+            "prompt_template": "Hallo {{agent_name}}",
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+
+    duplicate_response = client.post(
+        "/templates",
+        json={
+            "name": "  Duplicate Template  ",
+            "description": "second",
+            "prompt_template": "Hallo {{agent_name}}",
+        },
+        headers=headers,
+    )
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json["message"] == "template_name_exists"
+    assert duplicate_response.json["data"]["name"] == "Duplicate Template"
+
+
+def test_template_update_rejects_duplicate_name(client):
+    admin_token = _login_admin(client)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    first_response = client.post(
+        "/templates",
+        json={
+            "name": "First Template",
+            "description": "first",
+            "prompt_template": "Hallo {{agent_name}}",
+        },
+        headers=headers,
+    )
+    second_response = client.post(
+        "/templates",
+        json={
+            "name": "Second Template",
+            "description": "second",
+            "prompt_template": "Hallo {{agent_name}}",
+        },
+        headers=headers,
+    )
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+
+    response = client.patch(
+        f"/templates/{second_response.json['data']['id']}",
+        json={"name": " First Template "},
+        headers=headers,
+    )
+    assert response.status_code == 409
+    assert response.json["message"] == "template_name_exists"
+    assert response.json["data"]["name"] == "First Template"

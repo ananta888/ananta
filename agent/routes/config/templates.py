@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from flask import Blueprint, current_app, g, request
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.auth import admin_required, check_auth
@@ -106,12 +107,21 @@ def list_templates():
 @validate_request(TemplateCreateRequest)
 def create_template():
     data: TemplateCreateRequest = g.validated_data
+    template_name = data.name.strip()
+    if not template_name:
+        return api_response(status="error", message="template_name_required", code=400)
+    existing = _template_repo().get_by_name(template_name)
+    if existing is not None:
+        return api_response(status="error", message="template_name_exists", data={"name": template_name}, code=409)
     strict_error = _template_strict_validation_error(data.prompt_template)
     if strict_error is not None:
         return strict_error
     warnings = _template_warnings(data.prompt_template)
-    new_template = TemplateDB(name=data.name, description=data.description, prompt_template=data.prompt_template)
-    _template_repo().save(new_template)
+    new_template = TemplateDB(name=template_name, description=data.description, prompt_template=data.prompt_template)
+    try:
+        _template_repo().save(new_template)
+    except IntegrityError:
+        return api_response(status="error", message="template_name_exists", data={"name": template_name}, code=409)
     log_audit("template_created", {"template_id": new_template.id, "name": new_template.name})
     payload = new_template.model_dump()
     if warnings:
@@ -134,10 +144,19 @@ def update_template(tpl_id):
     if "prompt_template" in data:
         template.prompt_template = data["prompt_template"]
     if "name" in data:
-        template.name = data["name"]
+        template_name = str(data["name"] or "").strip()
+        if not template_name:
+            return api_response(status="error", message="template_name_required", code=400)
+        existing = _template_repo().get_by_name(template_name)
+        if existing is not None and existing.id != tpl_id:
+            return api_response(status="error", message="template_name_exists", data={"name": template_name}, code=409)
+        template.name = template_name
     if "description" in data:
         template.description = data["description"]
-    _template_repo().save(template)
+    try:
+        _template_repo().save(template)
+    except IntegrityError:
+        return api_response(status="error", message="template_name_exists", data={"name": template.name}, code=409)
     log_audit("template_updated", {"template_id": tpl_id, "name": template.name})
     payload = template.model_dump()
     if warnings:

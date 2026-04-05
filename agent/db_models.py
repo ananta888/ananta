@@ -263,6 +263,7 @@ class KnowledgeIndexRunDB(SQLModel, table=True):
 
 class TemplateDB(SQLModel, table=True):
     __tablename__ = "templates"
+    __table_args__ = (sa.UniqueConstraint("name", name="uq_templates_name"),)
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str
     description: Optional[str] = None
