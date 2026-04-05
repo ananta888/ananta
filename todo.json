@@ -273,7 +273,7 @@
           "priority": "medium",
           "type": "feature",
           "principle": "Safety, Backward-Compatibility",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/routes/config/templates.py",
@@ -292,7 +292,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Data Integrity, Observability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/teams.py",
@@ -525,9 +525,9 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 3,
+      "completed": 5,
       "partial": 0,
-      "open": 17
+      "open": 15
     },
     "notes": [
       "Diese Todo-Version startet bewusst als neue Linie fuer Backend-Qualitaet bei Blueprints/Templates.",

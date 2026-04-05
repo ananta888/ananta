@@ -48,6 +48,14 @@ def _get_template_allowlist() -> set:
     return ALLOWED_TEMPLATE_VARIABLES
 
 
+def _template_validation_config() -> dict:
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    raw = cfg.get("template_variable_validation")
+    if not isinstance(raw, dict):
+        return {"strict": False}
+    return {"strict": bool(raw.get("strict", False))}
+
+
 def validate_template_variables(template_text: str) -> list[str]:
     if not template_text:
         return []
@@ -69,6 +77,23 @@ def _template_warnings(prompt_template: str) -> list[dict]:
     ]
 
 
+def _template_strict_validation_error(prompt_template: str):
+    warnings = _template_warnings(prompt_template)
+    if not warnings or not _template_validation_config().get("strict"):
+        return None
+    warning = warnings[0]
+    return api_response(
+        status="error",
+        message="unknown_template_variables",
+        data={
+            "warnings": warnings,
+            "allowed": warning.get("allowed") or [],
+            "unknown_variables": validate_template_variables(prompt_template),
+        },
+        code=400,
+    )
+
+
 @templates_bp.route("/templates", methods=["GET"])
 @check_auth
 def list_templates():
@@ -81,6 +106,9 @@ def list_templates():
 @validate_request(TemplateCreateRequest)
 def create_template():
     data: TemplateCreateRequest = g.validated_data
+    strict_error = _template_strict_validation_error(data.prompt_template)
+    if strict_error is not None:
+        return strict_error
     warnings = _template_warnings(data.prompt_template)
     new_template = TemplateDB(name=data.name, description=data.description, prompt_template=data.prompt_template)
     _template_repo().save(new_template)
@@ -98,6 +126,10 @@ def update_template(tpl_id):
     template = _template_repo().get_by_id(tpl_id)
     if not template:
         return api_response(status="error", message="not_found", code=404)
+    if "prompt_template" in data:
+        strict_error = _template_strict_validation_error(data["prompt_template"])
+        if strict_error is not None:
+            return strict_error
     warnings = _template_warnings(data["prompt_template"]) if "prompt_template" in data else []
     if "prompt_template" in data:
         template.prompt_template = data["prompt_template"]

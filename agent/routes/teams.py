@@ -1387,6 +1387,16 @@ def update_team_blueprint(blueprint_id):
 @check_auth
 @admin_required
 def delete_team_blueprint(blueprint_id):
+    with Session(engine) as session:
+        referencing_teams = session.exec(select(TeamDB).where(TeamDB.blueprint_id == blueprint_id)).all()
+    if referencing_teams:
+        return _team_error(
+            "blueprint_in_use",
+            409,
+            blueprint_id=blueprint_id,
+            team_ids=[team.id for team in referencing_teams],
+            team_count=len(referencing_teams),
+        )
     _repos().blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
     _repos().blueprint_role_repo.delete_by_blueprint(blueprint_id)
     if _repos().team_blueprint_repo.delete(blueprint_id):
