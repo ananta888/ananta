@@ -45,8 +45,8 @@ def test_update_local_task_status_creates_and_saves_task(monkeypatch):
 def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
     calls = []
 
-    def fake_http_post(url, data=None, headers=None):
-        calls.append({"url": url, "data": data, "headers": headers or {}})
+    def fake_http_post(url, data=None, headers=None, timeout=None):
+        calls.append({"url": url, "data": data, "headers": headers or {}, "timeout": timeout})
         return {"ok": True}
 
     monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
@@ -62,3 +62,30 @@ def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
     assert calls[0]["url"] == "http://worker.local/step/execute"
     assert calls[0]["data"] == {"command": "echo hi"}
     assert calls[0]["headers"]["Authorization"] == "Bearer tok-123"
+    assert calls[0]["timeout"] is not None
+
+
+def test_forward_to_worker_extends_timeout_for_step_propose(monkeypatch, app):
+    calls = []
+
+    def fake_http_post(url, data=None, headers=None, timeout=None):
+        calls.append({"url": url, "timeout": timeout})
+        return {"ok": True}
+
+    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "command_timeout": 75,
+        }
+        result = task_utils._forward_to_worker(
+            "http://worker.local/",
+            "/tasks/T-1/step/propose",
+            {"prompt": "x"},
+            token="tok-123",
+        )
+
+    assert result == {"ok": True}
+    assert calls[0]["url"] == "http://worker.local/tasks/T-1/step/propose"
+    assert calls[0]["timeout"] == 135

@@ -921,6 +921,21 @@ class TaskScopedExecutionService:
             return
         history = task.get("history", [])
         proposal_meta = task.get("last_proposal", {}) or {}
+        verification_status = dict(task.get("verification_status") or {})
+        execution_scope = response.get("execution_scope") if isinstance(response.get("execution_scope"), dict) else None
+        execution_provenance = (
+            response.get("execution_provenance") if isinstance(response.get("execution_provenance"), dict) else None
+        )
+        artifacts = list(response.get("artifacts") or []) if isinstance(response.get("artifacts"), list) else None
+        review = response.get("review") if isinstance(response.get("review"), dict) else None
+        if execution_scope:
+            verification_status["execution_scope"] = dict(execution_scope)
+        if execution_provenance:
+            verification_status["execution_provenance"] = dict(execution_provenance)
+        if artifacts is not None:
+            verification_status["execution_artifacts"] = artifacts
+        if review:
+            verification_status["execution_review"] = dict(review)
         history.append(
             {
                 "event_type": "execution_result",
@@ -931,11 +946,22 @@ class TaskScopedExecutionService:
                 "exit_code": response.get("exit_code"),
                 "backend": proposal_meta.get("backend"),
                 "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
+                "artifacts": artifacts,
+                "execution_scope": execution_scope,
+                "execution_provenance": execution_provenance,
+                "review": review,
                 "forwarded": True,
                 "timestamp": time.time(),
             }
         )
-        update_local_task_status(tid, response["status"], history=history)
+        update_local_task_status(
+            tid,
+            response["status"],
+            history=history,
+            last_output=response.get("output"),
+            last_exit_code=response.get("exit_code"),
+            verification_status=verification_status,
+        )
 
     def _try_handler_propose(
         self,
