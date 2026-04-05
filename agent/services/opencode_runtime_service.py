@@ -101,6 +101,14 @@ class OpencodeRuntimeService:
     def _toolless_agent_name() -> str:
         return "ananta-worker"
 
+    @staticmethod
+    def _public_server_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        public = dict(payload or {})
+        process = public.pop("process", None)
+        if process is not None:
+            public["pid"] = getattr(process, "pid", None)
+        return public
+
     @classmethod
     def _build_server_config(cls, runtime_cfg: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
         from agent.common.sgpt import _build_opencode_theless_agent_config
@@ -131,7 +139,7 @@ class OpencodeRuntimeService:
         with self._lock:
             existing = self._servers.get(server_key)
             if existing and existing.get("process") and existing["process"].poll() is None:
-                return deepcopy(existing)
+                return self._public_server_payload(existing)
 
         opencode_bin = settings.opencode_path or "opencode"
         opencode_resolved = shutil.which(opencode_bin)
@@ -185,7 +193,7 @@ class OpencodeRuntimeService:
         }
         with self._lock:
             self._servers[server_key] = payload
-        return deepcopy(payload)
+        return self._public_server_payload(payload)
 
     def ensure_session_runtime(self, session: dict, *, model: str | None = None) -> dict[str, Any]:
         from agent.common.sgpt import resolve_opencode_runtime_config
