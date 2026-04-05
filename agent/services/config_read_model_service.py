@@ -76,6 +76,7 @@ class ConfigReadModelService:
         contract_catalog_builder,
         hub_copilot_summary_builder,
         context_policy_summary_builder,
+        artifact_flow_summary_builder,
     ) -> dict:
         repos = get_repository_registry()
         teams = [team.model_dump() for team in repos.team_repo.get_all()]
@@ -192,6 +193,7 @@ class ConfigReadModelService:
                 "effective_runtime": effective_runtime,
                 "hub_copilot": hub_copilot_summary_builder(cfg),
                 "context_bundle_policy": context_policy_summary_builder(cfg),
+                "artifact_flow": artifact_flow_summary_builder(cfg),
                 "research_backend": {
                     "provider": research_backend_cfg.get("provider"),
                     "display_name": research_backend_cfg.get("display_name"),

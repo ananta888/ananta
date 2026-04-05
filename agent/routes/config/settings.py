@@ -141,6 +141,10 @@ def set_config():
             **new_cfg,
             "context_bundle_policy": normalize_context_bundle_policy_config(merged_context_bundle_policy),
         }
+    if "artifact_flow" in new_cfg and isinstance(new_cfg["artifact_flow"], dict):
+        merged_artifact_flow = (current_cfg.get("artifact_flow", {}) or {}).copy()
+        merged_artifact_flow.update(new_cfg["artifact_flow"])
+        new_cfg = {**new_cfg, "artifact_flow": shared.normalize_artifact_flow_config(merged_artifact_flow)}
 
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg

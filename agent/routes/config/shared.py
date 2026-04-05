@@ -27,6 +27,49 @@ _SENSITIVE_CONFIG_KEYS = {"token", "secret", "password", "api_key"}
 _HUB_COPILOT_ALLOWED_MODES = {"planning_only", "planning_and_routing"}
 
 
+def normalize_artifact_flow_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    try:
+        rag_top_k = int(payload.get("rag_top_k", 3))
+    except (TypeError, ValueError):
+        rag_top_k = 3
+    rag_top_k = max(1, min(20, rag_top_k))
+    try:
+        max_tasks = int(payload.get("max_tasks", 30))
+    except (TypeError, ValueError):
+        max_tasks = 30
+    max_tasks = max(1, min(200, max_tasks))
+    try:
+        max_worker_jobs_per_task = int(payload.get("max_worker_jobs_per_task", 5))
+    except (TypeError, ValueError):
+        max_worker_jobs_per_task = 5
+    max_worker_jobs_per_task = max(1, min(20, max_worker_jobs_per_task))
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "rag_enabled": bool(payload.get("rag_enabled", True)),
+        "rag_top_k": rag_top_k,
+        "rag_include_content": bool(payload.get("rag_include_content", False)),
+        "max_tasks": max_tasks,
+        "max_worker_jobs_per_task": max_worker_jobs_per_task,
+    }
+
+
+def artifact_flow_settings_summary(cfg: dict) -> dict:
+    requested = normalize_artifact_flow_config((cfg or {}).get("artifact_flow") if isinstance(cfg, dict) else {})
+    return {
+        "requested": requested,
+        "effective": requested,
+        "source": {
+            "enabled": "artifact_flow.enabled",
+            "rag_enabled": "artifact_flow.rag_enabled",
+            "rag_top_k": "artifact_flow.rag_top_k",
+            "rag_include_content": "artifact_flow.rag_include_content",
+            "max_tasks": "artifact_flow.max_tasks",
+            "max_worker_jobs_per_task": "artifact_flow.max_worker_jobs_per_task",
+        },
+    }
+
+
 def parse_bool_query_flag(value: str | None) -> bool:
     normalized = str(value or "").strip().lower()
     return normalized in {"1", "true", "yes", "y", "on"}

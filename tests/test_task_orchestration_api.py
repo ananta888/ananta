@@ -14,6 +14,7 @@ def test_orchestration_ingest_and_read_model(client, auth_header):
     assert data["by_source"]["ui"] >= 1
     assert any(t["id"] == task_id for t in data["recent_tasks"])
     assert "worker_execution_reconciliation" in data
+    assert "artifact_flow" in data
 
 
 def test_orchestration_claim_and_complete(client, auth_header):
@@ -89,3 +90,70 @@ def test_orchestration_ingest_uses_central_task_ingestion_fields(client, auth_he
     ingested = next((item for item in (task.get("history") or []) if item.get("event_type") == "task_ingested"), None)
     assert ingested is not None
     assert (ingested.get("details") or {}).get("channel") == "central_task_management"
+
+
+def test_orchestration_read_model_includes_artifact_flow_details(client, auth_header):
+    from agent.db_models import ContextBundleDB, MemoryEntryDB, TaskDB, WorkerJobDB, WorkerResultDB
+    from agent.repository import context_bundle_repo, memory_entry_repo, task_repo, worker_job_repo, worker_result_repo
+
+    task = task_repo.save(
+        TaskDB(
+            id="FLOW-TASK-1",
+            title="Flow Task",
+            description="Validate sent and returned artifacts",
+            status="in_progress",
+        )
+    )
+    bundle = context_bundle_repo.save(
+        ContextBundleDB(
+            task_id=task.id,
+            chunks=[{"metadata": {"artifact_id": "art-sent-1"}}],
+        )
+    )
+    task.context_bundle_id = bundle.id
+    task.current_worker_job_id = "FLOW-JOB-1"
+    task_repo.save(task)
+    job = worker_job_repo.save(
+        WorkerJobDB(
+            id="FLOW-JOB-1",
+            parent_task_id=task.id,
+            subtask_id=task.id,
+            worker_url="http://alpha:5001",
+            context_bundle_id=bundle.id,
+            status="completed",
+        )
+    )
+    worker_result_repo.save(
+        WorkerResultDB(
+            worker_job_id=job.id,
+            task_id=task.id,
+            worker_url=job.worker_url,
+            status="completed",
+            output="done",
+        )
+    )
+    memory_entry_repo.save(
+        MemoryEntryDB(
+            task_id=task.id,
+            worker_job_id=job.id,
+            title="Worker Output",
+            content="Produced artifact",
+            artifact_refs=[{"kind": "generated_file", "artifact_id": "art-returned-1"}],
+        )
+    )
+
+    res = client.get(
+        "/tasks/orchestration/read-model?artifact_flow_rag_enabled=0&artifact_flow_max_tasks=5",
+        headers=auth_header,
+    )
+    assert res.status_code == 200
+    artifact_flow = (res.json.get("data") or {}).get("artifact_flow") or {}
+    assert artifact_flow.get("enabled") is True
+    assert (artifact_flow.get("config") or {}).get("rag_enabled") is False
+    items = artifact_flow.get("items") or []
+    target = next((item for item in items if item.get("task_id") == task.id), None)
+    assert target is not None
+    assert "art-sent-1" in (target.get("sent_artifact_ids") or [])
+    assert "art-returned-1" in (target.get("returned_artifact_ids") or [])
+    jobs = target.get("worker_jobs") or []
+    assert jobs and jobs[0].get("worker_job_id") == "FLOW-JOB-1"
