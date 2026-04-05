@@ -282,6 +282,13 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     record_step(report, "setup", "login", t0, ok_login, current_route_and_title(session_id))
     if not ok_login:
         raise RuntimeError("Login did not reach dashboard")
+    t_mode = time.time()
+    mode_res = ensure_opencode_execution_mode(session_id, mode="live_terminal", timeout_seconds=60)
+    mode_ok = bool(mode_res.get("ok"))
+    print("opencode_execution_mode", json.dumps(mode_res, ensure_ascii=True), flush=True)
+    record_step(report, "setup", "set_opencode_execution_mode", t_mode, mode_ok, mode_res)
+    if not mode_ok:
+        raise RuntimeError("Failed to switch opencode execution mode to live_terminal")
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
     if not bootstrap_setup:
@@ -760,6 +767,114 @@ def browser_api_json(session_id: str, method: str, path: str, body: Optional[dic
         return {"ok": False, "error": f"webdriver_async_error: {exc}", "status": 0, "path": path}
     if not isinstance(out, dict):
         return {"ok": False, "error": "invalid_async_response"}
+    return out
+
+
+def ensure_opencode_execution_mode(session_id: str, mode: str = "live_terminal", timeout_seconds: int = 90) -> dict:
+    try:
+        out = (
+            js_async(
+                session_id,
+                """
+            const desiredMode = arguments[0];
+            const timeoutSeconds = arguments[1];
+            const password = arguments[2] || '';
+            const done = arguments[arguments.length - 1];
+            function safeParse(raw) {
+              if (!raw) return null;
+              try { return JSON.parse(raw); } catch (_) { return null; }
+            }
+            function resolveHubUrl() {
+              const rawAgents = localStorage.getItem('ananta.agents.v1');
+              const parsed = safeParse(rawAgents);
+              if (Array.isArray(parsed)) {
+                const hub = parsed.find((a) => (a && a.role === 'hub') || (a && a.name === 'hub'));
+                if (hub && hub.url) return String(hub.url).replace(/\\/+$/, '');
+              }
+              return 'http://ai-agent-hub:5000';
+            }
+            async function fetchJson(url, init) {
+              const res = await fetch(url, init);
+              const text = await res.text();
+              return { status: res.status, body: safeParse(text) || text };
+            }
+            async function configureAgent(baseUrl, username, passwordValue) {
+              const login = await fetchJson(`${baseUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password: passwordValue }),
+              });
+              const token = (((login.body || {}).data || {}).access_token) || '';
+              if (!token) {
+                return { base_url: baseUrl, ok: false, status: login.status, error: 'missing_access_token' };
+              }
+              const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+              const post = await fetchJson(`${baseUrl}/config`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ opencode_runtime: { execution_mode: desiredMode } }),
+              });
+              const get = await fetchJson(`${baseUrl}/config`, {
+                method: 'GET',
+                headers,
+              });
+              const effectiveMode = ((((get.body || {}).data || {}).opencode_runtime || {}).execution_mode) || '';
+              return {
+                base_url: baseUrl,
+                ok: post.status >= 200 && post.status < 400 && effectiveMode === desiredMode,
+                post_status: post.status,
+                get_status: get.status,
+                execution_mode: effectiveMode,
+              };
+            }
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort('timeout'), Math.max(5, Number(timeoutSeconds || 90)) * 1000);
+            const hubBase = resolveHubUrl();
+            const hubToken = localStorage.getItem('ananta.user.token') || '';
+            const username = localStorage.getItem('ananta.user.username') || 'admin';
+            const hubHeaders = { 'Content-Type': 'application/json' };
+            if (hubToken) hubHeaders['Authorization'] = `Bearer ${hubToken}`;
+            fetch(`${hubBase}/api/system/agents`, { method: 'GET', headers: hubHeaders, signal: controller.signal })
+              .then(async (res) => {
+                const text = await res.text();
+                const parsed = safeParse(text);
+                const payload = parsed && parsed.data ? parsed.data : parsed;
+                const agents = Array.isArray(payload) ? payload : [];
+                const baseUrls = [hubBase];
+                for (const agent of agents) {
+                  const agentUrl = String((agent && agent.url) || '').replace(/\\/+$/, '');
+                  if (agentUrl && !baseUrls.includes(agentUrl)) baseUrls.push(agentUrl);
+                }
+                const results = [];
+                for (const baseUrl of baseUrls) {
+                  try {
+                    results.push(await configureAgent(baseUrl, username, password));
+                  } catch (err) {
+                    results.push({ base_url: baseUrl, ok: false, error: String(err) });
+                  }
+                }
+                clearTimeout(timer);
+                done({
+                  ok: results.every((item) => !!item.ok),
+                  desired_mode: desiredMode,
+                  base_urls: baseUrls,
+                  results,
+                });
+              })
+              .catch((err) => {
+                clearTimeout(timer);
+                done({ ok: false, error: String(err), desired_mode: desiredMode });
+              });
+            """,
+                [mode, timeout_seconds, LOGIN_PASS],
+                timeout=max(45, int(timeout_seconds) + 30),
+            ).get("value")
+            or {}
+        )
+    except Exception as exc:
+        return {"ok": False, "error": f"webdriver_async_error: {exc}", "desired_mode": mode}
+    if not isinstance(out, dict):
+        return {"ok": False, "error": "invalid_mode_response", "desired_mode": mode}
     return out
 
 
