@@ -121,7 +121,7 @@ test.describe('Templates CRUD', () => {
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     const name = `UI Strict Template ${Date.now()}`;
-    const editor = page.locator('.card.grid').first();
+    const editor = page.locator('.card.grid').filter({ has: page.getByRole('button', { name: /Anlegen \/ Speichern/i }) }).first();
 
     try {
       const strictRes = await request.post(`${hubUrl}/config`, {
@@ -132,9 +132,10 @@ test.describe('Templates CRUD', () => {
 
       await editor.getByLabel('Name').fill(name);
       await editor.getByLabel('Prompt Template').fill('Hallo {{agent_name}} und {{unknown_variable}}');
+      await expect(page.getByText(/Unbekannte Variablen:\s*unknown_variable/i)).toBeVisible();
       await editor.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
 
-      await expect(editor.locator('.unknown-vars')).toContainText('unknown_variable');
+      await expect(page.getByText(/Unbekannte Variablen:\s*unknown_variable/i)).toBeVisible();
 
       const listRes = await request.get(`${hubUrl}/templates`, { headers });
       expect(listRes.ok()).toBeTruthy();
