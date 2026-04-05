@@ -151,12 +151,14 @@ test.describe('Teams CRUD', () => {
       expect(createdBlueprint).toBeTruthy();
       createdBlueprintId = createdBlueprint.id;
 
+      await page.locator('.teams-hero-actions').getByRole('button', { name: /^Aktualisieren$/i }).click();
+      await expect(blueprintList.locator('.teams-blueprint-card').filter({ hasText: blueprintName }).first()).toBeVisible();
       await blueprintList.locator('.teams-blueprint-card').filter({ hasText: blueprintName }).first().click();
       await blueprintEditor.getByRole('button', { name: /^Fuer Team-Erstellung uebernehmen$/i }).click();
       await expect(instantiatePanel.getByRole('heading', { name: /^Team aus Blueprint erstellen$/i })).toBeVisible();
       await instantiatePanel.getByLabel('Teamname').fill(teamName);
       await instantiatePanel.getByRole('button', { name: /^Team erstellen$/i }).click();
-      await expect(page.locator('.notification.success .notification-message')).toHaveText(/Team aus Blueprint erstellt/i);
+      await expect(page.getByText('Team aus Blueprint erstellt', { exact: true })).toBeVisible();
 
       const teamsRes = await request.get(`${hubUrl}/teams`, { headers });
       expect(teamsRes.ok()).toBeTruthy();
