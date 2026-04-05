@@ -73,7 +73,7 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     command_timeout = max(1, int(agent_cfg.get("command_timeout") or timeout or 60))
     endpoint_name = str(endpoint or "").strip().lower()
     if endpoint_name.endswith("/step/propose"):
-        timeout = max(timeout, command_timeout + 60, 120)
+        timeout = max(timeout, command_timeout + 120, 180)
     else:
         timeout = max(timeout, command_timeout)
     headers = {"Authorization": f"Bearer {token}"} if token else None

@@ -1021,7 +1021,7 @@ def phase_benchmark(
     tick_start = time.time()
     for _ in range(max(0, int(benchmark_ticks))):
         tick_body = {"team_id": team_id} if team_id else {}
-        tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=90)
+        tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=180)
         tick_results.append(tick_res)
         tick_status = int(tick_res.get("status") or 0)
         if not tick_res.get("ok") or tick_status >= 400:
@@ -1168,7 +1168,7 @@ def phase_benchmark(
         recovery_info["extra_ticks"] = extra_ticks
         for _ in range(extra_ticks):
             tick_body = {"team_id": team_id} if team_id else {}
-            tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=90)
+            tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=180)
             tick_results.append(tick_res)
             time.sleep(1.0)
 
