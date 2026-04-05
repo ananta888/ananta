@@ -61,13 +61,22 @@ def login_token(base: str, username: str, password: str) -> str:
 
 
 def _docker_exec_hub_python(container_name: str, script_body: str) -> str:
+    shell_script = f"""if command -v python3 >/dev/null 2>&1; then
+python3 - <<'PY'
+{script_body}
+PY
+else
+python - <<'PY'
+{script_body}
+PY
+fi"""
     cmd = [
         "docker",
         "exec",
         container_name,
         "/bin/sh",
         "-lc",
-        f"python - <<'PY'\n{script_body}\nPY",
+        shell_script,
     ]
     res = subprocess.run(cmd, check=True, capture_output=True, text=True)
     return (res.stdout or "").strip()

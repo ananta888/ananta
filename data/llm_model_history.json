@@ -1,11 +1,11 @@
 {
   "models": {
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
-      "success": 22,
-      "fail": 204,
-      "last_success": 1775331737,
-      "last_fail": 1775335784,
-      "last_used": 1775335784,
+      "success": 23,
+      "fail": 205,
+      "last_success": 1775400997,
+      "last_fail": 1775400969,
+      "last_used": 1775400997,
       "first_seen": 1772307621
     },
     "qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abliterated-i1": {
@@ -89,11 +89,11 @@
       "first_seen": 1772307621
     },
     "qwen2.5-coder-0.5b-instruct": {
-      "success": 70,
+      "success": 71,
       "fail": 0,
-      "last_success": 1775335786,
+      "last_success": 1775400974,
       "last_fail": null,
-      "last_used": 1775335786,
+      "last_used": 1775400974,
       "first_seen": 1772307621
     },
     "openai/gpt-oss-20b": {
@@ -215,6 +215,14 @@
       "last_fail": null,
       "last_used": null,
       "first_seen": 1775266946
+    },
+    "gemma-4-e2b-it": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1775400938
     }
   }
 }
