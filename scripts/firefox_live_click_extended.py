@@ -43,13 +43,13 @@ LOGIN_PASS = (
 )
 
 
-def wd(method: str, path: str, payload=None):
+def wd(method: str, path: str, payload=None, timeout: int = 45):
     data = None
     headers = {"Content-Type": "application/json"}
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
     req = request.Request(BASE + path, data=data, headers=headers, method=method)
-    with request.urlopen(req, timeout=45) as resp:
+    with request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -57,8 +57,8 @@ def js(session_id: str, script: str, args=None):
     return wd("POST", f"/session/{session_id}/execute/sync", {"script": script, "args": args or []})
 
 
-def js_async(session_id: str, script: str, args=None):
-    return wd("POST", f"/session/{session_id}/execute/async", {"script": script, "args": args or []})
+def js_async(session_id: str, script: str, args=None, timeout: int = 45):
+    return wd("POST", f"/session/{session_id}/execute/async", {"script": script, "args": args or []}, timeout=timeout)
 
 
 def _extract_element_id(raw: dict) -> Optional[str]:
@@ -680,6 +680,7 @@ def browser_api_json(session_id: str, method: str, path: str, body: Optional[dic
               });
             """,
                 [method.upper(), path, body, timeout_seconds],
+                timeout=max(45, int(timeout_seconds) + 30),
             ).get("value")
             or {}
         )

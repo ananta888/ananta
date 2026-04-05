@@ -128,7 +128,22 @@ def set_config():
             "reuse_scope": reuse_scope,
             "native_opencode_sessions": bool(mode_cfg.get("native_opencode_sessions", False)),
         }
-    for key in ("llm_config", "research_backend"):
+    if "opencode_runtime" in new_cfg:
+        opencode_runtime_cfg = new_cfg.get("opencode_runtime")
+        if not isinstance(opencode_runtime_cfg, dict):
+            return api_response(status="error", message="invalid_opencode_runtime", code=400)
+        tool_mode = str(opencode_runtime_cfg.get("tool_mode") or "full").strip().lower()
+        if tool_mode not in {"full", "readonly", "toolless"}:
+            return api_response(status="error", message="invalid_opencode_tool_mode", code=400)
+        new_cfg["opencode_runtime"] = {"tool_mode": tool_mode}
+    if "worker_runtime" in new_cfg:
+        worker_runtime_cfg = new_cfg.get("worker_runtime")
+        if not isinstance(worker_runtime_cfg, dict):
+            return api_response(status="error", message="invalid_worker_runtime", code=400)
+        workspace_root = worker_runtime_cfg.get("workspace_root")
+        workspace_root = str(workspace_root).strip() if workspace_root is not None else None
+        new_cfg["worker_runtime"] = {"workspace_root": workspace_root or None}
+    for key in ("llm_config", "research_backend", "opencode_runtime", "worker_runtime"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):
         merged_hub_copilot = (current_cfg.get("hub_copilot", {}) or {}).copy()

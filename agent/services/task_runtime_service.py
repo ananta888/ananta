@@ -102,6 +102,11 @@ def update_local_task_status(
                     payload["last_output"] = task.last_output
                 if task.last_exit_code is not None:
                     payload["last_exit_code"] = task.last_exit_code
+                payload["worker_job_id"] = task.current_worker_job_id
+                verification_status = dict(task.verification_status or {})
+                execution_artifacts = verification_status.get("execution_artifacts")
+                if isinstance(execution_artifacts, list):
+                    payload["artifacts"] = execution_artifacts
 
                 headers = {}
                 if task.callback_token:

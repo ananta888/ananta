@@ -194,6 +194,18 @@ class ConfigReadModelService:
                 "hub_copilot": hub_copilot_summary_builder(cfg),
                 "context_bundle_policy": context_policy_summary_builder(cfg),
                 "artifact_flow": artifact_flow_summary_builder(cfg),
+                "opencode_runtime": {
+                    "tool_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("tool_mode") or "full")).strip().lower()
+                    if isinstance((cfg or {}).get("opencode_runtime"), dict)
+                    else "full",
+                },
+                "worker_runtime": {
+                    "workspace_root": (
+                        str((((cfg or {}).get("worker_runtime") or {}).get("workspace_root") or "")).strip() or None
+                    )
+                    if isinstance((cfg or {}).get("worker_runtime"), dict)
+                    else None,
+                },
                 "research_backend": {
                     "provider": research_backend_cfg.get("provider"),
                     "display_name": research_backend_cfg.get("display_name"),

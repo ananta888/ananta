@@ -340,6 +340,8 @@ class WorkerExecutionContextContract(SQLModel):
     context_bundle_id: Optional[str] = None
     context: dict = Field(default_factory=dict)
     context_policy: dict = Field(default_factory=dict)
+    workspace: dict = Field(default_factory=dict)
+    artifact_sync: dict = Field(default_factory=dict)
     allowed_tools: List[str] = Field(default_factory=list)
     expected_output_schema: dict = Field(default_factory=dict)
     routing: Optional[WorkerRoutingDecisionContract] = None

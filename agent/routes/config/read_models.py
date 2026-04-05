@@ -28,6 +28,8 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "context_bundle_policy", "path": "config.context_bundle_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "artifact_flow", "path": "config.artifact_flow", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "cli_session_mode", "path": "config.cli_session_mode", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "opencode_runtime", "path": "config.opencode_runtime", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "worker_runtime", "path": "config.worker_runtime", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "template_agent_name", "path": "config.template_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "team_agent_name", "path": "config.team_agent_name", "type": "string", "editable": True, "endpoint": "POST /config"},
         {"key": "quality_gates", "path": "config.quality_gates", "type": "object", "editable": True, "endpoint": "POST /config"},
@@ -100,6 +102,8 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "hub_copilot": shared.hub_copilot_settings_summary(cfg),
             "context_bundle_policy": shared.context_bundle_policy_settings_summary(cfg),
             "artifact_flow": shared.artifact_flow_settings_summary(cfg),
+            "opencode_runtime": shared.opencode_runtime_settings_summary(cfg),
+            "worker_runtime": shared.worker_runtime_settings_summary(cfg),
             "cli_session_mode": {
                 "enabled": bool(cli_session_mode.get("enabled", False)),
                 "stateful_backends": list(cli_session_mode.get("stateful_backends") or []),

@@ -39,6 +39,8 @@ class WorkerContractService:
         instructions: str,
         context_bundle,
         context_policy: dict | None,
+        workspace: dict | None,
+        artifact_sync: dict | None,
         allowed_tools: list[str] | None,
         expected_output_schema: dict | None,
         routing_decision: dict | None,
@@ -57,6 +59,8 @@ class WorkerContractService:
                 or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy")
                 or {}
             ),
+            workspace=dict(workspace or {}),
+            artifact_sync=dict(artifact_sync or {}),
             allowed_tools=normalize_allowed_tools(allowed_tools),
             expected_output_schema=dict(expected_output_schema or {}),
             routing=dict(routing_decision or {}) or None,

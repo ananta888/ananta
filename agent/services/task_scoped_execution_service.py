@@ -26,6 +26,7 @@ from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.verification_service import get_verification_service
+from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _extract_json_payload, _extract_reason, _log_terminal_entry
 
 
@@ -203,6 +204,8 @@ class TaskScopedExecutionService:
             reason = proposal.get("reason", "Vorschlag ausgeführt")
 
         exec_started_at = time.time()
+        workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
+        before_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
         pipeline = new_pipeline_trace(
             pipeline="task_execute",
             task_kind=((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind"),
@@ -216,8 +219,18 @@ class TaskScopedExecutionService:
             tool_calls=tool_calls,
             execution_policy=execution_policy,
             guard_cfg=agent_cfg,
+            working_directory=str(workspace_ctx.workspace_dir),
             pipeline=pipeline,
             exec_started_at=exec_started_at,
+        )
+        after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
+        changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
+        workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
+            task_id=tid,
+            task=task,
+            workspace_dir=workspace_ctx.workspace_dir,
+            changed_rel_paths=changed_files,
+            sync_cfg=workspace_ctx.artifact_sync,
         )
         execution_duration_ms = int((time.time() - exec_started_at) * 1000)
         proposal_meta = task.get("last_proposal", {}) or {}
@@ -260,6 +273,12 @@ class TaskScopedExecutionService:
             trace=trace,
             pipeline={**pipeline, "trace_id": trace["trace_id"]},
             execution_policy=execution_policy,
+            artifact_refs=workspace_artifact_refs or None,
+            extra_history={
+                "workspace_changed_files": changed_files,
+                "workspace_dir": str(workspace_ctx.workspace_dir),
+                "workspace_artifact_count": len(workspace_artifact_refs),
+            },
         )
 
         history_len = len(task.get("history", []) or [])
@@ -288,6 +307,7 @@ class TaskScopedExecutionService:
         cfg: dict,
     ) -> TaskScopedRouteResponse:
         task_kind = normalize_task_kind(None, base_prompt)
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         requested_temperature = self._normalize_temperature(getattr(request_data, "temperature", None))
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
         compare_policy = resolve_execution_policy(
@@ -322,6 +342,7 @@ class TaskScopedExecutionService:
                 "backend": effective_backend,
                 "model": selected_model,
                 "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
+                "workdir": str(workspace_context.workspace_dir),
             }
             if requested_temperature is not None:
                 cli_kwargs["temperature"] = requested_temperature
@@ -473,6 +494,7 @@ class TaskScopedExecutionService:
         cfg: dict,
     ) -> TaskScopedRouteResponse:
         task_kind = normalize_task_kind(None, base_prompt)
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         required_capabilities = derive_required_capabilities(task, task_kind)
         research_specialization = derive_research_specialization(task, task_kind, required_capabilities)
         effective_backend, routing_reason = self._resolve_cli_backend(
@@ -528,6 +550,7 @@ class TaskScopedExecutionService:
             "model": request_data.model,
             "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
             "session": session_payload,
+            "workdir": str(workspace_context.workspace_dir),
         }
         if requested_temperature is not None:
             cli_kwargs["temperature"] = requested_temperature
@@ -564,6 +587,7 @@ class TaskScopedExecutionService:
                 primary_temperature=requested_temperature,
                 research_context=research_context,
                 session=session_payload,
+                workdir=str(workspace_context.workspace_dir),
             )
             if repaired:
                 raw_res = repaired["raw"]
@@ -598,6 +622,7 @@ class TaskScopedExecutionService:
                 primary_temperature=requested_temperature,
                 research_context=research_context,
                 session=session_payload,
+                workdir=str(workspace_context.workspace_dir),
             )
             if repaired:
                 raw_res = repaired["raw"]
@@ -717,6 +742,7 @@ class TaskScopedExecutionService:
                 primary_temperature=requested_temperature,
                 research_context=research_context,
                 session=session_payload,
+                workdir=str(workspace_context.workspace_dir),
             )
             if repaired:
                 raw_res = repaired["raw"]
@@ -1131,6 +1157,7 @@ class TaskScopedExecutionService:
         primary_temperature: float | None = None,
         research_context: dict | None = None,
         session: dict | None = None,
+        workdir: str | None = None,
     ) -> dict | None:
         default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip() or None
         first_backend = str(primary_backend or "sgpt").strip().lower()
@@ -1173,6 +1200,7 @@ class TaskScopedExecutionService:
                 "backend": backend_name,
                 "model": model_name,
                 "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
+                "workdir": workdir,
             }
             if temperature is not None:
                 cli_kwargs["temperature"] = temperature
@@ -1491,6 +1519,8 @@ class TaskScopedExecutionService:
         execution_context = self._get_worker_execution_context(task)
         context_payload = dict(execution_context.get("context") or {})
         context_text = str(context_payload.get("context_text") or "").strip()
+        workspace_payload = dict(execution_context.get("workspace") or {})
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
         tools_desc = json.dumps(
@@ -1513,6 +1543,13 @@ class TaskScopedExecutionService:
                 "Erwartetes Ausgabeschema (JSON Schema oder Strukturhinweis):\n"
                 f"{json.dumps(expected_output_schema, indent=2, ensure_ascii=False)}"
             )
+        prompt_sections.append(
+            "Arbeitsverzeichnis fuer Datei-/Shell-Aktionen:\n"
+            f"- workspace: {workspace_context.workspace_dir}\n"
+            f"- artifacts: {workspace_context.artifacts_dir}\n"
+            f"- rag_helper: {workspace_context.rag_helper_dir}\n"
+            "Nutze ausschliesslich diesen Workspace fuer neue oder geaenderte Dateien."
+        )
         prompt_sections.append(f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}")
         prompt_sections.append(
             "Antworte AUSSCHLIESSLICH als JSON-Objekt ohne Markdown und ohne Zusatztext.\n"
@@ -1539,6 +1576,12 @@ class TaskScopedExecutionService:
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
             "allowed_tools": allowed_tools,
             "expected_output_schema": expected_output_schema,
+            "workspace": {
+                "requested": workspace_payload or None,
+                "workspace_dir": str(workspace_context.workspace_dir),
+                "artifacts_dir": str(workspace_context.artifacts_dir),
+                "rag_helper_dir": str(workspace_context.rag_helper_dir),
+            },
             "context_chunk_count": len(context_payload.get("chunks") or []),
             "has_context_text": bool(context_text),
             "research_context": {
