@@ -121,6 +121,7 @@ test.describe('Templates CRUD', () => {
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     const name = `UI Strict Template ${Date.now()}`;
+    const editor = page.locator('.card.grid').first();
 
     try {
       const strictRes = await request.post(`${hubUrl}/config`, {
@@ -129,12 +130,17 @@ test.describe('Templates CRUD', () => {
       });
       expect(strictRes.ok()).toBeTruthy();
 
-      await page.getByLabel('Name').fill(name);
-      await page.getByLabel('Prompt Template').fill('Hallo {{agent_name}} und {{unknown_variable}}');
-      await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
+      await editor.getByLabel('Name').fill(name);
+      await editor.getByLabel('Prompt Template').fill('Hallo {{agent_name}} und {{unknown_variable}}');
+      await editor.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
 
-      await expect(page.locator('.notification.error .notification-message')).toHaveText(/Unbekannte Variablen: unknown_variable/i);
-      await expect(page.locator('.unknown-vars')).toContainText('unknown_variable');
+      await expect(editor.locator('.unknown-vars')).toContainText('unknown_variable');
+
+      const listRes = await request.get(`${hubUrl}/templates`, { headers });
+      expect(listRes.ok()).toBeTruthy();
+      const listBody = await listRes.json();
+      const templates = Array.isArray(listBody) ? listBody : (listBody?.data || []);
+      expect(templates.find((tpl: any) => tpl.name === name)).toBeFalsy();
     } finally {
       await request.post(`${hubUrl}/config`, {
         headers,

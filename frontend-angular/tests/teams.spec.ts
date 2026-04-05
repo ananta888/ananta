@@ -119,24 +119,25 @@ test.describe('Teams CRUD', () => {
     const teamName = `${blueprintName} Team`;
     let createdBlueprintId: string | undefined;
     let createdTeamId: string | undefined;
+    const blueprintEditor = page.locator('.teams-editor-panel');
+    const instantiatePanel = page.locator('.card.card-success');
 
     try {
-      await page.getByRole('button', { name: /^Blueprints$/i }).click();
-      await page.getByRole('button', { name: /^Neu$/i }).click();
-      await page.getByLabel('Name').fill(blueprintName);
+      await blueprintEditor.getByRole('button', { name: /^Neu$/i }).click();
+      await blueprintEditor.getByLabel('Name').fill(blueprintName);
 
-      await page.getByRole('button', { name: /^Rolle hinzufuegen$/i }).click();
-      await page.getByRole('button', { name: /^Rolle hinzufuegen$/i }).click();
-      await page.getByLabel('Rollenname').nth(0).fill('Engineer');
-      await page.getByLabel('Rollenname').nth(1).fill('Reviewer');
-      await page.getByLabel('Sortierung').nth(0).fill('10');
-      await page.getByLabel('Sortierung').nth(1).fill('10');
-      await page.getByRole('button', { name: /^Erstellen$/i }).click();
+      await blueprintEditor.getByRole('button', { name: /^Rolle hinzufuegen$/i }).click();
+      await blueprintEditor.getByRole('button', { name: /^Rolle hinzufuegen$/i }).click();
+      await blueprintEditor.getByLabel('Rollenname').nth(0).fill('Engineer');
+      await blueprintEditor.getByLabel('Rollenname').nth(1).fill('Reviewer');
+      await blueprintEditor.getByLabel('Sortierung').nth(0).fill('10');
+      await blueprintEditor.getByLabel('Sortierung').nth(1).fill('10');
+      await blueprintEditor.getByRole('button', { name: /^Erstellen$/i }).click();
 
       await expect(page.locator('.notification.error .notification-message')).toHaveText(/Blueprint-Rollen-Sortierung doppelt: 10/i);
 
-      await page.getByLabel('Sortierung').nth(1).fill('20');
-      await page.getByRole('button', { name: /^Erstellen$/i }).click();
+      await blueprintEditor.getByLabel('Sortierung').nth(1).fill('20');
+      await blueprintEditor.getByRole('button', { name: /^Erstellen$/i }).click();
       await expect(page.locator('.notification.success .notification-message')).toHaveText(/Blueprint erstellt/i);
 
       const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers });
@@ -147,10 +148,10 @@ test.describe('Teams CRUD', () => {
       expect(createdBlueprint).toBeTruthy();
       createdBlueprintId = createdBlueprint.id;
 
-      await page.getByRole('button', { name: /^Fuer Team-Erstellung uebernehmen$/i }).click();
-      await expect(page.getByRole('heading', { name: /^Team aus Blueprint erstellen$/i })).toBeVisible();
-      await page.getByLabel('Teamname').fill(teamName);
-      await page.getByRole('button', { name: /^Team erstellen$/i }).click();
+      await blueprintEditor.getByRole('button', { name: /^Fuer Team-Erstellung uebernehmen$/i }).click();
+      await expect(instantiatePanel.getByRole('heading', { name: /^Team aus Blueprint erstellen$/i })).toBeVisible();
+      await instantiatePanel.getByLabel('Teamname').fill(teamName);
+      await instantiatePanel.getByRole('button', { name: /^Team erstellen$/i }).click();
       await expect(page.locator('.notification.success .notification-message')).toHaveText(/Team aus Blueprint erstellt/i);
 
       const teamsRes = await request.get(`${hubUrl}/teams`, { headers });
