@@ -12,24 +12,43 @@ function sleep(ms: number) {
 function parseServiceUrl(url: string) {
   const parsed = new URL(url);
   return {
-    host: parsed.hostname,
+    host: parsed.hostname === 'localhost' ? '127.0.0.1' : parsed.hostname,
     port: Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80))
   };
+}
+
+function localhostCandidateUrls(rawUrl: string, paths: string[] = ['']): string[] {
+  const parsed = new URL(rawUrl);
+  const base = rawUrl.replace(/\/+$/, '');
+  const normalizedPaths = paths.map((entry) => (entry.startsWith('/') ? entry : `/${entry}`));
+  const out = new Set<string>(normalizedPaths.map((entry) => `${base}${entry === '/' ? '' : entry}`));
+
+  if (parsed.hostname === 'localhost') {
+    const ipBase = `${parsed.protocol}//127.0.0.1${parsed.port ? `:${parsed.port}` : ''}`;
+    for (const entry of normalizedPaths) {
+      out.add(`${ipBase}${entry === '/' ? '' : entry}`);
+    }
+  }
+
+  return [...out];
 }
 
 async function waitForHealth(url: string, timeoutMs = 120000) {
   const start = Date.now();
   let attempts = 0;
+  const candidateUrls = localhostCandidateUrls(url);
   while (Date.now() - start < timeoutMs) {
     attempts++;
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch {}
+    for (const candidateUrl of candidateUrls) {
+      try {
+        const res = await fetch(candidateUrl);
+        if (res.ok) return;
+      } catch {}
+    }
     const wait = Math.min(5000, 500 * (attempts / 2));
     await sleep(wait);
   }
-  throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
+  throw new Error(`Timeout waiting for ${candidateUrls.join(', ')} after ${timeoutMs}ms`);
 }
 
 type ServiceSpec = {
@@ -61,10 +80,7 @@ async function waitForFrontendReady(baseUrl: string, timeoutMs = 120000) {
 
 async function frontendCandidateUrls(baseUrl: string) {
   const normalizedBase = baseUrl.replace(/\/+$/, '');
-  const urls = new Set<string>([
-    `${normalizedBase}/`,
-    `${normalizedBase}/login`
-  ]);
+  const urls = new Set<string>(localhostCandidateUrls(normalizedBase, ['/', '/login']));
 
   try {
     const parsed = new URL(normalizedBase);
@@ -80,12 +96,13 @@ async function frontendCandidateUrls(baseUrl: string) {
 }
 
 async function isHealthy(url: string) {
-  try {
-    const res = await fetch(url);
-    return res.ok;
-  } catch {
-    return false;
+  for (const candidateUrl of localhostCandidateUrls(url)) {
+    try {
+      const res = await fetch(candidateUrl);
+      if (res.ok) return true;
+    } catch {}
   }
+  return false;
 }
 
 async function getAdminToken(hubUrl: string, username: string, password: string): Promise<string | null> {
@@ -210,7 +227,7 @@ export default async function globalSetup() {
   const root = path.resolve(__dirname, '..', '..');
   await ensurePip(root);
   const e2ePort = Number(process.env.E2E_PORT || '4200');
-  const frontendBaseUrl = process.env.E2E_FRONTEND_URL || `http://localhost:${e2ePort}`;
+  const frontendBaseUrl = process.env.E2E_FRONTEND_URL || `http://127.0.0.1:${e2ePort}`;
   const forceIsolated = process.env.ANANTA_E2E_FORCE_ISOLATED === '1';
   const allowExisting = !forceIsolated && process.env.ANANTA_E2E_USE_EXISTING === '1';
 
@@ -229,9 +246,9 @@ export default async function globalSetup() {
     } catch {}
   }
 
-  const hubUrl = process.env.E2E_HUB_URL || 'http://localhost:5500';
-  const alphaUrl = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
-  const betaUrl = process.env.E2E_BETA_URL || 'http://localhost:5502';
+  const hubUrl = process.env.E2E_HUB_URL || 'http://127.0.0.1:5500';
+  const alphaUrl = process.env.E2E_ALPHA_URL || 'http://127.0.0.1:5501';
+  const betaUrl = process.env.E2E_BETA_URL || 'http://127.0.0.1:5502';
   const adminUser = process.env.E2E_ADMIN_USER || 'admin';
   const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
   const hub = parseServiceUrl(hubUrl);
@@ -310,7 +327,7 @@ export default async function globalSetup() {
   }
 
   const procs: ProcInfo[] = [];
-  const healthTimeoutMs = Number(process.env.E2E_SERVICE_HEALTH_TIMEOUT_MS || '45000');
+  const healthTimeoutMs = Number(process.env.E2E_SERVICE_HEALTH_TIMEOUT_MS || '120000');
   const servicesToSpawn = toStart.filter((svc) => !running.has(svc.name));
 
   if (servicesToSpawn.length > 0 && fs.existsSync('/.dockerenv')) {
@@ -338,7 +355,7 @@ export default async function globalSetup() {
   const pidFile = path.join(__dirname, '.pids.json');
   fs.writeFileSync(pidFile, JSON.stringify(procs, null, 2));
 
-  const frontendWaitMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '45000');
+  const frontendWaitMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '120000');
   await waitForFrontendReady(frontendBaseUrl, frontendWaitMs);
 
   if (process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1') {
