@@ -36,6 +36,18 @@ def test_seed_blueprints_are_listed(client):
     assert policy_artifact is not None
     assert (policy_artifact.get("payload") or {}).get("security_level") == "balanced"
 
+    opencode_scrum = next(blueprint for blueprint in blueprints if blueprint["name"] == "Scrum-OpenCode")
+    assert opencode_scrum["is_seed"] is True
+    assert opencode_scrum["base_team_type_name"] == "Scrum"
+    assert {role["name"] for role in opencode_scrum["roles"]} == {"Product Owner", "Scrum Master", "Developer"}
+    assert any(artifact["title"] == "Execution Cascade Agreement" for artifact in opencode_scrum["artifacts"])
+    opencode_policy = next(
+        (artifact for artifact in opencode_scrum["artifacts"] if artifact["kind"] == "policy"),
+        None,
+    )
+    assert opencode_policy is not None
+    assert (opencode_policy.get("payload") or {}).get("artifact_flow_expected") is True
+
 
 def test_blueprint_crud_and_instantiate(client):
     admin_token = _login_admin(client)

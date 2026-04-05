@@ -8,6 +8,7 @@ from agent.config import settings
 from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
 from agent.llm_benchmarks import recommend_model_for_context, recommend_models_for_context
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_template_resolution import resolve_task_role_template
 from agent.tool_guardrails import estimate_text_tokens
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
@@ -179,46 +180,13 @@ def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | 
     task_kind_overrides = _normalize_override_map(cfg.get("task_kind_model_overrides"))
     excluded = {str(item or "").strip() for item in (excluded_models or set()) if str(item or "").strip()}
 
-    role_id = str(getattr(task, "assigned_role_id", None) or "").strip()
-    team_id = str(getattr(task, "team_id", None) or "").strip()
-    assigned_agent_url = str(getattr(task, "assigned_agent_url", None) or "").strip()
     task_kind = str(getattr(task, "task_kind", None) or "").strip().lower()
-
-    role_name = ""
-    template_id = ""
-    template_name = ""
     repos = get_repository_registry()
-
-    if team_id and assigned_agent_url:
-        try:
-            members = repos.team_member_repo.get_by_team(team_id) or []
-            for member in members:
-                if str(getattr(member, "agent_url", "") or "").strip() != assigned_agent_url:
-                    continue
-                if not role_id:
-                    role_id = str(getattr(member, "role_id", "") or "").strip()
-                template_id = str(getattr(member, "custom_template_id", "") or "").strip()
-                break
-        except Exception:
-            pass
-
-    if role_id:
-        try:
-            role = repos.role_repo.get_by_id(role_id)
-            if role is not None:
-                role_name = str(getattr(role, "name", "") or "").strip()
-                if not template_id:
-                    template_id = str(getattr(role, "default_template_id", "") or "").strip()
-        except Exception:
-            pass
-
-    if template_id:
-        try:
-            template = repos.template_repo.get_by_id(template_id)
-            if template is not None:
-                template_name = str(getattr(template, "name", "") or "").strip()
-        except Exception:
-            pass
+    resolved = resolve_task_role_template(task, repos=repos)
+    role_id = str(resolved.get("role_id") or "").strip()
+    role_name = str(resolved.get("role_name") or "").strip()
+    template_id = str(resolved.get("template_id") or "").strip()
+    template_name = str(resolved.get("template_name") or "").strip()
 
     selected_model = None
     source = "none"

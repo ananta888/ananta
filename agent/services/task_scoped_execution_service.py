@@ -25,6 +25,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
+from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _extract_json_payload, _extract_reason, _log_terminal_entry
@@ -1600,42 +1601,43 @@ class TaskScopedExecutionService:
         if not task:
             return None
 
-        role_id = task.assigned_role_id
-        template_id = None
-        if task.team_id and task.assigned_agent_url:
-            members = get_repository_registry().team_member_repo.get_by_team(task.team_id)
-            for member in members:
-                if member.agent_url == task.assigned_agent_url:
-                    if not role_id:
-                        role_id = member.role_id
-                    template_id = getattr(member, "custom_template_id", None)
-                    break
-
-        if role_id and not template_id:
-            role = get_repository_registry().role_repo.get_by_id(role_id)
-            if role:
-                template_id = role.default_template_id
-
+        repos = get_repository_registry()
+        resolved = resolve_task_role_template(task, repos=repos)
+        role_id = resolved.get("role_id")
+        template_id = resolved.get("template_id")
         if not template_id:
             return None
-        template = get_repository_registry().template_repo.get_by_id(template_id)
+        template = repos.template_repo.get_by_id(template_id)
         if not template:
             return None
 
         prompt = template.prompt_template
+        goal_text = ""
+        goal_context = ""
+        acceptance_criteria: list[str] = []
+        goal_id = str(task.goal_id or "").strip()
+        if goal_id:
+            goal = repos.goal_repo.get_by_id(goal_id)
+            if goal:
+                goal_text = str(goal.goal or "").strip()
+                goal_context = str(goal.context or "").strip()
+                acceptance_criteria = [str(item) for item in (goal.acceptance_criteria or []) if str(item or "").strip()]
         variables = {
             "agent_name": current_app.config.get("AGENT_NAME", "Unbekannter Agent"),
             "task_title": task.title or "Kein Titel",
             "task_description": task.description or "Keine Beschreibung",
+            "team_goal": goal_text
+            or str(task.title or "").strip()
+            or str(task.description or "").strip()
+            or str(resolved.get("team_name") or "").strip()
+            or "aktuelles Teamziel",
+            "goal_context": goal_context,
+            "acceptance_criteria": "\n".join(f"- {item}" for item in acceptance_criteria),
         }
-        if task.team_id:
-            team = get_repository_registry().team_repo.get_by_id(task.team_id)
-            if team:
-                variables["team_name"] = team.name
-        if role_id:
-            role = get_repository_registry().role_repo.get_by_id(role_id)
-            if role:
-                variables["role_name"] = role.name
+        if resolved.get("team_name"):
+            variables["team_name"] = resolved["team_name"]
+        if resolved.get("role_name"):
+            variables["role_name"] = resolved["role_name"]
         for key, value in variables.items():
             prompt = prompt.replace("{{" + key + "}}", str(value))
         return prompt

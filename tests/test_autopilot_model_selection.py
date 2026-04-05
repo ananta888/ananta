@@ -45,3 +45,54 @@ def test_select_model_for_task_uses_adaptive_benchmark_when_no_static_override(m
     assert meta["role_name"] == "Frontend Developer"
     assert meta["template_name"] == "UI Template"
 
+
+def test_select_model_for_task_prefers_team_role_template(monkeypatch):
+    class _RoleRepo:
+        @staticmethod
+        def get_by_id(_role_id):
+            return SimpleNamespace(name="Developer", default_template_id="tpl-role")
+
+    class _TeamRepo:
+        @staticmethod
+        def get_by_id(_team_id):
+            return SimpleNamespace(name="OpenCode Team", role_templates={"role-1": "tpl-team"})
+
+    class _TemplateRepo:
+        @staticmethod
+        def get_by_id(template_id):
+            mapping = {
+                "tpl-role": SimpleNamespace(name="Classic Scrum Developer"),
+                "tpl-team": SimpleNamespace(name="OpenCode Scrum - Developer"),
+            }
+            return mapping.get(template_id)
+
+    repos = SimpleNamespace(
+        team_member_repo=SimpleNamespace(get_by_team=lambda _team_id: []),
+        team_repo=_TeamRepo(),
+        role_repo=_RoleRepo(),
+        template_repo=_TemplateRepo(),
+    )
+    monkeypatch.setattr("agent.routes.tasks.autopilot_tick_engine.get_repository_registry", lambda: repos)
+    monkeypatch.setattr(
+        "agent.routes.tasks.autopilot_tick_engine.recommend_model_for_context",
+        lambda **kwargs: {"model": None, "selection_source": "benchmark_context_learning"},
+    )
+
+    loop = SimpleNamespace(
+        _agent_config=lambda: {
+            "adaptive_model_routing_enabled": False,
+            "template_model_overrides": {"opencode scrum - developer": "opencode-model"},
+        },
+        _app=SimpleNamespace(config={"DATA_DIR": "data"}),
+    )
+    task = SimpleNamespace(
+        assigned_role_id="role-1",
+        team_id="team-1",
+        assigned_agent_url="",
+        task_kind="coding",
+    )
+
+    selected, meta = _select_model_for_task(loop=loop, task=task)
+    assert selected == "opencode-model"
+    assert meta["source"] == "template_model_overrides:name"
+    assert meta["template_name"] == "OpenCode Scrum - Developer"
