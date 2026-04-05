@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.3.0",
   "created": "2026-04-05",
-  "updated": "2026-04-05T12:15:57Z",
+  "updated": "2026-04-05T12:30:50Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -167,7 +167,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "SRP, OCP, Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/teams.py",
@@ -187,7 +187,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Consistency, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/teams.py",
@@ -209,7 +209,7 @@
           "priority": "critical",
           "type": "bugfix",
           "principle": "Determinism, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/teams.py",
@@ -317,7 +317,7 @@
           "priority": "critical",
           "type": "migration",
           "principle": "Integrity, Defense-in-Depth",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -339,7 +339,7 @@
           "priority": "medium",
           "type": "migration",
           "principle": "Clarity, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -525,9 +525,9 @@
   "meta": {
     "total_items": 22,
     "by_status": {
-      "completed": 11,
+      "completed": 16,
       "partial": 0,
-      "open": 11
+      "open": 6
     },
     "notes": [
       "Diese Todo-Version startet bewusst als neue Linie fuer Backend-Qualitaet bei Blueprints/Templates.",
