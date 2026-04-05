@@ -102,6 +102,25 @@ def element_click(session_id: str, element_id: str):
     wd("POST", f"/session/{session_id}/element/{element_id}/click", {})
 
 
+def set_input_value_via_js(session_id: str, selector: str, text: str) -> bool:
+    result = js(
+        session_id,
+        """
+        const selector = arguments[0];
+        const text = arguments[1];
+        const input = document.querySelector(selector);
+        if (!input) return false;
+        input.focus();
+        input.value = text;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+        """,
+        [selector, text],
+    )
+    return bool(result.get("value"))
+
+
 def wait_for(session_id: str, script: str, timeout: int = 25) -> bool:
     end = time.time() + timeout
     while time.time() < end:
@@ -421,9 +440,13 @@ def phase_goal(
             {"error": "goal_input_or_button_missing", **current_route_and_title(session_id)},
         )
         raise RuntimeError("Goal input/button not found")
-    element_click(session_id, input_id)
-    element_clear(session_id, input_id)
-    element_send_keys(session_id, input_id, goal_name)
+    try:
+        element_click(session_id, input_id)
+        element_clear(session_id, input_id)
+        element_send_keys(session_id, input_id, goal_name)
+    except Exception:
+        if not set_input_value_via_js(session_id, '[data-testid="auto-planner-goal-input"]', goal_name):
+            raise
     time.sleep(0.6)
     team_pick = (
         js(
@@ -832,6 +855,62 @@ def _open_worker_terminal_panel(session_id: str, worker_name: str, mode: str = "
     }
 
 
+def _open_operations_console_artifact_flow(session_id: str) -> Dict[str, Any]:
+    step_nav(session_id, "/operations-console", settle_s=1.0)
+    heading_ready = wait_for(
+        session_id,
+        "return !![...document.querySelectorAll('h1,h2,h3')].find((node) => /operations konsole/i.test((node.textContent || '').trim()));",
+        25,
+    )
+    artifact_ready = wait_for(
+        session_id,
+        "return !![...document.querySelectorAll('h1,h2,h3,button,div')].find((node) => /artifact flow/i.test((node.textContent || '').trim()));",
+        25,
+    )
+    details_toggled = bool(
+        js(
+            session_id,
+            """
+            const button = [...document.querySelectorAll('button')].find((node) =>
+              /Details anzeigen|Details ausblenden/i.test((node.textContent || '').trim())
+            );
+            if (!button) return false;
+            button.click();
+            return true;
+            """,
+        ).get("value")
+    )
+    time.sleep(1.0)
+    snapshot = (
+        js(
+            session_id,
+            """
+            const pageText = (document.body?.innerText || '');
+            const rows = document.querySelectorAll('table tbody tr').length;
+            const rag = [...document.querySelectorAll('.muted,strong,div')]
+              .find((node) => /^RAG$/i.test((node.textContent || '').trim()));
+            return {
+              artifact_flow_visible: /Artifact Flow/i.test(pageText),
+              table_rows: rows,
+              rag_label_present: !!rag,
+              page_excerpt: pageText.slice(0, 1200),
+            };
+            """,
+        ).get("value")
+        or {}
+    )
+    state = current_route_and_title(session_id)
+    return {
+        "opened": bool(heading_ready and artifact_ready),
+        "details_toggled": details_toggled,
+        "artifact_flow_visible": bool(snapshot.get("artifact_flow_visible")),
+        "table_rows": int(snapshot.get("table_rows") or 0),
+        "rag_label_present": bool(snapshot.get("rag_label_present")),
+        "page_excerpt": str(snapshot.get("page_excerpt") or "")[:600],
+        **state,
+    }
+
+
 def phase_benchmark(
     session_id: str,
     report: dict,
@@ -1232,6 +1311,45 @@ def phase_benchmark(
         bool((headline_artifact or {}).get("preview"))
         or (isinstance(artifact_entries, list) and len(artifact_entries) > 0)
     )
+    orchestration_rm_res = browser_api_json(
+        session_id,
+        "GET",
+        "/tasks/orchestration/read-model?artifact_flow_enabled=1&artifact_flow_rag_enabled=1&artifact_flow_rag_include_content=1&artifact_flow_rag_top_k=5",
+        timeout_seconds=90,
+    )
+    orchestration_rm_payload = _unwrap_envelope(orchestration_rm_res.get("body")) if orchestration_rm_res.get("ok") else {}
+    orchestration_rm_payload = orchestration_rm_payload if isinstance(orchestration_rm_payload, dict) else {}
+    artifact_flow_rm = orchestration_rm_payload.get("artifact_flow")
+    artifact_flow_rm = artifact_flow_rm if isinstance(artifact_flow_rm, dict) else {}
+    reconciliation_rm = orchestration_rm_payload.get("worker_execution_reconciliation")
+    reconciliation_rm = reconciliation_rm if isinstance(reconciliation_rm, dict) else {}
+    artifact_flow_items = artifact_flow_rm.get("items") if isinstance(artifact_flow_rm.get("items"), list) else []
+    tracked_goal_task_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
+    matching_artifact_flow_items = [
+        item
+        for item in artifact_flow_items
+        if isinstance(item, dict) and str(item.get("task_id") or "") in tracked_goal_task_ids
+    ]
+    artifact_flow_summary = {
+        "available": bool(artifact_flow_rm),
+        "enabled": bool(artifact_flow_rm.get("enabled")),
+        "config": dict(artifact_flow_rm.get("config") or {}) if isinstance(artifact_flow_rm.get("config"), dict) else {},
+        "counts": dict(artifact_flow_rm.get("counts") or {}) if isinstance(artifact_flow_rm.get("counts"), dict) else {},
+        "matching_item_count": len(matching_artifact_flow_items),
+        "matching_task_ids": [str(item.get("task_id") or "") for item in matching_artifact_flow_items[:10]],
+        "matching_sent_artifact_count": sum(len(item.get("sent_artifact_ids") or []) for item in matching_artifact_flow_items),
+        "matching_returned_artifact_count": sum(len(item.get("returned_artifact_ids") or []) for item in matching_artifact_flow_items),
+        "matching_worker_job_count": sum(len(item.get("worker_jobs") or []) for item in matching_artifact_flow_items),
+        "matching_rag_context_count": sum(len(item.get("rag_context") or []) for item in matching_artifact_flow_items),
+        "sample_items": matching_artifact_flow_items[:3],
+    }
+    reconciliation_summary = {
+        "available": bool(reconciliation_rm),
+        "issue_count": int(reconciliation_rm.get("issue_count") or 0),
+        "counts": dict(reconciliation_rm.get("counts") or {}) if isinstance(reconciliation_rm.get("counts"), dict) else {},
+        "issues": list(reconciliation_rm.get("issues") or [])[:5] if isinstance(reconciliation_rm.get("issues"), list) else [],
+    }
+    operations_console = _open_operations_console_artifact_flow(session_id)
     file_evidence = _extract_file_path_evidence(tasks_after_full)
     multi_file_output_ok = (
         int(file_evidence.get("distinct_file_count") or 0) >= int(max(1, min_distinct_files))
@@ -1315,6 +1433,9 @@ def phase_benchmark(
             "artifacts_summary_present": artifact_summary_ok,
             "result_summary": result_summary if isinstance(result_summary, dict) else {},
             "headline_artifact_preview": str((headline_artifact or {}).get("preview") or "")[:280],
+            "artifact_flow": artifact_flow_summary,
+            "execution_reconciliation": reconciliation_summary,
+            "operations_console": operations_console,
             "file_output_evidence": file_evidence,
             "multi_file_output_ok": multi_file_output_ok,
             "require_followup": require_followup,
