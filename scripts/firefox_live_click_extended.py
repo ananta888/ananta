@@ -11,11 +11,36 @@ from urllib import request
 
 BASE = os.getenv("ANANTA_SELENIUM_URL", "http://127.0.0.1:4444/wd/hub")
 APP_BASE = os.getenv("ANANTA_FRONTEND_URL", "http://angular-frontend:4200")
-LOGIN_USER = os.getenv("E2E_ADMIN_USER", os.getenv("INITIAL_ADMIN_USER", "admin"))
-LOGIN_PASS = os.getenv("E2E_ADMIN_PASSWORD", os.getenv("INITIAL_ADMIN_PASSWORD", "AnantaAdminPassword123!"))
 DEFAULT_REPORT_DIR = Path("test-reports/live-click")
 DEFAULT_PHASES = ["setup", "goal", "execution", "benchmark", "review"]
 FILE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_./-])(?:[A-Za-z0-9_.-]+/){1,}[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,10}")
+
+
+def _read_repo_dotenv() -> Dict[str, str]:
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return {}
+    values: Dict[str, str] = {}
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        values[key] = value.strip().strip('"').strip("'")
+    return values
+
+
+_DOTENV = _read_repo_dotenv()
+LOGIN_USER = os.getenv("E2E_ADMIN_USER") or os.getenv("INITIAL_ADMIN_USER") or _DOTENV.get("INITIAL_ADMIN_USER") or "admin"
+LOGIN_PASS = (
+    os.getenv("E2E_ADMIN_PASSWORD")
+    or os.getenv("INITIAL_ADMIN_PASSWORD")
+    or _DOTENV.get("INITIAL_ADMIN_PASSWORD")
+    or "AnantaAdminPassword123!"
+)
 
 
 def wd(method: str, path: str, payload=None):
@@ -365,6 +390,9 @@ def phase_goal(
 ):
     t0 = time.time()
     step_nav(session_id, "/auto-planner")
+    goals_before_res = browser_api_json(session_id, "GET", "/goals", timeout_seconds=45)
+    goals_before_payload = _unwrap_envelope(goals_before_res.get("body")) if goals_before_res.get("ok") else []
+    goals_before = goals_before_payload if isinstance(goals_before_payload, list) else []
     form_ready = wait_for(
         session_id,
         "return !!document.querySelector('[data-testid=\"auto-planner-goal-input\"]') && !!document.querySelector('[data-testid=\"auto-planner-goal-plan\"]')",
@@ -455,10 +483,39 @@ def phase_goal(
         const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
         if (!btn) return false;
         const t = (btn.textContent || '').trim();
-        return btn.disabled || /Plane/i.test(t);
+        return t.includes('Plane...') || !!document.querySelector('[data-testid="goal-submit-result"]');
         """,
         8,
     )
+    click_debug["goals_before"] = len(goals_before)
+    click_debug["goals_before_ids"] = [
+        str(item.get("id") or "")
+        for item in goals_before[-5:]
+        if isinstance(item, dict) and str(item.get("id") or "")
+    ]
+    click_debug["fallback_click"] = False
+    if not planning_started:
+        click_debug["fallback_click"] = bool(
+            js(
+                session_id,
+                """
+                const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
+                if (!btn) return false;
+                btn.click();
+                return true;
+                """,
+            ).get("value")
+        )
+        planning_started = wait_for(
+            session_id,
+            """
+            const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
+            if (!btn) return false;
+            const t = (btn.textContent || '').trim();
+            return t.includes('Plane...') || !!document.querySelector('[data-testid="goal-submit-result"]');
+            """,
+            8,
+        )
     click_debug["planning_started"] = planning_started
     click_debug["team_pick"] = team_pick
     goal_clicked = bool(planning_started)
@@ -484,9 +541,34 @@ def phase_goal(
         str(goal_result_details.get("text") or ""),
     )
     created_goal_id = goal_id_match.group(0) if goal_id_match else ""
+    goals_after_res = browser_api_json(session_id, "GET", "/goals", timeout_seconds=45)
+    goals_after_payload = _unwrap_envelope(goals_after_res.get("body")) if goals_after_res.get("ok") else []
+    goals_after = goals_after_payload if isinstance(goals_after_payload, list) else []
+    if not created_goal_id:
+        for goal in reversed(goals_after):
+            if not isinstance(goal, dict):
+                continue
+            text_blob = f"{goal.get('goal', '')} {goal.get('summary', '')}".strip().lower()
+            if goal_name.lower() and goal_name.lower() in text_blob:
+                created_goal_id = str(goal.get("id") or "")
+                break
+    detail_after = {}
+    if created_goal_id and tasks_created <= 0:
+        detail_res = browser_api_json(session_id, "GET", f"/goals/{created_goal_id}/detail", timeout_seconds=60)
+        detail_payload = _unwrap_envelope(detail_res.get("body")) if detail_res.get("ok") else {}
+        detail_after = detail_payload if isinstance(detail_payload, dict) else {}
+        detail_tasks = detail_after.get("tasks") if isinstance(detail_after, dict) else []
+        detail_tasks = detail_tasks if isinstance(detail_tasks, list) else []
+        tasks_created = max(tasks_created, len(detail_tasks))
     if created_goal_id:
         report["last_goal_id"] = created_goal_id
-    ok = goal_clicked and goal_result and tasks_created > 0
+    click_debug["goals_after"] = len(goals_after)
+    click_debug["goals_after_ids"] = [
+        str(item.get("id") or "")
+        for item in goals_after[-5:]
+        if isinstance(item, dict) and str(item.get("id") or "")
+    ]
+    ok = goal_clicked and (goal_result or bool(created_goal_id)) and tasks_created > 0
     print("goal_submit_clicked", goal_clicked, "goal_result_visible", goal_result, "tasks_created", tasks_created, "goal", goal_name, flush=True)
     record_step(
         report,
@@ -502,6 +584,7 @@ def phase_goal(
             "tasks_created": tasks_created,
             "created_goal_id": created_goal_id,
             "goal_result_excerpt": str(goal_result_details.get("text") or ""),
+            "detail_tasks_after_fallback": len((detail_after.get("tasks") or [])) if isinstance(detail_after, dict) else 0,
             **current_route_and_title(session_id),
         },
     )

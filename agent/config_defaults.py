@@ -18,7 +18,11 @@ def build_default_agent_config() -> dict:
         "llm_config": {
             "provider": settings.default_provider,
             "model": settings.default_model,
-            "base_url": settings.lmstudio_url if settings.default_provider == "lmstudio" else None,
+            "base_url": (
+                settings.lmstudio_url
+                if settings.default_provider == "lmstudio"
+                else (settings.ollama_url if settings.default_provider == "ollama" else None)
+            ),
             "lmstudio_api_mode": settings.lmstudio_api_mode,
         },
         "max_summary_length": 500,
