@@ -15,6 +15,7 @@ from agent.routes.tasks.auto_planner import (
     _parse_followup_analysis,
     _parse_subtasks_from_llm_response,
 )
+from agent.services.planning_utils import match_goal_template
 from agent.services.planning_service import get_planning_service
 from agent.routes.tasks.triggers import TriggerEngine
 
@@ -132,8 +133,32 @@ class TestAutoPlannerPrompts:
         assert len(result.get("subtasks") or []) >= 2
         assert result.get("template_used") is True
 
+    def test_match_goal_template_returns_execution_focused_template_for_coding_goal(self):
+        result = match_goal_template(
+            "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files."
+        )
+        assert result is not None
+        assert any("Fibonacci" in str(item.get("title") or "") for item in result)
+        assert any("pytest" in str(item.get("description") or "").lower() for item in result)
+
 
 class TestAutoPlanner:
+    def test_planning_service_build_nodes_infers_work_task_kind(self):
+        planning_service = get_planning_service()
+        nodes = planning_service._build_nodes(
+            "plan-1",
+            [
+                {"title": "Implement helper", "description": "Implement Python helper function", "priority": "High"},
+                {"title": "Tests schreiben", "description": "Add unit tests with pytest", "priority": "Medium"},
+            ],
+            "template",
+        )
+
+        assert nodes[0].rationale["task_kind"] == "coding"
+        assert nodes[1].rationale["task_kind"] == "testing"
+        assert nodes[0].verification_spec["tests"] is True
+        assert nodes[1].verification_spec["tests"] is True
+
     def test_configure(self):
         planner = AutoPlanner()
         planner.configure(

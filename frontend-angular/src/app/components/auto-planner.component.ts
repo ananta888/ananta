@@ -393,6 +393,9 @@ export class AutoPlannerComponent implements OnInit {
     this.controlPlane.listTeams(this.hub.url).subscribe({
       next: (teams) => {
         this.teams = Array.isArray(teams) ? teams : [];
+        if (!this.goalForm.team_id && this.teams.length > 0) {
+          this.goalForm.team_id = String(this.teams[0]?.id || '');
+        }
         this.cdr.detectChanges();
       },
       error: () => {},
@@ -443,11 +446,15 @@ export class AutoPlannerComponent implements OnInit {
     if (!this.hub || !this.goalForm.goal?.trim()) return;
     this.planning = true;
     this.planningResult = null;
+    const llmTimeoutSeconds = Math.max(5, Number(this.config?.llm_timeout) || 30);
+    const llmRetryAttempts = Math.max(1, Number(this.config?.llm_retry_attempts) || 2);
+    const goalTimeoutMs = Math.max(120000, ((llmTimeoutSeconds * llmRetryAttempts) + 30) * 1000);
+    const effectiveTeamId = String(this.goalForm.team_id || this.teams[0]?.id || '').trim();
 
     const body: any = {
       goal: this.goalForm.goal.trim(),
       context: this.goalForm.context || undefined,
-      team_id: this.goalForm.team_id || undefined,
+      team_id: effectiveTeamId || undefined,
       create_tasks: this.goalForm.create_tasks,
     };
 
@@ -464,7 +471,7 @@ export class AutoPlannerComponent implements OnInit {
       }
     }
 
-    this.controlPlane.createGoal(this.hub.url, body).subscribe({
+    this.controlPlane.createGoal(this.hub.url, body, undefined, goalTimeoutMs).subscribe({
       next: (result) => {
         this.planning = false;
         this.planningResult = result;

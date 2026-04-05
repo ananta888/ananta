@@ -18,8 +18,21 @@ from agent.services.planning_strategies import (
 from agent.services.planning_utils import sanitize_input, validate_goal
 from agent.services.repository_registry import get_repository_registry
 from agent.services.verification_policy_service import default_verification_spec
+from agent.services.worker_routing_policy_utils import derive_required_capabilities
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
+
+
+def _infer_subtask_task_kind(subtask: dict[str, Any]) -> str:
+    task_like = {
+        "title": str(subtask.get("title") or ""),
+        "description": str(subtask.get("description") or ""),
+    }
+    capabilities = derive_required_capabilities(task_like)
+    for kind in ("testing", "review", "planning", "research", "coding"):
+        if kind in capabilities:
+            return kind
+    return "coding"
 
 
 def get_goal_feature_flags() -> dict[str, bool]:
@@ -195,6 +208,7 @@ class PlanningService:
         for index, subtask in enumerate(subtasks, start=1):
             node_key = f"{plan_id}-node-{index}"
             node_keys.append(node_key)
+            task_kind = _infer_subtask_task_kind(subtask)
             raw_depends_on = list(subtask.get("depends_on") or [])
             depends_on: list[str] = []
             if raw_depends_on:
@@ -220,11 +234,11 @@ class PlanningService:
                     depends_on=depends_on,
                     rationale={
                         "planning_mode": planning_mode,
-                        "task_kind": planning_mode,
+                        "task_kind": task_kind,
                         "source_depends_on": raw_depends_on,
                     },
                     verification_spec=default_verification_spec(
-                        {"task_kind": planning_mode, "title": subtask.get("title"), "description": subtask.get("description")}
+                        {"task_kind": task_kind, "title": subtask.get("title"), "description": subtask.get("description")}
                     ),
                 )
             )

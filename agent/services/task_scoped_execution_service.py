@@ -1161,14 +1161,14 @@ class TaskScopedExecutionService:
         workdir: str | None = None,
     ) -> dict | None:
         default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip() or None
-        first_backend = str(primary_backend or "sgpt").strip().lower()
+        first_backend = str(primary_backend or "opencode").strip().lower()
         if first_backend not in SUPPORTED_CLI_BACKENDS:
-            first_backend = "sgpt"
+            first_backend = "opencode"
         first_model = primary_model or default_model
 
-        repair_backend = str(cfg.get("task_propose_repair_backend") or "sgpt").strip().lower()
+        repair_backend = str(cfg.get("task_propose_repair_backend") or "opencode").strip().lower()
         if repair_backend not in SUPPORTED_CLI_BACKENDS:
-            repair_backend = "sgpt"
+            repair_backend = "opencode"
         repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
         timeout_like_failure = self._is_timeout_like_repair_failure(
             validation_error=validation_error,

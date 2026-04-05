@@ -169,7 +169,7 @@ def execute_sgpt():
     prompt = data.get("prompt")
     options = data.get("options", [])
     use_hybrid_context = bool(data.get("use_hybrid_context", False))
-    backend = str(data.get("backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
+    backend = str(data.get("backend") or settings.sgpt_execution_backend or "opencode").strip().lower()
     model = data.get("model")
     task_kind = normalize_task_kind(data.get("task_kind"), prompt or "")
 
@@ -190,7 +190,7 @@ def execute_sgpt():
         requested_backend=backend,
         supported_backends=SUPPORTED_CLI_BACKENDS,
         agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
-        fallback_backend="sgpt",
+        fallback_backend="opencode",
     )
     safe_options, rejected = normalize_backend_flags(effective_backend, options)
     if rejected:

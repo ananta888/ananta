@@ -600,6 +600,7 @@ class TaskUpdateRequest(SQLModel):
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
+    team_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None

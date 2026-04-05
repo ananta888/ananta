@@ -111,8 +111,8 @@ export class ControlPlaneFacade {
     return this.hubApi.configureAutoPlanner(baseUrl, config, token);
   }
 
-  createGoal(baseUrl: string, body: any, token?: string) {
-    return this.hubApi.createGoal(baseUrl, body, token);
+  createGoal(baseUrl: string, body: any, token?: string, timeoutMs?: number) {
+    return this.hubApi.createGoal(baseUrl, body, token, timeoutMs);
   }
 
   getGoalDetail(baseUrl: string, goalId: string, token?: string) {
