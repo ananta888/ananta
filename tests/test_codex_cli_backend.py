@@ -197,6 +197,56 @@ def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
     assert '"lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest"' in captured["config"]
 
 
+def test_resolve_opencode_runtime_config_respects_tool_mode_toolless(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "ollama",
+            "opencode_default_model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
+            "opencode_runtime": {"tool_mode": "toolless"},
+        }
+        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "ollama"
+            mock_settings.opencode_default_model = "opencode/glm-5-free"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["tool_mode"] == "toolless"
+    assert resolved["provider_config"]["default_agent"] == "ananta-worker"
+    assert resolved["provider_config"]["agent"]["ananta-worker"]["tools"]["bash"] is False
+
+
+def test_run_opencode_command_passes_workdir_to_subprocess(app):
+    from agent.common.sgpt import run_opencode_command
+
+    captured: dict = {}
+
+    def _fake_run(args, **kwargs):
+        captured["cwd"] = kwargs.get("cwd")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok"
+        mock_result.stderr = ""
+        return mock_result
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {"default_provider": "ollama"}
+        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.subprocess.run", side_effect=_fake_run),
+        ):
+            mock_settings.opencode_path = "opencode"
+            mock_settings.default_provider = "ollama"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            run_opencode_command("say hi", workdir="/tmp/ananta-workdir")
+
+    assert captured["cwd"] == "/tmp/ananta-workdir"
+
+
 def test_run_opencode_command_uses_native_runtime_session(app):
     from agent.common.sgpt import run_opencode_command
 
