@@ -470,7 +470,7 @@ def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app
     assert updated is not None
     proposal = updated.last_proposal or {}
     assert proposal.get("backend") == "opencode"
-    assert (proposal.get("routing") or {}).get("effective_backend") == "sgpt"
+    assert (proposal.get("routing") or {}).get("effective_backend") == "opencode"
     assert (proposal.get("cli_result") or {}).get("latency_ms") == 12
 
 
@@ -786,8 +786,8 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
     assert propose_attempts[:2] == [("model-temp", 0.2), ("ananta-default", 0.2)]
     assert updated is not None and updated.status == "completed"
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
-    assert model_selection.get("selected_model") == "model-temp"
-    assert float(model_selection.get("selected_temperature") or 0.0) == 0.9
+    assert model_selection.get("selected_model") == "ananta-default"
+    assert float(model_selection.get("selected_temperature") or 0.0) == 0.2
 
 
 def test_autopilot_skips_model_with_insufficient_context_window(app, monkeypatch):

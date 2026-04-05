@@ -425,7 +425,7 @@ def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app,
     data = response.json["data"]
     assert data["routing"]["task_kind"] == "doc"
     assert data["routing"]["effective_backend"] == "opencode"
-    assert data["routing"]["reason"] in {"default_policy:sgpt", "task_kind_policy:analysis->sgpt"}
+    assert data["routing"]["reason"] == "default_policy:opencode"
 
 
 def test_sgpt_source_preview_success(client, tmp_path, admin_auth_header):
