@@ -131,6 +131,10 @@ def set_config(base: str, token: str, config_patch: dict) -> dict:
     res = req(base, "POST", "/config", config_patch, token=token, timeout=60)
     if str(res.get("status") or "").lower() not in {"success", "ok"}:
         raise RuntimeError(f"config_post_failed: {res}")
+    return get_config(base, token)
+
+
+def get_config(base: str, token: str) -> dict:
     cfg = req(base, "GET", "/config", token=token, timeout=60)
     data = cfg.get("data") if isinstance(cfg.get("data"), dict) else cfg
     return data if isinstance(data, dict) else {}
@@ -190,6 +194,31 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return {}
 
 
+def get_config_via_hub_container(container_name: str) -> dict:
+    script = """
+import json, urllib.request, os
+base = 'http://127.0.0.1:5000'
+user = os.getenv('INITIAL_ADMIN_USER','admin')
+pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
+def req(method, path, body=None, token=None):
+    headers = {'Content-Type': 'application/json'}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
+    data = json.dumps(body).encode('utf-8') if body is not None else None
+    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(r, timeout=60) as s:
+        return json.loads(s.read().decode('utf-8'))
+token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')
+cfg = req('GET','/config',token=token)
+print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
+"""
+    out = _docker_exec_hub_python(container_name, script)
+    try:
+        return json.loads(out)
+    except Exception:
+        return {}
+
+
 def set_config_via_agent_container(container_name: str, config_patch: dict) -> dict:
     payload = json.dumps(config_patch, ensure_ascii=True)
     script = f"""
@@ -224,6 +253,31 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return {}
 
 
+def get_config_via_agent_container(container_name: str) -> dict:
+    script = """
+import json, urllib.request, os
+base = 'http://127.0.0.1:5000'
+user = os.getenv('INITIAL_ADMIN_USER','admin')
+pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
+def req(method, path, body=None, token=None):
+    headers = {'Content-Type': 'application/json'}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
+    data = json.dumps(body).encode('utf-8') if body is not None else None
+    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(r, timeout=60) as s:
+        return json.loads(s.read().decode('utf-8'))
+token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')
+cfg = req('GET','/config',token=token)
+print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
+"""
+    out = _docker_exec_hub_python(container_name, script)
+    try:
+        return json.loads(out)
+    except Exception:
+        return {}
+
+
 def apply_config_to_agent_containers(agent_containers: list[str], config_patch: dict) -> dict[str, dict]:
     applied: dict[str, dict] = {}
     for container_name in agent_containers:
@@ -232,6 +286,16 @@ def apply_config_to_agent_containers(agent_containers: list[str], config_patch: 
             continue
         applied[name] = set_config_via_agent_container(name, config_patch)
     return applied
+
+
+def get_configs_from_agent_containers(agent_containers: list[str]) -> dict[str, dict]:
+    captured: dict[str, dict] = {}
+    for container_name in agent_containers:
+        name = str(container_name or "").strip()
+        if not name:
+            continue
+        captured[name] = get_config_via_agent_container(name)
+    return captured
 
 
 def benchmark_step(report_path: Path) -> dict:
@@ -380,79 +444,100 @@ def main() -> int:
         if not admin_password or admin_password == "AnantaAdminPassword123!":
             admin_password = container_password
 
-    # Run 1: single model only
-    single_cfg_payload = build_worker_execution_config(
-        default_provider="ollama",
-        default_model=args.single_model,
-        planner_model=args.planner_model,
-        execution_backend=args.execution_backend,
-        repair_backend=args.repair_backend,
-        repair_model=args.repair_model,
-        role_model_overrides={},
-        task_kind_model_overrides={},
-    )
-    cfg_single = (
-        set_config_via_hub_container(args.hub_container, single_cfg_payload)
+    original_hub_config = (
+        get_config_via_hub_container(args.hub_container)
         if use_container_config
-        else set_config(args.hub_base_url.rstrip("/"), token, single_cfg_payload)
+        else get_config(args.hub_base_url.rstrip("/"), token)
     )
-    container_cfg_single = apply_config_to_agent_containers(agent_containers, single_cfg_payload)
-    print("single_config_default_model", cfg_single.get("default_model"), flush=True)
-    print("single_config_execution_backend", cfg_single.get("sgpt_execution_backend"), flush=True)
-    print("single_config_routing", cfg_single.get("sgpt_routing"), flush=True)
-    print(
-        "single_agent_container_routing",
-        {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_single.items()},
-        flush=True,
-    )
+    original_agent_configs = get_configs_from_agent_containers(agent_containers)
+
     results: dict[str, Any] = {"single": {}, "mixed": {}}
     try:
-        run_click_test(single_report, args.goal_text, admin_user, admin_password, [])
-        results["single"] = collect_benchmark_result(single_report)
-    except Exception as exc:
-        results["single"] = collect_benchmark_result(single_report)
-        results["single"]["error"] = str(exc)
+        # Run 1: single model only
+        single_cfg_payload = build_worker_execution_config(
+            default_provider="ollama",
+            default_model=args.single_model,
+            planner_model=args.planner_model,
+            execution_backend=args.execution_backend,
+            repair_backend=args.repair_backend,
+            repair_model=args.repair_model,
+            role_model_overrides={},
+            task_kind_model_overrides={},
+        )
+        cfg_single = (
+            set_config_via_hub_container(args.hub_container, single_cfg_payload)
+            if use_container_config
+            else set_config(args.hub_base_url.rstrip("/"), token, single_cfg_payload)
+        )
+        container_cfg_single = apply_config_to_agent_containers(agent_containers, single_cfg_payload)
+        print("single_config_default_model", cfg_single.get("default_model"), flush=True)
+        print("single_config_execution_backend", cfg_single.get("sgpt_execution_backend"), flush=True)
+        print("single_config_routing", cfg_single.get("sgpt_routing"), flush=True)
+        print(
+            "single_agent_container_routing",
+            {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_single.items()},
+            flush=True,
+        )
+        try:
+            run_click_test(single_report, args.goal_text, admin_user, admin_password, [])
+            results["single"] = collect_benchmark_result(single_report)
+        except Exception as exc:
+            results["single"] = collect_benchmark_result(single_report)
+            results["single"]["error"] = str(exc)
 
-    # Run 2: mixed model assignment by role + task-kind
-    mixed_cfg_payload = build_worker_execution_config(
-        default_provider="ollama",
-        default_model=args.mixed_planning_model,
-        planner_model=args.planner_model,
-        execution_backend=args.execution_backend,
-        repair_backend=args.repair_backend,
-        repair_model=args.repair_model,
-        role_model_overrides={
-            "implementer": args.mixed_coding_model,
-            "reviewer": args.mixed_review_model,
-        },
-        task_kind_model_overrides={
-            "planning": args.mixed_planning_model,
-            "coding": args.mixed_coding_model,
-            "review": args.mixed_review_model,
-        },
-    )
-    cfg_mixed = (
-        set_config_via_hub_container(args.hub_container, mixed_cfg_payload)
-        if use_container_config
-        else set_config(args.hub_base_url.rstrip("/"), token, mixed_cfg_payload)
-    )
-    container_cfg_mixed = apply_config_to_agent_containers(agent_containers, mixed_cfg_payload)
-    print("mixed_config_default_model", cfg_mixed.get("default_model"), flush=True)
-    print("mixed_config_execution_backend", cfg_mixed.get("sgpt_execution_backend"), flush=True)
-    print("mixed_config_role_model_overrides", cfg_mixed.get("role_model_overrides"), flush=True)
-    print("mixed_config_task_kind_model_overrides", cfg_mixed.get("task_kind_model_overrides"), flush=True)
-    print("mixed_config_routing", cfg_mixed.get("sgpt_routing"), flush=True)
-    print(
-        "mixed_agent_container_routing",
-        {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_mixed.items()},
-        flush=True,
-    )
-    try:
-        run_click_test(mixed_report, args.goal_text, admin_user, admin_password, [])
-        results["mixed"] = collect_benchmark_result(mixed_report)
-    except Exception as exc:
-        results["mixed"] = collect_benchmark_result(mixed_report)
-        results["mixed"]["error"] = str(exc)
+        # Run 2: mixed model assignment by role + task-kind
+        mixed_cfg_payload = build_worker_execution_config(
+            default_provider="ollama",
+            default_model=args.mixed_planning_model,
+            planner_model=args.planner_model,
+            execution_backend=args.execution_backend,
+            repair_backend=args.repair_backend,
+            repair_model=args.repair_model,
+            role_model_overrides={
+                "implementer": args.mixed_coding_model,
+                "reviewer": args.mixed_review_model,
+            },
+            task_kind_model_overrides={
+                "planning": args.mixed_planning_model,
+                "coding": args.mixed_coding_model,
+                "review": args.mixed_review_model,
+            },
+        )
+        cfg_mixed = (
+            set_config_via_hub_container(args.hub_container, mixed_cfg_payload)
+            if use_container_config
+            else set_config(args.hub_base_url.rstrip("/"), token, mixed_cfg_payload)
+        )
+        container_cfg_mixed = apply_config_to_agent_containers(agent_containers, mixed_cfg_payload)
+        print("mixed_config_default_model", cfg_mixed.get("default_model"), flush=True)
+        print("mixed_config_execution_backend", cfg_mixed.get("sgpt_execution_backend"), flush=True)
+        print("mixed_config_role_model_overrides", cfg_mixed.get("role_model_overrides"), flush=True)
+        print("mixed_config_task_kind_model_overrides", cfg_mixed.get("task_kind_model_overrides"), flush=True)
+        print("mixed_config_routing", cfg_mixed.get("sgpt_routing"), flush=True)
+        print(
+            "mixed_agent_container_routing",
+            {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_mixed.items()},
+            flush=True,
+        )
+        try:
+            run_click_test(mixed_report, args.goal_text, admin_user, admin_password, [])
+            results["mixed"] = collect_benchmark_result(mixed_report)
+        except Exception as exc:
+            results["mixed"] = collect_benchmark_result(mixed_report)
+            results["mixed"]["error"] = str(exc)
+    finally:
+        try:
+            if use_container_config:
+                set_config_via_hub_container(args.hub_container, original_hub_config)
+            else:
+                set_config(args.hub_base_url.rstrip("/"), token, original_hub_config)
+        except Exception as exc:
+            print("config_restore_hub_error", str(exc), flush=True)
+        for container_name, cfg in original_agent_configs.items():
+            try:
+                set_config_via_agent_container(container_name, cfg)
+            except Exception as exc:
+                print("config_restore_agent_error", container_name, str(exc), flush=True)
 
     print("dual_benchmark_results", json.dumps(results, ensure_ascii=True), flush=True)
     return 0 if bool(results.get("single", {}).get("ok")) and bool(results.get("mixed", {}).get("ok")) else 1
