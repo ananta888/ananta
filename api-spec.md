@@ -421,6 +421,10 @@ Erste freigegebene Tools/Resources:
 - **Auth erforderlich:** Ja
 - **Body:** Template Objekt.
 - **Rückgabe:** `{"status": "success", "data": {...}}` (Erstelltes Template mit ID)
+- **Fehlerfaelle:**
+  - `400 template_name_required`
+  - `400 unknown_template_variables` (nur bei `template_variable_validation.strict=true`)
+  - `409 template_name_exists`
 
 ### Template aktualisieren
 - **URL:** `/templates/<tpl_id>`
@@ -428,6 +432,7 @@ Erste freigegebene Tools/Resources:
 - **Auth erforderlich:** Ja
 - **Body:** Template Felder.
 - **Rückgabe:** `{"status": "success", "data": {...}}`
+- **Fehlerfaelle:** wie beim Erstellen; `unknown_template_variables` liefert die unbekannten Namen in `data.unknown_variables`.
 
 ### Template löschen
 - **URL:** `/templates/<tpl_id>`
@@ -778,12 +783,21 @@ Blueprint-first ist jetzt der bevorzugte Team-Workflow. Seed-Blueprints fuer `Sc
 - **Methode:** `PATCH`
 - **Auth erforderlich:** Ja (Admin)
 - **Body:** `TeamBlueprintUpdateRequest`
+- **Verhalten:** Child-Persistierung ist diff-basiert; unveraenderte Rollen/Artefakte behalten ihre IDs.
 
 ### Blueprint loeschen
 - **URL:** `/teams/blueprints/<blueprint_id>`
 - **Methode:** `DELETE`
 - **Auth erforderlich:** Ja (Admin)
 - **Verhalten:** Referenzierte Blueprints werden nicht geloescht; bei bestehenden Team-Referenzen antwortet die API mit `409 blueprint_in_use`.
+
+### Blueprint-Audit und Seed-Reconcile
+
+- Seed-Blueprints werden vor List-/Detail-Antworten deterministisch mit den Code-Seeds abgeglichen.
+- Audit-Events `team_blueprint_created`, `team_blueprint_updated` und `team_blueprint_reconciled` enthalten differenzierte Change-Sets fuer:
+  - `blueprint_fields`
+  - `roles.created|updated|deleted`
+  - `artifacts.created|updated|deleted`
 
 ### Blueprint-Bundle exportieren
 - **URL:** `/teams/blueprints/<blueprint_id>/bundle`

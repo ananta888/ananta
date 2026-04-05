@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.3.0",
   "created": "2026-04-05",
-  "updated": "2026-04-05T12:30:50Z",
+  "updated": "2026-04-05T14:00:24Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -358,7 +358,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Auditability, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/teams.py",
@@ -408,7 +408,7 @@
           "priority": "critical",
           "type": "test",
           "principle": "Reliability, Architecture-Integrity",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/",
@@ -453,7 +453,7 @@
           "priority": "medium",
           "type": "observability",
           "principle": "Transparency",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/routes/teams.py",
@@ -480,7 +480,7 @@
           "priority": "high",
           "type": "documentation",
           "principle": "Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -504,7 +504,7 @@
           "priority": "high",
           "type": "operations",
           "principle": "Safety, Operability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -525,9 +525,9 @@
   "meta": {
     "total_items": 22,
     "by_status": {
-      "completed": 16,
+      "completed": 21,
       "partial": 0,
-      "open": 6
+      "open": 1
     },
     "notes": [
       "Diese Todo-Version startet bewusst als neue Linie fuer Backend-Qualitaet bei Blueprints/Templates.",

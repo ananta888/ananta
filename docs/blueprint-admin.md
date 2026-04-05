@@ -1,0 +1,80 @@
+# Blueprint- und Template-Admin
+
+Diese Notiz beschreibt den aktuellen Admin-Ist-Zustand fuer Blueprints, Templates und blueprint-basierte Team-Erstellung.
+
+## Zielbild
+
+- **Blueprint-first** bleibt der bevorzugte Pfad fuer Team-Aufbau.
+- Der Hub bleibt Orchestrator; Blueprints definieren nur wiederverwendbare Struktur, keine eigene Worker-Orchestrierung.
+- Seed-Blueprints werden beim Lesen deterministisch mit den Code-Definitionen abgeglichen.
+
+## Blueprints
+
+### Seed-Reconcile
+
+- `GET /teams/blueprints` und `GET /teams/blueprints/<id>` triggern vor der Antwort einen Seed-Abgleich.
+- Bestehende Seed-Blueprints werden **nicht** stillschweigend ignoriert, sondern diff-basiert reconciled.
+- Unveraenderte Rollen/Artefakte behalten dabei ihre IDs.
+- Audit-Events `team_blueprint_reconciled` enthalten differenzierte Change-Sets fuer Rollen und Artefakte.
+
+### Validierungsregeln
+
+Beim Erstellen/Aktualisieren eines Blueprints gelten u. a. folgende Regeln:
+
+- Blueprint-Name muss gesetzt sein.
+- Rollen-Namen innerhalb eines Blueprints muessen eindeutig sein.
+- `sort_order` fuer Rollen muss innerhalb eines Blueprints eindeutig sein.
+- Artefakt-Titel innerhalb eines Blueprints muessen eindeutig sein.
+- `sort_order` fuer Artefakte muss innerhalb eines Blueprints eindeutig sein.
+- Aktuell erlaubter Artefakt-Typ fuer Materialisierung ist `task`.
+- Referenzierte `template_id`-Werte muessen existieren.
+
+### Delete-Semantik
+
+- `DELETE /teams/blueprints/<id>` loescht keinen Blueprint mehr, wenn Teams darauf verweisen.
+- Die API liefert dann `409 blueprint_in_use` inklusive `team_ids` und `team_count`.
+- Das Frontend zeigt dafuer eine explizite Admin-Fehlermeldung.
+
+### Auditierbarkeit
+
+- `team_blueprint_created`
+- `team_blueprint_updated`
+- `team_blueprint_reconciled`
+- `team_blueprint_deleted`
+- `team_blueprint_instantiated`
+
+Fuer Create/Update/Reconcile enthalten die Audit-Details jetzt:
+
+- `blueprint_fields`
+- `roles.created|updated|deleted`
+- `artifacts.created|updated|deleted`
+
+Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit nachvollziehen.
+
+## Templates
+
+### Namensregeln
+
+- Template-Namen werden getrimmt gespeichert.
+- Mehrdeutige Namen sind ausgeschlossen.
+- API und DB erzwingen die Eindeutigkeit ueber `uq_templates_name`.
+- Konflikte antworten mit `409 template_name_exists`.
+
+### Template-Variablen
+
+- Standard: unbekannte `{{variablen}}` erzeugen Warnungen, blockieren den Save aber nicht.
+- Optional strict: `template_variable_validation.strict=true` in `/config` oder `config.json`
+- Im Strict-Mode antwortet die API mit `400 unknown_template_variables` und `data.unknown_variables`.
+
+## Team-Instanziierung aus Blueprint
+
+- `POST /teams/blueprints/<id>/instantiate` speichert einen Snapshot der verwendeten Blueprint-Definition am Team.
+- Start-Artefakte vom Typ `task` werden als Team-Tasks materialisiert.
+- Blueprint-Rollen werden fuer die Team-Struktur auf bestehende Rollen gemappt oder kontrolliert erzeugt.
+- Seed-Reconcile und Instanziierung sind gemeinsam durch Backend-Integrationstests abgesichert.
+
+## Passende Referenzen
+
+- API: `api-spec.md`
+- Bundle-Import/Export: `docs/blueprint-bundle-import-export.md`
+- Testbetrieb: `docs/testing.md`

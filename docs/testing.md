@@ -15,6 +15,7 @@ Aufbauende E2E-Abdeckung:
 - Foundation-Flow (Schritte 1-4): `frontend-angular/tests/main-goal-foundation.spec.ts`
 - Erweiterte Workflow-Checks: `frontend-angular/tests/ui-ux-workflows.spec.ts`
 - Tiefer Live-Flow mit echter Ausfuehrung: `frontend-angular/tests/first-goal-e2e.spec.ts`
+- Admin-Regressionen fuer Blueprint-/Template-Validierung: `frontend-angular/tests/teams.spec.ts`, `frontend-angular/tests/templates-crud.spec.ts`
 
 Ziel ist, dass ein Nutzer ohne grosse Vor-Konfiguration direkt ueber die Oberflaeche einen sinnvollen Scrum-Startpunkt nutzen kann und der gesamte Hub->Worker-Prozess sichtbar bleibt.
 
@@ -92,6 +93,16 @@ Alternative mit bestehendem Compose-Stack und kompakter Ausgabe:
 cd frontend-angular
 npm run test:e2e:compose
 ```
+
+Gezielte Admin-Flows lokal gegen isolierten Code-Stand:
+```bash
+cd frontend-angular
+npx playwright test tests/templates-crud.spec.ts tests/teams.spec.ts --grep "strict variable validation errors|validation errors and can instantiate"
+```
+
+Hinweis:
+- Ein laufender Docker-Backend-Stack auf `5000/5001/5002` bedeutet nicht automatisch, dass auch das Angular-Frontend auf `4200` aktiv ist.
+- Fuer UI-Debugging daher Frontend-Erreichbarkeit und Backend-Erreichbarkeit getrennt pruefen.
 
 Live-Code-Modus (Python + Angular direkt aus Workspace, ohne jedes Mal kompletten Rebuild):
 ```bash

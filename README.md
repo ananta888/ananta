@@ -116,6 +116,9 @@ Wichtige Security-Policy:
 - OpenAI-Compat und zukuenftige MCP-Exposition werden ueber `exposure_policy` in `/config` explizit gesteuert.
 - Remote-Hub-Ziele koennen additiv ueber `remote_ananta_backends` konfiguriert werden und sind im Provider-Katalog sichtbar.
 - Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte `{{variablen}}` mit 4xx blockieren.
+- Template-Namen sind eindeutig; API und Datenbank antworten bei Konflikten mit `409 template_name_exists`.
+- Seed-Blueprints werden beim Lesen deterministisch reconciled; referenzierte Blueprints koennen nicht geloescht werden und antworten mit `409 blueprint_in_use`.
+- Admin-/Rollout-Details fuer Blueprints und Templates: `docs/blueprint-admin.md`, `docs/blueprint-migration-rollout.md`
 
 Hinweis Redis (Host-Tuning):
 - Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:
@@ -146,3 +149,5 @@ Linting:
 - `docs/coding-conventions.md`
 - `docs/e2e-mock-strategy.md`
 - `docs/smart-dumb-components-guide.md`
+- `docs/blueprint-admin.md`
+- `docs/blueprint-migration-rollout.md`
