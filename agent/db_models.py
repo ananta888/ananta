@@ -2,6 +2,7 @@ import time
 import uuid
 from typing import List, Optional
 
+import sqlalchemy as sa
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -104,6 +105,10 @@ class TeamBlueprintDB(SQLModel, table=True):
 
 class BlueprintRoleDB(SQLModel, table=True):
     __tablename__ = "blueprint_roles"
+    __table_args__ = (
+        sa.UniqueConstraint("blueprint_id", "name", name="uq_blueprint_roles_blueprint_name"),
+        sa.UniqueConstraint("blueprint_id", "sort_order", name="uq_blueprint_roles_blueprint_sort_order"),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     blueprint_id: str = Field(foreign_key="team_blueprints.id", index=True)
     name: str
@@ -116,6 +121,10 @@ class BlueprintRoleDB(SQLModel, table=True):
 
 class BlueprintArtifactDB(SQLModel, table=True):
     __tablename__ = "blueprint_artifacts"
+    __table_args__ = (
+        sa.UniqueConstraint("blueprint_id", "title", name="uq_blueprint_artifacts_blueprint_title"),
+        sa.UniqueConstraint("blueprint_id", "sort_order", name="uq_blueprint_artifacts_blueprint_sort_order"),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     blueprint_id: str = Field(foreign_key="team_blueprints.id", index=True)
     kind: str

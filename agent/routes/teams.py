@@ -47,6 +47,15 @@ from agent.services.blueprint_bundle_service import (
     validate_bundle_mode_and_parts,
 )
 from agent.services.repository_registry import get_repository_registry
+from agent.services.team_blueprint_service import (
+    RoleLinkSpec,
+    TemplateBootstrapSpec,
+    ensure_default_templates as ensure_default_templates_service,
+    instantiate_blueprint as instantiate_blueprint_service,
+    persist_blueprint_children as persist_blueprint_children_service,
+    reconcile_seed_blueprints as reconcile_seed_blueprints_service,
+    save_blueprint as save_blueprint_service,
+)
 from agent.utils import validate_request
 
 teams_bp = Blueprint("teams", __name__)
@@ -955,262 +964,196 @@ def ensure_default_templates(team_type_name: str):
     team_type_name = normalize_team_type_name(team_type_name)
     if not team_type_name:
         return
-    tt = _repos().team_type_repo.get_by_name(team_type_name)
-    if not tt:
-        tt = TeamTypeDB(name=team_type_name, description=f"Standard {team_type_name} Team")
-        _repos().team_type_repo.save(tt)
-
-    templates_by_name = {t.name: t for t in _repos().template_repo.get_all()}
-
-    def ensure_template(name: str, description: str, prompt_template: str) -> TemplateDB:
-        tpl = templates_by_name.get(name)
-        if not tpl:
-            tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
-            _repos().template_repo.save(tpl)
-            templates_by_name[name] = tpl
-        elif tpl.prompt_template != prompt_template:
-            tpl.description = description
-            tpl.prompt_template = prompt_template
-            _repos().template_repo.save(tpl)
-        return tpl
-
-    def ensure_role_links(role_definitions: list[tuple[str, str, TemplateDB]]):
-        from sqlmodel import Session, select
-
-        from agent.database import engine
-
-        for role_name, role_desc, tpl in role_definitions:
-            role = _repos().role_repo.get_by_name(role_name)
-            if not role:
-                role = RoleDB(name=role_name, description=role_desc, default_template_id=tpl.id)
-                _repos().role_repo.save(role)
-            elif role.default_template_id is None:
-                role.default_template_id = tpl.id
-                _repos().role_repo.save(role)
-
-            with Session(engine) as session:
-                link = session.exec(
-                    select(TeamTypeRoleLink).where(
-                        TeamTypeRoleLink.team_type_id == tt.id, TeamTypeRoleLink.role_id == role.id
-                    )
-                ).first()
-                if not link:
-                    link = TeamTypeRoleLink(team_type_id=tt.id, role_id=role.id, template_id=tpl.id)
-                    session.add(link)
-                    session.commit()
-
+    template_specs: list[TemplateBootstrapSpec] = []
+    role_specs: list[RoleLinkSpec] = []
     if team_type_name == "Scrum":
-        scrum_po_tpl = ensure_template(
-            "Scrum - Product Owner",
-            "Prompt template for Scrum Product Owner.",
-            (
-                "You are the Product Owner in a Scrum team. Align backlog, priorities, "
-                "and acceptance criteria with {{team_goal}}.\n\n"
-                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-            ),
-        )
-        scrum_sm_tpl = ensure_template(
-            "Scrum - Scrum Master",
-            "Prompt template for Scrum Master.",
-            (
-                "You are the Scrum Master for a Scrum team. Facilitate events, "
-                "remove blockers, and improve flow toward {{team_goal}}.\n\n"
-                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-            ),
-        )
-        scrum_dev_tpl = ensure_template(
-            "Scrum - Developer",
-            "Prompt template for Scrum Developer.",
-            (
-                "You are a Developer in a Scrum team. Implement backlog items, "
-                "review work, and deliver increments for {{team_goal}}.\n\n"
-                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-            ),
-        )
-        ensure_template(
-            "OpenCode Scrum - Product Owner",
-            "Prompt template for an OpenCode-adapted Scrum Product Owner.",
-            (
-                "You are the Product Owner in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
-                "Your focus:\n"
-                "- keep backlog items decision-ready\n"
-                "- define acceptance criteria and artifact expectations\n"
-                "- clarify what must be returned to the hub after worker execution\n\n"
-                "Backend emphasis:\n"
-                "- prefer SGPT for story slicing, prioritization, and concise synthesis\n"
-                "- use OpenCode when repository-aware investigation or artifact-producing analysis is needed\n"
-                "- use the terminal only for exact evidence gathering and deterministic checks\n\n"
-                f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
-                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-            ),
-        )
-        ensure_template(
-            "OpenCode Scrum - Scrum Master",
-            "Prompt template for an OpenCode-adapted Scrum Master.",
-            (
-                "You are the Scrum Master in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
-                "Your focus:\n"
-                "- remove blockers and keep work flowing through the hub-worker model\n"
-                "- make handoffs explicit between planning, execution, review, and follow-up\n"
-                "- ensure Definition of Done includes verification and artifact return paths\n\n"
-                "Backend emphasis:\n"
-                "- prefer SGPT for coordination, summarization, and decision framing\n"
-                "- use the terminal for environment diagnostics or exact verification commands\n"
-                "- use OpenCode when you need a stateful investigation across multiple related files or steps\n\n"
-                f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
-                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-            ),
-        )
-        ensure_template(
-            "OpenCode Scrum - Developer",
-            "Prompt template for an OpenCode-adapted Scrum Developer.",
-            (
-                "You are a Developer in an OpenCode-adapted Scrum team delivering {{team_goal}}.\n\n"
-                "Your focus:\n"
-                "- implement working increments with minimal blast radius\n"
-                "- keep changed files, artifact outputs, and verification evidence synchronized back to the hub\n"
-                "- make follow-up work explicit when a slice cannot be completed in one pass\n\n"
-                "Backend emphasis:\n"
-                "- prefer OpenCode for implementation, repair loops, code review passes, and stateful coding sessions\n"
-                "- use the terminal for deterministic commands, builds, tests, formatters, and exact repo inspection\n"
-                "- use SGPT for short explanations, tradeoff summaries, or draft reasoning when no persistent coding loop is required\n\n"
-                f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
-                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
-            ),
-        )
-        ensure_role_links(
+        template_specs.extend(
             [
-                ("Product Owner", "Owns the backlog and prioritization.", scrum_po_tpl),
-                ("Scrum Master", "Facilitates the Scrum process.", scrum_sm_tpl),
-                ("Developer", "Builds and delivers backlog items.", scrum_dev_tpl),
+                TemplateBootstrapSpec(
+                    "Scrum - Product Owner",
+                    "Prompt template for Scrum Product Owner.",
+                    (
+                        "You are the Product Owner in a Scrum team. Align backlog, priorities, "
+                        "and acceptance criteria with {{team_goal}}.\n\n"
+                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+                    ),
+                ),
+                TemplateBootstrapSpec(
+                    "Scrum - Scrum Master",
+                    "Prompt template for Scrum Master.",
+                    (
+                        "You are the Scrum Master for a Scrum team. Facilitate events, "
+                        "remove blockers, and improve flow toward {{team_goal}}.\n\n"
+                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+                    ),
+                ),
+                TemplateBootstrapSpec(
+                    "Scrum - Developer",
+                    "Prompt template for Scrum Developer.",
+                    (
+                        "You are a Developer in a Scrum team. Implement backlog items, "
+                        "review work, and deliver increments for {{team_goal}}.\n\n"
+                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+                    ),
+                ),
+                TemplateBootstrapSpec(
+                    "OpenCode Scrum - Product Owner",
+                    "Prompt template for an OpenCode-adapted Scrum Product Owner.",
+                    (
+                        "You are the Product Owner in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
+                        "Your focus:\n"
+                        "- keep backlog items decision-ready\n"
+                        "- define acceptance criteria and artifact expectations\n"
+                        "- clarify what must be returned to the hub after worker execution\n\n"
+                        "Backend emphasis:\n"
+                        "- prefer SGPT for story slicing, prioritization, and concise synthesis\n"
+                        "- use OpenCode when repository-aware investigation or artifact-producing analysis is needed\n"
+                        "- use the terminal only for exact evidence gathering and deterministic checks\n\n"
+                        f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
+                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+                    ),
+                ),
+                TemplateBootstrapSpec(
+                    "OpenCode Scrum - Scrum Master",
+                    "Prompt template for an OpenCode-adapted Scrum Master.",
+                    (
+                        "You are the Scrum Master in an OpenCode-adapted Scrum team working toward {{team_goal}}.\n\n"
+                        "Your focus:\n"
+                        "- remove blockers and keep work flowing through the hub-worker model\n"
+                        "- make handoffs explicit between planning, execution, review, and follow-up\n"
+                        "- ensure Definition of Done includes verification and artifact return paths\n\n"
+                        "Backend emphasis:\n"
+                        "- prefer SGPT for coordination, summarization, and decision framing\n"
+                        "- use the terminal for environment diagnostics or exact verification commands\n"
+                        "- use OpenCode when you need a stateful investigation across multiple related files or steps\n\n"
+                        f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
+                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+                    ),
+                ),
+                TemplateBootstrapSpec(
+                    "OpenCode Scrum - Developer",
+                    "Prompt template for an OpenCode-adapted Scrum Developer.",
+                    (
+                        "You are a Developer in an OpenCode-adapted Scrum team delivering {{team_goal}}.\n\n"
+                        "Your focus:\n"
+                        "- implement working increments with minimal blast radius\n"
+                        "- keep changed files, artifact outputs, and verification evidence synchronized back to the hub\n"
+                        "- make follow-up work explicit when a slice cannot be completed in one pass\n\n"
+                        "Backend emphasis:\n"
+                        "- prefer OpenCode for implementation, repair loops, code review passes, and stateful coding sessions\n"
+                        "- use the terminal for deterministic commands, builds, tests, formatters, and exact repo inspection\n"
+                        "- use SGPT for short explanations, tradeoff summaries, or draft reasoning when no persistent coding loop is required\n\n"
+                        f"{SCRUM_OPENCODE_WORKFLOW_APPENDIX}\n\n"
+                        f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
+                    ),
+                ),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Product Owner", "Owns the backlog and prioritization.", "Scrum - Product Owner"),
+                RoleLinkSpec("Scrum Master", "Facilitates the Scrum process.", "Scrum - Scrum Master"),
+                RoleLinkSpec("Developer", "Builds and delivers backlog items.", "Scrum - Developer"),
             ]
         )
 
     if team_type_name == "Kanban":
-        kanban_sdm_tpl = ensure_template(
-            "Kanban - Service Delivery Manager",
-            "Prompt template for Kanban Service Delivery Manager.",
-            (
-                "You are the Service Delivery Manager in a Kanban team. Monitor flow metrics "
-                "and service delivery toward {{team_goal}}."
-            ),
-        )
-        kanban_flow_tpl = ensure_template(
-            "Kanban - Flow Manager",
-            "Prompt template for Kanban Flow Manager.",
-            "You are the Flow Manager in a Kanban team. Optimize WIP, policies, and flow to achieve {{team_goal}}.",
-        )
-        kanban_dev_tpl = ensure_template(
-            "Kanban - Developer",
-            "Prompt template for Kanban Developer.",
-            (
-                "You are a Developer in a Kanban team. Deliver work items, limit WIP, "
-                "and maintain quality for {{team_goal}}."
-            ),
-        )
-        ensure_role_links(
+        template_specs.extend(
             [
-                ("Service Delivery Manager", "Oversees service delivery and flow metrics.", kanban_sdm_tpl),
-                ("Flow Manager", "Optimizes WIP limits and flow.", kanban_flow_tpl),
-                ("Developer", "Delivers work items and maintains quality.", kanban_dev_tpl),
+                TemplateBootstrapSpec(
+                    "Kanban - Service Delivery Manager",
+                    "Prompt template for Kanban Service Delivery Manager.",
+                    "You are the Service Delivery Manager in a Kanban team. Monitor flow metrics and service delivery toward {{team_goal}}.",
+                ),
+                TemplateBootstrapSpec(
+                    "Kanban - Flow Manager",
+                    "Prompt template for Kanban Flow Manager.",
+                    "You are the Flow Manager in a Kanban team. Optimize WIP, policies, and flow to achieve {{team_goal}}.",
+                ),
+                TemplateBootstrapSpec(
+                    "Kanban - Developer",
+                    "Prompt template for Kanban Developer.",
+                    "You are a Developer in a Kanban team. Deliver work items, limit WIP, and maintain quality for {{team_goal}}.",
+                ),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Service Delivery Manager", "Oversees service delivery and flow metrics.", "Kanban - Service Delivery Manager"),
+                RoleLinkSpec("Flow Manager", "Optimizes WIP limits and flow.", "Kanban - Flow Manager"),
+                RoleLinkSpec("Developer", "Delivers work items and maintains quality.", "Kanban - Developer"),
             ]
         )
 
     if team_type_name == "Research":
-        research_lead_tpl = ensure_template(
-            "Research - Lead",
-            "Prompt template for Research Lead.",
-            "You are the Research Lead. Define scope, synthesis, and decision-ready outcomes for {{team_goal}}.",
-        )
-        source_analyst_tpl = ensure_template(
-            "Research - Source Analyst",
-            "Prompt template for Source Analyst.",
-            "You are the Source Analyst. Collect, validate, and summarize reliable sources for {{team_goal}}.",
-        )
-        research_reviewer_tpl = ensure_template(
-            "Research - Reviewer",
-            "Prompt template for Research Reviewer.",
-            "You are the Research Reviewer. Challenge assumptions and verify evidence quality for {{team_goal}}.",
-        )
-        ensure_role_links(
+        template_specs.extend(
             [
-                ("Research Lead", "Owns research scope and synthesis quality.", research_lead_tpl),
-                ("Source Analyst", "Collects and validates sources.", source_analyst_tpl),
-                ("Reviewer", "Checks assumptions and evidence quality.", research_reviewer_tpl),
+                TemplateBootstrapSpec("Research - Lead", "Prompt template for Research Lead.", "You are the Research Lead. Define scope, synthesis, and decision-ready outcomes for {{team_goal}}."),
+                TemplateBootstrapSpec("Research - Source Analyst", "Prompt template for Source Analyst.", "You are the Source Analyst. Collect, validate, and summarize reliable sources for {{team_goal}}."),
+                TemplateBootstrapSpec("Research - Reviewer", "Prompt template for Research Reviewer.", "You are the Research Reviewer. Challenge assumptions and verify evidence quality for {{team_goal}}."),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Research Lead", "Owns research scope and synthesis quality.", "Research - Lead"),
+                RoleLinkSpec("Source Analyst", "Collects and validates sources.", "Research - Source Analyst"),
+                RoleLinkSpec("Reviewer", "Checks assumptions and evidence quality.", "Research - Reviewer"),
             ]
         )
 
     if team_type_name == "Code-Repair":
-        repair_lead_tpl = ensure_template(
-            "Code Repair - Lead",
-            "Prompt template for Repair Lead.",
-            "You are the Repair Lead. Triage incidents and guide minimal-risk remediation for {{team_goal}}.",
-        )
-        repair_engineer_tpl = ensure_template(
-            "Code Repair - Engineer",
-            "Prompt template for Fix Engineer.",
-            "You are the Fix Engineer. Implement and validate targeted fixes for {{team_goal}}.",
-        )
-        repair_qa_tpl = ensure_template(
-            "Code Repair - QA",
-            "Prompt template for QA Verifier.",
-            "You are the QA Verifier. Confirm regressions are prevented and quality criteria are met for {{team_goal}}.",
-        )
-        ensure_role_links(
+        template_specs.extend(
             [
-                ("Repair Lead", "Owns incident diagnosis and repair planning.", repair_lead_tpl),
-                ("Fix Engineer", "Implements targeted fixes.", repair_engineer_tpl),
-                ("QA Verifier", "Validates regressions and completion.", repair_qa_tpl),
+                TemplateBootstrapSpec("Code Repair - Lead", "Prompt template for Repair Lead.", "You are the Repair Lead. Triage incidents and guide minimal-risk remediation for {{team_goal}}."),
+                TemplateBootstrapSpec("Code Repair - Engineer", "Prompt template for Fix Engineer.", "You are the Fix Engineer. Implement and validate targeted fixes for {{team_goal}}."),
+                TemplateBootstrapSpec("Code Repair - QA", "Prompt template for QA Verifier.", "You are the QA Verifier. Confirm regressions are prevented and quality criteria are met for {{team_goal}}."),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Repair Lead", "Owns incident diagnosis and repair planning.", "Code Repair - Lead"),
+                RoleLinkSpec("Fix Engineer", "Implements targeted fixes.", "Code Repair - Engineer"),
+                RoleLinkSpec("QA Verifier", "Validates regressions and completion.", "Code Repair - QA"),
             ]
         )
 
     if team_type_name == "Security-Review":
-        sec_lead_tpl = ensure_template(
-            "Security Review - Lead",
-            "Prompt template for Security Lead.",
-            "You are the Security Lead. Define security review scope and sign-off for {{team_goal}}.",
-        )
-        sec_analyst_tpl = ensure_template(
-            "Security Review - Analyst",
-            "Prompt template for Security Analyst.",
-            "You are the Security Analyst. Assess vulnerabilities and control coverage for {{team_goal}}.",
-        )
-        sec_compliance_tpl = ensure_template(
-            "Security Review - Compliance",
-            "Prompt template for Compliance Reviewer.",
-            "You are the Compliance Reviewer. Validate policy and compliance obligations for {{team_goal}}.",
-        )
-        ensure_role_links(
+        template_specs.extend(
             [
-                ("Security Lead", "Owns review scope and severity model.", sec_lead_tpl),
-                ("Security Analyst", "Performs technical security analysis.", sec_analyst_tpl),
-                ("Compliance Reviewer", "Validates compliance obligations.", sec_compliance_tpl),
+                TemplateBootstrapSpec("Security Review - Lead", "Prompt template for Security Lead.", "You are the Security Lead. Define security review scope and sign-off for {{team_goal}}."),
+                TemplateBootstrapSpec("Security Review - Analyst", "Prompt template for Security Analyst.", "You are the Security Analyst. Assess vulnerabilities and control coverage for {{team_goal}}."),
+                TemplateBootstrapSpec("Security Review - Compliance", "Prompt template for Compliance Reviewer.", "You are the Compliance Reviewer. Validate policy and compliance obligations for {{team_goal}}."),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Security Lead", "Owns review scope and severity model.", "Security Review - Lead"),
+                RoleLinkSpec("Security Analyst", "Performs technical security analysis.", "Security Review - Analyst"),
+                RoleLinkSpec("Compliance Reviewer", "Validates compliance obligations.", "Security Review - Compliance"),
             ]
         )
 
     if team_type_name == "Release-Prep":
-        release_mgr_tpl = ensure_template(
-            "Release Prep - Manager",
-            "Prompt template for Release Manager.",
-            "You are the Release Manager. Coordinate readiness and go/no-go decisions for {{team_goal}}.",
-        )
-        release_ver_tpl = ensure_template(
-            "Release Prep - Verification",
-            "Prompt template for Verification Engineer.",
-            "You are the Verification Engineer. Execute release validation and preflight checks for {{team_goal}}.",
-        )
-        release_ops_tpl = ensure_template(
-            "Release Prep - Operations",
-            "Prompt template for Operations Liaison.",
-            "You are the Operations Liaison. Prepare rollout and rollback operations for {{team_goal}}.",
-        )
-        ensure_role_links(
+        template_specs.extend(
             [
-                ("Release Manager", "Coordinates release scope and timeline.", release_mgr_tpl),
-                ("Verification Engineer", "Runs verification and release checks.", release_ver_tpl),
-                ("Operations Liaison", "Prepares deployment and rollback operations.", release_ops_tpl),
+                TemplateBootstrapSpec("Release Prep - Manager", "Prompt template for Release Manager.", "You are the Release Manager. Coordinate readiness and go/no-go decisions for {{team_goal}}."),
+                TemplateBootstrapSpec("Release Prep - Verification", "Prompt template for Verification Engineer.", "You are the Verification Engineer. Execute release validation and preflight checks for {{team_goal}}."),
+                TemplateBootstrapSpec("Release Prep - Operations", "Prompt template for Operations Liaison.", "You are the Operations Liaison. Prepare rollout and rollback operations for {{team_goal}}."),
             ]
         )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Release Manager", "Coordinates release scope and timeline.", "Release Prep - Manager"),
+                RoleLinkSpec("Verification Engineer", "Runs verification and release checks.", "Release Prep - Verification"),
+                RoleLinkSpec("Operations Liaison", "Prepares deployment and rollback operations.", "Release Prep - Operations"),
+            ]
+        )
+    ensure_default_templates_service(
+        team_type_name,
+        team_type_description=f"Standard {team_type_name} Team",
+        template_specs=template_specs,
+        role_specs=role_specs,
+    )
 
 
 def _serialize_blueprint(
@@ -1287,124 +1230,16 @@ def _persist_blueprint_children(
     role_definitions: list | None,
     artifact_definitions: list | None,
 ) -> tuple[list[BlueprintRoleDB], list[BlueprintArtifactDB]]:
-    persisted_roles: list[BlueprintRoleDB] = _repos().blueprint_role_repo.get_by_blueprint(blueprint_id)
-    persisted_artifacts: list[BlueprintArtifactDB] = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint_id)
-
-    if role_definitions is not None:
-        _repos().blueprint_role_repo.delete_by_blueprint(blueprint_id)
-        persisted_roles = []
-        for role_def in role_definitions:
-            persisted_roles.append(
-                _repos().blueprint_role_repo.save(
-                    BlueprintRoleDB(
-                        blueprint_id=blueprint_id,
-                        name=role_def.name.strip(),
-                        description=role_def.description,
-                        template_id=role_def.template_id,
-                        sort_order=role_def.sort_order,
-                        is_required=role_def.is_required,
-                        config=role_def.config,
-                    )
-                )
-            )
-
-    if artifact_definitions is not None:
-        _repos().blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
-        persisted_artifacts = []
-        for artifact_def in artifact_definitions:
-            persisted_artifacts.append(
-                _repos().blueprint_artifact_repo.save(
-                    BlueprintArtifactDB(
-                        blueprint_id=blueprint_id,
-                        kind=artifact_def.kind.strip(),
-                        title=artifact_def.title.strip(),
-                        description=artifact_def.description,
-                        sort_order=artifact_def.sort_order,
-                        payload=artifact_def.payload,
-                    )
-                )
-            )
-
-    return persisted_roles, persisted_artifacts
+    return persist_blueprint_children_service(blueprint_id, role_definitions, artifact_definitions)
 
 
 def ensure_seed_blueprints() -> None:
-    for blueprint_name, blueprint_definition in SEED_BLUEPRINTS.items():
-        base_team_type_name = normalize_team_type_name(
-            str(blueprint_definition.get("base_team_type_name") or blueprint_name)
-        )
-        ensure_default_templates(base_team_type_name)
-        templates_by_name = {template.name: template for template in _repos().template_repo.get_all()}
-        blueprint = _repos().team_blueprint_repo.get_by_name(blueprint_name)
-        existing_roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id) if blueprint else []
-        existing_artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id) if blueprint else []
-        if not blueprint:
-            blueprint = TeamBlueprintDB(
-                name=blueprint_name,
-                description=blueprint_definition["description"],
-                base_team_type_name=base_team_type_name or None,
-                is_seed=True,
-            )
-            blueprint = _repos().team_blueprint_repo.save(blueprint)
-        elif (
-            blueprint.description != blueprint_definition["description"]
-            or blueprint.base_team_type_name != (base_team_type_name or None)
-            or blueprint.is_seed is not True
-        ):
-            blueprint.description = blueprint_definition["description"]
-            blueprint.base_team_type_name = base_team_type_name or None
-            blueprint.is_seed = True
-            blueprint.updated_at = time.time()
-            blueprint = _repos().team_blueprint_repo.save(blueprint)
-
-        if existing_roles and existing_artifacts:
-            changed = False
-            for existing_role in existing_roles:
-                enriched = _with_role_profile_defaults(
-                    base_team_type_name,
-                    existing_role.name,
-                    existing_role.config,
-                )
-                if dict(existing_role.config or {}) != enriched:
-                    existing_role.config = enriched
-                    _repos().blueprint_role_repo.save(existing_role)
-                    changed = True
-            if changed:
-                blueprint.updated_at = time.time()
-                _repos().team_blueprint_repo.save(blueprint)
-            continue
-
-        role_definitions = []
-        for role_definition in blueprint_definition["roles"]:
-            template = templates_by_name.get(role_definition["template_name"])
-            role_definitions.append(
-                BlueprintRoleDefinition(
-                    name=role_definition["name"],
-                    description=role_definition["description"],
-                    template_id=template.id if template else None,
-                    sort_order=role_definition["sort_order"],
-                    is_required=role_definition["is_required"],
-                    config=_with_role_profile_defaults(
-                        base_team_type_name,
-                        role_definition["name"],
-                        role_definition["config"],
-                    ),
-                )
-            )
-
-        artifact_definitions = []
-        for artifact_definition in blueprint_definition["artifacts"]:
-            artifact_definitions.append(
-                BlueprintArtifactDefinition(
-                    kind=artifact_definition["kind"],
-                    title=artifact_definition["title"],
-                    description=artifact_definition["description"],
-                    sort_order=artifact_definition["sort_order"],
-                    payload=artifact_definition["payload"],
-                )
-            )
-
-        _persist_blueprint_children(blueprint.id, role_definitions, artifact_definitions)
+    reconcile_seed_blueprints_service(
+        SEED_BLUEPRINTS,
+        normalize_team_type_name=normalize_team_type_name,
+        with_role_profile_defaults=_with_role_profile_defaults,
+        ensure_default_templates_callback=ensure_default_templates,
+    )
 
 
 def _ensure_role_for_blueprint_role(team_type_id: str | None, blueprint_role: BlueprintRoleDB) -> RoleDB:
@@ -1466,71 +1301,15 @@ def _materialize_blueprint_artifacts(team: TeamDB, blueprint_artifacts: list[Blu
 
 
 def _instantiate_blueprint(blueprint: TeamBlueprintDB, data: TeamBlueprintInstantiateRequest) -> TeamDB | tuple:
-    blueprint_roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id)
-    blueprint_artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
-
-    team_type = None
     normalized_type_name = normalize_team_type_name(blueprint.base_team_type_name or "")
     if normalized_type_name:
         ensure_default_templates(normalized_type_name)
-        team_type = _repos().team_type_repo.get_by_name(normalized_type_name)
-        if not team_type:
-            return _team_error("team_type_not_found", 404, team_type_name=normalized_type_name)
-
-    blueprint_role_map = {role.id: role for role in blueprint_roles}
-    role_bindings: dict[str, str] = {}
-    for blueprint_role in blueprint_roles:
-        role_bindings[blueprint_role.id] = _ensure_role_for_blueprint_role(team_type.id if team_type else None, blueprint_role).id
-
-    members_payload = []
-    for member in data.members:
-        role_id = member.role_id
-        if member.blueprint_role_id:
-            blueprint_role = blueprint_role_map.get(member.blueprint_role_id)
-            if not blueprint_role:
-                return _team_error("blueprint_role_not_found", 404, blueprint_role_id=member.blueprint_role_id)
-            role_id = role_bindings.get(member.blueprint_role_id)
-        if not role_id:
-            return _team_error("role_id_required", 400)
-        if not _repos().role_repo.get_by_id(role_id):
-            return _team_error("role_not_found", 404, role_id=role_id)
-        if member.custom_template_id and not _repos().template_repo.get_by_id(member.custom_template_id):
-            return _team_error("template_not_found", 404, template_id=member.custom_template_id)
-        members_payload.append((member, role_id))
-
-    snapshot = _serialize_blueprint(blueprint, roles=blueprint_roles, artifacts=blueprint_artifacts)
-    team = TeamDB(
-        name=data.name,
-        description=data.description or blueprint.description,
-        team_type_id=team_type.id if team_type else None,
-        blueprint_id=blueprint.id,
-        is_active=data.activate,
-        role_templates={role_bindings[role.id]: role.template_id for role in blueprint_roles if role_bindings.get(role.id)},
-        blueprint_snapshot=snapshot,
+    return instantiate_blueprint_service(
+        blueprint.id,
+        data,
+        error_factory=_team_error,
+        normalize_team_type_name=normalize_team_type_name,
     )
-
-    if data.activate:
-        with Session(engine) as session:
-            for other in session.exec(select(TeamDB)).all():
-                other.is_active = False
-                session.add(other)
-            session.commit()
-
-    team = _repos().team_repo.save(team)
-
-    for member, role_id in members_payload:
-        _repos().team_member_repo.save(
-            TeamMemberDB(
-                team_id=team.id,
-                agent_url=member.agent_url,
-                role_id=role_id,
-                blueprint_role_id=member.blueprint_role_id,
-                custom_template_id=member.custom_template_id,
-            )
-        )
-
-    _materialize_blueprint_artifacts(team, blueprint_artifacts)
-    return team
 
 
 @teams_bp.route("/teams/blueprints", methods=["GET"])
@@ -1574,15 +1353,15 @@ def create_team_blueprint():
     if normalized_type_name:
         ensure_default_templates(normalized_type_name)
 
-    blueprint = _repos().team_blueprint_repo.save(
-        TeamBlueprintDB(
-            name=blueprint_name,
-            description=data.description,
-            base_team_type_name=normalized_type_name or None,
-            is_seed=False,
-        )
+    blueprint, roles, artifacts = save_blueprint_service(
+        blueprint_id=None,
+        name=blueprint_name,
+        description=data.description,
+        base_team_type_name=normalized_type_name or None,
+        roles=data.roles,
+        artifacts=data.artifacts,
+        is_seed=False,
     )
-    roles, artifacts = _persist_blueprint_children(blueprint.id, data.roles, data.artifacts)
     log_audit("team_blueprint_created", {"blueprint_id": blueprint.id, "name": blueprint.name})
     return api_response(data=_serialize_blueprint(blueprint, roles=roles, artifacts=artifacts), code=201)
 
@@ -1621,9 +1400,15 @@ def update_team_blueprint(blueprint_id):
         if not valid:
             return _team_error(error[0], error[1], **error[2])
 
-    blueprint.updated_at = time.time()
-    blueprint = _repos().team_blueprint_repo.save(blueprint)
-    roles, artifacts = _persist_blueprint_children(blueprint.id, data.roles, data.artifacts)
+    blueprint, roles, artifacts = save_blueprint_service(
+        blueprint_id=blueprint.id,
+        name=blueprint.name,
+        description=blueprint.description,
+        base_team_type_name=blueprint.base_team_type_name,
+        roles=data.roles,
+        artifacts=data.artifacts,
+        is_seed=blueprint.is_seed,
+    )
     log_audit("team_blueprint_updated", {"blueprint_id": blueprint.id})
     return api_response(data=_serialize_blueprint(blueprint, roles=roles, artifacts=artifacts))
 
