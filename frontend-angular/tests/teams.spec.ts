@@ -123,6 +123,8 @@ test.describe('Teams CRUD', () => {
     const instantiatePanel = page.locator('.card.card-success');
 
     try {
+      await page.locator('.teams-hero-actions').getByRole('button', { name: /^Blueprints$/i }).click();
+      await expect(blueprintEditor).toBeVisible();
       await blueprintEditor.getByRole('button', { name: /^Neu$/i }).click();
       await blueprintEditor.getByLabel('Name').fill(blueprintName);
 
