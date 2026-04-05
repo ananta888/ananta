@@ -687,6 +687,67 @@ def _extract_file_path_evidence(tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def _open_worker_terminal_panel(session_id: str, worker_name: str, mode: str = "read") -> Dict[str, Any]:
+    worker_name = str(worker_name or "").strip()
+    if not worker_name:
+        return {"attempted": False, "opened": False, "connected": False, "error": "missing_worker_name"}
+    route = f"/panel/{worker_name}?tab=terminal&mode={mode}"
+    step_nav(session_id, route, settle_s=1.2)
+    opened = wait_for(
+        session_id,
+        """
+        const heading = [...document.querySelectorAll('h1,h2,h3')]
+          .find((node) => /agent panel/i.test((node.textContent || '').trim()));
+        const liveTitle = [...document.querySelectorAll('h1,h2,h3')]
+          .find((node) => /live terminal/i.test((node.textContent || '').trim()));
+        return !!heading && !!liveTitle;
+        """,
+        20,
+    )
+    buffer_ready = wait_for(
+        session_id,
+        "return !!document.querySelector('[data-testid=\"terminal-output-buffer\"]');",
+        20,
+    )
+    connected = wait_for(
+        session_id,
+        """
+        const pill = document.querySelector('.status-pill');
+        const buffer = document.querySelector('[data-testid="terminal-output-buffer"]');
+        const pillText = (pill?.textContent || '').trim();
+        const bufferText = (buffer?.textContent || '').trim();
+        return /status:\\s*connected/i.test(pillText) || /\\[connected:/i.test(bufferText);
+        """,
+        30,
+    )
+    terminal_snapshot = (
+        js(
+            session_id,
+            """
+            const pill = document.querySelector('.status-pill');
+            const buffer = document.querySelector('[data-testid="terminal-output-buffer"]');
+            return {
+              status_text: (pill?.textContent || '').trim(),
+              buffer_excerpt: (buffer?.textContent || '').slice(-500),
+            };
+            """,
+        ).get("value")
+        or {}
+    )
+    print("worker_terminal_opened", worker_name, "opened", opened and buffer_ready, "connected", connected, flush=True)
+    return {
+        "attempted": True,
+        "worker_name": worker_name,
+        "mode": mode,
+        "route": route,
+        "opened": bool(opened and buffer_ready),
+        "connected": bool(connected),
+        "status_text": str(terminal_snapshot.get("status_text") or ""),
+        "buffer_excerpt": str(terminal_snapshot.get("buffer_excerpt") or ""),
+        **current_route_and_title(session_id),
+    }
+
+
 def phase_benchmark(
     session_id: str,
     report: dict,
@@ -756,6 +817,8 @@ def phase_benchmark(
 
     # Ensure the goal team has online workers assigned, otherwise autopilot stays idle.
     worker_bind_info: Dict[str, Any] = {"team_id": team_id, "applied": False}
+    agent_entries: List[Dict[str, Any]] = []
+    team_obj: Optional[Dict[str, Any]] = None
     if team_id:
         agents_res = browser_api_json(session_id, "GET", "/api/system/agents", timeout_seconds=45)
         teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
@@ -763,10 +826,11 @@ def phase_benchmark(
         teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
         workers = workers_payload if isinstance(workers_payload, list) else []
         teams = teams_payload if isinstance(teams_payload, list) else []
+        agent_entries = [item for item in workers if isinstance(item, dict)]
         team_obj = next((t for t in teams if isinstance(t, dict) and str(t.get("id") or "") == team_id), None)
         online_worker_urls = [
             str(a.get("url") or "")
-            for a in workers
+            for a in agent_entries
             if isinstance(a, dict) and str(a.get("role") or "").lower() == "worker" and str(a.get("status") or "").lower() == "online"
         ]
         existing_member_urls = [
@@ -823,6 +887,43 @@ def phase_benchmark(
                         "members_payload": members_payload,
                     }
                 )
+
+    if not agent_entries:
+        agents_res = browser_api_json(session_id, "GET", "/api/system/agents", timeout_seconds=45)
+        agents_payload = _unwrap_envelope(agents_res.get("body")) if agents_res.get("ok") else []
+        agent_entries = [item for item in (agents_payload if isinstance(agents_payload, list) else []) if isinstance(item, dict)]
+
+    preferred_worker_urls: List[str] = []
+    if team_obj:
+        for member in ((team_obj or {}).get("members") or []):
+            if not isinstance(member, dict):
+                continue
+            agent_url = str(member.get("agent_url") or "").strip()
+            if agent_url and agent_url not in preferred_worker_urls:
+                preferred_worker_urls.append(agent_url)
+    for member in (worker_bind_info.get("members_payload") or []):
+        if not isinstance(member, dict):
+            continue
+        agent_url = str(member.get("agent_url") or "").strip()
+        if agent_url and agent_url not in preferred_worker_urls:
+            preferred_worker_urls.append(agent_url)
+
+    online_worker_agents = [
+        agent
+        for agent in agent_entries
+        if str(agent.get("role") or "").lower() == "worker" and str(agent.get("status") or "").lower() == "online"
+    ]
+    terminal_agent: Optional[Dict[str, Any]] = None
+    for worker_url in preferred_worker_urls:
+        terminal_agent = next((agent for agent in online_worker_agents if str(agent.get("url") or "").strip() == worker_url), None)
+        if terminal_agent:
+            break
+    if not terminal_agent and online_worker_agents:
+        terminal_agent = online_worker_agents[0]
+
+    terminal_view = {"attempted": False, "opened": False, "connected": False}
+    if terminal_agent:
+        terminal_view = _open_worker_terminal_panel(session_id, str(terminal_agent.get("name") or ""), mode="read")
 
     tick_results: List[dict] = []
     autopilot_stop_before_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
@@ -1116,6 +1217,7 @@ def phase_benchmark(
             "goal_id": goal_id,
             "goal_summary": str((picked_goal or {}).get("summary") or ""),
             "worker_bind_info": worker_bind_info,
+            "worker_terminal": terminal_view,
             "tasks_before": len(tasks_before),
             "tasks_after": len(tasks_after),
             "tasks_before_full": len(tasks_before_full),
