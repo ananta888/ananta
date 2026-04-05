@@ -785,6 +785,32 @@ Blueprint-first ist jetzt der bevorzugte Team-Workflow. Seed-Blueprints fuer `Sc
 - **Auth erforderlich:** Ja (Admin)
 - **Verhalten:** Referenzierte Blueprints werden nicht geloescht; bei bestehenden Team-Referenzen antwortet die API mit `409 blueprint_in_use`.
 
+### Blueprint-Bundle exportieren
+- **URL:** `/teams/blueprints/<blueprint_id>/bundle`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja (Admin)
+- **Query:** `mode=full|split`, optional `parts=blueprint,templates,team`, optional `team_id=<team_id>`, optional `include_members=true|false`
+- **Rueckgabe:** Versioniertes JSON-Bundle mit `schema_version`, `mode`, `parts`, `blueprint`, `templates`, optional `team` und `bundle_metadata`.
+- **Hinweise:**
+  - `mode=full` exportiert standardmaessig den Blueprint inklusive referenzierter Templates; mit `team_id` wird zusaetzlich die Team-Konfiguration eingebettet.
+  - `mode=split` erlaubt Teil-Exporte pro Komponente. Rollen und Artefakte bleiben bewusst im `blueprint`-Teil gebuendelt, damit Referenzen konsistent bleiben.
+
+### Blueprint-Bundle importieren
+- **URL:** `/teams/blueprints/import`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `TeamBlueprintBundleImportRequest`
+- **Wichtige Felder:**
+  - `conflict_strategy`: `fail|skip|overwrite`
+  - `dry_run`: `true|false`
+  - `bundle.schema_version`: aktuell `1.0`
+  - `bundle.mode`: `full|split`
+  - `bundle.parts`: bei `split` z. B. `["templates"]`, `["blueprint"]` oder `["blueprint","team"]`
+- **Verhalten:**
+  - `dry_run=true` schreibt nichts persistent und liefert eine `diff`-Antwort mit `create|update|skip|unchanged|conflict` pro Objektklasse.
+  - `overwrite` ist idempotent fuer denselben Bundle-Inhalt.
+  - Template-, Blueprint- und Team-Referenzen werden portabel ueber Namen aufgeloest; fehlende Referenzen werden als API-Fehler zurueckgegeben.
+
 ### Team aus Blueprint instanziieren
 - **URL:** `/teams/blueprints/<blueprint_id>/instantiate`
 - **Methode:** `POST`
