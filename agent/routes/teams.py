@@ -1234,12 +1234,22 @@ def _persist_blueprint_children(
 
 
 def ensure_seed_blueprints() -> None:
-    reconcile_seed_blueprints_service(
+    reconcile_reports = reconcile_seed_blueprints_service(
         SEED_BLUEPRINTS,
         normalize_team_type_name=normalize_team_type_name,
         with_role_profile_defaults=_with_role_profile_defaults,
         ensure_default_templates_callback=ensure_default_templates,
     )
+    for report in reconcile_reports:
+        log_audit(
+            "team_blueprint_reconciled",
+            {
+                "blueprint_id": report["blueprint_id"],
+                "name": report["name"],
+                "changes": report["changes"],
+                "source": "seed_sync",
+            },
+        )
 
 
 def _ensure_role_for_blueprint_role(team_type_id: str | None, blueprint_role: BlueprintRoleDB) -> RoleDB:
@@ -1353,7 +1363,7 @@ def create_team_blueprint():
     if normalized_type_name:
         ensure_default_templates(normalized_type_name)
 
-    blueprint, roles, artifacts = save_blueprint_service(
+    result = save_blueprint_service(
         blueprint_id=None,
         name=blueprint_name,
         description=data.description,
@@ -1362,8 +1372,11 @@ def create_team_blueprint():
         artifacts=data.artifacts,
         is_seed=False,
     )
-    log_audit("team_blueprint_created", {"blueprint_id": blueprint.id, "name": blueprint.name})
-    return api_response(data=_serialize_blueprint(blueprint, roles=roles, artifacts=artifacts), code=201)
+    log_audit(
+        "team_blueprint_created",
+        {"blueprint_id": result.blueprint.id, "name": result.blueprint.name, "changes": result.changes},
+    )
+    return api_response(data=_serialize_blueprint(result.blueprint, roles=result.roles, artifacts=result.artifacts), code=201)
 
 
 @teams_bp.route("/teams/blueprints/<blueprint_id>", methods=["PATCH"])
@@ -1400,7 +1413,7 @@ def update_team_blueprint(blueprint_id):
         if not valid:
             return _team_error(error[0], error[1], **error[2])
 
-    blueprint, roles, artifacts = save_blueprint_service(
+    result = save_blueprint_service(
         blueprint_id=blueprint.id,
         name=blueprint.name,
         description=blueprint.description,
@@ -1409,8 +1422,11 @@ def update_team_blueprint(blueprint_id):
         artifacts=data.artifacts,
         is_seed=blueprint.is_seed,
     )
-    log_audit("team_blueprint_updated", {"blueprint_id": blueprint.id})
-    return api_response(data=_serialize_blueprint(blueprint, roles=roles, artifacts=artifacts))
+    log_audit(
+        "team_blueprint_updated",
+        {"blueprint_id": result.blueprint.id, "name": result.blueprint.name, "changes": result.changes},
+    )
+    return api_response(data=_serialize_blueprint(result.blueprint, roles=result.roles, artifacts=result.artifacts))
 
 
 @teams_bp.route("/teams/blueprints/<blueprint_id>", methods=["DELETE"])

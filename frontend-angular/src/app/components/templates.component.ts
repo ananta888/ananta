@@ -244,6 +244,7 @@ export class TemplatesComponent {
     }
     if(!this.hub) { this.err = 'Kein Hub konfiguriert'; return; }
     if(!this.form.name || !this.form.prompt_template) { this.ns.error('Name und Template sind erforderlich'); return; }
+    this.form = { ...this.form, name: this.form.name.trim() };
 
     const obs = this.form.id
         ? this.hubApi.updateTemplate(this.hub.url, this.form.id, this.form)
@@ -256,17 +257,38 @@ export class TemplatesComponent {
         this.ns.success('Template gespeichert');
         if (r?.warnings?.length) {
           const details = r.warnings.map((w: any) => w.details || "").filter(Boolean).join("; ");
-          if (details) this.ns.info(`Template saved with warnings: ${details}`);
+          if (details) this.ns.info(`Template mit Hinweisen gespeichert: ${details}`);
         }
         this.refresh();
       },
       error: (e) => {
-        if (e.error && e.error.details) {
+        const message = e?.error?.message || e?.error?.error;
+        if (message === 'unknown_template_variables') {
+          const unknown = e?.error?.data?.unknown_variables || [];
+          const detail = unknown.length ? `Unbekannte Variablen: ${unknown.join(', ')}` : 'Unbekannte Variablen im Template.';
+          this.err = detail;
+          this.ns.error(detail);
+          return;
+        }
+        if (message === 'template_name_exists') {
+          const name = e?.error?.data?.name || this.form.name;
+          const detail = `Ein Template mit diesem Namen existiert bereits: ${name}`;
+          this.err = detail;
+          this.ns.error(detail);
+          return;
+        }
+        if (message === 'template_name_required') {
+          this.err = 'Template-Name ist erforderlich.';
+          this.ns.error(this.err);
+          return;
+        }
+        if (e?.error?.details) {
           this.err = e.error.details;
           this.ns.error(e.error.details);
-        } else {
-          this.ns.error('Fehler beim Speichern');
+          return;
         }
+        this.err = 'Fehler beim Speichern';
+        this.ns.error(this.err);
       }
     });
   }

@@ -47,6 +47,15 @@ class PersistBlueprintChildrenResult:
     roles: list[BlueprintRoleDB]
     artifacts: list[BlueprintArtifactDB]
     changed: bool
+    changes: dict
+
+
+@dataclass(frozen=True)
+class BlueprintSaveResult:
+    blueprint: TeamBlueprintDB
+    roles: list[BlueprintRoleDB]
+    artifacts: list[BlueprintArtifactDB]
+    changes: dict
 
 
 def ensure_default_templates(team_type_name: str, *, team_type_description: str, template_specs: list[TemplateBootstrapSpec], role_specs: list[RoleLinkSpec]) -> None:
@@ -149,6 +158,10 @@ def persist_blueprint_children_in_session(
     ).all()
 
     changed = False
+    changes = {
+        "roles": {"created": [], "updated": [], "deleted": []},
+        "artifacts": {"created": [], "updated": [], "deleted": []},
+    }
     persisted_roles = existing_roles
     persisted_artifacts = existing_artifacts
 
@@ -162,8 +175,22 @@ def persist_blueprint_children_in_session(
             if role is None:
                 role = BlueprintRoleDB(blueprint_id=blueprint_id)
                 changed = True
+                changes["roles"]["created"].append({"name": role_def.name.strip()})
             role_name = role_def.name.strip()
             role_config = dict(role_def.config or {})
+            updated_fields = []
+            if role.name != role_name:
+                updated_fields.append("name")
+            if role.description != role_def.description:
+                updated_fields.append("description")
+            if role.template_id != role_def.template_id:
+                updated_fields.append("template_id")
+            if role.sort_order != role_def.sort_order:
+                updated_fields.append("sort_order")
+            if role.is_required != role_def.is_required:
+                updated_fields.append("is_required")
+            if dict(role.config or {}) != role_config:
+                updated_fields.append("config")
             if (
                 role.name != role_name
                 or role.description != role_def.description
@@ -173,6 +200,8 @@ def persist_blueprint_children_in_session(
                 or dict(role.config or {}) != role_config
             ):
                 changed = True
+                if updated_fields and role.id:
+                    changes["roles"]["updated"].append({"name": role_name, "fields": updated_fields})
             role.name = role_name
             role.description = role_def.description
             role.template_id = role_def.template_id
@@ -186,6 +215,7 @@ def persist_blueprint_children_in_session(
         for existing_role in existing_roles:
             if existing_role.id not in retained_role_ids:
                 changed = True
+                changes["roles"]["deleted"].append({"name": existing_role.name})
                 session.delete(existing_role)
 
     if artifact_definitions is not None:
@@ -198,9 +228,21 @@ def persist_blueprint_children_in_session(
             if artifact is None:
                 artifact = BlueprintArtifactDB(blueprint_id=blueprint_id)
                 changed = True
+                changes["artifacts"]["created"].append({"title": artifact_def.title.strip(), "kind": artifact_def.kind.strip()})
             artifact_title = artifact_def.title.strip()
             artifact_kind = artifact_def.kind.strip()
             artifact_payload = dict(artifact_def.payload or {})
+            updated_fields = []
+            if artifact.kind != artifact_kind:
+                updated_fields.append("kind")
+            if artifact.title != artifact_title:
+                updated_fields.append("title")
+            if artifact.description != artifact_def.description:
+                updated_fields.append("description")
+            if artifact.sort_order != artifact_def.sort_order:
+                updated_fields.append("sort_order")
+            if dict(artifact.payload or {}) != artifact_payload:
+                updated_fields.append("payload")
             if (
                 artifact.kind != artifact_kind
                 or artifact.title != artifact_title
@@ -209,6 +251,8 @@ def persist_blueprint_children_in_session(
                 or dict(artifact.payload or {}) != artifact_payload
             ):
                 changed = True
+                if updated_fields and artifact.id:
+                    changes["artifacts"]["updated"].append({"title": artifact_title, "fields": updated_fields})
             artifact.kind = artifact_kind
             artifact.title = artifact_title
             artifact.description = artifact_def.description
@@ -221,6 +265,7 @@ def persist_blueprint_children_in_session(
         for existing_artifact in existing_artifacts:
             if existing_artifact.id not in retained_artifact_ids:
                 changed = True
+                changes["artifacts"]["deleted"].append({"title": existing_artifact.title, "kind": existing_artifact.kind})
                 session.delete(existing_artifact)
 
     session.flush()
@@ -232,7 +277,7 @@ def persist_blueprint_children_in_session(
         .where(BlueprintArtifactDB.blueprint_id == blueprint_id)
         .order_by(BlueprintArtifactDB.sort_order.asc(), BlueprintArtifactDB.title.asc())
     ).all()
-    return PersistBlueprintChildrenResult(roles=persisted_roles, artifacts=persisted_artifacts, changed=changed)
+    return PersistBlueprintChildrenResult(roles=persisted_roles, artifacts=persisted_artifacts, changed=changed, changes=changes)
 
 
 def save_blueprint(
@@ -244,9 +289,10 @@ def save_blueprint(
     roles: list[BlueprintRoleDefinition] | None,
     artifacts: list[BlueprintArtifactDefinition] | None,
     is_seed: bool | None = None,
-) -> tuple[TeamBlueprintDB, list[BlueprintRoleDB], list[BlueprintArtifactDB]]:
+) -> BlueprintSaveResult:
     with Session(engine) as session:
         blueprint = session.get(TeamBlueprintDB, blueprint_id) if blueprint_id else None
+        blueprint_field_changes: list[str] = []
         if blueprint is None:
             blueprint = TeamBlueprintDB(
                 name=name,
@@ -256,18 +302,28 @@ def save_blueprint(
             )
             session.add(blueprint)
             session.flush()
+            blueprint_field_changes = ["name", "description", "base_team_type_name", "is_seed"]
         else:
+            if blueprint.name != name:
+                blueprint_field_changes.append("name")
+            if blueprint.description != description:
+                blueprint_field_changes.append("description")
+            if blueprint.base_team_type_name != base_team_type_name:
+                blueprint_field_changes.append("base_team_type_name")
+            if is_seed is not None and blueprint.is_seed != is_seed:
+                blueprint_field_changes.append("is_seed")
             blueprint.name = name
             blueprint.description = description
             blueprint.base_team_type_name = base_team_type_name
             if is_seed is not None:
                 blueprint.is_seed = is_seed
-            blueprint.updated_at = time.time()
+            if blueprint_field_changes:
+                blueprint.updated_at = time.time()
             session.add(blueprint)
             session.flush()
 
         result = persist_blueprint_children_in_session(session, blueprint.id, roles, artifacts)
-        if result.changed:
+        if blueprint_field_changes or result.changed:
             blueprint.updated_at = time.time()
             session.add(blueprint)
         session.commit()
@@ -280,16 +336,34 @@ def save_blueprint(
             .where(BlueprintArtifactDB.blueprint_id == blueprint.id)
             .order_by(BlueprintArtifactDB.sort_order.asc(), BlueprintArtifactDB.title.asc())
         ).all()
-        return blueprint, persisted_roles, persisted_artifacts
+        return BlueprintSaveResult(
+            blueprint=blueprint,
+            roles=persisted_roles,
+            artifacts=persisted_artifacts,
+            changes={
+                "blueprint_fields": blueprint_field_changes,
+                "roles": result.changes["roles"],
+                "artifacts": result.changes["artifacts"],
+                "changed": bool(blueprint_field_changes or result.changed),
+            },
+        )
 
 
-def reconcile_seed_blueprints(seed_blueprints: dict, *, normalize_team_type_name, with_role_profile_defaults, ensure_default_templates_callback) -> None:
+def reconcile_seed_blueprints(
+    seed_blueprints: dict,
+    *,
+    normalize_team_type_name,
+    with_role_profile_defaults,
+    ensure_default_templates_callback,
+) -> list[dict]:
+    reconcile_reports: list[dict] = []
     for blueprint_name, blueprint_definition in seed_blueprints.items():
         base_team_type_name = normalize_team_type_name(str(blueprint_definition.get("base_team_type_name") or blueprint_name))
         ensure_default_templates_callback(base_team_type_name)
         with Session(engine) as session:
             templates_by_name = {template.name: template for template in session.exec(select(TemplateDB)).all()}
             blueprint = session.exec(select(TeamBlueprintDB).where(TeamBlueprintDB.name == blueprint_name)).first()
+            blueprint_field_changes: list[str] = []
             if blueprint is None:
                 blueprint = TeamBlueprintDB(
                     name=blueprint_name,
@@ -299,12 +373,19 @@ def reconcile_seed_blueprints(seed_blueprints: dict, *, normalize_team_type_name
                 )
                 session.add(blueprint)
                 session.flush()
+                blueprint_field_changes = ["name", "description", "base_team_type_name", "is_seed"]
             else:
                 if (
                     blueprint.description != blueprint_definition["description"]
                     or blueprint.base_team_type_name != (base_team_type_name or None)
                     or blueprint.is_seed is not True
                 ):
+                    if blueprint.description != blueprint_definition["description"]:
+                        blueprint_field_changes.append("description")
+                    if blueprint.base_team_type_name != (base_team_type_name or None):
+                        blueprint_field_changes.append("base_team_type_name")
+                    if blueprint.is_seed is not True:
+                        blueprint_field_changes.append("is_seed")
                     blueprint.description = blueprint_definition["description"]
                     blueprint.base_team_type_name = base_team_type_name or None
                     blueprint.is_seed = True
@@ -334,10 +415,24 @@ def reconcile_seed_blueprints(seed_blueprints: dict, *, normalize_team_type_name
                 for artifact_definition in blueprint_definition["artifacts"]
             ]
             result = persist_blueprint_children_in_session(session, blueprint.id, role_definitions, artifact_definitions)
-            if result.changed:
+            if blueprint_field_changes or result.changed:
                 blueprint.updated_at = time.time()
                 session.add(blueprint)
             session.commit()
+            if blueprint_field_changes or result.changed:
+                reconcile_reports.append(
+                    {
+                        "blueprint_id": blueprint.id,
+                        "name": blueprint.name,
+                        "changes": {
+                            "blueprint_fields": blueprint_field_changes,
+                            "roles": result.changes["roles"],
+                            "artifacts": result.changes["artifacts"],
+                            "changed": True,
+                        },
+                    }
+                )
+    return reconcile_reports
 
 
 def instantiate_blueprint(blueprint_id: str, data: TeamBlueprintInstantiateRequest, *, error_factory, normalize_team_type_name) -> TeamDB | tuple:
