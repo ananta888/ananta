@@ -65,21 +65,21 @@ Faustregel:
 | Modell | Empfohlene Nutzung | OpenCode-Worker |
 |---|---|---|
 | `lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest` | primaerer OpenCode-Worker fuer Code + Tool-Aufrufe | ja |
-| `bartowski-qwen2.5-coder-7b-instruct-gguf-...` | leichterer Coding-Worker | ja |
+| `bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest` | leichterer Coding-Worker | ja |
 | `mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6:latest` | guenstige Coding-Hilfe, kurze Tasks | bedingt |
 | `lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4:latest` | schnelle Drafts / Kleinstaufgaben | bedingt |
 | `tensorblock-deepseek-coder-v2-lite-instruct-gguf-deepseek-coder-v2-443776354e4e:latest` | Coding-Fallback, nur wenn stabil | bedingt |
-| `davidau-qwen3-zero-coder-reasoning-0.8b-neo-ex-...` | experimenteller Hybrid aus Coding + Reasoning | bedingt |
-| `davidau-openai_gpt-oss-20b-coder-neo-code-di-matrix-...` | starker, aber schwerer Coding-Fallback | ja |
+| `davidau-qwen3-zero-coder-reasoning-0.8b-neo-ex-gguf-qwen3-zero-code-8221ab563223:latest` | experimenteller Hybrid aus Coding + Reasoning | bedingt |
+| `davidau-openai_gpt-oss-20b-coder-neo-code-di-matrix-gguf-openai-20b-1eb340de9132:latest` | starker, aber schwerer Coding-Fallback | ja |
 
 ### Allgemeine Text-/Doku-/Template-Modelle
 
 | Modell | Empfohlene Nutzung | OpenCode-Worker |
 |---|---|---|
-| `lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-...` | Doku, Templates, Prompt-Ausarbeitung | bedingt |
-| `brouzuf-mistral-7b-instruct-v0.3-q4_k_m-...` | allgemeine Assistenz, Doku, Review-Fallback | bedingt |
+| `lmstudio-community-ministral-3-3b-instruct-2512-gguf-ministral-3-3b-c1858150c1d6:latest` | Doku, Templates, Prompt-Ausarbeitung | bedingt |
+| `brouzuf-mistral-7b-instruct-v0.3-q4_k_m-gguf-mistral-7b-instruct-v0-fe52427380fa:latest` | allgemeine Assistenz, Doku, Review-Fallback | bedingt |
 | `ddarolf-meta-llama-3.1-8b-instruct-q4_k_m-gguf-meta-llama-3.1-8b-instruct-q4_k_m:latest` | Review-/Generalist-Fallback | bedingt |
-| `bylang-meta-lama3.1-8b-q4_k_m-...` | Generalist-Fallback | bedingt |
+| `bylang-meta-lama3.1-8b-q4_k_m-gguf-meta-lama3.1-8b-q4_k_m:latest` | Generalist-Fallback | bedingt |
 | `lmstudio-community-qwen2.5-0.5b-instruct-gguf-qwen2.5-0.5b-instruct-q8_0:latest` | schnelle Templates, kurze Texte | bedingt |
 | `mradermacher-openai-7b-v0.1-gguf-openai-7b-v0.1.q4_k_s:latest` | allgemeine Assistenz | bedingt |
 | `lmstudio-community-gpt-oss-20b-gguf-gpt-oss-20b-mxfp4:latest` | schwerer Generalist / Backup | ja |
@@ -90,8 +90,8 @@ Faustregel:
 |---|---|---|
 | `lmstudio-community-gemma-4-e2b-it-gguf-gemma-4-e2b-it-q4_k_m:latest` | Template-/Text-Assistenz | bedingt |
 | `lmstudio-community-gemma-4-e2b-it-gguf-mmproj-gemma-4-e2b-it-bf16:latest` | multimodale Experimente | nein |
-| `bartowski-mistralai_voxtral-mini-3b-2507-gguf-...` | Audio-/Realtime-nahe Spezialfaelle | nein |
-| `bartowski-mistralai_voxtral-mini-3b-2507-gguf-mmproj-...` | multimodale Audio-/Vision-Pfade | nein |
+| `bartowski-mistralai_voxtral-mini-3b-2507-gguf-mistralai_voxtral-min-9e08d0b2625f:latest` | Audio-/Realtime-nahe Spezialfaelle | nein |
+| `bartowski-mistralai_voxtral-mini-3b-2507-gguf-mmproj-mistralai_voxt-2efae94b6ce9:latest` | multimodale Audio-/Vision-Pfade | nein |
 | `andrijdavid-voxtral-mini-4b-realtime-2602-gguf-q2_k:latest` | Realtime-/Audio-Experimente | nein |
 
 ### Projektinterne Modelle
