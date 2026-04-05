@@ -537,6 +537,16 @@ def run_opencode_command(
             timeout=timeout,
             model=model,
         )
+    if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() == "live_terminal":
+        from agent.services.live_terminal_session_service import get_live_terminal_session_service
+
+        return get_live_terminal_session_service().run_opencode_turn(
+            session,
+            prompt=prompt,
+            timeout=timeout,
+            model=model,
+            workdir=workdir,
+        )
 
     with sgpt_lock:
         env = os.environ.copy()
@@ -764,11 +774,19 @@ def _normalize_opencode_tool_mode(value: str | None) -> str:
     return "full"
 
 
+def _normalize_opencode_execution_mode(value: str | None) -> str:
+    mode = str(value or "").strip().lower()
+    if mode in {"backend", "live_terminal"}:
+        return mode
+    return "backend"
+
+
 def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
     tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
+    execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
     configured_default_model = str(agent_cfg.get("opencode_default_model") or settings.opencode_default_model or "").strip()
     raw_model = str(model or configured_default_model or "").strip() or None
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
@@ -848,6 +866,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         "target_kind": target_kind,
         "target_provider_type": target_provider_type,
         "tool_mode": tool_mode,
+        "execution_mode": execution_mode,
         "provider_config": provider_config,
         "diagnostics": diagnostics,
     }

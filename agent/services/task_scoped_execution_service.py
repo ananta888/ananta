@@ -20,6 +20,7 @@ from agent.runtime_policy import build_trace_record, normalize_task_kind, resolv
 from agent.security_risk import classify_command_risk, classify_tool_calls_risk, has_file_access_signal, has_terminal_signal, max_risk_level
 from agent.services.repository_registry import get_repository_registry
 from agent.services.cli_session_service import get_cli_session_service
+from agent.services.live_terminal_session_service import get_live_terminal_session_service
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
@@ -656,6 +657,10 @@ class TaskScopedExecutionService:
         if session_payload:
             routing["session_mode"] = "stateful"
             routing["session_id"] = session_payload["id"]
+            session_metadata = session_payload.get("metadata") if isinstance(session_payload.get("metadata"), dict) else {}
+            if str(session_metadata.get("opencode_execution_mode") or "").strip().lower() == "live_terminal":
+                routing["execution_mode"] = "live_terminal"
+                routing["live_terminal"] = dict(session_metadata.get("opencode_live_terminal") or {})
         if is_research_backend(backend_used):
             research_res = self._build_research_result(
                 raw_res,
@@ -1391,6 +1396,13 @@ class TaskScopedExecutionService:
             "native_opencode_sessions": bool(mode.get("native_opencode_sessions", False)),
         }
 
+    @staticmethod
+    def _resolve_opencode_execution_mode(agent_cfg: dict | None) -> str:
+        cfg = agent_cfg or {}
+        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+        mode = str(runtime_cfg.get("execution_mode") or "backend").strip().lower()
+        return mode if mode in {"backend", "live_terminal"} else "backend"
+
     def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
         task_record = get_repository_registry().task_repo.get_by_id(tid)
         if not task_record:
@@ -1435,9 +1447,10 @@ class TaskScopedExecutionService:
     ) -> dict | None:
         policy = self._cli_session_policy(agent_cfg)
         backend_name = str(backend or "").strip().lower()
-        if not policy["enabled"] or not policy["allow_task_scoped_auto_session"]:
+        live_terminal_mode = backend_name == "opencode" and self._resolve_opencode_execution_mode(agent_cfg) == "live_terminal"
+        if not live_terminal_mode and (not policy["enabled"] or not policy["allow_task_scoped_auto_session"]):
             return None
-        if backend_name not in set(policy["stateful_backends"]):
+        if not live_terminal_mode and backend_name not in set(policy["stateful_backends"]):
             return None
         scope_kind, scope_key, role_name = self._resolve_task_session_scope(tid=tid, task=task, policy=policy)
         verification = dict(task.get("verification_status") or {})
@@ -1484,7 +1497,58 @@ class TaskScopedExecutionService:
                 str(task.get("status") or "assigned"),
                 verification_status=verification,
             )
-        if backend_name == "opencode" and bool(policy.get("native_opencode_sessions")):
+        if backend_name == "opencode" and not live_terminal_mode:
+            session_payload = (
+                get_cli_session_service().update_session(
+                    str(session_payload.get("id") or ""),
+                    metadata_updates={
+                        "opencode_execution_mode": "backend",
+                        "opencode_live_terminal": {},
+                    },
+                )
+                or session_payload
+            )
+            verification["cli_session"] = {
+                **verification.get("cli_session", {}),
+                "execution_mode": "backend",
+                "terminal_session_id": None,
+                "forward_param": None,
+                "terminal_status": None,
+                "updated_at": time.time(),
+            }
+            verification["opencode_live_terminal"] = {}
+            update_local_task_status(
+                tid,
+                str(task.get("status") or "assigned"),
+                verification_status=verification,
+            )
+        if live_terminal_mode:
+            terminal_meta = get_live_terminal_session_service().ensure_session_for_cli(session_payload) or {}
+            session_payload = (
+                get_cli_session_service().update_session(
+                    str(session_payload.get("id") or ""),
+                    metadata_updates={
+                        "opencode_execution_mode": "live_terminal",
+                        "opencode_live_terminal": terminal_meta,
+                    },
+                )
+                or session_payload
+            )
+            verification["cli_session"] = {
+                **verification.get("cli_session", {}),
+                "execution_mode": "live_terminal",
+                "terminal_session_id": terminal_meta.get("terminal_session_id"),
+                "forward_param": terminal_meta.get("forward_param"),
+                "terminal_status": terminal_meta.get("status"),
+                "updated_at": time.time(),
+            }
+            verification["opencode_live_terminal"] = dict(terminal_meta)
+            update_local_task_status(
+                tid,
+                str(task.get("status") or "assigned"),
+                verification_status=verification,
+            )
+        elif backend_name == "opencode" and bool(policy.get("native_opencode_sessions")):
             from agent.services.opencode_runtime_service import get_opencode_runtime_service
 
             runtime_meta = get_opencode_runtime_service().ensure_session_runtime(session_payload, model=model)

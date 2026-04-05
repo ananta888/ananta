@@ -704,6 +704,26 @@ def test_set_config_validates_cli_session_mode_shape(client, admin_token):
     assert mode.get("native_opencode_sessions") is True
 
 
+def test_set_config_validates_opencode_execution_mode(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    bad = client.post("/config", json={"opencode_runtime": {"execution_mode": "tty"}}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_opencode_execution_mode"
+
+    ok = client.post(
+        "/config",
+        json={"opencode_runtime": {"tool_mode": "readonly", "execution_mode": "live_terminal"}},
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    runtime_cfg = ((cfg.json.get("data") or {}).get("opencode_runtime") or {})
+    assert runtime_cfg.get("tool_mode") == "readonly"
+    assert runtime_cfg.get("execution_mode") == "live_terminal"
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 

@@ -16,6 +16,7 @@ from urllib.parse import parse_qs
 import jwt
 
 from agent.config import settings
+from agent.services.live_terminal_session_service import get_live_terminal_session_service
 
 try:
     from flask_sock import Sock
@@ -375,6 +376,76 @@ def register_ws_terminal(app: Any) -> None:
                     "principal": principal,
                 },
             )
+            return
+
+        forwarded_terminal = None
+        if forward_param:
+            forwarded_terminal = get_live_terminal_session_service().get_session(forward_param)
+            if forwarded_terminal is None:
+                _send_event(ws, "error", {"message": "forward_terminal_not_found"})
+                _append_terminal_log(
+                    data_dir,
+                    {
+                        "timestamp": time.time(),
+                        "timestamp_iso": _utc_now_iso(),
+                        "session_id": session_id,
+                        "event": "session_close",
+                        "mode": mode,
+                        "principal": principal,
+                        "error": "forward_terminal_not_found",
+                    },
+                )
+                return
+        if forwarded_terminal is not None:
+            offset = 0
+            chunks, offset = get_live_terminal_session_service().read_from(forward_param, offset)
+            if chunks:
+                _send_event(ws, "output", {"chunk": "".join(chunks)})
+            try:
+                while True:
+                    try:
+                        incoming = _recv_message(ws, timeout_seconds=0.2)
+                    except Exception as exc:
+                        if _is_timeout_error(exc):
+                            incoming = None
+                        elif _is_closed_error(exc):
+                            break
+                        else:
+                            LOGGER.debug("Transient websocket receive error in %s: %s", session_id, exc)
+                            incoming = None
+                    if incoming is not None:
+                        data = incoming.decode("utf-8", errors="ignore") if isinstance(incoming, bytes) else incoming
+                        text = data
+                        if isinstance(data, str):
+                            stripped = data.strip()
+                            payload: dict[str, Any] | None = None
+                            if stripped.startswith("{"):
+                                try:
+                                    payload = json.loads(stripped)
+                                except json.JSONDecodeError:
+                                    payload = None
+                            if payload and payload.get("type") == "input":
+                                text = str(payload.get("data", ""))
+                        if isinstance(text, str) and text:
+                            get_live_terminal_session_service().write(forward_param, text)
+                    changed = get_live_terminal_session_service().wait_for_update(forward_param, offset, 0.2)
+                    if changed:
+                        fresh, offset = get_live_terminal_session_service().read_from(forward_param, offset)
+                        if fresh:
+                            _send_event(ws, "output", {"chunk": "".join(fresh)})
+            finally:
+                _append_terminal_log(
+                    data_dir,
+                    {
+                        "timestamp": time.time(),
+                        "timestamp_iso": _utc_now_iso(),
+                        "session_id": session_id,
+                        "event": "session_close",
+                        "mode": mode,
+                        "principal": principal,
+                        "forward_param": forward_param,
+                    },
+                )
             return
 
         bridge = _build_terminal_bridge(_safe_shell())

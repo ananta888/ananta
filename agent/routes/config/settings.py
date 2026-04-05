@@ -135,7 +135,10 @@ def set_config():
         tool_mode = str(opencode_runtime_cfg.get("tool_mode") or "full").strip().lower()
         if tool_mode not in {"full", "readonly", "toolless"}:
             return api_response(status="error", message="invalid_opencode_tool_mode", code=400)
-        new_cfg["opencode_runtime"] = {"tool_mode": tool_mode}
+        execution_mode = str(opencode_runtime_cfg.get("execution_mode") or "backend").strip().lower()
+        if execution_mode not in {"backend", "live_terminal"}:
+            return api_response(status="error", message="invalid_opencode_execution_mode", code=400)
+        new_cfg["opencode_runtime"] = {"tool_mode": tool_mode, "execution_mode": execution_mode}
     if "worker_runtime" in new_cfg:
         worker_runtime_cfg = new_cfg.get("worker_runtime")
         if not isinstance(worker_runtime_cfg, dict):
