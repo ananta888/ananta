@@ -147,3 +147,4 @@ services:
 
 volumes:
   ollama_data:
+    name: ananta_ollama_data
