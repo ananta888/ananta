@@ -1,6 +1,6 @@
 {
-  "run_id": "20260405T091735Z",
-  "started_at": "2026-04-05T09:17:35.865657+00:00",
+  "run_id": "20260405T095606Z",
+  "started_at": "2026-04-05T09:56:06.780051+00:00",
   "base": {
     "selenium": "http://127.0.0.1:4444/wd/hub",
     "frontend": "http://angular-frontend:4200"
@@ -12,10 +12,10 @@
     "benchmark"
   ],
   "hard_fail_visible_errors": false,
-  "step_delay_seconds": 1.5,
-  "wait_tasks_seconds": 120.0,
-  "goal_wait_seconds": 120.0,
-  "goal_text": "",
+  "step_delay_seconds": 1.2,
+  "wait_tasks_seconds": 180.0,
+  "goal_wait_seconds": 180.0,
+  "goal_text": "Erstelle eine kleine Fullstack-Fibonacci-Demo: Backend-Endpoint zur Fibonacci-Berechnung, Frontend-Ansicht mit Eingabefeld und Ergebnisanzeige, plus kurzer Test/Validierung.",
   "benchmark_ticks": 2,
   "benchmark_task_kind": "coding",
   "require_followup": false,
@@ -31,9 +31,9 @@
       "phase": "setup",
       "step": "login",
       "status": "ok",
-      "started_at": "2026-04-05T09:17:38.672105+00:00",
-      "ended_at": "2026-04-05T09:17:39.910773+00:00",
-      "duration_ms": 1238,
+      "started_at": "2026-04-05T09:56:10.231625+00:00",
+      "ended_at": "2026-04-05T09:56:12.046437+00:00",
+      "duration_ms": 1814,
       "details": {
         "path": "/dashboard",
         "title": "Ananta - Agent Control"
@@ -43,11 +43,11 @@
       "phase": "setup",
       "step": "template_create",
       "status": "ok",
-      "started_at": "2026-04-05T09:17:41.419334+00:00",
-      "ended_at": "2026-04-05T09:17:45.078861+00:00",
-      "duration_ms": 3659,
+      "started_at": "2026-04-05T09:56:13.262949+00:00",
+      "ended_at": "2026-04-05T09:56:16.944198+00:00",
+      "duration_ms": 3681,
       "details": {
-        "template_name": "Live UI Template 1775380662",
+        "template_name": "Live UI Template 1775382974",
         "path": "/templates",
         "title": "Ananta - Agent Control"
       }
@@ -56,12 +56,12 @@
       "phase": "setup",
       "step": "blueprint_team_create",
       "status": "ok",
-      "started_at": "2026-04-05T09:17:46.598514+00:00",
-      "ended_at": "2026-04-05T09:17:52.510195+00:00",
-      "duration_ms": 5911,
+      "started_at": "2026-04-05T09:56:18.155090+00:00",
+      "ended_at": "2026-04-05T09:56:24.036678+00:00",
+      "duration_ms": 5881,
       "details": {
-        "blueprint_name": "Live UI Blueprint 1775380668",
-        "team_name": "Live UI Team 1775380670",
+        "blueprint_name": "Live UI Blueprint 1775382979",
+        "team_name": "Live UI Team 1775382981",
         "path": "/teams",
         "title": "Ananta - Agent Control"
       }
@@ -69,28 +69,236 @@
     {
       "phase": "goal",
       "step": "goal_plan_submit",
-      "status": "failed",
-      "started_at": "2026-04-05T09:17:54.019136+00:00",
-      "ended_at": "2026-04-05T09:19:56.614263+00:00",
-      "duration_ms": 122595,
+      "status": "ok",
+      "started_at": "2026-04-05T09:56:25.245951+00:00",
+      "ended_at": "2026-04-05T09:56:31.533219+00:00",
+      "duration_ms": 6287,
       "details": {
-        "goal_name": "Live Goal 1775380675",
+        "goal_name": "Erstelle eine kleine Fullstack-Fibonacci-Demo: Backend-Endpoint zur Fibonacci-Berechnung, Frontend-Ansicht mit Eingabefeld und Ergebnisanzeige, plus kurzer Test/Validierung.",
         "goal_clicked": true,
         "click_debug": {
           "disabled_before": false,
-          "goal_length": 20,
+          "goal_length": 173,
           "label_before": "Goal planen",
+          "goals_before": 60,
+          "goals_before_ids": [
+            "1d61e2b8-b5f4-402a-8739-f9a22e00237d",
+            "efeec2ee-8557-4f1c-bc75-d6b34c491f30",
+            "f73f6b25-c4b9-4a6e-8302-58b92aa12227",
+            "98e5ae1f-6c67-4a50-b921-5b18b9a859de",
+            "548abaab-a85c-4d9e-afd6-6b5ffefbbb30"
+          ],
+          "fallback_click": false,
           "planning_started": true,
           "team_pick": {
             "found": true,
             "selected": "8672313b-42af-41fb-9801-bdeb992e3827"
-          }
+          },
+          "goals_after": 61,
+          "goals_after_ids": [
+            "1d61e2b8-b5f4-402a-8739-f9a22e00237d",
+            "efeec2ee-8557-4f1c-bc75-d6b34c491f30",
+            "f73f6b25-c4b9-4a6e-8302-58b92aa12227",
+            "98e5ae1f-6c67-4a50-b921-5b18b9a859de",
+            "548abaab-a85c-4d9e-afd6-6b5ffefbbb30"
+          ]
         },
-        "goal_result_visible": false,
-        "tasks_created": 0,
-        "created_goal_id": "",
-        "goal_result_excerpt": "",
+        "goal_result_visible": true,
+        "tasks_created": 5,
+        "created_goal_id": "3e7c50e7-3fb5-4f90-bfa6-7cf72d50947c",
+        "goal_result_excerpt": "Goal angelegt 3e7c50e7-3fb5-4f90-bfa6-7cf72d50947c \u00b7 5 Tasks \u00b7 Plan 60122077-5338-45e9-a622-1675b81c080e 1. Anforderungen definierenHigh2. Design/ArchitekturHigh3. ImplementierungHigh4. Tests schreibenMedium5. DokumentationLow",
+        "detail_tasks_after_fallback": 0,
         "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/dashboard",
+      "status": "ok",
+      "started_at": "2026-04-05T09:56:32.744636+00:00",
+      "ended_at": "2026-04-05T09:56:34.342215+00:00",
+      "duration_ms": 1597,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/board",
+      "status": "ok",
+      "started_at": "2026-04-05T09:56:35.554001+00:00",
+      "ended_at": "2026-04-05T09:56:37.132836+00:00",
+      "duration_ms": 1578,
+      "details": {
+        "path": "/board",
+        "title": "Ananta - Agent Control",
+        "board_task_count": 62,
+        "board_has_tasks": true
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/templates",
+      "status": "ok",
+      "started_at": "2026-04-05T09:56:38.347156+00:00",
+      "ended_at": "2026-04-05T09:56:39.937655+00:00",
+      "duration_ms": 1590,
+      "details": {
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/teams",
+      "status": "ok",
+      "started_at": "2026-04-05T09:56:41.148003+00:00",
+      "ended_at": "2026-04-05T09:56:42.717839+00:00",
+      "duration_ms": 1569,
+      "details": {
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/settings",
+      "status": "ok",
+      "started_at": "2026-04-05T09:56:43.928131+00:00",
+      "ended_at": "2026-04-05T09:56:45.629685+00:00",
+      "duration_ms": 1701,
+      "details": {
+        "path": "/settings",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "benchmark",
+      "step": "goal_followup_and_model_benchmark",
+      "status": "failed",
+      "started_at": "2026-04-05T09:56:46.841635+00:00",
+      "ended_at": "2026-04-05T10:00:08.063865+00:00",
+      "duration_ms": 201222,
+      "details": {
+        "goal_id": "3e7c50e7-3fb5-4f90-bfa6-7cf72d50947c",
+        "goal_summary": "Erstelle eine kleine Fullstack-Fibonacci-Demo: Backend-Endpoint zur Fibonacci-Berechnung, Frontend-Ansicht mit Eingabefeld und Ergebnisanzeige, plus kurzer Test/Validierung.",
+        "worker_bind_info": {
+          "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+          "applied": false,
+          "online_worker_urls": [
+            "http://ai-agent-beta:5000",
+            "http://ai-agent-alpha:5000"
+          ],
+          "existing_member_urls": [
+            "http://ai-agent-alpha:5000",
+            "http://ai-agent-beta:5000"
+          ],
+          "needs_binding": false
+        },
+        "worker_terminal": {
+          "attempted": true,
+          "worker_name": "alpha",
+          "mode": "read",
+          "route": "/panel/alpha?tab=terminal&mode=read",
+          "opened": true,
+          "connected": true,
+          "status_text": "Status: connected",
+          "buffer_excerpt": "\\n}\", \"task_id\": \"goal-ae5d31cd\"}\n{\"timestamp\": 1775381226.416529, \"agent\": \"alpha\", \"step\": 0, \"direction\": \"out\", \"reason\": \"<urlopen error [Errno 111] Connection refused>\", \"command\": null, \"tool_calls\": null, \"task_id\": \"goal-ae5d31cd\"}\n{\"timestamp\": 1775383010.9136348, \"timestamp_iso\": \"2026-04-05T09:56:50.913918+00:00\", \"session_id\": \"ws-093b660a-a147-48ba-be32-4c1d82545313\", \"event\": \"session_open\", \"mode\": \"read\", \"principal\": \"admin\", \"forward_param\": null, \"remote_addr\": \"172.19.0.7\"}\n",
+          "path": "/panel/alpha?tab=terminal&mode=read",
+          "title": "Ananta - Agent Control"
+        },
+        "tasks_before": 5,
+        "tasks_after": 0,
+        "tasks_before_full": 5,
+        "tasks_after_full": 0,
+        "new_task_ids": [],
+        "followup_task_ids": [],
+        "followup_created": false,
+        "followup_observed": false,
+        "terminalized": false,
+        "fibonacci_mentions_in_tasks": 0,
+        "artifacts_summary_present": false,
+        "result_summary": {},
+        "headline_artifact_preview": "",
+        "file_output_evidence": {
+          "file_paths": [],
+          "distinct_file_count": 0,
+          "distinct_dirs": [],
+          "distinct_dir_count": 0
+        },
+        "multi_file_output_ok": false,
+        "require_followup": false,
+        "require_artifact_summary": false,
+        "require_multi_file_output": false,
+        "min_distinct_files": 3,
+        "min_distinct_dirs": 2,
+        "autopilot_ticks_requested": 2,
+        "autopilot_total_ms": 97103,
+        "autopilot_start_payload": {
+          "team_id": "8672313b-42af-41fb-9801-bdeb992e3827",
+          "max_concurrency": 2,
+          "security_level": "balanced"
+        },
+        "autopilot_stop_before_status": 200,
+        "autopilot_start_status": 200,
+        "autopilot_stop_status": 200,
+        "workers_available_max": 0,
+        "workers_online_max": 0,
+        "no_worker_blocker": true,
+        "autopilot_tick_results": [
+          {
+            "ok": false,
+            "error": "webdriver_async_error: timed out",
+            "status": 0,
+            "path": "/tasks/autopilot/tick"
+          },
+          {
+            "ok": false,
+            "error": "webdriver_async_error: timed out",
+            "status": 0,
+            "path": "/tasks/autopilot/tick"
+          }
+        ],
+        "recovery_info": {
+          "triggered": false,
+          "analyze_attempted": 0,
+          "analyze_created_total": 0,
+          "analyze_results": [],
+          "manual_followup_status": 0,
+          "manual_recovery_task_status": 0,
+          "manual_recovery_task_id": "",
+          "extra_ticks": 0
+        },
+        "benchmark_payload": {
+          "provider": "ollama",
+          "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
+          "task_kind": "coding",
+          "success": false,
+          "quality_gate_passed": false,
+          "latency_ms": 97103,
+          "tokens_total": 0
+        },
+        "benchmark_record_status": 200,
+        "benchmark_model_key": "ollama:lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
+        "benchmark_focus": {
+          "avg_cost_units": 0,
+          "avg_latency_ms": 50148.3,
+          "avg_tokens": 0,
+          "cost_units_total": 0,
+          "quality_rate": 0,
+          "success_rate": 0,
+          "suitability_score": 10,
+          "total": 33
+        },
+        "task_status_after": {
+          "total": 0,
+          "completed": 0,
+          "failed": 0,
+          "open": 0
+        },
+        "path": "/artifacts",
         "title": "Ananta - Agent Control"
       }
     }
@@ -103,9 +311,10 @@
   },
   "errors": [
     {
-      "message": "Goal submit flow failed"
+      "message": "Benchmark phase failed"
     }
   ],
-  "session_id": "1c7cb4af-7fb3-41ff-a963-75716800e081",
-  "ended_at": "2026-04-05T09:19:58.126521+00:00"
+  "session_id": "79f457bf-a07f-434a-a2f3-5456fca956ba",
+  "last_goal_id": "3e7c50e7-3fb5-4f90-bfa6-7cf72d50947c",
+  "ended_at": "2026-04-05T10:00:09.278217+00:00"
 }

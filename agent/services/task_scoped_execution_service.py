@@ -563,6 +563,7 @@ class TaskScopedExecutionService:
                 primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
                 primary_temperature=requested_temperature,
                 research_context=research_context,
+                session=session_payload,
             )
             if repaired:
                 raw_res = repaired["raw"]
@@ -596,6 +597,7 @@ class TaskScopedExecutionService:
                 primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
                 primary_temperature=requested_temperature,
                 research_context=research_context,
+                session=session_payload,
             )
             if repaired:
                 raw_res = repaired["raw"]
@@ -714,6 +716,7 @@ class TaskScopedExecutionService:
                 primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
                 primary_temperature=requested_temperature,
                 research_context=research_context,
+                session=session_payload,
             )
             if repaired:
                 raw_res = repaired["raw"]
@@ -1127,6 +1130,7 @@ class TaskScopedExecutionService:
         primary_model: str | None,
         primary_temperature: float | None = None,
         research_context: dict | None = None,
+        session: dict | None = None,
     ) -> dict | None:
         default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip() or None
         first_backend = str(primary_backend or "sgpt").strip().lower()
@@ -1165,6 +1169,8 @@ class TaskScopedExecutionService:
                 cli_kwargs["temperature"] = temperature
             if research_context:
                 cli_kwargs["research_context"] = research_context
+            if session:
+                cli_kwargs["session"] = session
             rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
             raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
             if not raw_res.strip():
