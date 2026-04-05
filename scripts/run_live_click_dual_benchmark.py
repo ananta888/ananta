@@ -173,29 +173,98 @@ def get_admin_from_hub_container(container_name: str) -> tuple[str, str]:
     return user, password
 
 
-def set_config_via_hub_container(container_name: str, config_patch: dict) -> dict:
+def _unique_non_empty(values: list[str]) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered
+
+
+def _can_login_via_hub_container(container_name: str, admin_user: str, admin_password: str) -> bool:
+    script = (
+        "import json, urllib.request\n"
+        "base = 'http://127.0.0.1:5000'\n"
+        f"user = {json.dumps(str(admin_user or '').strip() or 'admin')}\n"
+        f"pwd = {json.dumps(str(admin_password or '').strip())}\n"
+        "data = json.dumps({'username': user, 'password': pwd}).encode('utf-8')\n"
+        "req = urllib.request.Request(base + '/login', data=data, headers={'Content-Type': 'application/json'}, method='POST')\n"
+        "with urllib.request.urlopen(req, timeout=30) as res:\n"
+        "    payload = json.loads(res.read().decode('utf-8'))\n"
+        "print(bool(((payload.get('data') or {}).get('access_token') or '')))\n"
+    )
+    try:
+        return _docker_exec_hub_python(container_name, script).strip().lower() == "true"
+    except Exception:
+        return False
+
+
+def resolve_admin_credentials_via_hub_container(
+    container_name: str, preferred_user: str, preferred_password: str
+) -> tuple[str, str]:
+    container_user, container_password = get_admin_from_hub_container(container_name)
+    users = _unique_non_empty(
+        [
+            preferred_user,
+            os.getenv("E2E_ADMIN_USER", ""),
+            _env_value("E2E_ADMIN_USER"),
+            os.getenv("INITIAL_ADMIN_USER", ""),
+            _env_value("INITIAL_ADMIN_USER"),
+            container_user,
+            "admin",
+        ]
+    )
+    passwords = _unique_non_empty(
+        [
+            preferred_password,
+            os.getenv("E2E_ADMIN_PASSWORD", ""),
+            _env_value("E2E_ADMIN_PASSWORD"),
+            "AnantaAdminPassword123!",
+            os.getenv("INITIAL_ADMIN_PASSWORD", ""),
+            _env_value("INITIAL_ADMIN_PASSWORD"),
+            container_password,
+        ]
+    )
+    for user in users:
+        for password in passwords:
+            if _can_login_via_hub_container(container_name, user, password):
+                return user, password
+    return (preferred_user or container_user or "admin"), (preferred_password or container_password)
+
+
+def _inline_auth_script(admin_user: str, admin_password: str) -> str:
+    return f"""
+user = {json.dumps(str(admin_user or '').strip() or 'admin')}
+pwd = {json.dumps(str(admin_password or '').strip())}
+if not pwd:
+    pwd = os.getenv('E2E_ADMIN_PASSWORD') or os.getenv('INITIAL_ADMIN_PASSWORD') or ''
+"""
+
+
+def set_config_via_hub_container(container_name: str, config_patch: dict, admin_user: str, admin_password: str) -> dict:
     payload = json.dumps(config_patch, ensure_ascii=True)
-    script = f"""
-import json, urllib.request, os
-base = 'http://127.0.0.1:5000'
-user = os.getenv('INITIAL_ADMIN_USER','admin')
-pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
-payload = json.loads({json.dumps(payload)})
-
-def req(method, path, body=None, token=None):
-    headers = {{'Content-Type': 'application/json'}}
-    if token:
-        headers['Authorization'] = 'Bearer ' + token
-    data = json.dumps(body).encode('utf-8') if body is not None else None
-    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(r, timeout=60) as s:
-        return json.loads(s.read().decode('utf-8'))
-
-token = ((req('POST','/login',{{'username': user, 'password': pwd}}).get('data') or {{}}).get('access_token') or '')
-req('POST','/config',payload,token)
-cfg = req('GET','/config',token=token)
-print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
-"""
+    script = (
+        "import json, urllib.request, os\n"
+        "base = 'http://127.0.0.1:5000'\n"
+        + _inline_auth_script(admin_user, admin_password)
+        + f"payload = json.loads({json.dumps(payload)})\n\n"
+        + "def req(method, path, body=None, token=None):\n"
+        + "    headers = {'Content-Type': 'application/json'}\n"
+        + "    if token:\n"
+        + "        headers['Authorization'] = 'Bearer ' + token\n"
+        + "    data = json.dumps(body).encode('utf-8') if body is not None else None\n"
+        + "    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)\n"
+        + "    with urllib.request.urlopen(r, timeout=60) as s:\n"
+        + "        return json.loads(s.read().decode('utf-8'))\n\n"
+        + "token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')\n"
+        + "req('POST','/config',payload,token)\n"
+        + "cfg = req('GET','/config',token=token)\n"
+        + "print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))\n"
+    )
     out = _docker_exec_hub_python(container_name, script)
     try:
         return json.loads(out)
@@ -203,24 +272,23 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return {}
 
 
-def get_config_via_hub_container(container_name: str) -> dict:
-    script = """
-import json, urllib.request, os
-base = 'http://127.0.0.1:5000'
-user = os.getenv('INITIAL_ADMIN_USER','admin')
-pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
-def req(method, path, body=None, token=None):
-    headers = {'Content-Type': 'application/json'}
-    if token:
-        headers['Authorization'] = 'Bearer ' + token
-    data = json.dumps(body).encode('utf-8') if body is not None else None
-    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(r, timeout=60) as s:
-        return json.loads(s.read().decode('utf-8'))
-token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')
-cfg = req('GET','/config',token=token)
-print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
-"""
+def get_config_via_hub_container(container_name: str, admin_user: str, admin_password: str) -> dict:
+    script = (
+        "import json, urllib.request, os\n"
+        "base = 'http://127.0.0.1:5000'\n"
+        + _inline_auth_script(admin_user, admin_password)
+        + "def req(method, path, body=None, token=None):\n"
+        + "    headers = {'Content-Type': 'application/json'}\n"
+        + "    if token:\n"
+        + "        headers['Authorization'] = 'Bearer ' + token\n"
+        + "    data = json.dumps(body).encode('utf-8') if body is not None else None\n"
+        + "    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)\n"
+        + "    with urllib.request.urlopen(r, timeout=60) as s:\n"
+        + "        return json.loads(s.read().decode('utf-8'))\n"
+        + "token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')\n"
+        + "cfg = req('GET','/config',token=token)\n"
+        + "print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))\n"
+    )
     out = _docker_exec_hub_python(container_name, script)
     try:
         return json.loads(out)
@@ -228,33 +296,30 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return {}
 
 
-def set_config_via_agent_container(container_name: str, config_patch: dict) -> dict:
+def set_config_via_agent_container(container_name: str, config_patch: dict, admin_user: str, admin_password: str) -> dict:
     payload = json.dumps(config_patch, ensure_ascii=True)
-    script = f"""
-import json, urllib.request, os
-base = 'http://127.0.0.1:5000'
-user = os.getenv('INITIAL_ADMIN_USER','admin')
-pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
-payload = json.loads({json.dumps(payload)})
-
-def req(method, path, body=None, token=None):
-    headers = {{'Content-Type': 'application/json'}}
-    if token:
-        headers['Authorization'] = 'Bearer ' + token
-    data = json.dumps(body).encode('utf-8') if body is not None else None
-    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(r, timeout=60) as s:
-        return json.loads(s.read().decode('utf-8'))
-
-token = ((req('POST','/login',{{'username': user, 'password': pwd}}).get('data') or {{}}).get('access_token') or '')
-if not token:
-    raise RuntimeError('login_failed_no_access_token')
-res = req('POST','/config',payload,token)
-if str(res.get('status') or '').lower() not in ('success', 'ok'):
-    raise RuntimeError(f'config_post_failed: {{res}}')
-cfg = req('GET','/config',token=token)
-print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
-"""
+    script = (
+        "import json, urllib.request, os\n"
+        "base = 'http://127.0.0.1:5000'\n"
+        + _inline_auth_script(admin_user, admin_password)
+        + f"payload = json.loads({json.dumps(payload)})\n\n"
+        + "def req(method, path, body=None, token=None):\n"
+        + "    headers = {'Content-Type': 'application/json'}\n"
+        + "    if token:\n"
+        + "        headers['Authorization'] = 'Bearer ' + token\n"
+        + "    data = json.dumps(body).encode('utf-8') if body is not None else None\n"
+        + "    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)\n"
+        + "    with urllib.request.urlopen(r, timeout=60) as s:\n"
+        + "        return json.loads(s.read().decode('utf-8'))\n\n"
+        + "token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')\n"
+        + "if not token:\n"
+        + "    raise RuntimeError('login_failed_no_access_token')\n"
+        + "res = req('POST','/config',payload,token)\n"
+        + "if str(res.get('status') or '').lower() not in ('success', 'ok'):\n"
+        + "    raise RuntimeError(f'config_post_failed: {res}')\n"
+        + "cfg = req('GET','/config',token=token)\n"
+        + "print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))\n"
+    )
     out = _docker_exec_hub_python(container_name, script)
     try:
         return json.loads(out)
@@ -262,24 +327,23 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return {}
 
 
-def get_config_via_agent_container(container_name: str) -> dict:
-    script = """
-import json, urllib.request, os
-base = 'http://127.0.0.1:5000'
-user = os.getenv('INITIAL_ADMIN_USER','admin')
-pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
-def req(method, path, body=None, token=None):
-    headers = {'Content-Type': 'application/json'}
-    if token:
-        headers['Authorization'] = 'Bearer ' + token
-    data = json.dumps(body).encode('utf-8') if body is not None else None
-    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(r, timeout=60) as s:
-        return json.loads(s.read().decode('utf-8'))
-token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')
-cfg = req('GET','/config',token=token)
-print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
-"""
+def get_config_via_agent_container(container_name: str, admin_user: str, admin_password: str) -> dict:
+    script = (
+        "import json, urllib.request, os\n"
+        "base = 'http://127.0.0.1:5000'\n"
+        + _inline_auth_script(admin_user, admin_password)
+        + "def req(method, path, body=None, token=None):\n"
+        + "    headers = {'Content-Type': 'application/json'}\n"
+        + "    if token:\n"
+        + "        headers['Authorization'] = 'Bearer ' + token\n"
+        + "    data = json.dumps(body).encode('utf-8') if body is not None else None\n"
+        + "    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)\n"
+        + "    with urllib.request.urlopen(r, timeout=60) as s:\n"
+        + "        return json.loads(s.read().decode('utf-8'))\n"
+        + "token = ((req('POST','/login',{'username': user, 'password': pwd}).get('data') or {}).get('access_token') or '')\n"
+        + "cfg = req('GET','/config',token=token)\n"
+        + "print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))\n"
+    )
     out = _docker_exec_hub_python(container_name, script)
     try:
         return json.loads(out)
@@ -287,23 +351,25 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return {}
 
 
-def apply_config_to_agent_containers(agent_containers: list[str], config_patch: dict) -> dict[str, dict]:
+def apply_config_to_agent_containers(
+    agent_containers: list[str], config_patch: dict, admin_user: str, admin_password: str
+) -> dict[str, dict]:
     applied: dict[str, dict] = {}
     for container_name in agent_containers:
         name = str(container_name or "").strip()
         if not name:
             continue
-        applied[name] = set_config_via_agent_container(name, config_patch)
+        applied[name] = set_config_via_agent_container(name, config_patch, admin_user, admin_password)
     return applied
 
 
-def get_configs_from_agent_containers(agent_containers: list[str]) -> dict[str, dict]:
+def get_configs_from_agent_containers(agent_containers: list[str], admin_user: str, admin_password: str) -> dict[str, dict]:
     captured: dict[str, dict] = {}
     for container_name in agent_containers:
         name = str(container_name or "").strip()
         if not name:
             continue
-        captured[name] = get_config_via_agent_container(name)
+        captured[name] = get_config_via_agent_container(name, admin_user, admin_password)
     return captured
 
 
@@ -384,10 +450,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run full live click benchmark in two modes: single-model and mixed-model.")
     parser.add_argument("--hub-base-url", default=os.getenv("HUB_BASE_URL", "http://127.0.0.1:5000"))
     parser.add_argument("--hub-container", default=os.getenv("ANANTA_HUB_CONTAINER", "ananta-ai-agent-hub-1"))
-    parser.add_argument("--admin-user", default=os.getenv("E2E_ADMIN_USER", os.getenv("INITIAL_ADMIN_USER", "admin")))
+    parser.add_argument("--admin-user", default=os.getenv("E2E_ADMIN_USER") or os.getenv("INITIAL_ADMIN_USER") or _env_value("INITIAL_ADMIN_USER") or "admin")
     parser.add_argument(
         "--admin-password",
-        default=os.getenv("E2E_ADMIN_PASSWORD", os.getenv("INITIAL_ADMIN_PASSWORD", "AnantaAdminPassword123!")),
+        default=os.getenv("E2E_ADMIN_PASSWORD") or os.getenv("INITIAL_ADMIN_PASSWORD") or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or "AnantaAdminPassword123!",
     )
     parser.add_argument(
         "--goal-text",
@@ -447,18 +513,18 @@ def main() -> int:
         token = login_token(args.hub_base_url.rstrip("/"), admin_user, admin_password)
     except Exception:
         use_container_config = True
-        container_user, container_password = get_admin_from_hub_container(args.hub_container)
-        if not admin_user or admin_user == "admin":
-            admin_user = container_user
-        if not admin_password or admin_password == "AnantaAdminPassword123!":
-            admin_password = container_password
+        admin_user, admin_password = resolve_admin_credentials_via_hub_container(
+            args.hub_container,
+            admin_user,
+            admin_password,
+        )
 
     original_hub_config = (
-        get_config_via_hub_container(args.hub_container)
+        get_config_via_hub_container(args.hub_container, admin_user, admin_password)
         if use_container_config
         else get_config(args.hub_base_url.rstrip("/"), token)
     )
-    original_agent_configs = get_configs_from_agent_containers(agent_containers)
+    original_agent_configs = get_configs_from_agent_containers(agent_containers, admin_user, admin_password)
 
     results: dict[str, Any] = {"single": {}, "mixed": {}}
     try:
@@ -474,11 +540,11 @@ def main() -> int:
             task_kind_model_overrides={},
         )
         cfg_single = (
-            set_config_via_hub_container(args.hub_container, single_cfg_payload)
+            set_config_via_hub_container(args.hub_container, single_cfg_payload, admin_user, admin_password)
             if use_container_config
             else set_config(args.hub_base_url.rstrip("/"), token, single_cfg_payload)
         )
-        container_cfg_single = apply_config_to_agent_containers(agent_containers, single_cfg_payload)
+        container_cfg_single = apply_config_to_agent_containers(agent_containers, single_cfg_payload, admin_user, admin_password)
         print("single_config_default_model", cfg_single.get("default_model"), flush=True)
         print("single_config_execution_backend", cfg_single.get("sgpt_execution_backend"), flush=True)
         print("single_config_routing", cfg_single.get("sgpt_routing"), flush=True)
@@ -513,11 +579,11 @@ def main() -> int:
             },
         )
         cfg_mixed = (
-            set_config_via_hub_container(args.hub_container, mixed_cfg_payload)
+            set_config_via_hub_container(args.hub_container, mixed_cfg_payload, admin_user, admin_password)
             if use_container_config
             else set_config(args.hub_base_url.rstrip("/"), token, mixed_cfg_payload)
         )
-        container_cfg_mixed = apply_config_to_agent_containers(agent_containers, mixed_cfg_payload)
+        container_cfg_mixed = apply_config_to_agent_containers(agent_containers, mixed_cfg_payload, admin_user, admin_password)
         print("mixed_config_default_model", cfg_mixed.get("default_model"), flush=True)
         print("mixed_config_execution_backend", cfg_mixed.get("sgpt_execution_backend"), flush=True)
         print("mixed_config_role_model_overrides", cfg_mixed.get("role_model_overrides"), flush=True)
@@ -537,14 +603,14 @@ def main() -> int:
     finally:
         try:
             if use_container_config:
-                set_config_via_hub_container(args.hub_container, original_hub_config)
+                set_config_via_hub_container(args.hub_container, original_hub_config, admin_user, admin_password)
             else:
                 set_config(args.hub_base_url.rstrip("/"), token, original_hub_config)
         except Exception as exc:
             print("config_restore_hub_error", str(exc), flush=True)
         for container_name, cfg in original_agent_configs.items():
             try:
-                set_config_via_agent_container(container_name, cfg)
+                set_config_via_agent_container(container_name, cfg, admin_user, admin_password)
             except Exception as exc:
                 print("config_restore_agent_error", container_name, str(exc), flush=True)
 

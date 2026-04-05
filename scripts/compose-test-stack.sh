@@ -4,9 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+cmd="${1:-}"
+shift || true
+
 # Default: WSL2/Vulkan overlay enabled for test/e2e stack.
 USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-1}"
 USE_LIVE_CODE_MOUNT="${ANANTA_LIVE_CODE_MOUNT:-0}"
+if [[ "$cmd" == "up-live" ]]; then
+  USE_LIVE_CODE_MOUNT=1
+fi
 
 compose_files=(
   "docker-compose.base.yml"
@@ -98,15 +104,12 @@ remove_non_ollama_volumes() {
   echo "Cleanup summary: removed=$deleted, protected=$skipped"
 }
 
-cmd="${1:-}"
-shift || true
-
 case "$cmd" in
   up)
     "${compose_cmd[@]}" up -d --build
     ;;
   up-live)
-    ANANTA_LIVE_CODE_MOUNT=1 "${compose_cmd[@]}" up -d
+    "${compose_cmd[@]}" up -d --build
     ;;
   down)
     "${compose_cmd[@]}" down --remove-orphans
