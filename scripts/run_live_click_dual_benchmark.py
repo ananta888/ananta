@@ -10,6 +10,43 @@ from typing import Any
 from urllib import request
 
 
+def _read_repo_dotenv() -> dict[str, str]:
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        values[key] = value.strip().strip('"').strip("'")
+    return values
+
+
+_DOTENV = _read_repo_dotenv()
+
+
+def _env_value(name: str) -> str:
+    return str(os.getenv(name) or _DOTENV.get(name) or "").strip()
+
+
+def _provider_base_url(provider: str) -> str | None:
+    normalized = str(provider or "").strip().lower()
+    if normalized == "ollama":
+        return _env_value("COMPOSE_OLLAMA_URL") or "http://ollama:11434/api/generate"
+    if normalized == "lmstudio":
+        return _env_value("COMPOSE_LMSTUDIO_URL") or "http://lmstudio-proxy:12340/v1"
+    if normalized == "openai":
+        return _env_value("OPENAI_URL") or None
+    if normalized == "anthropic":
+        return _env_value("ANTHROPIC_URL") or None
+    return None
+
+
 def build_worker_execution_config(
     *,
     default_provider: str,
@@ -21,9 +58,23 @@ def build_worker_execution_config(
     task_kind_model_overrides: dict[str, str],
 ) -> dict[str, Any]:
     routed_task_kinds = ("analysis", "coding", "doc", "ops")
+    llm_base_url = _provider_base_url(default_provider)
     return {
         "default_provider": default_provider,
         "default_model": default_model,
+        "llm_config": {
+            "provider": default_provider,
+            "model": default_model,
+            "base_url": llm_base_url,
+            "lmstudio_api_mode": "chat",
+        },
+        "hub_copilot": {
+            "enabled": True,
+            "provider": default_provider,
+            "model": default_model,
+            "base_url": llm_base_url,
+            "strategy_mode": "planning_and_routing",
+        },
         "opencode_default_model": default_model,
         "sgpt_execution_backend": execution_backend,
         "task_propose_repair_backend": repair_backend,
