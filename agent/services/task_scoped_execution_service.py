@@ -66,7 +66,11 @@ class TaskScopedExecutionService:
             message = str(exc)
             if "unexpected keyword argument" not in message:
                 raise
-            signature = inspect.signature(cli_runner)
+            signature_target = cli_runner
+            side_effect = getattr(cli_runner, "side_effect", None)
+            if callable(side_effect):
+                signature_target = side_effect
+            signature = inspect.signature(signature_target)
             if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
                 raise
             filtered_kwargs = {key: value for key, value in cli_kwargs.items() if key in signature.parameters}
@@ -673,9 +677,24 @@ class TaskScopedExecutionService:
             routing["session_mode"] = "stateful"
             routing["session_id"] = session_payload["id"]
             session_metadata = session_payload.get("metadata") if isinstance(session_payload.get("metadata"), dict) else {}
-            if str(session_metadata.get("opencode_execution_mode") or "").strip().lower() == "live_terminal":
+            live_terminal_meta = (
+                dict(session_metadata.get("opencode_live_terminal") or {})
+                if isinstance(session_metadata.get("opencode_live_terminal"), dict)
+                else {}
+            )
+            config_execution_mode = self._resolve_opencode_execution_mode(cfg)
+            if (
+                str(session_metadata.get("opencode_execution_mode") or "").strip().lower() == "live_terminal"
+                or (effective_backend == "opencode" and config_execution_mode == "live_terminal")
+            ):
                 routing["execution_mode"] = "live_terminal"
-                routing["live_terminal"] = dict(session_metadata.get("opencode_live_terminal") or {})
+                if not live_terminal_meta:
+                    live_terminal_meta = (
+                        dict((task.get("verification_status") or {}).get("opencode_live_terminal") or {})
+                        if isinstance((task.get("verification_status") or {}).get("opencode_live_terminal"), dict)
+                        else {}
+                    )
+                routing["live_terminal"] = live_terminal_meta
         if is_research_backend(backend_used):
             research_res = self._build_research_result(
                 raw_res,
@@ -1190,19 +1209,10 @@ class TaskScopedExecutionService:
         if repair_backend not in SUPPORTED_CLI_BACKENDS:
             repair_backend = "opencode"
         repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
-        timeout_like_failure = self._is_timeout_like_repair_failure(
-            validation_error=validation_error,
-            bad_output=bad_output,
-        )
-        if timeout_like_failure:
-            candidates: list[tuple[str, str | None, float | None]] = [
-                (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
-            ]
-        else:
-            candidates = [
-                (first_backend, first_model, self._normalize_temperature(primary_temperature)),
-                (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
-            ]
+        candidates: list[tuple[str, str | None, float | None]] = [
+            (first_backend, first_model, self._normalize_temperature(primary_temperature)),
+            (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
+        ]
         deduped: list[tuple[str, str | None, float | None]] = []
         seen: set[tuple[str, str, str]] = set()
         for backend_name, model_name, temperature in candidates:

@@ -70,6 +70,7 @@ class TaskRoutingContract(SQLModel):
     effective_backend: Optional[str] = None
     requested_backend: Optional[str] = None
     execution_backend: Optional[str] = None
+    execution_mode: Optional[str] = None
     inference_provider: Optional[str] = None
     inference_model: Optional[str] = None
     inference_temperature: Optional[float] = None
@@ -82,6 +83,7 @@ class TaskRoutingContract(SQLModel):
     session_mode: Optional[str] = None
     session_id: Optional[str] = None
     session_turn_id: Optional[str] = None
+    live_terminal: Optional[dict] = None
     reason: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
     research_specialization: Optional[str] = None
