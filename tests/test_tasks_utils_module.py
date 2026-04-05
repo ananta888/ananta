@@ -88,4 +88,4 @@ def test_forward_to_worker_extends_timeout_for_step_propose(monkeypatch, app):
 
     assert result == {"ok": True}
     assert calls[0]["url"] == "http://worker.local/tasks/T-1/step/propose"
-    assert calls[0]["timeout"] == 135
+    assert calls[0]["timeout"] == 195
