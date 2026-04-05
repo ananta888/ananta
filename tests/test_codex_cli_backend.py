@@ -216,6 +216,41 @@ def test_run_opencode_command_uses_native_runtime_session(app):
     runtime_service.run_session_turn.assert_called_once()
 
 
+def test_opencode_runtime_service_reuses_existing_server_without_deepcopying_process():
+    from agent.services.opencode_runtime_service import OpencodeRuntimeService
+
+    class NonCopyableProcess:
+        pid = 4242
+
+        def poll(self):
+            return None
+
+        def __deepcopy__(self, memo):
+            raise TypeError("process_not_deepcopyable")
+
+    service = OpencodeRuntimeService()
+    session = {"id": "cli-1", "conversation_id": "role:po", "metadata": {"scope_key": "role:po"}}
+    runtime_cfg = {"model": "ollama/example"}
+    server_key = service._server_scope_key(session, runtime_cfg)
+    service._servers[server_key] = {
+        "server_key": server_key,
+        "server_url": "http://127.0.0.1:4100",
+        "port": 4100,
+        "model": "ollama/example",
+        "agent": "ananta-worker",
+        "process": NonCopyableProcess(),
+        "started_at": time.time(),
+        "updated_at": time.time(),
+    }
+
+    reused = service._ensure_server(session, runtime_cfg)
+
+    assert reused["server_key"] == server_key
+    assert reused["server_url"] == "http://127.0.0.1:4100"
+    assert reused["pid"] == 4242
+    assert "process" not in reused
+
+
 def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
     from agent.common.sgpt import get_cli_backend_preflight
 
