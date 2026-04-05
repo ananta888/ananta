@@ -110,6 +110,25 @@ def _send_event(ws: Any, event_type: str, data: dict[str, Any] | None = None) ->
     ws.send(json.dumps(payload))
 
 
+def _extract_terminal_input(data: Any) -> str | None:
+    if isinstance(data, bytes):
+        data = data.decode("utf-8", errors="ignore")
+    if not isinstance(data, str):
+        return None
+
+    stripped = data.strip()
+    if stripped.startswith("{"):
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            return data
+        if isinstance(payload, dict):
+            if payload.get("type") == "input":
+                return str(payload.get("data", ""))
+            return None
+    return data
+
+
 def _recv_message(ws: Any, timeout_seconds: float = 0.2) -> Any:
     try:
         return ws.receive(timeout=timeout_seconds)
@@ -254,18 +273,7 @@ def register_ws_terminal(app: Any) -> None:
                             LOGGER.debug("Transient websocket receive error in %s: %s", session_id, exc)
                             incoming = None
                     if incoming is not None:
-                        data = incoming.decode("utf-8", errors="ignore") if isinstance(incoming, bytes) else incoming
-                        text = data
-                        if isinstance(data, str):
-                            stripped = data.strip()
-                            payload: dict[str, Any] | None = None
-                            if stripped.startswith("{"):
-                                try:
-                                    payload = json.loads(stripped)
-                                except json.JSONDecodeError:
-                                    payload = None
-                            if payload and payload.get("type") == "input":
-                                text = str(payload.get("data", ""))
+                        text = _extract_terminal_input(incoming)
                         if isinstance(text, str) and text:
                             get_live_terminal_session_service().write(forward_param, text)
                     changed = get_live_terminal_session_service().wait_for_update(forward_param, offset, 0.2)
@@ -329,45 +337,30 @@ def register_ws_terminal(app: Any) -> None:
                     # available right now" instead of a hard disconnect.
                     continue
 
-                data = incoming
-                if isinstance(incoming, bytes):
-                    data = incoming.decode("utf-8", errors="ignore")
+                text = _extract_terminal_input(incoming)
+                if not text:
+                    continue
 
-                if isinstance(data, str):
-                    stripped = data.strip()
-                    payload: dict[str, Any] | None = None
-                    if stripped.startswith("{"):
-                        try:
-                            payload = json.loads(stripped)
-                        except json.JSONDecodeError:
-                            payload = None
-
-                    if payload and payload.get("type") == "input":
-                        text = str(payload.get("data", ""))
-                    else:
-                        text = data
-
-                    if text:
-                        bridge.write(text)
-                        if text.strip():
-                            try:
-                                preview = " ".join(shlex.split(text))[:120]
-                            except ValueError:
-                                preview = text.strip().replace("\n", " ")[:120]
-                        else:
-                            preview = ""
-                        _append_terminal_log(
-                            data_dir,
-                            {
-                                "timestamp": time.time(),
-                                "timestamp_iso": _utc_now_iso(),
-                                "session_id": session_id,
-                                "event": "input",
-                                "mode": mode,
-                                "principal": principal,
-                                "preview": preview,
-                            },
-                        )
+                bridge.write(text)
+                if text.strip():
+                    try:
+                        preview = " ".join(shlex.split(text))[:120]
+                    except ValueError:
+                        preview = text.strip().replace("\n", " ")[:120]
+                else:
+                    preview = ""
+                _append_terminal_log(
+                    data_dir,
+                    {
+                        "timestamp": time.time(),
+                        "timestamp_iso": _utc_now_iso(),
+                        "session_id": session_id,
+                        "event": "input",
+                        "mode": mode,
+                        "principal": principal,
+                        "preview": preview,
+                    },
+                )
         except Exception as exc:
             LOGGER.exception("Terminal websocket session %s aborted: %s", session_id, exc)
         finally:
