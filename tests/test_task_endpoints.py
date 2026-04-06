@@ -1029,6 +1029,35 @@ def test_task_propose_passes_temperature_to_cli_and_exposes_routing_field(client
     assert abs(float(routing.get("inference_temperature") or 0.0) - 0.35) < 0.0001
 
 
+def test_task_propose_uses_dedicated_proposal_timeout(client, app, admin_auth_header):
+    tid = "T-PROPOSE-TIMEOUT-1"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["command_timeout"] = 60
+        cfg["task_propose_timeout_seconds"] = 180
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="Implement endpoint with opencode-friendly timeout")
+
+    captured: dict = {}
+
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None, session=None, workdir=None):
+        captured["timeout"] = timeout
+        return 0, '{"reason":"ok","command":"echo timeout"}', "", backend
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint"},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    assert response.json["data"]["command"] == "echo timeout"
+    assert captured["timeout"] == 180
+
+
 def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admin_auth_header):
     tid = "T-STATEFUL-PROPOSE"
     with app.app_context():

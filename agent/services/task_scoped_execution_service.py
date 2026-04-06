@@ -63,6 +63,15 @@ class TaskScopedExecutionService:
         return normalized
 
     @staticmethod
+    def _resolve_task_propose_timeout(agent_cfg: dict, task_kind: str) -> int:
+        task_kind_policies = agent_cfg.get("task_kind_execution_policies") if isinstance(agent_cfg.get("task_kind_execution_policies"), dict) else {}
+        task_kind_cfg = task_kind_policies.get(task_kind) if isinstance(task_kind_policies.get(task_kind), dict) else {}
+        general_timeout = int(agent_cfg.get("command_timeout", 60) or 60)
+        kind_timeout = int(task_kind_cfg.get("command_timeout") or 0)
+        proposal_timeout = int(agent_cfg.get("task_propose_timeout_seconds") or 0)
+        return max(60, general_timeout, kind_timeout, proposal_timeout)
+
+    @staticmethod
     def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
         try:
             return cli_runner(**cli_kwargs)
@@ -334,7 +343,7 @@ class TaskScopedExecutionService:
         task_kind = normalize_task_kind(None, base_prompt)
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         requested_temperature = self._normalize_temperature(getattr(request_data, "temperature", None))
-        timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+        timeout = self._resolve_task_propose_timeout(cfg, task_kind)
         compare_policy = resolve_execution_policy(
             TaskStepExecuteRequest(timeout=timeout),
             agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
@@ -527,7 +536,7 @@ class TaskScopedExecutionService:
             requested_backend="auto",
             required_capabilities=required_capabilities,
         )
-        timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+        timeout = self._resolve_task_propose_timeout(cfg, task_kind)
         policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
         pipeline = new_pipeline_trace(
             pipeline="task_propose",

@@ -218,6 +218,7 @@ def build_default_agent_config() -> dict:
             },
             "research_capability_backend": {},
         },
+        "task_propose_timeout_seconds": 180,
         "codex_cli": {
             "base_url": None,
             "api_key_profile": None,
