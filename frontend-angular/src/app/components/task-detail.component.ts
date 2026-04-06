@@ -341,6 +341,17 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <strong>{{ task?.last_proposal?.routing?.session_mode || 'stateless' }}</strong>
             </div>
           </div>
+          @if (taskLiveTerminalLink()) {
+            <div class="mt-10">
+              <a
+                class="button-outline"
+                [routerLink]="['/panel', taskLiveTerminalLink()?.agentName]"
+                [queryParams]="taskLiveTerminalLink()?.queryParams"
+              >
+                Open Worker Live Terminal
+              </a>
+            </div>
+          }
           @if (isAdmin && showAdminDrilldown && (task?.last_proposal?.trace || task?.history?.length)) {
             <div class="mt-10">
               <strong>Provenance Events</strong>
@@ -439,7 +450,19 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 
     @if (activeTab === 'logs') {
       <div class="card">
-        <h3>Task Logs (Live)</h3>
+        <div class="row flex-between">
+          <h3>Task Logs (Live)</h3>
+          @if (taskLiveTerminalLink()) {
+            <a
+              class="button-outline"
+              [routerLink]="['/panel', taskLiveTerminalLink()?.agentName]"
+              [queryParams]="taskLiveTerminalLink()?.queryParams"
+            >
+              OpenCode Live Terminal
+            </a>
+          }
+        </div>
+        <p class="muted">Dieser Tab zeigt nur den Log-Stream des Tasks. Das echte OpenCode-Terminal oeffnet im Worker-Panel.</p>
         @if (loadingLogs) {
           <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
           <app-ui-skeleton [count]="1" [lineCount]="2" [card]="false" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
@@ -899,5 +922,26 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       };
     }
     return null;
+  }
+
+  taskLiveTerminalLink(): { agentName: string; queryParams: Record<string, string> } | null {
+    const agentUrl = String(this.task?.assigned_agent_url || this.task?.assignment?.agent_url || '').trim();
+    const forwardParam = String(
+      this.task?.last_proposal?.routing?.live_terminal?.forward_param
+      || this.task?.verification_status?.opencode_live_terminal?.forward_param
+      || this.task?.verification_status?.cli_session?.forward_param
+      || ''
+    ).trim();
+    if (!agentUrl || !forwardParam) return null;
+    const agentName = this.allAgents.find((agent) => agent.url === agentUrl)?.name;
+    if (!agentName) return null;
+    return {
+      agentName,
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+        forward_param: forwardParam,
+      },
+    };
   }
 }

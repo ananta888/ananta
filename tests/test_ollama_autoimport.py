@@ -61,6 +61,21 @@ def _run_model_name(file_path: str, tmp_path: Path) -> str:
     return result.stdout.strip()
 
 
+def _run_shell_function(command: str, tmp_path: Path) -> str:
+    result = subprocess.run(
+        ["bash", "-lc", command],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={
+            "OLLAMA_AUTOIMPORT_LIB_ONLY": "1",
+            "AUTOIMPORT_STATE_DIR": str(tmp_path / "state"),
+            "OLLAMA_MODEL_NAME_MAX_LEN": "80",
+        },
+    )
+    return result.stdout.strip()
+
+
 def test_model_name_keeps_valid_short_name(tmp_path: Path) -> None:
     file_path = "/models/lmstudio-community/Phi-4-mini-reasoning-GGUF/Phi-4-mini-reasoning-Q4_K_M.gguf"
 
@@ -90,3 +105,31 @@ def test_model_name_trimming_is_deterministic_and_unique(tmp_path: Path) -> None
     assert first != third
     assert len(first) <= 80
     assert len(third) <= 80
+
+
+def test_resolve_configured_alias_source_prefers_first_available_candidate(tmp_path: Path) -> None:
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "list_model_refs() { printf '%s\\n' "
+        "'lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest' "
+        "'bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest'; }; "
+        "resolve_configured_alias_source "
+        "'bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s,lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2'"
+    )
+    assert _run_shell_function(command, tmp_path) == (
+        "bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s"
+    )
+
+
+def test_first_available_text_model_skips_non_text_entries(tmp_path: Path) -> None:
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "list_model_refs() { printf '%s\\n' "
+        "'lmstudio-community-gemma-4-e2b-it-gguf-mmproj-gemma-4-e2b-it-bf16:latest' "
+        "'bartowski-mistralai_voxtral-mini-3b-2507-gguf-mistralai_voxtral-min-9e08d0b2625f:latest' "
+        "'mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6:latest'; }; "
+        "first_available_text_model"
+    )
+    assert _run_shell_function(command, tmp_path) == (
+        "mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6"
+    )

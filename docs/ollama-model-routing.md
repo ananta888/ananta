@@ -98,8 +98,8 @@ Faustregel:
 
 | Modell | Empfohlene Nutzung | OpenCode-Worker |
 |---|---|---|
-| `ananta-default:latest` | aktuell nur mit Vorsicht; nicht fuer tool-heavy Worker | nein |
-| `ananta-smoke:latest` | schnelle Smoke-/Health-/Live-Test-Szenarien | eher nein |
+| `ananta-default:latest` | Alias auf `bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest`; standardmaessiger Coding-/Worker-Default | ja |
+| `ananta-smoke:latest` | Alias auf ein kleines/schnelles Fallback-Coder-Modell (bevorzugt `qwen2.5-coder-3b`, sonst kleiner); fuer Smoke-/Health-/Live-Tests | bedingt |
 
 ## Konkrete Konfigurationsidee fuer Ananta
 
