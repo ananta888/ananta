@@ -260,6 +260,19 @@ def test_resolve_opencode_runtime_config_forces_toolless_ollama_in_backend_mode(
     assert resolved["provider_config"]["default_agent"] == "ananta-worker"
 
 
+def test_build_default_agent_config_prefers_ollama_opencode_model(monkeypatch):
+    from agent import config_defaults
+
+    monkeypatch.setattr(config_defaults.settings, "default_provider", "ollama", raising=False)
+    monkeypatch.setattr(config_defaults.settings, "default_model", "ananta-smoke", raising=False)
+    monkeypatch.setattr(config_defaults.settings, "opencode_default_model", "opencode/glm-5-free", raising=False)
+
+    cfg = config_defaults.build_default_agent_config()
+
+    assert cfg["opencode_default_model"] == "ananta-default"
+    assert "ananta-default" in cfg["autopilot_strategy_fallback_models"]
+
+
 def test_run_opencode_command_passes_workdir_to_subprocess(app):
     from agent.common.sgpt import run_opencode_command
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import inspect
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -43,6 +44,9 @@ class TaskScopedRouteResponse:
 
 class TaskScopedExecutionService:
     """Owns task-scoped proposal/execution orchestration so routes stay thin."""
+
+    _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+    _TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
 
     @staticmethod
     def _normalize_temperature(value: float | int | str | None) -> float | None:
@@ -1164,21 +1168,94 @@ class TaskScopedExecutionService:
             return err, "stderr"
         return "", "none"
 
+    @classmethod
+    def _sanitize_structured_output_text(cls, raw_text: str) -> str:
+        text = cls._ANSI_RE.sub("", str(raw_text or ""))
+        for token in ("<|im_start|>", "<|im_end|>", "<|endoftext|>"):
+            text = text.replace(token, "")
+        return text.strip()
+
     @staticmethod
-    def _extract_structured_action_fields(raw_text: str) -> tuple[str | None, list[dict] | None]:
-        json_payload = _extract_json_payload(str(raw_text or ""))
-        if not json_payload:
-            return None, None
-        try:
-            data = json.loads(json_payload)
-        except Exception:
-            return None, None
+    def _normalize_tool_calls(tool_calls: object) -> list[dict] | None:
+        if isinstance(tool_calls, list) and all(isinstance(item, dict) for item in tool_calls):
+            return tool_calls
+        if isinstance(tool_calls, dict):
+            return [tool_calls]
+        return None
+
+    @classmethod
+    def _normalize_structured_action_payload(cls, data: object) -> dict | None:
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except Exception:
+                return None
+        if isinstance(data, list):
+            tool_calls = cls._normalize_tool_calls(data)
+            if tool_calls:
+                return {"reason": "Recovered tool calls from list payload.", "command": None, "tool_calls": tool_calls}
+            return None
         if not isinstance(data, dict):
+            return None
+        command = None
+        for key in ("command", "cmd", "shell_command", "shell", "bash", "script"):
+            value = str(data.get(key) or "").strip()
+            if value:
+                command = value
+                break
+        tool_calls = None
+        for key in ("tool_calls", "toolCalls", "tools", "tool_call"):
+            tool_calls = cls._normalize_tool_calls(data.get(key))
+            if tool_calls:
+                break
+        if not command and not tool_calls:
+            return None
+        reason = str(data.get("reason") or data.get("summary") or data.get("message") or "").strip()
+        if not reason:
+            reason = "Recovered structured action from partial model output."
+        return {"reason": reason, "command": command, "tool_calls": tool_calls or []}
+
+    @classmethod
+    def _parse_structured_action_payload(cls, raw_text: str) -> dict | None:
+        sanitized = cls._sanitize_structured_output_text(raw_text)
+        candidates: list[str] = []
+        for value in (str(raw_text or ""), sanitized):
+            if value and value not in candidates:
+                candidates.append(value)
+            extracted = _extract_json_payload(value)
+            if extracted and extracted not in candidates:
+                candidates.append(extracted)
+            stripped_fences = value.replace("```json", "").replace("```", "").strip()
+            if stripped_fences and stripped_fences not in candidates:
+                candidates.append(stripped_fences)
+
+        for candidate in candidates:
+            normalized_candidate = cls._TRAILING_COMMA_RE.sub(r"\1", candidate.strip())
+            if not normalized_candidate:
+                continue
+            try:
+                parsed = json.loads(normalized_candidate)
+            except Exception:
+                continue
+            normalized = cls._normalize_structured_action_payload(parsed)
+            if normalized:
+                return normalized
+        return None
+
+    @classmethod
+    def _locally_repair_structured_action_output(cls, raw_text: str) -> str | None:
+        payload = cls._parse_structured_action_payload(raw_text)
+        if not payload:
+            return None
+        return json.dumps(payload, ensure_ascii=False)
+
+    @classmethod
+    def _extract_structured_action_fields(cls, raw_text: str) -> tuple[str | None, list[dict] | None]:
+        payload = cls._parse_structured_action_payload(raw_text)
+        if not payload:
             return None, None
-        command = str(data.get("command") or "").strip() or None
-        tool_calls = data.get("tool_calls")
-        if not isinstance(tool_calls, list) or any(not isinstance(item, dict) for item in tool_calls):
-            tool_calls = None
+        command = str(payload.get("command") or "").strip() or None
+        tool_calls = cls._normalize_tool_calls(payload.get("tool_calls"))
         return command, tool_calls
 
     def _repair_task_proposal(
@@ -1199,6 +1276,17 @@ class TaskScopedExecutionService:
         session: dict | None = None,
         workdir: str | None = None,
     ) -> dict | None:
+        locally_repaired = self._locally_repair_structured_action_output(bad_output)
+        if locally_repaired:
+            return {
+                "raw": locally_repaired,
+                "output_source": "local_repair",
+                "backend_used": primary_backend,
+                "model": primary_model,
+                "temperature": self._normalize_temperature(primary_temperature),
+                "stderr": "",
+                "rc": 0,
+            }
         default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip() or None
         first_backend = str(primary_backend or "opencode").strip().lower()
         if first_backend not in SUPPORTED_CLI_BACKENDS:
@@ -1660,6 +1748,8 @@ class TaskScopedExecutionService:
         prompt_sections.append(
             "Antworte AUSSCHLIESSLICH als JSON-Objekt ohne Markdown und ohne Zusatztext.\n"
             "Regeln:\n"
+            "- Das erste Zeichen deiner Antwort muss '{' sein und das letzte '}'.\n"
+            "- Keine Code-Fences, keine XML/Markdown-Tags, keine Spezialtoken wie <|im_start|>.\n"
             "- Mindestens eines von 'command' oder 'tool_calls' muss gesetzt sein.\n"
             "- Wenn kein Tool nötig ist, liefere einen konkreten, ausführbaren Shell-Befehl in 'command'.\n"
             "- 'reason' muss kurz, technisch und direkt auf den Auftrag bezogen sein.\n"

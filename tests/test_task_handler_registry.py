@@ -159,3 +159,16 @@ def test_task_scoped_repair_skips_primary_backend_after_timeout():
 
     assert repaired is not None
     assert backends == ["sgpt"]
+
+
+def test_task_scoped_local_repair_recovers_noisy_json_output():
+    service = get_task_scoped_execution_service()
+
+    repaired = service._locally_repair_structured_action_output(
+        '<|im_start|>\n```json\n{"reason":"ok","command":"echo hi","tool_calls":[]}\n```\n'
+    )
+
+    assert repaired is not None
+    command, tool_calls = service._extract_structured_action_fields(repaired)
+    assert command == "echo hi"
+    assert tool_calls == []

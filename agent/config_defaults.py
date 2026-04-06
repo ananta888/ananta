@@ -9,10 +9,21 @@ def _provider_alias(provider: str | None) -> str:
     value = str(provider or "").strip().lower()
     return "openai" if value == "codex" else value
 
+
+def _default_opencode_model() -> str | None:
+    configured = str(getattr(settings, "opencode_default_model", None) or "").strip()
+    if configured and configured != "opencode/glm-5-free":
+        return configured
+    if str(settings.default_provider or "").strip().lower() == "ollama":
+        return "ananta-default"
+    return configured or None
+
 def build_default_agent_config() -> dict:
+    opencode_default_model = _default_opencode_model()
     return {
         "default_provider": settings.default_provider,
         "default_model": settings.default_model,
+        "opencode_default_model": opencode_default_model,
         "provider": settings.default_provider,
         "model": settings.default_model,
         "llm_config": {
@@ -88,7 +99,7 @@ def build_default_agent_config() -> dict:
         },
         "autopilot_strategy_max_attempts": 3,
         "autopilot_strategy_retry_delay_seconds": 20,
-        "autopilot_strategy_fallback_models": [],
+        "autopilot_strategy_fallback_models": [opencode_default_model] if opencode_default_model else [],
         "autopilot_strategy_temperature_profiles": [0.2, 0.5, 0.8],
         "adaptive_model_routing_enabled": True,
         "adaptive_model_routing_min_samples": 3,
