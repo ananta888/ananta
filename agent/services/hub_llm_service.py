@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import current_app
+from flask import current_app, has_app_context
 
-from agent.hub_benchmark import load_hub_benchmark_config
+from agent.hub_benchmark import HubBenchmarkDataError
 from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
 
 
@@ -22,25 +22,33 @@ class HubLLMService:
         return text, usage, result
 
     def _get_benchmark_recommended_model(self, task_kind: str | None = None) -> dict[str, Any] | None:
-        try:
-            data_dir = current_app.config.get("DATA_DIR") or "data"
-            from agent.services.hub_benchmark_service import get_hub_benchmark_service
+        if not has_app_context():
+            return None
 
-            service = get_hub_benchmark_service(data_dir)
+        data_dir = current_app.config.get("DATA_DIR") or "data"
+        from agent.services.hub_benchmark_service import get_hub_benchmark_service
+
+        service = get_hub_benchmark_service(data_dir)
+        try:
             cfg = service.get_config()
             hub_cfg = cfg.get("hub_config", {})
             fixed = hub_cfg.get("fixed_model", {})
             if fixed.get("provider") and fixed.get("model"):
                 return {"provider": fixed["provider"], "model": fixed["model"], "source": "benchmark_fixed_config"}
             recommendation = service.get_recommendation(task_kind=task_kind, min_samples=2)
-            if recommendation.get("available"):
-                return {
-                    "provider": recommendation["recommended"]["provider"],
-                    "model": recommendation["recommended"]["model"],
-                    "source": "benchmark_recommendation",
-                }
-        except Exception:
-            pass
+        except HubBenchmarkDataError as exc:
+            current_app.logger.warning("Hub benchmark recommendation unavailable: %s", exc)
+            return None
+        except (KeyError, TypeError, ValueError) as exc:
+            current_app.logger.warning("Hub benchmark recommendation payload invalid: %s", exc)
+            return None
+
+        if recommendation.get("available"):
+            return {
+                "provider": recommendation["recommended"]["provider"],
+                "model": recommendation["recommended"]["model"],
+                "source": "benchmark_recommendation",
+            }
         return None
 
     def resolve_copilot_config(

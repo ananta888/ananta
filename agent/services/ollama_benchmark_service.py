@@ -5,6 +5,7 @@ from typing import Any
 
 from flask import current_app
 
+from agent.benchmark_quality import evaluate_benchmark_response_quality
 from agent.ollama_benchmark import (
     SCRUM_ROLE_TEMPLATES,
     discover_ollama_models,
@@ -71,7 +72,7 @@ class OllamaBenchmarkService:
         timeout: int = 120,
     ) -> dict[str, Any]:
         cfg = self.get_config()
-        effective_base_url = base_url or cfg.get("ollama_url", "http://localhost:11434")
+        effective_base_url = base_url or cfg.get("ollama_url", "http://ollama:11434")
         effective_params = parameters or {}
         temperature = effective_params.get("temperature", 0.7)
         top_p = effective_params.get("top_p", 0.9)
@@ -91,10 +92,11 @@ class OllamaBenchmarkService:
                 },
             )
             latency_ms = int((time.time() - start_time) * 1000)
-            text, usage, _ = extract_llm_text_and_usage(result)
+            text, usage = extract_llm_text_and_usage(result)
             tokens_total = usage.get("total_tokens", 0) if isinstance(usage, dict) else 0
             success = len(text.strip()) > 0
-            quality_passed = success and len(text) > 50
+            quality_evaluation = evaluate_benchmark_response_quality(text, task_kind=task_kind, role_name=role_name)
+            quality_passed = success and bool(quality_evaluation.get("passed"))
             record_ollama_benchmark_sample(
                 data_dir=self.data_dir,
                 model=model,
@@ -114,6 +116,8 @@ class OllamaBenchmarkService:
                 "latency_ms": latency_ms,
                 "tokens_total": tokens_total,
                 "text_length": len(text),
+                "quality_score": quality_evaluation.get("score"),
+                "quality_reason": quality_evaluation.get("reason"),
                 "model": model,
                 "role_name": role_name,
                 "task_kind": task_kind,

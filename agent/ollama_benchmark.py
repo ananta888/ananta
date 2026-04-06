@@ -1,41 +1,67 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
+from copy import deepcopy
+from json import JSONDecodeError
 from typing import Any
+
+import requests
 
 
 OLLAMA_BENCH_TASK_KINDS = {"planning", "research", "coding", "review", "testing", "ops", "analysis", "doc"}
 
 
-DEFAULT_OLLAMA_BENCH_CONFIG = {
-    "enabled": True,
-    "provider": "ollama",
-    "ollama_url": "http://localhost:11434",
-    "auto_discover_models": True,
-    "parameter_variations": {
-        "temperature": [0.1, 0.5, 0.8, 1.0],
-        "top_p": [0.5, 0.9, 0.95, 1.0],
-        "top_k": [20, 40, 80],
-    },
-    "scoring": {
-        "weights": {
-            "success_rate": 0.40,
-            "quality_rate": 0.35,
-            "latency_score": 0.15,
-            "cost_score": 0.10,
-        },
-        "thresholds": {
-            "min_samples_per_config": 1,
-            "min_success_rate": 0.3,
-        },
-    },
-    "retention": {
-        "max_samples_per_model": 500,
-        "max_days": 90,
-    },
-}
+logger = logging.getLogger(__name__)
+
+
+class OllamaBenchmarkDataError(RuntimeError):
+    """Raised when persisted Ollama benchmark data cannot be parsed safely."""
+
+
+def _deep_merge_dicts(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    merged = deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_dicts(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _load_json_dict(
+    *,
+    path: str,
+    default: dict[str, Any],
+    label: str,
+    merge_with_default: bool,
+) -> dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            loaded = json.load(fh)
+    except FileNotFoundError:
+        return deepcopy(default)
+    except JSONDecodeError as exc:
+        logger.warning("Invalid %s JSON at %s: %s", label, path, exc)
+        raise OllamaBenchmarkDataError(f"invalid_{label}_json") from exc
+    except OSError as exc:
+        logger.warning("Failed reading %s at %s: %s", label, path, exc)
+        raise OllamaBenchmarkDataError(f"unreadable_{label}_json") from exc
+
+    if not isinstance(loaded, dict):
+        logger.warning("Expected %s JSON object at %s but got %s", label, path, type(loaded).__name__)
+        raise OllamaBenchmarkDataError(f"invalid_{label}_shape")
+
+    if merge_with_default:
+        return _deep_merge_dicts(default, loaded)
+    return loaded
+
+
+def merge_ollama_bench_config(current_cfg: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+    filtered_updates = {key: value for key, value in updates.items() if key in current_cfg}
+    return _deep_merge_dicts(current_cfg, filtered_updates)
 
 
 SCRUM_ROLE_TEMPLATES = {
@@ -113,6 +139,37 @@ SCRUM_ROLE_TEMPLATES = {
     },
 }
 
+DEFAULT_OLLAMA_BENCH_CONFIG = {
+    "enabled": True,
+    "provider": "ollama",
+    "ollama_url": "http://ollama:11434",
+    "timeout": 120,
+    "auto_discover_models": True,
+    "parameter_variations": {
+        "temperature": [0.1, 0.5, 0.8, 1.0],
+        "top_p": [0.5, 0.9, 0.95, 1.0],
+        "top_k": [20, 40, 80],
+    },
+    "scoring": {
+        "weights": {
+            "success_rate": 0.40,
+            "quality_rate": 0.35,
+            "latency_score": 0.15,
+            "cost_score": 0.10,
+        },
+        "thresholds": {
+            "min_samples_per_config": 1,
+            "min_success_rate": 0.3,
+        },
+    },
+    "retention": {
+        "max_samples_per_model": 500,
+        "max_days": 90,
+    },
+    "external_providers": {"enabled": False, "providers": ["openai", "anthropic"], "api_key_required": True},
+    "role_benchmarks": SCRUM_ROLE_TEMPLATES,
+}
+
 
 def ollama_bench_config_path(data_dir: str) -> str:
     return os.path.join(data_dir, "ollama_benchmark_config.json")
@@ -125,18 +182,12 @@ def ollama_bench_results_path(data_dir: str) -> str:
 
 def load_ollama_bench_config(data_dir: str) -> dict[str, Any]:
     path = ollama_bench_config_path(data_dir)
-    default_cfg = dict(DEFAULT_OLLAMA_BENCH_CONFIG)
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            loaded = json.load(fh)
-            if isinstance(loaded, dict):
-                for key, value in default_cfg.items():
-                    if key not in loaded:
-                        loaded[key] = value
-                return loaded
-    except Exception:
-        pass
-    return default_cfg
+    return _load_json_dict(
+        path=path,
+        default=DEFAULT_OLLAMA_BENCH_CONFIG,
+        label="ollama_benchmark_config",
+        merge_with_default=True,
+    )
 
 
 def save_ollama_bench_config(data_dir: str, config: dict[str, Any]) -> None:
@@ -147,14 +198,12 @@ def save_ollama_bench_config(data_dir: str, config: dict[str, Any]) -> None:
 
 def load_ollama_bench_results(data_dir: str) -> dict[str, Any]:
     path = ollama_bench_results_path(data_dir)
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            if isinstance(data, dict):
-                return data
-    except Exception:
-        pass
-    return {"models": {}, "updated_at": None, "last_benchmark_run": None}
+    return _load_json_dict(
+        path=path,
+        default={"models": {}, "updated_at": None, "last_benchmark_run": None},
+        label="ollama_benchmark_results",
+        merge_with_default=False,
+    )
 
 
 def save_ollama_bench_results(data_dir: str, data: dict[str, Any]) -> None:
@@ -172,8 +221,6 @@ def get_role_template_names() -> list[str]:
 
 
 def discover_ollama_models(ollama_url: str, timeout: int = 10) -> list[dict[str, Any]]:
-    import requests
-
     normalized = ollama_url.rstrip("/")
     tags_url = f"{normalized}/api/tags"
     try:
@@ -192,14 +239,14 @@ def discover_ollama_models(ollama_url: str, timeout: int = 10) -> list[dict[str,
                 for m in models
                 if m.get("name")
             ]
-    except Exception:
-        pass
+    except requests.RequestException as exc:
+        logger.warning("Failed discovering Ollama models via %s: %s", tags_url, exc)
+    except ValueError as exc:
+        logger.warning("Invalid Ollama model discovery payload from %s: %s", tags_url, exc)
     return []
 
 
 def discover_active_ollama_models(ollama_url: str, timeout: int = 5) -> list[str]:
-    import requests
-
     normalized = ollama_url.rstrip("/")
     ps_url = f"{normalized}/api/ps"
     try:
@@ -207,8 +254,10 @@ def discover_active_ollama_models(ollama_url: str, timeout: int = 5) -> list[str
         if response.status_code == 200:
             payload = response.json()
             return [m.get("name", "") for m in payload.get("models", []) if m.get("name")]
-    except Exception:
-        pass
+    except requests.RequestException as exc:
+        logger.warning("Failed discovering active Ollama models via %s: %s", ps_url, exc)
+    except ValueError as exc:
+        logger.warning("Invalid Ollama active-model payload from %s: %s", ps_url, exc)
     return []
 
 
@@ -546,7 +595,7 @@ def get_best_parameters_for_model(
     return {
         "model": model,
         "role_name": role_name,
-        "parameters": best_key.split("|") if best_key else {},
+        "parameters": dict((target_entry or {}).get("samples", [{}])[-1].get("parameters") or {}),
         "score": best_params,
         "sample_count": target_entry.get("total", 0) if target_entry else 0,
     }

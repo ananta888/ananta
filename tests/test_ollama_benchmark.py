@@ -4,6 +4,7 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 
 class TestOllamaBenchmarkCore:
@@ -21,6 +22,7 @@ class TestOllamaBenchmarkCore:
         assert isinstance(result, dict)
         assert result.get("enabled") == DEFAULT_OLLAMA_BENCH_CONFIG["enabled"]
         assert result.get("provider") == "ollama"
+        assert result.get("ollama_url") == "http://ollama:11434"
         assert "scoring" in result
         assert "retention" in result
 
@@ -36,6 +38,39 @@ class TestOllamaBenchmarkCore:
         assert result["enabled"] is False
         assert result["ollama_url"] == "http://custom:11434"
         assert "scoring" in result
+
+    def test_load_custom_config_deep_merges_nested_defaults(self, temp_data_dir):
+        from agent.ollama_benchmark import load_ollama_bench_config
+
+        config_path = os.path.join(temp_data_dir, "ollama_benchmark_config.json")
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump({"parameter_variations": {"temperature": [0.2]}}, f)
+
+        result = load_ollama_bench_config(temp_data_dir)
+        assert result["parameter_variations"]["temperature"] == [0.2]
+        assert result["parameter_variations"]["top_p"] == [0.5, 0.9, 0.95, 1.0]
+        assert result["scoring"]["thresholds"]["min_samples_per_config"] == 1
+        assert "planner" in result["role_benchmarks"]
+
+    def test_load_invalid_config_raises_visible_error(self, temp_data_dir):
+        from agent.ollama_benchmark import OllamaBenchmarkDataError, load_ollama_bench_config
+
+        config_path = os.path.join(temp_data_dir, "ollama_benchmark_config.json")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("{invalid")
+
+        with pytest.raises(OllamaBenchmarkDataError):
+            load_ollama_bench_config(temp_data_dir)
+
+    def test_load_invalid_results_raises_visible_error(self, temp_data_dir):
+        from agent.ollama_benchmark import OllamaBenchmarkDataError, load_ollama_bench_results
+
+        results_path = os.path.join(temp_data_dir, "ollama_benchmark_results.json")
+        with open(results_path, "w", encoding="utf-8") as f:
+            f.write("42")
+
+        with pytest.raises(OllamaBenchmarkDataError):
+            load_ollama_bench_results(temp_data_dir)
 
     def test_save_and_load_results(self, temp_data_dir):
         from agent.ollama_benchmark import load_ollama_bench_results, save_ollama_bench_results
@@ -225,6 +260,26 @@ class TestOllamaBenchmarkCore:
         assert "parameters" in entry
         assert len(entry["parameters"]) == 2
 
+    def test_get_best_parameters_returns_dict(self, temp_data_dir):
+        from agent.ollama_benchmark import get_best_parameters_for_model, record_ollama_benchmark_sample
+
+        record_ollama_benchmark_sample(
+            data_dir=temp_data_dir,
+            model="mistral",
+            role_name="coder",
+            task_kind="coding",
+            parameters={"temperature": 0.5, "top_p": 0.9},
+            success=True,
+            quality_gate_passed=True,
+            latency_ms=500,
+            tokens_total=100,
+            response_text="def add(a, b): return a + b",
+        )
+
+        result = get_best_parameters_for_model(data_dir=temp_data_dir, model="mistral", role_name="coder")
+        assert result is not None
+        assert result["parameters"] == {"temperature": 0.5, "top_p": 0.9}
+
 
 class TestOllamaBenchmarkService:
     """Tests for ollama_benchmark_service.py."""
@@ -279,6 +334,13 @@ class TestOllamaBenchmarkService:
         assert len(models) == 2
         assert models[0]["model"] == "llama3"
 
+    @patch("agent.ollama_benchmark.requests.get")
+    def test_discover_models_network_failure_returns_empty(self, mock_get, temp_data_dir):
+        from agent.ollama_benchmark import discover_ollama_models
+
+        mock_get.side_effect = requests.RequestException("boom")
+        assert discover_ollama_models("http://ollama:11434") == []
+
     def test_get_results(self, temp_data_dir):
         from agent.services.ollama_benchmark_service import OllamaBenchmarkService
 
@@ -291,8 +353,15 @@ class TestOllamaBenchmarkService:
     def test_run_single_benchmark_success(self, mock_generate, temp_data_dir):
         from agent.services.ollama_benchmark_service import OllamaBenchmarkService
 
-        mock_result = MagicMock()
-        mock_result.__iter__ = lambda self: iter([{"choices": [{"message": {"content": "Test response"}}]}])
+        mock_result = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "```python\ndef add(a, b):\n    return a + b\n```\nAdd pytest assertions for edge cases."
+                    }
+                }
+            ]
+        }
         mock_generate.return_value = mock_result
 
         service = OllamaBenchmarkService(data_dir=temp_data_dir)
@@ -304,8 +373,10 @@ class TestOllamaBenchmarkService:
             parameters={"temperature": 0.7, "top_p": 0.9, "top_k": 40},
         )
         assert "success" in result
+        assert result["success"] is True
         assert "latency_ms" in result
         assert result["model"] == "llama3"
+        assert result["quality_score"] >= 55.0
 
     def test_run_role_benchmark(self, temp_data_dir):
         from agent.services.ollama_benchmark_service import OllamaBenchmarkService

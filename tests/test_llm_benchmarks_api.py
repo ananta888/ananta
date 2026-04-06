@@ -189,3 +189,69 @@ def test_llm_benchmarks_config_endpoint_exposes_effective_settings(client, app):
     assert (precedence.get("provider_order") or [])[0] == "default_provider"
     assert (precedence.get("model_order") or [])[0] == "default_model"
     assert "defaults" in data
+
+
+def test_ollama_benchmark_endpoints_use_single_api_prefix(client, admin_auth_header):
+    direct = client.get("/api/ollama/benchmark/task-kinds", headers=admin_auth_header)
+    assert direct.status_code == 200
+    assert "task_kinds" in direct.json["data"]
+
+    doubled = client.get("/api/api/ollama/benchmark/task-kinds", headers=admin_auth_header)
+    assert doubled.status_code == 404
+
+
+def test_ollama_benchmark_config_patch_deep_merges_nested_settings(client, app, admin_auth_header, tmp_path):
+    with app.app_context():
+        app.config["DATA_DIR"] = str(tmp_path)
+
+    res = client.patch(
+        "/api/ollama/benchmark/config",
+        json={"parameter_variations": {"temperature": [0.2]}},
+        headers=admin_auth_header,
+    )
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["parameter_variations"]["temperature"] == [0.2]
+    assert data["parameter_variations"]["top_p"] == [0.5, 0.9, 0.95, 1.0]
+
+
+def test_hub_benchmark_run_returns_async_job(client, admin_auth_header):
+    job = {"job_id": "hub-job-1", "job_type": "hub_benchmark", "status": "queued"}
+    with patch("agent.routes.hub_benchmark.get_benchmark_job_service") as mock_jobs:
+        mock_jobs.return_value.submit_hub_benchmark_job.return_value = job
+        res = client.post("/api/hub/benchmark/run", json={}, headers=admin_auth_header)
+
+    assert res.status_code == 202
+    assert res.json["status"] == "accepted"
+    assert res.json["data"]["job"]["job_id"] == "hub-job-1"
+
+
+def test_ollama_benchmark_run_returns_async_job(client, admin_auth_header):
+    job = {"job_id": "ollama-job-1", "job_type": "ollama_benchmark", "status": "queued"}
+    with patch("agent.routes.ollama_benchmark.get_benchmark_job_service") as mock_jobs:
+        mock_jobs.return_value.submit_ollama_benchmark_job.return_value = job
+        res = client.post("/api/ollama/benchmark/run", json={}, headers=admin_auth_header)
+
+    assert res.status_code == 202
+    assert res.json["status"] == "accepted"
+    assert res.json["data"]["job"]["job_id"] == "ollama-job-1"
+
+
+def test_hub_benchmark_job_status_endpoint(client, admin_auth_header):
+    job = {"job_id": "hub-job-2", "job_type": "hub_benchmark", "status": "running"}
+    with patch("agent.routes.hub_benchmark.get_benchmark_job_service") as mock_jobs:
+        mock_jobs.return_value.get_job.return_value = job
+        res = client.get("/api/hub/benchmark/jobs/hub-job-2", headers=admin_auth_header)
+
+    assert res.status_code == 200
+    assert res.json["data"]["job"]["status"] == "running"
+
+
+def test_ollama_benchmark_job_status_endpoint(client, admin_auth_header):
+    job = {"job_id": "ollama-job-2", "job_type": "ollama_benchmark", "status": "completed"}
+    with patch("agent.routes.ollama_benchmark.get_benchmark_job_service") as mock_jobs:
+        mock_jobs.return_value.get_job.return_value = job
+        res = client.get("/api/ollama/benchmark/jobs/ollama-job-2", headers=admin_auth_header)
+
+    assert res.status_code == 200
+    assert res.json["data"]["job"]["status"] == "completed"

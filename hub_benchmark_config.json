@@ -6,12 +6,9 @@
     "interval_hours": 24,
     "max_execution_minutes": 30
   },
-  "providers": ["openai", "anthropic", "ollama", "lmstudio"],
+  "providers": ["ollama"],
   "default_models": {
-    "openai": ["gpt-4o", "gpt-4-turbo"],
-    "anthropic": ["claude-3-5-sonnet-20240620"],
-    "ollama": ["llama3", "mistral"],
-    "lmstudio": []
+    "ollama": ["ananta-default", "ananta-smoke"]
   },
   "scoring": {
     "weights": {
@@ -87,8 +84,8 @@
   },
   "hub_config": {
     "fixed_model": {
-      "provider": "lmstudio",
-      "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
+      "provider": "ollama",
+      "model": "ananta-default"
     },
     "fallback_enabled": true
   }
