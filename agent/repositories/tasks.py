@@ -36,6 +36,16 @@ class TaskRepository:
                 return True
             return False
 
+    def clear_team_assignments(self, team_id: str) -> int:
+        with Session(engine) as session:
+            statement = select(TaskDB).where(TaskDB.team_id == team_id)
+            tasks = session.exec(statement).all()
+            for task in tasks:
+                task.team_id = None
+                session.add(task)
+            session.commit()
+            return len(tasks)
+
     def get_old_tasks(self, cutoff: float):
         with Session(engine) as session:
             statement = select(TaskDB).where(TaskDB.created_at < cutoff)

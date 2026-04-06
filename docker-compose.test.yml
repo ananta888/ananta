@@ -32,6 +32,7 @@ services:
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${OLLAMA_MODEL:-ananta-default}"
       OLLAMA_URL: "http://ollama:11434/api/generate"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
       AUTH_TEST_ENDPOINTS_ENABLED: "1"
     depends_on:
       ollama:
@@ -52,6 +53,7 @@ services:
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${OLLAMA_MODEL:-ananta-default}"
       OLLAMA_URL: "http://ollama:11434/api/generate"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
     depends_on:
       ai-agent-hub:
         condition: service_healthy
@@ -73,6 +75,7 @@ services:
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${OLLAMA_MODEL:-ananta-default}"
       OLLAMA_URL: "http://ollama:11434/api/generate"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
     depends_on:
       ai-agent-hub:
         condition: service_healthy

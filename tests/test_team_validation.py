@@ -1,7 +1,7 @@
 from sqlmodel import Session, delete, select
 
 from agent.database import engine
-from agent.db_models import AgentInfoDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
+from agent.db_models import AgentInfoDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
 from agent.repository import agent_repo, role_repo, team_repo, team_type_repo
 
 
@@ -78,6 +78,7 @@ def test_team_member_template_validation(client):
 
     with Session(engine) as session:
         session.exec(delete(TeamMemberDB))
+        session.exec(delete(TaskDB))
         session.exec(delete(TeamDB))
         session.exec(delete(TeamTypeRoleLink))
         session.exec(delete(TeamTypeDB))
@@ -150,6 +151,10 @@ def test_delete_team_with_members_cleans_members_first(client):
     )
     assert patch_res.status_code == 200
 
+    with Session(engine) as session:
+        session.add(TaskDB(id="team-delete-task", title="Team task", status="todo", team_id=team.id))
+        session.commit()
+
     delete_res = client.delete(
         f"/teams/{team.id}",
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -159,4 +164,6 @@ def test_delete_team_with_members_cleans_members_first(client):
     with Session(engine) as session:
         assert session.get(TeamDB, team.id) is None
         members = session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team.id)).all()
+        task = session.get(TaskDB, "team-delete-task")
     assert members == []
+    assert task is not None and task.team_id is None
