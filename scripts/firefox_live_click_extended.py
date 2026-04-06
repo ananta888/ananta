@@ -423,6 +423,23 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     )
     report.setdefault("cleanup_targets", {}).setdefault("blueprint_names", []).append(blueprint_name)
     report.setdefault("cleanup_targets", {}).setdefault("team_names", []).append(team_name)
+    if team_created:
+        teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
+        teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
+        teams = teams_payload if isinstance(teams_payload, list) else []
+        matched_team = next(
+            (
+                item
+                for item in teams
+                if isinstance(item, dict) and str(item.get("name") or "").strip() == team_name
+            ),
+            None,
+        )
+        resolved_team_id = str((matched_team or {}).get("id") or "").strip()
+        if resolved_team_id:
+            report.setdefault("cleanup_targets", {}).setdefault("team_ids", []).append(resolved_team_id)
+            if not bool((matched_team or {}).get("is_active")):
+                browser_api_json(session_id, "POST", f"/teams/{resolved_team_id}/activate", body={}, timeout_seconds=30)
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
@@ -476,9 +493,13 @@ def phase_goal(
         if not set_input_value_via_js(session_id, '[data-testid="auto-planner-goal-input"]', goal_name):
             raise
     time.sleep(0.6)
+    expected_team_id = ""
     expected_team_name = ""
     cleanup_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
     if isinstance(cleanup_targets, dict):
+        team_ids = cleanup_targets.get("team_ids")
+        if isinstance(team_ids, list) and team_ids:
+            expected_team_id = str(team_ids[-1] or "").strip()
         team_names = cleanup_targets.get("team_names")
         if isinstance(team_names, list) and team_names:
             expected_team_name = str(team_names[-1] or "").strip()
@@ -501,7 +522,8 @@ def phase_goal(
         js(
             session_id,
             """
-            const expectedName = String(arguments[0] || '').trim().toLowerCase();
+            const expectedId = String(arguments[0] || '').trim();
+            const expectedName = String(arguments[1] || '').trim().toLowerCase();
             const selects = [...document.querySelectorAll('select')];
             const teamSelect = selects.find((s) => {
               const host = s.closest('label,div') || document;
@@ -512,24 +534,28 @@ def phase_goal(
             const current = String(teamSelect.value || '');
             const validOptions = [...teamSelect.options].filter((o) => o.value && !o.disabled);
             const currentOption = current ? validOptions.find((o) => String(o.value || '') === current) : null;
+            const matchedById = expectedId
+              ? validOptions.find((o) => String(o.value || '').trim() === expectedId)
+              : null;
             const matched = expectedName
               ? validOptions.find((o) => String(o.textContent || '').trim().toLowerCase() === expectedName)
               : null;
-            if (current && (!matched || matched.value === current)) {
+            const preferred = matchedById || matched || null;
+            if (current && (!preferred || preferred.value === current)) {
               return {
                 found:true,
                 selected: current,
                 selectedLabel: currentOption ? String(currentOption.textContent || '').trim() : '',
               };
             }
-            const firstValid = matched || validOptions[0];
+            const firstValid = preferred || validOptions[0];
             if (!firstValid) return { found:true, selected:'' };
             teamSelect.value = firstValid.value;
             teamSelect.dispatchEvent(new Event('input', { bubbles:true }));
             teamSelect.dispatchEvent(new Event('change', { bubbles:true }));
             return { found:true, selected: firstValid.value, selectedLabel: String(firstValid.textContent || '').trim() };
             """,
-            [expected_team_name],
+            [expected_team_id, expected_team_name],
         ).get("value")
         or {}
     )
@@ -1289,12 +1315,16 @@ def phase_benchmark(
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
     task_team_patch_info: Dict[str, Any] = {"resolved_team_id": team_id, "patched_task_ids": [], "patch_statuses": []}
     cleanup_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+    expected_team_id = ""
     expected_team_name = ""
     if isinstance(cleanup_targets, dict):
+        team_ids = cleanup_targets.get("team_ids")
+        if isinstance(team_ids, list) and team_ids:
+            expected_team_id = str(team_ids[-1] or "").strip()
         team_names = cleanup_targets.get("team_names")
         if isinstance(team_names, list) and team_names:
             expected_team_name = str(team_names[-1] or "").strip()
-    if expected_team_name:
+    if expected_team_id or expected_team_name:
         teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
         teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
         teams = teams_payload if isinstance(teams_payload, list) else []
@@ -1302,7 +1332,11 @@ def phase_benchmark(
             (
                 item
                 for item in teams
-                if isinstance(item, dict) and str(item.get("name") or "").strip() == expected_team_name
+                if isinstance(item, dict)
+                and (
+                    (expected_team_id and str(item.get("id") or "").strip() == expected_team_id)
+                    or (expected_team_name and str(item.get("name") or "").strip() == expected_team_name)
+                )
             ),
             None,
         )
