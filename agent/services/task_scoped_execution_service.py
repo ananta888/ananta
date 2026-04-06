@@ -1677,6 +1677,8 @@ class TaskScopedExecutionService:
                 "execution_mode": terminal_execution_mode,
                 "terminal_session_id": terminal_meta.get("terminal_session_id"),
                 "forward_param": terminal_meta.get("forward_param"),
+                "agent_url": terminal_meta.get("agent_url"),
+                "agent_name": terminal_meta.get("agent_name"),
                 "terminal_status": terminal_meta.get("status"),
                 "updated_at": time.time(),
             }

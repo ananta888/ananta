@@ -304,6 +304,8 @@ class LiveTerminalSessionService:
         return {
             "terminal_session_id": session.id,
             "forward_param": session.id,
+            "agent_url": settings.agent_url,
+            "agent_name": settings.agent_name,
             "shell": session.shell,
             "transport": session.transport,
             "execution_mode": mode,
@@ -353,7 +355,7 @@ class LiveTerminalSessionService:
         return session.run_command(
             cmd,
             timeout=timeout,
-            visible_command=cmd if mode == "live_terminal" else None,
+            visible_command=cmd,
             suppress_input_echo=(mode == "interactive_terminal"),
         )
 

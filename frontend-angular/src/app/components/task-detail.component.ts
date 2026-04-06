@@ -925,7 +925,14 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   }
 
   taskLiveTerminalLink(): { agentName: string; queryParams: Record<string, string> } | null {
-    const agentUrl = String(this.task?.assigned_agent_url || this.task?.assignment?.agent_url || '').trim();
+    const agentUrl = String(
+      this.task?.last_proposal?.routing?.live_terminal?.agent_url
+      || this.task?.verification_status?.opencode_live_terminal?.agent_url
+      || this.task?.verification_status?.cli_session?.agent_url
+      || this.task?.assigned_agent_url
+      || this.task?.assignment?.agent_url
+      || ''
+    ).trim();
     const forwardParam = String(
       this.task?.last_proposal?.routing?.live_terminal?.forward_param
       || this.task?.verification_status?.opencode_live_terminal?.forward_param
