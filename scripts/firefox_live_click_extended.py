@@ -423,23 +423,34 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     )
     report.setdefault("cleanup_targets", {}).setdefault("blueprint_names", []).append(blueprint_name)
     report.setdefault("cleanup_targets", {}).setdefault("team_names", []).append(team_name)
-    if team_created:
-        teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
-        teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
-        teams = teams_payload if isinstance(teams_payload, list) else []
-        matched_team = next(
-            (
-                item
-                for item in teams
-                if isinstance(item, dict) and str(item.get("name") or "").strip() == team_name
-            ),
-            None,
+    teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
+    teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
+    teams = teams_payload if isinstance(teams_payload, list) else []
+    matched_team = next(
+        (
+            item
+            for item in teams
+            if isinstance(item, dict) and str(item.get("name") or "").strip() == team_name
+        ),
+        None,
+    )
+    resolved_team_id = str((matched_team or {}).get("id") or "").strip()
+    if not resolved_team_id:
+        fallback_team_res = browser_api_json(
+            session_id,
+            "POST",
+            "/teams/setup-scrum",
+            body={"name": team_name},
+            timeout_seconds=45,
         )
+        fallback_payload = _unwrap_envelope(fallback_team_res.get("body")) if fallback_team_res.get("ok") else {}
+        fallback_payload = fallback_payload if isinstance(fallback_payload, dict) else {}
+        matched_team = fallback_payload.get("team") if isinstance(fallback_payload.get("team"), dict) else {}
         resolved_team_id = str((matched_team or {}).get("id") or "").strip()
-        if resolved_team_id:
-            report.setdefault("cleanup_targets", {}).setdefault("team_ids", []).append(resolved_team_id)
-            if not bool((matched_team or {}).get("is_active")):
-                browser_api_json(session_id, "POST", f"/teams/{resolved_team_id}/activate", body={}, timeout_seconds=30)
+    if resolved_team_id:
+        report.setdefault("cleanup_targets", {}).setdefault("team_ids", []).append(resolved_team_id)
+        if not bool((matched_team or {}).get("is_active")):
+            browser_api_json(session_id, "POST", f"/teams/{resolved_team_id}/activate", body={}, timeout_seconds=30)
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
 
