@@ -158,6 +158,7 @@ services:
       OLLAMA_URL: "http://ollama:11434/api/generate"
       OLLAMA_MODEL: "${E2E_OLLAMA_MODEL:-ananta-default}"
       E2E_LIVE_LLM_TIMEOUT_MS: "${E2E_LIVE_LLM_TIMEOUT_MS:-180000}"
+      E2E_LLM_API_TIMEOUT_MS: "${E2E_LLM_API_TIMEOUT_MS:-300000}"
     volumes:
       - ./frontend-angular:/app
       - /app/node_modules
@@ -196,6 +197,7 @@ services:
       OLLAMA_URL: "http://ollama:11434/api/generate"
       OLLAMA_MODEL: "${E2E_OLLAMA_MODEL:-ananta-default}"
       E2E_LIVE_LLM_TIMEOUT_MS: "${E2E_LIVE_LLM_TIMEOUT_MS:-180000}"
+      E2E_LLM_API_TIMEOUT_MS: "${E2E_LLM_API_TIMEOUT_MS:-300000}"
     depends_on:
       angular-frontend:
         condition: service_started
