@@ -176,7 +176,7 @@ class TestAutoPlanner:
         planner = AutoPlanner()
         planner.configure(max_subtasks_per_goal=100, llm_timeout=1000)
         assert planner.max_subtasks_per_goal == 20
-        assert planner.llm_timeout == 120
+        assert planner.llm_timeout == 180
 
     def test_status(self):
         planner = AutoPlanner()
