@@ -674,6 +674,38 @@ def test_autopilot_recovers_embedded_json_from_raw_proposal(app, monkeypatch):
     assert model_selection.get("attempt") == 1
 
 
+def test_autopilot_recovers_fenced_cmd_payload_with_trailing_commas(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "adaptive_model_routing_enabled": False,
+        "task_kind_model_overrides": {"coding": "model-a"},
+        "autopilot_strategy_fallback_models": [],
+        "autopilot_strategy_max_attempts": 1,
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="strategy-fenced-cmd-1", title="Fenced Command Recovery", status="todo", task_kind="coding"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-fenced-cmd:5001", name="worker-fenced-cmd", role="worker", token="tok", status="online")
+    )
+    raw_output = '<|im_start|>\n```json\n{"summary":"repair me","cmd":"echo ok",}\n```\n'
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"reason": raw_output, "raw": raw_output}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("strategy-fenced-cmd-1")
+    assert res["reason"] == "ok"
+    assert res["dispatched"] == 1
+    assert updated is not None and updated.status == "completed"
+    assert (updated.last_proposal or {}).get("reason") == "repair me"
+    assert (updated.last_proposal or {}).get("command") == "echo ok"
+
+
 def test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_CONFIG"] = {

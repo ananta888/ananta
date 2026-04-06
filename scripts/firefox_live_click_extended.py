@@ -1060,7 +1060,7 @@ def _open_worker_terminal_panel(
             const buffer = document.querySelector('[data-testid="terminal-output-buffer"]');
             return {
               status_text: (pill?.textContent || '').trim(),
-              buffer_excerpt: (buffer?.textContent || '').slice(-500),
+              buffer_excerpt: (buffer?.textContent || '').slice(-4000),
             };
             """,
         ).get("value")
@@ -1661,6 +1661,17 @@ def phase_benchmark(
         int(file_evidence.get("distinct_file_count") or 0) >= int(max(1, min_distinct_files))
         and int(file_evidence.get("distinct_dir_count") or 0) >= int(max(1, min_distinct_dirs))
     )
+    terminal_buffer = str(terminal_view.get("buffer_excerpt") or "")
+    terminal_cli_visible = "opencode run" in terminal_buffer.lower()
+    terminal_workdir_error = "failed to change directory" in terminal_buffer.lower()
+    provider_breakdown = (result_summary.get("cost_summary") or {}).get("provider_breakdown") if isinstance(result_summary, dict) else []
+    provider_breakdown = provider_breakdown if isinstance(provider_breakdown, list) else []
+    model_usage_ok = any(
+        isinstance(item, dict)
+        and str(item.get("provider") or "").strip().lower() == "opencode"
+        and str(item.get("model") or "").strip() == model
+        for item in provider_breakdown
+    )
 
     benchmark_success = after_status["completed"] > 0
     if require_followup:
@@ -1669,6 +1680,7 @@ def phase_benchmark(
         benchmark_success = benchmark_success and artifact_summary_ok
     if require_multi_file_output:
         benchmark_success = benchmark_success and multi_file_output_ok
+    benchmark_success = benchmark_success and terminal_cli_visible and not terminal_workdir_error and model_usage_ok
     benchmark_payload = {
         "provider": provider,
         "model": model,
@@ -1727,6 +1739,9 @@ def phase_benchmark(
             "worker_bind_info": worker_bind_info,
             "task_team_patch_info": task_team_patch_info,
             "worker_terminal": terminal_view,
+            "terminal_cli_visible": terminal_cli_visible,
+            "terminal_workdir_error": terminal_workdir_error,
+            "model_usage_ok": model_usage_ok,
             "tasks_before": len(tasks_before),
             "tasks_after": len(tasks_after),
             "tasks_before_full": len(tasks_before_full),

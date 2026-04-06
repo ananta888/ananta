@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from agent.common.utils.structured_action_utils import normalize_structured_action_payload, parse_structured_action_payload
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.services.verification_policy_service import evaluate_quality_gates
-from agent.utils import _extract_command, _extract_reason, _extract_tool_calls
+from agent.utils import _extract_reason
 
 
 class AutopilotDecisionService:
@@ -14,17 +15,30 @@ class AutopilotDecisionService:
     def normalize_proposal_data(self, propose_data: dict | None) -> dict[str, Any]:
         normalized: dict[str, Any] = dict(propose_data or {})
         if normalized.get("command") or normalized.get("tool_calls"):
+            payload = normalize_structured_action_payload(
+                {
+                    "reason": normalized.get("reason"),
+                    "command": normalized.get("command"),
+                    "tool_calls": normalized.get("tool_calls"),
+                }
+            )
+            if payload:
+                normalized["command"] = payload.get("command")
+                normalized["tool_calls"] = payload.get("tool_calls")
+                if payload.get("reason") and not str(normalized.get("reason") or "").strip():
+                    normalized["reason"] = payload.get("reason")
             return normalized
         raw = normalized.get("raw")
         if raw is None:
             return normalized
-        command = _extract_command(str(raw))
-        tool_calls = _extract_tool_calls(str(raw))
+        payload = parse_structured_action_payload(str(raw))
+        if payload:
+            normalized["command"] = payload.get("command")
+            normalized["tool_calls"] = payload.get("tool_calls")
+            if payload.get("reason") and (not normalized.get("reason") or str(normalized.get("reason")).strip() == str(raw).strip()):
+                normalized["reason"] = payload.get("reason")
+            return normalized
         reason = _extract_reason(str(raw))
-        if command and command != str(raw).strip():
-            normalized["command"] = command
-        if tool_calls:
-            normalized["tool_calls"] = tool_calls
         if reason and (not normalized.get("reason") or str(normalized.get("reason")).strip() == str(raw).strip()):
             normalized["reason"] = reason
         return normalized

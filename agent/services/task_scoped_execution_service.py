@@ -3,7 +3,6 @@ from __future__ import annotations
 import concurrent.futures
 import inspect
 import json
-import re
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -13,6 +12,13 @@ from flask import current_app, has_app_context
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import TaskConflictError, TaskNotFoundError, WorkerForwardingError
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, resolve_codex_runtime_config
+from agent.common.utils.structured_action_utils import (
+    extract_structured_action_fields,
+    locally_repair_structured_action_output,
+    normalize_structured_action_payload,
+    parse_structured_action_payload,
+    sanitize_structured_output_text,
+)
 from agent.config import settings
 from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
 from agent.models import TaskStepExecuteRequest
@@ -31,7 +37,7 @@ from agent.services.task_runtime_service import get_local_task_status, update_lo
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
 from agent.services.worker_workspace_service import get_worker_workspace_service
-from agent.utils import _extract_json_payload, _extract_reason, _log_terminal_entry
+from agent.utils import _extract_reason, _log_terminal_entry
 
 
 @dataclass(frozen=True)
@@ -44,9 +50,6 @@ class TaskScopedRouteResponse:
 
 class TaskScopedExecutionService:
     """Owns task-scoped proposal/execution orchestration so routes stay thin."""
-
-    _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
-    _TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
 
     @staticmethod
     def _normalize_temperature(value: float | int | str | None) -> float | None:
@@ -995,8 +998,54 @@ class TaskScopedExecutionService:
             raise WorkerForwardingError(details={"details": str(exc), "worker_url": worker_url})
 
     def _persist_forwarded_proposal(self, response: dict, task: dict) -> None:
-        if "command" in response:
-            update_local_task_status(task["id"], "proposing", last_proposal=response)
+        if not isinstance(response, dict):
+            return
+        has_proposal_payload = any(
+            key in response
+            for key in (
+                "command",
+                "tool_calls",
+                "reason",
+                "raw",
+                "routing",
+                "cli_result",
+                "trace",
+                "review",
+                "pipeline",
+                "research_artifact",
+                "research_context",
+                "worker_context",
+            )
+        )
+        if not has_proposal_payload:
+            return
+        get_core_services().task_execution_service.persist_task_proposal_result(
+            tid=task["id"],
+            task=task,
+            reason=str(response.get("reason") or ""),
+            raw=str(response.get("raw") or ""),
+            backend=(str(response.get("backend") or "").strip() or None),
+            model=(str(response.get("model") or "").strip() or None),
+            routing=response.get("routing") if isinstance(response.get("routing"), dict) else None,
+            cli_result=response.get("cli_result") if isinstance(response.get("cli_result"), dict) else None,
+            worker_context=response.get("worker_context") if isinstance(response.get("worker_context"), dict) else None,
+            trace=response.get("trace") if isinstance(response.get("trace"), dict) else None,
+            review=response.get("review") if isinstance(response.get("review"), dict) else None,
+            pipeline=response.get("pipeline") if isinstance(response.get("pipeline"), dict) else None,
+            command=(str(response.get("command") or "").strip() or None),
+            tool_calls=response.get("tool_calls") if isinstance(response.get("tool_calls"), list) else None,
+            comparisons=response.get("comparisons") if isinstance(response.get("comparisons"), dict) else None,
+            research_artifact=response.get("research_artifact") if isinstance(response.get("research_artifact"), dict) else None,
+            research_context=response.get("research_context") if isinstance(response.get("research_context"), dict) else None,
+            history_event={
+                "event_type": "proposal_result",
+                "reason": str(response.get("reason") or ""),
+                "backend": response.get("backend"),
+                "routing_reason": ((response.get("routing") or {}).get("reason")) if isinstance(response.get("routing"), dict) else None,
+                "forwarded": True,
+                "timestamp": time.time(),
+            },
+        )
 
     def _persist_forwarded_execution(self, *, tid: str, response: dict, task: dict, request_data) -> None:
         if "status" not in response:
@@ -1179,10 +1228,7 @@ class TaskScopedExecutionService:
 
     @classmethod
     def _sanitize_structured_output_text(cls, raw_text: str) -> str:
-        text = cls._ANSI_RE.sub("", str(raw_text or ""))
-        for token in ("<|im_start|>", "<|im_end|>", "<|endoftext|>"):
-            text = text.replace(token, "")
-        return text.strip()
+        return sanitize_structured_output_text(raw_text)
 
     @staticmethod
     def _normalize_tool_calls(tool_calls: object) -> list[dict] | None:
@@ -1194,78 +1240,19 @@ class TaskScopedExecutionService:
 
     @classmethod
     def _normalize_structured_action_payload(cls, data: object) -> dict | None:
-        if isinstance(data, str):
-            try:
-                data = json.loads(data)
-            except Exception:
-                return None
-        if isinstance(data, list):
-            tool_calls = cls._normalize_tool_calls(data)
-            if tool_calls:
-                return {"reason": "Recovered tool calls from list payload.", "command": None, "tool_calls": tool_calls}
-            return None
-        if not isinstance(data, dict):
-            return None
-        command = None
-        for key in ("command", "cmd", "shell_command", "shell", "bash", "script"):
-            value = str(data.get(key) or "").strip()
-            if value:
-                command = value
-                break
-        tool_calls = None
-        for key in ("tool_calls", "toolCalls", "tools", "tool_call"):
-            tool_calls = cls._normalize_tool_calls(data.get(key))
-            if tool_calls:
-                break
-        if not command and not tool_calls:
-            return None
-        reason = str(data.get("reason") or data.get("summary") or data.get("message") or "").strip()
-        if not reason:
-            reason = "Recovered structured action from partial model output."
-        return {"reason": reason, "command": command, "tool_calls": tool_calls or []}
+        return normalize_structured_action_payload(data)
 
     @classmethod
     def _parse_structured_action_payload(cls, raw_text: str) -> dict | None:
-        sanitized = cls._sanitize_structured_output_text(raw_text)
-        candidates: list[str] = []
-        for value in (str(raw_text or ""), sanitized):
-            if value and value not in candidates:
-                candidates.append(value)
-            extracted = _extract_json_payload(value)
-            if extracted and extracted not in candidates:
-                candidates.append(extracted)
-            stripped_fences = value.replace("```json", "").replace("```", "").strip()
-            if stripped_fences and stripped_fences not in candidates:
-                candidates.append(stripped_fences)
-
-        for candidate in candidates:
-            normalized_candidate = cls._TRAILING_COMMA_RE.sub(r"\1", candidate.strip())
-            if not normalized_candidate:
-                continue
-            try:
-                parsed = json.loads(normalized_candidate)
-            except Exception:
-                continue
-            normalized = cls._normalize_structured_action_payload(parsed)
-            if normalized:
-                return normalized
-        return None
+        return parse_structured_action_payload(raw_text)
 
     @classmethod
     def _locally_repair_structured_action_output(cls, raw_text: str) -> str | None:
-        payload = cls._parse_structured_action_payload(raw_text)
-        if not payload:
-            return None
-        return json.dumps(payload, ensure_ascii=False)
+        return locally_repair_structured_action_output(raw_text)
 
     @classmethod
     def _extract_structured_action_fields(cls, raw_text: str) -> tuple[str | None, list[dict] | None]:
-        payload = cls._parse_structured_action_payload(raw_text)
-        if not payload:
-            return None, None
-        command = str(payload.get("command") or "").strip() or None
-        tool_calls = cls._normalize_tool_calls(payload.get("tool_calls"))
-        return command, tool_calls
+        return extract_structured_action_fields(raw_text)
 
     def _repair_task_proposal(
         self,
