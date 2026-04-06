@@ -1941,6 +1941,7 @@ def delete_team(team_id):
 
     # Team-Mitglieder zuerst entfernen, damit FK-Constraints das Team-Delete nicht blockieren.
     repos.team_member_repo.delete_by_team(team_id)
+    repos.task_repo.clear_team_assignments(team_id)
 
     if repos.team_repo.delete(team_id):
         log_audit("team_deleted", {"team_id": team_id})

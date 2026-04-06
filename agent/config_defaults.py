@@ -223,7 +223,7 @@ def build_default_agent_config() -> dict:
         },
         "opencode_runtime": {
             "tool_mode": "full",
-            "execution_mode": "live_terminal",
+            "execution_mode": (os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "live_terminal").strip().lower() or "live_terminal",
         },
         "worker_runtime": {
             "workspace_root": None,
