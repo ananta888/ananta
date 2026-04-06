@@ -46,6 +46,7 @@ LOGIN_PASS = (
     or _DOTENV.get("INITIAL_ADMIN_PASSWORD")
     or "AnantaAdminPassword123!"
 )
+_HUB_ACCESS_TOKEN: Optional[str] = None
 
 
 def wd(method: str, path: str, payload=None, timeout: int = 45):
@@ -712,63 +713,67 @@ def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_s
         raise RuntimeError("One or more execution navigation steps failed")
 
 
+def _hub_login_token(timeout_seconds: int = 45, force_refresh: bool = False) -> str:
+    global _HUB_ACCESS_TOKEN
+    if _HUB_ACCESS_TOKEN and not force_refresh:
+        return _HUB_ACCESS_TOKEN
+    payload = json.dumps({"username": LOGIN_USER, "password": LOGIN_PASS}).encode("utf-8")
+    req = request.Request(
+        f"{HUB_BASE}/login",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with request.urlopen(req, timeout=max(5, int(timeout_seconds))) as resp:
+        raw = resp.read().decode("utf-8")
+    parsed = json.loads(raw) if raw else {}
+    token = str((((parsed or {}).get("data") or {}).get("access_token")) or "").strip()
+    if not token:
+        raise RuntimeError("missing_access_token")
+    _HUB_ACCESS_TOKEN = token
+    return token
+
+
 def browser_api_json(session_id: str, method: str, path: str, body: Optional[dict] = None, timeout_seconds: int = 90) -> dict:
+    del session_id
+    url = f"{HUB_BASE}{path}"
+
+    def _send(force_refresh: bool = False) -> dict:
+        token = _hub_login_token(timeout_seconds=timeout_seconds, force_refresh=force_refresh)
+        payload = None
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+        if body is not None and method.upper() != "GET":
+            payload = json.dumps(body).encode("utf-8")
+        req = request.Request(url, data=payload, headers=headers, method=method.upper())
+        with request.urlopen(req, timeout=max(5, int(timeout_seconds))) as resp:
+            raw = resp.read().decode("utf-8")
+            status = int(getattr(resp, "status", 200) or 200)
+        parsed = json.loads(raw) if raw else None
+        return {"ok": True, "status": status, "body": parsed if parsed is not None else raw, "url": url}
+
     try:
-        out = (
-            js_async(
-                session_id,
-                """
-            const method = arguments[0];
-            const path = arguments[1];
-            const payload = arguments[2];
-            const timeoutSeconds = arguments[3];
-            const done = arguments[arguments.length - 1];
-            function safeParse(raw) {
-              if (!raw) return null;
-              try { return JSON.parse(raw); } catch (_) { return null; }
-            }
-            function resolveHubUrl() {
-              const rawAgents = localStorage.getItem('ananta.agents.v1');
-              const parsed = safeParse(rawAgents);
-              if (Array.isArray(parsed)) {
-                const hub = parsed.find((a) => (a && a.role === 'hub') || (a && a.name === 'hub'));
-                if (hub && hub.url) return String(hub.url).replace(/\\/+$/, '');
-              }
-              return 'http://ai-agent-hub:5000';
-            }
-            const token = localStorage.getItem('ananta.user.token') || '';
-            const base = resolveHubUrl();
-            const url = `${base}${path}`;
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort('timeout'), Math.max(5, Number(timeoutSeconds || 90)) * 1000);
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            const init = { method, headers, signal: controller.signal };
-            if (payload !== null && payload !== undefined && method !== 'GET') {
-              init.body = JSON.stringify(payload);
-            }
-            fetch(url, init)
-              .then(async (res) => {
-                clearTimeout(timer);
-                const text = await res.text();
-                const parsed = safeParse(text);
-                done({ ok: true, status: res.status, body: parsed || text, url });
-              })
-              .catch((err) => {
-                clearTimeout(timer);
-                done({ ok: false, error: String(err), url });
-              });
-            """,
-                [method.upper(), path, body, timeout_seconds],
-                timeout=max(45, int(timeout_seconds) + 30),
-            ).get("value")
-            or {}
-        )
+        return _send(force_refresh=False)
     except Exception as exc:
-        return {"ok": False, "error": f"webdriver_async_error: {exc}", "status": 0, "path": path}
-    if not isinstance(out, dict):
-        return {"ok": False, "error": "invalid_async_response"}
-    return out
+        status = int(getattr(exc, "code", 0) or 0)
+        if status == 401:
+            try:
+                return _send(force_refresh=True)
+            except Exception as retry_exc:
+                retry_status = int(getattr(retry_exc, "code", 0) or 0)
+                body = ""
+                if hasattr(retry_exc, "read"):
+                    try:
+                        body = retry_exc.read().decode("utf-8")
+                    except Exception:
+                        body = ""
+                return {"ok": False, "error": str(retry_exc), "status": retry_status, "body": body, "url": url}
+        body = ""
+        if hasattr(exc, "read"):
+            try:
+                body = exc.read().decode("utf-8")
+            except Exception:
+                body = ""
+        return {"ok": False, "error": str(exc), "status": status, "body": body, "url": url}
 
 
 def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_terminal", timeout_seconds: int = 90) -> dict:
@@ -1438,6 +1443,7 @@ def phase_benchmark(
         terminal_agent = online_worker_agents[0]
 
     terminal_view = {"attempted": False, "opened": False, "connected": False}
+    terminal_forward_param = ""
     if terminal_agent:
         terminal_forward_param, terminal_agent_url = _pick_task_terminal(
             [task for task in tasks_before_full if isinstance(task, dict)],
@@ -1450,12 +1456,6 @@ def phase_benchmark(
             )
             if matched_terminal_agent:
                 terminal_agent = matched_terminal_agent
-        terminal_view = _open_worker_terminal_panel(
-            session_id,
-            str(terminal_agent.get("name") or ""),
-            mode="interactive" if terminal_forward_param else "read",
-            forward_param=terminal_forward_param or None,
-        )
 
     tick_results: List[dict] = []
     autopilot_stop_before_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
@@ -1494,7 +1494,7 @@ def phase_benchmark(
         goal_trace_id=goal_trace_id,
         timeout_seconds=75,
     )
-    if terminal_agent and not str(terminal_view.get("forward_param") or "").strip():
+    if terminal_agent and not terminal_forward_param:
         terminal_forward_param, terminal_agent_url = _pick_task_terminal(
             [task for task in tasks_after_full if isinstance(task, dict)],
             preferred_agent_url=str(terminal_agent.get("url") or ""),
@@ -1507,12 +1507,6 @@ def phase_benchmark(
                 )
                 if matched_terminal_agent:
                     terminal_agent = matched_terminal_agent
-            terminal_view = _open_worker_terminal_panel(
-                session_id,
-                str(terminal_agent.get("name") or ""),
-                mode="interactive",
-                forward_param=terminal_forward_param,
-            )
     task_detail_terminal = {"attempted": False, "embedded_visible": False, "connected": False}
     preferred_terminal_agent_url = str(terminal_agent.get("url") or "").strip() if isinstance(terminal_agent, dict) else ""
     preferred_terminal_task: Optional[dict] = None
@@ -1530,8 +1524,6 @@ def phase_benchmark(
             preferred_terminal_task = task
             break
     selected_terminal_task = preferred_terminal_task or fallback_terminal_task
-    if isinstance(selected_terminal_task, dict):
-        task_detail_terminal = _inspect_task_detail_live_terminal(session_id, str(selected_terminal_task.get("id") or ""))
     tasks_after_full_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
 
     after_status = _summarize_tasks(tasks_after)
@@ -1814,6 +1806,15 @@ def phase_benchmark(
             break
 
     autopilot_stop_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
+    if terminal_agent:
+        terminal_view = _open_worker_terminal_panel(
+            session_id,
+            str(terminal_agent.get("name") or ""),
+            mode="interactive" if terminal_forward_param else "read",
+            forward_param=terminal_forward_param or None,
+        )
+    if isinstance(selected_terminal_task, dict):
+        task_detail_terminal = _inspect_task_detail_live_terminal(session_id, str(selected_terminal_task.get("id") or ""))
 
     workers_available_max = 0
     workers_online_max = 0

@@ -56,4 +56,16 @@ describe('ErrorInterceptor', () => {
     const msg = String(notify.mock.calls[0][0] ?? '');
     expect(msg).toContain('API-Fehler (500)');
   });
+
+  it('does not emit notification for transient GET status-0 responses', async () => {
+    const req = new HttpRequest('GET', 'http://hub:5000/tasks/autopilot/status');
+    const err = new HttpErrorResponse({
+      status: 0,
+      statusText: 'Unknown Error',
+      url: 'http://hub:5000/tasks/autopilot/status',
+    });
+
+    await expect(firstValueFrom(interceptor.intercept(req, makeHandler(err)))).rejects.toBeTruthy();
+    expect(notify).not.toHaveBeenCalled();
+  });
 });
