@@ -7,6 +7,9 @@ mkdir -p "$AUTOIMPORT_STATE_DIR/hash" "$AUTOIMPORT_STATE_DIR/logs" "$AUTOIMPORT_
 
 OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
 OLLAMA_DEFAULT_ALIAS="${OLLAMA_DEFAULT_ALIAS:-ananta-default}"
+OLLAMA_DEFAULT_ALIAS_CANDIDATES="${OLLAMA_DEFAULT_ALIAS_CANDIDATES:-bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s,lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2,mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6}"
+OLLAMA_SMOKE_ALIAS="${OLLAMA_SMOKE_ALIAS:-ananta-smoke}"
+OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6,lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4,mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661,bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s}"
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
 
 is_text_model() {
@@ -27,11 +30,75 @@ create_model_from_file() {
 }
 
 ensure_default_alias_from_model() {
-  source_name="$1"
+  ensure_alias_from_model "$OLLAMA_DEFAULT_ALIAS" "$1"
+}
+
+normalize_model_ref() {
+  printf '%s' "$1" | sed 's/:latest$//'
+}
+
+list_model_refs() {
+  OLLAMA_HOST="$OLLAMA_BASE_URL" ollama list | awk 'NR>1 {print $1}'
+}
+
+model_exists() {
+  wanted="$(normalize_model_ref "$1")"
+  [ -n "$wanted" ] || return 1
+  list_model_refs | sed 's/:latest$//' | grep -Fx -- "$wanted" >/dev/null 2>&1
+}
+
+ensure_alias_from_model() {
+  alias_name="$1"
+  source_name="$2"
+  [ -n "$alias_name" ] || return 0
+  [ -n "$source_name" ] || return 0
+  source_name="$(normalize_model_ref "$source_name")"
   is_text_model "$source_name" || return 0
-  mf="$AUTOIMPORT_STATE_DIR/modelfiles/$OLLAMA_DEFAULT_ALIAS.Modelfile"
+  mf="$AUTOIMPORT_STATE_DIR/modelfiles/$alias_name.Modelfile"
   printf 'FROM %s\n' "$source_name" > "$mf"
-  create_model_from_file "$OLLAMA_DEFAULT_ALIAS" "$mf"
+  create_model_from_file "$alias_name" "$mf"
+}
+
+resolve_configured_alias_source() {
+  candidates="$1"
+  old_ifs="${IFS:- }"
+  IFS=','
+  set -- $candidates
+  IFS="$old_ifs"
+  for candidate in "$@"; do
+    normalized="$(normalize_model_ref "$candidate")"
+    [ -n "$normalized" ] || continue
+    if model_exists "$normalized"; then
+      printf '%s\n' "$normalized"
+      return 0
+    fi
+  done
+  return 1
+}
+
+first_available_text_model() {
+  list_model_refs | while IFS= read -r ref; do
+    normalized="$(normalize_model_ref "$ref")"
+    is_text_model "$normalized" || continue
+    printf '%s\n' "$normalized"
+    break
+  done
+}
+
+ensure_configured_alias() {
+  alias_name="$1"
+  configured_candidates="$2"
+  source_name="$(resolve_configured_alias_source "$configured_candidates" || true)"
+  if [ -z "$source_name" ]; then
+    source_name="$(first_available_text_model || true)"
+  fi
+  [ -n "$source_name" ] || return 0
+  ensure_alias_from_model "$alias_name" "$source_name"
+}
+
+ensure_configured_aliases() {
+  ensure_configured_alias "$OLLAMA_DEFAULT_ALIAS" "$OLLAMA_DEFAULT_ALIAS_CANDIDATES"
+  ensure_configured_alias "$OLLAMA_SMOKE_ALIAS" "$OLLAMA_SMOKE_ALIAS_CANDIDATES"
 }
 
 sanitize() {
@@ -118,7 +185,6 @@ import_one() {
     echo "failed: $name" >&2
     return 1
   fi
-  ensure_default_alias_from_model "$name" || true
 
   printf '%s\n' "$hash_now" > "$hash_file"
   echo "done: $name"
@@ -133,11 +199,13 @@ scan_models() {
 main() {
   echo "initial scan..."
   scan_models
+  ensure_configured_aliases
 
   echo "rescanning /models every ${OLLAMA_RESCAN_SEC}s..."
   while true; do
     sleep "$OLLAMA_RESCAN_SEC"
     scan_models
+    ensure_configured_aliases
   done
 }
 
