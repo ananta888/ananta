@@ -64,14 +64,14 @@ DEFAULT_HUB_BENCH_CONFIG = {
     "enabled": True,
     "auto_trigger": {"enabled": True, "min_samples_before_auto": 3, "interval_hours": 24, "max_execution_minutes": 30},
     "providers": ["ollama"],
-    "default_models": {"ollama": ["ananta-default", "ananta-smoke"]},
+    "default_models": {"ollama": ["qwen2.5-coder:7b", "qwen2.5-coder:14b", "deepseek-coder-v2:16b"]},
     "scoring": {
         "weights": {"success_rate": 0.40, "quality_rate": 0.35, "latency_score": 0.15, "cost_score": 0.10},
         "thresholds": {"min_samples": 2, "min_success_rate": 0.5},
     },
     "retention": {"max_samples_per_model": 100, "max_days": 30},
     "role_benchmarks": DEFAULT_HUB_ROLE_BENCHMARKS,
-    "hub_config": {"fixed_model": {"provider": "ollama", "model": "ananta-default"}, "fallback_enabled": True},
+    "hub_config": {"fixed_model": {"provider": "ollama", "model": "qwen2.5-coder:7b"}, "fallback_enabled": True},
 }
 
 logger = logging.getLogger(__name__)

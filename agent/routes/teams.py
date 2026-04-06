@@ -591,6 +591,11 @@ SEED_BLUEPRINTS = {
                     "security_level": "balanced",
                     "verification_required": True,
                     "artifact_flow_expected": True,
+                    "preferred_models": {
+                        "provider": "ollama",
+                        "default": "qwen2.5-coder:7b",
+                        "candidates": ["qwen2.5-coder:7b", "qwen2.5-coder:14b", "deepseek-coder-v2:16b"],
+                    },
                 },
             )
         ],
