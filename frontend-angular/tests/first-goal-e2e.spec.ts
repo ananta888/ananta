@@ -103,9 +103,9 @@ function apiTimeoutMs(url: string): number {
     || lowered.includes('/tasks/auto-planner/plan')
     || lowered.includes('/tasks/autopilot/tick')
   ) {
-    const raw = Number(process.env.E2E_LLM_API_TIMEOUT_MS || 120_000);
+    const raw = Number(process.env.E2E_LLM_API_TIMEOUT_MS || 300_000);
     if (!Number.isFinite(raw)) return 120_000;
-    return Math.max(30_000, Math.min(raw, 180_000));
+    return Math.max(30_000, Math.min(raw, 300_000));
   }
   return 60_000;
 }
@@ -200,7 +200,7 @@ async function planGoalWithFallback(
 
 test.describe('First Goal E2E', () => {
   test('uses local LLM, creates subtasks, assigns to team members, and monitors execution', async () => {
-    test.setTimeout(300_000);
+    test.setTimeout(600_000);
     const { hubUrl, token } = await getHubInfo();
     const cleanup = createJourneyCleanupPolicy(hubUrl, token);
     const createdTaskIds: string[] = [];

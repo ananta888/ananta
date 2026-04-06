@@ -1036,7 +1036,7 @@ def test_task_propose_uses_dedicated_proposal_timeout(client, app, admin_auth_he
 
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
         cfg["command_timeout"] = 60
-        cfg["task_propose_timeout_seconds"] = 180
+        cfg["task_propose_timeout_seconds"] = 300
         app.config["AGENT_CONFIG"] = cfg
         _update_local_task_status(tid, "assigned", description="Implement endpoint with opencode-friendly timeout")
 
@@ -1055,7 +1055,7 @@ def test_task_propose_uses_dedicated_proposal_timeout(client, app, admin_auth_he
 
     assert response.status_code == 200
     assert response.json["data"]["command"] == "echo timeout"
-    assert captured["timeout"] == 180
+    assert captured["timeout"] == 300
 
 
 def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admin_auth_header):
