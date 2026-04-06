@@ -270,7 +270,7 @@ class AutoPlanner:
             if auto_start_autopilot is not None:
                 self.auto_start_autopilot = bool(auto_start_autopilot)
             if llm_timeout is not None:
-                self.llm_timeout = max(5, min(int(llm_timeout), 120))
+                self.llm_timeout = max(5, min(int(llm_timeout), 180))
             if llm_retry_attempts is not None:
                 self.llm_retry_attempts = max(1, min(int(llm_retry_attempts), 5))
             if llm_retry_backoff is not None:
