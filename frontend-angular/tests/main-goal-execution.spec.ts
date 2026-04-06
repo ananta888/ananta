@@ -43,8 +43,10 @@ async function apiCall(
   data?: any
 ) {
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const lowered = url.toLowerCase();
+  const postTimeout = lowered.includes('/tasks/autopilot/tick') ? 180_000 : 45_000;
   if (method === 'GET') return request.get(url, { headers });
-  if (method === 'POST') return request.post(url, { headers, data, timeout: 45_000 });
+  if (method === 'POST') return request.post(url, { headers, data, timeout: postTimeout });
   if (method === 'PATCH') return request.patch(url, { headers, data, timeout: 30_000 });
   return request.delete(url, { headers, timeout: 30_000 });
 }

@@ -4,7 +4,7 @@ from typing import Any
 from flask import Flask
 
 from agent.config import settings
-from agent.config_defaults import build_default_agent_config, merge_db_config_overrides, sync_runtime_state
+from agent.config_defaults import apply_env_config_overrides, build_default_agent_config, merge_db_config_overrides, sync_runtime_state
 from agent.routes.system import _load_history
 
 
@@ -33,6 +33,7 @@ def initialize_runtime_state(app: Flask) -> dict[str, Any]:
     _load_history(app)
     default_cfg = build_default_agent_config()
     merge_db_config_overrides(default_cfg)
+    apply_env_config_overrides(default_cfg)
     app.config["AGENT_CONFIG"] = default_cfg
     sync_runtime_state(app, default_cfg)
     return default_cfg
