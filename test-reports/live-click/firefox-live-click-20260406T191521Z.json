@@ -1,0 +1,818 @@
+{
+  "run_id": "20260406T191521Z",
+  "started_at": "2026-04-06T19:15:21.785489+00:00",
+  "base": {
+    "selenium": "http://ananta-firefox-vnc:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.0,
+  "wait_tasks_seconds": 90.0,
+  "goal_wait_seconds": 90.0,
+  "goal_text": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+  "benchmark_ticks": 6,
+  "benchmark_task_kind": "coding",
+  "require_followup": false,
+  "require_artifact_summary": false,
+  "require_multi_file_output": false,
+  "min_distinct_files": 3,
+  "min_distinct_dirs": 2,
+  "bootstrap_setup": true,
+  "cleanup_created_resources": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:24.180740+00:00",
+      "ended_at": "2026-04-06T19:15:25.370116+00:00",
+      "duration_ms": 1189,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "set_opencode_execution_mode",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:25.370149+00:00",
+      "ended_at": "2026-04-06T19:15:26.794950+00:00",
+      "duration_ms": 1424,
+      "details": {
+        "base_urls": [
+          "http://ai-agent-hub:5000",
+          "http://ai-agent-beta:5000",
+          "http://ai-agent-alpha:5000"
+        ],
+        "desired_mode": "interactive_terminal",
+        "ok": true,
+        "results": [
+          {
+            "base_url": "http://ai-agent-hub:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-beta:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-alpha:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          }
+        ]
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:26.802996+00:00",
+      "ended_at": "2026-04-06T19:15:30.413596+00:00",
+      "duration_ms": 3610,
+      "details": {
+        "template_name": "Live UI Template 1775502928",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:30.421561+00:00",
+      "ended_at": "2026-04-06T19:15:36.282063+00:00",
+      "duration_ms": 5860,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775502931",
+        "team_name": "Live UI Team 1775502934",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:36.289179+00:00",
+      "ended_at": "2026-04-06T19:15:39.589613+00:00",
+      "duration_ms": 3300,
+      "details": {
+        "goal_name": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 123,
+          "label_before": "Goal planen",
+          "goals_before": 30,
+          "goals_before_ids": [
+            "87dfa3de-c859-401e-a9d5-91b29fd5d1d9",
+            "65cf369f-8d52-40f1-87fc-c08e8e17d651",
+            "096c85a8-5b00-4eca-a929-566d72d7cb2f",
+            "3c4ef062-e924-4670-8b0d-c9344fb52676",
+            "1cc6da19-e01c-4615-99b0-d9dc749691c4"
+          ],
+          "fallback_click": false,
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "47365f06-d68e-487e-b4fe-934cd6894117"
+          },
+          "goals_after": 31,
+          "goals_after_ids": [
+            "87dfa3de-c859-401e-a9d5-91b29fd5d1d9",
+            "65cf369f-8d52-40f1-87fc-c08e8e17d651",
+            "096c85a8-5b00-4eca-a929-566d72d7cb2f",
+            "3c4ef062-e924-4670-8b0d-c9344fb52676",
+            "1cc6da19-e01c-4615-99b0-d9dc749691c4"
+          ]
+        },
+        "goal_result_visible": true,
+        "tasks_created": 2,
+        "created_goal_id": "150bfac7-5d1f-4108-95d2-1c4e35599e46",
+        "goal_result_excerpt": "Goal angelegt 150bfac7-5d1f-4108-95d2-1c4e35599e46 \u00b7 2 Tasks \u00b7 Plan 2a6e4f6a-ad7f-46cd-a84b-fc48a819690a 1. den Python-Fibonacci-Helper implementierenHigh2. Automatisierte Tests ergaenzenHigh",
+        "detail_tasks_after_fallback": 0,
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/dashboard",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:39.598038+00:00",
+      "ended_at": "2026-04-06T19:15:41.163001+00:00",
+      "duration_ms": 1564,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/board",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:41.170910+00:00",
+      "ended_at": "2026-04-06T19:15:42.727166+00:00",
+      "duration_ms": 1556,
+      "details": {
+        "path": "/board",
+        "title": "Ananta - Agent Control",
+        "board_task_count": 96,
+        "board_has_tasks": true
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/templates",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:42.734639+00:00",
+      "ended_at": "2026-04-06T19:15:44.286448+00:00",
+      "duration_ms": 1551,
+      "details": {
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/teams",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:44.293893+00:00",
+      "ended_at": "2026-04-06T19:15:45.837085+00:00",
+      "duration_ms": 1543,
+      "details": {
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/settings",
+      "status": "ok",
+      "started_at": "2026-04-06T19:15:45.845895+00:00",
+      "ended_at": "2026-04-06T19:15:47.466181+00:00",
+      "duration_ms": 1620,
+      "details": {
+        "path": "/settings",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "benchmark",
+      "step": "goal_followup_and_model_benchmark",
+      "status": "failed",
+      "started_at": "2026-04-06T19:15:47.474221+00:00",
+      "ended_at": "2026-04-06T19:16:12.541301+00:00",
+      "duration_ms": 25067,
+      "details": {
+        "goal_id": "150bfac7-5d1f-4108-95d2-1c4e35599e46",
+        "goal_summary": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+        "worker_bind_info": {
+          "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+          "applied": false,
+          "online_worker_urls": [
+            "http://ai-agent-beta:5000",
+            "http://ai-agent-alpha:5000"
+          ],
+          "existing_member_urls": [
+            "http://ai-agent-alpha:5000",
+            "http://ai-agent-beta:5000"
+          ],
+          "needs_binding": false
+        },
+        "task_team_patch_info": {
+          "resolved_team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+          "patched_task_ids": [],
+          "patch_statuses": []
+        },
+        "worker_terminal": {
+          "attempted": true,
+          "worker_name": "beta",
+          "mode": "interactive",
+          "forward_param": "cli-3157e23f-8e01-499b-a9fe-02e002206cec",
+          "route": "/panel/beta?tab=terminal&mode=interactive&forward_param=cli-3157e23f-8e01-499b-a9fe-02e002206cec",
+          "opened": true,
+          "connected": true,
+          "status_text": "Status: connected",
+          "buffer_excerpt": "e\": \"integer\"\r\n        },\r\n        \"max_concurrency\": {\r\n          \"type\":>  \"integer\"\r\n        },\r\n        \"goal\": {\r\n          \"type\": \"string\"> \r\n        },\r\n        \"team_id\": {\r\n          \"type\": \"string\"\r\n        },\r\n        \"budget_label\": {\r\n          \"type> > > > \": \"string\"\r\n        },\r\n        \"security_lev> el\": {\r\n          \"type\": \"string\"\r\n        }\r\n      },\r\n      \"required\": [\r\n        \"action\"\r\n      ]\r\n    }\r\n  }\r\n> ]\r\n\r\nAntworte AUSSCHLIESSLICH als JSON-Objekt ohne Markdown und ohn> e Zusatztext.\r\nRegeln:\r\n- Das erste Zeichen deiner Antwort muss '\"'\"'{'\"'\"' sein und das letzte '\"'\"'}'\"'\"'.\r\n- Keine Code-Fences,>  keine XML/Markdown-Tags, keine Spezialtoken wie <|im_start|>.\r\n- Mindestens eines von '\"'\"'command'\"'\"' oder '\"'\"'tool_call> s'\"'\"' muss gesetzt sein.\r\n- Wenn kein Tool n\u00f6tig ist, liefere ei> nen konkreten, ausf\u00fchrbaren Shell-Befehl in '\"'\"'command'\"'\"'.\r\n- '\"'\"'reason'\"'\"' muss kurz, technisch und direkt auf de> n Auftrag bezogen sein.\r\nSchema:\r\n{\r\n  \"reason\": \"Kurze Begr\u00fcndung\",\r\n  \"command\": \"Shell-Befehl (optional)\",\r\n  \"tool_calls\"> : [ { \"name\": \"tool_name\", \"args\": { \"arg1\": \"val1\" } } ] (optional)\r\n}\r\n\r\nBeispiel:\r\n{\r\n  \"reason\": \"Lege Basisstruktur an un> d implementiere ersten vertikalen Slice.\",\r\n  \"comman> d\": \"mkdir -p backend frontend && printf '\"'\"'%s\\n'\"'\"' '\"'\"'# bootstrap'\"'\"' > backend/README.md\",\r\n  \"tool_calls\": []\r\n}\r\n\r\nFehlerhafter Outp> ut (Ausschnitt):\r\n__ananta_oldstty=$(stty -g 2>/dev/null || printf '\"'\"''\"'\"'); stty -echo 2>/dev/null || true; XDG_CONFIG_HOME=/t> mp/tmppiowgqc6 OPENCODE_CONFIG_CONTENT='\"'\"'{\"$schema\": \"https://opencode.ai/config.json\", \"provider\": {\"ollama\": {\"npm\": \"@ai-> sdk/openai-compatible\", \"models\": {\"ananta-default\": {}}, \"options\": {\"baseURL\": \"http://ollama:11434/v1\"}}}, \"agent\": {}, \"mode> \": {}, \"plugin\": [], \"command\": {}, \"model\": \"ollama/ananta-default\", \"small_model\": \"ollama/ananta-default\"}'\"'\"' /usr/local/bin/open> code run --model ollama/ananta-default --dir /app/data/worker-runtime/beta/goal-73eaf083-local --format default '\"'\"'You are the Pr> oduct Owner in a Scrum team. Align backlog, priorities, and acceptance criteria with Implement a small Python Fibonacci helper, add uni> t tests, and provide a short summary of the changed files and validation..\r\n\r\n\r\n\r\nEngineering guardrails for every proposal, ch> ange, refactoring, and implementation:\r\n\r\n\r\n\r\n- Act as a senior software engineer and architect.\r\n\r\n- Apply SOLID strictly an> d actively:\r\n\r\n  - SRP: keep each>  class, module, and function focused on one responsibility.\r\n\r\n  - OCP: prefer extensio> n through inter> faces, composition, strategies, policies, adapters, or new implementations.\r\n\r\n  - LSP: keep contracts substi> tutable>  without hidden side effects or stronger preconditions.\r\n\r\n  - ISP: prefer small, focused inte> rfaces.\r\n> \r\n  - DIP: depend on abstractions, not concrete implementations.\r\n\r\n- Also enforce:\r\n\r\n  - clean separation of business logic, infrastr> uc> ture, persistence, API, and configuration\r\n\r\n  - composition over inheritance\r\n\r\n  - low coupling, minimal global state, a> nd testable seams\r\n\r\n  - precise n> aming, small understandable functions, and maintainable structure\r\n\r\n- Before finaliz> ing a change, explicitly check for:\r\n\r\n  - SRP violations\r\n\r\n  - overly strong coupling\r\n\r\n  - missing abstractions\r\n\r\n>   - interfaces that are>  too broad\r\n\r\n  - poor substitutability\r\n\r\n  - hidden si> de effects\r\n\r\n  - structures that are hard to test\r\n\r\n- > If one of thes> e issues exists:\r\n\r\n  1. name the pro\r\n'; __ananta_rc=$?; [ -n \"$__ananta_oldstty\" ] && stty \"$__anan> ta_oldstty\" 2>/dev/null || stty echo 2>/dev/null || true; printf '\\n__ANANTA_TERM_RC__1775502961711991897__ %s\\n' \"$__ananta_rc> \"\r\n> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > \u001b[0m\r\n> build \u00b7 ananta-default\r\n\u001b[0m\r\n",
+          "path": "/panel/beta?tab=terminal&mode=interactive&forward_param=cli-3157e23f-8e01-499b-a9fe-02e002206cec",
+          "title": "Ananta - Agent Control"
+        },
+        "terminal_cli_visible": false,
+        "terminal_workdir_error": false,
+        "model_usage_ok": false,
+        "tasks_before": 2,
+        "tasks_after": 2,
+        "tasks_before_full": 2,
+        "tasks_after_full": 2,
+        "new_task_ids": [],
+        "followup_task_ids": [],
+        "followup_created": false,
+        "followup_observed": false,
+        "terminalized": false,
+        "fibonacci_mentions_in_tasks": 1,
+        "artifacts_summary_present": false,
+        "result_summary": {
+          "completed_tasks": 0,
+          "cost_summary": {
+            "currency": "cost_units",
+            "items": [
+              {
+                "available": false,
+                "cost_units": 0,
+                "latency_ms": null,
+                "model": null,
+                "pricing_source": null,
+                "provider": null,
+                "source": "unavailable",
+                "status": "blocked",
+                "task_id": "goal-57660607",
+                "task_kind": "testing",
+                "title": "Automatisierte Tests ergaenzen",
+                "tokens_total": 0
+              },
+              {
+                "available": false,
+                "cost_units": 0,
+                "latency_ms": null,
+                "model": null,
+                "pricing_source": null,
+                "provider": null,
+                "source": "unavailable",
+                "status": "todo",
+                "task_id": "goal-73eaf083",
+                "task_kind": "coding",
+                "title": "den Python-Fibonacci-Helper implementieren",
+                "tokens_total": 0
+              }
+            ],
+            "provider_breakdown": [],
+            "task_count": 2,
+            "task_kind_breakdown": [
+              {
+                "cost_units": 0,
+                "task_count": 1,
+                "task_kind": "coding",
+                "tokens_total": 0
+              },
+              {
+                "cost_units": 0,
+                "task_count": 1,
+                "task_kind": "testing",
+                "tokens_total": 0
+              }
+            ],
+            "tasks_with_cost": 0,
+            "tasks_without_cost": 2,
+            "total_cost_units": 0,
+            "total_latency_ms": 0,
+            "total_tokens": 0
+          },
+          "failed_tasks": 0,
+          "memory_entries": 0,
+          "status": "planned",
+          "task_count": 2,
+          "verification_passed": 0
+        },
+        "headline_artifact_preview": "",
+        "artifact_flow": {
+          "available": true,
+          "enabled": true,
+          "config": {
+            "enabled": true,
+            "max_tasks": 30,
+            "max_worker_jobs_per_task": 5,
+            "rag_enabled": true,
+            "rag_include_content": true,
+            "rag_top_k": 5
+          },
+          "counts": {
+            "memory_entries": 0,
+            "tasks": 30,
+            "worker_jobs": 0,
+            "worker_results": 0
+          },
+          "matching_item_count": 2,
+          "matching_task_ids": [
+            "goal-73eaf083",
+            "goal-57660607"
+          ],
+          "matching_sent_artifact_count": 0,
+          "matching_returned_artifact_count": 0,
+          "matching_worker_job_count": 0,
+          "matching_rag_context_count": 0,
+          "sample_items": [
+            {
+              "context_bundle_id": null,
+              "current_worker_job_id": null,
+              "rag_context": [],
+              "returned_artifact_ids": [],
+              "sent_artifact_ids": [],
+              "status": "proposing",
+              "task_id": "goal-73eaf083",
+              "title": "den Python-Fibonacci-Helper implementieren",
+              "updated_at": 1775502967.3060608,
+              "worker_jobs": []
+            },
+            {
+              "context_bundle_id": null,
+              "current_worker_job_id": null,
+              "rag_context": [],
+              "returned_artifact_ids": [],
+              "sent_artifact_ids": [],
+              "status": "blocked",
+              "task_id": "goal-57660607",
+              "title": "Automatisierte Tests ergaenzen",
+              "updated_at": 1775502955.5522864,
+              "worker_jobs": []
+            }
+          ]
+        },
+        "execution_reconciliation": {
+          "available": true,
+          "issue_count": 0,
+          "counts": {},
+          "issues": []
+        },
+        "operations_console": {
+          "opened": true,
+          "details_toggled": true,
+          "artifact_flow_visible": true,
+          "table_rows": 70,
+          "rag_label_present": true,
+          "page_excerpt": "Ananta - Agent Control\nadmin (admin)\nDunkel\nAbmelden\nBETRIEB\nDashboard\nAgenten\nBoard\nOperationen\nArtifacts\nArchiv\nGraph\nAUTOMATISIERUNG\nAuto-Planner\nWebhooks\nKONFIGURATION\nTemplates\nTeams\nAudit-Logs\nEinstellungen\n\ud83c\udfe0\n/\nOperations Console\nBereich: Operate | Route: /operations\nOperations Konsole\n\nZentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.\n\nAktualisieren\nHub: http://ai-agent-hub:5000 | Live Sync: idle\nOffen\n442\nZugewiesen\n0\nIn Bearbeitung\n0\nFehlgeschlagen\n45\nTask-Aufnahme\nTitle \nPriority \nSource \nDescription \nIn zentrale Queue einstellen\nAuto-Planner Aktivitaet\nKonfi",
+          "path": "/operations",
+          "title": "Ananta - Agent Control"
+        },
+        "file_output_evidence": {
+          "file_paths": [],
+          "distinct_file_count": 0,
+          "distinct_dirs": [],
+          "distinct_dir_count": 0
+        },
+        "multi_file_output_ok": false,
+        "require_followup": false,
+        "require_artifact_summary": false,
+        "require_multi_file_output": false,
+        "min_distinct_files": 3,
+        "min_distinct_dirs": 2,
+        "autopilot_ticks_requested": 6,
+        "autopilot_total_ms": 9715,
+        "autopilot_start_payload": {
+          "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+          "max_concurrency": 2,
+          "security_level": "balanced"
+        },
+        "autopilot_stop_before_status": 200,
+        "autopilot_start_status": 200,
+        "autopilot_stop_status": 200,
+        "workers_available_max": 2,
+        "workers_online_max": 2,
+        "no_worker_blocker": false,
+        "autopilot_tick_results": [
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 1,
+                  "team_id_scope": "47365f06-d68e-487e-b4fe-934cd6894117",
+                  "total_tasks_scoped": 2,
+                  "total_tasks_unfiltered": 523,
+                  "workers_available_count": 2,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 22,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 469,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775502956.0632336,
+                "max_concurrency": 2,
+                "reason": "ok",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775502955.105028,
+                "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+                "tick_count": 1704
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "47365f06-d68e-487e-b4fe-934cd6894117",
+                  "total_tasks_scoped": 2,
+                  "total_tasks_unfiltered": 523,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 22,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 469,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775502957.7544308,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775502955.105028,
+                "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+                "tick_count": 1705
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "47365f06-d68e-487e-b4fe-934cd6894117",
+                  "total_tasks_scoped": 2,
+                  "total_tasks_unfiltered": 523,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 22,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 469,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775502959.1592271,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775502955.105028,
+                "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+                "tick_count": 1706
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "47365f06-d68e-487e-b4fe-934cd6894117",
+                  "total_tasks_scoped": 2,
+                  "total_tasks_unfiltered": 523,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 22,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 469,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775502960.5771298,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775502955.105028,
+                "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+                "tick_count": 1707
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "47365f06-d68e-487e-b4fe-934cd6894117",
+                  "total_tasks_scoped": 2,
+                  "total_tasks_unfiltered": 523,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 22,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 469,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775502962.2047591,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775502955.105028,
+                "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+                "tick_count": 1708
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "body": {
+              "data": {
+                "budget_label": "",
+                "circuit_breakers": {
+                  "failure_streak": {
+                    "http://ai-agent-alpha:5000": 0
+                  },
+                  "open_count": 0,
+                  "open_workers": []
+                },
+                "completed_count": 0,
+                "debug": {
+                  "candidate_count": 0,
+                  "team_id_scope": "47365f06-d68e-487e-b4fe-934cd6894117",
+                  "total_tasks_scoped": 2,
+                  "total_tasks_unfiltered": 523,
+                  "workers_available_count": 0,
+                  "workers_online_count": 2
+                },
+                "dispatched": 0,
+                "dispatched_count": 22,
+                "effective_security_policy": {
+                  "allowed_tool_classes": [
+                    "read",
+                    "write"
+                  ],
+                  "execute_retries": 1,
+                  "execute_timeout": 60,
+                  "level": "balanced",
+                  "max_concurrency_cap": 2
+                },
+                "failed_count": 469,
+                "goal": "",
+                "interval_seconds": 20,
+                "last_error": null,
+                "last_tick_at": 1775502963.6183057,
+                "max_concurrency": 2,
+                "reason": "no_candidates",
+                "running": true,
+                "security_level": "balanced",
+                "started_at": 1775502955.105028,
+                "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+                "tick_count": 1709
+              },
+              "status": "success"
+            },
+            "ok": true,
+            "status": 200,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          }
+        ],
+        "recovery_info": {
+          "triggered": false,
+          "analyze_attempted": 0,
+          "analyze_created_total": 0,
+          "analyze_results": [],
+          "manual_followup_status": 0,
+          "manual_recovery_task_status": 0,
+          "manual_recovery_task_id": "",
+          "extra_ticks": 0
+        },
+        "benchmark_payload": {
+          "provider": "ollama",
+          "model": "ananta-default",
+          "task_kind": "coding",
+          "success": false,
+          "quality_gate_passed": false,
+          "latency_ms": 9715,
+          "tokens_total": 0
+        },
+        "benchmark_record_status": 200,
+        "benchmark_model_key": "ollama:ananta-default",
+        "benchmark_focus": {
+          "avg_cost_units": 0,
+          "avg_latency_ms": 20800.95,
+          "avg_tokens": 0,
+          "cost_units_total": 0,
+          "quality_rate": 0,
+          "success_rate": 0,
+          "suitability_score": 13.07,
+          "total": 21
+        },
+        "task_status_after": {
+          "total": 2,
+          "completed": 0,
+          "failed": 0,
+          "open": 2
+        },
+        "path": "/operations",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "cleanup_targets": {
+    "template_names": [
+      "Live UI Template 1775502928"
+    ],
+    "blueprint_names": [
+      "Live UI Blueprint 1775502931"
+    ],
+    "team_names": [
+      "Live UI Team 1775502934"
+    ],
+    "goal_ids": [
+      "150bfac7-5d1f-4108-95d2-1c4e35599e46"
+    ],
+    "team_ids": [
+      "47365f06-d68e-487e-b4fe-934cd6894117"
+    ]
+  },
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "Benchmark phase failed"
+    },
+    {
+      "message": "cleanup_error: [Errno 2] No such file or directory: 'docker'"
+    }
+  ],
+  "session_id": "05485abc-3e53-44fa-a71d-03a42a3b0413",
+  "last_goal_id": "150bfac7-5d1f-4108-95d2-1c4e35599e46",
+  "ended_at": "2026-04-06T19:16:12.548602+00:00",
+  "cleanup": {
+    "error": "[Errno 2] No such file or directory: 'docker'"
+  }
+}

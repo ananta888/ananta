@@ -67,6 +67,7 @@ def test_run_opencode_turn_passes_workdir_to_session_setup(app):
         ensure_for_cli.return_value = {
             "terminal_session_id": "cli-1",
             "execution_mode": "interactive_terminal",
+            "workdir": "/tmp/task-workspace",
         }
         rc, out, err = service.run_opencode_turn(
             {"id": "cli-1", "metadata": {}},

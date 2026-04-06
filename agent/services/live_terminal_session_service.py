@@ -338,13 +338,16 @@ class LiveTerminalSessionService:
         runtime_cfg = resolve_opencode_runtime_config(model=model)
         env = session._ensure_runtime_environment(runtime_cfg)
         mode = _normalize_terminal_execution_mode(str(session_meta.get("execution_mode") or "live_terminal"))
+        normalized_workdir = str(session_meta.get("workdir") or "").strip()
+        if not normalized_workdir and workdir:
+            normalized_workdir = os.path.abspath(str(workdir))
 
         args = [opencode_resolved, "run"]
         selected_model = str(runtime_cfg.get("model") or "").strip()
         if selected_model:
             args.extend(["--model", selected_model])
-        if workdir:
-            args.extend(["--dir", workdir])
+        if normalized_workdir:
+            args.extend(["--dir", normalized_workdir])
         if mode == "interactive_terminal":
             args.extend(["--format", "default"])
         args.append(str(prompt or ""))

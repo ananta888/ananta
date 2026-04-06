@@ -447,6 +447,58 @@ def test_task_propose_forwarding_unwraps_nested_data(client, app, admin_auth_hea
         assert res.json["data"]["command"] == "echo hi"
 
 
+def test_task_propose_forwarding_persists_terminal_metadata_without_command(client, app, admin_auth_header):
+    tid = "T-FWD-PROPOSE-TERM"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        _update_local_task_status(
+            tid,
+            "assigned",
+            assigned_agent_url="http://worker-x:5001",
+            assigned_agent_token="tok",
+            description="forward terminal metadata",
+        )
+        assert _get_local_task_status(tid) is not None
+
+    with patch("agent.routes.tasks.execution._forward_to_worker") as mock_fwd:
+        mock_fwd.return_value = {
+            "status": "success",
+            "data": {
+                "data": {
+                    "reason": "invalid proposal but live terminal exists",
+                    "raw": '{"summary":"broken"}',
+                    "backend": "opencode",
+                    "model": "ananta-default",
+                    "routing": {
+                        "effective_backend": "opencode",
+                        "reason": "task_kind_model_overrides",
+                        "execution_mode": "interactive_terminal",
+                        "live_terminal": {
+                            "forward_param": "cli-forward-123",
+                            "agent_url": "http://worker-x:5001",
+                            "agent_name": "worker-x",
+                        },
+                    },
+                    "cli_result": {"returncode": 0, "output_source": "live_terminal"},
+                }
+            },
+        }
+        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "x"}, headers=admin_auth_header)
+        assert res.status_code == 200
+        assert (res.json["data"].get("routing") or {}).get("live_terminal", {}).get("forward_param") == "cli-forward-123"
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        assert task is not None
+        assert task["status"] == "proposing"
+        assert ((task.get("last_proposal") or {}).get("routing") or {}).get("live_terminal", {}).get("forward_param") == "cli-forward-123"
+        history = list(task.get("history") or [])
+        assert history and history[-1]["event_type"] == "proposal_result"
+
+
 def test_task_execute_forwarding_unwraps_nested_data(client, app, admin_auth_header):
     tid = "T-FWD-EXEC"
     with app.app_context():
