@@ -299,6 +299,10 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
     if selected and selected not in failed_models:
         _queue_model(selected, str(base_model_meta.get("source") or "base_selection"))
 
+    opencode_default_model = str(cfg.get("opencode_default_model") or "").strip()
+    if opencode_default_model and opencode_default_model not in failed_models:
+        _queue_model(opencode_default_model, "opencode_default_model")
+
     if bool(cfg.get("adaptive_model_routing_enabled", True)):
         try:
             app = getattr(loop, "_app", None)
