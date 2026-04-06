@@ -237,6 +237,8 @@ def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(ap
 
     assert resolved["model"] == "ollama/ananta-smoke"
     assert resolved["target_model"] == "ananta-smoke"
+    assert resolved["tool_mode"] == "toolless"
+    assert resolved["provider_config"]["default_agent"] == "ananta-worker"
 
 
 def test_resolve_opencode_runtime_config_forces_toolless_ollama_in_backend_mode(app):
@@ -271,6 +273,7 @@ def test_build_default_agent_config_prefers_ollama_opencode_model(monkeypatch):
 
     assert cfg["opencode_default_model"] == "ananta-default"
     assert "ananta-default" in cfg["autopilot_strategy_fallback_models"]
+    assert cfg["opencode_runtime"]["tool_mode"] == "toolless"
 
 
 def test_run_opencode_command_passes_workdir_to_subprocess(app):
