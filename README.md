@@ -76,6 +76,22 @@ Hinweis zum Test-Compose-Stack:
 - Wenn Sie danach wieder lokal im Browser auf `http://localhost:4200` zugreifen wollen, starten Sie den Frontend-Service wieder mit `docker-compose.base.yml` + `docker-compose-lite.yml` (ohne `docker-compose.test.yml`).
 - Bei Docker in einer nativen WSL2-Distro (ohne Docker-Desktop-Loopback) kann unter Windows zusaetzlich ein `portproxy` noetig sein. Dafuer ist `setup_host_services.ps1` vorbereitet (inkl. Port `4200`).
 
+Live-Modus mit Quellcode-Hot-Reload und Firefox/noVNC:
+```bash
+scripts/compose-test-stack.sh up-live
+scripts/start-firefox-vnc.sh start
+```
+- `up-live` aktiviert automatisch `docker-compose.live-code.yml`.
+- Python-Hub/Worker nutzen dann den lokalen Quellcode per Bind-Mount (`./:/app`) und laufen mit `FLASK_DEBUG=1`.
+- Das Angular-Frontend laeuft weiter mit `ng serve --poll 2000` und sieht Aenderungen in `./frontend-angular` direkt.
+- noVNC: `http://localhost:7900` (Passwort im Selenium-Container: `secret`)
+- Im Firefox-Container oeffnen: `http://angular-frontend:4200`
+- Stoppen:
+```bash
+scripts/start-firefox-vnc.sh stop
+scripts/compose-test-stack.sh down
+```
+
 Frontend waehrend laufender Test-Instanz ansehen (empfohlen):
 - Browser-in-Container im gleichen Compose-Netz starten:
   `scripts/start-firefox-vnc.sh start`
