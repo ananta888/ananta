@@ -111,7 +111,6 @@ def archive_old_tasks(tasks_path: str):
                     task_repo.delete(t.id)
                 except Exception as e:
                     logging.error(f"Fehler beim Archivieren von Task {t.id}: {e}")
-        return
     except Exception as e:
         logging.debug(f"DB-Archivierung nicht möglich/fehlgeschlagen: {e}")
 

@@ -1686,15 +1686,15 @@
       "provider": "opencode",
       "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1",
       "overall": {
-        "total": 8,
-        "success": 8,
+        "total": 9,
+        "success": 9,
         "failed": 0,
-        "quality_pass": 8,
+        "quality_pass": 9,
         "quality_fail": 0,
-        "latency_ms_total": 136,
-        "tokens_total": 72,
+        "latency_ms_total": 163,
+        "tokens_total": 81,
         "cost_units_total": 0.0,
-        "last_seen": 1775248954,
+        "last_seen": 1775475992,
         "samples": [
           {
             "ts": 1771853195,
@@ -1753,20 +1753,31 @@
             "latency_ms": 7,
             "tokens_total": 9,
             "cost_units": 0.0
+          },
+          {
+            "ts": 1775475992,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 27,
+            "tokens_total": 9,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "ops"
+            }
           }
         ]
       },
       "task_kinds": {
         "ops": {
-          "total": 8,
-          "success": 8,
+          "total": 9,
+          "success": 9,
           "failed": 0,
-          "quality_pass": 8,
+          "quality_pass": 9,
           "quality_fail": 0,
-          "latency_ms_total": 136,
-          "tokens_total": 72,
+          "latency_ms_total": 163,
+          "tokens_total": 81,
           "cost_units_total": 0.0,
-          "last_seen": 1775248954,
+          "last_seen": 1775475992,
           "samples": [
             {
               "ts": 1771853195,
@@ -1825,6 +1836,17 @@
               "latency_ms": 7,
               "tokens_total": 9,
               "cost_units": 0.0
+            },
+            {
+              "ts": 1775475992,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 27,
+              "tokens_total": 9,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "ops"
+              }
             }
           ]
         }
@@ -4745,5 +4767,5 @@
       }
     }
   },
-  "updated_at": 1775474950
+  "updated_at": 1775475992
 }

@@ -1209,10 +1209,12 @@ class TaskScopedExecutionService:
         if repair_backend not in SUPPORTED_CLI_BACKENDS:
             repair_backend = "opencode"
         repair_model = str(cfg.get("task_propose_repair_model") or "").strip() or default_model
-        candidates: list[tuple[str, str | None, float | None]] = [
-            (first_backend, first_model, self._normalize_temperature(primary_temperature)),
-            (repair_backend, repair_model, self._normalize_temperature(primary_temperature)),
-        ]
+        normalized_temperature = self._normalize_temperature(primary_temperature)
+        timeout_like_failure = validation_error == "empty_or_failed_cli_response" and "timeout" in str(bad_output or "").lower()
+        candidates: list[tuple[str, str | None, float | None]] = []
+        if not timeout_like_failure or repair_backend == first_backend:
+            candidates.append((first_backend, first_model, normalized_temperature))
+        candidates.append((repair_backend, repair_model, normalized_temperature))
         deduped: list[tuple[str, str | None, float | None]] = []
         seen: set[tuple[str, str, str]] = set()
         for backend_name, model_name, temperature in candidates:

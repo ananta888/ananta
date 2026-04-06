@@ -781,12 +781,13 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-temp-1")
+    expected_default = str((app.config.get("AGENT_CONFIG") or {}).get("default_model") or "").strip() or None
     assert res["reason"] == "ok"
     assert res["dispatched"] == 1
-    assert propose_attempts[:2] == [("model-temp", 0.2), ("ananta-default", 0.2)]
+    assert propose_attempts[:2] == [("model-temp", 0.2), (expected_default, 0.2)]
     assert updated is not None and updated.status == "completed"
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
-    assert model_selection.get("selected_model") == "ananta-default"
+    assert model_selection.get("selected_model") == expected_default
     assert float(model_selection.get("selected_temperature") or 0.0) == 0.2
 
 

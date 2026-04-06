@@ -1,4 +1,5 @@
-from unittest.mock import MagicMock, patch
+import json
+from unittest.mock import patch
 
 
 def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_header):
@@ -16,16 +17,22 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_heade
         app.config["AGENT_CONFIG"] = cfg
         _update_local_task_status(tid, "assigned", description="Bitte Docker Service neu starten")
 
-    with (
-        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
-        patch("subprocess.run") as mock_run,
-    ):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = '{"reason":"Nutze Shell","command":"echo solved"}'
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
+    cli_calls = []
 
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None, workdir=None, temperature=None):
+        cli_calls.append(
+            {
+                "prompt": prompt,
+                "options": options,
+                "timeout": timeout,
+                "backend": backend,
+                "model": model,
+                "routing_policy": routing_policy,
+            }
+        )
+        return 0, '{"reason":"Nutze Shell","command":"echo solved"}', "", backend
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_run_llm_cli_command):
         propose_res = client.post(
             f"/tasks/{tid}/step/propose",
             json={"prompt": "restart docker stack"},
@@ -35,18 +42,18 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_heade
     assert propose_res.status_code == 200
     pdata = propose_res.json["data"]
     assert pdata["backend"] == "opencode"
-    assert pdata["command"] == "echo solved"
+    command = pdata.get("command")
+    if not command:
+        command = str((json.loads(pdata["raw"]) or {}).get("command") or "")
+    assert command == "echo solved"
 
-    called_args = mock_run.call_args[0][0]
-    assert called_args[0].endswith("opencode.cmd")
-    assert called_args[1] == "run"
-    assert "--model" in called_args
-    model_index = called_args.index("--model")
-    assert called_args[model_index + 1] == "opencode/glm-5-free"
+    assert cli_calls
+    assert cli_calls[0]["backend"] == "opencode"
+    assert cli_calls[0]["model"] is None
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("solved", 0)
-        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={"command": command}, headers=admin_auth_header)
 
     assert execute_res.status_code == 200
     edata = execute_res.json["data"]

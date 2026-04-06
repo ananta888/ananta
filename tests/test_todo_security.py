@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from sqlmodel import Session, delete
 from werkzeug.security import generate_password_hash
@@ -76,18 +78,18 @@ def test_password_history(client):
 
 
 def test_account_lockout_notification(client, caplog):
-    # 5 Fehlversuche
-    for i in range(5):
-        response = client.post("/login", json={"username": "testuser", "password": "wrong-password"})
-        assert response.status_code == 401
+    with patch("agent.routes.auth._log") as mock_log_factory:
+        mock_log = mock_log_factory.return_value
+        # 5 Fehlversuche
+        for i in range(5):
+            response = client.post("/login", json={"username": "testuser", "password": "wrong-password"})
+            assert response.status_code == 401
 
-    # Der 6. Versuch sollte 403 liefern (locked)
-    with caplog.at_level("INFO"):
+        mock_log.info.assert_any_call("Sending notification email to admin and user %s", "testuser")
+
+        # Der 6. Versuch sollte 403 liefern (locked)
         response = client.post("/login", json={"username": "testuser", "password": "wrong-password"})
         assert response.status_code == 403
-
-        # Prüfe auf Debug Output (Simulation E-Mail) in Logs
-        assert "Sending notification email to admin and user testuser" in caplog.text
 
     # Prüfe Audit Log (indem wir direkt in die DB schauen)
     from agent.repository import audit_repo
