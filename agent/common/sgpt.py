@@ -778,7 +778,7 @@ def _normalize_opencode_execution_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
     if mode in {"backend", "live_terminal", "interactive_terminal"}:
         return mode
-    return "interactive_terminal"
+    return "live_terminal"
 
 
 def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:
