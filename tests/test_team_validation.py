@@ -1,7 +1,7 @@
 from sqlmodel import Session, delete, select
 
 from agent.database import engine
-from agent.db_models import AgentInfoDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
+from agent.db_models import AgentInfoDB, GoalDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
 from agent.repository import agent_repo, role_repo, team_repo, team_type_repo
 
 
@@ -15,6 +15,8 @@ def test_team_role_validation(client):
     with Session(engine) as session:
         # Clear existing data to avoid conflicts
         session.exec(delete(TeamMemberDB))
+        session.exec(delete(GoalDB))
+        session.exec(delete(TaskDB))
         session.exec(delete(TeamDB))
         session.exec(delete(TeamTypeRoleLink))
         session.exec(delete(TeamTypeDB))
@@ -78,6 +80,7 @@ def test_team_member_template_validation(client):
 
     with Session(engine) as session:
         session.exec(delete(TeamMemberDB))
+        session.exec(delete(GoalDB))
         session.exec(delete(TaskDB))
         session.exec(delete(TeamDB))
         session.exec(delete(TeamTypeRoleLink))
@@ -121,6 +124,8 @@ def test_delete_team_with_members_cleans_members_first(client):
 
     with Session(engine) as session:
         session.exec(delete(TeamMemberDB))
+        session.exec(delete(GoalDB))
+        session.exec(delete(TaskDB))
         session.exec(delete(TeamDB))
         session.exec(delete(TeamTypeRoleLink))
         session.exec(delete(TeamTypeDB))
@@ -153,6 +158,7 @@ def test_delete_team_with_members_cleans_members_first(client):
 
     with Session(engine) as session:
         session.add(TaskDB(id="team-delete-task", title="Team task", status="todo", team_id=team.id))
+        session.add(GoalDB(goal="Team goal", status="received", team_id=team.id))
         session.commit()
 
     delete_res = client.delete(
@@ -165,5 +171,7 @@ def test_delete_team_with_members_cleans_members_first(client):
         assert session.get(TeamDB, team.id) is None
         members = session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team.id)).all()
         task = session.get(TaskDB, "team-delete-task")
+        goal = session.exec(select(GoalDB).where(GoalDB.goal == "Team goal")).first()
     assert members == []
     assert task is not None and task.team_id is None
+    assert goal is not None and goal.team_id is None

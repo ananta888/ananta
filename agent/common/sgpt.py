@@ -787,7 +787,11 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
     tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
     execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
-    configured_default_model = str(agent_cfg.get("opencode_default_model") or settings.opencode_default_model or "").strip()
+    configured_default_model = (
+        str(agent_cfg.get("opencode_default_model") or "").strip()
+        or str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip()
+        or str(settings.opencode_default_model or "").strip()
+    )
     raw_model = str(model or configured_default_model or "").strip() or None
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
     built_in_providers = {
@@ -813,6 +817,8 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     local_target = None
 
     if target_provider == "ollama":
+        if execution_mode == "backend":
+            tool_mode = "toolless"
         base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
         base_url_source = "ollama_url"
         target_provider_type = "local_openai_compatible"

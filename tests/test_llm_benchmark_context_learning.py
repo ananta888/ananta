@@ -92,3 +92,48 @@ def test_recommend_models_for_context_returns_ranked_and_excludes_models(tmp_pat
     )
     assert len(ranked) == 1
     assert ranked[0]["model"] == "fallback-model"
+
+
+def test_recommend_model_for_context_filters_to_requested_provider(tmp_path):
+    data_dir = str(tmp_path)
+    cfg = {}
+    for _ in range(3):
+        record_benchmark_sample(
+            data_dir=data_dir,
+            agent_cfg=cfg,
+            provider="lmstudio",
+            model="model-ts",
+            task_kind="coding",
+            success=True,
+            quality_gate_passed=True,
+            latency_ms=200,
+            tokens_total=300,
+            cost_units=0.01,
+            context_tags={"role_name": "Developer", "template_name": "default"},
+        )
+        record_benchmark_sample(
+            data_dir=data_dir,
+            agent_cfg=cfg,
+            provider="ollama",
+            model="ananta-smoke",
+            task_kind="coding",
+            success=True,
+            quality_gate_passed=True,
+            latency_ms=400,
+            tokens_total=500,
+            cost_units=0.01,
+            context_tags={"role_name": "Developer", "template_name": "default"},
+        )
+
+    rec = recommend_model_for_context(
+        data_dir=data_dir,
+        task_kind="coding",
+        role_name="Developer",
+        template_name="default",
+        provider="ollama",
+        min_samples=2,
+    )
+
+    assert rec is not None
+    assert rec["provider"] == "ollama"
+    assert rec["model"] == "ananta-smoke"

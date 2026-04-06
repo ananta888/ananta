@@ -31,6 +31,15 @@ class GoalRepository:
                 return True
             return False
 
+    def clear_team_assignments(self, team_id: str) -> int:
+        with Session(engine) as session:
+            goals = session.exec(select(GoalDB).where(GoalDB.team_id == team_id)).all()
+            for goal in goals:
+                goal.team_id = None
+                session.add(goal)
+            session.commit()
+            return len(goals)
+
 
 class PlanRepository:
     def get_by_id(self, plan_id: str) -> Optional[PlanDB]:
