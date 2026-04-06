@@ -1425,8 +1425,8 @@ class TaskScopedExecutionService:
     def _resolve_opencode_execution_mode(agent_cfg: dict | None) -> str:
         cfg = agent_cfg or {}
         runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
-        mode = str(runtime_cfg.get("execution_mode") or "interactive_terminal").strip().lower()
-        return mode if mode in {"backend", "live_terminal", "interactive_terminal"} else "interactive_terminal"
+        mode = str(runtime_cfg.get("execution_mode") or "live_terminal").strip().lower()
+        return mode if mode in {"backend", "live_terminal", "interactive_terminal"} else "live_terminal"
 
     def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
         task_record = get_repository_registry().task_repo.get_by_id(tid)

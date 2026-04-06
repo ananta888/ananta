@@ -25,6 +25,7 @@ def test_get_config(client, admin_token):
     assert response.status_code == 200
     assert "data" in response.json
     assert "runtime_profile_effective" in response.json["data"]
+    assert ((response.json["data"].get("opencode_runtime") or {}).get("execution_mode")) == "live_terminal"
     assert response.json["data"]["runtime_profile_effective"]["effective"] in {
         "local-dev",
         "trusted-lab",
