@@ -42,6 +42,14 @@ def _normalize_terminal_execution_mode(value: str | None) -> str:
     return "live_terminal"
 
 
+def _build_stdin_heredoc_command(command: str, prompt: str) -> tuple[str, str]:
+    delimiter = f"__ANANTA_OPENCODE_PROMPT_{time.time_ns()}__"
+    while delimiter in prompt:
+        delimiter = f"{delimiter}_X"
+    heredoc = f"{command} <<'{delimiter}'\n{prompt}\n{delimiter}"
+    return heredoc, f"{command} <<'{delimiter}'"
+
+
 class ManagedLiveTerminalSession:
     def __init__(self, session_id: str, *, shell: str | None = None) -> None:
         self.id = str(session_id or "").strip()
@@ -359,15 +367,17 @@ class LiveTerminalSessionService:
             # task proposal pipeline can parse command/tool_calls after showing
             # the real OpenCode invocation in the browser terminal.
             args.extend(["--format", "json"])
-        args.append(str(prompt or ""))
 
         visible = " ".join(shlex.quote(part) for part in args)
-        env_prefix = " ".join(f"{key}={shlex.quote(value)}" for key, value in env.items() if value)
-        cmd = visible if not env_prefix else f"{env_prefix} {visible}"
+        env_prefix = " ".join(
+            f"{key}={shlex.quote(value)}" for key, value in env.items() if value and key in {"XDG_CONFIG_HOME"}
+        )
+        base_command = visible if not env_prefix else f"{env_prefix} {visible}"
+        cmd, visible_command = _build_stdin_heredoc_command(base_command, str(prompt or ""))
         return session.run_command(
             cmd,
             timeout=timeout,
-            visible_command=cmd,
+            visible_command=visible_command,
             suppress_input_echo=(mode == "interactive_terminal"),
         )
 

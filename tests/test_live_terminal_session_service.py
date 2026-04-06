@@ -83,5 +83,8 @@ def test_run_opencode_turn_passes_workdir_to_session_setup(app):
     command, kwargs = fake_session.run_command_calls[0]
     assert "--dir /tmp/task-workspace" in command
     assert "--format json" in command
-    assert kwargs["visible_command"] == command
+    assert "say hi" in command
+    assert kwargs["visible_command"] != command
+    assert "say hi" not in kwargs["visible_command"]
+    assert "opencode run" in kwargs["visible_command"]
     assert kwargs["suppress_input_echo"] is True

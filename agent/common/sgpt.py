@@ -605,7 +605,6 @@ def _run_opencode_subprocess(
             args.extend(["--model", selected_model])
         if output_format:
             args.extend(["--format", str(output_format)])
-        args.append(prompt)
         try:
             diagnostics = list(runtime_cfg.get("diagnostics") or [])
             if diagnostics:
@@ -621,9 +620,7 @@ def _run_opencode_subprocess(
                     env["XDG_CONFIG_HOME"] = tmp_dir
                     env["OPENCODE_CONFIG_CONTENT"] = json.dumps(runtime_cfg["provider_config"], ensure_ascii=True)
                 env_prefix = " ".join(
-                    f"{key}={shlex.quote(value)}"
-                    for key, value in env.items()
-                    if key in {"XDG_CONFIG_HOME", "OPENCODE_CONFIG_CONTENT"}
+                    f"{key}={shlex.quote(value)}" for key, value in env.items() if key in {"XDG_CONFIG_HOME"}
                 )
                 visible_command = " ".join(
                     [segment for segment in [env_prefix.strip(), " ".join(shlex.quote(part) for part in args)] if segment]
@@ -638,6 +635,7 @@ def _run_opencode_subprocess(
                     env=env,
                     timeout=timeout,
                     cwd=workdir or None,
+                    input=str(prompt or ""),
                 )
                 return result.returncode, result.stdout, result.stderr, visible_command
         except subprocess.TimeoutExpired:
