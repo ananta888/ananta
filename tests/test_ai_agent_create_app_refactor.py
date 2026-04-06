@@ -1,4 +1,6 @@
 import agent.ai_agent as ai_agent
+import agent.lifecycle as lifecycle
+from agent.services.background import llm_check
 
 
 def test_should_skip_threads_for_reloader(monkeypatch):
@@ -13,39 +15,31 @@ def test_should_skip_threads_for_reloader(monkeypatch):
 def test_start_background_services_respects_disabled(monkeypatch):
     calls = {"registration": 0, "llm": 0, "monitoring": 0, "housekeeping": 0, "scheduler": 0}
 
-    class DummyScheduler:
-        def start(self):
-            calls["scheduler"] += 1
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_is_testing", lambda self: True)
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_should_skip_for_reloader", lambda self: False)
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_registration", lambda self: calls.__setitem__("registration", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_llm_monitoring", lambda self: calls.__setitem__("llm", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_monitoring", lambda self: calls.__setitem__("monitoring", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_housekeeping", lambda self: calls.__setitem__("housekeeping", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_scheduler", lambda self: calls.__setitem__("scheduler", 1))
 
-    monkeypatch.setattr(ai_agent, "_should_skip_threads_for_reloader", lambda: False)
-    monkeypatch.setattr(ai_agent, "_background_threads_disabled", lambda app: True)
-    monkeypatch.setattr(ai_agent, "_start_registration_thread", lambda app: calls.__setitem__("registration", 1))
-    monkeypatch.setattr(ai_agent, "_start_llm_check_thread", lambda app: calls.__setitem__("llm", 1))
-    monkeypatch.setattr(ai_agent, "_start_monitoring_thread", lambda app: calls.__setitem__("monitoring", 1))
-    monkeypatch.setattr(ai_agent, "_start_housekeeping_thread", lambda app: calls.__setitem__("housekeeping", 1))
-    monkeypatch.setattr("agent.scheduler.get_scheduler", lambda: DummyScheduler())
-
-    ai_agent._start_background_services(object())
+    lifecycle.BackgroundServiceManager(object()).start_all()
     assert calls == {"registration": 0, "llm": 0, "monitoring": 0, "housekeeping": 0, "scheduler": 0}
 
 
 def test_start_background_services_runs_expected_calls(monkeypatch):
     calls = {"registration": 0, "llm": 0, "monitoring": 0, "housekeeping": 0, "scheduler": 0}
 
-    class DummyScheduler:
-        def start(self):
-            calls["scheduler"] += 1
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_is_testing", lambda self: False)
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_should_skip_for_reloader", lambda self: False)
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_registration", lambda self: calls.__setitem__("registration", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_llm_monitoring", lambda self: calls.__setitem__("llm", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_monitoring", lambda self: calls.__setitem__("monitoring", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_housekeeping", lambda self: calls.__setitem__("housekeeping", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_scheduler", lambda self: calls.__setitem__("scheduler", 1))
+    monkeypatch.setattr(lifecycle.settings, "disable_llm_check", False)
 
-    monkeypatch.setattr(ai_agent, "_should_skip_threads_for_reloader", lambda: False)
-    monkeypatch.setattr(ai_agent, "_background_threads_disabled", lambda app: False)
-    monkeypatch.setattr(ai_agent, "_start_registration_thread", lambda app: calls.__setitem__("registration", 1))
-    monkeypatch.setattr(ai_agent, "_start_llm_check_thread", lambda app: calls.__setitem__("llm", 1))
-    monkeypatch.setattr(ai_agent, "_start_monitoring_thread", lambda app: calls.__setitem__("monitoring", 1))
-    monkeypatch.setattr(ai_agent, "_start_housekeeping_thread", lambda app: calls.__setitem__("housekeeping", 1))
-    monkeypatch.setattr("agent.scheduler.get_scheduler", lambda: DummyScheduler())
-    monkeypatch.setattr(ai_agent.settings, "disable_llm_check", False)
-
-    ai_agent._start_background_services(object())
+    lifecycle.BackgroundServiceManager(object()).start_all()
     assert calls == {"registration": 1, "llm": 1, "monitoring": 1, "housekeeping": 1, "scheduler": 1}
 
 
@@ -60,6 +54,6 @@ def test_get_llm_target_prefers_runtime_default_provider_from_app_config(app):
     }
 
     with app.app_context():
-        target = ai_agent._get_llm_target(app)
+        target = llm_check._get_llm_target(app)
 
     assert target == ("lmstudio", "http://runtime-lmstudio:1234/v1")
