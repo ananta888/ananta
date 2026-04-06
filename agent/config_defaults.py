@@ -266,6 +266,13 @@ def merge_db_config_overrides(default_cfg: dict) -> None:
     except Exception as e:
         logging.warning(f"Konnte Konfiguration nicht aus DB laden: {e}. Nutze Fallback.")
 
+def apply_env_config_overrides(cfg: dict) -> None:
+    runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+    forced_execution_mode = str(os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "").strip().lower()
+    if forced_execution_mode in {"backend", "live_terminal", "interactive_terminal"}:
+        runtime_cfg["execution_mode"] = forced_execution_mode
+        cfg["opencode_runtime"] = runtime_cfg
+
 def _sync_default_provider_settings(lc: dict) -> str | None:
     prov = lc.get("provider")
     if prov and hasattr(settings, "default_provider"):

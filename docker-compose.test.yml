@@ -153,7 +153,8 @@ services:
       E2E_DETERMINISTIC_SCRUM_SEED: "1"
       E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
       OLLAMA_URL: "http://ollama:11434/api/generate"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-ananta-default}"
+      OLLAMA_MODEL: "${E2E_OLLAMA_MODEL:-ananta-smoke}"
+      E2E_LIVE_LLM_TIMEOUT_MS: "${E2E_LIVE_LLM_TIMEOUT_MS:-60000}"
     volumes:
       - ./frontend-angular:/app
       - /app/node_modules
@@ -190,7 +191,8 @@ services:
       RUN_LIVE_LLM_TESTS: "1"
       LIVE_LLM_PROVIDER: "ollama"
       OLLAMA_URL: "http://ollama:11434/api/generate"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-ananta-default}"
+      OLLAMA_MODEL: "${E2E_OLLAMA_MODEL:-ananta-smoke}"
+      E2E_LIVE_LLM_TIMEOUT_MS: "${E2E_LIVE_LLM_TIMEOUT_MS:-60000}"
     depends_on:
       angular-frontend:
         condition: service_started

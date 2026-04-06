@@ -98,7 +98,11 @@ function llmTimeoutMs(): number {
 
 function apiTimeoutMs(url: string): number {
   const lowered = url.toLowerCase();
-  if (lowered.includes('/llm/generate') || lowered.includes('/tasks/auto-planner/plan')) {
+  if (
+    lowered.includes('/llm/generate')
+    || lowered.includes('/tasks/auto-planner/plan')
+    || lowered.includes('/tasks/autopilot/tick')
+  ) {
     const raw = Number(process.env.E2E_LLM_API_TIMEOUT_MS || 120_000);
     if (!Number.isFinite(raw)) return 120_000;
     return Math.max(30_000, Math.min(raw, 180_000));
