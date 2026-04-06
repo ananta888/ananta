@@ -1081,6 +1081,88 @@ def _open_worker_terminal_panel(
     }
 
 
+def _inspect_task_detail_live_terminal(session_id: str, task_id: str) -> Dict[str, Any]:
+    task_id = str(task_id or "").strip()
+    if not task_id:
+        return {"attempted": False, "error": "missing_task_id"}
+    route = f"/task/{quote(task_id, safe='')}"
+    step_nav(session_id, route, settle_s=1.0)
+    task_ready = wait_for(
+        session_id,
+        """
+        return !![...document.querySelectorAll('h1,h2,h3')].find((node) => /task/i.test((node.textContent || '').trim()));
+        """,
+        20,
+    )
+    logs_clicked = bool(
+        js(
+            session_id,
+            """
+            const button = [...document.querySelectorAll('button')].find((node) => /^logs$/i.test((node.textContent || '').trim()));
+            if (!button) return false;
+            button.click();
+            return true;
+            """,
+        ).get("value")
+    )
+    terminal_ready = wait_for(
+        session_id,
+        """
+        const root = document.querySelector('[data-testid="task-live-terminal"]');
+        const buffer = root?.querySelector('[data-testid="terminal-output-buffer"]');
+        return !!root && !!buffer;
+        """,
+        30,
+    )
+    connected = wait_for(
+        session_id,
+        """
+        const root = document.querySelector('[data-testid="task-live-terminal"]');
+        const pill = root?.querySelector('.status-pill');
+        const buffer = root?.querySelector('[data-testid="terminal-output-buffer"]');
+        const pillText = (pill?.textContent || '').trim();
+        const bufferText = (buffer?.textContent || '').trim();
+        return /status:\\s*connected/i.test(pillText) || /\\[connected:/i.test(bufferText);
+        """,
+        30,
+    )
+    snapshot = (
+        js(
+            session_id,
+            """
+            const root = document.querySelector('[data-testid="task-live-terminal"]');
+            const pill = root?.querySelector('.status-pill');
+            const buffer = root?.querySelector('[data-testid="terminal-output-buffer"]');
+            const quickInput = root?.querySelector('input[aria-label="Terminal-Befehl"]');
+            const sendButton = [...(root?.querySelectorAll('button') || [])].find((node) => /senden/i.test((node.textContent || '').trim()));
+            const panelLink = [...document.querySelectorAll('a,button')].find((node) => /worker-panel|worker-panel oeffnen|im worker-panel oeffnen/i.test((node.textContent || '').trim().toLowerCase()));
+            return {
+              status_text: (pill?.textContent || '').trim(),
+              buffer_excerpt: (buffer?.textContent || '').slice(-4000),
+              input_visible: !!quickInput && quickInput.offsetParent !== null,
+              send_visible: !!sendButton && sendButton.offsetParent !== null,
+              panel_link_visible: !!panelLink && panelLink.offsetParent !== null,
+            };
+            """,
+        ).get("value")
+        or {}
+    )
+    return {
+        "attempted": True,
+        "task_id": task_id,
+        "route": route,
+        "opened": bool(task_ready),
+        "logs_clicked": logs_clicked,
+        "embedded_visible": bool(terminal_ready),
+        "connected": bool(connected),
+        "interactive_controls_visible": bool(snapshot.get("input_visible")) and bool(snapshot.get("send_visible")),
+        "panel_link_visible": bool(snapshot.get("panel_link_visible")),
+        "status_text": str(snapshot.get("status_text") or ""),
+        "buffer_excerpt": str(snapshot.get("buffer_excerpt") or ""),
+        **current_route_and_title(session_id),
+    }
+
+
 def _open_operations_console_artifact_flow(session_id: str) -> Dict[str, Any]:
     step_nav(session_id, "/operations", settle_s=1.0)
     heading_ready = wait_for(
@@ -1431,6 +1513,25 @@ def phase_benchmark(
                 mode="interactive",
                 forward_param=terminal_forward_param,
             )
+    task_detail_terminal = {"attempted": False, "embedded_visible": False, "connected": False}
+    preferred_terminal_agent_url = str(terminal_agent.get("url") or "").strip() if isinstance(terminal_agent, dict) else ""
+    preferred_terminal_task: Optional[dict] = None
+    fallback_terminal_task: Optional[dict] = None
+    for task in tasks_after_full:
+        if not isinstance(task, dict):
+            continue
+        forward_param = _extract_task_terminal_forward_param(task)
+        if not forward_param:
+            continue
+        if fallback_terminal_task is None:
+            fallback_terminal_task = task
+        agent_url = _extract_task_terminal_agent_url(task)
+        if preferred_terminal_agent_url and agent_url == preferred_terminal_agent_url:
+            preferred_terminal_task = task
+            break
+    selected_terminal_task = preferred_terminal_task or fallback_terminal_task
+    if isinstance(selected_terminal_task, dict):
+        task_detail_terminal = _inspect_task_detail_live_terminal(session_id, str(selected_terminal_task.get("id") or ""))
     tasks_after_full_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
 
     after_status = _summarize_tasks(tasks_after)
@@ -1664,6 +1765,14 @@ def phase_benchmark(
     terminal_buffer = str(terminal_view.get("buffer_excerpt") or "")
     terminal_cli_visible = "opencode run" in terminal_buffer.lower()
     terminal_workdir_error = "failed to change directory" in terminal_buffer.lower()
+    task_detail_terminal_ok = (
+        not task_detail_terminal.get("attempted")
+        or (
+            bool(task_detail_terminal.get("embedded_visible"))
+            and bool(task_detail_terminal.get("connected"))
+            and bool(task_detail_terminal.get("interactive_controls_visible"))
+        )
+    )
     provider_breakdown = (result_summary.get("cost_summary") or {}).get("provider_breakdown") if isinstance(result_summary, dict) else []
     provider_breakdown = provider_breakdown if isinstance(provider_breakdown, list) else []
     model_usage_ok = any(
@@ -1680,7 +1789,7 @@ def phase_benchmark(
         benchmark_success = benchmark_success and artifact_summary_ok
     if require_multi_file_output:
         benchmark_success = benchmark_success and multi_file_output_ok
-    benchmark_success = benchmark_success and terminal_cli_visible and not terminal_workdir_error and model_usage_ok
+    benchmark_success = benchmark_success and terminal_cli_visible and not terminal_workdir_error and model_usage_ok and task_detail_terminal_ok
     benchmark_payload = {
         "provider": provider,
         "model": model,
@@ -1739,6 +1848,7 @@ def phase_benchmark(
             "worker_bind_info": worker_bind_info,
             "task_team_patch_info": task_team_patch_info,
             "worker_terminal": terminal_view,
+            "task_detail_terminal": task_detail_terminal,
             "terminal_cli_visible": terminal_cli_visible,
             "terminal_workdir_error": terminal_workdir_error,
             "model_usage_ok": model_usage_ok,

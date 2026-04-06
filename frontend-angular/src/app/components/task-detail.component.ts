@@ -9,12 +9,13 @@ import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
+import { TerminalComponent } from './terminal.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-task-detail',
-  imports: [CommonModule, FormsModule, RouterLink, TaskStatusDisplayPipe, UiSkeletonComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TaskStatusDisplayPipe, TerminalComponent, UiSkeletonComponent],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -30,6 +31,12 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
     }
     .tab-btn:hover:not(.active) {
       background: #f0f0f0;
+    }
+    .task-live-terminal-card {
+      margin-top: 10px;
+    }
+    .task-live-terminal-meta {
+      margin: 4px 0 10px;
     }
   `],
   template: `
@@ -458,11 +465,26 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               [routerLink]="['/panel', taskLiveTerminalLink()?.agentName]"
               [queryParams]="taskLiveTerminalLink()?.queryParams"
             >
-              OpenCode Live Terminal
+              Im Worker-Panel oeffnen
             </a>
           }
         </div>
-        <p class="muted">Dieser Tab zeigt nur den Log-Stream des Tasks. Das echte OpenCode-Terminal oeffnet im Worker-Panel.</p>
+        @if (taskLiveTerminalConnection(); as liveTerminal) {
+          <div class="card card-light task-live-terminal-card" data-testid="task-live-terminal">
+            <strong>Worker Live Terminal</strong>
+            <div class="muted task-live-terminal-meta">
+              Verbunden mit <strong>{{ liveTerminal.agentName }}</strong> ueber {{ liveTerminal.forwardParam }}.
+              Eingaben werden direkt an die laufende OpenCode-Session des Workers weitergeleitet.
+            </div>
+            <app-terminal
+              [baseUrl]="liveTerminal.agentUrl"
+              [mode]="'interactive'"
+              [forwardParam]="liveTerminal.forwardParam"
+            ></app-terminal>
+          </div>
+        } @else {
+          <p class="muted">Dieser Tab zeigt den Log-Stream. Ein interaktives Worker-Terminal erscheint automatisch, sobald die Task-Laufzeit einen Live-Terminal-Forward-Parameter bereitstellt.</p>
+        }
         @if (loadingLogs) {
           <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
           <app-ui-skeleton [count]="1" [lineCount]="2" [card]="false" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
@@ -924,7 +946,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  taskLiveTerminalLink(): { agentName: string; queryParams: Record<string, string> } | null {
+  taskLiveTerminalConnection(): { agentName: string; agentUrl: string; forwardParam: string; queryParams: Record<string, string> } | null {
     const agentUrl = String(
       this.task?.last_proposal?.routing?.live_terminal?.agent_url
       || this.task?.verification_status?.opencode_live_terminal?.agent_url
@@ -944,11 +966,22 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     if (!agentName) return null;
     return {
       agentName,
+      agentUrl,
+      forwardParam,
       queryParams: {
         tab: 'terminal',
         mode: 'interactive',
         forward_param: forwardParam,
       },
+    };
+  }
+
+  taskLiveTerminalLink(): { agentName: string; queryParams: Record<string, string> } | null {
+    const connection = this.taskLiveTerminalConnection();
+    if (!connection) return null;
+    return {
+      agentName: connection.agentName,
+      queryParams: connection.queryParams,
     };
   }
 }
