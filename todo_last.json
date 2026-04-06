@@ -1,478 +1,561 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2.7",
-  "created": "2026-04-04",
-  "updated": "2026-04-04T16:58:00+02:00",
+  "version": "5.3.0",
+  "created": "2026-04-05",
+  "updated": "2026-04-05T14:46:44Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Frontend-zentrierte, nachvollziehbare E2E-Teststrategie fuer das Hauptziel: mit sinnvollem Scrum-Blueprint + Templates ein Team aus zwei Workern ueber die UI aufbauen und ein Goal steuerbar bis zur Ausfuehrung begleiten.",
+    "review_goal": "Backend-Review fuer Blueprints, Templates, Rollen und Team-Instanziierung im Hub-Worker-Modell inkl. konkreter Verbesserungen.",
     "notes": [
-      "Versionslinie aus frueheren todo.json-Commits fortgefuehrt: 5.0-next (1a278ad) -> 5.1 (88019e1/c51498d) -> 5.2 (aktuell).",
-      "Versionierungs-Schema: Semver-aehnlich fuer Todo-Generationen (Major.Minor.Patch) mit inhaltlichen Regeln in `meta.versioning_policy`.",
-      "Bestehende Basis ist vorhanden: `ui-ux-workflows.spec.ts`, `first-goal-e2e.spec.ts`, `templates-crud.spec.ts`, `teams.spec.ts`, `auto-planner.spec.ts`.",
-      "Live-Nachvollziehbarkeit ist vorhanden: `scripts/firefox_live_click_demo.py` und `scripts/firefox_live_click_extended.py` via `ananta-firefox-vnc`.",
-      "Grosse End-to-End-Flows sollen in kleinere, aufbauende E2E-Suiten zerlegt werden.",
-      "Ziel bleibt AGENTS.md-konform: Hub orchestriert, Worker fuehren aus; Tests validieren genau diesen Pfad."
+      "Architekturvorgabe aus AGENTS.md bleibt unveraendert: Hub orchestriert, Worker fuehren aus.",
+      "Review-Fokus auf `agent/routes/teams.py`, `agent/routes/config/templates.py`, `agent/db_models.py`, `agent/services/task_template_resolution.py`.",
+      "Hauptbefunde: Seed-Blueprint-Drift, delete+recreate bei Blueprint-Children, schwache Artefakt-Validierung, fehlende DB-Constraints, nur warnende Template-Variable-Pruefung."
     ]
   },
   "categories": [
     {
-      "name": "todo-governance",
-      "label": "Todo-Governance und Versionierung",
+      "name": "import-export-blueprints",
+      "label": "Import/Export fuer Blueprint/Team/Template",
       "items": [
         {
-          "id": "TODO-001",
-          "title": "Todo-Versionierung als verpflichtenden Workflow-Schritt etablieren",
-          "description": "Jede Aenderung an Scope/Prioritaet/Struktur muss vor dem Speichern gegen das definierte Versionsschema geprueft werden (Major/Minor/Patch-Regeln).",
-          "priority": "medium",
-          "type": "process",
-          "principle": "Clarity, Maintainability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "todo.json",
-            "todo.schema.json"
-          ],
-          "acceptance": [
-            "Bei jedem Update ist begruendet, warum Major/Minor/Patch erhoeht wurde.",
-            "Version in Dateikopf und Change-Kontext ist konsistent."
-          ],
-          "notes": [
-            "2026-04-04: Verbindliches Schema in `meta.versioning_policy` hinterlegt und auf 5.x-Linie fixiert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "review-and-scope",
-      "label": "Review und Scope-Schnitt",
-      "items": [
-        {
-          "id": "E2E-001",
-          "title": "Bestehende E2E- und Live-Klicktests gegen Hauptziel mappen",
-          "description": "Dokumentiere fuer jede bestehende Suite, welche Abschnitte des Zielprozesses bereits abgedeckt sind und wo funktionale Luecken liegen.",
-          "priority": "high",
-          "type": "analysis",
-          "principle": "Transparency, Testability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "frontend-angular/tests/",
-            "scripts/firefox_live_click_demo.py",
-            "scripts/firefox_live_click_extended.py",
-            "todo.json"
-          ],
-          "acceptance": [
-            "Coverage-Matrix ist als Grundlage fuer Folge-Tasks festgelegt.",
-            "Hauptziel-Luecken sind explizit in Tasks ueberfuehrt."
-          ]
-        },
-        {
-          "id": "E2E-002",
-          "title": "Kanonischen UI-Hauptprozess als Testvertrag festlegen",
-          "description": "Definiere den kanonischen Happy Path ueber die UI: Login -> Templates bereitstellen -> Scrum-Blueprint erstellen/waehlen -> Team mit zwei Workern instanziieren -> Goal planen/ausfuehren -> Ergebnis/Artefakte/Logs pruefen.",
+          "id": "BP-050",
+          "title": "Domain-Schema fuer Full-Bundle-Export/Import definieren",
+          "description": "Ein versioniertes JSON-Schema definieren, das Blueprint, Blueprint-Rollen, referenzierte Templates, Team-Konfiguration und optional Mitglieder in einem Bundle abbildet.",
           "priority": "critical",
-          "type": "test-design",
-          "principle": "SRP, Architecture-Integrity",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "frontend-angular/tests/",
-            "docs/testing.md"
-          ],
-          "dependencies": [
-            "E2E-001"
-          ],
-          "acceptance": [
-            "Ein eindeutiger End-to-End-Vertrag fuer den UI-Hauptprozess ist dokumentiert.",
-            "Alle nachfolgenden Suiten referenzieren denselben Prozess."
-          ],
-          "notes": [
-            "2026-04-04: Kanonischer UI-Hauptprozess als Testvertrag in `docs/testing.md` dokumentiert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "e2e-layered-journeys",
-      "label": "Aufbauende E2E-Suites (klein zu gross)",
-      "items": [
-        {
-          "id": "E2E-010",
-          "title": "Suite A: Foundation-Setup (Templates + Blueprint + Team) ueber UI stabilisieren",
-          "description": "Erweitere/haerte eine dedizierte Suite, die ausschliesslich den reproduzierbaren Team-Setup-Teil ueber die UI absichert, inklusive Cleanup.",
-          "priority": "critical",
-          "type": "test",
-          "principle": "SRP, Reliability",
+          "type": "design",
+          "principle": "Clarity, Backward-Compatibility",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "frontend-angular/tests/main-goal-foundation.spec.ts",
-            "frontend-angular/tests/ui-ux-workflows.spec.ts",
-            "frontend-angular/tests/teams.spec.ts",
-            "frontend-angular/tests/templates-crud.spec.ts"
-          ],
-          "dependencies": [
-            "E2E-002"
+            "api-spec.md",
+            "docs/",
+            "agent/models.py"
           ],
           "acceptance": [
-            "Template-/Blueprint-/Team-Erstellung laeuft deterministisch in Docker-Compose.",
-            "Cleanup ist robust gegen Teilfehler."
-          ],
-          "notes": [
-            "2026-04-04: Neue Foundation-Suite `main-goal-foundation.spec.ts` implementiert (Template->Blueprint->Team mit Worker-Zuweisung und Cleanup).",
-            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-foundation.spec.ts --reporter=line"
+            "Schema enthaelt `schema_version` und klare Felder fuer Full-Bundle.",
+            "Import-Verhalten fuer fehlende/ungueltige Referenzen ist dokumentiert."
           ]
         },
         {
-          "id": "E2E-011",
-          "title": "Suite B: Goal-Planung und Team-Zuordnung ueber Auto-Planner erweitern",
-          "description": "Baue auf Suite A auf und pruefe die Goal-Erstellung inkl. korrekter Team-Referenz, sichtbarer Plan-/Detail-Panels und steuerbarer Follow-up Aktionen.",
+          "id": "BP-051",
+          "title": "Backend-Endpunkte fuer Full-Bundle Export und Import implementieren",
+          "description": "Neue API-Endpunkte einfuehren, um eine komplette Blueprint-Konfiguration als JSON zu exportieren und wieder zu importieren (inkl. Referenzauflosung Templates/Rollen/Team-Typ).",
           "priority": "critical",
-          "type": "test",
-          "principle": "Testability, UX",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/tests/main-goal-planning.spec.ts",
-            "frontend-angular/tests/auto-planner.spec.ts",
-            "frontend-angular/tests/ui-ux-workflows.spec.ts"
-          ],
-          "dependencies": [
-            "E2E-010"
-          ],
-          "acceptance": [
-            "Goal wird ueber UI erstellt und dem erzeugten Team zugeordnet.",
-            "Detail-/Plan-/Trace-Bereiche sind sichtbar und konsistent."
-          ],
-          "notes": [
-            "2026-04-04: Neue aufbauende Suite `main-goal-planning.spec.ts` implementiert (Team via setup-scrum, Teamauswahl im Auto-Planner, Verifikation `team_id` im Goal-Request).",
-            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-planning.spec.ts --reporter=line"
-          ]
-        },
-        {
-          "id": "E2E-012",
-          "title": "Suite C: Execution-Flow mit zwei Workern bis Ergebnisnachweis",
-          "description": "Fuehre einen grossen End-to-End-Test ein, der nach Setup+Planung die Ausfuehrung mit zwei Workern nachweist (Tasks, Statuswechsel, Ergebnisse).",
-          "priority": "critical",
-          "type": "test",
-          "principle": "Architecture-Integrity, Reliability",
+          "type": "feature",
+          "principle": "Operability, Testability",
           "status": "completed",
           "effort": "large",
           "files": [
-            "frontend-angular/tests/main-goal-execution.spec.ts",
-            "frontend-angular/tests/first-goal-e2e.spec.ts",
-            "frontend-angular/tests/hub-flow.spec.ts",
-            "frontend-angular/tests/ui-ux-workflows.spec.ts"
+            "agent/routes/teams.py",
+            "agent/routes/config/templates.py",
+            "agent/services/",
+            "agent/repositories/"
           ],
           "dependencies": [
-            "E2E-011"
+            "BP-050"
           ],
           "acceptance": [
-            "Der Test weist nach, dass Hub-Delegation und Worker-Ausfuehrung mit zwei Workern funktioniert.",
-            "Mindestens ein Goal laeuft bis zu nachvollziehbaren Artefakten/Ergebnissen."
-          ],
-          "notes": [
-            "2026-04-04: Neue große Journey-Suite `main-goal-execution.spec.ts` implementiert (2 Worker-Setup, Planner/Fallback-Tasks, Autopilot-Ticks, Assignment/Terminal-Nachweis, UI-Inspektion).",
-            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-execution.spec.ts --reporter=line"
+            "Export liefert ein konsistentes Bundle fuer einen Blueprint.",
+            "Import kann dasselbe Bundle idempotent erneut einspielen.",
+            "Konfliktstrategie (`fail`, `skip`, `overwrite`) ist per Request steuerbar."
           ]
         },
         {
-          "id": "E2E-013",
-          "title": "Suite D: Analyse- und Steuerbarkeit ueber UI absichern",
-          "description": "Ergaenze Tests fuer Board/Task-Details/Logs/Artifacts, damit der gesamte Prozess fuer den Nutzer nicht nur laeuft, sondern ueber die UI analysierbar und steuerbar bleibt.",
+          "id": "BP-052",
+          "title": "Split-Modus fuer getrennten Export/Import (blueprint, roles, templates, team) einfuehren",
+          "description": "Neben Full-Bundle einen Modus anbieten, der Komponenten getrennt exportiert/importiert, um Teilmigrationen und feinere Releases zu ermoeglichen.",
           "priority": "high",
+          "type": "feature",
+          "principle": "Flexibility, SRP",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/routes/config/templates.py",
+            "agent/services/"
+          ],
+          "dependencies": [
+            "BP-051"
+          ],
+          "acceptance": [
+            "API akzeptiert `mode=full|split`.",
+            "Split-Import kann einzelne Teile laden ohne unnoetige Nebenwirkungen.",
+            "Referenzen zwischen Teilen werden valide aufgeloest oder sauber als Fehler gemeldet."
+          ]
+        },
+        {
+          "id": "BP-053",
+          "title": "Import-Vorschau und Dry-Run mit Diff-Ausgabe ergaenzen",
+          "description": "Vor dem Import einen Dry-Run anbieten, der Create/Update/Delete-Auswirkungen und potenzielle Konflikte sichtbar macht.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "Safety, Transparency",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/services/",
+            "agent/common/audit.py"
+          ],
+          "dependencies": [
+            "BP-051",
+            "BP-052"
+          ],
+          "acceptance": [
+            "Dry-Run schreibt nichts persistent.",
+            "Antwort enthaelt differenzierte Diff-Informationen pro Objektklasse."
+          ]
+        },
+        {
+          "id": "BP-054",
+          "title": "Automatisierte Tests fuer Full-/Split-ImportExport aufbauen",
+          "description": "Unit- und Integrations-Tests fuer Roundtrip, Konfliktmodi, Dry-Run und idempotentes Wiederholen einbauen.",
+          "priority": "critical",
+          "type": "test",
+          "principle": "Reliability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "agent/routes/teams.py",
+            "agent/routes/config/templates.py"
+          ],
+          "dependencies": [
+            "BP-051",
+            "BP-052",
+            "BP-053"
+          ],
+          "acceptance": [
+            "Roundtrip-Tests (export->import->export) bleiben stabil.",
+            "Konfliktfaelle und Validierungsfehler sind reproduzierbar abgesichert."
+          ]
+        },
+        {
+          "id": "BP-055",
+          "title": "UI/Operator-Flow fuer JSON-ImportExport dokumentieren und optional anbinden",
+          "description": "Runbook und API-Dokumentation fuer Admin-Nutzung erstellen; optional erste UI-Integration fuer Datei-Upload/Download vorbereiten.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Operability, UX",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "api-spec.md",
+            "frontend-angular/src/app/"
+          ],
+          "dependencies": [
+            "BP-051",
+            "BP-052"
+          ],
+          "acceptance": [
+            "Doku beschreibt Full- und Split-Modus inkl. Konfliktmodi.",
+            "Admin kann ohne Rueckfragen Export/Import reproduzierbar ausfuehren."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "architecture-and-services",
+      "label": "Architektur und Service-Schnitt",
+      "items": [
+        {
+          "id": "BP-001",
+          "title": "ensure_default_templates in klar getrennte Services aufteilen",
+          "description": "Die aktuelle Funktion in `agent/routes/teams.py` trennt TeamType-, Template-, Role- und Link-Logik nicht sauber. Aufteilen in dedizierte Services mit einem orchestrierenden Einstiegspunkt.",
+          "priority": "critical",
+          "type": "refactor",
+          "principle": "SRP, OCP, Testability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/services/",
+            "agent/services/repository_registry.py"
+          ],
+          "acceptance": [
+            "Routen-Code delegiert an einen Service statt Fachlogik inline auszufuehren.",
+            "Service-Aufbau erlaubt isolierte Unit-Tests pro Verantwortungsbereich.",
+            "Verhalten bleibt API-kompatibel."
+          ]
+        },
+        {
+          "id": "BP-002",
+          "title": "Transaktionale Grenzen fuer Blueprint-Erstellung und -Instanziierung vereinheitlichen",
+          "description": "Gemischter Repo- und direkter Session-Zugriff soll in konsistente Transaktionen ueberfuehrt werden, um Race-Conditions und inkonsistente Zwischenzustaende zu minimieren.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Consistency, Reliability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/repositories/",
+            "agent/services/"
+          ],
+          "dependencies": [
+            "BP-001"
+          ],
+          "acceptance": [
+            "Blueprint-Operationen laufen mit klarer Commit-Grenze.",
+            "Keine unkontrollierten Session-Mischformen in derselben Fachoperation."
+          ]
+        },
+        {
+          "id": "BP-003",
+          "title": "Seed-Blueprint-Reconcile statt early-continue implementieren",
+          "description": "In `ensure_seed_blueprints` darf bei vorhandenen Rollen/Artefakten nicht nur angereichert und abgebrochen werden, sondern es braucht einen echten Abgleich gegen Seed-Definitionen.",
+          "priority": "critical",
+          "type": "bugfix",
+          "principle": "Determinism, Maintainability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/seed_blueprints.py"
+          ],
+          "dependencies": [
+            "BP-001"
+          ],
+          "acceptance": [
+            "Seed-Aenderungen werden idempotent in bestehende Blueprints uebernommen.",
+            "Kein stiller Drift zwischen Code-Seed und Datenbankzustand."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "validation-and-compatibility",
+      "label": "Validierung und API-Kompatibilitaet",
+      "items": [
+        {
+          "id": "BP-010",
+          "title": "Blueprint-Artifact-Validierung auf fachliche Regeln erweitern",
+          "description": "Validierung um Duplikate, sort_order-Kollisionen und erlaubte Artifact-Kinds erweitern; Fehler klar als API-Response melden.",
+          "priority": "high",
+          "type": "validation",
+          "principle": "Fail-Fast, UX",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/models.py"
+          ],
+          "acceptance": [
+            "Doppelte Artefakte werden mit 4xx abgewiesen.",
+            "Ungueltige `kind`-Werte werden frueh erkannt.",
+            "Fehlercodes bleiben fuer Frontend eindeutig."
+          ]
+        },
+        {
+          "id": "BP-011",
+          "title": "Blueprint-Rollen-Validierung um sort_order- und Template-Checks erweitern",
+          "description": "Neben Namensduplikaten auch Sortierungskonflikte und inkonsistente Template-Zuweisungen robust abfangen.",
+          "priority": "high",
+          "type": "validation",
+          "principle": "Correctness",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/models.py"
+          ],
+          "acceptance": [
+            "Mehrdeutige Rollenreihenfolge wird blockiert.",
+            "Template-Referenzen sind vor Persistierung valide."
+          ]
+        },
+        {
+          "id": "BP-012",
+          "title": "Template-Variable-Validierung optional strict schalten",
+          "description": "Bisher nur Warnung. Ueber Konfiguration optional strict-Mode einfuehren, der unbekannte Variablen fuer Admin-CRUD blockiert.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "Safety, Backward-Compatibility",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/routes/config/templates.py",
+            "config.json",
+            "README.md"
+          ],
+          "acceptance": [
+            "Default bleibt warn-only fuer Rueckwaertskompatibilitaet.",
+            "Strict-Mode kann per Config aktiviert werden und liefert 4xx bei unbekannten Variablen."
+          ]
+        },
+        {
+          "id": "BP-013",
+          "title": "Delete-Semantik fuer Blueprints mit bestehenden Teams absichern",
+          "description": "Loeschen von Blueprints soll bei bestehenden Team-Referenzen entweder sauber blockieren oder als Soft-Delete laufen, damit Historie und Nachvollziehbarkeit erhalten bleiben.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Data Integrity, Observability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/db_models.py",
+            "migrations/"
+          ],
+          "acceptance": [
+            "Kein unkontrolliertes Entfernen referenzierter Blueprints.",
+            "API-Fehler oder Soft-Delete-Verhalten ist dokumentiert und getestet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "data-model-and-migrations",
+      "label": "Datenmodell und Migrationen",
+      "items": [
+        {
+          "id": "BP-020",
+          "title": "DB-Constraints fuer Blueprint-Rollen und Artefakte einfuehren",
+          "description": "Unique-Constraints fuer `blueprint_roles` und `blueprint_artifacts` ergaenzen, um doppelte oder widerspruechliche Eintraege auf Datenbankebene zu verhindern.",
+          "priority": "critical",
+          "type": "migration",
+          "principle": "Integrity, Defense-in-Depth",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "migrations/"
+          ],
+          "dependencies": [
+            "BP-010",
+            "BP-011"
+          ],
+          "acceptance": [
+            "Constraints sind per Migration ausgerollt.",
+            "Vorhandene Dubletten werden in einer sicheren Datenmigration behandelt."
+          ]
+        },
+        {
+          "id": "BP-021",
+          "title": "Template-Name eindeutiger machen (Unique oder Namensstrategie)",
+          "description": "Entscheidung und Umsetzung fuer stabile Template-Namensregeln, damit Admin/UI keine mehrdeutigen Eintraege erzeugen.",
+          "priority": "medium",
+          "type": "migration",
+          "principle": "Clarity, UX",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/routes/config/templates.py",
+            "migrations/"
+          ],
+          "acceptance": [
+            "Mehrdeutige Template-Namen sind ausgeschlossen oder klar geregelt.",
+            "Bestehende Daten werden kompatibel migriert."
+          ]
+        },
+        {
+          "id": "BP-022",
+          "title": "Blueprint-Child-Persistierung auf diff-basiertes Upsert umstellen",
+          "description": "Delete+Recreate durch gezieltes Create/Update/Delete ersetzen, um stabile IDs und bessere Auditierbarkeit zu erhalten.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Auditability, Maintainability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/repositories/organization.py"
+          ],
+          "dependencies": [
+            "BP-003",
+            "BP-020"
+          ],
+          "acceptance": [
+            "Unveraenderte Child-Objekte behalten ihre IDs.",
+            "Aenderungen sind im Audit-Log differenziert nachvollziehbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tests-and-observability",
+      "label": "Tests und Nachvollziehbarkeit",
+      "items": [
+        {
+          "id": "BP-030",
+          "title": "Backend-Unit-Tests fuer Blueprint-Validierung erweitern",
+          "description": "Neue Tests fuer Duplicate-Faelle, sort_order-Kollisionen, ungueltige Artifact-Kinds und Template-Referenzen ergaenzen.",
+          "priority": "high",
+          "type": "test",
+          "principle": "Testability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/routes/teams.py"
+          ],
+          "dependencies": [
+            "BP-010",
+            "BP-011"
+          ],
+          "acceptance": [
+            "Negative Faelle sind reproduzierbar durch automatisierte Tests abgesichert.",
+            "API-Fehlercodes werden explizit geprueft."
+          ]
+        },
+        {
+          "id": "BP-031",
+          "title": "Integrations-Tests fuer Seed-Reconcile und Instanziierung hinzufuegen",
+          "description": "Sicherstellen, dass Seed-Aenderungen in bestehende DB-Zustaende korrekt uebernommen werden und Instanziierung weiterhin stabil bleibt.",
+          "priority": "critical",
+          "type": "test",
+          "principle": "Reliability, Architecture-Integrity",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "agent/routes/teams.py",
+            "agent/seed_blueprints.py"
+          ],
+          "dependencies": [
+            "BP-003",
+            "BP-022"
+          ],
+          "acceptance": [
+            "Seed-Drift wird durch Tests aktiv erkannt.",
+            "Blueprint-Instanziierung bleibt kompatibel mit bestehenden API-Flows."
+          ]
+        },
+        {
+          "id": "BP-032",
+          "title": "E2E-Absicherung fuer Blueprint/Template-Admin-Flows erweitern",
+          "description": "Frontend-E2E um Admin-Faelle fuer Validierungsfehler und erfolgreiche Reconcile-Flows ergaenzen.",
+          "priority": "medium",
           "type": "test",
           "principle": "UX, Observability",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "frontend-angular/tests/main-goal-observability.spec.ts",
-            "frontend-angular/tests/hub-flow.spec.ts",
-            "frontend-angular/tests/task-cleanup-ui.spec.ts",
-            "frontend-angular/tests/ui-ux-console.spec.ts"
-          ],
-          "dependencies": [
-            "E2E-012"
-          ],
-          "acceptance": [
-            "Board/Detail/Logs zeigen konsistente Statusbilder waehrend und nach Ausfuehrung.",
-            "Steueraktionen (z.B. Cleanup/Retry/Navigation) bleiben bedienbar."
-          ],
-          "notes": [
-            "2026-04-04: Neue Suite `main-goal-observability.spec.ts` implementiert (Board-Analysepfad inkl. Task-Detail/Logs sowie Artefakt-Steueraktionen Upload + Collection-Indexierung mit deterministischen API-Mocks).",
-            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-observability.spec.ts --reporter=line"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "live-click-observability",
-      "label": "Live-Klicktests (sichtbar in Firefox-VNC)",
-      "items": [
-        {
-          "id": "E2E-020",
-          "title": "Python Live-Click-Runner in Schritte/Phasen modularisieren",
-          "description": "Teile den grossen Live-Clicktest in einzeln startbare Phasen (setup, goal, execution, review) auf, damit Fehler reproduzierbar in kleinen Schritten beobachtbar sind.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "SRP, Operability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "scripts/firefox_live_click_extended.py",
-            "scripts/firefox_live_click_demo.py"
-          ],
-          "acceptance": [
-            "Jede Phase kann separat gestartet werden.",
-            "Fehler lassen sich reproduzierbar einer Phase zuordnen."
-          ],
-          "notes": [
-            "2026-04-04: `firefox_live_click_extended.py` auf CLI-Phasen (`--phases setup,goal,execution,review`) umgestellt; Phasen sind separat oder kombiniert startbar.",
-            "Validiert via `python3 scripts/firefox_live_click_extended.py --help`."
-          ]
-        },
-        {
-          "id": "E2E-021",
-          "title": "Live-Clicktest mit strukturierter Ergebnisdatei ergaenzen",
-          "description": "Schreibe pro Run ein maschinenlesbares Protokoll (JSON) mit Schritten, Dauer, sichtbaren Fehlern, wesentlichen API-/UI-Signalen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Observability, Testability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "scripts/firefox_live_click_extended.py",
-            "test-reports/",
-            "docs/testing.md"
-          ],
-          "dependencies": [
-            "E2E-020"
-          ],
-          "acceptance": [
-            "Jeder Live-Run erzeugt ein nachvollziehbares JSON-Protokoll.",
-            "Protokolle sind fuer Fehleranalyse zwischen Runs vergleichbar."
-          ],
-          "notes": [
-            "2026-04-04: Strukturierter JSON-Report pro Run eingefuehrt (`test-reports/live-click/firefox-live-click-<timestamp>.json`) mit Schrittstatus, Dauer, Route/Titel und Fehler-Signalen.",
-            "Doku in `docs/testing.md` um Aufruf/Report-Pfade erweitert."
-          ]
-        },
-        {
-          "id": "E2E-022",
-          "title": "Sichtbare Fehler-Einblendungen als harte Abbruchkriterien definieren",
-          "description": "Fehleroverlays/Toasts im sichtbaren Bereich (insbesondere Auth/API) sollen im Live-Run explizit erfasst und als Fehler gewertet werden.",
-          "priority": "critical",
-          "type": "test-hardening",
-          "principle": "Fail-Fast, UX",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "scripts/firefox_live_click_extended.py",
-            "docs/testing.md"
-          ],
-          "acceptance": [
-            "Live-Run markiert sichtbare API-Fehler als fehlschlagend.",
-            "Fehlertext und Route sind im Report enthalten."
-          ],
-          "notes": [
-            "2026-04-04: Sichtbare UI-Fehler (`.notification.error`, `.toast.toast-error`, `[role=alert]`) fuehren standardmaessig zu hartem Run-Abbruch.",
-            "401-Indikator sowie Fehlertext+Route werden im JSON-Report als Signal protokolliert.",
-            "Optionaler Beobachtungsmodus ohne Abbruch via `--allow-visible-errors`."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "test-data-fixtures-and-stability",
-      "label": "Testdaten, Seed und Stabilitaet",
-      "items": [
-        {
-          "id": "E2E-030",
-          "title": "Deterministischen Scrum-Seed fuer Templates/Blueprints sicherstellen",
-          "description": "Stelle sicher, dass Testlaeufe mit einem definierten Scrum-Startzustand laufen (oder ihn idempotent herstellen), ohne manuelle Vor-Konfiguration.",
-          "priority": "critical",
-          "type": "test-infra",
-          "principle": "Determinism, Reliability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docker-compose.test.yml",
-            "tests/",
-            "frontend-angular/tests/"
-          ],
-          "dependencies": [
-            "E2E-002"
-          ],
-          "acceptance": [
-            "Tests koennen auf leerem Zustand starten und reproduzierbar denselben Scrum-Setup herstellen.",
-            "Keine manuelle UI-Konfiguration vor Testbeginn noetig."
-          ],
-          "notes": [
-            "2026-04-04: Deterministischer Scrum-Seed als fester Teststandard fuer die Journey-Runs uebernommen und im Runbook in `docs/testing.md` klar beschrieben.",
-            "Die offenen Journey-Suites laufen damit reproduzierbar ohne manuelle Scrum-Vorkonfiguration."
-          ]
-        },
-        {
-          "id": "E2E-031",
-          "title": "E2E Cleanup-Policy fuer grosse Journeys vereinheitlichen",
-          "description": "Definiere einheitliche Cleanup-Regeln fuer erstellte Templates, Blueprints, Teams, Goals, Tasks und Artefakte, inkl. best-effort bei Teilfehlern.",
-          "priority": "high",
-          "type": "test-infra",
-          "principle": "Maintainability, Reliability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "frontend-angular/tests/utils.ts",
-            "frontend-angular/tests/ui-ux-workflows.spec.ts",
-            "frontend-angular/tests/first-goal-e2e.spec.ts"
-          ],
-          "dependencies": [
-            "E2E-030"
-          ],
-          "acceptance": [
-            "Keine dauerhaft verwaisten Testobjekte nach Testlaeufen.",
-            "Cleanup ist auch bei Timeout/Fail robust."
-          ],
-          "notes": [
-            "2026-04-04: Grosse Journey-Suites auf die einheitliche Cleanup-Policy mit Request-Kontext umgestellt (`main-goal-foundation.spec.ts`, `main-goal-execution.spec.ts`, `main-goal-observability.spec.ts`).",
-            "Cleanup bleibt zentral im `finally` und folgt der stabilen Reihenfolge (Tasks -> Teams -> Blueprints -> Templates)."
-          ]
-        },
-        {
-          "id": "E2E-032",
-          "title": "Flaky-Risiken fuer grosse UI-Journeys reduzieren",
-          "description": "Baue Polling/Wait-Strategien, stabile Selektoren und Timeout-Profile aus, um die grossen Aufbau-Suites unter Docker-Compose stabil zu halten.",
-          "priority": "high",
-          "type": "test-hardening",
-          "principle": "Reliability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
             "frontend-angular/tests/",
-            "frontend-angular/playwright.config.ts",
             "docs/testing.md"
           ],
           "dependencies": [
-            "E2E-010",
-            "E2E-011",
-            "E2E-012"
+            "BP-012",
+            "BP-013"
           ],
           "acceptance": [
-            "Wiederholte Runs zeigen deutlich weniger intermittierende Ausfaelle.",
-            "Known-Flaky-Liste ist fuer diese Journey minimiert."
+            "UI zeigt valide Fehlermeldungen fuer invalides Blueprint/Template-Input.",
+            "Happy Path fuer Blueprint-Admin bleibt gruen."
+          ]
+        },
+        {
+          "id": "BP-033",
+          "title": "Audit-Events fuer Blueprint-Reconcile und Child-Diffs verfeinern",
+          "description": "Audit-Logs sollen differenziert ausweisen, welche Rollen/Artefakte geaendert, erstellt oder geloescht wurden.",
+          "priority": "medium",
+          "type": "observability",
+          "principle": "Transparency",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/routes/teams.py",
+            "agent/common/audit.py"
           ],
-          "notes": [
-            "2026-04-04: Timeout-/Flaky-Haertungsprofil als Betriebsstandard in `docs/testing.md` dokumentiert (env-gesteuerte Zeitprofile fuer langsamere Umgebungen).",
-            "Zusatzhaertung in Journey-Tests: erhoehte API-Timeouts fuer Planner-Pfade in `main-goal-execution.spec.ts`."
+          "dependencies": [
+            "BP-022"
+          ],
+          "acceptance": [
+            "Audit-Eintraege enthalten pro Blueprint-Aktion differenzierte Change-Sets.",
+            "Logs sind fuer Fehleranalyse und Nachvollziehbarkeit direkt nutzbar."
           ]
         }
       ]
     },
     {
-      "name": "docs-and-operator-runbook",
-      "label": "Doku, Ausfuehrungsreihenfolge und Nachvollziehbarkeit",
+      "name": "docs-and-rollout",
+      "label": "Doku und Rollout",
       "items": [
         {
-          "id": "E2E-040",
-          "title": "Runbook fuer aufbauende E2E-Reihenfolge erstellen",
-          "description": "Dokumentiere eine klare Reihenfolge von kleinen bis grossen Tests inkl. Voraussetzungen, erwarteten Signalen und Troubleshooting.",
+          "id": "BP-040",
+          "title": "Architektur- und Admin-Doku fuer Blueprints/Templates aktualisieren",
+          "description": "Dokumentation fuer Seed-Reconcile, Validierungsregeln, Delete-Semantik und Strict-Mode ergaenzen.",
           "priority": "high",
           "type": "documentation",
-          "principle": "Operability, Clarity",
+          "principle": "Clarity",
           "status": "completed",
           "effort": "small",
           "files": [
-            "docs/testing.md",
-            "docs/ui-ux-regression-checklist.md"
+            "README.md",
+            "docs/",
+            "api-spec.md"
           ],
           "dependencies": [
-            "E2E-010",
-            "E2E-011",
-            "E2E-012",
-            "E2E-013"
+            "BP-003",
+            "BP-012",
+            "BP-013"
           ],
           "acceptance": [
-            "Operator kann die komplette Journey ohne Rueckfragen ausfuehren.",
-            "Fehlerstellen sind einer Teststufe eindeutig zuordenbar."
-          ],
-          "notes": [
-            "2026-04-04: Runbook-Reihenfolge klein->gross in `docs/testing.md` aufgenommen (Stufen, Kommandos, erwartete Signale, Troubleshooting je Stufe).",
-            "Checklisten-Referenz in `docs/ui-ux-regression-checklist.md` um Stufenabfolge erweitert."
+            "Dokumentation beschreibt den Ist-Zustand inkl. Migrations-/Kompatibilitaetshinweisen.",
+            "API-Beispiele enthalten neue Fehlerszenarien."
           ]
         },
         {
-          "id": "E2E-041",
-          "title": "Live-VNC Beobachtungsmodus inkl. Slow-Mode und Replays dokumentieren",
-          "description": "Beschreibe den beobachtbaren Firefox-VNC-Modus inklusive langsamem Demo-Lauf und Wiederholbarkeit fuer gemeinsame Fehleranalyse.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Operability, UX",
+          "id": "BP-041",
+          "title": "Rollout-Plan fuer Migrationen und Rueckfallstrategie definieren",
+          "description": "Fuer produktive Umgebungen einen sicheren Rollout inkl. Reihenfolge, Backup-Checks und Fallback dokumentieren.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Safety, Operability",
           "status": "completed",
           "effort": "small",
           "files": [
-            "docs/testing.md",
-            "scripts/start-firefox-vnc.sh",
-            "scripts/firefox_live_click_extended.py"
+            "docs/",
+            "migrations/"
           ],
           "dependencies": [
-            "E2E-020",
-            "E2E-021"
+            "BP-020",
+            "BP-021"
           ],
           "acceptance": [
-            "Live-Durchlaeufe sind fuer Reviews/Abnahmen reproduzierbar und nachvollziehbar.",
-            "Team kann denselben Lauf mit denselben Parametern wiederholen."
-          ],
-          "notes": [
-            "2026-04-04: Live-VNC-Slow-Mode (`--step-delay-seconds`) und Replay (`--replay-from-report`) in `scripts/firefox_live_click_extended.py` ergaenzt.",
-            "Doku erweitert: noVNC-Zugriff/Passwort, Slow-Mode-Start, Replay aus Report in `docs/testing.md` und `docs/ui-ux-regression-checklist.md`."
+            "Rollout-Reihenfolge ist eindeutig.",
+            "Rueckfallstrategie fuer fehlerhafte Migration ist dokumentiert."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "versioning_policy": {
-      "scheme": "Major.Minor.Patch",
-      "current_line": "5.x",
-      "rules": [
-        "Major (+1.0.0): Grundsaetzlicher Strategiewechsel oder komplette Neuordnung der Kategorien/ID-Logik.",
-        "Minor (+0.1.0): Neue Aufgabenpakete/Kategorien oder signifikante Scope-Erweiterung innerhalb derselben Strategie.",
-        "Patch (+0.0.1): Reine Statusupdates, Formulierungsfixes, Metadatenkorrekturen ohne Scope-Aenderung."
-      ],
-      "examples": [
-        "5.1 -> 5.2 fuer neue E2E-Hauptziel-Taskfamilie.",
-        "5.2 -> 5.2.1 fuer Korrektur von Status/Links/Meta-Zahlen.",
-        "5.x -> 6.0 nur bei neuer, nicht rueckwaertskompatibler Todo-Strategie."
-      ]
-    },
-    "total_items": 15,
+    "total_items": 22,
     "by_status": {
-      "completed": 15,
+      "completed": 22,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
-      "Die grossen Journey-Tests werden explizit in kleinere, aufbauende Suiten zerlegt.",
-      "Live-Klicktests werden als beobachtbare Diagnoseebene parallel zur Playwright-Suite gefuehrt."
+      "Diese Todo-Version startet bewusst als neue Linie fuer Backend-Qualitaet bei Blueprints/Templates.",
+      "Prioritaet liegt auf deterministischem Seed-Verhalten, Datenintegritaet und klarer Validierung.",
+      "Hub-Worker-Architektur bleibt unveraendert; Verbesserungen sind additiv und kompatibel.",
+      "Neu in 5.3.0: Import/Export-Track fuer komplette Bundle-JSONs sowie getrennten Split-Modus."
     ],
     "recommended_order": [
-      "TODO-001",
-      "E2E-002",
-      "E2E-010",
-      "E2E-011",
-      "E2E-030",
-      "E2E-031",
-      "E2E-012",
-      "E2E-013",
-      "E2E-032",
-      "E2E-020",
-      "E2E-021",
-      "E2E-022",
-      "E2E-040",
-      "E2E-041"
+      "BP-050",
+      "BP-051",
+      "BP-052",
+      "BP-053",
+      "BP-054",
+      "BP-055",
+      "BP-001",
+      "BP-003",
+      "BP-010",
+      "BP-011",
+      "BP-020",
+      "BP-022",
+      "BP-013",
+      "BP-012",
+      "BP-030",
+      "BP-031",
+      "BP-033",
+      "BP-032",
+      "BP-040",
+      "BP-041"
     ]
   }
 }
