@@ -2,6 +2,7 @@ import contextlib
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -537,6 +538,30 @@ def run_opencode_command(
             timeout=timeout,
             model=model,
         )
+    if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal":
+        from agent.services.live_terminal_session_service import get_live_terminal_session_service
+
+        session_service = get_live_terminal_session_service()
+        terminal_meta = session_service.ensure_session_for_cli(
+            session,
+            execution_mode="interactive_terminal",
+            workdir=workdir,
+        ) or {}
+        rc, out, err, visible_command = _run_opencode_subprocess(
+            prompt=prompt,
+            model=model,
+            timeout=timeout,
+            workdir=workdir,
+            output_format=None,
+        )
+        terminal_session_id = str(terminal_meta.get("terminal_session_id") or "").strip()
+        if terminal_session_id:
+            session_service.append_output(terminal_session_id, f"$ {visible_command}\n")
+            if out:
+                session_service.append_output(terminal_session_id, out if out.endswith("\n") else f"{out}\n")
+            if err:
+                session_service.append_output(terminal_session_id, err if err.endswith("\n") else f"{err}\n")
+        return rc, out, err
     if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() in {"live_terminal", "interactive_terminal"}:
         from agent.services.live_terminal_session_service import get_live_terminal_session_service
 
@@ -547,6 +572,29 @@ def run_opencode_command(
             model=model,
             workdir=workdir,
         )
+    rc, out, err, _ = _run_opencode_subprocess(
+        prompt=prompt,
+        model=model,
+        timeout=timeout,
+        workdir=workdir,
+        output_format=None,
+    )
+    return rc, out, err
+
+
+def _run_opencode_subprocess(
+    *,
+    prompt: str,
+    model: str | None,
+    timeout: int,
+    workdir: str | None,
+    output_format: str | None,
+) -> tuple[int, str, str, str]:
+    opencode_bin = settings.opencode_path or "opencode"
+    opencode_resolved = shutil.which(opencode_bin)
+    if opencode_resolved is None:
+        hint = f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai"
+        return -1, "", hint, opencode_bin
 
     with sgpt_lock:
         env = os.environ.copy()
@@ -555,16 +603,14 @@ def run_opencode_command(
         selected_model = str(runtime_cfg.get("model") or "").strip()
         if selected_model:
             args.extend(["--model", selected_model])
+        if output_format:
+            args.extend(["--format", str(output_format)])
         args.append(prompt)
         try:
             diagnostics = list(runtime_cfg.get("diagnostics") or [])
             if diagnostics:
                 logging.warning("OpenCode runtime diagnostics: %s", ",".join(diagnostics))
-            temp_dir_ctx = (
-                tempfile.TemporaryDirectory()
-                if runtime_cfg.get("provider_config")
-                else contextlib.nullcontext(None)
-            )
+            temp_dir_ctx = tempfile.TemporaryDirectory() if runtime_cfg.get("provider_config") else contextlib.nullcontext(None)
             with temp_dir_ctx as tmp_dir:
                 if runtime_cfg.get("provider_config") and tmp_dir:
                     config_dir = os.path.join(tmp_dir, "opencode")
@@ -574,6 +620,14 @@ def run_opencode_command(
                         json.dump(runtime_cfg["provider_config"], handle, ensure_ascii=True)
                     env["XDG_CONFIG_HOME"] = tmp_dir
                     env["OPENCODE_CONFIG_CONTENT"] = json.dumps(runtime_cfg["provider_config"], ensure_ascii=True)
+                env_prefix = " ".join(
+                    f"{key}={shlex.quote(value)}"
+                    for key, value in env.items()
+                    if key in {"XDG_CONFIG_HOME", "OPENCODE_CONFIG_CONTENT"}
+                )
+                visible_command = " ".join(
+                    [segment for segment in [env_prefix.strip(), " ".join(shlex.quote(part) for part in args)] if segment]
+                )
                 logging.info(f"Zentraler OpenCode-Aufruf: {args}")
                 result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                     args,
@@ -585,13 +639,13 @@ def run_opencode_command(
                     timeout=timeout,
                     cwd=workdir or None,
                 )
-                return result.returncode, result.stdout, result.stderr
+                return result.returncode, result.stdout, result.stderr, visible_command
         except subprocess.TimeoutExpired:
             logging.error("OpenCode Timeout")
-            return -1, "", "Timeout"
+            return -1, "", "Timeout", " ".join(shlex.quote(part) for part in args)
         except Exception as e:
             logging.exception(f"OpenCode Fehler: {e}")
-            return -1, "", str(e)
+            return -1, "", str(e), " ".join(shlex.quote(part) for part in args)
 
 
 def _resolve_openai_compatible_base_url() -> str | None:

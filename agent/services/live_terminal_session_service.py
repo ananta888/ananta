@@ -280,6 +280,12 @@ class LiveTerminalSessionService:
         session = self.ensure_session(session_id)
         session.write(data)
 
+    def append_output(self, session_id: str, data: str) -> None:
+        if not data:
+            return
+        session = self.ensure_session(session_id)
+        session._append_chunk(str(data))
+
     def ensure_session_for_cli(
         self,
         cli_session: dict | None,

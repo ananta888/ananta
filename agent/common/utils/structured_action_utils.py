@@ -8,6 +8,7 @@ from agent.common.utils.extraction_utils import extract_json_payload
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 _TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+_BARE_JSON_KEY_RE = re.compile(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)')
 
 
 def sanitize_structured_output_text(raw_text: str) -> str:
@@ -67,6 +68,29 @@ def normalize_structured_action_payload(data: object) -> dict[str, Any] | None:
     return {"reason": reason, "command": command, "tool_calls": tool_calls or []}
 
 
+def _json_like_variants(candidate: str) -> list[str]:
+    stripped = candidate.strip()
+    if not stripped:
+        return []
+    variants: list[str] = []
+
+    def _add(value: str) -> None:
+        normalized = value.strip()
+        if normalized and normalized not in variants:
+            variants.append(normalized)
+
+    _add(stripped)
+    repaired = _TRAILING_COMMA_RE.sub(r"\1", stripped)
+    _add(repaired)
+    quoted_keys = _BARE_JSON_KEY_RE.sub(r'\1"\2"\3', repaired)
+    _add(quoted_keys)
+    if quoted_keys.endswith('"') and "}" in quoted_keys and quoted_keys.rfind("}") < len(quoted_keys) - 1:
+        _add(quoted_keys[: quoted_keys.rfind("}") + 1])
+    if repaired.endswith('"') and "}" in repaired and repaired.rfind("}") < len(repaired) - 1:
+        _add(repaired[: repaired.rfind("}") + 1])
+    return variants
+
+
 def parse_structured_action_payload(raw_text: str) -> dict[str, Any] | None:
     sanitized = sanitize_structured_output_text(raw_text)
     candidates: list[str] = []
@@ -81,16 +105,14 @@ def parse_structured_action_payload(raw_text: str) -> dict[str, Any] | None:
             candidates.append(stripped_fences)
 
     for candidate in candidates:
-        normalized_candidate = _TRAILING_COMMA_RE.sub(r"\1", candidate.strip())
-        if not normalized_candidate:
-            continue
-        try:
-            parsed = json.loads(normalized_candidate)
-        except Exception:
-            continue
-        normalized = normalize_structured_action_payload(parsed)
-        if normalized:
-            return normalized
+        for normalized_candidate in _json_like_variants(candidate):
+            try:
+                parsed = json.loads(normalized_candidate)
+            except Exception:
+                continue
+            normalized = normalize_structured_action_payload(parsed)
+            if normalized:
+                return normalized
     return None
 
 

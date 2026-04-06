@@ -16,6 +16,11 @@ def test_extract_command_fix_json():
     assert _extract_command(text) == "echo hello"
 
 
+def test_extract_command_repairs_json_like_bare_keys():
+    text = '<|im_start|>{reason:"invalide json","command":"echo ok"}"'
+    assert _extract_command(text) == "echo ok"
+
+
 def test_extract_command_markdown():
     text = "```bash\napt-get update\n```"
     assert _extract_command(text) == "apt-get update"

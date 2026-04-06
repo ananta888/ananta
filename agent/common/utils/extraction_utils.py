@@ -4,6 +4,8 @@ import os
 import re
 from typing import Any, List, Optional
 
+_BARE_JSON_KEY_RE = re.compile(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)')
+
 
 def _strip_markdown_fences(text: str) -> str:
     cleaned = str(text or "").strip()
@@ -17,11 +19,23 @@ def _strip_markdown_fences(text: str) -> str:
 
 
 def _load_json_candidate(payload: str) -> Any:
+    candidates = [str(payload or "")]
+    repaired = _BARE_JSON_KEY_RE.sub(r'\1"\2"\3', candidates[0])
+    if repaired not in candidates:
+        candidates.append(repaired)
+    if repaired.endswith('"') and "}" in repaired and repaired.rfind("}") < len(repaired) - 1:
+        trimmed = repaired[: repaired.rfind("}") + 1]
+        if trimmed not in candidates:
+            candidates.append(trimmed)
     try:
-        return json.loads(payload)
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                if candidate.startswith("{") and candidate.count("{") > candidate.count("}"):
+                    return json.loads(candidate + ("}" * (candidate.count("{") - candidate.count("}"))))
+        raise json.JSONDecodeError("unable_to_decode_json_candidate", payload, 0)
     except json.JSONDecodeError:
-        if payload.startswith("{") and payload.count("{") > payload.count("}"):
-            return json.loads(payload + ("}" * (payload.count("{") - payload.count("}"))))
         raise
 
 
