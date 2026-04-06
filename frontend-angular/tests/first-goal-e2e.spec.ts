@@ -26,7 +26,7 @@ function liveBaseUrl(): string {
 
 function liveModel(): string {
   if (liveProvider() === 'ollama') {
-    return String(process.env.E2E_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'ananta-smoke').trim();
+    return String(process.env.E2E_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'ananta-default').trim();
   }
   return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
 }
@@ -91,9 +91,9 @@ async function resolveLiveModel(): Promise<string> {
 }
 
 function llmTimeoutMs(): number {
-  const raw = Number(process.env.E2E_LIVE_LLM_TIMEOUT_MS || 20_000);
+  const raw = Number(process.env.E2E_LIVE_LLM_TIMEOUT_MS || 120_000);
   if (!Number.isFinite(raw)) return 20_000;
-  return Math.max(5_000, Math.min(raw, 60_000));
+  return Math.max(5_000, Math.min(raw, 180_000));
 }
 
 function apiTimeoutMs(url: string): number {
