@@ -81,6 +81,15 @@ def _normalize_temperature_list(raw: Any) -> list[float]:
     return out
 
 
+def _preferred_benchmark_provider(cfg: dict[str, Any]) -> str | None:
+    llm_cfg = cfg.get("llm_config") if isinstance(cfg.get("llm_config"), dict) else {}
+    for candidate in (llm_cfg.get("provider"), cfg.get("default_provider"), cfg.get("provider")):
+        provider = str(candidate or "").strip().lower()
+        if provider:
+            return provider
+    return None
+
+
 def _strategy_cfg(loop: Any) -> dict[str, Any]:
     cfg = loop._agent_config() or {}
     return {
@@ -214,11 +223,13 @@ def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | 
         try:
             app = getattr(loop, "_app", None)
             data_dir = (getattr(app, "config", {}) or {}).get("DATA_DIR") or "data"
+            preferred_provider = _preferred_benchmark_provider(cfg)
             learned = recommend_model_for_context(
                 data_dir=data_dir,
                 task_kind=task_kind or "analysis",
                 role_name=role_name or None,
                 template_name=template_name or None,
+                provider=preferred_provider,
                 min_samples=int(cfg.get("adaptive_model_routing_min_samples") or 3),
             )
             if isinstance(learned, dict) and str(learned.get("model") or "").strip():
@@ -292,11 +303,13 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
         try:
             app = getattr(loop, "_app", None)
             data_dir = (getattr(app, "config", {}) or {}).get("DATA_DIR") or "data"
+            preferred_provider = _preferred_benchmark_provider(cfg)
             learned = recommend_models_for_context(
                 data_dir=data_dir,
                 task_kind=task_kind or "analysis",
                 role_name=role_name,
                 template_name=template_name,
+                provider=preferred_provider,
                 min_samples=int(cfg.get("adaptive_model_routing_min_samples") or 3),
                 limit=int(strategy_cfg["adaptive_top_k"]),
                 exclude_models=list(failed_models),

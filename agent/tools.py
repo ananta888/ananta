@@ -11,7 +11,9 @@ from agent.repository import (
     agent_repo,
     audit_repo,
     config_repo,
+    goal_repo,
     role_repo,
+    task_repo,
     team_member_repo,
     team_repo,
     team_type_repo,
@@ -688,6 +690,9 @@ def upsert_team_tool(
     },
 )
 def delete_team_tool(team_id: str):
+    team_member_repo.delete_by_team(team_id)
+    task_repo.clear_team_assignments(team_id)
+    goal_repo.clear_team_assignments(team_id)
     if team_repo.delete(team_id):
         return {"status": "deleted", "team_id": team_id}
     return {"error": "not_found"}

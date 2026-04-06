@@ -208,6 +208,7 @@ def recommend_model_for_context(
     task_kind: str,
     role_name: str | None = None,
     template_name: str | None = None,
+    provider: str | None = None,
     min_samples: int = 3,
 ) -> dict[str, Any] | None:
     ranked = recommend_models_for_context(
@@ -215,6 +216,7 @@ def recommend_model_for_context(
         task_kind=task_kind,
         role_name=role_name,
         template_name=template_name,
+        provider=provider,
         min_samples=min_samples,
         limit=1,
     )
@@ -235,6 +237,7 @@ def recommend_models_for_context(
     task_kind: str,
     role_name: str | None = None,
     template_name: str | None = None,
+    provider: str | None = None,
     min_samples: int = 3,
     limit: int = 3,
     exclude_models: list[str] | None = None,
@@ -244,6 +247,7 @@ def recommend_models_for_context(
         normalized_task_kind = "analysis"
     role_match = str(role_name or "").strip().lower()
     template_match = str(template_name or "").strip().lower()
+    provider_match = str(provider or "").strip().lower()
     excluded = {str(item or "").strip() for item in list(exclude_models or []) if str(item or "").strip()}
     db = load_benchmarks(data_dir)
     candidates: list[dict[str, Any]] = []
@@ -254,6 +258,8 @@ def recommend_models_for_context(
         model = str(entry.get("model") or "").strip()
         provider = str(entry.get("provider") or "").strip().lower()
         if not provider or not model or model in excluded:
+            continue
+        if provider_match and provider != provider_match:
             continue
         bucket = (entry.get("task_kinds") or {}).get(normalized_task_kind) or {}
         samples = list(bucket.get("samples") or [])
