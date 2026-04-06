@@ -280,6 +280,7 @@ def test_run_opencode_command_passes_workdir_to_subprocess(app):
 
     def _fake_run(args, **kwargs):
         captured["cwd"] = kwargs.get("cwd")
+        captured["input"] = kwargs.get("input")
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "ok"
@@ -300,6 +301,7 @@ def test_run_opencode_command_passes_workdir_to_subprocess(app):
             run_opencode_command("say hi", workdir="/tmp/ananta-workdir")
 
     assert captured["cwd"] == "/tmp/ananta-workdir"
+    assert captured["input"] == "say hi"
 
 
 def test_run_opencode_command_uses_native_runtime_session(app):

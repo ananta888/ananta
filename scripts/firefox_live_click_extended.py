@@ -758,7 +758,7 @@ def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_s
 
 def browser_api_json(session_id: str, method: str, path: str, body: Optional[dict] = None, timeout_seconds: int = 90) -> dict:
     try:
-        out = (
+        start_res = (
             js(
                 session_id,
                 """
@@ -781,33 +781,85 @@ def browser_api_json(session_id: str, method: str, path: str, body: Optional[dic
             const token = localStorage.getItem('ananta.user.token') || '';
             const base = resolveHubUrl();
             const url = `${base}${path}`;
-            const xhr = new XMLHttpRequest();
-            xhr.open(method, url, false);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-            try {
-              xhr.send(payload !== null && payload !== undefined && method !== 'GET' ? JSON.stringify(payload) : null);
-            } catch (err) {
-              return { ok: false, status: 0, error: String(err), url };
-            }
-            const text = xhr.responseText || '';
-            const parsed = safeParse(text);
-            return {
-              ok: xhr.status >= 200 && xhr.status < 400,
-              status: xhr.status || 0,
-              body: parsed || text,
-              url,
-            };
+            const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const controller = new AbortController();
+            const timeoutMs = Math.max(5000, Number(arguments[3] || 90) * 1000);
+            window.__anantaApiRequests = window.__anantaApiRequests || {};
+            window.__anantaApiRequests[requestId] = { state: 'pending', ok: false, status: 0, url, startedAt: Date.now() };
+            const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+            fetch(url, {
+              method,
+              headers,
+              body: payload !== null && payload !== undefined && method !== 'GET' ? JSON.stringify(payload) : undefined,
+              signal: controller.signal,
+            })
+              .then(async (res) => {
+                const text = await res.text();
+                const parsed = safeParse(text);
+                clearTimeout(timer);
+                window.__anantaApiRequests[requestId] = {
+                  state: 'done',
+                  ok: res.status >= 200 && res.status < 400,
+                  status: res.status || 0,
+                  body: parsed || text,
+                  url,
+                };
+              })
+              .catch((err) => {
+                clearTimeout(timer);
+                window.__anantaApiRequests[requestId] = {
+                  state: 'error',
+                  ok: false,
+                  status: 0,
+                  error: String(err),
+                  url,
+                };
+              });
+            return { requestId, state: 'pending', url };
             """,
-                [method.upper(), path, body],
+                [method.upper(), path, body, timeout_seconds],
             ).get("value")
             or {}
         )
     except Exception as exc:
         return {"ok": False, "error": f"webdriver_sync_error: {exc}", "status": 0, "path": path}
-    if not isinstance(out, dict):
-        return {"ok": False, "error": "invalid_sync_response", "status": 0, "path": path}
-    return out
+    if not isinstance(start_res, dict):
+        return {"ok": False, "error": "invalid_request_start", "status": 0, "path": path}
+    request_id = str(start_res.get("requestId") or "").strip()
+    if not request_id:
+        return {"ok": False, "error": "missing_request_id", "status": 0, "path": path}
+    deadline = time.time() + max(5, int(timeout_seconds))
+    last_state: dict = {"ok": False, "error": "request_pending", "status": 0, "path": path}
+    while time.time() < deadline:
+        try:
+            poll_res = (
+                js(
+                    session_id,
+                    """
+                const requestId = arguments[0];
+                const store = window.__anantaApiRequests || {};
+                return store[requestId] || null;
+                """,
+                    [request_id],
+                ).get("value")
+                or {}
+            )
+        except Exception as exc:
+            return {"ok": False, "error": f"webdriver_poll_error: {exc}", "status": 0, "path": path}
+        if isinstance(poll_res, dict):
+            last_state = poll_res
+            if str(poll_res.get("state") or "") in {"done", "error"}:
+                return poll_res
+        time.sleep(0.5)
+    return {
+        "ok": False,
+        "error": f"browser_api_timeout: {last_state.get('error') or last_state.get('state') or 'pending'}",
+        "status": int(last_state.get("status") or 0),
+        "path": path,
+        "url": last_state.get("url"),
+    }
 
 
 def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_terminal", timeout_seconds: int = 90) -> dict:
