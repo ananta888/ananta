@@ -46,7 +46,6 @@ LOGIN_PASS = (
     or _DOTENV.get("INITIAL_ADMIN_PASSWORD")
     or "AnantaAdminPassword123!"
 )
-_HUB_ACCESS_TOKEN: Optional[str] = None
 
 
 def wd(method: str, path: str, payload=None, timeout: int = 45):
@@ -511,11 +510,18 @@ def phase_goal(
             });
             if (!teamSelect) return { found:false, selected:'' };
             const current = String(teamSelect.value || '');
-            if (current) return { found:true, selected: current };
             const validOptions = [...teamSelect.options].filter((o) => o.value && !o.disabled);
+            const currentOption = current ? validOptions.find((o) => String(o.value || '') === current) : null;
             const matched = expectedName
               ? validOptions.find((o) => String(o.textContent || '').trim().toLowerCase() === expectedName)
               : null;
+            if (current && (!matched || matched.value === current)) {
+              return {
+                found:true,
+                selected: current,
+                selectedLabel: currentOption ? String(currentOption.textContent || '').trim() : '',
+              };
+            }
             const firstValid = matched || validOptions[0];
             if (!firstValid) return { found:true, selected:'' };
             teamSelect.value = firstValid.value;
@@ -713,67 +719,58 @@ def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_s
         raise RuntimeError("One or more execution navigation steps failed")
 
 
-def _hub_login_token(timeout_seconds: int = 45, force_refresh: bool = False) -> str:
-    global _HUB_ACCESS_TOKEN
-    if _HUB_ACCESS_TOKEN and not force_refresh:
-        return _HUB_ACCESS_TOKEN
-    payload = json.dumps({"username": LOGIN_USER, "password": LOGIN_PASS}).encode("utf-8")
-    req = request.Request(
-        f"{HUB_BASE}/login",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with request.urlopen(req, timeout=max(5, int(timeout_seconds))) as resp:
-        raw = resp.read().decode("utf-8")
-    parsed = json.loads(raw) if raw else {}
-    token = str((((parsed or {}).get("data") or {}).get("access_token")) or "").strip()
-    if not token:
-        raise RuntimeError("missing_access_token")
-    _HUB_ACCESS_TOKEN = token
-    return token
-
-
 def browser_api_json(session_id: str, method: str, path: str, body: Optional[dict] = None, timeout_seconds: int = 90) -> dict:
-    del session_id
-    url = f"{HUB_BASE}{path}"
-
-    def _send(force_refresh: bool = False) -> dict:
-        token = _hub_login_token(timeout_seconds=timeout_seconds, force_refresh=force_refresh)
-        payload = None
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
-        if body is not None and method.upper() != "GET":
-            payload = json.dumps(body).encode("utf-8")
-        req = request.Request(url, data=payload, headers=headers, method=method.upper())
-        with request.urlopen(req, timeout=max(5, int(timeout_seconds))) as resp:
-            raw = resp.read().decode("utf-8")
-            status = int(getattr(resp, "status", 200) or 200)
-        parsed = json.loads(raw) if raw else None
-        return {"ok": True, "status": status, "body": parsed if parsed is not None else raw, "url": url}
-
     try:
-        return _send(force_refresh=False)
+        out = (
+            js(
+                session_id,
+                """
+            const method = arguments[0];
+            const path = arguments[1];
+            const payload = arguments[2];
+            function safeParse(raw) {
+              if (!raw) return null;
+              try { return JSON.parse(raw); } catch (_) { return null; }
+            }
+            function resolveHubUrl() {
+              const rawAgents = localStorage.getItem('ananta.agents.v1');
+              const parsed = safeParse(rawAgents);
+              if (Array.isArray(parsed)) {
+                const hub = parsed.find((a) => (a && a.role === 'hub') || (a && a.name === 'hub'));
+                if (hub && hub.url) return String(hub.url).replace(/\\/+$/, '');
+              }
+              return 'http://ai-agent-hub:5000';
+            }
+            const token = localStorage.getItem('ananta.user.token') || '';
+            const base = resolveHubUrl();
+            const url = `${base}${path}`;
+            const xhr = new XMLHttpRequest();
+            xhr.open(method, url, false);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            try {
+              xhr.send(payload !== null && payload !== undefined && method !== 'GET' ? JSON.stringify(payload) : null);
+            } catch (err) {
+              return { ok: false, status: 0, error: String(err), url };
+            }
+            const text = xhr.responseText || '';
+            const parsed = safeParse(text);
+            return {
+              ok: xhr.status >= 200 && xhr.status < 400,
+              status: xhr.status || 0,
+              body: parsed || text,
+              url,
+            };
+            """,
+                [method.upper(), path, body],
+            ).get("value")
+            or {}
+        )
     except Exception as exc:
-        status = int(getattr(exc, "code", 0) or 0)
-        if status == 401:
-            try:
-                return _send(force_refresh=True)
-            except Exception as retry_exc:
-                retry_status = int(getattr(retry_exc, "code", 0) or 0)
-                body = ""
-                if hasattr(retry_exc, "read"):
-                    try:
-                        body = retry_exc.read().decode("utf-8")
-                    except Exception:
-                        body = ""
-                return {"ok": False, "error": str(retry_exc), "status": retry_status, "body": body, "url": url}
-        body = ""
-        if hasattr(exc, "read"):
-            try:
-                body = exc.read().decode("utf-8")
-            except Exception:
-                body = ""
-        return {"ok": False, "error": str(exc), "status": status, "body": body, "url": url}
+        return {"ok": False, "error": f"webdriver_sync_error: {exc}", "status": 0, "path": path}
+    if not isinstance(out, dict):
+        return {"ok": False, "error": "invalid_sync_response", "status": 0, "path": path}
+    return out
 
 
 def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_terminal", timeout_seconds: int = 90) -> dict:
@@ -1291,48 +1288,53 @@ def phase_benchmark(
     tasks_before_full_ids = {str(task.get("id") or "") for task in tasks_before_full if isinstance(task, dict)}
     team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
     task_team_patch_info: Dict[str, Any] = {"resolved_team_id": team_id, "patched_task_ids": [], "patch_statuses": []}
-    if not team_id:
-        cleanup_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
-        expected_team_name = ""
-        if isinstance(cleanup_targets, dict):
-            team_names = cleanup_targets.get("team_names")
-            if isinstance(team_names, list) and team_names:
-                expected_team_name = str(team_names[-1] or "").strip()
-        if expected_team_name:
-            teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
-            teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
-            teams = teams_payload if isinstance(teams_payload, list) else []
-            matched_team = next(
-                (
-                    item
-                    for item in teams
-                    if isinstance(item, dict) and str(item.get("name") or "").strip() == expected_team_name
-                ),
-                None,
-            )
-            resolved_team_id = str((matched_team or {}).get("id") or "").strip()
+    cleanup_targets = report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {}
+    expected_team_name = ""
+    if isinstance(cleanup_targets, dict):
+        team_names = cleanup_targets.get("team_names")
+        if isinstance(team_names, list) and team_names:
+            expected_team_name = str(team_names[-1] or "").strip()
+    if expected_team_name:
+        teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
+        teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
+        teams = teams_payload if isinstance(teams_payload, list) else []
+        matched_team = next(
+            (
+                item
+                for item in teams
+                if isinstance(item, dict) and str(item.get("name") or "").strip() == expected_team_name
+            ),
+            None,
+        )
+        resolved_team_id = str((matched_team or {}).get("id") or "").strip()
+        if resolved_team_id:
+            task_team_patch_info["resolved_team_id"] = resolved_team_id
+            needs_team_retarget = not team_id or team_id != resolved_team_id
+            for task in tasks_before_full:
+                if not isinstance(task, dict):
+                    continue
+                task_id = str(task.get("id") or "").strip()
+                task_team_id = str(task.get("team_id") or "").strip()
+                if not task_id or (task_team_id == resolved_team_id and not needs_team_retarget):
+                    continue
+                patch_res = browser_api_json(
+                    session_id,
+                    "PATCH",
+                    f"/tasks/{task_id}",
+                    body={"team_id": resolved_team_id},
+                    timeout_seconds=45,
+                )
+                task_team_patch_info["patch_statuses"].append(
+                    {
+                        "task_id": task_id,
+                        "from_team_id": task_team_id,
+                        "status": int(patch_res.get("status") or 0),
+                    }
+                )
+                if patch_res.get("ok") and int(patch_res.get("status") or 0) < 400:
+                    task_team_patch_info["patched_task_ids"].append(task_id)
             if resolved_team_id:
-                for task in tasks_before_full:
-                    if not isinstance(task, dict):
-                        continue
-                    task_id = str(task.get("id") or "").strip()
-                    if not task_id:
-                        continue
-                    patch_res = browser_api_json(
-                        session_id,
-                        "PATCH",
-                        f"/tasks/{task_id}",
-                        body={"team_id": resolved_team_id},
-                        timeout_seconds=45,
-                    )
-                    task_team_patch_info["patch_statuses"].append(
-                        {"task_id": task_id, "status": int(patch_res.get("status") or 0)}
-                    )
-                    if patch_res.get("ok") and int(patch_res.get("status") or 0) < 400:
-                        task_team_patch_info["patched_task_ids"].append(task_id)
-                if task_team_patch_info["patched_task_ids"]:
-                    team_id = resolved_team_id
-                    task_team_patch_info["resolved_team_id"] = resolved_team_id
+                team_id = resolved_team_id
     if team_id:
         report.setdefault("cleanup_targets", {}).setdefault("team_ids", []).append(team_id)
 

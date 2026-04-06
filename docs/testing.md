@@ -260,6 +260,17 @@ scripts/compose-test-stack.sh up
 scripts/start-firefox-vnc.sh start
 ```
 
+Fuer lokalen Live-Code-Modus mit Bind-Mounts/Hot-Reload:
+```bash
+scripts/compose-test-stack.sh up-live
+scripts/start-firefox-vnc.sh start
+```
+- `up-live` bindet `docker-compose.live-code.yml` ein.
+- Python-Hub und Worker nutzen den lokalen Repo-Code direkt.
+- Angular nutzt den lokalen `frontend-angular`-Ordner direkt und reagiert ueber den Dev-Server auf Aenderungen.
+- noVNC: `http://localhost:7900`
+- Im Browser-Container: `http://angular-frontend:4200`
+
 Standard (alle Phasen):
 ```bash
 python3 scripts/firefox_live_click_extended.py
