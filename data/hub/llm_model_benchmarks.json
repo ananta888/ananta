@@ -702,15 +702,15 @@
       "provider": "ollama",
       "model": "ananta-default",
       "overall": {
-        "total": 30,
+        "total": 31,
         "success": 6,
-        "failed": 24,
+        "failed": 25,
         "quality_pass": 6,
-        "quality_fail": 24,
-        "latency_ms_total": 437688,
+        "quality_fail": 25,
+        "latency_ms_total": 664676,
         "tokens_total": 39,
         "cost_units_total": 0.0,
-        "last_seen": 1775502970,
+        "last_seen": 1775505588,
         "samples": [
           {
             "ts": 1775327586,
@@ -978,20 +978,28 @@
             "latency_ms": 9715,
             "tokens_total": 0,
             "cost_units": 0.0
+          },
+          {
+            "ts": 1775505588,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 226988,
+            "tokens_total": 0,
+            "cost_units": 0.0
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 21,
+          "total": 22,
           "success": 0,
-          "failed": 21,
+          "failed": 22,
           "quality_pass": 0,
-          "quality_fail": 21,
-          "latency_ms_total": 436820,
+          "quality_fail": 22,
+          "latency_ms_total": 663808,
           "tokens_total": 0,
           "cost_units_total": 0.0,
-          "last_seen": 1775502970,
+          "last_seen": 1775505588,
           "samples": [
             {
               "ts": 1775327586,
@@ -1158,6 +1166,14 @@
               "success": false,
               "quality_passed": false,
               "latency_ms": 9715,
+              "tokens_total": 0,
+              "cost_units": 0.0
+            },
+            {
+              "ts": 1775505588,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 226988,
               "tokens_total": 0,
               "cost_units": 0.0
             }
@@ -2658,5 +2674,5 @@
       }
     }
   },
-  "updated_at": 1775502970
+  "updated_at": 1775505588
 }

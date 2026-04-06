@@ -93,4 +93,39 @@ describe('TaskDetailComponent', () => {
     expect(cmp.ns.success).toHaveBeenCalledWith('Vorschlag freigegeben');
     expect(cmp.reload).toHaveBeenCalled();
   });
+
+  it('resolves embedded live terminal connection metadata from task verification', () => {
+    const cmp = createComponent();
+    cmp.allAgents = [
+      { name: 'alpha', role: 'worker', url: 'http://alpha:5000' },
+      { name: 'hub', role: 'hub', url: 'http://hub:5000' },
+    ] as any;
+    cmp.task = {
+      verification_status: {
+        opencode_live_terminal: {
+          agent_url: 'http://alpha:5000',
+          forward_param: 'cli-forward-1',
+        },
+      },
+    };
+
+    expect(cmp.taskLiveTerminalConnection()).toEqual({
+      agentName: 'alpha',
+      agentUrl: 'http://alpha:5000',
+      forwardParam: 'cli-forward-1',
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+        forward_param: 'cli-forward-1',
+      },
+    });
+    expect(cmp.taskLiveTerminalLink()).toEqual({
+      agentName: 'alpha',
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+        forward_param: 'cli-forward-1',
+      },
+    });
+  });
 });
