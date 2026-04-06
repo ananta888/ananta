@@ -1,21 +1,122 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
+from copy import deepcopy
+from json import JSONDecodeError
 from typing import Any
 
 
 HUB_BENCH_TASK_KINDS = {"planning", "research", "coding", "review", "testing", "ops", "analysis", "doc"}
+DEFAULT_HUB_ROLE_BENCHMARKS = {
+    "planner": {
+        "template_name": "planner",
+        "task_kind": "planning",
+        "test_prompts": [
+            "Erstelle einen Projektplan fuer eine Web-Anwendung mit Benutzer-Authentifizierung.",
+            "Plane die Migration einer monolithischen Anwendung zu Microservices.",
+        ],
+    },
+    "researcher": {
+        "template_name": "researcher",
+        "task_kind": "research",
+        "test_prompts": [
+            "Recherchiere die Vor- und Nachteile von GraphQL vs REST APIs.",
+            "Welche Security-Best-Practices gelten fuer JWT-basierte Authentifizierung?",
+        ],
+    },
+    "coder": {
+        "template_name": "coder",
+        "task_kind": "coding",
+        "test_prompts": [
+            "Schreibe eine Python-Funktion, die einen Binary-Search-Tree implementiert.",
+            "Erstelle eine REST-API mit FastAPI fuer eine Todo-Liste.",
+        ],
+    },
+    "reviewer": {
+        "template_name": "reviewer",
+        "task_kind": "review",
+        "test_prompts": [
+            "Review den folgenden Code auf Security-Probleme: [CODE_SAMPLE]",
+            "Analysiere diese Architektur-Entscheidung auf Performance-Probleme.",
+        ],
+    },
+    "tester": {
+        "template_name": "tester",
+        "task_kind": "testing",
+        "test_prompts": [
+            "Erstelle Unit-Tests fuer eine Login-Funktion mit pytest.",
+            "Schreibe Integrationstests fuer eine REST-API.",
+        ],
+    },
+    "devops": {
+        "template_name": "devops",
+        "task_kind": "ops",
+        "test_prompts": [
+            "Erstelle ein Dockerfile fuer eine Node.js Anwendung.",
+            "Schreibe ein GitHub Actions CI/CD Pipeline fuer ein Python-Projekt.",
+        ],
+    },
+}
 DEFAULT_HUB_BENCH_CONFIG = {
     "enabled": True,
     "auto_trigger": {"enabled": True, "min_samples_before_auto": 3, "interval_hours": 24, "max_execution_minutes": 30},
+    "providers": ["ollama"],
+    "default_models": {"ollama": ["ananta-default", "ananta-smoke"]},
     "scoring": {
         "weights": {"success_rate": 0.40, "quality_rate": 0.35, "latency_score": 0.15, "cost_score": 0.10},
         "thresholds": {"min_samples": 2, "min_success_rate": 0.5},
     },
     "retention": {"max_samples_per_model": 100, "max_days": 30},
+    "role_benchmarks": DEFAULT_HUB_ROLE_BENCHMARKS,
+    "hub_config": {"fixed_model": {"provider": "ollama", "model": "ananta-default"}, "fallback_enabled": True},
 }
+
+logger = logging.getLogger(__name__)
+
+
+class HubBenchmarkDataError(RuntimeError):
+    """Raised when persisted benchmark data cannot be parsed safely."""
+
+
+def _deep_merge_dicts(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    merged = deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_dicts(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _load_json_dict(
+    *,
+    path: str,
+    default: dict[str, Any],
+    label: str,
+    merge_with_default: bool,
+) -> dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            loaded = json.load(fh)
+    except FileNotFoundError:
+        return deepcopy(default)
+    except JSONDecodeError as exc:
+        logger.warning("Invalid %s JSON at %s: %s", label, path, exc)
+        raise HubBenchmarkDataError(f"invalid_{label}_json") from exc
+    except OSError as exc:
+        logger.warning("Failed reading %s at %s: %s", label, path, exc)
+        raise HubBenchmarkDataError(f"unreadable_{label}_json") from exc
+
+    if not isinstance(loaded, dict):
+        logger.warning("Expected %s JSON object at %s but got %s", label, path, type(loaded).__name__)
+        raise HubBenchmarkDataError(f"invalid_{label}_shape")
+
+    if merge_with_default:
+        return _deep_merge_dicts(default, loaded)
+    return loaded
 
 
 def hub_benchmark_config_path(data_dir: str, filename: str = "hub_benchmark_config.json") -> str:
@@ -30,30 +131,22 @@ def hub_benchmark_results_path(data_dir: str, filename: str = "hub_benchmark_res
 
 def load_hub_benchmark_config(data_dir: str) -> dict[str, Any]:
     path = hub_benchmark_config_path(data_dir)
-    default_cfg = dict(DEFAULT_HUB_BENCH_CONFIG)
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            loaded = json.load(fh)
-            if isinstance(loaded, dict):
-                for key, value in default_cfg.items():
-                    if key not in loaded:
-                        loaded[key] = value
-                return loaded
-    except Exception:
-        pass
-    return default_cfg
+    return _load_json_dict(
+        path=path,
+        default=DEFAULT_HUB_BENCH_CONFIG,
+        label="hub_benchmark_config",
+        merge_with_default=True,
+    )
 
 
 def load_hub_benchmark_results(data_dir: str) -> dict[str, Any]:
     path = hub_benchmark_results_path(data_dir)
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            if isinstance(data, dict):
-                return data
-    except Exception:
-        pass
-    return {"models": {}, "updated_at": None, "last_benchmark_run": None}
+    return _load_json_dict(
+        path=path,
+        default={"models": {}, "updated_at": None, "last_benchmark_run": None},
+        label="hub_benchmark_results",
+        merge_with_default=False,
+    )
 
 
 def save_hub_benchmark_results(data_dir: str, data: dict[str, Any]) -> None:

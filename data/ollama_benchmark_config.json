@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "provider": "ollama",
-  "ollama_url": "http://localhost:11434",
+  "ollama_url": "http://ollama:11434",
   "timeout": 120,
   "auto_discover_models": true,
   "parameter_variations": {

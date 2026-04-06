@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
-from agent.common.errors import api_response
+from agent.common.errors import NotFoundError, api_response
 from agent.hub_benchmark import HUB_BENCH_TASK_KINDS, load_hub_benchmark_config
 from agent.services.hub_benchmark_service import get_hub_benchmark_service
+from agent.services.benchmark_job_service import get_benchmark_job_service
 
 hub_benchmark_bp = Blueprint("hub_benchmark", __name__)
+
+
+def _current_username() -> str:
+    user = getattr(g, "user", {}) or {}
+    return str(user.get("sub") or user.get("username") or "anonymous")
 
 
 @hub_benchmark_bp.route("/hub/benchmark/config", methods=["GET"])
@@ -87,6 +93,16 @@ def run_hub_benchmark():
     if providers and isinstance(providers, list):
         providers = [str(p or "").strip().lower() for p in providers if str(p or "").strip()]
     max_minutes = max(1, min(60, int(data.get("max_execution_minutes") or 30)))
+    run_async = bool(data.get("run_async", True))
+    if run_async:
+        job = get_benchmark_job_service().submit_hub_benchmark_job(
+            roles=roles,
+            providers=providers,
+            max_execution_minutes=max_minutes,
+            created_by=_current_username(),
+        )
+        log_audit("hub_benchmark_run_submitted", {"job_id": job.get("job_id"), "roles": roles, "providers": providers})
+        return api_response(status="accepted", code=202, data={"job": job})
     service = get_hub_benchmark_service()
     result = service.run_full_benchmark(
         roles=roles,
@@ -95,6 +111,15 @@ def run_hub_benchmark():
     )
     log_audit("hub_benchmark_run", {"status": result.get("status"), "total_tests": result.get("total_tests")})
     return api_response(data=result)
+
+
+@hub_benchmark_bp.route("/hub/benchmark/jobs/<job_id>", methods=["GET"])
+@check_auth
+def get_hub_benchmark_job(job_id: str):
+    job = get_benchmark_job_service().get_job(job_id)
+    if job is None or job.get("job_type") != "hub_benchmark":
+        raise NotFoundError("benchmark_job_not_found")
+    return api_response(data={"job": job})
 
 
 @hub_benchmark_bp.route("/hub/benchmark/single", methods=["POST"])

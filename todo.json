@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.4.0",
+  "version": "5.4.1",
   "created": "2026-04-06",
-  "updated": "2026-04-06T10:21:40Z",
+  "updated": "2026-04-06T10:47:57Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "c96d280..HEAD",
@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "bugfix",
           "principle": "Backward-Compatibility, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/routes/ollama_benchmark.py",
@@ -44,7 +44,7 @@
           "priority": "critical",
           "type": "bugfix",
           "principle": "Determinism, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/hub_benchmark.py",
@@ -73,7 +73,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Clarity, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/hub_benchmark.py",
@@ -93,7 +93,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Observability, Fail-Fast",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/hub_benchmark.py",
@@ -124,7 +124,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Architecture-Integrity, Operability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/hub_benchmark.py",
@@ -151,7 +151,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "SRP, DRY",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/hub_benchmark.py",
@@ -181,7 +181,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Correctness, Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/hub_benchmark.py",
@@ -205,7 +205,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Operability, UX",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "hub_benchmark_config.json",
@@ -228,14 +228,14 @@
   "meta": {
     "total_items": 8,
     "by_status": {
-      "completed": 0,
+      "completed": 8,
       "partial": 0,
-      "open": 8
+      "open": 0
     },
     "notes": [
       "Diese Todo-Generation ersetzt den vorherigen Fokus durch einen gezielten Benchmark-Hardening-Track.",
       "Version bleibt auf der 5.x-Linie und springt bewusst nicht auf Major 6.",
-      "Reihenfolge priorisiert echte Integrationsfehler vor groesseren Architekturverbesserungen."
+      "Alle acht Benchmark-Tasks sind umgesetzt: Routing/Importe, Deep-Merge und sichtbare Fehlerpfade, bessere Qualitaetsbewertung/Defaults sowie asynchrone Benchmark-Jobs."
     ],
     "recommended_order": [
       "BM-001",

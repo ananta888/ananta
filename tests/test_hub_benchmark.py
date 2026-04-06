@@ -21,6 +21,7 @@ class TestHubBenchmarkCore:
         result = load_hub_benchmark_config(temp_data_dir)
         assert isinstance(result, dict)
         assert result.get("enabled") == DEFAULT_HUB_BENCH_CONFIG["enabled"]
+        assert result.get("default_models", {}).get("ollama", [None])[0] == "ananta-default"
         assert "scoring" in result
         assert "retention" in result
 
@@ -36,6 +37,39 @@ class TestHubBenchmarkCore:
         assert result["enabled"] is False
         assert result["providers"] == ["test_provider"]
         assert "scoring" in result
+
+    def test_load_custom_config_deep_merges_nested_defaults(self, temp_data_dir):
+        from agent.hub_benchmark import load_hub_benchmark_config
+
+        config_path = os.path.join(temp_data_dir, "hub_benchmark_config.json")
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump({"scoring": {"weights": {"success_rate": 0.9}}}, f)
+
+        result = load_hub_benchmark_config(temp_data_dir)
+        assert result["scoring"]["weights"]["success_rate"] == 0.9
+        assert result["scoring"]["weights"]["quality_rate"] == 0.35
+        assert result["scoring"]["thresholds"]["min_samples"] == 2
+        assert result["hub_config"]["fixed_model"]["model"] == "ananta-default"
+
+    def test_load_invalid_config_raises_visible_error(self, temp_data_dir):
+        from agent.hub_benchmark import HubBenchmarkDataError, load_hub_benchmark_config
+
+        config_path = os.path.join(temp_data_dir, "hub_benchmark_config.json")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("{invalid")
+
+        with pytest.raises(HubBenchmarkDataError):
+            load_hub_benchmark_config(temp_data_dir)
+
+    def test_load_invalid_results_raises_visible_error(self, temp_data_dir):
+        from agent.hub_benchmark import HubBenchmarkDataError, load_hub_benchmark_results
+
+        results_path = os.path.join(temp_data_dir, "hub_benchmark_results.json")
+        with open(results_path, "w", encoding="utf-8") as f:
+            f.write("[1,2,3]")
+
+        with pytest.raises(HubBenchmarkDataError):
+            load_hub_benchmark_results(temp_data_dir)
 
     def test_save_and_load_results(self, temp_data_dir):
         from agent.hub_benchmark import load_hub_benchmark_results, save_hub_benchmark_results
@@ -274,8 +308,15 @@ class TestHubBenchmarkService:
     def test_run_single_benchmark_success(self, mock_generate, temp_data_dir):
         from agent.services.hub_benchmark_service import HubBenchmarkService
 
-        mock_result = MagicMock()
-        mock_result.__iter__ = lambda self: iter([{"choices": [{"message": {"content": "Test response"}}]}])
+        mock_result = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "1. Create a sprint plan.\n2. Track milestones and dependencies.\n3. Review risks."
+                    }
+                }
+            ]
+        }
         mock_generate.return_value = mock_result
 
         service = HubBenchmarkService(data_dir=temp_data_dir)
@@ -287,7 +328,9 @@ class TestHubBenchmarkService:
             prompt="Test prompt",
         )
         assert "success" in result
+        assert result["success"] is True
         assert "latency_ms" in result
+        assert result["quality_score"] >= 55.0
 
 
 class TestHubBenchmarkConstants:
@@ -301,3 +344,9 @@ class TestHubBenchmarkConstants:
         assert "planning" in HUB_BENCH_TASK_KINDS
         assert "coding" in HUB_BENCH_TASK_KINDS
         assert "research" in HUB_BENCH_TASK_KINDS
+
+
+def test_hub_benchmark_route_module_resolves_to_single_file():
+    import agent.routes.hub_benchmark as hub_benchmark_module
+
+    assert os.path.basename(hub_benchmark_module.__file__) == "hub_benchmark.py"
