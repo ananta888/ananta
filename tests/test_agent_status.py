@@ -60,11 +60,13 @@ def test_check_all_agents_health(app):
         }
 
         with (
-            patch("agent.routes.system.read_json", return_value=initial_agents),
-            patch("agent.routes.system.write_json") as mock_write,
-            patch("agent.routes.system.http_client.get") as mock_get,
+            patch("agent.services.agent_health_monitor_service.read_json", return_value=initial_agents),
+            patch("agent.services.agent_health_monitor_service.write_json") as mock_write,
+            patch("agent.common.http.get_default_client") as mock_get_default_client,
         ):
             # Mock Responses: agent1 ist online, agent2 ist offline
+            mock_http = MagicMock()
+
             def side_effect(url, **kwargs):
                 mock_res = MagicMock()
                 if "agent1" in url:
@@ -73,7 +75,8 @@ def test_check_all_agents_health(app):
                 else:
                     return None  # Timeout/Error
 
-            mock_get.side_effect = side_effect
+            mock_http.get.side_effect = side_effect
+            mock_get_default_client.return_value = mock_http
 
             # Ausführen
             check_all_agents_health(app)
