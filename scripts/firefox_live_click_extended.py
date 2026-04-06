@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib import request
+from urllib.parse import quote
 
 from test_env_cleanup import cleanup_test_environment
 
@@ -958,11 +959,71 @@ def _extract_file_path_evidence(tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _open_worker_terminal_panel(session_id: str, worker_name: str, mode: str = "read") -> Dict[str, Any]:
+def _extract_task_terminal_forward_param(task: Any) -> str:
+    if not isinstance(task, dict):
+        return ""
+    routing = task.get("last_proposal") if isinstance(task.get("last_proposal"), dict) else {}
+    routing = routing.get("routing") if isinstance(routing.get("routing"), dict) else {}
+    live_terminal = routing.get("live_terminal") if isinstance(routing.get("live_terminal"), dict) else {}
+    verification = task.get("verification_status") if isinstance(task.get("verification_status"), dict) else {}
+    opencode_live_terminal = (
+        verification.get("opencode_live_terminal") if isinstance(verification.get("opencode_live_terminal"), dict) else {}
+    )
+    cli_session = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
+    for candidate in (live_terminal, opencode_live_terminal, cli_session):
+        forward_param = str(candidate.get("forward_param") or "").strip()
+        if forward_param:
+            return forward_param
+    return ""
+
+
+def _extract_task_terminal_agent_url(task: Any) -> str:
+    if not isinstance(task, dict):
+        return ""
+    routing = task.get("last_proposal") if isinstance(task.get("last_proposal"), dict) else {}
+    routing = routing.get("routing") if isinstance(routing.get("routing"), dict) else {}
+    live_terminal = routing.get("live_terminal") if isinstance(routing.get("live_terminal"), dict) else {}
+    verification = task.get("verification_status") if isinstance(task.get("verification_status"), dict) else {}
+    opencode_live_terminal = (
+        verification.get("opencode_live_terminal") if isinstance(verification.get("opencode_live_terminal"), dict) else {}
+    )
+    cli_session = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
+    for candidate in (live_terminal, opencode_live_terminal, cli_session):
+        agent_url = str(candidate.get("agent_url") or "").strip()
+        if agent_url:
+            return agent_url
+    return str(task.get("assigned_agent_url") or task.get("agent_url") or "").strip()
+
+
+def _pick_task_terminal(tasks: List[dict], preferred_agent_url: str = "") -> tuple[str, str]:
+    preferred_agent_url = str(preferred_agent_url or "").strip()
+    fallback: tuple[str, str] = ("", "")
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        forward_param = _extract_task_terminal_forward_param(task)
+        if not forward_param:
+            continue
+        assigned_agent_url = _extract_task_terminal_agent_url(task)
+        if preferred_agent_url and assigned_agent_url == preferred_agent_url:
+            return forward_param, assigned_agent_url
+        if not fallback[0]:
+            fallback = (forward_param, assigned_agent_url)
+    return fallback
+
+
+def _open_worker_terminal_panel(
+    session_id: str,
+    worker_name: str,
+    mode: str = "read",
+    forward_param: Optional[str] = None,
+) -> Dict[str, Any]:
     worker_name = str(worker_name or "").strip()
     if not worker_name:
         return {"attempted": False, "opened": False, "connected": False, "error": "missing_worker_name"}
     route = f"/panel/{worker_name}?tab=terminal&mode={mode}"
+    if forward_param:
+        route = f"{route}&forward_param={quote(str(forward_param), safe='')}"
     step_nav(session_id, route, settle_s=1.2)
     opened = wait_for(
         session_id,
@@ -1010,6 +1071,7 @@ def _open_worker_terminal_panel(session_id: str, worker_name: str, mode: str = "
         "attempted": True,
         "worker_name": worker_name,
         "mode": mode,
+        "forward_param": str(forward_param or ""),
         "route": route,
         "opened": bool(opened and buffer_ready),
         "connected": bool(connected),
@@ -1295,7 +1357,23 @@ def phase_benchmark(
 
     terminal_view = {"attempted": False, "opened": False, "connected": False}
     if terminal_agent:
-        terminal_view = _open_worker_terminal_panel(session_id, str(terminal_agent.get("name") or ""), mode="read")
+        terminal_forward_param, terminal_agent_url = _pick_task_terminal(
+            [task for task in tasks_before_full if isinstance(task, dict)],
+            preferred_agent_url=str(terminal_agent.get("url") or ""),
+        )
+        if terminal_agent_url:
+            matched_terminal_agent = next(
+                (agent for agent in online_worker_agents if str(agent.get("url") or "").strip() == terminal_agent_url),
+                None,
+            )
+            if matched_terminal_agent:
+                terminal_agent = matched_terminal_agent
+        terminal_view = _open_worker_terminal_panel(
+            session_id,
+            str(terminal_agent.get("name") or ""),
+            mode="interactive" if terminal_forward_param else "read",
+            forward_param=terminal_forward_param or None,
+        )
 
     tick_results: List[dict] = []
     autopilot_stop_before_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
@@ -1334,6 +1412,25 @@ def phase_benchmark(
         goal_trace_id=goal_trace_id,
         timeout_seconds=75,
     )
+    if terminal_agent and not str(terminal_view.get("forward_param") or "").strip():
+        terminal_forward_param, terminal_agent_url = _pick_task_terminal(
+            [task for task in tasks_after_full if isinstance(task, dict)],
+            preferred_agent_url=str(terminal_agent.get("url") or ""),
+        )
+        if terminal_forward_param:
+            if terminal_agent_url:
+                matched_terminal_agent = next(
+                    (agent for agent in online_worker_agents if str(agent.get("url") or "").strip() == terminal_agent_url),
+                    None,
+                )
+                if matched_terminal_agent:
+                    terminal_agent = matched_terminal_agent
+            terminal_view = _open_worker_terminal_panel(
+                session_id,
+                str(terminal_agent.get("name") or ""),
+                mode="interactive",
+                forward_param=terminal_forward_param,
+            )
     tasks_after_full_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
 
     after_status = _summarize_tasks(tasks_after)

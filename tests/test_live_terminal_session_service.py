@@ -30,11 +30,16 @@ class _FakeTerminalSession:
 
 def test_ensure_session_for_cli_applies_workdir(app):
     from agent.services.live_terminal_session_service import LiveTerminalSessionService
+    from agent.config import settings
 
     service = LiveTerminalSessionService()
     fake_session = _FakeTerminalSession()
 
-    with patch.object(service, "ensure_session", return_value=fake_session):
+    with (
+        patch.object(service, "ensure_session", return_value=fake_session),
+        patch.object(settings, "agent_url", "http://worker-test:5000"),
+        patch.object(settings, "agent_name", "worker-test"),
+    ):
         meta = service.ensure_session_for_cli(
             {"id": "cli-1", "metadata": {"opencode_execution_mode": "interactive_terminal"}},
             execution_mode="interactive_terminal",
@@ -44,6 +49,8 @@ def test_ensure_session_for_cli_applies_workdir(app):
     assert fake_session.ensure_workdir_calls == ["/tmp/worker-workspace"]
     assert meta["workdir"] == "/tmp/worker-workspace"
     assert meta["execution_mode"] == "interactive_terminal"
+    assert meta["agent_url"] == "http://worker-test:5000"
+    assert meta["agent_name"] == "worker-test"
 
 
 def test_run_opencode_turn_passes_workdir_to_session_setup(app):
@@ -74,4 +81,5 @@ def test_run_opencode_turn_passes_workdir_to_session_setup(app):
     assert fake_session.run_command_calls
     command, kwargs = fake_session.run_command_calls[0]
     assert "--dir /tmp/task-workspace" in command
+    assert kwargs["visible_command"] == command
     assert kwargs["suppress_input_echo"] is True

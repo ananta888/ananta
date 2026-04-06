@@ -498,9 +498,15 @@ export class AgentPanelComponent {
   private isTaskAssignedToAgent(task: any, agent: AgentEntry): boolean {
     const agentUrl = String(agent.url || '').trim();
     if (!agentUrl) return false;
+    const liveTerminalAgentUrl = String(
+      task?.last_proposal?.routing?.live_terminal?.agent_url
+      || task?.verification_status?.opencode_live_terminal?.agent_url
+      || task?.verification_status?.cli_session?.agent_url
+      || ''
+    ).trim();
     const directAssigned = String(task?.assigned_agent_url || '').trim();
     const delegatedAssigned = String(task?.agent_url || '').trim();
-    return directAssigned === agentUrl || delegatedAssigned === agentUrl;
+    return liveTerminalAgentUrl === agentUrl || directAssigned === agentUrl || delegatedAssigned === agentUrl;
   }
 
   private extractTaskForwardParam(task: any): string {

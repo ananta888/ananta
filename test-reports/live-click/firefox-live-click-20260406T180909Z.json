@@ -1,0 +1,155 @@
+{
+  "run_id": "20260406T180909Z",
+  "started_at": "2026-04-06T18:09:09.763368+00:00",
+  "base": {
+    "selenium": "http://ananta-firefox-vnc:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "execution",
+    "benchmark"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.0,
+  "wait_tasks_seconds": 90.0,
+  "goal_wait_seconds": 90.0,
+  "goal_text": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+  "benchmark_ticks": 2,
+  "benchmark_task_kind": "coding",
+  "require_followup": false,
+  "require_artifact_summary": false,
+  "require_multi_file_output": false,
+  "min_distinct_files": 3,
+  "min_distinct_dirs": 2,
+  "bootstrap_setup": true,
+  "cleanup_created_resources": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [],
+  "cleanup_targets": {
+    "template_names": [],
+    "blueprint_names": [],
+    "team_names": [],
+    "goal_ids": [],
+    "team_ids": []
+  },
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "HTTP Error 500: Internal Server Error"
+    }
+  ],
+  "session_id": "712b04c3-5604-408f-a143-890300a97b7f",
+  "ended_at": "2026-04-06T18:09:12.419480+00:00",
+  "cleanup": {
+    "targets": {
+      "template_names": [],
+      "blueprint_names": [],
+      "team_names": [],
+      "goal_ids": [],
+      "team_ids": []
+    },
+    "cleanup_live_prefixes": false,
+    "autopilot": {
+      "stop_before": {
+        "data": {
+          "budget_label": "",
+          "circuit_breakers": {
+            "failure_streak": {},
+            "open_count": 0,
+            "open_workers": []
+          },
+          "completed_count": 0,
+          "dispatched_count": 22,
+          "effective_security_policy": {
+            "allowed_tool_classes": [
+              "read",
+              "write"
+            ],
+            "execute_retries": 1,
+            "execute_timeout": 60,
+            "level": "balanced",
+            "max_concurrency_cap": 2
+          },
+          "failed_count": 468,
+          "goal": "",
+          "interval_seconds": 20,
+          "last_error": null,
+          "last_tick_at": 1775498946.8649135,
+          "max_concurrency": 2,
+          "running": false,
+          "security_level": "balanced",
+          "started_at": 1775498923.2908564,
+          "team_id": "e064414b-e4f4-4d77-b047-69295659473c",
+          "tick_count": 1526
+        },
+        "status": "success"
+      },
+      "circuit_reset": {
+        "data": {
+          "circuit_breakers": {
+            "failure_streak": {},
+            "open_count": 0,
+            "open_workers": []
+          },
+          "reset": 0,
+          "worker_url": null
+        },
+        "status": "success"
+      },
+      "stop_after": {
+        "data": {
+          "budget_label": "",
+          "circuit_breakers": {
+            "failure_streak": {},
+            "open_count": 0,
+            "open_workers": []
+          },
+          "completed_count": 0,
+          "dispatched_count": 22,
+          "effective_security_policy": {
+            "allowed_tool_classes": [
+              "read",
+              "write"
+            ],
+            "execute_retries": 1,
+            "execute_timeout": 60,
+            "level": "balanced",
+            "max_concurrency_cap": 2
+          },
+          "failed_count": 468,
+          "goal": "",
+          "interval_seconds": 20,
+          "last_error": null,
+          "last_tick_at": 1775498946.8649135,
+          "max_concurrency": 2,
+          "running": false,
+          "security_level": "balanced",
+          "started_at": 1775498923.2908564,
+          "team_id": "e064414b-e4f4-4d77-b047-69295659473c",
+          "tick_count": 1526
+        },
+        "status": "success"
+      }
+    },
+    "resolved": {
+      "templates": [],
+      "blueprints": [],
+      "teams": [],
+      "team_ids": [],
+      "goal_ids": []
+    },
+    "tasks_cleanup": [],
+    "goal_cleanup": {},
+    "deleted": {
+      "teams": [],
+      "blueprints": [],
+      "templates": []
+    }
+  }
+}

@@ -1135,6 +1135,8 @@ def test_task_propose_creates_live_terminal_session_metadata_when_enabled(client
     terminal_service.ensure_session_for_cli.return_value = {
         "terminal_session_id": "cli-live-1",
         "forward_param": "cli-live-1",
+        "agent_url": "http://worker-live:5000",
+        "agent_name": "worker-live",
         "status": "active",
         "shell": "/bin/sh",
     }
@@ -1167,6 +1169,8 @@ def test_task_propose_creates_live_terminal_session_metadata_when_enabled(client
         cli_session_meta = verification.get("cli_session") or {}
         assert cli_session_meta.get("execution_mode") == "live_terminal"
         assert cli_session_meta.get("forward_param") == "cli-live-1"
+        assert cli_session_meta.get("agent_url") == "http://worker-live:5000"
+        assert (verification.get("opencode_live_terminal") or {}).get("agent_url") == "http://worker-live:5000"
         assert (verification.get("opencode_live_terminal") or {}).get("terminal_session_id") == "cli-live-1"
 
 
@@ -1196,6 +1200,8 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
     terminal_service.ensure_session_for_cli.return_value = {
         "terminal_session_id": "cli-interactive-1",
         "forward_param": "cli-interactive-1",
+        "agent_url": "http://worker-interactive:5000",
+        "agent_name": "worker-interactive",
         "status": "active",
         "shell": "/bin/sh",
         "transport": "pty",
@@ -1230,4 +1236,6 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
         cli_session_meta = verification.get("cli_session") or {}
         assert cli_session_meta.get("execution_mode") == "interactive_terminal"
         assert cli_session_meta.get("forward_param") == "cli-interactive-1"
+        assert cli_session_meta.get("agent_url") == "http://worker-interactive:5000"
+        assert (verification.get("opencode_live_terminal") or {}).get("agent_url") == "http://worker-interactive:5000"
         assert (verification.get("opencode_live_terminal") or {}).get("terminal_session_id") == "cli-interactive-1"
