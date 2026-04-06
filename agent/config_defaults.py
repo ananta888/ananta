@@ -15,7 +15,7 @@ def _default_opencode_model() -> str | None:
     if configured and configured != "opencode/glm-5-free":
         return configured
     if str(settings.default_provider or "").strip().lower() == "ollama":
-        return "ananta-default"
+        return "qwen2.5-coder:7b"
     return configured or None
 
 def build_default_agent_config() -> dict:

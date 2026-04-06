@@ -271,8 +271,8 @@ def test_build_default_agent_config_prefers_ollama_opencode_model(monkeypatch):
 
     cfg = config_defaults.build_default_agent_config()
 
-    assert cfg["opencode_default_model"] == "ananta-default"
-    assert "ananta-default" in cfg["autopilot_strategy_fallback_models"]
+    assert cfg["opencode_default_model"] == "qwen2.5-coder:7b"
+    assert "qwen2.5-coder:7b" in cfg["autopilot_strategy_fallback_models"]
     assert cfg["opencode_runtime"]["tool_mode"] == "toolless"
 
 
