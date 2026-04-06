@@ -360,21 +360,21 @@ def test_run_opencode_command_uses_interactive_terminal_session(app):
         },
     }
     runtime_service = MagicMock()
-    runtime_service.run_opencode_turn.return_value = (0, "interactive-output", "")
+    runtime_service.ensure_session_for_cli.return_value = {"terminal_session_id": "cli-2"}
 
     with (
         patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("agent.common.sgpt._run_opencode_subprocess", return_value=(0, '{"command":"echo ok"}', "", "opencode run")),
         patch("agent.services.live_terminal_session_service.get_live_terminal_session_service", return_value=runtime_service),
     ):
         rc, out, err = run_opencode_command("say hi", session=session, workdir="/tmp/interactive")
 
     assert rc == 0
-    assert out == "interactive-output"
+    assert out == '{"command":"echo ok"}'
     assert err == ""
-    runtime_service.run_opencode_turn.assert_called_once()
-    call = runtime_service.run_opencode_turn.call_args
-    assert call.args[0]["id"] == "cli-2"
-    assert call.kwargs["workdir"] == "/tmp/interactive"
+    runtime_service.ensure_session_for_cli.assert_called_once()
+    runtime_service.append_output.assert_any_call("cli-2", "$ opencode run\n")
+    runtime_service.append_output.assert_any_call("cli-2", '{"command":"echo ok"}\n')
 
 
 def test_opencode_runtime_service_reuses_existing_server_without_deepcopying_process():
