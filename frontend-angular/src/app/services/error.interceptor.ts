@@ -19,6 +19,13 @@ export class ErrorInterceptor implements HttpInterceptor {
           return throwError(() => error);
         }
 
+        // Polling/navigation-related GET aborts frequently surface as "status 0 / Unknown Error".
+        // Showing a global error toast for those transient reads makes the UI noisy and flaky.
+        if (error.status === 0 && req.method === 'GET') {
+          (error as any).__anantaHandledByInterceptor = true;
+          return throwError(() => error);
+        }
+
         let errorMessage = 'Ein Netzwerkfehler ist aufgetreten.';
         
         if (error.error instanceof ErrorEvent) {

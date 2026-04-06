@@ -1,0 +1,442 @@
+{
+  "run_id": "20260406T202531Z",
+  "started_at": "2026-04-06T20:25:31.219183+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.0,
+  "wait_tasks_seconds": 90.0,
+  "goal_wait_seconds": 90.0,
+  "goal_text": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+  "benchmark_ticks": 6,
+  "benchmark_task_kind": "coding",
+  "require_followup": false,
+  "require_artifact_summary": false,
+  "require_multi_file_output": false,
+  "min_distinct_files": 3,
+  "min_distinct_dirs": 2,
+  "bootstrap_setup": true,
+  "cleanup_created_resources": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:37.600463+00:00",
+      "ended_at": "2026-04-06T20:25:39.488905+00:00",
+      "duration_ms": 1888,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "set_opencode_execution_mode",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:39.488944+00:00",
+      "ended_at": "2026-04-06T20:25:41.406074+00:00",
+      "duration_ms": 1917,
+      "details": {
+        "base_urls": [
+          "http://ai-agent-hub:5000",
+          "http://ai-agent-beta:5000",
+          "http://ai-agent-alpha:5000"
+        ],
+        "desired_mode": "interactive_terminal",
+        "ok": true,
+        "results": [
+          {
+            "base_url": "http://ai-agent-hub:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-beta:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-alpha:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          }
+        ]
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:41.426812+00:00",
+      "ended_at": "2026-04-06T20:25:45.140757+00:00",
+      "duration_ms": 3713,
+      "details": {
+        "template_name": "Live UI Template 1775507143",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:45.164105+00:00",
+      "ended_at": "2026-04-06T20:25:51.168752+00:00",
+      "duration_ms": 6004,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775507146",
+        "team_name": "Live UI Team 1775507149",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:51.189059+00:00",
+      "ended_at": "2026-04-06T20:25:55.049344+00:00",
+      "duration_ms": 3860,
+      "details": {
+        "goal_name": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 123,
+          "label_before": "Goal planen",
+          "goals_before": 32,
+          "goals_before_ids": [
+            "87dfa3de-c859-401e-a9d5-91b29fd5d1d9",
+            "65cf369f-8d52-40f1-87fc-c08e8e17d651",
+            "096c85a8-5b00-4eca-a929-566d72d7cb2f",
+            "3c4ef062-e924-4670-8b0d-c9344fb52676",
+            "1cc6da19-e01c-4615-99b0-d9dc749691c4"
+          ],
+          "fallback_click": false,
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "47365f06-d68e-487e-b4fe-934cd6894117"
+          },
+          "goals_after": 33,
+          "goals_after_ids": [
+            "87dfa3de-c859-401e-a9d5-91b29fd5d1d9",
+            "65cf369f-8d52-40f1-87fc-c08e8e17d651",
+            "096c85a8-5b00-4eca-a929-566d72d7cb2f",
+            "3c4ef062-e924-4670-8b0d-c9344fb52676",
+            "1cc6da19-e01c-4615-99b0-d9dc749691c4"
+          ]
+        },
+        "goal_result_visible": true,
+        "tasks_created": 2,
+        "created_goal_id": "2760e282-b479-4226-b058-cc65fdfe34f3",
+        "goal_result_excerpt": "Goal angelegt 2760e282-b479-4226-b058-cc65fdfe34f3 \u00b7 2 Tasks \u00b7 Plan 0a977363-f264-4b6e-8991-a950447d042e 1. den Python-Fibonacci-Helper implementierenHigh2. Automatisierte Tests ergaenzenHigh",
+        "detail_tasks_after_fallback": 0,
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/dashboard",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:55.068797+00:00",
+      "ended_at": "2026-04-06T20:25:56.676416+00:00",
+      "duration_ms": 1607,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/board",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:56.693970+00:00",
+      "ended_at": "2026-04-06T20:25:58.314607+00:00",
+      "duration_ms": 1620,
+      "details": {
+        "path": "/board",
+        "title": "Ananta - Agent Control",
+        "board_task_count": 95,
+        "board_has_tasks": true
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/templates",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:58.329833+00:00",
+      "ended_at": "2026-04-06T20:25:59.904261+00:00",
+      "duration_ms": 1574,
+      "details": {
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/teams",
+      "status": "ok",
+      "started_at": "2026-04-06T20:25:59.921023+00:00",
+      "ended_at": "2026-04-06T20:26:01.490322+00:00",
+      "duration_ms": 1569,
+      "details": {
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "execution",
+      "step": "navigate:/settings",
+      "status": "ok",
+      "started_at": "2026-04-06T20:26:01.503333+00:00",
+      "ended_at": "2026-04-06T20:26:06.144526+00:00",
+      "duration_ms": 4641,
+      "details": {
+        "path": "/settings",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "benchmark",
+      "step": "goal_followup_and_model_benchmark",
+      "status": "failed",
+      "started_at": "2026-04-06T20:26:06.155281+00:00",
+      "ended_at": "2026-04-06T20:26:53.949731+00:00",
+      "duration_ms": 47794,
+      "details": {
+        "goal_id": "2760e282-b479-4226-b058-cc65fdfe34f3",
+        "goal_summary": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+        "worker_bind_info": {
+          "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+          "applied": false,
+          "online_worker_urls": [
+            "http://ai-agent-beta:5000",
+            "http://ai-agent-alpha:5000"
+          ],
+          "existing_member_urls": [
+            "http://ai-agent-alpha:5000",
+            "http://ai-agent-beta:5000"
+          ],
+          "needs_binding": false
+        },
+        "task_team_patch_info": {
+          "resolved_team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+          "patched_task_ids": [],
+          "patch_statuses": []
+        },
+        "worker_terminal": {
+          "attempted": true,
+          "worker_name": "alpha",
+          "mode": "read",
+          "forward_param": "",
+          "route": "/panel/alpha?tab=terminal&mode=read",
+          "opened": true,
+          "connected": true,
+          "status_text": "Status: connected",
+          "buffer_excerpt": "\r\n[connected: read-only]\r\n",
+          "path": "/panel/alpha?tab=terminal&mode=read",
+          "title": "Ananta - Agent Control"
+        },
+        "task_detail_terminal": {
+          "attempted": false,
+          "embedded_visible": false,
+          "connected": false
+        },
+        "terminal_cli_visible": false,
+        "terminal_workdir_error": false,
+        "model_usage_ok": false,
+        "tasks_before": 2,
+        "tasks_after": 0,
+        "tasks_before_full": 2,
+        "tasks_after_full": 0,
+        "new_task_ids": [],
+        "followup_task_ids": [],
+        "followup_created": false,
+        "followup_observed": false,
+        "terminalized": false,
+        "fibonacci_mentions_in_tasks": 0,
+        "artifacts_summary_present": false,
+        "result_summary": {},
+        "headline_artifact_preview": "",
+        "artifact_flow": {
+          "available": false,
+          "enabled": false,
+          "config": {},
+          "counts": {},
+          "matching_item_count": 0,
+          "matching_task_ids": [],
+          "matching_sent_artifact_count": 0,
+          "matching_returned_artifact_count": 0,
+          "matching_worker_job_count": 0,
+          "matching_rag_context_count": 0,
+          "sample_items": []
+        },
+        "execution_reconciliation": {
+          "available": false,
+          "issue_count": 0,
+          "counts": {},
+          "issues": []
+        },
+        "operations_console": {
+          "opened": true,
+          "details_toggled": true,
+          "artifact_flow_visible": true,
+          "table_rows": 0,
+          "rag_label_present": false,
+          "page_excerpt": "ERROR\nx\nAPI-Fehler (0): Http failure response for http://ai-agent-hub:5000/api/system/agents: 0 Unknown Error\nAnanta - Agent Control\nadmin (admin)\nDunkel\nAbmelden\nBETRIEB\nDashboard\nAgenten\nBoard\nOperationen\nArtifacts\nArchiv\nGraph\nAUTOMATISIERUNG\nAuto-Planner\nWebhooks\nKONFIGURATION\nTemplates\nTeams\nAudit-Logs\nEinstellungen\n\ud83c\udfe0\n/\nOperations Console\nBereich: Operate | Route: /operations\nOperations Konsole\n\nZentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.\n\nAktualisieren\nHub: http://ai-agent-hub:5000 | Live Sync: idle\nOffen\n0\nZugewiesen\n0\nIn Bearbeitung\n0\nFehlgeschlagen\n0\nTas",
+          "path": "/operations",
+          "title": "Ananta - Agent Control"
+        },
+        "file_output_evidence": {
+          "file_paths": [],
+          "distinct_file_count": 0,
+          "distinct_dirs": [],
+          "distinct_dir_count": 0
+        },
+        "multi_file_output_ok": false,
+        "require_followup": false,
+        "require_artifact_summary": false,
+        "require_multi_file_output": false,
+        "min_distinct_files": 3,
+        "min_distinct_dirs": 2,
+        "autopilot_ticks_requested": 6,
+        "autopilot_total_ms": 25470,
+        "autopilot_start_payload": {
+          "team_id": "47365f06-d68e-487e-b4fe-934cd6894117",
+          "max_concurrency": 2,
+          "security_level": "balanced"
+        },
+        "autopilot_stop_before_status": 200,
+        "autopilot_start_status": 200,
+        "autopilot_stop_status": 0,
+        "workers_available_max": 0,
+        "workers_online_max": 0,
+        "no_worker_blocker": true,
+        "autopilot_tick_results": [
+          {
+            "error": "TypeError: NetworkError when attempting to fetch resource.",
+            "ok": false,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "error": "TypeError: NetworkError when attempting to fetch resource.",
+            "ok": false,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "error": "TypeError: NetworkError when attempting to fetch resource.",
+            "ok": false,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "error": "TypeError: NetworkError when attempting to fetch resource.",
+            "ok": false,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "error": "TypeError: NetworkError when attempting to fetch resource.",
+            "ok": false,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          },
+          {
+            "error": "TypeError: NetworkError when attempting to fetch resource.",
+            "ok": false,
+            "url": "http://ai-agent-hub:5000/tasks/autopilot/tick"
+          }
+        ],
+        "recovery_info": {
+          "triggered": false,
+          "analyze_attempted": 0,
+          "analyze_created_total": 0,
+          "analyze_results": [],
+          "manual_followup_status": 0,
+          "manual_recovery_task_status": 0,
+          "manual_recovery_task_id": "",
+          "extra_ticks": 0
+        },
+        "benchmark_payload": {
+          "provider": "ollama",
+          "model": "ananta-default:latest",
+          "task_kind": "coding",
+          "success": false,
+          "quality_gate_passed": false,
+          "latency_ms": 25470,
+          "tokens_total": 0
+        },
+        "benchmark_record_status": 0,
+        "benchmark_model_key": "ollama:ananta-default:latest",
+        "benchmark_focus": {},
+        "task_status_after": {
+          "total": 0,
+          "completed": 0,
+          "failed": 0,
+          "open": 0
+        },
+        "path": "/operations",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "cleanup_targets": {
+    "template_names": [
+      "Live UI Template 1775507143"
+    ],
+    "blueprint_names": [
+      "Live UI Blueprint 1775507146"
+    ],
+    "team_names": [
+      "Live UI Team 1775507149"
+    ],
+    "goal_ids": [
+      "2760e282-b479-4226-b058-cc65fdfe34f3"
+    ],
+    "team_ids": [
+      "47365f06-d68e-487e-b4fe-934cd6894117"
+    ]
+  },
+  "ui_signals": {
+    "visible_errors": [
+      {
+        "text": "ErrorxAPI-Fehler (0): Http failure response for http://ai-agent-hub:5000/tasks/autopilot/status: 0 Unknown Error",
+        "route": "/operations"
+      }
+    ],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "Visible UI errors detected in phase 'benchmark' (401=False)"
+    },
+    {
+      "message": "cleanup_error: <urlopen error [Errno 111] Connection refused>"
+    }
+  ],
+  "session_id": "b89b9375-5dbd-4576-9eb9-7198be4c7f5c",
+  "last_goal_id": "2760e282-b479-4226-b058-cc65fdfe34f3",
+  "ended_at": "2026-04-06T20:26:53.962337+00:00",
+  "cleanup": {
+    "error": "<urlopen error [Errno 111] Connection refused>"
+  }
+}
