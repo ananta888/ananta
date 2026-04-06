@@ -4,6 +4,7 @@ from typing import Any
 
 from flask import current_app
 
+from agent.hub_benchmark import load_hub_benchmark_config
 from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
 
 
@@ -20,7 +21,31 @@ class HubLLMService:
         text, usage = extract_llm_text_and_usage(result)
         return text, usage, result
 
-    def resolve_copilot_config(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _get_benchmark_recommended_model(self, task_kind: str | None = None) -> dict[str, Any] | None:
+        try:
+            data_dir = current_app.config.get("DATA_DIR") or "data"
+            from agent.services.hub_benchmark_service import get_hub_benchmark_service
+
+            service = get_hub_benchmark_service(data_dir)
+            cfg = service.get_config()
+            hub_cfg = cfg.get("hub_config", {})
+            fixed = hub_cfg.get("fixed_model", {})
+            if fixed.get("provider") and fixed.get("model"):
+                return {"provider": fixed["provider"], "model": fixed["model"], "source": "benchmark_fixed_config"}
+            recommendation = service.get_recommendation(task_kind=task_kind, min_samples=2)
+            if recommendation.get("available"):
+                return {
+                    "provider": recommendation["recommended"]["provider"],
+                    "model": recommendation["recommended"]["model"],
+                    "source": "benchmark_recommendation",
+                }
+        except Exception:
+            pass
+        return None
+
+    def resolve_copilot_config(
+        self, overrides: dict[str, Any] | None = None, task_kind: str | None = None
+    ) -> dict[str, Any]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         raw_cfg = dict(agent_cfg.get("hub_copilot") or {})
         if overrides:
@@ -30,9 +55,13 @@ class HubLLMService:
         requested_provider = str(raw_cfg.get("provider") or "").strip().lower() or None
         requested_model = str(raw_cfg.get("model") or "").strip() or None
         requested_base_url = str(raw_cfg.get("base_url") or "").strip() or None
-        requested_strategy_mode = str(raw_cfg.get("strategy_mode") or "planning_only").strip().lower() or "planning_only"
+        requested_strategy_mode = (
+            str(raw_cfg.get("strategy_mode") or "planning_only").strip().lower() or "planning_only"
+        )
         strategy_mode = (
-            requested_strategy_mode if requested_strategy_mode in self._COPILOT_ALLOWED_STRATEGY_MODES else "planning_only"
+            requested_strategy_mode
+            if requested_strategy_mode in self._COPILOT_ALLOWED_STRATEGY_MODES
+            else "planning_only"
         )
 
         requested_temperature = raw_cfg.get("temperature")
@@ -43,12 +72,26 @@ class HubLLMService:
         if requested_temperature is not None:
             requested_temperature = max(0.0, min(2.0, requested_temperature))
 
-        effective_provider = requested_provider or str(llm_cfg.get("provider") or "").strip().lower() or str(
-            agent_cfg.get("default_provider") or ""
-        ).strip().lower() or None
-        effective_model = requested_model or str(llm_cfg.get("model") or "").strip() or str(
-            agent_cfg.get("default_model") or ""
-        ).strip() or None
+        effective_provider = (
+            requested_provider
+            or str(llm_cfg.get("provider") or "").strip().lower()
+            or str(agent_cfg.get("default_provider") or "").strip().lower()
+            or None
+        )
+        effective_model = (
+            requested_model
+            or str(llm_cfg.get("model") or "").strip()
+            or str(agent_cfg.get("default_model") or "").strip()
+            or None
+        )
+        benchmark_recommended = None
+        if not effective_provider or not effective_model:
+            benchmark_recommended = self._get_benchmark_recommended_model(task_kind=task_kind)
+            if benchmark_recommended:
+                if not effective_provider:
+                    effective_provider = benchmark_recommended.get("provider")
+                if not effective_model:
+                    effective_model = benchmark_recommended.get("model")
         effective_base_url = requested_base_url or str(llm_cfg.get("base_url") or "").strip() or None
         effective_temperature = requested_temperature
         if effective_temperature is None:
@@ -66,6 +109,8 @@ class HubLLMService:
             else "agent_config.llm_config.provider"
             if llm_cfg.get("provider")
             else "agent_config.default_provider"
+            if agent_cfg.get("default_provider")
+            else ("hub_benchmark." + benchmark_recommended["source"] if benchmark_recommended else "unknown")
         )
         model_source = (
             "hub_copilot.model"
@@ -73,10 +118,18 @@ class HubLLMService:
             else "agent_config.llm_config.model"
             if llm_cfg.get("model")
             else "agent_config.default_model"
+            if agent_cfg.get("default_model")
+            else ("hub_benchmark." + benchmark_recommended["source"] if benchmark_recommended else "unknown")
         )
-        base_url_source = "hub_copilot.base_url" if requested_base_url else ("agent_config.llm_config.base_url" if llm_cfg.get("base_url") else None)
+        base_url_source = (
+            "hub_copilot.base_url"
+            if requested_base_url
+            else ("agent_config.llm_config.base_url" if llm_cfg.get("base_url") else None)
+        )
         temperature_source = (
-            "hub_copilot.temperature" if requested_temperature is not None else "agent_config.llm_config.temperature"
+            "hub_copilot.temperature"
+            if requested_temperature is not None
+            else "agent_config.llm_config.temperature"
             if llm_cfg.get("temperature") is not None
             else None
         )

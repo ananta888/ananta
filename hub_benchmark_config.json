@@ -1,0 +1,95 @@
+{
+  "enabled": true,
+  "auto_trigger": {
+    "enabled": true,
+    "min_samples_before_auto": 3,
+    "interval_hours": 24,
+    "max_execution_minutes": 30
+  },
+  "providers": ["openai", "anthropic", "ollama", "lmstudio"],
+  "default_models": {
+    "openai": ["gpt-4o", "gpt-4-turbo"],
+    "anthropic": ["claude-3-5-sonnet-20240620"],
+    "ollama": ["llama3", "mistral"],
+    "lmstudio": []
+  },
+  "scoring": {
+    "weights": {
+      "success_rate": 0.40,
+      "quality_rate": 0.35,
+      "latency_score": 0.15,
+      "cost_score": 0.10
+    },
+    "thresholds": {
+      "min_samples": 2,
+      "min_success_rate": 0.5
+    }
+  },
+  "retention": {
+    "max_samples_per_model": 100,
+    "max_days": 30
+  },
+  "role_benchmarks": {
+    "planner": {
+      "template_id": null,
+      "template_name": "planner",
+      "task_kind": "planning",
+      "test_prompts": [
+        "Erstelle einen Projektplan für eine Web-Anwendung mit Benutzer-Authentifizierung.",
+        "Plane die Migration einer monolithischen Anwendung zu Microservices."
+      ]
+    },
+    "researcher": {
+      "template_id": null,
+      "template_name": "researcher",
+      "task_kind": "research",
+      "test_prompts": [
+        "Recherchiere die Vor- und Nachteile von GraphQL vs REST APIs.",
+        "Welche Security-Best-Practices gelten für JWT-basierte Authentifizierung?"
+      ]
+    },
+    "coder": {
+      "template_id": null,
+      "template_name": "coder",
+      "task_kind": "coding",
+      "test_prompts": [
+        "Schreibe eine Python-Funktion, die einen Binary-Search-Tree implementiert.",
+        "Erstelle eine REST-API mit FastAPI für eine Todo-Liste."
+      ]
+    },
+    "reviewer": {
+      "template_id": null,
+      "template_name": "reviewer",
+      "task_kind": "review",
+      "test_prompts": [
+        "Review den folgenden Code auf Security-Probleme: [CODE_SAMPLE]",
+        "Analysiere diese Architektur-Entscheidung auf Performance-Probleme."
+      ]
+    },
+    "tester": {
+      "template_id": null,
+      "template_name": "tester",
+      "task_kind": "testing",
+      "test_prompts": [
+        "Erstelle Unit-Tests für eine Login-Funktion mit pytest.",
+        "Schreibe Integrationstests für eine REST-API."
+      ]
+    },
+    "devops": {
+      "template_id": null,
+      "template_name": "devops",
+      "task_kind": "ops",
+      "test_prompts": [
+        "Erstelle ein Dockerfile für eine Node.js Anwendung.",
+        "Schreibe ein GitHub Actions CI/CD Pipeline für ein Python-Projekt."
+      ]
+    }
+  },
+  "hub_config": {
+    "fixed_model": {
+      "provider": "lmstudio",
+      "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
+    },
+    "fallback_enabled": true
+  }
+}

@@ -34,7 +34,9 @@ from agent.database import OperationalError, init_db
 from agent.routes.artifacts import artifacts_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
+from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.knowledge import knowledge_bp
+from agent.routes.ollama_benchmark import ollama_benchmark_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.openai_compat import openai_compat_bp
 from agent.routes.sgpt import sgpt_bp
@@ -51,8 +53,6 @@ from agent.common.error_handler import register_error_handler
 
 def _is_truthy_env(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
 
 
 def _configure_audit_logger() -> None:
@@ -116,8 +116,6 @@ def _register_request_hooks(app: Flask) -> None:
         return response
 
 
-
-
 def _configure_cors(app: Flask) -> None:
     if not CORS:
         return
@@ -128,8 +126,6 @@ def _configure_cors(app: Flask) -> None:
         CORS(app, resources={r"*": {"origins": origins}})
     except Exception as e:
         logging.error(f"CORS konnte nicht initialisiert werden: {e}")
-
-
 
 
 def _configure_swagger(app: Flask) -> None:
@@ -160,6 +156,8 @@ def _configure_swagger(app: Flask) -> None:
 def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(system_bp, url_prefix="/api/system")
     register_config_blueprints(app)
+    app.register_blueprint(hub_benchmark_bp, url_prefix="/api")
+    app.register_blueprint(ollama_benchmark_bp, url_prefix="/api")
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)
     app.register_blueprint(artifacts_bp)
@@ -201,8 +199,6 @@ def _register_alias_routes(app: Flask) -> None:
         logging.warning(f"Konnte Alias-Routen nicht registrieren: {e}")
 
 
-
-
 def _should_skip_threads_for_reloader() -> bool:
     return os.environ.get("WERKZEUG_RUN_MAIN") != "true" and os.environ.get("FLASK_DEBUG") == "1"
 
@@ -228,6 +224,7 @@ def _check_token_rotation(app: Flask) -> None:
 
 def _start_background_services(app: Flask) -> None:
     from agent.lifecycle import BackgroundServiceManager
+
     BackgroundServiceManager(app).start_all()
 
 
@@ -302,8 +299,6 @@ def _load_extensions(app: Flask) -> None:
         load_plugins(app)
     except Exception as e:
         logging.error(f"Fehler beim Laden der Plugins: {e}")
-
-
 
 
 if __name__ == "__main__":

@@ -1,0 +1,107 @@
+{
+  "enabled": true,
+  "provider": "ollama",
+  "ollama_url": "http://localhost:11434",
+  "timeout": 120,
+  "auto_discover_models": true,
+  "parameter_variations": {
+    "temperature": [0.1, 0.3, 0.5, 0.7, 0.9, 1.0],
+    "top_p": [0.3, 0.5, 0.7, 0.9, 0.95, 1.0],
+    "top_k": [20, 40, 80, 120]
+  },
+  "scoring": {
+    "weights": {
+      "success_rate": 0.40,
+      "quality_rate": 0.35,
+      "latency_score": 0.15,
+      "cost_score": 0.10
+    },
+    "thresholds": {
+      "min_samples_per_config": 1,
+      "min_success_rate": 0.3
+    }
+  },
+  "retention": {
+    "max_samples_per_model": 500,
+    "max_days": 90
+  },
+  "external_providers": {
+    "enabled": false,
+    "providers": ["openai", "anthropic"],
+    "api_key_required": true
+  },
+  "role_benchmarks": {
+    "planner": {
+      "description": "Erstellt Projektpläne und zerlegt Aufgaben",
+      "task_kind": "planning",
+      "test_prompts": [
+        "Erstelle einen detaillierten Projektplan für eine E-Commerce-Webanwendung mit Benutzer-Authentifizierung, Produktkatalog und Warenkorb. Berücksichtige Sprint-Struktur und Abhängigkeiten.",
+        "Zerlege die Aufgabe 'Online-Bestellsystem implementieren' in kleinere Arbeitspakete mit Schätzungen.",
+        "Plane die Migration einer monolithischen Node.js-Anwendung zu Microservices mit Kubernetes."
+      ]
+    },
+    "researcher": {
+      "description": "Recherchiert Technologien und bewertet Optionen",
+      "task_kind": "research",
+      "test_prompts": [
+        "Recherchiere die Vor- und Nachteile von GraphQL vs REST APIs für eine E-Commerce-Plattform.",
+        "Welche Security-Best-Practices gelten für JWT-basierte Authentifizierung in SPAs?",
+        "Vergleiche PostgreSQL vs MongoDB für ein Content-Management-System."
+      ]
+    },
+    "coder": {
+      "description": "Implementiert Code und Features",
+      "task_kind": "coding",
+      "test_prompts": [
+        "Schreibe eine Python-Funktion, die einen Binary-Search-Tree mit Einfügen, Löschen und Suchen implementiert.",
+        "Erstelle eine REST-API mit FastAPI für eine Todo-Liste mit CRUD-Operationen.",
+        "Implementiere einen einfachen Rate-Limiter in TypeScript für Express.js."
+      ]
+    },
+    "reviewer": {
+      "description": "Reviews Code und gibt Feedback",
+      "task_kind": "review",
+      "test_prompts": [
+        "Review folgenden Python-Code auf Security-Probleme:\ndef login(username, password):\n    query = f\"SELECT * FROM users WHERE username='{username}'\"\n    return db.execute(query)",
+        "Analysiere diese Architektur-Entscheidung: Microservices vs Monolith für ein Startup mit 5 Entwicklern.",
+        "Review diesen GitHub Actions Workflow auf Performance und Best Practices."
+      ]
+    },
+    "tester": {
+      "description": "Erstellt Tests und verifiziert Qualität",
+      "task_kind": "testing",
+      "test_prompts": [
+        "Erstelle eine umfassende Teststrategie für eine REST-API mit 20 Endpoints.",
+        "Schreibe pytest-Tests für eine User-Registrierungs-Funktion.",
+        "Erstelle einen Testplan für die Migration einer Datenbank."
+      ]
+    },
+    "devops": {
+      "description": "Kümmert sich um CI/CD und Infrastruktur",
+      "task_kind": "ops",
+      "test_prompts": [
+        "Erstelle ein optimales Dockerfile für eine Node.js/Express-Anwendung.",
+        "Schreibe ein GitHub Actions CI/CD Pipeline für ein Python-Projekt.",
+        "Entwirf eine Kubernetes-Konfiguration für eine skalierbare Webanwendung."
+      ]
+    },
+    "architect": {
+      "description": "Designt Systemarchitektur und Technologie-Stack",
+      "task_kind": "analysis",
+      "test_prompts": [
+        "Entwirf die Architektur für ein Real-Time-Kollaborations-Tool.",
+        "Schlage einen Tech-Stack für ein MVP eines SaaS-Produkts vor.",
+        "Design ein Event-Driven-Architecture-Pattern für ein FinTech-Backend."
+      ]
+    },
+    "scrum_master": {
+      "description": "Moderiert Sprint-Aktivitäten und Prozesse",
+      "task_kind": "planning",
+      "test_prompts": [
+        "Formuliere 5 effektive Sprint-Retrospektive-Fragen für ein Team mit Kommunikationsproblemen.",
+        "Erstelle einen Sprint-Burndown-Chart-Plan für einen 2-Wochen-Sprint.",
+        "Wie würdest du einem Team helfen, das seit 3 Sprints übermäßig viel technische Schulden hat?"
+      ]
+    }
+  }
+}
