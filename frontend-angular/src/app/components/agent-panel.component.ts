@@ -9,6 +9,7 @@ import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
 import { TerminalComponent } from './terminal.component';
 import { TerminalMode } from '../services/terminal.service';
+import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 
 @Component({
   standalone: true,
@@ -235,6 +236,7 @@ export class AgentPanelComponent {
   private api = inject(AgentApiService);
   private userAuth = inject(UserAuthService);
   private ns = inject(NotificationService);
+  private taskFacade = inject(TaskManagementFacade);
 
   agent?: AgentEntry;
   activeTab = 'interact';
@@ -263,6 +265,7 @@ export class AgentPanelComponent {
   testResult = '';
   terminalMode: TerminalMode = 'interactive';
   terminalForwardParam = '';
+  private terminalForwardParamAutoResolved = false;
 
   constructor() {
     const name = this.route.snapshot.paramMap.get('name')!;
@@ -274,11 +277,22 @@ export class AgentPanelComponent {
     if (modeParam === 'read' || modeParam === 'interactive') {
       this.terminalMode = modeParam;
     }
+    const forwardParam = (this.route.snapshot.queryParamMap.get('forward_param') || '').trim();
+    if (forwardParam) {
+      this.terminalForwardParam = forwardParam;
+      this.terminalForwardParamAutoResolved = true;
+    }
     this.loadLogs();
     this.ensureConfigLoaded();
+    this.ensureTerminalForwardParamLoaded();
   }
 
-  setTab(t: string) { this.activeTab = t; }
+  setTab(t: string) {
+    this.activeTab = t;
+    if (t === 'terminal') {
+      this.ensureTerminalForwardParamLoaded();
+    }
+  }
 
   getRequestToken(): string | undefined {
     if (!this.agent) return undefined;
@@ -448,5 +462,87 @@ export class AgentPanelComponent {
     ).subscribe({
       next: (m) => this.metrics = m
     });
+  }
+
+  private ensureTerminalForwardParamLoaded(): void {
+    if (this.terminalForwardParamAutoResolved || this.terminalForwardParam.trim() || !this.agent || this.agent.role === 'hub') {
+      return;
+    }
+    const hub = this.dir.get('hub');
+    if (!hub?.url) return;
+    const token = this.userAuth.token || hub.token;
+    this.terminalForwardParamAutoResolved = true;
+    this.taskFacade.listTasks(hub.url, token).subscribe({
+      next: (tasks: any[] | null | undefined) => {
+        const match = this.pickPreferredLiveTerminalTask(Array.isArray(tasks) ? tasks : []);
+        const forwardParam = this.extractTaskForwardParam(match);
+        if (forwardParam) {
+          this.terminalForwardParam = forwardParam;
+        }
+      },
+      error: () => {
+        this.terminalForwardParamAutoResolved = false;
+      }
+    });
+  }
+
+  private pickPreferredLiveTerminalTask(tasks: any[]): any | undefined {
+    if (!this.agent) return undefined;
+    const candidates = tasks
+      .filter((task) => this.isTaskAssignedToAgent(task, this.agent!))
+      .filter((task) => !!this.extractTaskForwardParam(task));
+    if (candidates.length === 0) return undefined;
+    return candidates.sort((a, b) => this.compareTaskPriority(a, b))[0];
+  }
+
+  private isTaskAssignedToAgent(task: any, agent: AgentEntry): boolean {
+    const agentUrl = String(agent.url || '').trim();
+    if (!agentUrl) return false;
+    const directAssigned = String(task?.assigned_agent_url || '').trim();
+    const delegatedAssigned = String(task?.agent_url || '').trim();
+    return directAssigned === agentUrl || delegatedAssigned === agentUrl;
+  }
+
+  private extractTaskForwardParam(task: any): string {
+    return String(
+      task?.last_proposal?.routing?.live_terminal?.forward_param
+      || task?.verification_status?.opencode_live_terminal?.forward_param
+      || task?.verification_status?.cli_session?.forward_param
+      || ''
+    ).trim();
+  }
+
+  private compareTaskPriority(a: any, b: any): number {
+    const byStatus = this.taskActivityRank(b) - this.taskActivityRank(a);
+    if (byStatus !== 0) return byStatus;
+    const byWorkerJob = Number(!!b?.current_worker_job_id) - Number(!!a?.current_worker_job_id);
+    if (byWorkerJob !== 0) return byWorkerJob;
+    const byUpdated = this.taskTimestamp(b) - this.taskTimestamp(a);
+    if (byUpdated !== 0) return byUpdated;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+  }
+
+  private taskActivityRank(task: any): number {
+    const status = String(task?.status || '').trim().toLowerCase();
+    if (status === 'in_progress') return 4;
+    if (status === 'proposing') return 3;
+    if (status === 'assigned') return 2;
+    if (status === 'todo' || status === 'created') return 1;
+    return 0;
+  }
+
+  private taskTimestamp(task: any): number {
+    const candidates = [
+      task?.updated_at,
+      task?.verification_status?.updated_at,
+      task?.last_proposal?.routing?.live_terminal?.updated_at,
+      task?.verification_status?.opencode_live_terminal?.updated_at,
+      task?.created_at
+    ];
+    for (const candidate of candidates) {
+      const value = Number(candidate);
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+    return 0;
   }
 }
