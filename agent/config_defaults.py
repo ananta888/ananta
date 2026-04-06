@@ -234,7 +234,7 @@ def build_default_agent_config() -> dict:
             "native_opencode_sessions": False,
         },
         "opencode_runtime": {
-            "tool_mode": "full",
+            "tool_mode": "toolless" if str(settings.default_provider or "").strip().lower() == "ollama" else "full",
             "execution_mode": (os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "live_terminal").strip().lower() or "live_terminal",
         },
         "worker_runtime": {

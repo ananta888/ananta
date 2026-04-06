@@ -1149,9 +1149,11 @@ def _open_worker_terminal_panel(
             """
             const pill = document.querySelector('.status-pill');
             const buffer = document.querySelector('[data-testid="terminal-output-buffer"]');
+            const bufferText = (buffer?.textContent || '');
             return {
               status_text: (pill?.textContent || '').trim(),
-              buffer_excerpt: (buffer?.textContent || '').slice(-4000),
+              buffer_excerpt: bufferText.slice(-4000),
+              cli_command_visible: /opencode\\s+run/i.test(bufferText),
             };
             """,
         ).get("value")
@@ -1168,6 +1170,7 @@ def _open_worker_terminal_panel(
         "connected": bool(connected),
         "status_text": str(terminal_snapshot.get("status_text") or ""),
         "buffer_excerpt": str(terminal_snapshot.get("buffer_excerpt") or ""),
+        "cli_command_visible": bool(terminal_snapshot.get("cli_command_visible")),
         **current_route_and_title(session_id),
     }
 
@@ -1854,7 +1857,7 @@ def phase_benchmark(
         and int(file_evidence.get("distinct_dir_count") or 0) >= int(max(1, min_distinct_dirs))
     )
     terminal_buffer = str(terminal_view.get("buffer_excerpt") or "")
-    terminal_cli_visible = "opencode run" in terminal_buffer.lower()
+    terminal_cli_visible = bool(terminal_view.get("cli_command_visible")) or "opencode run" in terminal_buffer.lower()
     terminal_workdir_error = "failed to change directory" in terminal_buffer.lower()
     task_detail_terminal_ok = (
         not task_detail_terminal.get("attempted")

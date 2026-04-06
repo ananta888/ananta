@@ -869,7 +869,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     local_target = None
 
     if target_provider == "ollama":
-        if execution_mode == "backend":
+        if tool_mode != "toolless":
             tool_mode = "toolless"
         base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
         base_url_source = "ollama_url"
