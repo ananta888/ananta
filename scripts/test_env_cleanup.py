@@ -21,7 +21,8 @@ DEFAULT_OLLAMA_CONTAINER = os.getenv("ANANTA_OLLAMA_CONTAINER", "ollama")
 DEFAULT_LIVE_PREFIXES = {
     "template_names": ["Live UI Template "],
     "blueprint_names": ["Live UI Blueprint "],
-    "team_names": ["Live UI Team "],
+    "team_names": ["Live UI Team ", "E2E Seed Scrum Team"],
+    "task_titles": ["E2E First Goal ", "E2E Execution Team ", "E2E Planning Team ", "E2E Hub Task "],
 }
 
 
@@ -232,6 +233,7 @@ def _extract_targets_from_report(report_path: Path) -> dict[str, list[str]]:
         "team_names": [],
         "goal_ids": [],
         "team_ids": [],
+        "task_title_prefixes": [],
     }
     if not report_path.exists():
         return result
@@ -258,8 +260,24 @@ def _extract_targets_from_report(report_path: Path) -> dict[str, list[str]]:
     return {key: _unique_strings(values) for key, values in result.items()}
 
 
-def _cleanup_goal_data_in_agent(agent_container: str, goal_ids: list[str], team_ids: list[str]) -> dict[str, Any]:
-    payload = json.dumps({"goal_ids": _unique_strings(goal_ids), "team_ids": _unique_strings(team_ids)}, ensure_ascii=True)
+def _cleanup_goal_data_in_agent(
+    agent_container: str,
+    goal_ids: list[str],
+    team_ids: list[str],
+    team_names: list[str],
+    team_prefixes: list[str],
+    task_title_prefixes: list[str],
+) -> dict[str, Any]:
+    payload = json.dumps(
+        {
+            "goal_ids": _unique_strings(goal_ids),
+            "team_ids": _unique_strings(team_ids),
+            "team_names": _unique_strings(team_names),
+            "team_prefixes": _unique_strings(team_prefixes),
+            "task_title_prefixes": _unique_strings(task_title_prefixes),
+        },
+        ensure_ascii=True,
+    )
     script = f"""
 import json
 from sqlmodel import Session, select, delete
@@ -273,6 +291,8 @@ from agent.db_models import (
     PlanNodeDB,
     PolicyDecisionDB,
     RetrievalRunDB,
+    TeamDB,
+    TeamMemberDB,
     TaskDB,
     VerificationRecordDB,
     WorkerJobDB,
@@ -282,13 +302,26 @@ from agent.db_models import (
 payload = json.loads({json.dumps(payload)})
 goal_ids = [item for item in payload.get("goal_ids", []) if item]
 team_ids = [item for item in payload.get("team_ids", []) if item]
+team_names = [item for item in payload.get("team_names", []) if item]
+team_prefixes = [item for item in payload.get("team_prefixes", []) if item]
+task_title_prefixes = [item for item in payload.get("task_title_prefixes", []) if item]
 
 deleted = {{}}
 
 with Session(engine) as session:
     resolved_goal_ids = set(goal_ids)
-    if team_ids:
-        for goal in session.exec(select(GoalDB).where(GoalDB.team_id.in_(team_ids))).all():
+    resolved_team_ids = set(team_ids)
+    team_name_matches = []
+    for team in session.exec(select(TeamDB)).all():
+        name = str(team.name or "").strip()
+        if not name:
+            continue
+        if name in team_names or any(name.startswith(prefix) for prefix in team_prefixes):
+            resolved_team_ids.add(team.id)
+            team_name_matches.append({{"id": team.id, "name": name}})
+    resolved_team_ids = sorted(item for item in resolved_team_ids if item)
+    if resolved_team_ids:
+        for goal in session.exec(select(GoalDB).where(GoalDB.team_id.in_(resolved_team_ids))).all():
             resolved_goal_ids.add(goal.id)
     resolved_goal_ids = sorted(item for item in resolved_goal_ids if item)
 
@@ -309,19 +342,60 @@ with Session(engine) as session:
                 plan_ids.add(task.plan_id)
         for plan in session.exec(select(PlanDB).where(PlanDB.goal_id.in_(resolved_goal_ids))).all():
             plan_ids.add(plan.id)
-    if team_ids:
-        for task in session.exec(select(TaskDB).where(TaskDB.team_id.in_(team_ids))).all():
+    if resolved_team_ids:
+        for task in session.exec(select(TaskDB).where(TaskDB.team_id.in_(resolved_team_ids))).all():
             task_ids.add(task.id)
             if task.goal_id:
                 resolved_goal_ids.append(task.goal_id)
             if task.plan_id:
                 plan_ids.add(task.plan_id)
-        for task in session.exec(select(ArchivedTaskDB).where(ArchivedTaskDB.team_id.in_(team_ids))).all():
+        for task in session.exec(select(ArchivedTaskDB).where(ArchivedTaskDB.team_id.in_(resolved_team_ids))).all():
             archived_task_ids.add(task.id)
             if task.goal_id:
                 resolved_goal_ids.append(task.goal_id)
             if task.plan_id:
                 plan_ids.add(task.plan_id)
+    if task_title_prefixes:
+        for task in session.exec(select(TaskDB)).all():
+            title = str(task.title or "").strip()
+            orphan_goal_stub = (
+                str(task.id or "").startswith("goal-")
+                and not str(task.title or "").strip()
+                and not str(task.goal_id or "").strip()
+                and not str(task.team_id or "").strip()
+            )
+            anonymous_orphan = (
+                not str(task.title or "").strip()
+                and not str(task.goal_id or "").strip()
+                and not str(task.goal_trace_id or "").strip()
+                and not str(task.team_id or "").strip()
+            )
+            if orphan_goal_stub or anonymous_orphan or (title and any(title.startswith(prefix) for prefix in task_title_prefixes)):
+                task_ids.add(task.id)
+                if task.goal_id:
+                    resolved_goal_ids.append(task.goal_id)
+                if task.plan_id:
+                    plan_ids.add(task.plan_id)
+        for task in session.exec(select(ArchivedTaskDB)).all():
+            title = str(task.title or "").strip()
+            orphan_goal_stub = (
+                str(task.id or "").startswith("goal-")
+                and not str(task.title or "").strip()
+                and not str(task.goal_id or "").strip()
+                and not str(task.team_id or "").strip()
+            )
+            anonymous_orphan = (
+                not str(task.title or "").strip()
+                and not str(task.goal_id or "").strip()
+                and not str(task.goal_trace_id or "").strip()
+                and not str(task.team_id or "").strip()
+            )
+            if orphan_goal_stub or anonymous_orphan or (title and any(title.startswith(prefix) for prefix in task_title_prefixes)):
+                archived_task_ids.add(task.id)
+                if task.goal_id:
+                    resolved_goal_ids.append(task.goal_id)
+                if task.plan_id:
+                    plan_ids.add(task.plan_id)
     resolved_goal_ids = sorted(set(item for item in resolved_goal_ids if item))
 
     all_task_ids = sorted(task_ids | archived_task_ids)
@@ -361,9 +435,14 @@ with Session(engine) as session:
         session.exec(delete(MemoryEntryDB).where(MemoryEntryDB.goal_id.in_(resolved_goal_ids)))
         session.exec(delete(PlanDB).where(PlanDB.goal_id.in_(resolved_goal_ids)))
         session.exec(delete(GoalDB).where(GoalDB.id.in_(resolved_goal_ids)))
+    if resolved_team_ids:
+        session.exec(delete(TeamMemberDB).where(TeamMemberDB.team_id.in_(resolved_team_ids)))
+        session.exec(delete(TeamDB).where(TeamDB.id.in_(resolved_team_ids)))
     session.commit()
 
     deleted["goal_ids"] = resolved_goal_ids
+    deleted["team_ids"] = resolved_team_ids
+    deleted["matched_teams"] = team_name_matches
     deleted["task_ids"] = all_task_ids
     deleted["worker_job_ids"] = sorted(worker_job_ids)
     deleted["retrieval_run_ids"] = sorted(retrieval_run_ids)
@@ -386,7 +465,14 @@ def cleanup_test_environment(
     cleanup_live_prefixes: bool = False,
     explicit_targets: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
-    report_targets = {"template_names": [], "blueprint_names": [], "team_names": [], "goal_ids": [], "team_ids": []}
+    report_targets = {
+        "template_names": [],
+        "blueprint_names": [],
+        "team_names": [],
+        "goal_ids": [],
+        "team_ids": [],
+        "task_title_prefixes": [],
+    }
     for raw_path in report_files or []:
         for key, values in _extract_targets_from_report(Path(raw_path)).items():
             report_targets[key].extend(values)
@@ -397,8 +483,15 @@ def cleanup_test_environment(
         "team_names": _unique_strings(report_targets["team_names"] + list(explicit.get("team_names") or [])),
         "goal_ids": _unique_strings(report_targets["goal_ids"] + list(explicit.get("goal_ids") or [])),
         "team_ids": _unique_strings(report_targets["team_ids"] + list(explicit.get("team_ids") or [])),
+        "task_title_prefixes": _unique_strings(
+            report_targets["task_title_prefixes"] + list(explicit.get("task_title_prefixes") or [])
+        ),
     }
-    prefixes = DEFAULT_LIVE_PREFIXES if cleanup_live_prefixes else {"template_names": [], "blueprint_names": [], "team_names": []}
+    prefixes = (
+        DEFAULT_LIVE_PREFIXES
+        if cleanup_live_prefixes
+        else {"template_names": [], "blueprint_names": [], "team_names": [], "task_titles": []}
+    )
 
     user = str(admin_user or _env_value("E2E_ADMIN_USER") or _env_value("INITIAL_ADMIN_USER") or "").strip()
     password = str(admin_password or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or "").strip()
@@ -442,13 +535,18 @@ def cleanup_test_environment(
 
     team_ids = _unique_strings(targets["team_ids"] + [str(item.get("id") or "") for item in matched_teams])
     goal_ids = _unique_strings(targets["goal_ids"])
+    team_name_exact = _unique_strings(targets["team_names"])
+    team_name_prefixes = _unique_strings(prefixes["team_names"])
 
     summary["resolved"] = {
         "templates": [{"id": item.get("id"), "name": item.get("name")} for item in matched_templates],
         "blueprints": [{"id": item.get("id"), "name": item.get("name")} for item in matched_blueprints],
         "teams": [{"id": item.get("id"), "name": item.get("name")} for item in matched_teams],
         "team_ids": team_ids,
+        "team_name_exact": team_name_exact,
+        "team_name_prefixes": team_name_prefixes,
         "goal_ids": goal_ids,
+        "task_title_prefixes": _unique_strings(targets["task_title_prefixes"] + prefixes["task_titles"]),
     }
 
     for team_id in team_ids:
@@ -487,7 +585,14 @@ def cleanup_test_environment(
         }
         for container_name in cleanup_containers:
             try:
-                cleaned = _cleanup_goal_data_in_agent(container_name, goal_ids, team_ids)
+                cleaned = _cleanup_goal_data_in_agent(
+                    container_name,
+                    goal_ids,
+                    team_ids,
+                    team_name_exact,
+                    team_name_prefixes,
+                    _unique_strings(targets["task_title_prefixes"] + prefixes["task_titles"]),
+                )
             except Exception as exc:
                 cleaned = {"error": str(exc)}
             summary["goal_cleanup_by_container"][container_name] = cleaned

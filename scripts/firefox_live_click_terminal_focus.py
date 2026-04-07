@@ -394,6 +394,7 @@ def main() -> None:
                     hub_container=HUB_CONTAINER,
                     admin_user=LOGIN_USER,
                     admin_password=LOGIN_PASS,
+                    cleanup_live_prefixes=True,
                     explicit_targets=report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {},
                 )
             except Exception as exc:
