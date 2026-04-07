@@ -1734,25 +1734,32 @@ class TaskScopedExecutionService:
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
-        tools_desc = json.dumps(
-            self._tool_definitions_for_task(task, tool_definitions_resolver=tool_definitions_resolver),
-            indent=2,
-            ensure_ascii=False,
-        )
+        tool_definitions = self._tool_definitions_for_task(task, tool_definitions_resolver=tool_definitions_resolver)
 
         prompt_sections: list[str] = []
         system_prompt = self._get_system_prompt_for_task(tid)
-        if system_prompt:
-            prompt_sections.append(system_prompt)
+        opencode_context_files = get_worker_workspace_service().prepare_opencode_context_files(
+            task=task,
+            workspace_context=workspace_context,
+            base_prompt=base_prompt,
+            system_prompt=system_prompt,
+            context_text=context_text,
+            expected_output_schema=expected_output_schema,
+            tool_definitions=tool_definitions,
+            research_context=research_context,
+        )
         prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
-        if context_text:
-            prompt_sections.append(f"Selektierter Hub-Kontext:\n{context_text}")
-        if str((research_context or {}).get("prompt_section") or "").strip():
-            prompt_sections.append(f"Selektierter Research-Kontext:\n{research_context['prompt_section']}")
-        if expected_output_schema:
+        read_paths = [
+            str(opencode_context_files.get("agents_path") or "").strip(),
+            str(opencode_context_files.get("context_index_path") or "").strip(),
+            str(opencode_context_files.get("task_brief_path") or "").strip(),
+            str(opencode_context_files.get("response_contract_path") or "").strip(),
+        ]
+        read_paths = [item for item in read_paths if item]
+        if read_paths:
             prompt_sections.append(
-                "Erwartetes Ausgabeschema (JSON Schema oder Strukturhinweis):\n"
-                f"{json.dumps(expected_output_schema, indent=2, ensure_ascii=False)}"
+                "Lies zuerst die bereitgestellten Workspace-Dateien und verwende diesen Dateikontext "
+                "statt lange Inhalte zu wiederholen:\n" + "\n".join(f"- {item}" for item in read_paths)
             )
         prompt_sections.append(
             "Arbeitsverzeichnis fuer Datei-/Shell-Aktionen:\n"
@@ -1761,29 +1768,11 @@ class TaskScopedExecutionService:
             f"- rag_helper: {workspace_context.rag_helper_dir}\n"
             "Nutze ausschliesslich diesen Workspace fuer neue oder geaenderte Dateien."
         )
-        prompt_sections.append(f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}")
         prompt_sections.append(
-            "Antworte AUSSCHLIESSLICH als JSON-Objekt ohne Markdown und ohne Zusatztext.\n"
-            "Regeln:\n"
-            "- Das erste Zeichen deiner Antwort muss '{' sein und das letzte '}'.\n"
-            "- Keine Code-Fences, keine XML/Markdown-Tags, keine Spezialtoken wie <|im_start|>.\n"
-            "- Mindestens eines von 'command' oder 'tool_calls' muss gesetzt sein.\n"
-            "- Wenn kein Tool nötig ist, liefere einen konkreten, ausführbaren Shell-Befehl in 'command'.\n"
-            "- 'reason' muss kurz, technisch und direkt auf den Auftrag bezogen sein.\n"
-            "Schema:\n"
-            "{\n"
-            '  "reason": "Kurze Begründung",\n'
-            '  "command": "Shell-Befehl (optional)",\n'
-            '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
-            "}"
-        )
-        prompt_sections.append(
-            "Beispiel:\n"
-            '{\n'
-            '  "reason": "Lege Basisstruktur an und implementiere ersten vertikalen Slice.",\n'
-            '  "command": "mkdir -p backend frontend && printf \'%s\\n\' \'# bootstrap\' > backend/README.md",\n'
-            '  "tool_calls": []\n'
-            "}"
+            "Antworte ausschliesslich als genau ein JSON-Objekt. "
+            "Beachte dafuer die Regeln in "
+            f"{str(opencode_context_files.get('response_contract_path') or '.ananta/response-contract.md')} "
+            "und setze mindestens eines von 'command' oder 'tool_calls'."
         )
         return "\n\n".join(section for section in prompt_sections if section), {
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
@@ -1794,6 +1783,7 @@ class TaskScopedExecutionService:
                 "workspace_dir": str(workspace_context.workspace_dir),
                 "artifacts_dir": str(workspace_context.artifacts_dir),
                 "rag_helper_dir": str(workspace_context.rag_helper_dir),
+                "opencode_context_files": opencode_context_files,
             },
             "context_chunk_count": len(context_payload.get("chunks") or []),
             "has_context_text": bool(context_text),
