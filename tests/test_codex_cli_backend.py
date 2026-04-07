@@ -137,6 +137,7 @@ def test_resolve_opencode_runtime_config_builds_ollama_openai_compatible_provide
             mock_settings.default_provider = "ollama"
             mock_settings.opencode_default_model = "opencode/glm-5-free"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/generate"
+            mock_settings.http_timeout = 30
 
             resolved = resolve_opencode_runtime_config()
 
@@ -211,6 +212,7 @@ def test_resolve_opencode_runtime_config_respects_tool_mode_toolless(app):
             mock_settings.default_provider = "ollama"
             mock_settings.opencode_default_model = "opencode/glm-5-free"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            mock_settings.http_timeout = 30
             resolved = resolve_opencode_runtime_config()
 
     assert resolved["tool_mode"] == "toolless"
@@ -232,6 +234,7 @@ def test_resolve_opencode_runtime_config_normalizes_legacy_ollama_model(app):
             mock_settings.default_provider = "ollama"
             mock_settings.opencode_default_model = "ananta-default"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            mock_settings.http_timeout = 30
             resolved = resolve_opencode_runtime_config()
 
     assert resolved["model"] == "ollama/qwen2.5-coder:7b"
@@ -265,6 +268,33 @@ def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installe
     assert resolved["target_model"] == "bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
 
 
+def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "ollama",
+            "opencode_default_model": "qwen2.5-coder:7b",
+        }
+        app.config["PROVIDER_URLS"] = {}
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch(
+                "agent.common.sgpt.resolve_ollama_model",
+                return_value="bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest",
+            ),
+        ):
+            mock_settings.default_provider = "ollama"
+            mock_settings.ollama_url = "http://ollama:11434/api/generate"
+            mock_settings.opencode_default_model = "qwen2.5-coder:7b"
+            mock_settings.http_timeout = 60
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["base_url"] == "http://ollama:11434/v1"
+    assert resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
+    assert resolved["provider_config"]["model"] == resolved["model"]
+
+
 def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(app):
     from agent.common.sgpt import resolve_opencode_runtime_config
 
@@ -280,6 +310,7 @@ def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(ap
             mock_settings.default_model = "ananta-default"
             mock_settings.opencode_default_model = "opencode/glm-5-free"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            mock_settings.http_timeout = 30
             resolved = resolve_opencode_runtime_config()
 
     assert resolved["model"] == "ollama/ananta-smoke"
@@ -303,6 +334,7 @@ def test_resolve_opencode_runtime_config_forces_toolless_ollama_in_backend_mode(
             mock_settings.default_model = "ananta-default"
             mock_settings.opencode_default_model = "opencode/glm-5-free"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            mock_settings.http_timeout = 30
             resolved = resolve_opencode_runtime_config()
 
     assert resolved["tool_mode"] == "toolless"

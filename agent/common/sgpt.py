@@ -701,9 +701,22 @@ def _get_agent_config() -> dict:
 
 
 def _get_runtime_provider_urls() -> dict:
-    if has_app_context():
-        return (current_app.config.get("PROVIDER_URLS", {}) or {})
-    return {}
+    defaults = {
+        "ollama": getattr(settings, "ollama_url", None),
+        "lmstudio": getattr(settings, "lmstudio_url", None),
+        "openai": getattr(settings, "openai_url", None),
+        "anthropic": getattr(settings, "anthropic_url", None),
+        "mock": getattr(settings, "mock_url", None),
+    }
+    if not has_app_context():
+        return defaults
+    configured = current_app.config.get("PROVIDER_URLS", {}) or {}
+    if not isinstance(configured, dict):
+        return defaults
+    return {
+        **defaults,
+        **{key: value for key, value in configured.items() if value},
+    }
 
 
 def _get_runtime_default_provider() -> str:
