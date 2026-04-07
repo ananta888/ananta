@@ -514,6 +514,15 @@ def phase_goal(
         team_names = cleanup_targets.get("team_names")
         if isinstance(team_names, list) and team_names:
             expected_team_name = str(team_names[-1] or "").strip()
+    preferred_team = _select_preferred_team(
+        session_id,
+        preferred_team_id=expected_team_id,
+        preferred_team_name=expected_team_name,
+    )
+    if not expected_team_id:
+        expected_team_id = str(preferred_team.get("team_id") or "").strip()
+    if not expected_team_name:
+        expected_team_name = str(preferred_team.get("team_name") or "").strip()
     wait_for(
         session_id,
         """
@@ -641,6 +650,7 @@ def phase_goal(
         )
     click_debug["planning_started"] = planning_started
     click_debug["team_pick"] = team_pick
+    click_debug["preferred_team"] = preferred_team
     goal_clicked = bool(planning_started)
     print("goal_submit_started", goal_name, flush=True)
     goal_result = wait_for(
@@ -978,6 +988,49 @@ def _unwrap_envelope(payload: Any) -> Any:
             continue
         break
     return cur
+
+
+def _select_preferred_team(
+    session_id: str,
+    *,
+    preferred_team_id: str = "",
+    preferred_team_name: str = "",
+) -> Dict[str, str]:
+    preferred_team_id = str(preferred_team_id or "").strip()
+    preferred_team_name = str(preferred_team_name or "").strip().lower()
+    teams_res = browser_api_json(session_id, "GET", "/teams", timeout_seconds=45)
+    agents_res = browser_api_json(session_id, "GET", "/api/system/agents", timeout_seconds=45)
+    teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
+    agents_payload = _unwrap_envelope(agents_res.get("body")) if agents_res.get("ok") else []
+    teams = [item for item in (teams_payload if isinstance(teams_payload, list) else []) if isinstance(item, dict)]
+    agents = [item for item in (agents_payload if isinstance(agents_payload, list) else []) if isinstance(item, dict)]
+    online_worker_urls = {
+        str(agent.get("url") or "").strip()
+        for agent in agents
+        if str(agent.get("role") or "").strip().lower() == "worker" and str(agent.get("status") or "").strip().lower() == "online"
+    }
+
+    def _matches_preferred(team: Dict[str, Any]) -> bool:
+        team_id = str(team.get("id") or "").strip()
+        team_name = str(team.get("name") or "").strip().lower()
+        return (preferred_team_id and team_id == preferred_team_id) or (preferred_team_name and team_name == preferred_team_name)
+
+    def _has_online_worker_member(team: Dict[str, Any]) -> bool:
+        members = team.get("members") if isinstance(team.get("members"), list) else []
+        return any(str(member.get("agent_url") or "").strip() in online_worker_urls for member in members if isinstance(member, dict))
+
+    preferred = next((team for team in teams if _matches_preferred(team)), None)
+    selected = (
+        preferred
+        or next((team for team in teams if bool(team.get("is_active")) and _has_online_worker_member(team)), None)
+        or next((team for team in teams if _has_online_worker_member(team)), None)
+        or next((team for team in teams if bool(team.get("is_active"))), None)
+        or (teams[0] if teams else None)
+    )
+    return {
+        "team_id": str((selected or {}).get("id") or ""),
+        "team_name": str((selected or {}).get("name") or ""),
+    }
 
 
 def _summarize_tasks(tasks: List[dict]) -> Dict[str, int]:

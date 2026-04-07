@@ -393,9 +393,7 @@ export class AutoPlannerComponent implements OnInit {
     this.controlPlane.listTeams(this.hub.url).subscribe({
       next: (teams) => {
         this.teams = Array.isArray(teams) ? teams : [];
-        if (!this.goalForm.team_id && this.teams.length > 0) {
-          this.goalForm.team_id = String(this.teams[0]?.id || '');
-        }
+        this.goalForm.team_id = this.resolvePreferredTeamId(this.goalForm.team_id);
         this.cdr.detectChanges();
       },
       error: () => {},
@@ -449,7 +447,7 @@ export class AutoPlannerComponent implements OnInit {
     const llmTimeoutSeconds = Math.max(5, Number(this.config?.llm_timeout) || 30);
     const llmRetryAttempts = Math.max(1, Number(this.config?.llm_retry_attempts) || 2);
     const goalTimeoutMs = Math.max(120000, ((llmTimeoutSeconds * llmRetryAttempts) + 30) * 1000);
-    const effectiveTeamId = String(this.goalForm.team_id || this.teams[0]?.id || '').trim();
+    const effectiveTeamId = String(this.resolvePreferredTeamId(this.goalForm.team_id)).trim();
 
     const body: any = {
       goal: this.goalForm.goal.trim(),
@@ -538,5 +536,29 @@ export class AutoPlannerComponent implements OnInit {
     this.goalForm.context = '';
     this.goalForm.constraintsText = '';
     this.goalForm.acceptanceCriteriaText = '';
+  }
+
+  resolvePreferredTeamId(currentTeamId: string): string {
+    const selected = String(currentTeamId || '').trim();
+    if (selected && this.teams.some((team) => String(team?.id || '') === selected)) {
+      return selected;
+    }
+    const workerUrls = new Set(
+      this.dir
+        .list()
+        .filter((agent) => agent.role === 'worker')
+        .map((agent) => String(agent.url || '').trim())
+        .filter(Boolean),
+    );
+    const teams = Array.isArray(this.teams) ? this.teams : [];
+    const hasKnownWorkerMember = (team: any): boolean =>
+      Array.isArray(team?.members)
+      && team.members.some((member: any) => workerUrls.has(String(member?.agent_url || '').trim()));
+    const preferred =
+      teams.find((team) => team?.is_active && hasKnownWorkerMember(team))
+      || teams.find((team) => hasKnownWorkerMember(team))
+      || teams.find((team) => team?.is_active)
+      || teams[0];
+    return String(preferred?.id || '');
   }
 }

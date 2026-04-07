@@ -46,6 +46,18 @@ describe('AutoPlannerComponent', () => {
     cmp.selectedGoalId = '';
     cmp.loadGoals = vi.fn();
     cmp.selectGoal = vi.fn();
+    Object.defineProperty(cmp, 'dir', {
+      value: {
+        list: vi.fn(() => [
+          { name: 'hub', url: 'http://hub:5000', role: 'hub' },
+          { name: 'alpha', url: 'http://alpha:5000', role: 'worker' },
+          { name: 'beta', url: 'http://beta:5000', role: 'worker' },
+        ]),
+      },
+      configurable: true,
+      writable: true,
+    });
+    cmp.teams = [];
     return cmp;
   }
 
@@ -74,5 +86,26 @@ describe('AutoPlannerComponent', () => {
       routing: { mode: 'active_team_or_hub_default' },
       policy: { security_level: 'strict' },
     });
+  });
+
+  it('prefers the active team with known worker members for goal defaults', () => {
+    const cmp = createComponent();
+    cmp.teams = [
+      { id: 'team-empty', name: 'Empty Team', is_active: false, members: [] },
+      { id: 'team-active', name: 'Active Team', is_active: true, members: [{ agent_url: 'http://alpha:5000' }] },
+      { id: 'team-other', name: 'Other Team', is_active: false, members: [{ agent_url: 'http://beta:5000' }] },
+    ];
+
+    expect(cmp.resolvePreferredTeamId('')).toBe('team-active');
+  });
+
+  it('keeps the current valid team selection unchanged', () => {
+    const cmp = createComponent();
+    cmp.teams = [
+      { id: 'team-empty', name: 'Empty Team', is_active: false, members: [] },
+      { id: 'team-active', name: 'Active Team', is_active: true, members: [{ agent_url: 'http://alpha:5000' }] },
+    ];
+
+    expect(cmp.resolvePreferredTeamId('team-empty')).toBe('team-empty');
   });
 });

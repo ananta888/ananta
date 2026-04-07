@@ -97,6 +97,11 @@ def _goal_trace_id(detail: Dict[str, Any]) -> str:
     return str(goal.get("trace_id") or goal.get("goal_trace_id") or "").strip()
 
 
+def _goal_team_id(detail: Dict[str, Any]) -> str:
+    goal = detail.get("goal") if isinstance(detail.get("goal"), dict) else {}
+    return str(detail.get("team_id") or goal.get("team_id") or "").strip()
+
+
 def _pick_terminal_task(tasks: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     active_candidate: Optional[Dict[str, Any]] = None
     fallback_candidate: Optional[Dict[str, Any]] = None
@@ -111,6 +116,62 @@ def _pick_terminal_task(tasks: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
             active_candidate = task
             break
     return active_candidate or fallback_candidate
+
+
+def _ensure_fresh_scrum_team(session_id: str, report: Dict[str, Any]) -> None:
+    t0 = time.time()
+    team_name = f"Live UI Team {int(time.time())}"
+    create_res = browser_api_json(
+        session_id,
+        "POST",
+        "/teams/setup-scrum",
+        body={"name": team_name},
+        timeout_seconds=45,
+    )
+    payload = _unwrap_envelope(create_res.get("body")) if create_res.get("ok") else {}
+    payload = payload if isinstance(payload, dict) else {}
+    team_obj = payload.get("team") if isinstance(payload.get("team"), dict) else {}
+    team_id = str(team_obj.get("id") or "").strip()
+    cleanup_res: Dict[str, Any] = {}
+    archived_cleanup_res: Dict[str, Any] = {}
+    if team_id:
+        cleanup_res = browser_api_json(
+            session_id,
+            "POST",
+            "/tasks/cleanup",
+            body={"mode": "delete", "team_id": team_id},
+            timeout_seconds=45,
+        )
+        archived_cleanup_res = browser_api_json(
+            session_id,
+            "POST",
+            "/tasks/archived/cleanup",
+            body={"team_id": team_id},
+            timeout_seconds=45,
+        )
+    if team_id:
+        cleanup_targets = report.setdefault("cleanup_targets", {})
+        cleanup_targets.setdefault("team_names", []).append(team_name)
+        cleanup_targets.setdefault("team_ids", []).append(team_id)
+    ok = bool(create_res.get("ok")) and int(create_res.get("status") or 0) < 400 and bool(team_id)
+    record_step(
+        report,
+        "setup",
+        "create_fresh_team",
+        t0,
+        ok,
+        {
+            "team_name": team_name,
+            "team_id": team_id,
+            "api_status": int(create_res.get("status") or 0),
+            "team_active": bool(team_obj.get("is_active")),
+            "task_cleanup_status": int(cleanup_res.get("status") or 0) if cleanup_res else 0,
+            "archived_task_cleanup_status": int(archived_cleanup_res.get("status") or 0) if archived_cleanup_res else 0,
+            **current_route_and_title(session_id),
+        },
+    )
+    if not ok:
+        raise RuntimeError("Could not create fresh scrum team for focused live terminal run")
 
 
 def phase_terminal_focus(
@@ -128,6 +189,7 @@ def phase_terminal_focus(
 
     detail = _goal_detail(session_id, goal_id)
     goal_trace_id = _goal_trace_id(detail)
+    goal_team_id = _goal_team_id(detail)
     initial_tasks = detail.get("tasks") if isinstance(detail.get("tasks"), list) else []
     if not initial_tasks:
         initial_tasks = _collect_goal_tasks_snapshot(
@@ -152,10 +214,11 @@ def phase_terminal_focus(
         session_id,
         "POST",
         "/tasks/autopilot/start",
-        body={"max_concurrency": 2, "security_level": "balanced"},
+        body={"max_concurrency": 2, "security_level": "balanced", "team_id": goal_team_id or None},
         timeout_seconds=45,
     )
-    browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body={}, timeout_seconds=25)
+    tick_body = {"team_id": goal_team_id} if goal_team_id else {}
+    browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=25)
 
     deadline = time.time() + max(20.0, float(terminal_timeout_seconds))
     selected_task: Optional[Dict[str, Any]] = None
@@ -166,7 +229,7 @@ def phase_terminal_focus(
 
     while time.time() < deadline:
         if tick_attempts % 3 == 0:
-            browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body={}, timeout_seconds=25)
+            browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=25)
         else:
             browser_api_json(session_id, "GET", "/tasks/autopilot/status", timeout_seconds=20)
         tick_attempts += 1
@@ -210,6 +273,7 @@ def phase_terminal_focus(
         {
             "goal_id": goal_id,
             "goal_trace_id": goal_trace_id,
+            "goal_team_id": goal_team_id,
             "task_id": task_id,
             "forward_param": forward_param,
             "active_terminal_seen": active_terminal_seen,
@@ -281,6 +345,7 @@ def main() -> None:
             step_delay_seconds=max(0.0, float(args.step_delay_seconds)),
             bootstrap_setup=False,
         )
+        _ensure_fresh_scrum_team(session_id, report)
         print("phase_done", "setup", flush=True)
 
         print("phase_start", "goal", flush=True)
