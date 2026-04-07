@@ -8,6 +8,7 @@ x-agent-env: &agent-env
   OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
   LMSTUDIO_URL: ${COMPOSE_LMSTUDIO_URL:-http://192.168.56.1:1234/v1}
   LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+  LMSTUDIO_MAX_CONTEXT_TOKENS: ${LMSTUDIO_MAX_CONTEXT_TOKENS:-32768}
   DEFAULT_PROVIDER: ${COMPOSE_DEFAULT_PROVIDER:-ollama}
   DEFAULT_MODEL: ${COMPOSE_DEFAULT_MODEL:-qwen2.5-coder:7b}
   ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
@@ -143,6 +144,8 @@ services:
       - /mnt/c/Users/Public/lm-models:/models:ro
       - ./autoimport-state:/state
       - ./scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
+    environment:
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
     entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]
 
 volumes:
