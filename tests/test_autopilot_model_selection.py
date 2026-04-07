@@ -96,3 +96,35 @@ def test_select_model_for_task_prefers_team_role_template(monkeypatch):
     assert selected == "opencode-model"
     assert meta["source"] == "template_model_overrides:name"
     assert meta["template_name"] == "OpenCode Scrum - Developer"
+
+
+def test_select_model_for_task_normalizes_legacy_ollama_benchmark_model(monkeypatch):
+    repos = SimpleNamespace(
+        team_member_repo=SimpleNamespace(get_by_team=lambda _team_id: []),
+        role_repo=SimpleNamespace(get_by_id=lambda _role_id: SimpleNamespace(name="Developer", default_template_id=None)),
+        template_repo=SimpleNamespace(get_by_id=lambda _template_id: None),
+    )
+    monkeypatch.setattr("agent.routes.tasks.autopilot_tick_engine.get_repository_registry", lambda: repos)
+    monkeypatch.setattr(
+        "agent.routes.tasks.autopilot_tick_engine.recommend_model_for_context",
+        lambda **kwargs: {"model": "ananta-default", "selection_source": "benchmark_context_learning"},
+    )
+
+    loop = SimpleNamespace(
+        _agent_config=lambda: {
+            "default_provider": "ollama",
+            "adaptive_model_routing_enabled": True,
+            "adaptive_model_routing_min_samples": 2,
+        },
+        _app=SimpleNamespace(config={"DATA_DIR": "data"}),
+    )
+    task = SimpleNamespace(
+        assigned_role_id="role-1",
+        team_id="team-1",
+        assigned_agent_url="http://worker:5000",
+        task_kind="coding",
+    )
+
+    selected, meta = _select_model_for_task(loop=loop, task=task)
+    assert selected == "qwen2.5-coder:7b"
+    assert meta["source"] == "benchmark_context_learning"

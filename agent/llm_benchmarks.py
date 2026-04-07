@@ -5,6 +5,8 @@ import os
 import time
 from typing import Any
 
+from agent.model_selection import normalize_legacy_model_name
+
 
 BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops", "research"}
 DEFAULT_BENCH_RETENTION = {"max_samples": 2000, "max_days": 90}
@@ -255,8 +257,8 @@ def recommend_models_for_context(
     for _model_key, entry in (db.get("models") or {}).items():
         if not isinstance(entry, dict):
             continue
-        model = str(entry.get("model") or "").strip()
         provider = str(entry.get("provider") or "").strip().lower()
+        model = normalize_legacy_model_name(str(entry.get("model") or "").strip(), provider=provider)
         if not provider or not model or model in excluded:
             continue
         if provider_match and provider != provider_match:
@@ -301,8 +303,16 @@ def recommend_models_for_context(
         key=lambda item: float(((item.get("score") or {}).get("suitability_score") or 0.0)),
         reverse=True,
     )
+    deduped: list[dict[str, Any]] = []
+    seen_models: set[tuple[str, str]] = set()
+    for candidate in candidates:
+        key = (str(candidate.get("provider") or "").strip().lower(), str(candidate.get("model") or "").strip())
+        if key in seen_models:
+            continue
+        seen_models.add(key)
+        deduped.append(candidate)
     capped = max(1, min(int(limit or 1), 20))
-    return candidates[:capped]
+    return deduped[:capped]
 
 
 def score_bucket(bucket: dict[str, Any]) -> dict[str, Any]:
