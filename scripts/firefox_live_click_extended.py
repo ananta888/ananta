@@ -1640,16 +1640,24 @@ def phase_benchmark(
         session_id, "POST", "/tasks/autopilot/start", body=autopilot_start_payload, timeout_seconds=45
     )
     tick_start = time.time()
-    for _ in range(max(0, int(benchmark_ticks))):
-        tick_body = {"team_id": team_id} if team_id else {}
-        tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=180)
-        tick_results.append(tick_res)
-        tick_status = int(tick_res.get("status") or 0)
-        if not tick_res.get("ok") or tick_status >= 400:
-            continue
-        tick_data = _unwrap_envelope(tick_res.get("body")) or {}
-        dispatched = int((tick_data.get("dispatched") or 0) if isinstance(tick_data, dict) else 0)
-        reason = str((tick_data.get("reason") or "") if isinstance(tick_data, dict) else "")
+    tick_body = {"team_id": team_id} if team_id else {}
+    initial_tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=25)
+    tick_results.append(initial_tick_res)
+    for attempt_index in range(max(1, int(benchmark_ticks))):
+        dispatched = 0
+        reason = ""
+        if attempt_index > 0 and attempt_index % 3 == 0:
+            tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=25)
+            tick_results.append(tick_res)
+            if tick_res.get("ok") and int(tick_res.get("status") or 0) < 400:
+                tick_data = _unwrap_envelope(tick_res.get("body")) or {}
+                dispatched = int((tick_data.get("dispatched") or 0) if isinstance(tick_data, dict) else 0)
+                reason = str((tick_data.get("reason") or "") if isinstance(tick_data, dict) else "")
+        else:
+            status_res = browser_api_json(session_id, "GET", "/tasks/autopilot/status", timeout_seconds=20)
+            if status_res.get("ok") and int(status_res.get("status") or 0) < 400:
+                status_data = _unwrap_envelope(status_res.get("body")) or {}
+                reason = "running" if bool((status_data or {}).get("running")) else ""
         tasks_tick_full = _collect_goal_tasks_snapshot(
             session_id,
             goal_id=goal_id,
