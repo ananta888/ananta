@@ -21,6 +21,17 @@ import { NotificationService } from '../services/notification.service';
 
 const TERMINAL_LOW_LATENCY_STORAGE_KEY = 'ananta.terminal.low-latency';
 
+type TerminalButtonKeySpec = {
+  key: string;
+  code: string;
+  keyCode?: number;
+  charCode?: number;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+};
+
 @Component({
   standalone: true,
   selector: 'app-terminal',
@@ -102,7 +113,7 @@ const TERMINAL_LOW_LATENCY_STORAGE_KEY = 'ananta.terminal.low-latency';
             <button type="button" class="button-outline" (click)="sendSpecialInput('\u000c')">Ctrl+L</button>
             <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b')">Esc</button>
             <button type="button" class="button-outline" (click)="sendSpecialInput('\t')">Tab</button>
-            <button type="button" class="button-outline" (click)="sendSpecialInput('\r')">Enter</button>
+            <button type="button" class="button-outline" (click)="sendEnterKey()">Enter</button>
             <button type="button" class="button-outline" (click)="sendSpecialInput('\u007f')">Backspace</button>
             <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b[A')">↑</button>
             <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b[B')">↓</button>
@@ -331,6 +342,20 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.terminalService.sendInput(sequence);
   }
 
+  sendEnterKey(): void {
+    if (this.mode !== 'interactive') return;
+    this.focusTerminal();
+    if (this.dispatchTerminalKey({
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      charCode: 13,
+    })) {
+      return;
+    }
+    this.terminalService.sendInput('\r');
+  }
+
   sendQuickCommand(): void {
     if (this.mode !== 'interactive') return;
     const command = this.quickCommand.trim();
@@ -437,5 +462,35 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     } catch {
       return false;
     }
+  }
+
+  private dispatchTerminalKey(spec: TerminalButtonKeySpec): boolean {
+    const textarea = this.terminalHost?.nativeElement.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement)) return false;
+    textarea.focus();
+    const eventInit: KeyboardEventInit = {
+      key: spec.key,
+      code: spec.code,
+      ctrlKey: spec.ctrlKey ?? false,
+      altKey: spec.altKey ?? false,
+      shiftKey: spec.shiftKey ?? false,
+      metaKey: spec.metaKey ?? false,
+      bubbles: true,
+      cancelable: true,
+    };
+    const keydown = new KeyboardEvent('keydown', eventInit);
+    Object.defineProperty(keydown, 'keyCode', { configurable: true, get: () => spec.keyCode ?? 0 });
+    Object.defineProperty(keydown, 'which', { configurable: true, get: () => spec.keyCode ?? 0 });
+    textarea.dispatchEvent(keydown);
+    const keypress = new KeyboardEvent('keypress', eventInit);
+    Object.defineProperty(keypress, 'keyCode', { configurable: true, get: () => spec.charCode ?? spec.keyCode ?? 0 });
+    Object.defineProperty(keypress, 'charCode', { configurable: true, get: () => spec.charCode ?? spec.keyCode ?? 0 });
+    Object.defineProperty(keypress, 'which', { configurable: true, get: () => spec.charCode ?? spec.keyCode ?? 0 });
+    textarea.dispatchEvent(keypress);
+    const keyup = new KeyboardEvent('keyup', eventInit);
+    Object.defineProperty(keyup, 'keyCode', { configurable: true, get: () => spec.keyCode ?? 0 });
+    Object.defineProperty(keyup, 'which', { configurable: true, get: () => spec.keyCode ?? 0 });
+    textarea.dispatchEvent(keyup);
+    return true;
   }
 }
