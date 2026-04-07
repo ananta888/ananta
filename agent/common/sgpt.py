@@ -546,30 +546,6 @@ def run_opencode_command(
             timeout=timeout,
             model=model,
         )
-    if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal":
-        from agent.services.live_terminal_session_service import get_live_terminal_session_service
-
-        session_service = get_live_terminal_session_service()
-        terminal_meta = session_service.ensure_session_for_cli(
-            session,
-            execution_mode="interactive_terminal",
-            workdir=workdir,
-        ) or {}
-        rc, out, err, visible_command = _run_opencode_subprocess(
-            prompt=prompt,
-            model=model,
-            timeout=timeout,
-            workdir=workdir,
-            output_format=None,
-        )
-        terminal_session_id = str(terminal_meta.get("terminal_session_id") or "").strip()
-        if terminal_session_id:
-            session_service.append_output(terminal_session_id, f"$ {visible_command}\n")
-            if out:
-                session_service.append_output(terminal_session_id, out if out.endswith("\n") else f"{out}\n")
-            if err:
-                session_service.append_output(terminal_session_id, err if err.endswith("\n") else f"{err}\n")
-        return rc, out, err
     if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() in {"live_terminal", "interactive_terminal"}:
         from agent.services.live_terminal_session_service import get_live_terminal_session_service
 
