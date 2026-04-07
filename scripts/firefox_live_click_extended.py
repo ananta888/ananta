@@ -2500,6 +2500,7 @@ def main():
                     hub_container=HUB_CONTAINER,
                     admin_user=LOGIN_USER,
                     admin_password=LOGIN_PASS,
+                    cleanup_live_prefixes=True,
                     explicit_targets=explicit_targets,
                 )
                 report["cleanup"] = cleanup
