@@ -12,6 +12,6 @@ services:
       OLLAMA_VULKAN: "${OLLAMA_VULKAN:-1}"
       VK_ICD_FILENAMES: ${OLLAMA_WSL_VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/dzn_icd.json}
     volumes:
-      - ollama_data:/root/.ollama
+      - ./.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
       - /usr/lib/wsl:/usr/lib/wsl:ro

@@ -12,6 +12,7 @@ OLLAMA_SMOKE_ALIAS="${OLLAMA_SMOKE_ALIAS:-ananta-smoke}"
 OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6,lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4,mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661,bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s}"
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
 OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-32768}"
+INITIAL_SCAN_PID=""
 
 write_modelfile() {
   target="$1"
@@ -84,6 +85,17 @@ resolve_configured_alias_source() {
     fi
   done
   return 1
+}
+
+priority_model_refs() {
+  printf '%s\n%s\n' "$OLLAMA_DEFAULT_ALIAS_CANDIDATES" "$OLLAMA_SMOKE_ALIAS_CANDIDATES" \
+    | tr ',' '\n' \
+    | while IFS= read -r ref; do
+        normalized="$(normalize_model_ref "$ref")"
+        [ -n "$normalized" ] || continue
+        printf '%s\n' "$normalized"
+      done \
+    | awk '!seen[$0]++'
 }
 
 first_available_text_model() {
@@ -200,20 +212,69 @@ import_one() {
   echo "done: $name"
 }
 
+find_model_file_for_ref() {
+  wanted="$(normalize_model_ref "$1")"
+  [ -n "$wanted" ] || return 1
+  find /models -type f \( -iname '*.gguf' -o -iname '*.GGUF' \) | while IFS= read -r f; do
+    candidate_name="$(model_name "$f")"
+    if [ "$candidate_name" = "$wanted" ]; then
+      printf '%s\n' "$f"
+      return 0
+    fi
+  done
+  return 1
+}
+
+import_priority_models() {
+  priority_model_refs | while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    if model_exists "$ref"; then
+      echo "priority-ready: $ref"
+      continue
+    fi
+    file_path="$(find_model_file_for_ref "$ref" || true)"
+    if [ -z "$file_path" ]; then
+      echo "priority-missing: $ref"
+      continue
+    fi
+    import_one "$file_path" || true
+  done
+}
+
 scan_models() {
   find /models -type f \( -iname '*.gguf' -o -iname '*.GGUF' \) | while read -r f; do
     import_one "$f" || true
   done
 }
 
+start_bulk_scan() {
+  log_file="$AUTOIMPORT_STATE_DIR/logs/bulk-import.log"
+  (
+    echo "bulk-import-start: $(date -Iseconds)"
+    scan_models
+    echo "bulk-import-finish: $(date -Iseconds)"
+  ) >>"$log_file" 2>&1 &
+  INITIAL_SCAN_PID="$!"
+  echo "bulk-import-pid: $INITIAL_SCAN_PID"
+}
+
+wait_for_bulk_scan_if_running() {
+  if [ -n "${INITIAL_SCAN_PID:-}" ] && kill -0 "$INITIAL_SCAN_PID" >/dev/null 2>&1; then
+    wait "$INITIAL_SCAN_PID" || true
+  fi
+  INITIAL_SCAN_PID=""
+}
+
 main() {
-  echo "initial scan..."
-  scan_models
+  echo "priority import..."
+  import_priority_models
   ensure_configured_aliases
+  start_bulk_scan
 
   echo "rescanning /models every ${OLLAMA_RESCAN_SEC}s..."
   while true; do
     sleep "$OLLAMA_RESCAN_SEC"
+    wait_for_bulk_scan_if_running
     scan_models
     ensure_configured_aliases
   done
