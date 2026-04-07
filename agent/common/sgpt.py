@@ -904,6 +904,9 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
     tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
     execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
+    forced_target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
+    if forced_target_provider not in {"ollama", "lmstudio"}:
+        forced_target_provider = None
     configured_default_model = (
         str(agent_cfg.get("opencode_default_model") or "").strip()
         or str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip()
@@ -912,16 +915,20 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     default_provider = str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
     raw_model = normalize_legacy_model_name(
         str(model or configured_default_model or "").strip() or None,
-        provider=default_provider,
+        provider=forced_target_provider or default_provider,
     )
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
+    if forced_target_provider and explicit_provider in {"ollama", "lmstudio"} and explicit_provider != forced_target_provider:
+        raw_model = str(explicit_model or raw_model or "").strip() or None
+        explicit_provider = None
+        explicit_model = None
     inference_timeout = max(1, min(int(getattr(settings, "http_timeout", 120) or 120), 5))
     inferred_provider, inferred_model = (None, None)
     if not explicit_provider and raw_model:
         inferred_provider, inferred_model = _infer_local_opencode_target(
             raw_model,
             provider_urls=provider_urls,
-            preferred_provider=default_provider or _get_runtime_default_provider(),
+            preferred_provider=forced_target_provider or default_provider or _get_runtime_default_provider(),
             timeout=inference_timeout,
         )
     built_in_providers = {
@@ -938,7 +945,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         "lmstudio",
     }
 
-    target_provider = explicit_provider or inferred_provider or default_provider
+    target_provider = explicit_provider or forced_target_provider or inferred_provider or default_provider
     target_model = explicit_model if explicit_provider else (inferred_model or raw_model)
     target_model = normalize_legacy_model_name(target_model, provider=target_provider)
     base_url = None

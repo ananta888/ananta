@@ -1,1 +1,2 @@
 FROM /models/bylang/meta-lama3.1-8b-Q4_K_M-GGUF/meta-lama3.1-8b-q4_k_m.gguf
+PARAMETER num_ctx 32768

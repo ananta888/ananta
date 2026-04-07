@@ -138,7 +138,14 @@ def set_config():
         execution_mode = str(opencode_runtime_cfg.get("execution_mode") or "live_terminal").strip().lower()
         if execution_mode not in {"backend", "live_terminal", "interactive_terminal"}:
             return api_response(status="error", message="invalid_opencode_execution_mode", code=400)
-        new_cfg["opencode_runtime"] = {"tool_mode": tool_mode, "execution_mode": execution_mode}
+        target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
+        if target_provider not in {None, "ollama", "lmstudio"}:
+            return api_response(status="error", message="invalid_opencode_target_provider", code=400)
+        new_cfg["opencode_runtime"] = {
+            "tool_mode": tool_mode,
+            "execution_mode": execution_mode,
+            "target_provider": target_provider,
+        }
     if "worker_runtime" in new_cfg:
         worker_runtime_cfg = new_cfg.get("worker_runtime")
         if not isinstance(worker_runtime_cfg, dict):

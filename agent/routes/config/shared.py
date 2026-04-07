@@ -78,7 +78,10 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     execution_mode = str(payload.get("execution_mode") or "live_terminal").strip().lower()
     if execution_mode not in {"backend", "live_terminal", "interactive_terminal"}:
         execution_mode = "live_terminal"
-    return {"tool_mode": tool_mode, "execution_mode": execution_mode}
+    target_provider = str(payload.get("target_provider") or "").strip().lower() or None
+    if target_provider not in {"ollama", "lmstudio"}:
+        target_provider = None
+    return {"tool_mode": tool_mode, "execution_mode": execution_mode, "target_provider": target_provider}
 
 
 def normalize_model_override_map(value: dict | None) -> dict[str, str]:
@@ -101,6 +104,7 @@ def opencode_runtime_settings_summary(cfg: dict) -> dict:
         "source": {
             "tool_mode": "opencode_runtime.tool_mode",
             "execution_mode": "opencode_runtime.execution_mode",
+            "target_provider": "opencode_runtime.target_provider",
         },
     }
 
