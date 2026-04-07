@@ -98,6 +98,34 @@ priority_model_refs() {
     | awk '!seen[$0]++'
 }
 
+resolve_import_seed_ref() {
+  candidates="$1"
+  old_ifs="${IFS:- }"
+  IFS=','
+  set -- $candidates
+  IFS="$old_ifs"
+  for candidate in "$@"; do
+    normalized="$(normalize_model_ref "$candidate")"
+    [ -n "$normalized" ] || continue
+    if model_exists "$normalized"; then
+      printf '%s\n' "$normalized"
+      return 0
+    fi
+    if find_model_file_for_ref "$normalized" >/dev/null 2>&1; then
+      printf '%s\n' "$normalized"
+      return 0
+    fi
+  done
+  return 1
+}
+
+seed_model_refs() {
+  {
+    resolve_import_seed_ref "$OLLAMA_DEFAULT_ALIAS_CANDIDATES" || true
+    resolve_import_seed_ref "$OLLAMA_SMOKE_ALIAS_CANDIDATES" || true
+  } | awk 'NF && !seen[$0]++'
+}
+
 first_available_text_model() {
   list_model_refs | while IFS= read -r ref; do
     normalized="$(normalize_model_ref "$ref")"
@@ -194,7 +222,7 @@ import_one() {
   old_hash=""
   [ -f "$hash_file" ] && old_hash="$(cat "$hash_file")"
 
-  if [ "$hash_now" = "$old_hash" ]; then
+  if [ "$hash_now" = "$old_hash" ] && model_exists "$name"; then
     echo "unchanged: $name"
     return 0
   fi
@@ -241,6 +269,22 @@ import_priority_models() {
   done
 }
 
+import_seed_models() {
+  seed_model_refs | while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    if model_exists "$ref"; then
+      echo "seed-ready: $ref"
+      continue
+    fi
+    file_path="$(find_model_file_for_ref "$ref" || true)"
+    if [ -z "$file_path" ]; then
+      echo "seed-missing: $ref"
+      continue
+    fi
+    import_one "$file_path" || true
+  done
+}
+
 scan_models() {
   find /models -type f \( -iname '*.gguf' -o -iname '*.GGUF' \) | while read -r f; do
     import_one "$f" || true
@@ -266,8 +310,8 @@ wait_for_bulk_scan_if_running() {
 }
 
 main() {
-  echo "priority import..."
-  import_priority_models
+  echo "seed import..."
+  import_seed_models
   ensure_configured_aliases
   start_bulk_scan
 

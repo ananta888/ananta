@@ -165,6 +165,41 @@ def test_import_one_writes_num_ctx_parameter_into_modelfile(tmp_path: Path) -> N
     assert result.stdout == f"FROM {model_file}\nPARAMETER num_ctx 32768\n"
 
 
+def test_import_one_reimports_when_hash_matches_but_ollama_model_is_missing(tmp_path: Path) -> None:
+    models_dir = tmp_path / "models" / "vendor" / "demo"
+    models_dir.mkdir(parents=True)
+    model_file = models_dir / "demo-model.gguf"
+    model_file.write_text("gguf", encoding="utf-8")
+    state_dir = tmp_path / "state"
+    hash_dir = state_dir / "hash"
+    hash_dir.mkdir(parents=True)
+    hash_file = hash_dir / (str(model_file).lstrip("/").replace("/", "_") + ".sha256")
+    hash_file.write_text(hashlib.sha256(b"gguf").hexdigest(), encoding="utf-8")
+
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "model_exists() { return 1; }; "
+        "create_model_from_file() { printf 'created:%s\\n' \"$1\"; }; "
+        f"import_one {shlex.quote(str(model_file))}"
+    )
+    result = subprocess.run(
+        ["bash", "-lc", command],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={
+            "AUTOIMPORT_STATE_DIR": str(state_dir),
+            "OLLAMA_AUTOIMPORT_LIB_ONLY": "1",
+            "OLLAMA_MODEL_NAME_MAX_LEN": "80",
+            "OLLAMA_NUM_CTX": "32768",
+        },
+    )
+
+    assert "importing: vendor-demo-demo-model from " in result.stdout
+    assert "created:vendor-demo-demo-model" in result.stdout
+    assert "done: vendor-demo-demo-model" in result.stdout
+
+
 def test_priority_model_refs_deduplicates_and_preserves_order(tmp_path: Path) -> None:
     command = (
         f". {shlex.quote(str(SCRIPT_PATH))}; "
@@ -178,6 +213,22 @@ def test_priority_model_refs_deduplicates_and_preserves_order(tmp_path: Path) ->
         "model-b",
         "model-c",
         "model-d",
+    ]
+
+
+def test_seed_model_refs_picks_first_available_candidate_per_alias(tmp_path: Path) -> None:
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "OLLAMA_DEFAULT_ALIAS_CANDIDATES='missing-default,default-b,default-c'; "
+        "OLLAMA_SMOKE_ALIAS_CANDIDATES='missing-smoke,smoke-b,default-b'; "
+        "model_exists() { [ \"$1\" = 'default-b' ]; }; "
+        "find_model_file_for_ref() { [ \"$1\" = 'smoke-b' ] && printf '%s\\n' '/models/smoke-b.gguf'; }; "
+        "seed_model_refs"
+    )
+
+    assert _run_shell_function(command, tmp_path).splitlines() == [
+        "default-b",
+        "smoke-b",
     ]
 
 
@@ -200,5 +251,27 @@ def test_import_priority_models_imports_priority_candidates_first(tmp_path: Path
     assert _run_shell_function(command, tmp_path).splitlines() == [
         "/models/a.gguf",
         "/models/b.gguf",
+        "/models/c.gguf",
+    ]
+
+
+def test_import_seed_models_imports_only_selected_seed_candidates(tmp_path: Path) -> None:
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "OLLAMA_DEFAULT_ALIAS_CANDIDATES='model-a,model-b'; "
+        "OLLAMA_SMOKE_ALIAS_CANDIDATES='model-c,model-d'; "
+        "model_exists() { return 1; }; "
+        "find_model_file_for_ref() { "
+        "  case \"$1\" in "
+        "    model-a) printf '%s\\n' '/models/a.gguf' ;; "
+        "    model-c) printf '%s\\n' '/models/c.gguf' ;; "
+        "  esac; "
+        "}; "
+        "import_one() { printf '%s\\n' \"$1\"; }; "
+        "import_seed_models"
+    )
+
+    assert _run_shell_function(command, tmp_path).splitlines() == [
+        "/models/a.gguf",
         "/models/c.gguf",
     ]
