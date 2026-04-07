@@ -618,14 +618,14 @@ class TaskScopedExecutionService:
                     else "Behalte strikt das JSON-Output-Schema ein."
                 )
             )
-        if session_payload and not self._has_native_opencode_runtime(session_payload):
+        if session_payload and not self._has_native_opencode_runtime(session_payload) and not interactive_terminal_session:
             prompt_for_cli = (
                 get_cli_session_service().build_prompt_with_history(
                     session_id=session_payload["id"],
-                    prompt=prompt,
+                    prompt=prompt_for_cli,
                     max_turns=int(session_payload.get("max_turns_per_session") or 40),
                 )
-                or prompt
+                or prompt_for_cli
             )
         started_at = time.time()
         cli_kwargs = {
