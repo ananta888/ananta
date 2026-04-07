@@ -55,3 +55,25 @@ def test_extract_terminal_resize_ignores_non_resize_payload():
 
 def test_extract_terminal_input_preserves_raw_text():
     assert ws_mod._extract_terminal_input("echo hi\n") == "echo hi\n"
+
+
+def test_websocket_input_pump_forwards_messages_and_closes_on_disconnect(monkeypatch):
+    ws = object()
+    seen: list[str] = []
+    responses = iter(["hello", RuntimeError("closed")])
+
+    def fake_recv_message(actual_ws, timeout_seconds=0.2):
+        assert actual_ws is ws
+        value = next(responses)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(ws_mod, "_recv_message", fake_recv_message)
+
+    pump = ws_mod._WebSocketInputPump(ws, seen.append)
+    pump.start()
+    pump._thread.join(timeout=1)
+
+    assert seen == ["hello"]
+    assert pump.closed is True

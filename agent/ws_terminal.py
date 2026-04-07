@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shlex
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ except ImportError:  # pragma: no cover - optional dependency for minimal instal
 
 LOGGER = logging.getLogger("agent.ws_terminal")
 _TERMINAL_IO_TIMEOUT_SECONDS = 0.05
+_TERMINAL_OUTPUT_WAIT_SECONDS = 0.25
+_WS_INPUT_PUMP_TIMEOUT_SECONDS = 0.25
 
 
 def _utc_now_iso() -> str:
@@ -173,6 +176,45 @@ def _is_closed_error(exc: Exception) -> bool:
     return "closed" in text or "disconnect" in text
 
 
+class _WebSocketInputPump:
+    def __init__(self, ws: Any, on_message: Any) -> None:
+        self._ws = ws
+        self._on_message = on_message
+        self._stop = threading.Event()
+        self._closed = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    @property
+    def closed(self) -> bool:
+        return self._closed.is_set()
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def close(self) -> None:
+        self._stop.set()
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                incoming = _recv_message(self._ws, timeout_seconds=_WS_INPUT_PUMP_TIMEOUT_SECONDS)
+            except Exception as exc:
+                if _is_timeout_error(exc):
+                    continue
+                if _is_closed_error(exc):
+                    self._closed.set()
+                    return
+                LOGGER.debug("Transient websocket receive error: %s", exc)
+                continue
+            if incoming is None:
+                continue
+            try:
+                self._on_message(incoming)
+            except Exception:
+                LOGGER.debug("Failed to process websocket terminal input", exc_info=True)
+        self._closed.set()
+
+
 def register_ws_terminal(app: Any) -> None:
     if Sock is None:
         LOGGER.warning("flask-sock not installed, /ws/terminal endpoint disabled")
@@ -284,36 +326,32 @@ def register_ws_terminal(app: Any) -> None:
             chunks, offset = get_live_terminal_session_service().read_from(forward_param, offset)
             if chunks:
                 _send_event(ws, "output", {"chunk": "".join(chunks)})
+            def _handle_forwarded_input(incoming: Any) -> None:
+                resize = _extract_terminal_resize(incoming)
+                if resize is not None:
+                    get_live_terminal_session_service().resize(forward_param, resize[0], resize[1])
+                    return
+                text = _extract_terminal_input(incoming)
+                if isinstance(text, str) and text:
+                    get_live_terminal_session_service().write(forward_param, text)
+
+            pump = _WebSocketInputPump(ws, _handle_forwarded_input)
+            pump.start()
             try:
                 while True:
-                    try:
-                        incoming = _recv_message(ws, timeout_seconds=_TERMINAL_IO_TIMEOUT_SECONDS)
-                    except Exception as exc:
-                        if _is_timeout_error(exc):
-                            incoming = None
-                        elif _is_closed_error(exc):
-                            break
-                        else:
-                            LOGGER.debug("Transient websocket receive error in %s: %s", session_id, exc)
-                            incoming = None
-                    if incoming is not None:
-                        resize = _extract_terminal_resize(incoming)
-                        if resize is not None:
-                            get_live_terminal_session_service().resize(forward_param, resize[0], resize[1])
-                            continue
-                        text = _extract_terminal_input(incoming)
-                        if isinstance(text, str) and text:
-                            get_live_terminal_session_service().write(forward_param, text)
                     changed = get_live_terminal_session_service().wait_for_update(
                         forward_param,
                         offset,
-                        _TERMINAL_IO_TIMEOUT_SECONDS,
+                        _TERMINAL_OUTPUT_WAIT_SECONDS,
                     )
                     if changed:
                         fresh, offset = get_live_terminal_session_service().read_from(forward_param, offset)
                         if fresh:
                             _send_event(ws, "output", {"chunk": "".join(fresh)})
+                    if pump.closed:
+                        break
             finally:
+                pump.close()
                 _append_terminal_log(
                     data_dir,
                     {
@@ -348,37 +386,17 @@ def register_ws_terminal(app: Any) -> None:
             return
 
         try:
-            while True:
-                for chunk in bridge.drain():
-                    _send_event(ws, "output", {"chunk": chunk})
-
-                try:
-                    incoming = _recv_message(ws, timeout_seconds=_TERMINAL_IO_TIMEOUT_SECONDS)
-                except Exception as exc:
-                    if _is_timeout_error(exc):
-                        continue
-                    if _is_closed_error(exc):
-                        break
-                    # Some websocket stacks raise transient receive errors while the
-                    # socket is still usable. Keep the stream alive in that case.
-                    LOGGER.debug("Transient websocket receive error in %s: %s", session_id, exc)
-                    continue
-
-                if incoming is None:
-                    # In some websocket backends, `None` can mean "no message
-                    # available right now" instead of a hard disconnect.
-                    continue
-
+            def _handle_bridge_input(incoming: Any) -> None:
                 resize = _extract_terminal_resize(incoming)
                 if resize is not None:
                     resize_fn = getattr(bridge, "resize", None)
                     if callable(resize_fn):
                         resize_fn(resize[0], resize[1])
-                    continue
+                    return
 
                 text = _extract_terminal_input(incoming)
                 if not text:
-                    continue
+                    return
 
                 bridge.write(text)
                 if text.strip():
@@ -400,9 +418,25 @@ def register_ws_terminal(app: Any) -> None:
                         "preview": preview,
                     },
                 )
+
+            pump = _WebSocketInputPump(ws, _handle_bridge_input)
+            pump.start()
+            while True:
+                wait_for_output = getattr(bridge, "wait_for_output", None)
+                if callable(wait_for_output):
+                    wait_for_output(_TERMINAL_OUTPUT_WAIT_SECONDS)
+                else:
+                    time.sleep(_TERMINAL_IO_TIMEOUT_SECONDS)
+
+                for chunk in bridge.drain():
+                    _send_event(ws, "output", {"chunk": chunk})
+
+                if pump.closed:
+                    break
         except Exception as exc:
             LOGGER.exception("Terminal websocket session %s aborted: %s", session_id, exc)
         finally:
+            pump.close()
             bridge.close()
             _append_terminal_log(
                 data_dir,

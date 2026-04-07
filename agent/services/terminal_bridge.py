@@ -6,6 +6,7 @@ import subprocess
 import threading
 from dataclasses import dataclass
 import struct
+import time
 
 try:
     import fcntl
@@ -38,6 +39,7 @@ class PtyBridge:
         self.master_fd: int | None = None
         self.process: subprocess.Popen[bytes] | None = None
         self.output_queue: queue.Queue[str] = queue.Queue(maxsize=4096)
+        self._output_condition = threading.Condition()
         self._stop = threading.Event()
         self._reader: threading.Thread | None = None
 
@@ -100,8 +102,12 @@ class PtyBridge:
                 except queue.Full:
                     _ = self.output_queue.get_nowait()
                     self.output_queue.put_nowait(decoded)
+                with self._output_condition:
+                    self._output_condition.notify_all()
             except OSError:
                 break
+        with self._output_condition:
+            self._output_condition.notify_all()
 
     def write(self, data: str) -> None:
         if self.master_fd is None:
@@ -130,8 +136,23 @@ class PtyBridge:
                 break
         return chunks
 
+    def wait_for_output(self, timeout: float) -> bool:
+        deadline = time.time() + max(0.0, float(timeout or 0.0))
+        with self._output_condition:
+            while self.output_queue.empty():
+                process = self.process
+                if self._stop.is_set() or process is None or process.poll() is not None:
+                    break
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                self._output_condition.wait(timeout=remaining)
+            return not self.output_queue.empty()
+
     def close(self) -> None:
         self._stop.set()
+        with self._output_condition:
+            self._output_condition.notify_all()
         if self.process and self.process.poll() is None:
             try:
                 self.process.terminate()
@@ -155,6 +176,7 @@ class PipeBridge:
     def __post_init__(self) -> None:
         self.process: subprocess.Popen[bytes] | None = None
         self.output_queue: queue.Queue[str] = queue.Queue(maxsize=4096)
+        self._output_condition = threading.Condition()
         self._stop = threading.Event()
         self._reader: threading.Thread | None = None
 
@@ -198,8 +220,12 @@ class PipeBridge:
                 except queue.Full:
                     _ = self.output_queue.get_nowait()
                     self.output_queue.put_nowait(decoded)
+                with self._output_condition:
+                    self._output_condition.notify_all()
             except Exception:
                 break
+        with self._output_condition:
+            self._output_condition.notify_all()
 
     def write(self, data: str) -> None:
         if not self.process or not self.process.stdin:
@@ -223,8 +249,23 @@ class PipeBridge:
                 break
         return chunks
 
+    def wait_for_output(self, timeout: float) -> bool:
+        deadline = time.time() + max(0.0, float(timeout or 0.0))
+        with self._output_condition:
+            while self.output_queue.empty():
+                process = self.process
+                if self._stop.is_set() or process is None or process.poll() is not None:
+                    break
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                self._output_condition.wait(timeout=remaining)
+            return not self.output_queue.empty()
+
     def close(self) -> None:
         self._stop.set()
+        with self._output_condition:
+            self._output_condition.notify_all()
         if self.process and self.process.poll() is None:
             try:
                 self.process.terminate()
