@@ -5,6 +5,12 @@ import queue
 import subprocess
 import threading
 from dataclasses import dataclass
+import struct
+
+try:
+    import fcntl
+except Exception:  # pragma: no cover - unavailable on Windows
+    fcntl = None  # type: ignore[assignment]
 
 try:
     import termios
@@ -102,6 +108,19 @@ class PtyBridge:
             return
         _write_all(self.master_fd, data.encode("utf-8", errors="ignore"))
 
+    def resize(self, cols: int, rows: int) -> None:
+        if self.master_fd is None or termios is None or fcntl is None:
+            return
+        safe_cols = max(1, int(cols or 0))
+        safe_rows = max(1, int(rows or 0))
+        if not hasattr(termios, "TIOCSWINSZ"):
+            return
+        try:
+            winsize = struct.pack("HHHH", safe_rows, safe_cols, 0, 0)
+            fcntl.ioctl(self.master_fd, termios.TIOCSWINSZ, winsize)
+        except Exception:
+            return
+
     def drain(self) -> list[str]:
         chunks: list[str] = []
         while True:
@@ -190,6 +209,10 @@ class PipeBridge:
             self.process.stdin.flush()
         except Exception:
             pass
+
+    def resize(self, cols: int, rows: int) -> None:
+        _ = (cols, rows)
+        return
 
     def drain(self) -> list[str]:
         chunks: list[str] = []

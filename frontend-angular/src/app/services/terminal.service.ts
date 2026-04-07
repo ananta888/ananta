@@ -64,6 +64,15 @@ export class TerminalService {
     this.ws.send(JSON.stringify({ type: 'input', data: input }));
   }
 
+  sendResize(cols: number, rows: number): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({
+      type: 'resize',
+      cols: Math.max(1, Math.floor(cols || 0)),
+      rows: Math.max(1, Math.floor(rows || 0)),
+    }));
+  }
+
   disconnect(): void {
     if (this.ws) {
       this.ws.close();

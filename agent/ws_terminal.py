@@ -129,6 +129,29 @@ def _extract_terminal_input(data: Any) -> str | None:
     return data
 
 
+def _extract_terminal_resize(data: Any) -> tuple[int, int] | None:
+    if isinstance(data, bytes):
+        data = data.decode("utf-8", errors="ignore")
+    if not isinstance(data, str):
+        return None
+
+    stripped = data.strip()
+    if not stripped.startswith("{"):
+        return None
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict) or payload.get("type") != "resize":
+        return None
+    try:
+        cols = max(1, int(payload.get("cols") or 0))
+        rows = max(1, int(payload.get("rows") or 0))
+    except (TypeError, ValueError):
+        return None
+    return cols, rows
+
+
 def _recv_message(ws: Any, timeout_seconds: float = 0.2) -> Any:
     try:
         return ws.receive(timeout=timeout_seconds)
@@ -273,6 +296,10 @@ def register_ws_terminal(app: Any) -> None:
                             LOGGER.debug("Transient websocket receive error in %s: %s", session_id, exc)
                             incoming = None
                     if incoming is not None:
+                        resize = _extract_terminal_resize(incoming)
+                        if resize is not None:
+                            get_live_terminal_session_service().resize(forward_param, resize[0], resize[1])
+                            continue
                         text = _extract_terminal_input(incoming)
                         if isinstance(text, str) and text:
                             get_live_terminal_session_service().write(forward_param, text)
@@ -335,6 +362,13 @@ def register_ws_terminal(app: Any) -> None:
                 if incoming is None:
                     # In some websocket backends, `None` can mean "no message
                     # available right now" instead of a hard disconnect.
+                    continue
+
+                resize = _extract_terminal_resize(incoming)
+                if resize is not None:
+                    resize_fn = getattr(bridge, "resize", None)
+                    if callable(resize_fn):
+                        resize_fn(resize[0], resize[1])
                     continue
 
                 text = _extract_terminal_input(incoming)

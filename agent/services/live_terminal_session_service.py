@@ -159,6 +159,13 @@ class ManagedLiveTerminalSession:
             self.bridge.write(data)
         self.updated_at = time.time()
 
+    def resize(self, cols: int, rows: int) -> None:
+        self.start()
+        resize = getattr(self.bridge, "resize", None)
+        if callable(resize):
+            resize(cols, rows)
+            self.updated_at = time.time()
+
     def _ensure_runtime_environment(self, runtime_cfg: dict[str, object]) -> dict[str, str]:
         provider_config = runtime_cfg.get("provider_config")
         if not provider_config:
@@ -349,6 +356,10 @@ class LiveTerminalSessionService:
     def write(self, session_id: str, data: str) -> None:
         session = self.ensure_session(session_id)
         session.write(data)
+
+    def resize(self, session_id: str, cols: int, rows: int) -> None:
+        session = self.ensure_session(session_id)
+        session.resize(cols, rows)
 
     def append_output(self, session_id: str, data: str) -> None:
         if not data:

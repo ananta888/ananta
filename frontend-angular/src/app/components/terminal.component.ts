@@ -83,7 +83,7 @@ import { TerminalMode, TerminalService } from '../services/terminal.service';
           <span class="muted">Read-only Stream</span>
         }
       </div>
-      <div #terminalHost class="terminal-host" aria-label="Terminal output"></div>
+      <div #terminalHost class="terminal-host" aria-label="Terminal output" (click)="focusTerminal()"></div>
     </div>
     <pre data-testid="terminal-output-buffer" style="display:none;">{{outputBuffer}}</pre>
   `,
@@ -103,6 +103,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private terminal?: Terminal;
   private fitAddon = new FitAddon();
   private subs: Subscription[] = [];
+  private resizeObserver?: ResizeObserver;
   private initialized = false;
   private lastConnectKey = '';
 
@@ -127,7 +128,8 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHost.nativeElement);
-    this.fitAddon.fit();
+    this.fitToContainer();
+    this.focusTerminal();
 
     this.terminal.onData((data) => {
       if (this.mode !== 'interactive') return;
@@ -161,6 +163,8 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
           this.zone.run(() => {
             this.terminal?.writeln(marker);
             this.outputBuffer = (this.outputBuffer + marker).slice(-12000);
+            this.fitToContainer();
+            this.focusTerminal();
             this.cdr.detectChanges();
           });
         }
@@ -177,6 +181,10 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.initialized = true;
     this.reconnect();
+    if (typeof ResizeObserver !== 'undefined' && this.terminalHost?.nativeElement) {
+      this.resizeObserver = new ResizeObserver(() => this.fitToContainer());
+      this.resizeObserver.observe(this.terminalHost.nativeElement);
+    }
     window.addEventListener('resize', this.onResize);
   }
 
@@ -211,6 +219,10 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.outputBuffer = '';
   }
 
+  focusTerminal(): void {
+    this.terminal?.focus();
+  }
+
   sendQuickCommand(): void {
     if (this.mode !== 'interactive') return;
     const command = this.quickCommand.trim();
@@ -221,12 +233,19 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.onResize);
+    this.resizeObserver?.disconnect();
     this.terminalService.disconnect();
     this.subs.forEach((sub) => sub.unsubscribe());
     this.terminal?.dispose();
   }
 
   private onResize = () => {
-    this.fitAddon.fit();
+    this.fitToContainer();
   };
+
+  private fitToContainer(): void {
+    if (!this.terminal || !this.terminalHost?.nativeElement) return;
+    this.fitAddon.fit();
+    this.terminalService.sendResize(this.terminal.cols, this.terminal.rows);
+  }
 }

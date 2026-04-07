@@ -15,6 +15,7 @@ class _FakeTerminalSession:
         self.ensure_workdir_calls: list[str] = []
         self.run_command_calls: list[tuple[str, dict]] = []
         self.run_foreground_command_calls: list[tuple[list[str], dict]] = []
+        self.resize_calls: list[tuple[int, int]] = []
 
     def ensure_workdir(self, workdir: str | None) -> None:
         if workdir:
@@ -31,6 +32,9 @@ class _FakeTerminalSession:
     def run_foreground_command(self, argv: list[str], **kwargs):
         self.run_foreground_command_calls.append((argv, kwargs))
         return 0, "ok", ""
+
+    def resize(self, cols: int, rows: int) -> None:
+        self.resize_calls.append((cols, rows))
 
 
 def test_ensure_session_for_cli_applies_workdir(app):
@@ -131,3 +135,15 @@ def test_run_opencode_turn_uses_tui_launch_when_configured(app):
     assert argv[argv.index("--prompt") + 1] == "say hi"
     assert kwargs["cwd"] == "/tmp/task-workspace"
     assert kwargs["env"] == {}
+
+
+def test_resize_forwards_to_managed_session(app):
+    from agent.services.live_terminal_session_service import LiveTerminalSessionService
+
+    service = LiveTerminalSessionService()
+    fake_session = _FakeTerminalSession()
+
+    with patch.object(service, "ensure_session", return_value=fake_session):
+        service.resize("cli-1", 120, 40)
+
+    assert fake_session.resize_calls == [(120, 40)]
