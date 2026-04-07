@@ -53,6 +53,36 @@ def _find_matching_lmstudio_candidate(model: str | None, candidates: list[dict[s
     return None
 
 
+def _find_matching_ollama_candidate(model: str | None, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    normalized_model = str(model or "").strip()
+    if not normalized_model:
+        return None
+    for candidate in candidates:
+        candidate_name = str((candidate or {}).get("name") or "").strip()
+        if _model_identifier_matches(normalized_model, candidate_name):
+            return candidate
+    if normalized_model.lower() == "qwen2.5-coder:7b":
+        for candidate in candidates:
+            candidate_name = str((candidate or {}).get("name") or "").strip().lower()
+            if candidate_name == "ananta-default:latest":
+                return candidate
+    return None
+
+
+def resolve_ollama_model(model: str | None, base_url: str, timeout: int) -> Optional[str]:
+    normalized_model = str(model or "").strip()
+    if not normalized_model:
+        return None
+    probe = probe_ollama_runtime(base_url, timeout)
+    candidates = list(probe.get("models") or []) if isinstance(probe, dict) else []
+    matched = _find_matching_ollama_candidate(normalized_model, candidates)
+    if matched:
+        candidate_name = str((matched or {}).get("name") or "").strip()
+        if candidate_name:
+            return candidate_name
+    return normalized_model
+
+
 def _runtime_default_provider() -> str:
     if has_app_context():
         cfg = current_app.config.get("AGENT_CONFIG", {}) or {}

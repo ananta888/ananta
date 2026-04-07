@@ -13,6 +13,7 @@ import time
 from flask import current_app, has_app_context
 
 from agent.config import settings
+from agent.llm_integration import resolve_ollama_model
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.model_selection import normalize_legacy_model_name
 from agent.research_backend import (
@@ -881,6 +882,8 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         base_url_source = "ollama_url"
         target_provider_type = "local_openai_compatible"
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
+        if target_model and base_url:
+            target_model = resolve_ollama_model(target_model, base_url, timeout=min(getattr(settings, "http_timeout", 120), 10))
     elif target_provider and target_provider not in built_in_providers:
         local_target = resolve_local_openai_backend(
             target_provider,
