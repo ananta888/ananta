@@ -24,6 +24,9 @@ def _write_all(fd: int, payload: bytes, *, writer=os.write) -> None:
 @dataclass
 class PtyBridge:
     shell: str
+    argv: list[str] | None = None
+    cwd: str | None = None
+    env: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         self.master_fd: int | None = None
@@ -44,13 +47,17 @@ class PtyBridge:
 
         master_fd, slave_fd = pty.openpty()
         self.master_fd = master_fd
+        command = list(self.argv or [self.shell])
+        env = ({**os.environ, **self.env} if self.env else None)
         self.process = subprocess.Popen(  # noqa: S603
-            [self.shell],
+            command,
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
             close_fds=True,
             start_new_session=True,
+            cwd=self.cwd or None,
+            env=env,
         )
         os.close(slave_fd)
 
@@ -122,6 +129,9 @@ class PtyBridge:
 @dataclass
 class PipeBridge:
     shell: str
+    argv: list[str] | None = None
+    cwd: str | None = None
+    env: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         self.process: subprocess.Popen[bytes] | None = None
@@ -137,13 +147,17 @@ class PipeBridge:
         creationflags = 0
         if os.name == "nt":
             creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        command = list(self.argv or [self.shell])
+        env = ({**os.environ, **self.env} if self.env else None)
         self.process = subprocess.Popen(  # noqa: S603
-            [self.shell],
+            command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             close_fds=(os.name != "nt"),
             creationflags=creationflags,
+            cwd=self.cwd or None,
+            env=env,
         )
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
@@ -195,11 +209,17 @@ class PipeBridge:
                 pass
 
 
-def build_terminal_bridge(shell: str) -> PtyBridge | PipeBridge:
+def build_terminal_bridge(
+    shell: str,
+    *,
+    argv: list[str] | None = None,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
+) -> PtyBridge | PipeBridge:
     if os.name == "nt":
-        return PipeBridge(shell=shell)
+        return PipeBridge(shell=shell, argv=argv, cwd=cwd, env=env)
     try:
         import pty  # noqa: F401
     except Exception:
-        return PipeBridge(shell=shell)
-    return PtyBridge(shell=shell)
+        return PipeBridge(shell=shell, argv=argv, cwd=cwd, env=env)
+    return PtyBridge(shell=shell, argv=argv, cwd=cwd, env=env)

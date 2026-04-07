@@ -97,6 +97,44 @@ def _docker_inspect_value(container_name: str, template: str, *, timeout: int = 
     return str(res.stdout or "").strip()
 
 
+def _restart_agent_containers(
+    container_names: list[str],
+    *,
+    health_timeout_seconds: int = 120,
+) -> dict[str, Any]:
+    names = _unique_strings(container_names)
+    summary: dict[str, Any] = {"containers": names, "restarted": [], "errors": [], "health": {}}
+    if not names:
+        return summary
+
+    restart_res = _run_command(["docker", "restart", *names], timeout=max(30, int(health_timeout_seconds)))
+    if restart_res.returncode != 0:
+        summary["errors"].append(str(restart_res.stderr or restart_res.stdout or "docker_restart_failed").strip())
+        return summary
+
+    restarted_names = [line.strip() for line in str(restart_res.stdout or "").splitlines() if line.strip()]
+    summary["restarted"] = restarted_names
+    deadline = time.monotonic() + max(5.0, float(health_timeout_seconds))
+    pending = set(names)
+
+    while pending and time.monotonic() < deadline:
+        for container_name in list(pending):
+            running = _docker_inspect_value(container_name, "{{.State.Running}}")
+            health = _docker_inspect_value(container_name, "{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}")
+            summary["health"][container_name] = {"running": running, "health": health}
+            if running == "true" and health in {"healthy", "running"}:
+                pending.discard(container_name)
+        if pending:
+            time.sleep(2)
+
+    for container_name in sorted(pending):
+        state = summary["health"].get(container_name) or {}
+        summary["errors"].append(
+            f"container_not_ready:{container_name}:running={state.get('running')}:health={state.get('health')}"
+        )
+    return summary
+
+
 def _list_loaded_ollama_models(container_name: str) -> list[str]:
     res = _run_command(["docker", "exec", container_name, "ollama", "ps"], timeout=20)
     if res.returncode != 0:
@@ -510,6 +548,7 @@ def cleanup_test_environment(
         "targets": targets,
         "cleanup_live_prefixes": cleanup_live_prefixes,
         "autopilot": {},
+        "agent_restart": {},
         "resolved": {},
         "tasks_cleanup": [],
         "goal_cleanup": {},
@@ -643,6 +682,16 @@ def cleanup_test_environment(
         summary["autopilot"]["stop_after"] = req(hub_base_url, "POST", "/tasks/autopilot/stop", body={}, token=token, timeout=30)
     except Exception as exc:
         summary["autopilot"]["stop_after_error"] = str(exc)
+
+    should_restart_agents = bool(
+        summary["goal_cleanup"].get("goal_ids")
+        or summary["goal_cleanup"].get("task_ids")
+        or summary["goal_cleanup"].get("worker_job_ids")
+        or team_ids
+        or matched_teams
+    )
+    if should_restart_agents:
+        summary["agent_restart"] = _restart_agent_containers(cleanup_containers)
     return summary
 
 

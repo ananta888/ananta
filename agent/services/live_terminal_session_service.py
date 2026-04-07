@@ -42,6 +42,13 @@ def _normalize_terminal_execution_mode(value: str | None) -> str:
     return "live_terminal"
 
 
+def _normalize_interactive_launch_mode(value: str | None) -> str:
+    mode = str(value or "").strip().lower()
+    if mode in {"run", "tui"}:
+        return mode
+    return "run"
+
+
 def _build_stdin_heredoc_command(command: str, prompt: str) -> tuple[str, str]:
     delimiter = f"__ANANTA_OPENCODE_PROMPT_{time.time_ns()}__"
     while delimiter in prompt:
@@ -75,9 +82,27 @@ class ManagedLiveTerminalSession:
         process = getattr(self.bridge, "process", None)
         if process and process.poll() is None:
             return
-        self.bridge = build_terminal_bridge(self.shell)
+        self._replace_bridge()
+
+    def _replace_bridge(
+        self,
+        *,
+        argv: list[str] | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        reset_output: bool = False,
+    ) -> None:
+        try:
+            self.bridge.close()
+        except Exception:
+            LOGGER.debug("Failed to close existing terminal bridge for %s", self.id, exc_info=True)
+        self.bridge = build_terminal_bridge(self.shell, argv=argv, cwd=cwd, env=env)
+        if reset_output:
+            with self._condition:
+                self._chunks = []
         self.bridge.start()
         self._closed = False
+        self.updated_at = time.time()
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
 
@@ -213,6 +238,38 @@ class ManagedLiveTerminalSession:
                 if echo_suppressed:
                     self.bridge.set_echo(True)
 
+    def run_foreground_command(
+        self,
+        argv: list[str],
+        *,
+        timeout: int,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        reset_output: bool = True,
+    ) -> tuple[int, str, str]:
+        if not argv:
+            return -1, "", "missing_command"
+        with self._command_lock:
+            capture_from = 0 if reset_output else len(self._chunks)
+            self._replace_bridge(argv=argv, cwd=cwd, env=env, reset_output=reset_output)
+            cursor = capture_from
+            collected: list[str] = []
+            deadline = time.time() + max(1, int(timeout or 60))
+            while time.time() < deadline:
+                chunks, cursor = self.read_from(cursor)
+                if chunks:
+                    collected.extend(chunks)
+                process = getattr(self.bridge, "process", None)
+                if process is not None and process.poll() is not None:
+                    time.sleep(0.05)
+                    trailing, cursor = self.read_from(cursor)
+                    if trailing:
+                        collected.extend(trailing)
+                    return int(process.returncode or 0), "".join(collected).strip(), ""
+                self.wait_for_update(cursor, min(0.25, max(0.05, deadline - time.time())))
+            self.bridge.close()
+            return -1, "".join(collected).strip(), "Timeout"
+
     def ensure_workdir(self, workdir: str | None) -> None:
         normalized = os.path.abspath(str(workdir or "")).strip() if workdir else ""
         if not normalized or normalized == self._workdir:
@@ -247,16 +304,20 @@ class LiveTerminalSessionService:
         self._lock = threading.Lock()
         self._sessions: dict[str, ManagedLiveTerminalSession] = {}
 
-    def ensure_session(self, session_id: str) -> ManagedLiveTerminalSession:
+    def ensure_session(self, session_id: str, *, start: bool = True) -> ManagedLiveTerminalSession:
         normalized = str(session_id or "").strip()
         if not normalized:
             raise ValueError("missing_session_id")
         with self._lock:
             session = self._sessions.get(normalized)
-            if session is None or session.closed:
+            if session is None:
                 session = ManagedLiveTerminalSession(normalized)
-                session.start()
                 self._sessions[normalized] = session
+            elif session.closed and start:
+                session = ManagedLiveTerminalSession(normalized)
+                self._sessions[normalized] = session
+        if start:
+            session.start()
         return session
 
     def get_session(self, session_id: str) -> dict | None:
@@ -278,11 +339,11 @@ class LiveTerminalSessionService:
         }
 
     def read_from(self, session_id: str, offset: int) -> tuple[list[str], int]:
-        session = self.ensure_session(session_id)
+        session = self.ensure_session(session_id, start=False)
         return session.read_from(offset)
 
     def wait_for_update(self, session_id: str, offset: int, timeout: float) -> bool:
-        session = self.ensure_session(session_id)
+        session = self.ensure_session(session_id, start=False)
         return session.wait_for_update(offset, timeout)
 
     def write(self, session_id: str, data: str) -> None:
@@ -307,15 +368,22 @@ class LiveTerminalSessionService:
         session_id = str(cli_session.get("id") or "").strip()
         if not session_id:
             return None
-        session = self.ensure_session(session_id)
         metadata = cli_session.get("metadata") if isinstance(cli_session.get("metadata"), dict) else {}
-        session_workdir = workdir or (metadata.get("opencode_workdir") if isinstance(metadata, dict) else None)
         mode = _normalize_terminal_execution_mode(
             execution_mode
             or (metadata.get("opencode_execution_mode") if isinstance(metadata, dict) else None)
         )
+        launch_mode = _normalize_interactive_launch_mode(
+            metadata.get("opencode_interactive_launch_mode") if isinstance(metadata, dict) else None
+        )
+        session = self.ensure_session(session_id, start=(mode != "interactive_terminal"))
+        session_workdir = workdir or (metadata.get("opencode_workdir") if isinstance(metadata, dict) else None)
         if session_workdir:
-            session.ensure_workdir(str(session_workdir))
+            normalized_workdir = os.path.abspath(str(session_workdir))
+            if mode == "interactive_terminal":
+                session._workdir = normalized_workdir
+            else:
+                session.ensure_workdir(normalized_workdir)
         return {
             "terminal_session_id": session.id,
             "forward_param": session.id,
@@ -324,6 +392,7 @@ class LiveTerminalSessionService:
             "shell": session.shell,
             "transport": session.transport,
             "execution_mode": mode,
+            "interactive_launch_mode": launch_mode,
             "workdir": session._workdir,
             "status": "closed" if session.closed else "active",
             "created_at": session.created_at,
@@ -349,13 +418,35 @@ class LiveTerminalSessionService:
         session_meta = self.ensure_session_for_cli(cli_session, workdir=workdir) or {}
         if not session_meta:
             return -1, "", "live_terminal_session_missing"
-        session = self.ensure_session(str(session_meta.get("terminal_session_id") or ""))
+        mode = _normalize_terminal_execution_mode(str(session_meta.get("execution_mode") or "live_terminal"))
+        interactive_launch_mode = _normalize_interactive_launch_mode(
+            str(session_meta.get("interactive_launch_mode") or "run")
+        )
+        session = self.ensure_session(
+            str(session_meta.get("terminal_session_id") or ""),
+            start=(mode != "interactive_terminal"),
+        )
         runtime_cfg = resolve_opencode_runtime_config(model=model)
         env = session._ensure_runtime_environment(runtime_cfg)
-        mode = _normalize_terminal_execution_mode(str(session_meta.get("execution_mode") or "live_terminal"))
         normalized_workdir = str(session_meta.get("workdir") or "").strip()
         if not normalized_workdir and workdir:
             normalized_workdir = os.path.abspath(str(workdir))
+
+        selected_model = str(runtime_cfg.get("model") or "").strip()
+        if mode == "interactive_terminal" and interactive_launch_mode == "tui":
+            args = [opencode_resolved]
+            if normalized_workdir:
+                args.append(normalized_workdir)
+            if selected_model:
+                args.extend(["--model", selected_model])
+            if prompt:
+                args.extend(["--prompt", str(prompt)])
+            return session.run_foreground_command(
+                args,
+                timeout=timeout,
+                cwd=normalized_workdir or None,
+                env=env,
+            )
 
         args = [opencode_resolved, "run"]
         selected_model = str(runtime_cfg.get("model") or "").strip()
