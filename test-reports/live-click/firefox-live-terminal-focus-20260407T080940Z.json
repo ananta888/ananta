@@ -1,0 +1,174 @@
+{
+  "run_id": "20260407T080940Z",
+  "started_at": "2026-04-07T08:09:40.572293+00:00",
+  "status": "passed",
+  "goal_text": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+  "hard_fail_visible_errors": true,
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-07T08:09:46.532831+00:00",
+      "ended_at": "2026-04-07T08:09:48.015401+00:00",
+      "duration_ms": 1482,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "set_opencode_execution_mode",
+      "status": "ok",
+      "started_at": "2026-04-07T08:09:48.015451+00:00",
+      "ended_at": "2026-04-07T08:09:49.475826+00:00",
+      "duration_ms": 1460,
+      "details": {
+        "base_urls": [
+          "http://ai-agent-hub:5000",
+          "http://ai-agent-alpha:5000",
+          "http://ai-agent-beta:5000"
+        ],
+        "desired_mode": "interactive_terminal",
+        "ok": true,
+        "results": [
+          {
+            "base_url": "http://ai-agent-hub:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-alpha:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-beta:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          }
+        ]
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-07T08:09:49.691075+00:00",
+      "ended_at": "2026-04-07T08:09:54.461773+00:00",
+      "duration_ms": 4770,
+      "details": {
+        "goal_name": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 123,
+          "label_before": "Goal planen",
+          "goals_before": 6,
+          "goals_before_ids": [
+            "eec6d417-6906-4a3a-8bd5-4587a7ee78d2",
+            "1f8215c8-9d48-4350-8b7a-b30eb7b3c481",
+            "05c1fe53-d97c-43f5-9a97-1622e460a036",
+            "01f7ec12-d8fa-4e6a-9ae1-9879b92c1eeb",
+            "aaff734b-b477-4da0-9ac6-7cb285616c91"
+          ],
+          "fallback_click": false,
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "0387ecbb-111c-42db-9979-9ec4c2b98f5d",
+            "selectedLabel": "Live UI Team 1775548230"
+          },
+          "preferred_team": {
+            "team_id": "0387ecbb-111c-42db-9979-9ec4c2b98f5d",
+            "team_name": "Live UI Team 1775548230"
+          },
+          "goals_after": 7,
+          "goals_after_ids": [
+            "eec6d417-6906-4a3a-8bd5-4587a7ee78d2",
+            "1f8215c8-9d48-4350-8b7a-b30eb7b3c481",
+            "05c1fe53-d97c-43f5-9a97-1622e460a036",
+            "01f7ec12-d8fa-4e6a-9ae1-9879b92c1eeb",
+            "aaff734b-b477-4da0-9ac6-7cb285616c91"
+          ]
+        },
+        "goal_result_visible": true,
+        "tasks_created": 2,
+        "created_goal_id": "b00d8686-5cd9-4dd9-b313-ed3cf52fbae1",
+        "goal_result_excerpt": "Goal angelegt b00d8686-5cd9-4dd9-b313-ed3cf52fbae1 \u00b7 2 Tasks \u00b7 Plan e1023bbd-b894-4be5-98fd-441827909f2c 1. den Python-Fibonacci-Helper implementierenHigh2. Automatisierte Tests ergaenzenHigh",
+        "detail_tasks_after_fallback": 0,
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "terminal",
+      "step": "wait_for_opencode_terminal",
+      "status": "ok",
+      "started_at": "2026-04-07T08:09:54.674179+00:00",
+      "ended_at": "2026-04-07T08:11:35.995602+00:00",
+      "duration_ms": 101321,
+      "details": {
+        "goal_id": "b00d8686-5cd9-4dd9-b313-ed3cf52fbae1",
+        "goal_trace_id": "goal-d8aa40f68cee4050b41bed4f5a71e2e2",
+        "goal_team_id": "0387ecbb-111c-42db-9979-9ec4c2b98f5d",
+        "task_id": "goal-094fbdfa",
+        "forward_param": "cli-c14086f0-d6ad-4dc9-9d05-8e045a9e7826",
+        "active_terminal_seen": true,
+        "cli_command_visible": true,
+        "terminal_snapshot": {
+          "attempted": true,
+          "task_id": "goal-094fbdfa",
+          "route": "/task/goal-094fbdfa",
+          "opened": true,
+          "logs_clicked": true,
+          "embedded_visible": true,
+          "connected": true,
+          "interactive_controls_visible": true,
+          "panel_link_visible": true,
+          "status_text": "Status: connected",
+          "buffer_excerpt": "\r\n[connected: interactive]\r\n/bin/sh: 0: can't access tty; job control turned off\r\n# cd /app/data/worker-runtime/alpha/goal-094fbdfa-local\r\nprintf '\\n__ANANTA_TERM_RC__1775549480192287271__ %s\\n' $?\r\n# \r\n__ANANTA_TERM_RC__1775549480192287271__ 0\r\n# $ /usr/local/bin/opencode run --model qwen2.5-coder:7b\nProviderModelNotFoundError: ProviderModelNotFoundError\n data: {\n  providerID: \"qwen2.5-coder:7b\",\n  modelID: \"\",\n  suggestions: [],\n},\n\n      at <anonymous> (/$bunfs/root/src/index.js:297003:17)\n      at ~effect/Effect/successCont (/$bunfs/root/src/index.js:23382:32)\n      at runLoop (/$bunfs/root/src/index.js:23208:109)\n      at evaluate (/$bunfs/root/src/index.js:23178:32)\n      at <anonymous> (/$bunfs/root/src/index.js:23340:26)\n      at doneUnsafe (/$bunfs/root/src/index.js:24512:24)\n      at <anonymous> (/$bunfs/root/src/index.js:63246:17)\n      at ~effect/Effect/successCont (/$bunfs/root/src/index.js:23757:33)\n      at runLoop (/$bunfs/root/src/index.js:23208:109)\n      at evaluate (/$bunfs/root/src/index.js:23178:32)\n      at <anonymous> (/$bunfs/root/src/index.js:23340:26)\n      at <anonymous> (/$bunfs/root/src/index.js:83028:15)\n\n\u001b[91m\u001b[1mError: \u001b[0mModel not found: qwen2.5-coder:7b/.\n",
+          "path": "/task/goal-094fbdfa",
+          "title": "Ananta - Agent Control"
+        },
+        "path": "/task/goal-094fbdfa",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "errors": [
+    {
+      "message": "cleanup_error: <urlopen error [Errno 111] Connection refused>"
+    }
+  ],
+  "cleanup_targets": {
+    "template_names": [],
+    "blueprint_names": [],
+    "team_names": [],
+    "goal_ids": [
+      "b00d8686-5cd9-4dd9-b313-ed3cf52fbae1"
+    ],
+    "team_ids": []
+  },
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": "",
+    "path": "/task/goal-094fbdfa",
+    "title": "Ananta - Agent Control"
+  },
+  "session_id": "5ba9e68f-168d-4cd2-9472-eb8534ad14da",
+  "last_goal_id": "b00d8686-5cd9-4dd9-b313-ed3cf52fbae1",
+  "ended_at": "2026-04-07T08:11:35.996189+00:00",
+  "cleanup": {
+    "error": "<urlopen error [Errno 111] Connection refused>"
+  }
+}

@@ -1,1 +1,2 @@
 FROM /models/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/Q2_K.gguf
+PARAMETER num_ctx 32768

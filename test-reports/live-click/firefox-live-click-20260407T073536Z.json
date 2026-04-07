@@ -1,0 +1,151 @@
+{
+  "run_id": "20260407T073536Z",
+  "started_at": "2026-04-07T07:35:36.129127+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 0.0,
+  "wait_tasks_seconds": 90.0,
+  "goal_wait_seconds": 90.0,
+  "goal_text": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+  "benchmark_ticks": 6,
+  "benchmark_task_kind": "coding",
+  "require_followup": false,
+  "require_artifact_summary": false,
+  "require_multi_file_output": false,
+  "min_distinct_files": 3,
+  "min_distinct_dirs": 2,
+  "bootstrap_setup": true,
+  "cleanup_created_resources": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-07T07:35:39.809008+00:00",
+      "ended_at": "2026-04-07T07:35:51.744191+00:00",
+      "duration_ms": 11935,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "set_opencode_execution_mode",
+      "status": "ok",
+      "started_at": "2026-04-07T07:35:51.744236+00:00",
+      "ended_at": "2026-04-07T07:36:30.996689+00:00",
+      "duration_ms": 39252,
+      "details": {
+        "base_urls": [
+          "http://ai-agent-hub:5000",
+          "http://ai-agent-alpha:5000",
+          "http://ai-agent-beta:5000"
+        ],
+        "desired_mode": "interactive_terminal",
+        "ok": true,
+        "results": [
+          {
+            "base_url": "http://ai-agent-hub:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-alpha:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-beta:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          }
+        ]
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-07T07:36:31.040034+00:00",
+      "ended_at": "2026-04-07T07:36:34.748619+00:00",
+      "duration_ms": 3708,
+      "details": {
+        "template_name": "Live UI Template 1775547392",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-07T07:36:34.762922+00:00",
+      "ended_at": "2026-04-07T07:36:40.601224+00:00",
+      "duration_ms": 5838,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775547396",
+        "team_name": "Live UI Team 1775547398",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "cleanup_targets": {
+    "template_names": [
+      "Live UI Template 1775547392"
+    ],
+    "blueprint_names": [
+      "Live UI Blueprint 1775547396"
+    ],
+    "team_names": [
+      "Live UI Team 1775547398"
+    ],
+    "goal_ids": [],
+    "team_ids": [
+      "b597d2dc-3c0e-44c2-a358-5d0c2075c240"
+    ]
+  },
+  "ui_signals": {
+    "visible_errors": [
+      {
+        "text": "ErrorxTeams konnten nicht geladen werden",
+        "route": "/teams"
+      }
+    ],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "Visible UI errors detected in phase 'setup' (401=False)"
+    },
+    {
+      "message": "cleanup_error: <urlopen error [Errno 111] Connection refused>"
+    }
+  ],
+  "session_id": "8186d1e1-f94e-435e-8387-803b8c2e1bed",
+  "ended_at": "2026-04-07T07:38:01.506883+00:00",
+  "cleanup": {
+    "error": "<urlopen error [Errno 111] Connection refused>"
+  }
+}

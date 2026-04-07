@@ -1,1 +1,2 @@
 FROM /models/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_S.gguf
+PARAMETER num_ctx 32768
