@@ -124,7 +124,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ./.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -147,7 +147,3 @@ services:
     environment:
       OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
     entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]
-
-volumes:
-  ollama_data:
-    name: ananta_ollama_data
