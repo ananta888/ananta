@@ -45,3 +45,16 @@ def test_pty_bridge_resize_updates_window_size(monkeypatch):
     bridge.resize(120, 40)
 
     assert captured == [(123, bridge_mod.termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))]
+
+
+def test_pty_bridge_wait_for_output_returns_true_when_buffered():
+    bridge = PtyBridge(shell="/bin/sh")
+    bridge.output_queue.put_nowait("hello")
+
+    assert bridge.wait_for_output(0.01) is True
+
+
+def test_pty_bridge_wait_for_output_returns_false_without_process_or_data():
+    bridge = PtyBridge(shell="/bin/sh")
+
+    assert bridge.wait_for_output(0.01) is False

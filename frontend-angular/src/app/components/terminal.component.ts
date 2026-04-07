@@ -19,6 +19,8 @@ import { TerminalMode, TerminalService } from '../services/terminal.service';
 import { HubSystemApiClient } from '../services/hub-system-api.client';
 import { NotificationService } from '../services/notification.service';
 
+const TERMINAL_LOW_LATENCY_STORAGE_KEY = 'ananta.terminal.low-latency';
+
 @Component({
   standalone: true,
   selector: 'app-terminal',
@@ -89,6 +91,9 @@ import { NotificationService } from '../services/notification.service';
           Worker neu starten
         </button>
         <button class="button-outline" (click)="clear()">Leeren</button>
+        <button class="button-outline" type="button" (click)="toggleLowLatencyMode()">
+          {{ lowLatencyMode ? 'Low Latency an' : 'Low Latency aus' }}
+        </button>
         @if (mode === 'interactive') {
           <div class="terminal-control-row">
             <button type="button" class="button-outline" (click)="sendSpecialInput('\u0003')">Ctrl+C</button>
@@ -142,12 +147,18 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private lastConnectKey = '';
   private pendingOutput = '';
   private flushScheduled = false;
+  private mirroredOutputBuffer = '';
+  private mirrorFlushHandle?: number;
+  private resizeDebounceHandle?: number;
+  private lastSentCols = 0;
+  private lastSentRows = 0;
 
   status = 'idle';
   quickCommand = '';
   outputBuffer = '';
   restartBusy = false;
   workerRestartBusy = false;
+  lowLatencyMode = this.readLowLatencyPreference();
 
   ngAfterViewInit(): void {
     if (!this.terminalHost) return;
@@ -166,7 +177,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHost.nativeElement);
-    this.fitToContainer();
+    this.fitToContainer(true);
     this.focusTerminal();
 
     this.terminal.onData((data) => {
@@ -194,19 +205,23 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
         if (evt.type === 'ready') {
           const modeLabel = evt.data?.read_only ? 'read-only' : 'interactive';
           const marker = `\r\n[connected: ${modeLabel}]\r\n`;
-          this.zone.run(() => {
+          this.zone.runOutsideAngular(() => {
             this.terminal?.writeln(marker);
-            this.outputBuffer = (this.outputBuffer + marker).slice(-12000);
-            this.fitToContainer();
+          });
+          this.appendMirroredOutput(marker);
+          this.zone.run(() => {
+            this.fitToContainer(true);
             this.focusTerminal();
             this.cdr.detectChanges();
           });
         }
         if (evt.type === 'error') {
           const marker = '\r\n[connection error]\r\n';
-          this.zone.run(() => {
+          this.zone.runOutsideAngular(() => {
             this.terminal?.writeln(marker);
-            this.outputBuffer = (this.outputBuffer + marker).slice(-12000);
+          });
+          this.appendMirroredOutput(marker);
+          this.zone.run(() => {
             this.cdr.detectChanges();
           });
         }
@@ -237,7 +252,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
     this.lastConnectKey = connectKey;
     this.terminal?.reset();
-    this.outputBuffer = '';
+    this.resetMirroredOutput();
     this.quickCommand = '';
     this.status = 'connecting';
     void this.terminalService.connect({
@@ -250,7 +265,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   clear(): void {
     this.terminal?.clear();
-    this.outputBuffer = '';
+    this.resetMirroredOutput();
   }
 
   restartVisibleTerminal(): void {
@@ -301,6 +316,15 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.terminal?.focus();
   }
 
+  toggleLowLatencyMode(): void {
+    this.lowLatencyMode = !this.lowLatencyMode;
+    try {
+      localStorage.setItem(TERMINAL_LOW_LATENCY_STORAGE_KEY, this.lowLatencyMode ? '1' : '0');
+    } catch {}
+    this.fitToContainer(true);
+    this.notifications.info(this.lowLatencyMode ? 'Low-Latency-Terminalmodus aktiviert.' : 'Low-Latency-Terminalmodus deaktiviert.');
+  }
+
   sendSpecialInput(sequence: string): void {
     if (this.mode !== 'interactive' || !sequence) return;
     this.focusTerminal();
@@ -318,6 +342,14 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.onResize);
     this.resizeObserver?.disconnect();
+    if (this.mirrorFlushHandle !== undefined) {
+      window.clearTimeout(this.mirrorFlushHandle);
+      this.mirrorFlushHandle = undefined;
+    }
+    if (this.resizeDebounceHandle !== undefined) {
+      window.clearTimeout(this.resizeDebounceHandle);
+      this.resizeDebounceHandle = undefined;
+    }
     this.terminalService.disconnect();
     this.subs.forEach((sub) => sub.unsubscribe());
     this.terminal?.dispose();
@@ -327,10 +359,31 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.fitToContainer();
   };
 
-  private fitToContainer(): void {
+  private fitToContainer(immediate = false): void {
+    if (!this.terminal || !this.terminalHost?.nativeElement) return;
+    if (this.resizeDebounceHandle !== undefined) {
+      window.clearTimeout(this.resizeDebounceHandle);
+      this.resizeDebounceHandle = undefined;
+    }
+    if (immediate) {
+      this.applyFitToContainer();
+      return;
+    }
+    this.resizeDebounceHandle = window.setTimeout(() => {
+      this.resizeDebounceHandle = undefined;
+      this.applyFitToContainer();
+    }, this.lowLatencyMode ? 35 : 90);
+  }
+
+  private applyFitToContainer(): void {
     if (!this.terminal || !this.terminalHost?.nativeElement) return;
     this.fitAddon.fit();
-    this.terminalService.sendResize(this.terminal.cols, this.terminal.rows);
+    const cols = Math.max(1, this.terminal.cols);
+    const rows = Math.max(1, this.terminal.rows);
+    if (cols === this.lastSentCols && rows === this.lastSentRows) return;
+    this.lastSentCols = cols;
+    this.lastSentRows = rows;
+    this.terminalService.sendResize(cols, rows);
   }
 
   private bufferOutput(chunk: string): void {
@@ -338,18 +391,51 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.pendingOutput += chunk;
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    const schedule = typeof requestAnimationFrame === 'function'
-      ? requestAnimationFrame
-      : ((cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 16));
+    const schedule = this.lowLatencyMode
+      ? ((cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 0))
+      : (typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : ((cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 16)));
     schedule(() => {
       const buffered = this.pendingOutput;
       this.pendingOutput = '';
       this.flushScheduled = false;
-      this.zone.run(() => {
+      this.zone.runOutsideAngular(() => {
         this.terminal?.write(buffered);
-        this.outputBuffer = (this.outputBuffer + buffered).slice(-12000);
+      });
+      this.appendMirroredOutput(buffered);
+    });
+  }
+
+  private appendMirroredOutput(chunk: string): void {
+    if (!chunk) return;
+    this.mirroredOutputBuffer = (this.mirroredOutputBuffer + chunk).slice(-12000);
+    if (this.mirrorFlushHandle !== undefined) return;
+    this.mirrorFlushHandle = window.setTimeout(() => {
+      this.mirrorFlushHandle = undefined;
+      this.zone.run(() => {
+        this.outputBuffer = this.mirroredOutputBuffer;
         this.cdr.detectChanges();
       });
-    });
+    }, this.lowLatencyMode ? 60 : 120);
+  }
+
+  private resetMirroredOutput(): void {
+    this.mirroredOutputBuffer = '';
+    this.outputBuffer = '';
+    this.lastSentCols = 0;
+    this.lastSentRows = 0;
+    if (this.mirrorFlushHandle !== undefined) {
+      window.clearTimeout(this.mirrorFlushHandle);
+      this.mirrorFlushHandle = undefined;
+    }
+  }
+
+  private readLowLatencyPreference(): boolean {
+    try {
+      return localStorage.getItem(TERMINAL_LOW_LATENCY_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
   }
 }
