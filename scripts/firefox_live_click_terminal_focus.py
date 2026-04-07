@@ -22,10 +22,15 @@ from firefox_live_click_extended import (
     _unwrap_envelope,
     browser_api_json,
     current_route_and_title,
+    element_click,
+    element_send_keys,
     ensure_opencode_execution_mode,
+    find_element,
+    js,
     phase_goal,
     phase_setup,
     record_step,
+    set_input_value_via_js,
     wd,
     write_report,
 )
@@ -96,6 +101,22 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="Keep the browser session and visible terminal open for this many seconds after a successful run before teardown.",
+    )
+    parser.add_argument(
+        "--tui-prompt-text",
+        default="Please answer with exactly OLLAMA_TUI_OK and nothing else.",
+        help="Prompt injected into the OpenCode TUI after it becomes visible.",
+    )
+    parser.add_argument(
+        "--tui-response-token",
+        default="OLLAMA_TUI_OK",
+        help="Token the live test waits for after submitting a real TUI prompt.",
+    )
+    parser.add_argument(
+        "--tui-response-timeout-seconds",
+        type=float,
+        default=120.0,
+        help="How long to wait for visible OpenCode output after submitting the TUI prompt.",
     )
     return parser
 
@@ -175,6 +196,142 @@ def _resolve_worker_name(session_id: str, agent_url: str) -> str:
     return ""
 
 
+def _prepare_terminal_submission_targets(session_id: str) -> Dict[str, Any]:
+    out = js(
+        session_id,
+        """
+        document.querySelectorAll('[data-live-click-target]').forEach((node) => node.removeAttribute('data-live-click-target'));
+        const shell = document.querySelector('.terminal-shell');
+        if (!shell) return { prepared: false, error: 'terminal_shell_not_found' };
+        shell.querySelector('.terminal-host')?.click();
+        const xtermInput = shell.querySelector('textarea.xterm-helper-textarea, .xterm-helper-textarea, .xterm textarea');
+        if (xtermInput) {
+          xtermInput.setAttribute('data-live-click-target', 'opencode-tui-input');
+          xtermInput.focus();
+        }
+        const enterButton = [...shell.querySelectorAll('button')].find((node) => /^Enter$/i.test((node.textContent || '').trim()));
+        if (enterButton) enterButton.setAttribute('data-live-click-target', 'opencode-enter-button');
+        const quickInput = shell.querySelector('input[aria-label="Terminal-Befehl"]');
+        if (quickInput) quickInput.setAttribute('data-live-click-target', 'terminal-quick-input');
+        const sendButton = [...shell.querySelectorAll('button')].find((node) => /^Senden$/i.test((node.textContent || '').trim()));
+        if (sendButton) sendButton.setAttribute('data-live-click-target', 'terminal-send-button');
+        const buffer = document.querySelector('[data-testid="terminal-output-buffer"]');
+        return {
+          prepared: true,
+          has_xterm_input: !!xtermInput,
+          has_enter_button: !!enterButton,
+          has_quick_input: !!quickInput,
+          has_send_button: !!sendButton,
+          buffer_excerpt: (buffer?.textContent || '').slice(-4000),
+        };
+        """,
+    ).get("value")
+    return out if isinstance(out, dict) else {"prepared": False, "error": "invalid_prepare_result"}
+
+
+def _cleanup_terminal_submission_targets(session_id: str) -> None:
+    try:
+        js(
+            session_id,
+            """
+            document.querySelectorAll('[data-live-click-target]').forEach((node) => node.removeAttribute('data-live-click-target'));
+            return true;
+            """,
+        )
+    except Exception:
+        pass
+
+
+def _terminal_buffer_text(session_id: str) -> str:
+    out = js(
+        session_id,
+        """
+        const buffer = document.querySelector('[data-testid="terminal-output-buffer"]');
+        return (buffer?.textContent || '').slice(-12000);
+        """,
+    ).get("value")
+    return str(out or "")
+
+
+def _submit_prompt_to_visible_terminal(session_id: str, prompt_text: str) -> Dict[str, Any]:
+    prepared = _prepare_terminal_submission_targets(session_id)
+    if not prepared.get("prepared"):
+        return {"ok": False, "error": str(prepared.get("error") or "prepare_failed"), "prepared": prepared}
+
+    submission_method = ""
+    xterm_error = ""
+    try:
+        xterm_input = find_element(session_id, '[data-live-click-target="opencode-tui-input"]', timeout=3)
+        enter_button = find_element(session_id, '[data-live-click-target="opencode-enter-button"]', timeout=3)
+        if xterm_input and enter_button:
+            element_click(session_id, xterm_input)
+            element_send_keys(session_id, xterm_input, prompt_text)
+            element_click(session_id, enter_button)
+            submission_method = "xterm_enter_button"
+    except Exception as exc:
+        xterm_error = str(exc)
+
+    if not submission_method:
+        quick_input_selector = '[data-live-click-target="terminal-quick-input"]'
+        send_button = find_element(session_id, '[data-live-click-target="terminal-send-button"]', timeout=3)
+        if not set_input_value_via_js(session_id, quick_input_selector, prompt_text) or not send_button:
+            _cleanup_terminal_submission_targets(session_id)
+            return {
+                "ok": False,
+                "error": "terminal_prompt_submit_failed",
+                "prepared": prepared,
+                "xterm_error": xterm_error,
+            }
+        element_click(session_id, send_button)
+        submission_method = "quick_command_send"
+
+    time.sleep(0.8)
+    after_submit_buffer = _terminal_buffer_text(session_id)
+    _cleanup_terminal_submission_targets(session_id)
+    return {
+        "ok": True,
+        "submission_method": submission_method,
+        "prepared": prepared,
+        "xterm_error": xterm_error,
+        "buffer_excerpt_after_submit": after_submit_buffer[-4000:],
+    }
+
+
+def _wait_for_tui_response_token(
+    session_id: str,
+    *,
+    response_token: str,
+    initial_buffer: str,
+    timeout_seconds: float,
+    poll_interval_seconds: float,
+) -> Dict[str, Any]:
+    token = str(response_token or "").strip()
+    initial_text = str(initial_buffer or "")
+    deadline = time.time() + max(10.0, float(timeout_seconds or 0.0))
+    last_buffer = initial_text
+    while time.time() < deadline:
+        current_buffer = _terminal_buffer_text(session_id)
+        if current_buffer:
+            last_buffer = current_buffer
+        normalized = _strip_ansi(last_buffer).lower()
+        if token and token.lower() in normalized:
+            return {
+                "ok": True,
+                "response_token": token,
+                "token_visible": True,
+                "buffer_changed": last_buffer != initial_text,
+                "buffer_excerpt": last_buffer[-4000:],
+            }
+        time.sleep(max(0.3, float(poll_interval_seconds)))
+    return {
+        "ok": False,
+        "response_token": token,
+        "token_visible": False,
+        "buffer_changed": last_buffer != initial_text,
+        "buffer_excerpt": last_buffer[-4000:],
+    }
+
+
 def _ensure_fresh_scrum_team(session_id: str, report: Dict[str, Any]) -> None:
     t0 = time.time()
     team_name = f"Live UI Team {int(time.time())}"
@@ -239,6 +396,9 @@ def phase_terminal_focus(
     terminal_timeout_seconds: float,
     poll_interval_seconds: float,
     interactive_launch_mode: str,
+    tui_prompt_text: str,
+    tui_response_token: str,
+    tui_response_timeout_seconds: float,
 ) -> None:
     t0 = time.time()
     goal_id = str(report.get("last_goal_id") or "").strip()
@@ -282,6 +442,7 @@ def phase_terminal_focus(
     selected_task: Optional[Dict[str, Any]] = None
     terminal_snapshot: Dict[str, Any] = {"attempted": False}
     worker_terminal_snapshot: Dict[str, Any] = {"attempted": False}
+    selected_worker_name = ""
     tick_attempts = 1
     active_terminal_seen = False
     cli_command_visible = False
@@ -314,6 +475,7 @@ def phase_terminal_focus(
             worker_buffer_excerpt = ""
             if interactive_launch_mode == "tui":
                 worker_name = _resolve_worker_name(session_id, _extract_task_terminal_agent_url(selected_task))
+                selected_worker_name = worker_name or selected_worker_name
                 if worker_name and forward_param:
                     worker_terminal_snapshot = _open_worker_terminal_panel(
                         session_id,
@@ -387,6 +549,54 @@ def phase_terminal_focus(
     )
     if not ok:
         raise RuntimeError(f"Task live terminal did not show user-visible OpenCode session ({interactive_launch_mode})")
+
+    if interactive_launch_mode == "tui":
+        prompt_started = time.time()
+        worker_name = selected_worker_name or _resolve_worker_name(
+            session_id,
+            _extract_task_terminal_agent_url(selected_task) if selected_task else "",
+        )
+        prompt_terminal_snapshot = (
+            _open_worker_terminal_panel(
+                session_id,
+                worker_name,
+                mode="interactive",
+                forward_param=forward_param,
+            )
+            if worker_name and forward_param
+            else {"attempted": False, "error": "missing_worker_terminal"}
+        )
+        initial_buffer = str(prompt_terminal_snapshot.get("buffer_excerpt") or "")
+        submit_result = _submit_prompt_to_visible_terminal(session_id, str(tui_prompt_text or "").strip())
+        response_result: Dict[str, Any] = {}
+        if submit_result.get("ok"):
+            response_result = _wait_for_tui_response_token(
+                session_id,
+                response_token=str(tui_response_token or "").strip(),
+                initial_buffer=initial_buffer,
+                timeout_seconds=max(10.0, float(tui_response_timeout_seconds)),
+                poll_interval_seconds=max(0.3, float(poll_interval_seconds)),
+            )
+        prompt_ok = bool(submit_result.get("ok")) and bool(response_result.get("ok"))
+        record_step(
+            report,
+            "terminal",
+            "submit_opencode_tui_prompt",
+            prompt_started,
+            prompt_ok,
+            {
+                "worker_name": worker_name,
+                "forward_param": forward_param,
+                "prompt_text": str(tui_prompt_text or "").strip(),
+                "response_token": str(tui_response_token or "").strip(),
+                "terminal_snapshot": prompt_terminal_snapshot,
+                "submit_result": submit_result,
+                "response_result": response_result,
+                **current_route_and_title(session_id),
+            },
+        )
+        if not prompt_ok:
+            raise RuntimeError("OpenCode TUI became visible but did not produce the expected post-submit response")
 
 
 def main(argv: Optional[List[str]] = None) -> None:
@@ -481,6 +691,9 @@ def main(argv: Optional[List[str]] = None) -> None:
             terminal_timeout_seconds=max(20.0, float(args.terminal_timeout_seconds)),
             poll_interval_seconds=max(0.2, float(args.poll_interval_seconds)),
             interactive_launch_mode=str(args.interactive_launch_mode or "run"),
+            tui_prompt_text=str(args.tui_prompt_text or "").strip(),
+            tui_response_token=str(args.tui_response_token or "").strip(),
+            tui_response_timeout_seconds=max(10.0, float(args.tui_response_timeout_seconds)),
         )
         print("phase_done", "terminal", flush=True)
         hold_open_seconds = max(0.0, float(args.hold_open_seconds or 0.0))
