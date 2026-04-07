@@ -2048,12 +2048,12 @@ def phase_benchmark(
             break
 
     autopilot_stop_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
-    if terminal_agent:
+    if terminal_agent and terminal_forward_param:
         terminal_view = _open_worker_terminal_panel(
             session_id,
             str(terminal_agent.get("name") or ""),
-            mode="interactive" if terminal_forward_param else "read",
-            forward_param=terminal_forward_param or None,
+            mode="interactive",
+            forward_param=terminal_forward_param,
         )
     if isinstance(selected_terminal_task, dict):
         task_detail_terminal = _inspect_task_detail_live_terminal(session_id, str(selected_terminal_task.get("id") or ""))
