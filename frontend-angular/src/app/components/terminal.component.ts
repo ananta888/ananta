@@ -49,6 +49,16 @@ import { NotificationService } from '../services/notification.service';
       flex: 1;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     }
+    .terminal-control-row {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    .terminal-control-row button {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      padding: 4px 8px;
+    }
     .status-pill {
       font-size: 12px;
       padding: 3px 8px;
@@ -80,6 +90,20 @@ import { NotificationService } from '../services/notification.service';
         </button>
         <button class="button-outline" (click)="clear()">Leeren</button>
         @if (mode === 'interactive') {
+          <div class="terminal-control-row">
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u0003')">Ctrl+C</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u0004')">Ctrl+D</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u001a')">Ctrl+Z</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u000c')">Ctrl+L</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b')">Esc</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\t')">Tab</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\r')">Enter</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u007f')">Backspace</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b[A')">↑</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b[B')">↓</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b[D')">←</button>
+            <button type="button" class="button-outline" (click)="sendSpecialInput('\u001b[C')">→</button>
+          </div>
           <input
             [(ngModel)]="quickCommand"
             (keydown.enter)="sendQuickCommand()"
@@ -277,6 +301,12 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   focusTerminal(): void {
     this.terminal?.focus();
+  }
+
+  sendSpecialInput(sequence: string): void {
+    if (this.mode !== 'interactive' || !sequence) return;
+    this.focusTerminal();
+    this.terminalService.sendInput(sequence);
   }
 
   sendQuickCommand(): void {
