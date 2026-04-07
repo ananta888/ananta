@@ -224,8 +224,8 @@ class WorkerWorkspaceService:
         self._write_text(task_brief, "\n".join(task_lines).strip() + "\n")
         _record(task_brief, key="task_brief_path")
 
+        response_contract = bundle_dir / "response-contract.md"
         if include_response_contract:
-            response_contract = bundle_dir / "response-contract.md"
             response_lines = [
                 "# Response Contract",
                 "",
@@ -248,6 +248,8 @@ class WorkerWorkspaceService:
             ]
             self._write_text(response_contract, "\n".join(response_lines) + "\n")
             _record(response_contract, key="response_contract_path")
+        elif response_contract.exists():
+            response_contract.unlink(missing_ok=True)
 
         if system_prompt:
             system_prompt_path = bundle_dir / "system-prompt.md"
