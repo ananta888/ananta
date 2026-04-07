@@ -12,6 +12,11 @@ from urllib import request
 
 DEFAULT_HUB_BASE_URL = os.getenv("HUB_BASE_URL", "http://127.0.0.1:5000")
 DEFAULT_HUB_CONTAINER = os.getenv("ANANTA_HUB_CONTAINER", "ananta-ai-agent-hub-1")
+DEFAULT_AGENT_CONTAINERS = [
+    DEFAULT_HUB_CONTAINER,
+    os.getenv("ANANTA_ALPHA_CONTAINER", "ananta-ai-agent-alpha-1"),
+    os.getenv("ANANTA_BETA_CONTAINER", "ananta-ai-agent-beta-1"),
+]
 DEFAULT_OLLAMA_CONTAINER = os.getenv("ANANTA_OLLAMA_CONTAINER", "ollama")
 DEFAULT_LIVE_PREFIXES = {
     "template_names": ["Live UI Template "],
@@ -62,7 +67,7 @@ def login_token(base: str, username: str, password: str) -> str:
     return token
 
 
-def _docker_exec_hub_python(container_name: str, script_body: str) -> str:
+def _docker_exec_python(container_name: str, script_body: str) -> str:
     last_error: subprocess.CalledProcessError | None = None
     for python_bin in ("python3", "python"):
         cmd = ["docker", "exec", container_name, python_bin, "-c", script_body]
@@ -169,7 +174,7 @@ def cleanup_ollama_runtime(
 
 
 def get_admin_from_hub_container(container_name: str) -> tuple[str, str]:
-    out = _docker_exec_hub_python(
+    out = _docker_exec_python(
         container_name,
         "import os;print(os.getenv('INITIAL_ADMIN_USER','admin'));print(os.getenv('INITIAL_ADMIN_PASSWORD',''))",
     )
@@ -253,7 +258,7 @@ def _extract_targets_from_report(report_path: Path) -> dict[str, list[str]]:
     return {key: _unique_strings(values) for key, values in result.items()}
 
 
-def _cleanup_goal_data_in_hub(hub_container: str, goal_ids: list[str], team_ids: list[str]) -> dict[str, Any]:
+def _cleanup_goal_data_in_agent(agent_container: str, goal_ids: list[str], team_ids: list[str]) -> dict[str, Any]:
     payload = json.dumps({"goal_ids": _unique_strings(goal_ids), "team_ids": _unique_strings(team_ids)}, ensure_ascii=True)
     script = f"""
 import json
@@ -366,7 +371,7 @@ with Session(engine) as session:
 
 print(json.dumps(deleted, ensure_ascii=True))
 """
-    out = _docker_exec_hub_python(hub_container, script)
+    out = _docker_exec_python(agent_container, script)
     return json.loads(out) if out else {}
 
 
@@ -374,6 +379,7 @@ def cleanup_test_environment(
     *,
     hub_base_url: str = DEFAULT_HUB_BASE_URL,
     hub_container: str = DEFAULT_HUB_CONTAINER,
+    agent_containers: list[str] | None = None,
     admin_user: str | None = None,
     admin_password: str | None = None,
     report_files: list[str] | None = None,
@@ -407,6 +413,7 @@ def cleanup_test_environment(
         "resolved": {},
         "tasks_cleanup": [],
         "goal_cleanup": {},
+        "goal_cleanup_by_container": {},
         "deleted": {"teams": [], "blueprints": [], "templates": []},
     }
 
@@ -469,8 +476,28 @@ def cleanup_test_environment(
             archived = {"error": str(exc)}
         summary["tasks_cleanup"].append({"team_id": team_id, "active": active, "archived": archived})
 
+    cleanup_containers = _unique_strings([hub_container] + list(agent_containers or DEFAULT_AGENT_CONTAINERS))
     if goal_ids or team_ids:
-        summary["goal_cleanup"] = _cleanup_goal_data_in_hub(hub_container, goal_ids, team_ids)
+        aggregate_goal_cleanup = {
+            "goal_ids": [],
+            "task_ids": [],
+            "worker_job_ids": [],
+            "retrieval_run_ids": [],
+            "plan_ids": [],
+        }
+        for container_name in cleanup_containers:
+            try:
+                cleaned = _cleanup_goal_data_in_agent(container_name, goal_ids, team_ids)
+            except Exception as exc:
+                cleaned = {"error": str(exc)}
+            summary["goal_cleanup_by_container"][container_name] = cleaned
+            if not isinstance(cleaned, dict) or cleaned.get("error"):
+                continue
+            for key in aggregate_goal_cleanup:
+                aggregate_goal_cleanup[key].extend(list(cleaned.get(key) or []))
+        summary["goal_cleanup"] = {
+            key: _unique_strings(values) for key, values in aggregate_goal_cleanup.items()
+        }
 
     for team in matched_teams:
         team_id = str(team.get("id") or "")
@@ -511,6 +538,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Cleanup test-created UI/live-click resources without touching Ollama volumes.")
     parser.add_argument("--hub-base-url", default=DEFAULT_HUB_BASE_URL)
     parser.add_argument("--hub-container", default=DEFAULT_HUB_CONTAINER)
+    parser.add_argument("--agent-container", action="append", default=[])
     parser.add_argument("--admin-user", default=_env_value("E2E_ADMIN_USER", _env_value("INITIAL_ADMIN_USER", "admin")))
     parser.add_argument("--admin-password", default=_env_value("E2E_ADMIN_PASSWORD", _env_value("INITIAL_ADMIN_PASSWORD", "")))
     parser.add_argument("--report-file", action="append", default=[])
@@ -520,6 +548,7 @@ def main() -> int:
     result = cleanup_test_environment(
         hub_base_url=args.hub_base_url,
         hub_container=args.hub_container,
+        agent_containers=args.agent_container,
         admin_user=args.admin_user,
         admin_password=args.admin_password,
         report_files=list(args.report_file or []),
