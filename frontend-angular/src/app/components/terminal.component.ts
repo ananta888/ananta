@@ -12,10 +12,12 @@ import {
   inject,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { TerminalMode, TerminalService } from '../services/terminal.service';
+import { HubSystemApiClient } from '../services/hub-system-api.client';
+import { NotificationService } from '../services/notification.service';
 
 @Component({
   standalone: true,
@@ -70,6 +72,12 @@ import { TerminalMode, TerminalService } from '../services/terminal.service';
       <div class="terminal-toolbar">
         <span class="status-pill">Status: {{status}}</span>
         <button (click)="reconnect()">Neu verbinden</button>
+        <button class="button-outline" (click)="restartVisibleTerminal()" [disabled]="restartBusy || workerRestartBusy">
+          {{ forwardParam ? 'Terminal neu starten' : 'Terminal neu verbinden' }}
+        </button>
+        <button class="button-outline" (click)="restartWorker()" [disabled]="workerRestartBusy || restartBusy">
+          Worker neu starten
+        </button>
         <button class="button-outline" (click)="clear()">Leeren</button>
         @if (mode === 'interactive') {
           <input
@@ -90,6 +98,8 @@ import { TerminalMode, TerminalService } from '../services/terminal.service';
 })
 export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private terminalService = inject(TerminalService);
+  private systemApi = inject(HubSystemApiClient);
+  private notifications = inject(NotificationService);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
 
@@ -110,6 +120,8 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   status = 'idle';
   quickCommand = '';
   outputBuffer = '';
+  restartBusy = false;
+  workerRestartBusy = false;
 
   ngAfterViewInit(): void {
     if (!this.terminalHost) return;
@@ -217,6 +229,50 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   clear(): void {
     this.terminal?.clear();
     this.outputBuffer = '';
+  }
+
+  restartVisibleTerminal(): void {
+    if (!this.baseUrl) return;
+    if (!this.forwardParam) {
+      this.reconnect();
+      this.notifications.info('Terminal neu verbunden.');
+      return;
+    }
+    this.restartBusy = true;
+    this.systemApi.restartTerminalSession(this.baseUrl, this.forwardParam, this.token).pipe(
+      finalize(() => {
+        this.restartBusy = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
+      next: () => {
+        this.reconnect();
+        this.notifications.success('Terminal-Sitzung neu gestartet.');
+      },
+      error: (error) => {
+        this.notifications.error(this.notifications.fromApiError(error, 'Terminal-Neustart fehlgeschlagen.'));
+      },
+    });
+  }
+
+  restartWorker(): void {
+    if (!this.baseUrl) return;
+    if (!confirm('Worker wirklich neu starten? Das trennt aktive Sitzungen kurzzeitig und ist nur als Eskalationsstufe gedacht.')) return;
+    this.workerRestartBusy = true;
+    this.systemApi.restartProcess(this.baseUrl, this.token).pipe(
+      finalize(() => {
+        this.workerRestartBusy = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
+      next: () => {
+        this.terminalService.disconnect();
+        this.notifications.info('Worker-Neustart angefordert. Nach dem Wiederanlauf erneut verbinden.');
+      },
+      error: (error) => {
+        this.notifications.error(this.notifications.fromApiError(error, 'Worker-Neustart nicht moeglich.'));
+      },
+    });
   }
 
   focusTerminal(): void {

@@ -16,6 +16,7 @@ class _FakeTerminalSession:
         self.run_command_calls: list[tuple[str, dict]] = []
         self.run_foreground_command_calls: list[tuple[list[str], dict]] = []
         self.resize_calls: list[tuple[int, int]] = []
+        self.restart_calls = 0
 
     def ensure_workdir(self, workdir: str | None) -> None:
         if workdir:
@@ -35,6 +36,10 @@ class _FakeTerminalSession:
 
     def resize(self, cols: int, rows: int) -> None:
         self.resize_calls.append((cols, rows))
+
+    def restart(self) -> dict[str, object]:
+        self.restart_calls += 1
+        return {"ok": True, "restart_kind": "foreground", "restarted": True}
 
 
 def test_ensure_session_for_cli_applies_workdir(app):
@@ -147,3 +152,17 @@ def test_resize_forwards_to_managed_session(app):
         service.resize("cli-1", 120, 40)
 
     assert fake_session.resize_calls == [(120, 40)]
+
+
+def test_restart_forwards_to_existing_managed_session(app):
+    from agent.services.live_terminal_session_service import LiveTerminalSessionService
+
+    service = LiveTerminalSessionService()
+    fake_session = _FakeTerminalSession()
+
+    with patch.object(service, "_get_managed_session", return_value=fake_session):
+        result = service.restart("cli-1")
+
+    assert result["ok"] is True
+    assert result["session_id"] == "cli-1"
+    assert fake_session.restart_calls == 1

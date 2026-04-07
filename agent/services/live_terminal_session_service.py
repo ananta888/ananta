@@ -69,6 +69,7 @@ class ManagedLiveTerminalSession:
         self._closed = False
         self._temp_dirs: list[tempfile.TemporaryDirectory[str]] = []
         self._runtime_cache: dict[str, object] = {}
+        self._restart_spec: dict[str, object] | None = None
         self._workdir: str | None = None
         self.created_at = time.time()
         self.updated_at = self.created_at
@@ -217,6 +218,12 @@ class ManagedLiveTerminalSession:
         marker = f"__ANANTA_TERM_RC__{time.time_ns()}__"
         marker_pattern = re.compile(rf"(?:\r?\n)?{re.escape(marker)} (?P<rc>-?\d+)(?:\r?\n)?")
         with self._command_lock:
+            self._restart_spec = {
+                "kind": "shell_command",
+                "command": str(command),
+                "visible_command": str(visible_command or ""),
+                "suppress_input_echo": bool(suppress_input_echo),
+            }
             if visible_command:
                 self._append_chunk(f"$ {visible_command}\n")
             capture_from = len(self._chunks)
@@ -257,6 +264,13 @@ class ManagedLiveTerminalSession:
         if not argv:
             return -1, "", "missing_command"
         with self._command_lock:
+            self._restart_spec = {
+                "kind": "foreground",
+                "argv": list(argv),
+                "cwd": str(cwd) if cwd else None,
+                "env": dict(env or {}),
+                "reset_output": bool(reset_output),
+            }
             capture_from = 0 if reset_output else len(self._chunks)
             self._replace_bridge(argv=argv, cwd=cwd, env=env, reset_output=reset_output)
             cursor = capture_from
@@ -276,6 +290,34 @@ class ManagedLiveTerminalSession:
                 self.wait_for_update(cursor, min(0.25, max(0.05, deadline - time.time())))
             self.bridge.close()
             return -1, "".join(collected).strip(), "Timeout"
+
+    def restart(self) -> dict[str, object]:
+        spec = dict(self._restart_spec or {})
+        if not spec:
+            self._replace_bridge(reset_output=True)
+            return {"ok": True, "restart_kind": "shell", "restarted": True, "fallback": True}
+
+        kind = str(spec.get("kind") or "").strip().lower()
+        with self._command_lock:
+            if kind == "foreground":
+                self._replace_bridge(
+                    argv=list(spec.get("argv") or []),
+                    cwd=str(spec.get("cwd") or "") or None,
+                    env=dict(spec.get("env") or {}),
+                    reset_output=bool(spec.get("reset_output", True)),
+                )
+                return {"ok": True, "restart_kind": "foreground", "restarted": True}
+
+            self._replace_bridge(reset_output=True)
+            if self._workdir:
+                self.write(f"{self._build_cd_command(self._workdir)}\n")
+            visible_command = str(spec.get("visible_command") or "").strip()
+            if visible_command:
+                self._append_chunk(f"$ {visible_command}\n")
+            command = str(spec.get("command") or "").strip()
+            if command:
+                self.write(f"{command}\n")
+            return {"ok": True, "restart_kind": "shell_command", "restarted": True}
 
     def ensure_workdir(self, workdir: str | None) -> None:
         normalized = os.path.abspath(str(workdir or "")).strip() if workdir else ""
@@ -327,12 +369,15 @@ class LiveTerminalSessionService:
             session.start()
         return session
 
-    def get_session(self, session_id: str) -> dict | None:
+    def _get_managed_session(self, session_id: str) -> ManagedLiveTerminalSession | None:
         normalized = str(session_id or "").strip()
         if not normalized:
             return None
         with self._lock:
-            session = self._sessions.get(normalized)
+            return self._sessions.get(normalized)
+
+    def get_session(self, session_id: str) -> dict | None:
+        session = self._get_managed_session(session_id)
         if session is None:
             return None
         return {
@@ -360,6 +405,13 @@ class LiveTerminalSessionService:
     def resize(self, session_id: str, cols: int, rows: int) -> None:
         session = self.ensure_session(session_id)
         session.resize(cols, rows)
+
+    def restart(self, session_id: str) -> dict[str, object]:
+        session = self._get_managed_session(session_id)
+        if session is None:
+            return {"ok": False, "message": "terminal_session_not_found", "restarted": False}
+        result = session.restart()
+        return {"ok": bool(result.get("ok")), **result, "session_id": session.id}
 
     def append_output(self, session_id: str, data: str) -> None:
         if not data:
