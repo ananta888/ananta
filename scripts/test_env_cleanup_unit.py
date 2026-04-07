@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 
-SCRIPT_PATH = Path(__file__).resolve().parent.parent / "scripts" / "test_env_cleanup.py"
+SCRIPT_PATH = Path(__file__).resolve().with_name("test_env_cleanup.py")
 SPEC = importlib.util.spec_from_file_location("ananta_test_env_cleanup", SCRIPT_PATH)
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -37,7 +37,7 @@ def test_cleanup_ollama_runtime_restarts_ollama_when_stop_does_not_unload_model(
 
     with (
         patch.object(MODULE, "_list_loaded_ollama_models", side_effect=lambda *_args, **_kwargs: loaded_states.pop(0)),
-        patch.object(MODULE, "_docker_inspect_value", side_effect=["starting", "healthy", "healthy"]),
+        patch.object(MODULE, "_docker_inspect_value", side_effect=["healthy", "healthy"]),
         patch.object(MODULE, "_run_command", return_value=run_result) as run_command,
     ):
         summary = MODULE.cleanup_ollama_runtime(ollama_container="ollama", stop_timeout_seconds=1, health_timeout_seconds=1)
