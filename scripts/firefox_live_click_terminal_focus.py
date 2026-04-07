@@ -91,6 +91,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["run", "tui"],
         help="Interactive OpenCode launch mode to validate.",
     )
+    parser.add_argument(
+        "--hold-open-seconds",
+        type=float,
+        default=0.0,
+        help="Keep the browser session and visible terminal open for this many seconds after a successful run before teardown.",
+    )
     return parser
 
 
@@ -477,6 +483,19 @@ def main(argv: Optional[List[str]] = None) -> None:
             interactive_launch_mode=str(args.interactive_launch_mode or "run"),
         )
         print("phase_done", "terminal", flush=True)
+        hold_open_seconds = max(0.0, float(args.hold_open_seconds or 0.0))
+        if hold_open_seconds > 0:
+            print("phase_start", "hold_open", flush=True)
+            record_step(
+                report,
+                "hold_open",
+                "keep_terminal_visible",
+                time.time(),
+                True,
+                {"hold_open_seconds": hold_open_seconds, **current_route_and_title(session_id)},
+            )
+            time.sleep(hold_open_seconds)
+            print("phase_done", "hold_open", flush=True)
         report["status"] = "passed"
     except Exception as exc:
         report["status"] = "failed"
