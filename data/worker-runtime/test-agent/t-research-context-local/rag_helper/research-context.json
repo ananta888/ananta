@@ -1,0 +1,63 @@
+{
+  "artifact_ids": [
+    "182872fa-5084-4f84-8c2d-96a37c703a48"
+  ],
+  "knowledge_collection_ids": [
+    "afe50475-b495-4e43-8b6f-f59eea5a6e04"
+  ],
+  "repo_scope_refs": [
+    {
+      "path": "README.md",
+      "ref": "HEAD"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "182872fa-5084-4f84-8c2d-96a37c703a48",
+      "filename": "README.md",
+      "media_type": "text/markdown",
+      "status": "fully-indexed",
+      "extraction_mode": "fully-indexed",
+      "excerpt": "# Hello\nartifact body",
+      "document_metadata": {
+        "filename": "README.md",
+        "media_type": "text/markdown",
+        "storage_path": "/app/data/artifacts/182872fa-5084-4f84-8c2d-96a37c703a48/v0001__README.md",
+        "suffix": ".md",
+        "content_family": "structured_text"
+      }
+    }
+  ],
+  "knowledge_collections": [
+    {
+      "collection_id": "afe50475-b495-4e43-8b6f-f59eea5a6e04",
+      "name": "research-docs",
+      "description": null,
+      "artifact_ids": [
+        "182872fa-5084-4f84-8c2d-96a37c703a48"
+      ],
+      "chunks": [
+        {
+          "source": "README.md",
+          "content": "knowledge chunk about retries",
+          "score": 2.0,
+          "metadata": {
+            "artifact_id": "182872fa-5084-4f84-8c2d-96a37c703a48"
+          }
+        }
+      ]
+    }
+  ],
+  "repo_scopes": [
+    {
+      "path": "README.md",
+      "ref": "HEAD",
+      "url": null,
+      "status": "file",
+      "excerpt": "# Ananta\n\nModulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Architektur.\n\n## Goal-basierter Produktansatz\nDas System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Artifact-Workflow. Für einfache Erstbenutzung ist nur ein Goal notwendig; Persistenz und erweiterte Optionen sind konfigurierbar. Weitere Details und Migrationshinweise: `docs/goal-overview.md`.\n\n## Einstiegspunkte\n- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`\n- Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`\n- Frontend Entwicklung und E2E: `frontend-angular/README.md`\n- Setup/Runtime: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`\n\n## Architektur\n- Angular Frontend fuer Visualisierung und Steuerung\n- Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)\n- Team-Konfiguration blueprint-first: wiederverwendbare Blueprints, Team-Instanzen und Advanced-Verwaltung\n- Worker-Agenten fuer LLM-gestuetzte Ausfuehrung\n- Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`\n- Lokale OpenAI-kompatible Backends wie Ollama oder LM Studio ueber gemeinsames Adaptermodell\n- Persistenz via PostgreSQL (Standard) oder SQLite\n\nDetails: `docs/backend.md` und `architektur/README.md`.\n\n## Quickstart (Docker)\n1. Automatisches Setup (empfohlen):\n```powershell\n.\\setup.ps1\n```\nDieses Script prüft Dependencies (Python, Node.js, Docker), generiert .env mit sicheren Passwörtern und installiert alle Dependencies automatisch.\n\nAlternativ manuell:\n```bash\ncp .env.example .env\n# Bearbeiten Sie .env und ersetzen Sie alle Platzhalter-Passwörter\n```\n`.env.example` deckt die Lite-/Compose-Defaults bereits weitgehend ab; `.env.template` ist die kompaktere Vorlage, wenn Werte bewusst neu gesetzt werden sollen. Fuer die Distributed-Variante sollten zusaetzlich `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` und `DELTA_PORT` gesetzt werden.\n\n2. Start:\n```bash\ndocker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d\n```\nWSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service:\n```bash\ndocker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build\n```\nDistributed mit zusaetzlichen Worker-Nodes:\n```bash\ndocker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build\n```\nWindows PowerShell (bei Volume- oder Pfadfehlern):\n```powershell\n$env:COMPOSE_CONVERT_WINDOWS_PATHS=1\ndocker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build\n```\nSauberer Neustart:\n```bash\nscripts/compose-test-stack.sh down\nscripts/compose-test-stack.sh up\n```\nMit WSL2/Vulkan-Overlay:\n```bash\nscripts/compose-test-stack.sh down\nscripts/compose-test-stack.sh up\n```\nSicheres Cleanup (inkl. Volumes ausser `ollama_data`):\n```bash\nscripts/compose-test-stack.sh clean\n```\n3. Zugriff:\n- Frontend: `http://localhost:4200`\n- Hub API: `http://localhost:5000`\n\nHinweis z..."
+    }
+  ],
+  "prompt_section": "Artefakt-Kontext:\n- Artifact 182872fa-5084-4f84-8c2d-96a37c703a48 (README.md):\n# Hello\nartifact body\n\nKnowledge-Kontext:\n- Collection research-docs:\n  - README.md: knowledge chunk about retries\n\nRepo-Kontext:\n- Repo-Scope README.md: file\n# Ananta\n\nModulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Architektur.\n\n## Goal-basierter Produktansatz\nDas System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Artifact-Workflow. Für einfache Erstbenutzung ist nur ein Goal notwendig; Persistenz und erweiterte Optionen sind konfigurierbar. Weitere Details und Migrationshinweise: `docs/goal-overview.md`.\n\n## Einstiegspunkte\n- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`\n- Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`\n- Frontend Entwicklung und E2E: `frontend-angular/README.md`\n- Setup/Runtime: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`\n\n## Architektur\n- Angular Frontend fuer Visualisierung und Steuerung\n- Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)\n- Team-Konfiguration blueprint-first: wiederverwendbare Blueprints, Team-Instanzen und Advanced-Verwaltung\n- Worker-Agenten fuer LLM-gestuetzte Ausfuehrung\n- Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`\n- Lokale OpenAI-kompatible Backends wie Ollama oder LM Studio ueber gemeinsames Adaptermodell\n- Persistenz via PostgreSQL (Standard) oder SQLite\n\nDetails: `docs/backend.md` und `architektur/README.md`.\n\n## Quickstart (Docker)\n1. Automatisches Setup (empfohlen):\n```powershell\n.\\setup.ps1\n```\nDieses Script prüft Dependencies (Python, Node.js, Docker), generiert .env mit sicheren Passwörtern und installiert alle Dependencies automatisch.\n\nAlternativ manuell:\n```bash\ncp .env.example .env\n# Bearbeiten Sie .env und ersetzen Sie alle Platzhalter-Passwörter\n```\n`.env.example` deckt die Lite-/Compose-Defaults bereits weitgehend ab; `.env.template` ist die kompaktere Vorlage, wenn Werte bewusst neu gesetzt werden sollen. Fuer die Distributed-Variante sollten zusaetzlich `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` und `DELTA_PORT` gesetzt werden.\n\n2. Start:\n```bash\ndocker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d\n```\nWSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service:\n```bash\ndocker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build\n```\nDistributed mit zusaetzlichen Worker-Nodes:\n```bash\ndocker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build\n```\nWindows PowerShell (bei Volume- oder Pfadfehlern):\n```powershell\n$env:COMPOSE_CONVERT_WINDOWS_PATHS=1\ndocker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build\n```\nSauberer Neustart:\n```bash\nscripts/compose-test-stack.sh down\nscripts/compose-test-stack.sh up\n```\nMit WSL2/Vulkan-Overlay:\n```bash\nscripts/compose-test-stack.sh down\nscripts/compose-test-stack.sh up\n```\nSicheres Cleanup (inkl. Volumes ausser `ollama_data`):\n```bash\nscripts/compose-test-stack.sh clean\n```\n3. Zugriff:\n- Frontend: `http://localhost:4200`\n- Hub API: `http://localhost:5000`\n\nHinweis z...",
+  "truncated": false,
+  "context_char_count": 3238
+}

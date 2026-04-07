@@ -1,0 +1,560 @@
+[
+  {
+    "name": "create_template",
+    "description": "Creates a new prompt template.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Template name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "prompt_template": {
+          "type": "string",
+          "description": "Prompt template text"
+        }
+      },
+      "required": [
+        "name",
+        "prompt_template"
+      ]
+    }
+  },
+  {
+    "name": "update_template",
+    "description": "Updates an existing prompt template.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "type": "string",
+          "description": "Template ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Template name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "prompt_template": {
+          "type": "string",
+          "description": "Prompt template text"
+        }
+      },
+      "required": [
+        "template_id"
+      ]
+    }
+  },
+  {
+    "name": "delete_template",
+    "description": "Deletes a prompt template.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "type": "string",
+          "description": "Template ID"
+        }
+      },
+      "required": [
+        "template_id"
+      ]
+    }
+  },
+  {
+    "name": "create_team",
+    "description": "Erstellt ein neues Team mit einem bestimmten Typ.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name des Teams"
+        },
+        "team_type": {
+          "type": "string",
+          "description": "Typ des Teams (z.B. Scrum, Kanban)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optionale Beschreibung"
+        }
+      },
+      "required": [
+        "name",
+        "team_type"
+      ]
+    }
+  },
+  {
+    "name": "ensure_team_templates",
+    "description": "Stellt sicher, dass Standard-Templates und Rollen fuer Team-Typen existieren.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Liste von Team-Typen (z.B. Scrum, Kanban)."
+        }
+      }
+    }
+  },
+  {
+    "name": "list_teams",
+    "description": "Listet alle existierenden Teams auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "update_config",
+    "description": "Aktualisiert die globale Konfiguration.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Konfigurationsschlüssel"
+        },
+        "value": {
+          "type": "string",
+          "description": "Neuer Wert (als JSON-String oder einfacher Wert)"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    }
+  },
+  {
+    "name": "analyze_logs",
+    "description": "Gibt die letzten Audit-Logs zur Analyse zurück.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Anzahl der Log-Einträge",
+          "default": 20
+        }
+      }
+    }
+  },
+  {
+    "name": "read_agent_logs",
+    "description": "Liest die letzten Zeilen aus einer spezifischen Log-Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Name der Log-Datei (z.B. agent.log)"
+        },
+        "lines": {
+          "type": "integer",
+          "description": "Anzahl der Zeilen",
+          "default": 50
+        }
+      },
+      "required": [
+        "filename"
+      ]
+    }
+  },
+  {
+    "name": "assign_role",
+    "description": "Weist einem Agenten in einem Team eine Rolle zu.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "description": "ID des Teams"
+        },
+        "agent_url": {
+          "type": "string",
+          "description": "URL des Agenten"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "ID der Rolle"
+        }
+      },
+      "required": [
+        "team_id",
+        "agent_url",
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "list_roles",
+    "description": "Listet alle verfügbaren Rollen auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_agents",
+    "description": "Listet alle registrierten Agenten auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_templates",
+    "description": "Listet alle verfügbaren Prompt-Templates auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "upsert_team_type",
+    "description": "Creates or updates a team type.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Optional team type ID for update"
+        },
+        "name": {
+          "type": "string",
+          "description": "Team type name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional team type description"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "delete_team_type",
+    "description": "Deletes a team type.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        }
+      },
+      "required": [
+        "type_id"
+      ]
+    }
+  },
+  {
+    "name": "upsert_role",
+    "description": "Creates or updates a role.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "role_id": {
+          "type": "string",
+          "description": "Optional role ID for update"
+        },
+        "name": {
+          "type": "string",
+          "description": "Role name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional role description"
+        },
+        "default_template_id": {
+          "type": "string",
+          "description": "Optional default template ID"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "delete_role",
+    "description": "Deletes a role.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        }
+      },
+      "required": [
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "link_role_to_team_type",
+    "description": "Links a role to a team type with an optional template mapping.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "Optional template ID"
+        }
+      },
+      "required": [
+        "type_id",
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "unlink_role_from_team_type",
+    "description": "Unlinks a role from a team type.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        }
+      },
+      "required": [
+        "type_id",
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "set_role_template_mapping",
+    "description": "Sets or clears template mapping for a team type role link.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "Template ID or null to clear"
+        }
+      },
+      "required": [
+        "type_id",
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "upsert_team",
+    "description": "Creates or updates a team and optionally its members.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "description": "Optional team ID for update"
+        },
+        "name": {
+          "type": "string",
+          "description": "Team name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional team description"
+        },
+        "team_type_id": {
+          "type": "string",
+          "description": "Optional team type ID"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Optional active flag"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent_url": {
+                "type": "string"
+              },
+              "role_id": {
+                "type": "string"
+              },
+              "custom_template_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "agent_url",
+              "role_id"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "delete_team",
+    "description": "Deletes a team.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "description": "Team ID"
+        }
+      },
+      "required": [
+        "team_id"
+      ]
+    }
+  },
+  {
+    "name": "activate_team",
+    "description": "Activates a team and deactivates all others.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "description": "Team ID"
+        }
+      },
+      "required": [
+        "team_id"
+      ]
+    }
+  },
+  {
+    "name": "configure_auto_planner",
+    "description": "Configures auto-planner settings.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "auto_followup_enabled": {
+          "type": "boolean"
+        },
+        "max_subtasks_per_goal": {
+          "type": "integer"
+        },
+        "default_priority": {
+          "type": "string"
+        },
+        "auto_start_autopilot": {
+          "type": "boolean"
+        },
+        "llm_timeout": {
+          "type": "integer"
+        },
+        "llm_retry_attempts": {
+          "type": "integer"
+        },
+        "llm_retry_backoff": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  {
+    "name": "configure_triggers",
+    "description": "Configures trigger engine settings.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "enabled_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "webhook_secrets": {
+          "type": "object"
+        },
+        "auto_start_planner": {
+          "type": "boolean"
+        },
+        "ip_whitelists": {
+          "type": "object"
+        },
+        "rate_limits": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_autopilot_state",
+    "description": "Starts, stops or ticks autopilot.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "start|stop|tick"
+        },
+        "interval_seconds": {
+          "type": "integer"
+        },
+        "max_concurrency": {
+          "type": "integer"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "team_id": {
+          "type": "string"
+        },
+        "budget_label": {
+          "type": "string"
+        },
+        "security_level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  }
+]

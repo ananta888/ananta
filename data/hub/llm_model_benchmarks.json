@@ -2832,7 +2832,55 @@
           ]
         }
       }
+    },
+    "ollama:qwen2.5-coder:7b": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:7b",
+      "overall": {
+        "total": 1,
+        "success": 0,
+        "failed": 1,
+        "quality_pass": 0,
+        "quality_fail": 1,
+        "latency_ms_total": 62590,
+        "tokens_total": 0,
+        "cost_units_total": 0.0,
+        "last_seen": 1775548321,
+        "samples": [
+          {
+            "ts": 1775548321,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 62590,
+            "tokens_total": 0,
+            "cost_units": 0.0
+          }
+        ]
+      },
+      "task_kinds": {
+        "coding": {
+          "total": 1,
+          "success": 0,
+          "failed": 1,
+          "quality_pass": 0,
+          "quality_fail": 1,
+          "latency_ms_total": 62590,
+          "tokens_total": 0,
+          "cost_units_total": 0.0,
+          "last_seen": 1775548321,
+          "samples": [
+            {
+              "ts": 1775548321,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 62590,
+              "tokens_total": 0,
+              "cost_units": 0.0
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1775514143
+  "updated_at": 1775548321
 }

@@ -1,0 +1,160 @@
+{
+  "run_id": "20260407T075757Z",
+  "started_at": "2026-04-07T07:57:57.077299+00:00",
+  "status": "failed",
+  "goal_text": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+  "hard_fail_visible_errors": true,
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-07T07:58:03.064607+00:00",
+      "ended_at": "2026-04-07T07:58:04.268874+00:00",
+      "duration_ms": 1204,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "set_opencode_execution_mode",
+      "status": "ok",
+      "started_at": "2026-04-07T07:58:04.268916+00:00",
+      "ended_at": "2026-04-07T07:58:05.020328+00:00",
+      "duration_ms": 751,
+      "details": {
+        "base_urls": [
+          "http://ai-agent-hub:5000",
+          "http://ai-agent-beta:5000",
+          "http://ai-agent-alpha:5000"
+        ],
+        "desired_mode": "interactive_terminal",
+        "ok": true,
+        "results": [
+          {
+            "base_url": "http://ai-agent-hub:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-beta:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          },
+          {
+            "base_url": "http://ai-agent-alpha:5000",
+            "execution_mode": "interactive_terminal",
+            "get_status": 200,
+            "ok": true,
+            "post_status": 200
+          }
+        ]
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "ok",
+      "started_at": "2026-04-07T07:58:05.237305+00:00",
+      "ended_at": "2026-04-07T07:58:09.432439+00:00",
+      "duration_ms": 4195,
+      "details": {
+        "goal_name": "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation.",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 123,
+          "label_before": "Goal planen",
+          "goals_before": 5,
+          "goals_before_ids": [
+            "eec6d417-6906-4a3a-8bd5-4587a7ee78d2",
+            "1f8215c8-9d48-4350-8b7a-b30eb7b3c481",
+            "05c1fe53-d97c-43f5-9a97-1622e460a036",
+            "01f7ec12-d8fa-4e6a-9ae1-9879b92c1eeb",
+            "aaff734b-b477-4da0-9ac6-7cb285616c91"
+          ],
+          "fallback_click": false,
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "21edca58-5b0a-4ec6-9ab4-a8728626616d",
+            "selectedLabel": "E2E Seed Scrum Team"
+          },
+          "goals_after": 6,
+          "goals_after_ids": [
+            "eec6d417-6906-4a3a-8bd5-4587a7ee78d2",
+            "1f8215c8-9d48-4350-8b7a-b30eb7b3c481",
+            "05c1fe53-d97c-43f5-9a97-1622e460a036",
+            "01f7ec12-d8fa-4e6a-9ae1-9879b92c1eeb",
+            "aaff734b-b477-4da0-9ac6-7cb285616c91"
+          ]
+        },
+        "goal_result_visible": true,
+        "tasks_created": 2,
+        "created_goal_id": "afcca793-d465-4a95-82cc-f1df50f2288f",
+        "goal_result_excerpt": "Goal angelegt afcca793-d465-4a95-82cc-f1df50f2288f \u00b7 2 Tasks \u00b7 Plan 2123485f-b993-4ff5-bece-05d484788205 1. den Python-Fibonacci-Helper implementierenHigh2. Automatisierte Tests ergaenzenHigh",
+        "detail_tasks_after_fallback": 0,
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "terminal",
+      "step": "wait_for_opencode_terminal",
+      "status": "failed",
+      "started_at": "2026-04-07T07:58:09.644951+00:00",
+      "ended_at": "2026-04-07T08:00:53.443111+00:00",
+      "duration_ms": 163798,
+      "details": {
+        "goal_id": "afcca793-d465-4a95-82cc-f1df50f2288f",
+        "goal_trace_id": "goal-ae666ff0129c44eab3b0af5dc40059bc",
+        "task_id": "",
+        "forward_param": "",
+        "active_terminal_seen": false,
+        "cli_command_visible": false,
+        "terminal_snapshot": {
+          "attempted": false
+        },
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "errors": [
+    {
+      "message": "Task live terminal did not show connected OpenCode output"
+    },
+    {
+      "message": "cleanup_error: <urlopen error [Errno 111] Connection refused>"
+    }
+  ],
+  "cleanup_targets": {
+    "template_names": [],
+    "blueprint_names": [],
+    "team_names": [],
+    "goal_ids": [
+      "afcca793-d465-4a95-82cc-f1df50f2288f"
+    ],
+    "team_ids": []
+  },
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": "",
+    "path": "/auto-planner",
+    "title": "Ananta - Agent Control"
+  },
+  "session_id": "a87d92fe-9c76-4ee1-8197-a1b5e155bc4e",
+  "last_goal_id": "afcca793-d465-4a95-82cc-f1df50f2288f",
+  "ended_at": "2026-04-07T08:00:53.443214+00:00",
+  "cleanup": {
+    "error": "<urlopen error [Errno 111] Connection refused>"
+  }
+}
