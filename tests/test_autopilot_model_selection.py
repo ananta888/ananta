@@ -126,5 +126,5 @@ def test_select_model_for_task_normalizes_legacy_ollama_benchmark_model(monkeypa
     )
 
     selected, meta = _select_model_for_task(loop=loop, task=task)
-    assert selected == "qwen2.5-coder:7b"
+    assert selected == "ananta-default"
     assert meta["source"] == "benchmark_context_learning"

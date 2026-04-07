@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Final
 
 _LEGACY_OLLAMA_MODEL_ALIASES: Final[dict[str, str]] = {
-    "ananta-default": "qwen2.5-coder:7b",
-    "ananta-default:latest": "qwen2.5-coder:7b",
     "opencode/glm-5-free": "qwen2.5-coder:7b",
 }
 
