@@ -220,6 +220,34 @@ def test_resolve_opencode_runtime_config_respects_tool_mode_toolless(app):
     assert resolved["provider_config"]["agent"]["ananta-worker"]["tools"]["bash"] is False
 
 
+def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_prefixed_model(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "default_model": "lmstudio/qwen2.5-coder-7b-instruct",
+            "opencode_default_model": "lmstudio/qwen2.5-coder-7b-instruct",
+            "opencode_runtime": {"tool_mode": "toolless", "execution_mode": "interactive_terminal", "target_provider": "ollama"},
+        }
+        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat", "lmstudio": "http://127.0.0.1:1234/v1"}
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.resolve_ollama_model", return_value="ananta-default"),
+        ):
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.default_model = "lmstudio/qwen2.5-coder-7b-instruct"
+            mock_settings.opencode_default_model = "lmstudio/qwen2.5-coder-7b-instruct"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.http_timeout = 30
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["target_provider"] == "ollama"
+    assert resolved["model"] == "ollama/ananta-default"
+    assert resolved["base_url"] == "http://127.0.0.1:11434/v1"
+
+
 def test_resolve_opencode_runtime_config_normalizes_legacy_ollama_model(app):
     from agent.common.sgpt import resolve_opencode_runtime_config
 
@@ -415,6 +443,7 @@ def test_build_default_agent_config_prefers_ollama_opencode_model(monkeypatch):
     assert cfg["opencode_default_model"] == "qwen2.5-coder:7b"
     assert "qwen2.5-coder:7b" in cfg["autopilot_strategy_fallback_models"]
     assert cfg["opencode_runtime"]["tool_mode"] == "toolless"
+    assert cfg["opencode_runtime"]["target_provider"] == "ollama"
 
 
 def test_run_opencode_command_passes_workdir_to_subprocess(app):

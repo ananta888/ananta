@@ -711,9 +711,13 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
     assert bad.status_code == 400
     assert bad.json["message"] == "invalid_opencode_execution_mode"
 
+    bad_provider = client.post("/config", json={"opencode_runtime": {"target_provider": "openai"}}, headers=headers)
+    assert bad_provider.status_code == 400
+    assert bad_provider.json["message"] == "invalid_opencode_target_provider"
+
     ok = client.post(
         "/config",
-        json={"opencode_runtime": {"tool_mode": "readonly", "execution_mode": "interactive_terminal"}},
+        json={"opencode_runtime": {"tool_mode": "readonly", "execution_mode": "interactive_terminal", "target_provider": "ollama"}},
         headers=headers,
     )
     assert ok.status_code == 200
@@ -723,6 +727,7 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
     runtime_cfg = ((cfg.json.get("data") or {}).get("opencode_runtime") or {})
     assert runtime_cfg.get("tool_mode") == "readonly"
     assert runtime_cfg.get("execution_mode") == "interactive_terminal"
+    assert runtime_cfg.get("target_provider") == "ollama"
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
