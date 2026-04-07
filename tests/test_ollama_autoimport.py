@@ -133,3 +133,33 @@ def test_first_available_text_model_skips_non_text_entries(tmp_path: Path) -> No
     assert _run_shell_function(command, tmp_path) == (
         "mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6"
     )
+
+
+def test_import_one_writes_num_ctx_parameter_into_modelfile(tmp_path: Path) -> None:
+    models_dir = tmp_path / "models" / "vendor" / "demo"
+    models_dir.mkdir(parents=True)
+    model_file = models_dir / "demo-model.gguf"
+    model_file.write_text("gguf", encoding="utf-8")
+    state_dir = tmp_path / "state"
+
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "create_model_from_file() { :; }; "
+        f"name=$(model_name {shlex.quote(str(model_file))}); "
+        f"import_one {shlex.quote(str(model_file))} >/dev/null; "
+        f"cat {shlex.quote(str(state_dir))}/modelfiles/$name.Modelfile"
+    )
+    result = subprocess.run(
+        ["bash", "-lc", command],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={
+            "AUTOIMPORT_STATE_DIR": str(state_dir),
+            "OLLAMA_AUTOIMPORT_LIB_ONLY": "1",
+            "OLLAMA_MODEL_NAME_MAX_LEN": "80",
+            "OLLAMA_NUM_CTX": "32768",
+        },
+    )
+
+    assert result.stdout == f"FROM {model_file}\nPARAMETER num_ctx 32768\n"

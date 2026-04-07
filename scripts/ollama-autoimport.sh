@@ -11,6 +11,16 @@ OLLAMA_DEFAULT_ALIAS_CANDIDATES="${OLLAMA_DEFAULT_ALIAS_CANDIDATES:-bartowski-qw
 OLLAMA_SMOKE_ALIAS="${OLLAMA_SMOKE_ALIAS:-ananta-smoke}"
 OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6,lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4,mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661,bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s}"
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
+OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-32768}"
+
+write_modelfile() {
+  target="$1"
+  source_ref="$2"
+  printf 'FROM %s\n' "$source_ref" > "$target"
+  if [ -n "$OLLAMA_NUM_CTX" ]; then
+    printf 'PARAMETER num_ctx %s\n' "$OLLAMA_NUM_CTX" >> "$target"
+  fi
+}
 
 is_text_model() {
   case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
@@ -55,7 +65,7 @@ ensure_alias_from_model() {
   source_name="$(normalize_model_ref "$source_name")"
   is_text_model "$source_name" || return 0
   mf="$AUTOIMPORT_STATE_DIR/modelfiles/$alias_name.Modelfile"
-  printf 'FROM %s\n' "$source_name" > "$mf"
+  write_modelfile "$mf" "$source_name"
   create_model_from_file "$alias_name" "$mf"
 }
 
@@ -178,7 +188,7 @@ import_one() {
   fi
 
   mf="$AUTOIMPORT_STATE_DIR/modelfiles/$name.Modelfile"
-  printf 'FROM %s\n' "$file" > "$mf"
+  write_modelfile "$mf" "$file"
 
   echo "importing: $name from $file"
   if ! create_model_from_file "$name" "$mf"; then
