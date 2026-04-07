@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import time
 import uuid
 from collections import defaultdict
@@ -19,6 +20,37 @@ HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 _LOCAL_RUNTIME_SELECTION_CACHE: dict[str, dict[str, Any]] = {}
 _LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS = 5
+
+
+def _model_identifier_tokens(value: str | None) -> set[str]:
+    normalized = re.sub(r"[^a-z0-9.]+", " ", str(value or "").strip().lower())
+    return {token for token in normalized.split() if token}
+
+
+def _model_identifier_matches(left: str | None, right: str | None) -> bool:
+    left_value = str(left or "").strip()
+    right_value = str(right or "").strip()
+    if not left_value or not right_value:
+        return False
+    if left_value.lower() == right_value.lower():
+        return True
+    left_tokens = _model_identifier_tokens(left_value)
+    right_tokens = _model_identifier_tokens(right_value)
+    overlap = left_tokens & right_tokens
+    if len(overlap) < 2:
+        return False
+    return left_tokens.issubset(right_tokens) or right_tokens.issubset(left_tokens)
+
+
+def _find_matching_lmstudio_candidate(model: str | None, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    normalized_model = str(model or "").strip()
+    if not normalized_model:
+        return None
+    for candidate in candidates:
+        candidate_id = str((candidate or {}).get("id") or "").strip()
+        if _model_identifier_matches(normalized_model, candidate_id):
+            return candidate
+    return None
 
 
 def _runtime_default_provider() -> str:
@@ -448,9 +480,10 @@ def _ollama_ps_url(base_url: str) -> Optional[str]:
 
 
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
-    if model and str(model).strip().lower() != "auto":
-        return {"id": model}
     candidates = _list_lmstudio_candidates(base_url, timeout)
+    if model and str(model).strip().lower() != "auto":
+        matched = _find_matching_lmstudio_candidate(model, candidates)
+        return matched or {"id": model}
     if candidates:
         history = _prepare_lmstudio_history(candidates)
         if not model or str(model).strip().lower() == "auto":

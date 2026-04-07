@@ -43,6 +43,19 @@ def test_prepare_lmstudio_history_touches_and_persists_models():
     mock_save.assert_called_once_with({"models": {}})
 
 
+def test_resolve_lmstudio_model_matches_short_name_to_long_import_id():
+    from agent.llm_integration import _resolve_lmstudio_model
+
+    candidates = [
+        {"id": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest"},
+    ]
+
+    with patch("agent.llm_integration._list_lmstudio_candidates", return_value=candidates):
+        resolved = _resolve_lmstudio_model("qwen2.5-coder:14b", "http://127.0.0.1:1234/v1", timeout=5)
+
+    assert resolved == candidates[0]
+
+
 def test_call_llm_stores_usage_in_request_context(app):
     from flask import g
 
@@ -705,3 +718,34 @@ def test_lmstudio_strategy_returns_empty_when_all_candidates_return_empty_text(a
 
     assert result == ""
     assert mock_call.call_count == 2
+
+
+def test_lmstudio_strategy_matches_short_name_to_long_import_id(app):
+    from agent.llm_strategies.lmstudio import LMStudioStrategy
+
+    strategy = LMStudioStrategy()
+    candidates = [
+        {"id": "lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest", "context_length": 32768},
+    ]
+
+    with app.app_context():
+        with patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates), patch.object(
+            strategy,
+            "_call_with_model",
+            return_value={"text": "ok", "usage": {}},
+        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+            mock_settings.default_model = "settings-model"
+            mock_settings.lmstudio_api_mode = "chat"
+            mock_settings.lmstudio_max_context_tokens = 4096
+
+            result = strategy.execute(
+                model="qwen2.5-coder:14b",
+                prompt="hello",
+                url="http://127.0.0.1:1234/v1",
+                api_key=None,
+                history=None,
+                timeout=5,
+            )
+
+    assert result == {"text": "ok", "usage": {}}
+    assert mock_call.call_args.args[0] == candidates[0]["id"]
