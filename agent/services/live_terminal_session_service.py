@@ -16,6 +16,7 @@ from agent.services.terminal_bridge import build_terminal_bridge
 LOGGER = logging.getLogger("agent.live_terminal_session")
 
 _TERMINAL_EXECUTION_MODES = {"live_terminal", "interactive_terminal"}
+_TERMINAL_READ_IDLE_SLEEP_SECONDS = 0.01
 
 
 def _safe_shell() -> str:
@@ -126,7 +127,7 @@ class ManagedLiveTerminalSession:
                     self._append_chunk(chunk)
             elif process.poll() is not None:
                 break
-            time.sleep(0.05)
+            time.sleep(_TERMINAL_READ_IDLE_SLEEP_SECONDS)
         with self._condition:
             self._closed = True
             self.updated_at = time.time()

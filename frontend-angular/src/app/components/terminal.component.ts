@@ -140,6 +140,8 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private resizeObserver?: ResizeObserver;
   private initialized = false;
   private lastConnectKey = '';
+  private pendingOutput = '';
+  private flushScheduled = false;
 
   status = 'idle';
   quickCommand = '';
@@ -183,11 +185,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.subs.push(
       this.terminalService.output$.subscribe((chunk) => {
-        this.zone.run(() => {
-          this.terminal?.write(chunk);
-          this.outputBuffer = (this.outputBuffer + chunk).slice(-12000);
-          this.cdr.detectChanges();
-        });
+        this.bufferOutput(chunk);
       })
     );
 
@@ -333,5 +331,25 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (!this.terminal || !this.terminalHost?.nativeElement) return;
     this.fitAddon.fit();
     this.terminalService.sendResize(this.terminal.cols, this.terminal.rows);
+  }
+
+  private bufferOutput(chunk: string): void {
+    if (!chunk) return;
+    this.pendingOutput += chunk;
+    if (this.flushScheduled) return;
+    this.flushScheduled = true;
+    const schedule = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : ((cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 16));
+    schedule(() => {
+      const buffered = this.pendingOutput;
+      this.pendingOutput = '';
+      this.flushScheduled = false;
+      this.zone.run(() => {
+        this.terminal?.write(buffered);
+        this.outputBuffer = (this.outputBuffer + buffered).slice(-12000);
+        this.cdr.detectChanges();
+      });
+    });
   }
 }

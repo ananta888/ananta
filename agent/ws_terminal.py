@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover - optional dependency for minimal instal
 
 
 LOGGER = logging.getLogger("agent.ws_terminal")
+_TERMINAL_IO_TIMEOUT_SECONDS = 0.05
 
 
 def _utc_now_iso() -> str:
@@ -286,7 +287,7 @@ def register_ws_terminal(app: Any) -> None:
             try:
                 while True:
                     try:
-                        incoming = _recv_message(ws, timeout_seconds=0.2)
+                        incoming = _recv_message(ws, timeout_seconds=_TERMINAL_IO_TIMEOUT_SECONDS)
                     except Exception as exc:
                         if _is_timeout_error(exc):
                             incoming = None
@@ -303,7 +304,11 @@ def register_ws_terminal(app: Any) -> None:
                         text = _extract_terminal_input(incoming)
                         if isinstance(text, str) and text:
                             get_live_terminal_session_service().write(forward_param, text)
-                    changed = get_live_terminal_session_service().wait_for_update(forward_param, offset, 0.2)
+                    changed = get_live_terminal_session_service().wait_for_update(
+                        forward_param,
+                        offset,
+                        _TERMINAL_IO_TIMEOUT_SECONDS,
+                    )
                     if changed:
                         fresh, offset = get_live_terminal_session_service().read_from(forward_param, offset)
                         if fresh:
@@ -348,7 +353,7 @@ def register_ws_terminal(app: Any) -> None:
                     _send_event(ws, "output", {"chunk": chunk})
 
                 try:
-                    incoming = _recv_message(ws, timeout_seconds=0.2)
+                    incoming = _recv_message(ws, timeout_seconds=_TERMINAL_IO_TIMEOUT_SECONDS)
                 except Exception as exc:
                     if _is_timeout_error(exc):
                         continue
