@@ -459,8 +459,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
       <div class="card">
         <div class="row flex-between">
           <h3>Task Logs (Live)</h3>
-          @if (taskLiveTerminalLink()) {
-            <a
+        @if (taskLiveTerminalLink()) {
+          <a
               class="button-outline"
               [routerLink]="['/panel', taskLiveTerminalLink()?.agentName]"
               [queryParams]="taskLiveTerminalLink()?.queryParams"
@@ -473,11 +473,12 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           <div class="card card-light task-live-terminal-card" data-testid="task-live-terminal">
             <strong>Worker Live Terminal</strong>
             <div class="muted task-live-terminal-meta">
-              Verbunden mit <strong>{{ liveTerminal.agentName }}</strong> ueber {{ liveTerminal.forwardParam }}.
+              Verbunden mit <strong>{{ liveTerminal.displayName }}</strong> ueber {{ liveTerminal.forwardParam }}.
               Eingaben werden direkt an die laufende OpenCode-Session des Workers weitergeleitet.
             </div>
             <app-terminal
               [baseUrl]="liveTerminal.agentUrl"
+              [token]="liveTerminal.token"
               [mode]="'interactive'"
               [forwardParam]="liveTerminal.forwardParam"
             ></app-terminal>
@@ -946,7 +947,34 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  taskLiveTerminalConnection(): { agentName: string; agentUrl: string; forwardParam: string; queryParams: Record<string, string> } | null {
+  private normalizeAgentUrl(url: string | undefined | null): string {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw);
+      const port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+      return `${parsed.protocol}//${parsed.hostname}:${port}`.toLowerCase();
+    } catch {
+      return raw.replace(/\/+$/, '').toLowerCase();
+    }
+  }
+
+  private liveTerminalDisplayName(agentUrl: string): string {
+    try {
+      return new URL(agentUrl).hostname || agentUrl;
+    } catch {
+      return agentUrl;
+    }
+  }
+
+  taskLiveTerminalConnection(): {
+    displayName: string;
+    panelAgentName?: string;
+    agentUrl: string;
+    forwardParam: string;
+    token?: string;
+    queryParams: Record<string, string>;
+  } | null {
     const agentUrl = String(
       this.task?.last_proposal?.routing?.live_terminal?.agent_url
       || this.task?.verification_status?.opencode_live_terminal?.agent_url
@@ -962,12 +990,15 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       || ''
     ).trim();
     if (!agentUrl || !forwardParam) return null;
-    const agentName = this.allAgents.find((agent) => agent.url === agentUrl)?.name;
-    if (!agentName) return null;
+    const normalizedAgentUrl = this.normalizeAgentUrl(agentUrl);
+    const matchedAgent = this.allAgents.find((agent) => this.normalizeAgentUrl(agent.url) === normalizedAgentUrl);
+    const displayName = String(matchedAgent?.name || this.liveTerminalDisplayName(agentUrl)).trim();
     return {
-      agentName,
+      displayName,
+      panelAgentName: matchedAgent?.name,
       agentUrl,
       forwardParam,
+      token: matchedAgent?.token,
       queryParams: {
         tab: 'terminal',
         mode: 'interactive',
@@ -978,9 +1009,9 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
 
   taskLiveTerminalLink(): { agentName: string; queryParams: Record<string, string> } | null {
     const connection = this.taskLiveTerminalConnection();
-    if (!connection) return null;
+    if (!connection?.panelAgentName) return null;
     return {
-      agentName: connection.agentName,
+      agentName: connection.panelAgentName,
       queryParams: connection.queryParams,
     };
   }

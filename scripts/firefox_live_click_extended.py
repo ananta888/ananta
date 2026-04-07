@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from urllib import request
 from urllib.parse import quote
 
-from test_env_cleanup import cleanup_test_environment
+from test_env_cleanup import cleanup_ollama_runtime, cleanup_test_environment
 
 BASE = os.getenv("ANANTA_SELENIUM_URL", "http://127.0.0.1:4444/wd/hub")
 APP_BASE = os.getenv("ANANTA_FRONTEND_URL", "http://angular-frontend:4200")
@@ -2507,6 +2507,12 @@ def main():
                 report["errors"].append({"message": f"cleanup_error: {e}"})
                 report["cleanup"] = {"error": str(e)}
                 print("cleanup_error", str(e), flush=True)
+        try:
+            report["ollama_cleanup"] = cleanup_ollama_runtime()
+        except Exception as e:
+            report["errors"].append({"message": f"ollama_cleanup_error: {e}"})
+            report["ollama_cleanup"] = {"error": str(e)}
+            print("ollama_cleanup_error", str(e), flush=True)
         write_report(report, report_path)
 
 

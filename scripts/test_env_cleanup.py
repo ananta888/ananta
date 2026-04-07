@@ -5,12 +5,14 @@ import argparse
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 from urllib import request
 
 DEFAULT_HUB_BASE_URL = os.getenv("HUB_BASE_URL", "http://127.0.0.1:5000")
 DEFAULT_HUB_CONTAINER = os.getenv("ANANTA_HUB_CONTAINER", "ananta-ai-agent-hub-1")
+DEFAULT_OLLAMA_CONTAINER = os.getenv("ANANTA_OLLAMA_CONTAINER", "ollama")
 DEFAULT_LIVE_PREFIXES = {
     "template_names": ["Live UI Template "],
     "blueprint_names": ["Live UI Blueprint "],
@@ -76,6 +78,94 @@ def _docker_exec_hub_python(container_name: str, script_body: str) -> str:
     if last_error is not None:
         raise last_error
     raise RuntimeError("docker_exec_python_unavailable")
+
+
+def _run_command(args: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
+
+
+def _docker_inspect_value(container_name: str, template: str, *, timeout: int = 15) -> str:
+    res = _run_command(["docker", "inspect", "-f", template, container_name], timeout=timeout)
+    if res.returncode != 0:
+        return ""
+    return str(res.stdout or "").strip()
+
+
+def _list_loaded_ollama_models(container_name: str) -> list[str]:
+    res = _run_command(["docker", "exec", container_name, "ollama", "ps"], timeout=20)
+    if res.returncode != 0:
+        return []
+    lines = [line.strip() for line in str(res.stdout or "").splitlines() if line.strip()]
+    if not lines:
+        return []
+    models: list[str] = []
+    for line in lines[1:]:
+        name = line.split(None, 1)[0].strip()
+        if name:
+            models.append(name)
+    return _unique_strings(models)
+
+
+def cleanup_ollama_runtime(
+    *,
+    ollama_container: str = DEFAULT_OLLAMA_CONTAINER,
+    stop_timeout_seconds: int = 10,
+    health_timeout_seconds: int = 60,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "container": ollama_container,
+        "before": [],
+        "stopped": [],
+        "after_stop": [],
+        "restarted": False,
+        "health": "",
+        "after_restart": [],
+        "errors": [],
+    }
+    summary["before"] = _list_loaded_ollama_models(ollama_container)
+    if not summary["before"]:
+        summary["health"] = _docker_inspect_value(ollama_container, "{{.State.Health.Status}}") or ""
+        return summary
+
+    for model_name in summary["before"]:
+        try:
+            res = _run_command(
+                ["docker", "exec", ollama_container, "ollama", "stop", model_name],
+                timeout=max(1, int(stop_timeout_seconds)),
+            )
+            summary["stopped"].append(
+                {
+                    "model": model_name,
+                    "exit_code": int(res.returncode),
+                    "stdout": str(res.stdout or "").strip(),
+                    "stderr": str(res.stderr or "").strip(),
+                }
+            )
+        except subprocess.TimeoutExpired:
+            summary["stopped"].append({"model": model_name, "timeout": True})
+            summary["errors"].append(f"stop_timeout:{model_name}")
+
+    summary["after_stop"] = _list_loaded_ollama_models(ollama_container)
+    if summary["after_stop"]:
+        res = _run_command(["docker", "restart", ollama_container], timeout=max(20, int(health_timeout_seconds)))
+        summary["restarted"] = res.returncode == 0
+        if res.returncode != 0:
+            summary["errors"].append(str(res.stderr or res.stdout or "ollama_restart_failed").strip())
+        deadline = time.monotonic() + max(1.0, float(health_timeout_seconds))
+        while time.monotonic() < deadline:
+            health = _docker_inspect_value(ollama_container, "{{.State.Health.Status}}")
+            if health:
+                summary["health"] = health
+            if health == "healthy":
+                break
+            running = _docker_inspect_value(ollama_container, "{{.State.Running}}")
+            if running == "false":
+                break
+            time.sleep(2)
+
+    summary["health"] = summary["health"] or _docker_inspect_value(ollama_container, "{{.State.Health.Status}}") or ""
+    summary["after_restart"] = _list_loaded_ollama_models(ollama_container)
+    return summary
 
 
 def get_admin_from_hub_container(container_name: str) -> tuple[str, str]:
