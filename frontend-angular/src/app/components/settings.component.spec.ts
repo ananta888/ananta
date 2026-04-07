@@ -179,6 +179,30 @@ describe('SettingsComponent (benchmark config)', () => {
     expect(cmp.config.default_model).toBe('model-a');
   });
 
+  it('matches short lmstudio model names against long imported ids', () => {
+    const cmp = createComponent();
+    cmp.providerCatalog = {
+      providers: [
+        {
+          provider: 'lmstudio',
+          models: [
+            { id: 'other-model', display_name: 'other-model' },
+            { id: 'lmstudio-community-qwen2.5-coder-14b-instruct-gguf-qwen2.5-coder-14-081c3c49a2d2:latest', display_name: 'qwen long' },
+          ],
+        },
+      ],
+    };
+    cmp.config = { default_provider: 'lmstudio', default_model: 'qwen2.5-coder:14b', hub_copilot: { model: 'qwen2.5-coder:14b' } };
+
+    cmp.ensureProviderModelConsistency();
+    cmp.ensureHubCopilotModelConsistency();
+
+    expect(cmp.config.default_model).toContain('qwen2.5-coder-14b');
+    expect(cmp.config.hub_copilot.model).toContain('qwen2.5-coder-14b');
+    expect(cmp.isCurrentModelInCatalog()).toBe(true);
+    expect(cmp.isHubCopilotCurrentModelInCatalog()).toBe(true);
+  });
+
   it('initializes codex runtime settings when loading config without codex_cli block', () => {
     const cmp = createComponent() as any;
     cmp.allAgents = [];

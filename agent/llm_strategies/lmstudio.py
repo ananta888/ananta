@@ -44,7 +44,7 @@ class LMStudioStrategy(LLMStrategy):
             if not model_info and candidates:
                 model_info = candidates[0]
         else:
-            model_info = next((c for c in candidates if c.get("id") == model), None) if candidates else None
+            model_info = self._find_matching_lmstudio_candidate(model, candidates) if candidates else None
             if not model_info and model:
                 model_info = {"id": model}
 
@@ -238,6 +238,11 @@ class LMStudioStrategy(LLMStrategy):
         from agent.llm_integration import _prepare_lmstudio_history
 
         return _prepare_lmstudio_history(candidates)
+
+    def _find_matching_lmstudio_candidate(self, model, candidates):
+        from agent.llm_integration import _find_matching_lmstudio_candidate
+
+        return _find_matching_lmstudio_candidate(model, candidates)
 
     def _save_lmstudio_history(self, history):
         from agent.llm_integration import _save_lmstudio_history

@@ -191,6 +191,38 @@ function findFirstModelByTokens(modelIds: string[], tokenSets: string[][]): stri
   return '';
 }
 
+function modelIdentifierTokens(modelId: string): string[] {
+  return String(modelId || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function modelIdentifierMatches(left: string, right: string): boolean {
+  const leftValue = String(left || '').trim();
+  const rightValue = String(right || '').trim();
+  if (!leftValue || !rightValue) return false;
+  if (leftValue.toLowerCase() === rightValue.toLowerCase()) return true;
+  const leftTokens = new Set(modelIdentifierTokens(leftValue));
+  const rightTokens = new Set(modelIdentifierTokens(rightValue));
+  const overlap = [...leftTokens].filter((token) => rightTokens.has(token));
+  if (overlap.length < 2) return false;
+  const leftSubset = [...leftTokens].every((token) => rightTokens.has(token));
+  const rightSubset = [...rightTokens].every((token) => leftTokens.has(token));
+  return leftSubset || rightSubset;
+}
+
+function findMatchingCatalogModelId(current: string, models: Array<{ id: string }>): string {
+  const normalizedCurrent = String(current || '').trim();
+  if (!normalizedCurrent) return '';
+  const exact = models.find((m) => String(m.id || '').trim() === normalizedCurrent);
+  if (exact) return exact.id;
+  const fuzzy = models.find((m) => modelIdentifierMatches(normalizedCurrent, String(m.id || '')));
+  return fuzzy?.id || '';
+}
+
 function classifyOllamaModel(modelId: string): Omit<OllamaStrategyRow, 'id'> {
   const lower = String(modelId || '').trim().toLowerCase();
   if (!lower) {
@@ -2018,6 +2050,11 @@ export class SettingsComponent implements OnInit {
     const models = this.getCatalogModels(provider);
     if (!models.length) return;
     const current = String(this.config?.default_model || '').trim();
+    const matched = findMatchingCatalogModelId(current, models);
+    if (matched) {
+      this.config.default_model = matched;
+      return;
+    }
     if (!current || !models.some(m => m.id === current)) {
       this.config.default_model = models[0].id;
     }
@@ -2028,6 +2065,11 @@ export class SettingsComponent implements OnInit {
     const models = this.getCatalogModels(provider);
     if (!models.length) return;
     const current = String(this.config?.hub_copilot?.model || '').trim();
+    const matched = findMatchingCatalogModelId(current, models);
+    if (matched) {
+      this.config.hub_copilot.model = matched;
+      return;
+    }
     if (!current || !models.some(m => m.id === current)) {
       this.config.hub_copilot.model = models[0].id;
     }
@@ -2038,7 +2080,7 @@ export class SettingsComponent implements OnInit {
     const models = this.getCatalogModels(provider);
     const current = String(this.config?.default_model || '').trim();
     if (!current || !models.length) return false;
-    return models.some((m) => m.id === current);
+    return !!findMatchingCatalogModelId(current, models);
   }
 
   isHubCopilotCurrentModelInCatalog(): boolean {
@@ -2046,7 +2088,7 @@ export class SettingsComponent implements OnInit {
     const models = this.getCatalogModels(provider);
     const current = String(this.config?.hub_copilot?.model || '').trim();
     if (!current || !models.length) return false;
-    return models.some((m) => m.id === current);
+    return !!findMatchingCatalogModelId(current, models);
   }
 
   benchmarkProviderOrderText(): string {
