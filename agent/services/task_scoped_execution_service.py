@@ -1750,6 +1750,13 @@ class TaskScopedExecutionService:
         mode = str(runtime_cfg.get("execution_mode") or "live_terminal").strip().lower()
         return mode if mode in {"backend", "live_terminal", "interactive_terminal"} else "live_terminal"
 
+    @staticmethod
+    def _resolve_opencode_interactive_launch_mode(agent_cfg: dict | None) -> str:
+        cfg = agent_cfg or {}
+        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+        mode = str(runtime_cfg.get("interactive_launch_mode") or "run").strip().lower()
+        return mode if mode in {"run", "tui"} else "run"
+
     def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
         task_record = get_repository_registry().task_repo.get_by_id(tid)
         if not task_record:
@@ -1795,6 +1802,7 @@ class TaskScopedExecutionService:
         policy = self._cli_session_policy(agent_cfg)
         backend_name = str(backend or "").strip().lower()
         opencode_execution_mode = self._resolve_opencode_execution_mode(agent_cfg)
+        opencode_interactive_launch_mode = self._resolve_opencode_interactive_launch_mode(agent_cfg)
         terminal_execution_mode = (
             opencode_execution_mode if backend_name == "opencode" and opencode_execution_mode in {"live_terminal", "interactive_terminal"} else None
         )
@@ -1832,6 +1840,7 @@ class TaskScopedExecutionService:
                     "scope_key": scope_key,
                     "role_name": role_name,
                     "opencode_workdir": workspace_dir,
+                    "opencode_interactive_launch_mode": opencode_interactive_launch_mode,
                 },
                 task_id=tid,
                 conversation_id=scope_key,
@@ -1856,6 +1865,7 @@ class TaskScopedExecutionService:
                     str(session_payload.get("id") or ""),
                     metadata_updates={
                         "opencode_execution_mode": "backend",
+                        "opencode_interactive_launch_mode": opencode_interactive_launch_mode,
                         "opencode_live_terminal": {},
                     },
                 )
@@ -1900,6 +1910,7 @@ class TaskScopedExecutionService:
                     str(session_payload.get("id") or ""),
                     metadata_updates={
                         "opencode_execution_mode": terminal_execution_mode,
+                        "opencode_interactive_launch_mode": opencode_interactive_launch_mode,
                         "opencode_live_terminal": terminal_meta,
                         "opencode_workdir": workspace_dir,
                     },

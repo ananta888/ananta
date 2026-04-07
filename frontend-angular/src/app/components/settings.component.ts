@@ -101,9 +101,11 @@ export function normalizeOpencodeRuntimeConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const toolMode = String(raw.tool_mode || 'full').trim().toLowerCase();
   const executionMode = String(raw.execution_mode || 'live_terminal').trim().toLowerCase();
+  const interactiveLaunchMode = String(raw.interactive_launch_mode || 'run').trim().toLowerCase();
   return {
     tool_mode: ['full', 'readonly', 'toolless'].includes(toolMode) ? toolMode : 'full',
     execution_mode: ['backend', 'live_terminal', 'interactive_terminal'].includes(executionMode) ? executionMode : 'live_terminal',
+    interactive_launch_mode: ['run', 'tui'].includes(interactiveLaunchMode) ? interactiveLaunchMode : 'run',
   };
 }
 
@@ -740,12 +742,18 @@ function createDefaultSettingsConfig(): any {
                 <option value="interactive_terminal">interactive_terminal</option>
               </select>
             </label>
+            <label>Interactive Launch-Modus
+              <select [(ngModel)]="config.opencode_runtime.interactive_launch_mode">
+                <option value="run">run (stabil)</option>
+                <option value="tui">tui (experimentell)</option>
+              </select>
+            </label>
             <label>Workspace Root (optional)
               <input [(ngModel)]="config.worker_runtime.workspace_root" placeholder="z.B. /data/worker-runtime" />
             </label>
           </div>
           <div class="muted font-sm mt-md">
-            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Ausfuehrung {{ config.opencode_runtime.execution_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
+            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Ausfuehrung {{ config.opencode_runtime.execution_mode }} · Launch {{ config.opencode_runtime.interactive_launch_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>

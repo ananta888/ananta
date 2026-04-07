@@ -872,15 +872,22 @@ def browser_api_json(session_id: str, method: str, path: str, body: Optional[dic
     }
 
 
-def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_terminal", timeout_seconds: int = 90) -> dict:
+def ensure_opencode_execution_mode(
+    session_id: str,
+    mode: str = "interactive_terminal",
+    *,
+    interactive_launch_mode: str = "run",
+    timeout_seconds: int = 90,
+) -> dict:
     try:
         out = (
             js_async(
                 session_id,
                 """
             const desiredMode = arguments[0];
-            const timeoutSeconds = arguments[1];
-            const password = arguments[2] || '';
+            const desiredLaunchMode = arguments[1];
+            const timeoutSeconds = arguments[2];
+            const password = arguments[3] || '';
             const done = arguments[arguments.length - 1];
             function safeParse(raw) {
               if (!raw) return null;
@@ -914,19 +921,21 @@ def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_ter
               const post = await fetchJson(`${baseUrl}/config`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ opencode_runtime: { execution_mode: desiredMode } }),
+                body: JSON.stringify({ opencode_runtime: { execution_mode: desiredMode, interactive_launch_mode: desiredLaunchMode } }),
               });
               const get = await fetchJson(`${baseUrl}/config`, {
                 method: 'GET',
                 headers,
               });
               const effectiveMode = ((((get.body || {}).data || {}).opencode_runtime || {}).execution_mode) || '';
+              const effectiveLaunchMode = ((((get.body || {}).data || {}).opencode_runtime || {}).interactive_launch_mode) || '';
               return {
                 base_url: baseUrl,
-                ok: post.status >= 200 && post.status < 400 && effectiveMode === desiredMode,
+                ok: post.status >= 200 && post.status < 400 && effectiveMode === desiredMode && effectiveLaunchMode === desiredLaunchMode,
                 post_status: post.status,
                 get_status: get.status,
                 execution_mode: effectiveMode,
+                interactive_launch_mode: effectiveLaunchMode,
               };
             }
             const controller = new AbortController();
@@ -959,24 +968,35 @@ def ensure_opencode_execution_mode(session_id: str, mode: str = "interactive_ter
                 done({
                   ok: results.every((item) => !!item.ok),
                   desired_mode: desiredMode,
+                  desired_launch_mode: desiredLaunchMode,
                   base_urls: baseUrls,
                   results,
                 });
               })
               .catch((err) => {
                 clearTimeout(timer);
-                done({ ok: false, error: String(err), desired_mode: desiredMode });
+                done({ ok: false, error: String(err), desired_mode: desiredMode, desired_launch_mode: desiredLaunchMode });
               });
             """,
-                [mode, timeout_seconds, LOGIN_PASS],
+                [mode, interactive_launch_mode, timeout_seconds, LOGIN_PASS],
                 timeout=max(45, int(timeout_seconds) + 30),
             ).get("value")
             or {}
         )
     except Exception as exc:
-        return {"ok": False, "error": f"webdriver_async_error: {exc}", "desired_mode": mode}
+        return {
+            "ok": False,
+            "error": f"webdriver_async_error: {exc}",
+            "desired_mode": mode,
+            "desired_launch_mode": interactive_launch_mode,
+        }
     if not isinstance(out, dict):
-        return {"ok": False, "error": "invalid_mode_response", "desired_mode": mode}
+        return {
+            "ok": False,
+            "error": "invalid_mode_response",
+            "desired_mode": mode,
+            "desired_launch_mode": interactive_launch_mode,
+        }
     return out
 
 

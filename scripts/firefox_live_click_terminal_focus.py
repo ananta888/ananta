@@ -14,12 +14,15 @@ from firefox_live_click_extended import (
     LOGIN_PASS,
     LOGIN_USER,
     _collect_goal_tasks_snapshot,
+    _extract_task_terminal_agent_url,
     _extract_task_terminal_forward_param,
     _inspect_task_detail_live_terminal,
+    _open_worker_terminal_panel,
     _task_has_active_terminal,
     _unwrap_envelope,
     browser_api_json,
     current_route_and_title,
+    ensure_opencode_execution_mode,
     phase_goal,
     phase_setup,
     record_step,
@@ -82,6 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Leave any Ollama model loaded after the run instead of unloading it in teardown.",
     )
+    parser.add_argument(
+        "--interactive-launch-mode",
+        default="run",
+        choices=["run", "tui"],
+        help="Interactive OpenCode launch mode to validate.",
+    )
     return parser
 
 
@@ -126,10 +135,34 @@ def _pick_terminal_task(tasks: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
 def _opencode_user_visible(buffer_excerpt: str) -> bool:
     text = str(buffer_excerpt or "")
     lowered = text.lower()
-    has_cli = bool(re.search(r"opencode\s+run", text, re.IGNORECASE))
     has_runtime_banner = "> ananta-worker" in lowered
     has_model_badge = "ananta-default" in lowered or "ollama/" in lowered
-    return has_cli and has_runtime_banner and has_model_badge
+    return has_runtime_banner and has_model_badge
+
+
+def _strip_ansi(buffer_excerpt: str) -> str:
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(buffer_excerpt or ""))
+    return re.sub(r"\x1b[@-_]", "", text)
+
+
+def _opencode_tui_visible(buffer_excerpt: str) -> bool:
+    lowered = _strip_ansi(buffer_excerpt).lower()
+    return "input" in lowered or ("must be" in lowered and "integer" in lowered)
+
+
+def _resolve_worker_name(session_id: str, agent_url: str) -> str:
+    agent_url = str(agent_url or "").strip()
+    if not agent_url:
+        return ""
+    agents_res = browser_api_json(session_id, "GET", "/api/system/agents", timeout_seconds=45)
+    payload = _unwrap_envelope(agents_res.get("body")) if agents_res.get("ok") else []
+    agents = payload if isinstance(payload, list) else []
+    for agent in agents:
+        if not isinstance(agent, dict):
+            continue
+        if str(agent.get("url") or "").strip() == agent_url:
+            return str(agent.get("name") or "").strip()
+    return ""
 
 
 def _ensure_fresh_scrum_team(session_id: str, report: Dict[str, Any]) -> None:
@@ -195,6 +228,7 @@ def phase_terminal_focus(
     hard_fail: bool,
     terminal_timeout_seconds: float,
     poll_interval_seconds: float,
+    interactive_launch_mode: str,
 ) -> None:
     t0 = time.time()
     goal_id = str(report.get("last_goal_id") or "").strip()
@@ -237,6 +271,7 @@ def phase_terminal_focus(
     deadline = time.time() + max(20.0, float(terminal_timeout_seconds))
     selected_task: Optional[Dict[str, Any]] = None
     terminal_snapshot: Dict[str, Any] = {"attempted": False}
+    worker_terminal_snapshot: Dict[str, Any] = {"attempted": False}
     tick_attempts = 1
     active_terminal_seen = False
     cli_command_visible = False
@@ -264,26 +299,61 @@ def phase_terminal_focus(
 
         selected_task = _pick_terminal_task(tasks) or selected_task
         if selected_task:
-            terminal_snapshot = _inspect_task_detail_live_terminal(session_id, str(selected_task.get("id") or ""))
+            task_id = str(selected_task.get("id") or "").strip()
+            forward_param = _extract_task_terminal_forward_param(selected_task)
+            worker_buffer_excerpt = ""
+            if interactive_launch_mode == "tui":
+                worker_name = _resolve_worker_name(session_id, _extract_task_terminal_agent_url(selected_task))
+                if worker_name and forward_param:
+                    worker_terminal_snapshot = _open_worker_terminal_panel(
+                        session_id,
+                        worker_name,
+                        mode="interactive",
+                        forward_param=forward_param,
+                    )
+                worker_buffer_excerpt = str(worker_terminal_snapshot.get("buffer_excerpt") or "")
+                cli_command_visible = bool(re.search(r"opencode(\s+run)?", worker_buffer_excerpt, re.IGNORECASE))
+            terminal_snapshot = _inspect_task_detail_live_terminal(session_id, task_id)
             buffer_excerpt = str(terminal_snapshot.get("buffer_excerpt") or "")
-            cli_command_visible = bool(re.search(r"opencode\s+run", buffer_excerpt, re.IGNORECASE))
-            opencode_user_visible = _opencode_user_visible(buffer_excerpt)
-            if (
-                terminal_snapshot.get("embedded_visible")
-                and terminal_snapshot.get("connected")
-                and terminal_snapshot.get("interactive_controls_visible")
-                and opencode_user_visible
-            ):
-                break
+            if interactive_launch_mode == "tui":
+                cli_command_visible = cli_command_visible or bool(re.search(r"opencode(\s+run)?", buffer_excerpt, re.IGNORECASE))
+                opencode_user_visible = _opencode_tui_visible(worker_buffer_excerpt) or _opencode_tui_visible(buffer_excerpt)
+                if (
+                    (worker_terminal_snapshot.get("opened") and worker_terminal_snapshot.get("connected"))
+                    or (terminal_snapshot.get("embedded_visible") and terminal_snapshot.get("connected"))
+                ) and opencode_user_visible:
+                    break
+            else:
+                cli_command_visible = bool(re.search(r"opencode\s+run", buffer_excerpt, re.IGNORECASE))
+                opencode_user_visible = _opencode_user_visible(buffer_excerpt)
+                if (
+                    terminal_snapshot.get("embedded_visible")
+                    and terminal_snapshot.get("connected")
+                    and terminal_snapshot.get("interactive_controls_visible")
+                    and opencode_user_visible
+                ):
+                    break
         time.sleep(max(0.2, float(poll_interval_seconds)))
 
     browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
 
     task_id = str((selected_task or {}).get("id") or "").strip()
     forward_param = _extract_task_terminal_forward_param(selected_task) if selected_task else ""
-    ok = bool(task_id) and bool(forward_param) and active_terminal_seen and bool(
-        terminal_snapshot.get("embedded_visible")
-    ) and bool(terminal_snapshot.get("connected")) and bool(terminal_snapshot.get("interactive_controls_visible")) and opencode_user_visible
+    if interactive_launch_mode == "tui":
+        ok = (
+            bool(task_id)
+            and bool(forward_param)
+            and active_terminal_seen
+            and (
+                (bool(worker_terminal_snapshot.get("opened")) and bool(worker_terminal_snapshot.get("connected")))
+                or (bool(terminal_snapshot.get("embedded_visible")) and bool(terminal_snapshot.get("connected")))
+            )
+            and opencode_user_visible
+        )
+    else:
+        ok = bool(task_id) and bool(forward_param) and active_terminal_seen and bool(
+            terminal_snapshot.get("embedded_visible")
+        ) and bool(terminal_snapshot.get("connected")) and bool(terminal_snapshot.get("interactive_controls_visible")) and opencode_user_visible
     record_step(
         report,
         "terminal",
@@ -296,19 +366,21 @@ def phase_terminal_focus(
             "goal_team_id": goal_team_id,
             "task_id": task_id,
             "forward_param": forward_param,
+            "interactive_launch_mode": interactive_launch_mode,
             "active_terminal_seen": active_terminal_seen,
             "cli_command_visible": cli_command_visible,
             "opencode_user_visible": opencode_user_visible,
             "terminal_snapshot": terminal_snapshot,
+            "worker_terminal_snapshot": worker_terminal_snapshot,
             **current_route_and_title(session_id),
         },
     )
     if not ok:
-        raise RuntimeError("Task live terminal did not show user-visible OpenCode session")
+        raise RuntimeError(f"Task live terminal did not show user-visible OpenCode session ({interactive_launch_mode})")
 
 
-def main() -> None:
-    args = build_parser().parse_args()
+def main(argv: Optional[List[str]] = None) -> None:
+    args = build_parser().parse_args(argv)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_path = (
         Path(args.report_file)
@@ -366,6 +438,17 @@ def main() -> None:
             step_delay_seconds=max(0.0, float(args.step_delay_seconds)),
             bootstrap_setup=False,
         )
+        launch_mode_res = ensure_opencode_execution_mode(
+            session_id,
+            mode="interactive_terminal",
+            interactive_launch_mode=str(args.interactive_launch_mode or "run"),
+            timeout_seconds=60,
+        )
+        launch_mode_ok = bool(launch_mode_res.get("ok"))
+        print("opencode_interactive_launch_mode", json.dumps(launch_mode_res, ensure_ascii=True), flush=True)
+        record_step(report, "setup", "set_opencode_interactive_launch_mode", time.time(), launch_mode_ok, launch_mode_res)
+        if not launch_mode_ok:
+            raise RuntimeError("Failed to switch opencode interactive launch mode")
         _ensure_fresh_scrum_team(session_id, report)
         print("phase_done", "setup", flush=True)
 
@@ -387,6 +470,7 @@ def main() -> None:
             hard_fail=hard_fail,
             terminal_timeout_seconds=max(20.0, float(args.terminal_timeout_seconds)),
             poll_interval_seconds=max(0.2, float(args.poll_interval_seconds)),
+            interactive_launch_mode=str(args.interactive_launch_mode or "run"),
         )
         print("phase_done", "terminal", flush=True)
         report["status"] = "passed"

@@ -237,6 +237,9 @@ def build_default_agent_config() -> dict:
         "opencode_runtime": {
             "tool_mode": "toolless" if str(settings.default_provider or "").strip().lower() == "ollama" else "full",
             "execution_mode": (os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "live_terminal").strip().lower() or "live_terminal",
+            "interactive_launch_mode": (
+                os.environ.get("ANANTA_OPENCODE_INTERACTIVE_LAUNCH_MODE") or "run"
+            ).strip().lower() or "run",
             "target_provider": (
                 str(settings.default_provider or "").strip().lower()
                 if str(settings.default_provider or "").strip().lower() in {"ollama", "lmstudio"}
@@ -289,6 +292,9 @@ def apply_env_config_overrides(cfg: dict) -> None:
     forced_execution_mode = str(os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "").strip().lower()
     if forced_execution_mode in {"backend", "live_terminal", "interactive_terminal"}:
         runtime_cfg["execution_mode"] = forced_execution_mode
+    forced_launch_mode = str(os.environ.get("ANANTA_OPENCODE_INTERACTIVE_LAUNCH_MODE") or "").strip().lower()
+    if forced_launch_mode in {"run", "tui"}:
+        runtime_cfg["interactive_launch_mode"] = forced_launch_mode
     forced_target_provider = str(os.environ.get("ANANTA_OPENCODE_TARGET_PROVIDER") or "").strip().lower()
     if forced_target_provider in {"ollama", "lmstudio"}:
         runtime_cfg["target_provider"] = forced_target_provider

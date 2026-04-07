@@ -201,6 +201,9 @@ class ConfigReadModelService:
                     "execution_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("execution_mode") or "live_terminal")).strip().lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)
                     else "live_terminal",
+                    "interactive_launch_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("interactive_launch_mode") or "run")).strip().lower()
+                    if isinstance((cfg or {}).get("opencode_runtime"), dict)
+                    else "run",
                 },
                 "worker_runtime": {
                     "workspace_root": (
