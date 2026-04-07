@@ -218,6 +218,26 @@ def test_resolve_opencode_runtime_config_respects_tool_mode_toolless(app):
     assert resolved["provider_config"]["agent"]["ananta-worker"]["tools"]["bash"] is False
 
 
+def test_resolve_opencode_runtime_config_normalizes_legacy_ollama_model(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "ollama",
+            "default_model": "ananta-default",
+            "opencode_default_model": "ananta-default",
+        }
+        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "ollama"
+            mock_settings.opencode_default_model = "ananta-default"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["model"] == "ollama/qwen2.5-coder:7b"
+    assert resolved["target_model"] == "qwen2.5-coder:7b"
+
+
 def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(app):
     from agent.common.sgpt import resolve_opencode_runtime_config
 

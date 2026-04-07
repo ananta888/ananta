@@ -5,11 +5,11 @@ x-agent-env: &agent-env
   INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
   INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
   OLLAMA_URL: ${COMPOSE_OLLAMA_URL:-http://ollama:11434/api/generate}
-  OLLAMA_MODEL: ${OLLAMA_MODEL:-ananta-default}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
   LMSTUDIO_URL: ${COMPOSE_LMSTUDIO_URL:-http://192.168.56.1:1234/v1}
   LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
   DEFAULT_PROVIDER: ${COMPOSE_DEFAULT_PROVIDER:-ollama}
-  DEFAULT_MODEL: ${COMPOSE_DEFAULT_MODEL:-ananta-default}
+  DEFAULT_MODEL: ${COMPOSE_DEFAULT_MODEL:-qwen2.5-coder:7b}
   ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
   # Keep JWT validation consistent across hub/workers in compose deployments.

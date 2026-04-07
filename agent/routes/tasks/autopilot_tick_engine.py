@@ -7,6 +7,7 @@ from typing import Any, Callable
 from agent.config import settings
 from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
 from agent.llm_benchmarks import recommend_model_for_context, recommend_models_for_context
+from agent.model_selection import normalize_legacy_model_name
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.tool_guardrails import estimate_text_tokens
@@ -90,12 +91,20 @@ def _preferred_benchmark_provider(cfg: dict[str, Any]) -> str | None:
     return None
 
 
+def _normalize_model_candidate(model: str | None, *, cfg: dict[str, Any]) -> str | None:
+    return normalize_legacy_model_name(model, provider=_preferred_benchmark_provider(cfg))
+
+
 def _strategy_cfg(loop: Any) -> dict[str, Any]:
     cfg = loop._agent_config() or {}
     return {
         "max_attempts": max(1, min(int(cfg.get("autopilot_strategy_max_attempts") or 3), 8)),
         "cooldown_seconds": max(0, min(int(cfg.get("autopilot_strategy_retry_delay_seconds") or 20), 600)),
-        "fallback_models": _normalize_model_list(cfg.get("autopilot_strategy_fallback_models")),
+        "fallback_models": [
+            normalized
+            for item in _normalize_model_list(cfg.get("autopilot_strategy_fallback_models"))
+            if (normalized := _normalize_model_candidate(item, cfg=cfg))
+        ],
         "temperature_profiles": _normalize_temperature_list(cfg.get("autopilot_strategy_temperature_profiles")),
         "adaptive_top_k": max(1, min(int(cfg.get("adaptive_model_routing_top_k") or 3), 10)),
     }
@@ -200,22 +209,22 @@ def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | 
     selected_model = None
     source = "none"
     if role_name and role_name.lower() in role_overrides:
-        candidate = role_overrides[role_name.lower()]
+        candidate = _normalize_model_candidate(role_overrides[role_name.lower()], cfg=cfg)
         if candidate not in excluded:
             selected_model = candidate
         source = "role_model_overrides"
     elif template_name and template_name.lower() in template_overrides:
-        candidate = template_overrides[template_name.lower()]
+        candidate = _normalize_model_candidate(template_overrides[template_name.lower()], cfg=cfg)
         if candidate not in excluded:
             selected_model = candidate
         source = "template_model_overrides:name"
     elif template_id and template_id.lower() in template_overrides:
-        candidate = template_overrides[template_id.lower()]
+        candidate = _normalize_model_candidate(template_overrides[template_id.lower()], cfg=cfg)
         if candidate not in excluded:
             selected_model = candidate
         source = "template_model_overrides:id"
     elif task_kind and task_kind in task_kind_overrides:
-        candidate = task_kind_overrides[task_kind]
+        candidate = _normalize_model_candidate(task_kind_overrides[task_kind], cfg=cfg)
         if candidate not in excluded:
             selected_model = candidate
         source = "task_kind_model_overrides"
@@ -233,7 +242,7 @@ def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | 
                 min_samples=int(cfg.get("adaptive_model_routing_min_samples") or 3),
             )
             if isinstance(learned, dict) and str(learned.get("model") or "").strip():
-                candidate = str(learned.get("model") or "").strip()
+                candidate = _normalize_model_candidate(str(learned.get("model") or "").strip(), cfg=cfg)
                 if candidate not in excluded:
                     selected_model = candidate
                     source = str(learned.get("selection_source") or "benchmark_context_learning")
@@ -299,7 +308,7 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
     if selected and selected not in failed_models:
         _queue_model(selected, str(base_model_meta.get("source") or "base_selection"))
 
-    opencode_default_model = str(cfg.get("opencode_default_model") or "").strip()
+    opencode_default_model = _normalize_model_candidate(str(cfg.get("opencode_default_model") or "").strip(), cfg=cfg)
     if opencode_default_model and opencode_default_model not in failed_models:
         _queue_model(opencode_default_model, "opencode_default_model")
 
@@ -319,7 +328,7 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
                 exclude_models=list(failed_models),
             )
             for entry in learned:
-                model = str((entry or {}).get("model") or "").strip()
+                model = _normalize_model_candidate(str((entry or {}).get("model") or "").strip(), cfg=cfg)
                 if model:
                     _queue_model(model, "benchmark_context_learning:ranked")
         except Exception:
@@ -329,7 +338,7 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
         if model not in failed_models:
             _queue_model(model, "autopilot_strategy_fallback_models")
 
-    default_model = str(cfg.get("default_model") or cfg.get("model") or "").strip()
+    default_model = _normalize_model_candidate(str(cfg.get("default_model") or cfg.get("model") or "").strip(), cfg=cfg)
     if default_model and default_model not in failed_models:
         _queue_model(default_model, "agent_default_model")
 

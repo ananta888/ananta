@@ -137,3 +137,34 @@ def test_recommend_model_for_context_filters_to_requested_provider(tmp_path):
     assert rec is not None
     assert rec["provider"] == "ollama"
     assert rec["model"] == "ananta-smoke"
+
+
+def test_recommend_model_for_context_normalizes_legacy_ollama_aliases(tmp_path):
+    data_dir = str(tmp_path)
+    cfg = {}
+    for _ in range(3):
+        record_benchmark_sample(
+            data_dir=data_dir,
+            agent_cfg=cfg,
+            provider="ollama",
+            model="ananta-default",
+            task_kind="coding",
+            success=True,
+            quality_gate_passed=True,
+            latency_ms=300,
+            tokens_total=400,
+            cost_units=0.01,
+            context_tags={"role_name": "Developer", "template_name": "default"},
+        )
+
+    rec = recommend_model_for_context(
+        data_dir=data_dir,
+        task_kind="coding",
+        role_name="Developer",
+        template_name="default",
+        provider="ollama",
+        min_samples=2,
+    )
+
+    assert rec is not None
+    assert rec["model"] == "qwen2.5-coder:7b"

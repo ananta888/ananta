@@ -20,6 +20,7 @@ from agent.common.utils.structured_action_utils import (
     sanitize_structured_output_text,
 )
 from agent.config import settings
+from agent.model_selection import normalize_legacy_model_name
 from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
 from agent.models import TaskStepExecuteRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
@@ -64,6 +65,20 @@ class TaskScopedExecutionService:
         if normalized > 2.0:
             normalized = 2.0
         return normalized
+
+    @staticmethod
+    def _default_model(agent_cfg: dict) -> str | None:
+        provider = str(agent_cfg.get("default_provider") or agent_cfg.get("provider") or "").strip().lower() or None
+        return normalize_legacy_model_name(
+            str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip() or None,
+            provider=provider,
+        )
+
+    @classmethod
+    def _resolve_requested_model(cls, *, agent_cfg: dict, requested_model: str | None) -> str | None:
+        provider = str(agent_cfg.get("default_provider") or agent_cfg.get("provider") or "").strip().lower() or None
+        resolved = str(requested_model or "").strip() or cls._default_model(agent_cfg)
+        return normalize_legacy_model_name(resolved, provider=provider)
 
     @staticmethod
     def _resolve_task_propose_timeout(agent_cfg: dict, task_kind: str) -> int:
@@ -361,7 +376,10 @@ class TaskScopedExecutionService:
 
             parts = entry.split(":", 1)
             requested_backend = str(parts[0] or "").strip().lower()
-            selected_model = ((parts[1].strip() if len(parts) > 1 else "") or request_data.model or cfg.get("default_model") or cfg.get("model"))
+            selected_model = self._resolve_requested_model(
+                agent_cfg=cfg,
+                requested_model=(parts[1].strip() if len(parts) > 1 else "") or request_data.model,
+            )
             if requested_backend not in SUPPORTED_CLI_BACKENDS:
                 return entry, {"error": f"unsupported_backend:{requested_backend}", "backend": requested_backend}
 
@@ -540,6 +558,7 @@ class TaskScopedExecutionService:
             required_capabilities=required_capabilities,
         )
         timeout = self._resolve_task_propose_timeout(cfg, task_kind)
+        proposal_model = self._resolve_requested_model(agent_cfg=cfg, requested_model=request_data.model)
         policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
         pipeline = new_pipeline_trace(
             pipeline="task_propose",
@@ -557,7 +576,7 @@ class TaskScopedExecutionService:
             tid=tid,
             task=task,
             backend=effective_backend,
-            model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+            model=proposal_model,
             agent_cfg=cfg,
         )
         prompt_for_cli = prompt
@@ -584,7 +603,7 @@ class TaskScopedExecutionService:
             "options": ["--no-interaction"],
             "timeout": timeout,
             "backend": effective_backend,
-            "model": request_data.model,
+            "model": proposal_model,
             "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
             "session": session_payload,
             "workdir": str(workspace_context.workspace_dir),
@@ -620,7 +639,7 @@ class TaskScopedExecutionService:
                 policy_version=policy_version,
                 cfg=cfg,
                 primary_backend=backend_used,
-                primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                primary_model=proposal_model,
                 primary_temperature=requested_temperature,
                 research_context=research_context,
                 session=session_payload,
@@ -655,7 +674,7 @@ class TaskScopedExecutionService:
                 policy_version=policy_version,
                 cfg=cfg,
                 primary_backend=backend_used,
-                primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                primary_model=proposal_model,
                 primary_temperature=requested_temperature,
                 research_context=research_context,
                 session=session_payload,
@@ -683,7 +702,7 @@ class TaskScopedExecutionService:
             "research_specialization": research_specialization,
             **self._routing_dimensions(
                 backend_used=backend_used,
-                model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                model=proposal_model,
                 temperature=requested_temperature,
                 requested_backend="auto",
                 agent_cfg=cfg,
@@ -739,7 +758,7 @@ class TaskScopedExecutionService:
                 reason=research_res.get("reason"),
                 raw=raw_res,
                 backend=backend_used,
-                model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                model=proposal_model,
                 routing=routing,
                 cli_result=research_res.get("cli_result"),
                 worker_context=worker_context_meta,
@@ -772,7 +791,7 @@ class TaskScopedExecutionService:
                     session_id=session_payload["id"],
                     prompt=prompt,
                     output=raw_res,
-                    model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                    model=proposal_model,
                     trace_id=str(trace.get("trace_id") or ""),
                     metadata={"backend_used": backend_used, "task_id": tid, "proposal_mode": "research"},
                 )
@@ -794,7 +813,7 @@ class TaskScopedExecutionService:
                 policy_version=policy_version,
                 cfg=cfg,
                 primary_backend=backend_used,
-                primary_model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                primary_model=proposal_model,
                 primary_temperature=requested_temperature,
                 research_context=research_context,
                 session=session_payload,
@@ -836,7 +855,7 @@ class TaskScopedExecutionService:
             reason=reason,
             raw=raw_res,
             backend=backend_used,
-            model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+            model=proposal_model,
             routing=routing,
             cli_result={
                 "returncode": rc,
@@ -875,7 +894,7 @@ class TaskScopedExecutionService:
                 session_id=session_payload["id"],
                 prompt=prompt,
                 output=raw_res,
-                model=request_data.model or cfg.get("default_model") or cfg.get("model"),
+                model=proposal_model,
                 trace_id=str(trace.get("trace_id") or ""),
                 metadata={"backend_used": backend_used, "task_id": tid, "proposal_mode": "command"},
             )

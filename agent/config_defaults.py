@@ -3,6 +3,7 @@ import os
 from typing import Any
 from flask import Flask
 from agent.config import settings
+from agent.model_selection import normalize_legacy_model_name
 from agent.runtime_profiles import runtime_profile_catalog
 
 def _provider_alias(provider: str | None) -> str:
@@ -13,7 +14,7 @@ def _provider_alias(provider: str | None) -> str:
 def _default_opencode_model() -> str | None:
     configured = str(getattr(settings, "opencode_default_model", None) or "").strip()
     if configured and configured != "opencode/glm-5-free":
-        return configured
+        return normalize_legacy_model_name(configured, provider=str(settings.default_provider or "").strip().lower())
     if str(settings.default_provider or "").strip().lower() == "ollama":
         return "qwen2.5-coder:7b"
     return configured or None

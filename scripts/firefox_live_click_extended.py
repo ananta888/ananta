@@ -1799,10 +1799,10 @@ def phase_benchmark(
     cfg_data = _unwrap_envelope(cfg_res.get("body")) if cfg_res.get("ok") else {}
     cfg_data = cfg_data if isinstance(cfg_data, dict) else {}
     provider = str(cfg_data.get("default_provider") or "ollama").strip().lower() or "ollama"
-    model = str(cfg_data.get("default_model") or "").strip()
+    model = str(cfg_data.get("opencode_default_model") or cfg_data.get("default_model") or "").strip()
     llm_cfg = cfg_data.get("llm_config") if isinstance(cfg_data.get("llm_config"), dict) else {}
     if not model:
-        model = str((llm_cfg.get("model") if isinstance(llm_cfg, dict) else "") or "").strip() or "ananta-default:latest"
+        model = str((llm_cfg.get("model") if isinstance(llm_cfg, dict) else "") or "").strip() or "qwen2.5-coder:7b"
 
     artifacts_summary = (detail_after.get("artifacts") or {}) if isinstance(detail_after, dict) else {}
     result_summary = (artifacts_summary.get("result_summary") or {}) if isinstance(artifacts_summary, dict) else {}

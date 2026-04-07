@@ -14,6 +14,7 @@ from flask import current_app, has_app_context
 
 from agent.config import settings
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
+from agent.model_selection import normalize_legacy_model_name
 from agent.research_backend import (
     RESEARCH_BACKEND_PROVIDERS,
     get_research_backend_preflight,
@@ -844,7 +845,11 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         or str(agent_cfg.get("default_model") or agent_cfg.get("model") or "").strip()
         or str(settings.opencode_default_model or "").strip()
     )
-    raw_model = str(model or configured_default_model or "").strip() or None
+    default_provider = str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
+    raw_model = normalize_legacy_model_name(
+        str(model or configured_default_model or "").strip() or None,
+        provider=default_provider,
+    )
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
     built_in_providers = {
         "opencode",
@@ -860,8 +865,9 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         "lmstudio",
     }
 
-    target_provider = explicit_provider or str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
+    target_provider = explicit_provider or default_provider
     target_model = explicit_model if explicit_provider else raw_model
+    target_model = normalize_legacy_model_name(target_model, provider=target_provider)
     base_url = None
     base_url_source = None
     target_provider_type = None
