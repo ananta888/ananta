@@ -121,3 +121,5 @@ __pycache__/
 /data/alpha/worker-runtime/
 /data/beta/
 /data/alpha/
+/data/worker-runtime/
+/test-reports/

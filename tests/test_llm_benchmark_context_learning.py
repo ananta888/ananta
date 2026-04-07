@@ -167,4 +167,4 @@ def test_recommend_model_for_context_normalizes_legacy_ollama_aliases(tmp_path):
     )
 
     assert rec is not None
-    assert rec["model"] == "qwen2.5-coder:7b"
+    assert rec["model"] == "ananta-default"

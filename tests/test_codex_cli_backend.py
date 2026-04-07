@@ -265,8 +265,8 @@ def test_resolve_opencode_runtime_config_normalizes_legacy_ollama_model(app):
             mock_settings.http_timeout = 30
             resolved = resolve_opencode_runtime_config()
 
-    assert resolved["model"] == "ollama/qwen2.5-coder:7b"
-    assert resolved["target_model"] == "qwen2.5-coder:7b"
+    assert resolved["model"] == "ollama/ananta-default"
+    assert resolved["target_model"] == "ananta-default"
 
 
 def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installed_tag(app):

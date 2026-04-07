@@ -1,1 +1,2 @@
 FROM /models/Guervency/deepseek-coder-v2-lite-16b-gguf/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+PARAMETER num_ctx 32768
