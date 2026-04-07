@@ -13,7 +13,13 @@ import time
 from flask import current_app, has_app_context
 
 from agent.config import settings
-from agent.llm_integration import resolve_ollama_model
+from agent.llm_integration import (
+    _find_matching_lmstudio_candidate,
+    _find_matching_ollama_candidate,
+    probe_lmstudio_runtime,
+    probe_ollama_runtime,
+    resolve_ollama_model,
+)
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.model_selection import normalize_legacy_model_name
 from agent.research_backend import (
@@ -793,6 +799,50 @@ def _split_cli_model_identifier(model: str | None) -> tuple[str | None, str | No
     return provider_name, model_name
 
 
+def _infer_local_opencode_target(
+    model: str | None,
+    *,
+    provider_urls: dict[str, object],
+    preferred_provider: str | None,
+    timeout: int,
+) -> tuple[str | None, str | None]:
+    raw_model = str(model or "").strip()
+    if not raw_model:
+        return None, None
+    provider_hint = str(preferred_provider or "").strip().lower()
+    local_candidates = [provider_hint] if provider_hint in {"ollama", "lmstudio"} else []
+    for candidate in ("ollama", "lmstudio"):
+        if candidate not in local_candidates:
+            local_candidates.append(candidate)
+
+    for candidate in local_candidates:
+        if candidate == "ollama":
+            base_url = _normalize_ollama_openai_base_url(str(provider_urls.get("ollama") or "").strip())
+            if not base_url:
+                continue
+            try:
+                probe = probe_ollama_runtime(base_url, timeout=timeout)
+            except Exception:
+                continue
+            matched = _find_matching_ollama_candidate(raw_model, list(probe.get("models") or [])) if isinstance(probe, dict) else None
+            if matched:
+                resolved_model = resolve_ollama_model(raw_model, base_url, timeout=timeout) or raw_model
+                return "ollama", str(resolved_model).strip() or raw_model
+        elif candidate == "lmstudio":
+            base_url = str(provider_urls.get("lmstudio") or "").strip()
+            if not base_url:
+                continue
+            try:
+                probe = probe_lmstudio_runtime(base_url, timeout=timeout)
+            except Exception:
+                continue
+            matched = _find_matching_lmstudio_candidate(raw_model, list(probe.get("candidates") or [])) if isinstance(probe, dict) else None
+            if matched:
+                resolved_model = str((matched or {}).get("id") or "").strip() or raw_model
+                return "lmstudio", resolved_model
+    return None, None
+
+
 def _normalize_ollama_openai_base_url(url: str | None) -> str | None:
     from agent.llm_integration import _normalize_ollama_base_url
 
@@ -865,6 +915,15 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         provider=default_provider,
     )
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
+    inference_timeout = max(1, min(int(getattr(settings, "http_timeout", 120) or 120), 5))
+    inferred_provider, inferred_model = (None, None)
+    if not explicit_provider and raw_model:
+        inferred_provider, inferred_model = _infer_local_opencode_target(
+            raw_model,
+            provider_urls=provider_urls,
+            preferred_provider=default_provider or _get_runtime_default_provider(),
+            timeout=inference_timeout,
+        )
     built_in_providers = {
         "opencode",
         "openai",
@@ -879,8 +938,8 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         "lmstudio",
     }
 
-    target_provider = explicit_provider or default_provider
-    target_model = explicit_model if explicit_provider else raw_model
+    target_provider = explicit_provider or inferred_provider or default_provider
+    target_model = explicit_model if explicit_provider else (inferred_model or raw_model)
     target_model = normalize_legacy_model_name(target_model, provider=target_provider)
     base_url = None
     base_url_source = None
@@ -897,6 +956,11 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
         if target_model and base_url:
             target_model = resolve_ollama_model(target_model, base_url, timeout=min(getattr(settings, "http_timeout", 120), 10))
+    elif target_provider == "lmstudio":
+        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or getattr(settings, "lmstudio_url", None))
+        base_url_source = "lmstudio_url"
+        target_provider_type = "local_openai_compatible"
+        target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
     elif target_provider and target_provider not in built_in_providers:
         local_target = resolve_local_openai_backend(
             target_provider,
@@ -936,7 +1000,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
             provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
 
-    diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider == "ollama" or local_target) else []
+    diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider in {"ollama", "lmstudio"} or local_target) else []
     return {
         "model": cli_model,
         "target_provider": target_provider,

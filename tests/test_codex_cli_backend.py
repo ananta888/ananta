@@ -295,6 +295,68 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
     assert resolved["provider_config"]["model"] == resolved["model"]
 
 
+def test_resolve_opencode_runtime_config_infers_local_provider_for_bare_opencode_model(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "openai",
+            "default_model": "gpt-4o",
+            "opencode_default_model": "qwen2.5-coder:7b",
+        }
+        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat"}
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch(
+                "agent.common.sgpt.probe_ollama_runtime",
+                return_value={"ok": True, "models": [{"name": "qwen2.5-coder:7b"}]},
+            ),
+            patch("agent.common.sgpt.resolve_ollama_model", return_value="qwen2.5-coder:7b"),
+        ):
+            mock_settings.default_provider = "ollama"
+            mock_settings.default_model = "qwen2.5-coder:7b"
+            mock_settings.opencode_default_model = "qwen2.5-coder:7b"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+            mock_settings.http_timeout = 30
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["target_provider"] == "ollama"
+    assert resolved["target_model"] == "qwen2.5-coder:7b"
+    assert resolved["model"] == "ollama/qwen2.5-coder:7b"
+    assert resolved["base_url"] == "http://127.0.0.1:11434/v1"
+
+
+def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_local_model(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "openai",
+            "default_model": "gpt-4o",
+            "opencode_default_model": "qwen2.5-coder:7b",
+        }
+        app.config["PROVIDER_URLS"] = {"lmstudio": "http://127.0.0.1:1234/v1"}
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch(
+                "agent.common.sgpt.probe_lmstudio_runtime",
+                return_value={"ok": True, "candidates": [{"id": "qwen2.5-coder-7b-instruct"}]},
+            ),
+        ):
+            mock_settings.default_provider = "ollama"
+            mock_settings.default_model = "qwen2.5-coder:7b"
+            mock_settings.opencode_default_model = "qwen2.5-coder:7b"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.http_timeout = 30
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["target_provider"] == "lmstudio"
+    assert resolved["target_model"] == "qwen2.5-coder-7b-instruct"
+    assert resolved["model"] == "lmstudio/qwen2.5-coder-7b-instruct"
+    assert resolved["base_url"] == "http://127.0.0.1:1234/v1"
+    assert resolved["provider_config"]["model"] == "lmstudio/qwen2.5-coder-7b-instruct"
+
+
 def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(app):
     from agent.common.sgpt import resolve_opencode_runtime_config
 
