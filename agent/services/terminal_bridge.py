@@ -6,6 +6,11 @@ import subprocess
 import threading
 from dataclasses import dataclass
 
+try:
+    import termios
+except Exception:  # pragma: no cover - unavailable on Windows
+    termios = None  # type: ignore[assignment]
+
 
 def _write_all(fd: int, payload: bytes, *, writer=os.write) -> None:
     total_written = 0
@@ -51,6 +56,22 @@ class PtyBridge:
 
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
+
+    def set_echo(self, enabled: bool) -> None:
+        if self.master_fd is None or termios is None:
+            return
+        try:
+            attrs = termios.tcgetattr(self.master_fd)
+        except Exception:
+            return
+        if enabled:
+            attrs[3] |= termios.ECHO | termios.ECHONL
+        else:
+            attrs[3] &= ~(termios.ECHO | termios.ECHONL)
+        try:
+            termios.tcsetattr(self.master_fd, termios.TCSANOW, attrs)
+        except Exception:
+            return
 
     def _read_loop(self) -> None:
         if self.master_fd is None:
@@ -126,6 +147,9 @@ class PipeBridge:
         )
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
+
+    def set_echo(self, enabled: bool) -> None:
+        return
 
     def _read_loop(self) -> None:
         if not self.process or not self.process.stdout:

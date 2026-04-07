@@ -195,6 +195,9 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
     this.lastConnectKey = connectKey;
     this.terminal?.reset();
+    this.outputBuffer = '';
+    this.quickCommand = '';
+    this.status = 'connecting';
     void this.terminalService.connect({
       baseUrl: this.baseUrl,
       mode: this.mode,

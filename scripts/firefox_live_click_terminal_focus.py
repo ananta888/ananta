@@ -123,6 +123,15 @@ def _pick_terminal_task(tasks: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
     return active_candidate or fallback_candidate
 
 
+def _opencode_user_visible(buffer_excerpt: str) -> bool:
+    text = str(buffer_excerpt or "")
+    lowered = text.lower()
+    has_cli = bool(re.search(r"opencode\s+run", text, re.IGNORECASE))
+    has_runtime_banner = "> ananta-worker" in lowered
+    has_model_badge = "ananta-default" in lowered or "ollama/" in lowered
+    return has_cli and has_runtime_banner and has_model_badge
+
+
 def _ensure_fresh_scrum_team(session_id: str, report: Dict[str, Any]) -> None:
     t0 = time.time()
     team_name = f"Live UI Team {int(time.time())}"
@@ -231,6 +240,7 @@ def phase_terminal_focus(
     tick_attempts = 1
     active_terminal_seen = False
     cli_command_visible = False
+    opencode_user_visible = False
 
     while time.time() < deadline:
         if tick_attempts % 3 == 0:
@@ -255,10 +265,15 @@ def phase_terminal_focus(
         selected_task = _pick_terminal_task(tasks) or selected_task
         if selected_task:
             terminal_snapshot = _inspect_task_detail_live_terminal(session_id, str(selected_task.get("id") or ""))
-            cli_command_visible = bool(
-                re.search(r"opencode\s+run", str(terminal_snapshot.get("buffer_excerpt") or ""), re.IGNORECASE)
-            )
-            if terminal_snapshot.get("embedded_visible") and terminal_snapshot.get("connected") and cli_command_visible:
+            buffer_excerpt = str(terminal_snapshot.get("buffer_excerpt") or "")
+            cli_command_visible = bool(re.search(r"opencode\s+run", buffer_excerpt, re.IGNORECASE))
+            opencode_user_visible = _opencode_user_visible(buffer_excerpt)
+            if (
+                terminal_snapshot.get("embedded_visible")
+                and terminal_snapshot.get("connected")
+                and terminal_snapshot.get("interactive_controls_visible")
+                and opencode_user_visible
+            ):
                 break
         time.sleep(max(0.2, float(poll_interval_seconds)))
 
@@ -268,7 +283,7 @@ def phase_terminal_focus(
     forward_param = _extract_task_terminal_forward_param(selected_task) if selected_task else ""
     ok = bool(task_id) and bool(forward_param) and active_terminal_seen and bool(
         terminal_snapshot.get("embedded_visible")
-    ) and bool(terminal_snapshot.get("connected")) and cli_command_visible
+    ) and bool(terminal_snapshot.get("connected")) and bool(terminal_snapshot.get("interactive_controls_visible")) and opencode_user_visible
     record_step(
         report,
         "terminal",
@@ -283,12 +298,13 @@ def phase_terminal_focus(
             "forward_param": forward_param,
             "active_terminal_seen": active_terminal_seen,
             "cli_command_visible": cli_command_visible,
+            "opencode_user_visible": opencode_user_visible,
             "terminal_snapshot": terminal_snapshot,
             **current_route_and_title(session_id),
         },
     )
     if not ok:
-        raise RuntimeError("Task live terminal did not show connected OpenCode output")
+        raise RuntimeError("Task live terminal did not show user-visible OpenCode session")
 
 
 def main() -> None:

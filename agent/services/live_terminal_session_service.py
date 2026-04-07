@@ -163,16 +163,8 @@ class ManagedLiveTerminalSession:
         suppress_input_echo: bool,
     ) -> str:
         marker_cmd = f"printf '\\n{marker} %s\\n' $?\n"
-        if not suppress_input_echo or not getattr(self.bridge, "is_pty", False) or os.name == "nt":
-            return f"{command}\n{marker_cmd}"
-        return (
-            "__ananta_oldstty=$(stty -g 2>/dev/null || printf ''); "
-            "stty -echo 2>/dev/null || true; "
-            f"{command}; "
-            "__ananta_rc=$?; "
-            '[ -n "$__ananta_oldstty" ] && stty "$__ananta_oldstty" 2>/dev/null || stty echo 2>/dev/null || true; '
-            f"printf '\\n{marker} %s\\n' \"$__ananta_rc\"\n"
-        )
+        _ = suppress_input_echo
+        return f"{command}\n{marker_cmd}"
 
     def _build_cd_command(self, workdir: str) -> str:
         normalized = os.path.abspath(str(workdir))
@@ -196,21 +188,30 @@ class ManagedLiveTerminalSession:
             if visible_command:
                 self._append_chunk(f"$ {visible_command}\n")
             capture_from = len(self._chunks)
-            self.write(self._build_wrapped_command(command, marker=marker, suppress_input_echo=suppress_input_echo))
             deadline = time.time() + max(1, int(timeout or 60))
             cursor = capture_from
             collected: list[str] = []
-            while time.time() < deadline:
-                chunks, cursor = self.read_from(cursor)
-                if chunks:
-                    collected.extend(chunks)
-                    text = "".join(collected)
-                    match = marker_pattern.search(text)
-                    if match:
-                        output = text[: match.start()].strip()
-                        return int(match.group("rc")), output, ""
-                self.wait_for_update(cursor, min(0.25, max(0.05, deadline - time.time())))
-            return -1, "".join(collected).strip(), "Timeout"
+            echo_suppressed = bool(
+                suppress_input_echo and getattr(self.bridge, "is_pty", False) and os.name != "nt"
+            )
+            try:
+                if echo_suppressed:
+                    self.bridge.set_echo(False)
+                self.write(self._build_wrapped_command(command, marker=marker, suppress_input_echo=suppress_input_echo))
+                while time.time() < deadline:
+                    chunks, cursor = self.read_from(cursor)
+                    if chunks:
+                        collected.extend(chunks)
+                        text = "".join(collected)
+                        match = marker_pattern.search(text)
+                        if match:
+                            output = text[: match.start()].strip()
+                            return int(match.group("rc")), output, ""
+                    self.wait_for_update(cursor, min(0.25, max(0.05, deadline - time.time())))
+                return -1, "".join(collected).strip(), "Timeout"
+            finally:
+                if echo_suppressed:
+                    self.bridge.set_echo(True)
 
     def ensure_workdir(self, workdir: str | None) -> None:
         normalized = os.path.abspath(str(workdir or "")).strip() if workdir else ""
