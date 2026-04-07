@@ -110,9 +110,11 @@ describe('TaskDetailComponent', () => {
     };
 
     expect(cmp.taskLiveTerminalConnection()).toEqual({
-      agentName: 'alpha',
+      displayName: 'alpha',
+      panelAgentName: 'alpha',
       agentUrl: 'http://alpha:5000',
       forwardParam: 'cli-forward-1',
+      token: undefined,
       queryParams: {
         tab: 'terminal',
         mode: 'interactive',
@@ -127,5 +129,32 @@ describe('TaskDetailComponent', () => {
         forward_param: 'cli-forward-1',
       },
     });
+  });
+
+  it('keeps the embedded live terminal available when the worker url is not in the directory', () => {
+    const cmp = createComponent();
+    cmp.allAgents = [{ name: 'alpha', role: 'worker', url: 'http://alpha:5000' }] as any;
+    cmp.task = {
+      verification_status: {
+        cli_session: {
+          agent_url: 'http://ai-agent-beta:5000',
+          forward_param: 'cli-forward-2',
+        },
+      },
+    };
+
+    expect(cmp.taskLiveTerminalConnection()).toEqual({
+      displayName: 'ai-agent-beta',
+      panelAgentName: undefined,
+      agentUrl: 'http://ai-agent-beta:5000',
+      forwardParam: 'cli-forward-2',
+      token: undefined,
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+        forward_param: 'cli-forward-2',
+      },
+    });
+    expect(cmp.taskLiveTerminalLink()).toBeNull();
   });
 });

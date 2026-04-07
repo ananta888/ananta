@@ -26,7 +26,7 @@ from firefox_live_click_extended import (
     wd,
     write_report,
 )
-from test_env_cleanup import cleanup_test_environment
+from test_env_cleanup import cleanup_ollama_runtime, cleanup_test_environment
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--report-file",
         default="",
         help="Optional JSON report path. Defaults to test-reports/live-click/firefox-live-terminal-focus-<timestamp>.json",
+    )
+    parser.add_argument(
+        "--skip-ollama-runtime-cleanup",
+        action="store_true",
+        help="Leave any Ollama model loaded after the run instead of unloading it in teardown.",
     )
     return parser
 
@@ -395,6 +400,13 @@ def main() -> None:
                 report["cleanup"] = {"error": str(exc)}
                 report["errors"].append({"message": f"cleanup_error: {exc}"})
                 print("cleanup_error", str(exc), flush=True)
+        if not args.skip_ollama_runtime_cleanup:
+            try:
+                report["ollama_cleanup"] = cleanup_ollama_runtime()
+            except Exception as exc:
+                report["ollama_cleanup"] = {"error": str(exc)}
+                report["errors"].append({"message": f"ollama_cleanup_error: {exc}"})
+                print("ollama_cleanup_error", str(exc), flush=True)
         write_report(report, report_path)
 
 
