@@ -151,7 +151,14 @@ def cleanup_ollama_runtime(
             summary["stopped"].append({"model": model_name, "timeout": True})
             summary["errors"].append(f"stop_timeout:{model_name}")
 
-    summary["after_stop"] = _list_loaded_ollama_models(ollama_container)
+    stop_deadline = time.monotonic() + max(2.0, float(stop_timeout_seconds))
+    after_stop: list[str] = []
+    while time.monotonic() < stop_deadline:
+        after_stop = _list_loaded_ollama_models(ollama_container)
+        if not after_stop:
+            break
+        time.sleep(1)
+    summary["after_stop"] = after_stop
     if summary["after_stop"]:
         res = _run_command(["docker", "restart", ollama_container], timeout=max(20, int(health_timeout_seconds)))
         summary["restarted"] = res.returncode == 0

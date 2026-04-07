@@ -5,6 +5,7 @@ import inspect
 import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from flask import current_app, has_app_context
@@ -40,6 +41,8 @@ from agent.services.verification_service import get_verification_service
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _extract_reason, _log_terminal_entry
 
+_INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
+
 
 @dataclass(frozen=True)
 class TaskScopedRouteResponse:
@@ -51,6 +54,11 @@ class TaskScopedRouteResponse:
 
 class TaskScopedExecutionService:
     """Owns task-scoped proposal/execution orchestration so routes stay thin."""
+
+    @staticmethod
+    def _is_interactive_terminal_session(session_payload: dict | None) -> bool:
+        metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
+        return str(metadata.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal"
 
     @staticmethod
     def _normalize_temperature(value: float | int | str | None) -> float | None:
@@ -254,6 +262,14 @@ class TaskScopedExecutionService:
             command = proposal.get("command")
             tool_calls = proposal.get("tool_calls")
             reason = proposal.get("reason", "Vorschlag ausgeführt")
+
+        if command == _INTERACTIVE_TERMINAL_FINALIZE_COMMAND:
+            return self._finalize_interactive_terminal_execution(
+                tid=tid,
+                task=task,
+                reason=reason,
+                execution_policy=execution_policy,
+            )
 
         exec_started_at = time.time()
         workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
@@ -579,14 +595,28 @@ class TaskScopedExecutionService:
             model=proposal_model,
             agent_cfg=cfg,
         )
+        interactive_terminal_session = effective_backend == "opencode" and self._is_interactive_terminal_session(session_payload)
         prompt_for_cli = prompt
+        if interactive_terminal_session:
+            prompt_for_cli, worker_context_meta = self._build_task_propose_prompt(
+                tid=tid,
+                task=task,
+                base_prompt=base_prompt,
+                tool_definitions_resolver=lambda *_args, **_kwargs: [],
+                research_context=research_context,
+                interactive_terminal=True,
+            )
         requested_temperature = self._normalize_temperature(getattr(request_data, "temperature", None))
         if requested_temperature is not None:
             prompt_for_cli = (
                 f"{prompt_for_cli}\n\n"
                 f"[Sampling-Hinweis]\n"
                 f"Ziel-Temperatur fuer diese Antwort: {requested_temperature:.2f}\n"
-                "Behalte strikt das JSON-Output-Schema ein."
+                + (
+                    "Arbeite im sichtbaren OpenCode-Terminal direkt im Workspace."
+                    if interactive_terminal_session
+                    else "Behalte strikt das JSON-Output-Schema ein."
+                )
             )
         if session_payload and not self._has_native_opencode_runtime(session_payload):
             prompt_for_cli = (
@@ -628,7 +658,7 @@ class TaskScopedExecutionService:
             },
             started_at=started_at,
         )
-        if rc != 0 and not raw_res.strip():
+        if not interactive_terminal_session and rc != 0 and not raw_res.strip():
             repaired = self._repair_task_proposal(
                 cli_runner=cli_runner,
                 prompt=prompt_for_cli,
@@ -663,7 +693,7 @@ class TaskScopedExecutionService:
                     data={"details": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used},
                     code=502,
                 )
-        if not raw_res:
+        if not interactive_terminal_session and not raw_res:
             repaired = self._repair_task_proposal(
                 cli_runner=cli_runner,
                 prompt=prompt_for_cli,
@@ -800,6 +830,91 @@ class TaskScopedExecutionService:
                     response_payload["routing"]["session_turn_id"] = turn.get("id")
             return TaskScopedRouteResponse(data=response_payload)
 
+        if interactive_terminal_session and backend_used == "opencode":
+            reason = "Interactive OpenCode session finished; finalize workspace changes"
+            append_stage(
+                pipeline,
+                name="parse",
+                status="ok",
+                metadata={"interactive_terminal_finalize": True, "has_command": True, "tool_call_count": 0},
+            )
+            trace = build_trace_record(
+                task_id=tid,
+                event_type="proposal_result",
+                task_kind=task_kind,
+                backend=backend_used,
+                requested_backend="auto",
+                routing_reason=routing_reason,
+                policy_version=policy_version,
+                metadata={**worker_context_meta, "source": "task_propose", "interactive_terminal": True},
+            )
+            pipeline_payload = {**pipeline, "trace_id": trace["trace_id"]}
+            cli_result = {
+                "returncode": rc,
+                "latency_ms": latency_ms,
+                "stderr_preview": (cli_err or "")[:240],
+                "output_source": output_source,
+                "repair_attempted": False,
+                "repair_backend": None,
+                "repair_model": None,
+            }
+            response_payload = get_core_services().task_execution_service.persist_task_proposal_result(
+                tid=tid,
+                task=task,
+                reason=reason,
+                raw=raw_res,
+                backend=backend_used,
+                model=proposal_model,
+                routing=routing,
+                cli_result=cli_result,
+                worker_context=worker_context_meta,
+                trace=trace,
+                review=self._build_review_state(
+                    current_app.config.get("AGENT_CONFIG", {}) or {},
+                    backend_used,
+                    task_kind,
+                    command=_INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
+                    tool_calls=None,
+                ),
+                pipeline=pipeline_payload,
+                command=_INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
+                tool_calls=None,
+                history_event={
+                    "event_type": "proposal_result",
+                    "reason": reason,
+                    "backend": backend_used,
+                    "routing_reason": routing_reason,
+                    "latency_ms": latency_ms,
+                    "returncode": rc,
+                    "interactive_terminal": True,
+                    "pipeline": pipeline_payload,
+                    "trace": trace,
+                },
+            )
+            if session_payload:
+                turn = get_cli_session_service().append_turn(
+                    session_id=session_payload["id"],
+                    prompt=prompt_for_cli,
+                    output=raw_res,
+                    model=proposal_model,
+                    trace_id=str(trace.get("trace_id") or ""),
+                    metadata={"backend_used": backend_used, "task_id": tid, "proposal_mode": "interactive_terminal"},
+                )
+                if isinstance(turn, dict):
+                    response_payload.setdefault("routing", {})
+                    response_payload["routing"]["session_turn_id"] = turn.get("id")
+            _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt_for_cli, task_id=tid)
+            _log_terminal_entry(
+                current_app.config["AGENT_NAME"],
+                0,
+                "out",
+                reason=reason,
+                command=_INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
+                tool_calls=None,
+                task_id=tid,
+            )
+            return TaskScopedRouteResponse(data=response_payload)
+
         reason = _extract_reason(raw_res)
         command, tool_calls = self._extract_structured_action_fields(raw_res)
         if not command and not tool_calls:
@@ -903,6 +1018,108 @@ class TaskScopedExecutionService:
                 response_payload["routing"]["session_turn_id"] = turn.get("id")
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
+        return TaskScopedRouteResponse(data=response_payload)
+
+    def _finalize_interactive_terminal_execution(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        reason: str,
+        execution_policy,
+    ) -> TaskScopedRouteResponse:
+        workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
+        changed_files = get_worker_workspace_service().detect_changed_files_against_interactive_baseline(
+            workspace_dir=workspace_ctx.workspace_dir
+        )
+        workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
+            task_id=tid,
+            task=task,
+            workspace_dir=workspace_ctx.workspace_dir,
+            changed_rel_paths=changed_files,
+            sync_cfg=workspace_ctx.artifact_sync,
+        )
+        diff_artifact_ref = get_worker_workspace_service().create_workspace_diff_artifact(
+            task_id=tid,
+            task=task,
+            workspace_dir=workspace_ctx.workspace_dir,
+            changed_rel_paths=changed_files,
+            sync_cfg=workspace_ctx.artifact_sync,
+        )
+        artifact_refs = list(workspace_artifact_refs or [])
+        if diff_artifact_ref:
+            artifact_refs.append(diff_artifact_ref)
+        proposal_meta = dict(task.get("last_proposal") or {})
+        cli_result = proposal_meta.get("cli_result") if isinstance(proposal_meta.get("cli_result"), dict) else {}
+        exit_code = int(cli_result.get("returncode") or 0)
+        status = "completed" if exit_code == 0 else "failed"
+        output_lines = [
+            "Interactive OpenCode session finalized.",
+            f"Workspace: {workspace_ctx.workspace_dir}",
+            f"Changed files: {len(changed_files)}",
+        ]
+        if changed_files:
+            output_lines.extend(f"- {rel}" for rel in changed_files[:50])
+        else:
+            output_lines.append("No tracked workspace changes detected.")
+        if diff_artifact_ref:
+            output_lines.append(f"Diff artifact: {diff_artifact_ref.get('artifact_id')}")
+        trace = build_trace_record(
+            task_id=tid,
+            event_type="execution_result",
+            task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
+            backend=proposal_meta.get("backend"),
+            requested_backend=proposal_meta.get("backend"),
+            routing_reason=((proposal_meta.get("routing") or {}).get("reason")),
+            policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
+            metadata={
+                "interactive_terminal_finalize": True,
+                "changed_file_count": len(changed_files),
+                "workspace_artifact_count": len(artifact_refs),
+            },
+        )
+        pipeline = new_pipeline_trace(
+            pipeline="task_execute",
+            task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
+            policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
+            metadata={"task_id": tid, "interactive_terminal_finalize": True},
+        )
+        append_stage(
+            pipeline,
+            name="interactive_terminal_finalize",
+            status="ok" if exit_code == 0 else "error",
+            metadata={
+                "changed_file_count": len(changed_files),
+                "workspace_artifact_count": len(artifact_refs),
+                "exit_code": exit_code,
+            },
+        )
+        output = "\n".join(output_lines)
+        response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
+            tid=tid,
+            task=task,
+            status=status,
+            reason=reason or "Interactive OpenCode session finalized",
+            command=_INTERACTIVE_TERMINAL_FINALIZE_COMMAND,
+            tool_calls=None,
+            output=output,
+            exit_code=exit_code,
+            retries_used=0,
+            retry_history=[],
+            failure_type="success" if exit_code == 0 else "command_failure",
+            execution_duration_ms=int(cli_result.get("latency_ms") or 0),
+            trace=trace,
+            pipeline={**pipeline, "trace_id": trace["trace_id"]},
+            execution_policy=execution_policy,
+            artifact_refs=artifact_refs or None,
+            extra_history={
+                "workspace_changed_files": changed_files,
+                "workspace_dir": str(workspace_ctx.workspace_dir),
+                "workspace_artifact_count": len(artifact_refs),
+                "interactive_terminal_finalize": True,
+            },
+        )
+        get_worker_workspace_service().refresh_interactive_terminal_baseline(workspace_dir=workspace_ctx.workspace_dir)
         return TaskScopedRouteResponse(data=response_payload)
 
     def _execute_research_artifact(
@@ -1667,6 +1884,17 @@ class TaskScopedExecutionService:
                 )
                 or {}
             )
+            interactive_terminal_workspace = (
+                dict(verification.get("interactive_terminal_workspace") or {})
+                if isinstance(verification.get("interactive_terminal_workspace"), dict)
+                else {}
+            )
+            if terminal_execution_mode == "interactive_terminal" and not interactive_terminal_workspace.get("baseline_ready"):
+                baseline_meta = get_worker_workspace_service().refresh_interactive_terminal_baseline(workspace_dir=Path(workspace_dir))
+                interactive_terminal_workspace = {
+                    "baseline_ready": True,
+                    **baseline_meta,
+                }
             session_payload = (
                 get_cli_session_service().update_session(
                     str(session_payload.get("id") or ""),
@@ -1688,6 +1916,8 @@ class TaskScopedExecutionService:
                 "terminal_status": terminal_meta.get("status"),
                 "updated_at": time.time(),
             }
+            if interactive_terminal_workspace:
+                verification["interactive_terminal_workspace"] = interactive_terminal_workspace
             verification["opencode_live_terminal"] = dict(terminal_meta)
             update_local_task_status(
                 tid,
@@ -1726,6 +1956,7 @@ class TaskScopedExecutionService:
         base_prompt: str,
         tool_definitions_resolver: Callable,
         research_context: dict | None = None,
+        interactive_terminal: bool = False,
     ) -> tuple[str, dict]:
         execution_context = self._get_worker_execution_context(task)
         context_payload = dict(execution_context.get("context") or {})
@@ -1747,14 +1978,16 @@ class TaskScopedExecutionService:
             expected_output_schema=expected_output_schema,
             tool_definitions=tool_definitions,
             research_context=research_context,
+            include_response_contract=not interactive_terminal,
         )
         prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
         read_paths = [
             str(opencode_context_files.get("agents_path") or "").strip(),
             str(opencode_context_files.get("context_index_path") or "").strip(),
             str(opencode_context_files.get("task_brief_path") or "").strip(),
-            str(opencode_context_files.get("response_contract_path") or "").strip(),
         ]
+        if not interactive_terminal:
+            read_paths.append(str(opencode_context_files.get("response_contract_path") or "").strip())
         read_paths = [item for item in read_paths if item]
         if read_paths:
             prompt_sections.append(
@@ -1768,12 +2001,20 @@ class TaskScopedExecutionService:
             f"- rag_helper: {workspace_context.rag_helper_dir}\n"
             "Nutze ausschliesslich diesen Workspace fuer neue oder geaenderte Dateien."
         )
-        prompt_sections.append(
-            "Antworte ausschliesslich als genau ein JSON-Objekt. "
-            "Beachte dafuer die Regeln in "
-            f"{str(opencode_context_files.get('response_contract_path') or '.ananta/response-contract.md')} "
-            "und setze mindestens eines von 'command' oder 'tool_calls'."
-        )
+        if interactive_terminal:
+            prompt_sections.append(
+                "Arbeite direkt im Workspace mit normalem OpenCode-CLI. "
+                "Fuehre die gewuenschten Datei- und Verzeichnis-Aenderungen im Workspace aus. "
+                "Nutze bei Bedarf `rag_helper/` fuer Hilfsdateien oder ausgelagerten Kontext. "
+                "Es ist keine JSON-Antwort erforderlich; Workspace-Aenderungen und Diffs werden nach dem Lauf automatisch erfasst."
+            )
+        else:
+            prompt_sections.append(
+                "Antworte ausschliesslich als genau ein JSON-Objekt. "
+                "Beachte dafuer die Regeln in "
+                f"{str(opencode_context_files.get('response_contract_path') or '.ananta/response-contract.md')} "
+                "und setze mindestens eines von 'command' oder 'tool_calls'."
+            )
         return "\n\n".join(section for section in prompt_sections if section), {
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
             "allowed_tools": allowed_tools,

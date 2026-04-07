@@ -363,11 +363,6 @@ class LiveTerminalSessionService:
             args.extend(["--model", selected_model])
         if normalized_workdir:
             args.extend(["--dir", normalized_workdir])
-        if mode == "interactive_terminal":
-            # Interactive terminal mode still needs machine-readable output so the
-            # task proposal pipeline can parse command/tool_calls after showing
-            # the real OpenCode invocation in the browser terminal.
-            args.extend(["--format", "json"])
 
         visible = " ".join(shlex.quote(part) for part in args)
         env_prefix = " ".join(
