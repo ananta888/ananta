@@ -71,6 +71,14 @@ def _save_history(app):
     pass
 
 
+def _schedule_process_restart(delay_seconds: float = 0.4) -> None:
+    def _restart_later() -> None:
+        time.sleep(max(0.1, float(delay_seconds)))
+        os._exit(0)
+
+    threading.Thread(target=_restart_later, daemon=True).start()
+
+
 system_bp = Blueprint("system", __name__)
 http_client = get_default_client()
 
@@ -416,6 +424,30 @@ def list_agents():
     except Exception as e:
         _log().error("Fehler beim Laden der Agenten (Fallback): %s", e)
         return api_response(status="error", message="could not load agents", code=500)
+
+
+@system_bp.route("/terminal/restart-session", methods=["POST"])
+@check_auth
+def restart_terminal_session():
+    payload = request.get_json(silent=True) or {}
+    forward_param = str(payload.get("forward_param") or payload.get("session_id") or "").strip()
+    if not forward_param:
+        return api_response(status="error", message="missing_forward_param", code=400)
+    result = get_core_services().live_terminal_session_service.restart(forward_param)
+    if not result.get("ok"):
+        return api_response(status="error", message=str(result.get("message") or "terminal_restart_failed"), data=result, code=404)
+    log_audit("terminal_session_restarted", {"session_id": forward_param, "agent_name": current_app.config.get("AGENT_NAME")})
+    return api_response(data=result)
+
+
+@system_bp.route("/restart-process", methods=["POST"])
+@check_auth
+def restart_process():
+    if not os.path.exists("/.dockerenv"):
+        return api_response(status="error", message="worker_restart_not_supported", code=409)
+    log_audit("worker_process_restart_requested", {"agent_name": current_app.config.get("AGENT_NAME")})
+    _schedule_process_restart()
+    return api_response(data={"scheduled": True, "restart_mode": "process_exit", "agent_name": current_app.config.get("AGENT_NAME")})
 
 
 @system_bp.route("/rotate-token", methods=["POST"])
