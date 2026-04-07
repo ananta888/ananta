@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import re
+import shutil
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +34,9 @@ class WorkerWorkspaceContext:
 class WorkerWorkspaceService:
     """Resolves per-agent task workspaces and syncs changed files as artifacts."""
 
+    _IGNORED_WORKSPACE_SEGMENTS = {".ananta", "artifacts", "__pycache__"}
+    _DIFF_MAX_FILE_BYTES = 512 * 1024
+
     @staticmethod
     def _write_text(path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -48,6 +54,61 @@ class WorkerWorkspaceService:
     @staticmethod
     def _repo_root() -> Path:
         return Path(__file__).resolve().parents[2]
+
+    @classmethod
+    def _is_tracked_relative_path(cls, rel: str) -> bool:
+        parts = [part for part in Path(str(rel or "")).parts if part]
+        return not any(part in cls._IGNORED_WORKSPACE_SEGMENTS for part in parts)
+
+    @classmethod
+    def _iter_workspace_files(cls, root: Path, *, tracked_only: bool = True):
+        if not root.exists():
+            return
+        for current_root, dirnames, filenames in os.walk(root):
+            if tracked_only:
+                dirnames[:] = [name for name in dirnames if name not in cls._IGNORED_WORKSPACE_SEGMENTS]
+            current_root_path = Path(current_root)
+            for name in filenames:
+                path = current_root_path / name
+                rel = str(path.relative_to(root)).replace("\\", "/")
+                if tracked_only and not cls._is_tracked_relative_path(rel):
+                    continue
+                yield path, rel
+
+    @staticmethod
+    def _snapshot_tree(root: Path, *, tracked_only: bool) -> dict[str, tuple[int, int]]:
+        snapshot: dict[str, tuple[int, int]] = {}
+        if not root.exists():
+            return snapshot
+        for path, rel in WorkerWorkspaceService._iter_workspace_files(root, tracked_only=tracked_only):
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            snapshot[rel] = (int(stat.st_mtime_ns), int(stat.st_size))
+        return snapshot
+
+    @staticmethod
+    def _interactive_terminal_baseline_dir(workspace_dir: Path) -> Path:
+        return workspace_dir / ".ananta" / "interactive-baseline"
+
+    @staticmethod
+    def _read_text_lines_for_diff(path: Path) -> tuple[list[str] | None, str | None]:
+        if not path.exists():
+            return [], None
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            return None, f"unreadable file: {exc}"
+        if len(payload) > WorkerWorkspaceService._DIFF_MAX_FILE_BYTES:
+            return None, f"skipped large file ({len(payload)} bytes)"
+        if b"\x00" in payload:
+            return None, "binary file"
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            text = payload.decode("utf-8", errors="replace")
+        return text.splitlines(keepends=True), None
 
     def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
@@ -100,6 +161,7 @@ class WorkerWorkspaceService:
         expected_output_schema: dict | None,
         tool_definitions: list[dict] | None,
         research_context: dict | None,
+        include_response_contract: bool = True,
     ) -> dict:
         workspace_dir = workspace_context.workspace_dir
         bundle_dir = workspace_dir / ".ananta"
@@ -138,8 +200,11 @@ class WorkerWorkspaceService:
             "## Workspace guidance",
             "- Read `.ananta/context-index.md` first for task-specific context files.",
             "- Use `rag_helper/` for retrieved research and knowledge files when present.",
-            "- Follow `.ananta/response-contract.md` for the required response format.",
         ]
+        if include_response_contract:
+            agents_lines.append("- Follow `.ananta/response-contract.md` for the required response format.")
+        else:
+            agents_lines.append("- Apply the requested changes directly in the workspace; results are collected from workspace diffs.")
         self._write_text(agents_dst, "\n".join(agents_lines).strip() + "\n")
         _record(agents_dst, key="agents_path")
 
@@ -159,29 +224,30 @@ class WorkerWorkspaceService:
         self._write_text(task_brief, "\n".join(task_lines).strip() + "\n")
         _record(task_brief, key="task_brief_path")
 
-        response_contract = bundle_dir / "response-contract.md"
-        response_lines = [
-            "# Response Contract",
-            "",
-            "Return exactly one JSON object and no Markdown.",
-            "",
-            "Required rules:",
-            "- The first character must be '{' and the last character must be '}'.",
-            "- Set at least one of `command` or `tool_calls`.",
-            "- `reason` must stay short and technical.",
-            "- If no tool call is needed, provide one concrete shell command in `command`.",
-            "",
-            "Expected shape:",
-            "```json",
-            '{',
-            '  "reason": "Short technical reason",',
-            '  "command": "optional shell command",',
-            '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "value" } } ]',
-            '}',
-            "```",
-        ]
-        self._write_text(response_contract, "\n".join(response_lines) + "\n")
-        _record(response_contract, key="response_contract_path")
+        if include_response_contract:
+            response_contract = bundle_dir / "response-contract.md"
+            response_lines = [
+                "# Response Contract",
+                "",
+                "Return exactly one JSON object and no Markdown.",
+                "",
+                "Required rules:",
+                "- The first character must be '{' and the last character must be '}'.",
+                "- Set at least one of `command` or `tool_calls`.",
+                "- `reason` must stay short and technical.",
+                "- If no tool call is needed, provide one concrete shell command in `command`.",
+                "",
+                "Expected shape:",
+                "```json",
+                '{',
+                '  "reason": "Short technical reason",',
+                '  "command": "optional shell command",',
+                '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "value" } } ]',
+                '}',
+                "```",
+            ]
+            self._write_text(response_contract, "\n".join(response_lines) + "\n")
+            _record(response_contract, key="response_contract_path")
 
         if system_prompt:
             system_prompt_path = bundle_dir / "system-prompt.md"
@@ -228,8 +294,9 @@ class WorkerWorkspaceService:
             "research_context_json_path",
             "tool_definitions_path",
             "output_schema_path",
-            "response_contract_path",
         ]
+        if include_response_contract:
+            preferred_keys.append("response_contract_path")
         for key in preferred_keys:
             rel = str(manifest.get(key) or "").strip()
             if rel:
@@ -240,19 +307,7 @@ class WorkerWorkspaceService:
 
     @staticmethod
     def snapshot_directory(workspace_dir: Path) -> dict[str, tuple[int, int]]:
-        snapshot: dict[str, tuple[int, int]] = {}
-        if not workspace_dir.exists():
-            return snapshot
-        for root, _, filenames in os.walk(workspace_dir):
-            for name in filenames:
-                path = Path(root) / name
-                try:
-                    stat = path.stat()
-                except OSError:
-                    continue
-                rel = str(path.relative_to(workspace_dir))
-                snapshot[rel] = (int(stat.st_mtime_ns), int(stat.st_size))
-        return snapshot
+        return WorkerWorkspaceService._snapshot_tree(workspace_dir, tracked_only=True)
 
     @staticmethod
     def detect_changed_files(before: dict[str, tuple[int, int]], after: dict[str, tuple[int, int]]) -> list[str]:
@@ -264,6 +319,95 @@ class WorkerWorkspaceService:
             if rel not in after:
                 changed.add(rel)
         return sorted(changed)
+
+    def refresh_interactive_terminal_baseline(self, *, workspace_dir: Path) -> dict:
+        baseline_dir = self._interactive_terminal_baseline_dir(workspace_dir)
+        if baseline_dir.exists():
+            shutil.rmtree(baseline_dir, ignore_errors=True)
+        baseline_dir.mkdir(parents=True, exist_ok=True)
+        copied: list[str] = []
+        for source_path, rel in self._iter_workspace_files(workspace_dir, tracked_only=True):
+            destination = baseline_dir / rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, destination)
+            copied.append(rel)
+        self._write_json(
+            baseline_dir / "manifest.json",
+            {
+                "created_at": time.time(),
+                "workspace_dir": str(workspace_dir),
+                "files": copied,
+            },
+        )
+        return {
+            "baseline_dir": str(baseline_dir),
+            "file_count": len(copied),
+        }
+
+    def detect_changed_files_against_interactive_baseline(self, *, workspace_dir: Path) -> list[str]:
+        baseline_dir = self._interactive_terminal_baseline_dir(workspace_dir)
+        before = self._snapshot_tree(baseline_dir, tracked_only=False)
+        after = self.snapshot_directory(workspace_dir)
+        return self.detect_changed_files(before, after)
+
+    def create_workspace_diff_artifact(
+        self,
+        *,
+        task_id: str,
+        task: dict,
+        workspace_dir: Path,
+        changed_rel_paths: list[str],
+        sync_cfg: dict,
+    ) -> dict | None:
+        if not sync_cfg.get("enabled") or not sync_cfg.get("sync_to_hub"):
+            return None
+        baseline_dir = self._interactive_terminal_baseline_dir(workspace_dir)
+        if not baseline_dir.exists():
+            return None
+        diff_chunks: list[str] = []
+        for rel in list(changed_rel_paths or []):
+            before_path = baseline_dir / rel
+            after_path = workspace_dir / rel
+            before_lines, before_note = self._read_text_lines_for_diff(before_path)
+            after_lines, after_note = self._read_text_lines_for_diff(after_path)
+            if before_note or after_note:
+                note = before_note or after_note or "diff unavailable"
+                diff_chunks.append(f"diff --ananta {rel}\n# {note}\n")
+                continue
+            diff_text = "".join(
+                difflib.unified_diff(
+                    before_lines or [],
+                    after_lines or [],
+                    fromfile=f"a/{rel}",
+                    tofile=f"b/{rel}",
+                    lineterm="",
+                )
+            )
+            if diff_text:
+                diff_chunks.append(diff_text + "\n")
+        diff_payload = "".join(diff_chunks).strip()
+        if not diff_payload:
+            return None
+        collection_name = str(sync_cfg.get("collection_name") or "task-execution-results").strip() or "task-execution-results"
+        created_by = str((task or {}).get("assigned_agent_url") or current_app.config.get("AGENT_NAME") or "worker")
+        artifact, version, _ = get_ingestion_service().upload_artifact(
+            filename=f"{task_id or 'task'}-workspace.diff",
+            content=diff_payload.encode("utf-8"),
+            created_by=created_by,
+            media_type="text/x-diff",
+            collection_name=collection_name,
+        )
+        _, _, document = get_ingestion_service().extract_artifact(artifact.id)
+        return {
+            "kind": "workspace_diff",
+            "task_id": task_id,
+            "worker_job_id": (task or {}).get("current_worker_job_id"),
+            "artifact_id": artifact.id,
+            "artifact_version_id": version.id,
+            "extracted_document_id": document.id if document else None,
+            "filename": artifact.latest_filename,
+            "media_type": artifact.latest_media_type,
+        }
 
     def sync_changed_files_to_artifacts(
         self,
