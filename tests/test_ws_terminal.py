@@ -44,5 +44,14 @@ def test_extract_terminal_input_ignores_non_input_json():
     assert ws_mod._extract_terminal_input('{"type":"output","data":{"chunk":"ignored"}}') is None
 
 
+def test_extract_terminal_resize_accepts_explicit_resize_payload():
+    assert ws_mod._extract_terminal_resize('{"type":"resize","cols":120,"rows":40}') == (120, 40)
+
+
+def test_extract_terminal_resize_ignores_non_resize_payload():
+    assert ws_mod._extract_terminal_resize('{"type":"input","data":"ls\\n"}') is None
+    assert ws_mod._extract_terminal_resize('{"type":"resize","cols":"x","rows":40}') is None
+
+
 def test_extract_terminal_input_preserves_raw_text():
     assert ws_mod._extract_terminal_input("echo hi\n") == "echo hi\n"

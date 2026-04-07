@@ -1,3 +1,6 @@
+import struct
+
+from agent.services import terminal_bridge as bridge_mod
 from agent.services.terminal_bridge import PtyBridge, _write_all
 
 
@@ -27,3 +30,18 @@ def test_pty_bridge_write_encodes_text_and_uses_write_all(monkeypatch):
     bridge.write("hello")
 
     assert captured == [(123, b"hello")]
+
+
+def test_pty_bridge_resize_updates_window_size(monkeypatch):
+    bridge = PtyBridge(shell="/bin/sh")
+    bridge.master_fd = 123
+    captured: list[tuple[int, int, bytes]] = []
+
+    def fake_ioctl(fd: int, op: int, payload: bytes) -> None:
+        captured.append((fd, op, payload))
+
+    monkeypatch.setattr(bridge_mod.fcntl, "ioctl", fake_ioctl)
+
+    bridge.resize(120, 40)
+
+    assert captured == [(123, bridge_mod.termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))]

@@ -146,8 +146,12 @@ def _strip_ansi(buffer_excerpt: str) -> str:
 
 
 def _opencode_tui_visible(buffer_excerpt: str) -> bool:
-    lowered = _strip_ansi(buffer_excerpt).lower()
-    return "input" in lowered or ("must be" in lowered and "integer" in lowered)
+    text = str(buffer_excerpt or "")
+    lowered = _strip_ansi(text).lower()
+    if "input" in lowered or ("must be" in lowered and "integer" in lowered):
+        return True
+    has_ansi_rendering = "\x1b[" in text and ("\u2b1d" in text or "\u25a0" in text)
+    return has_ansi_rendering
 
 
 def _resolve_worker_name(session_id: str, agent_url: str) -> str:
