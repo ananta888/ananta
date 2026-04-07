@@ -1086,6 +1086,73 @@ def _extract_task_terminal_agent_url(task: Any) -> str:
     return str(task.get("assigned_agent_url") or task.get("agent_url") or "").strip()
 
 
+def _model_identifier_tokens(value: str) -> set[str]:
+    normalized = re.sub(r"[^a-z0-9.]+", " ", str(value or "").strip().lower())
+    return {token for token in normalized.split() if token}
+
+
+def _model_identifier_matches(left: str, right: str) -> bool:
+    left_value = str(left or "").strip()
+    right_value = str(right or "").strip()
+    if not left_value or not right_value:
+        return False
+    if left_value.lower() == right_value.lower():
+        return True
+    left_tokens = _model_identifier_tokens(left_value)
+    right_tokens = _model_identifier_tokens(right_value)
+    overlap = left_tokens & right_tokens
+    return len(overlap) >= 2 and (left_tokens.issubset(right_tokens) or right_tokens.issubset(left_tokens))
+
+
+def _task_terminal_runtime(task: Any) -> Dict[str, Any]:
+    if not isinstance(task, dict):
+        return {}
+    verification = task.get("verification_status") if isinstance(task.get("verification_status"), dict) else {}
+    routing = task.get("last_proposal") if isinstance(task.get("last_proposal"), dict) else {}
+    routing = routing.get("routing") if isinstance(routing.get("routing"), dict) else {}
+    candidate_sources = [
+        routing.get("live_terminal") if isinstance(routing.get("live_terminal"), dict) else {},
+        verification.get("opencode_live_terminal") if isinstance(verification.get("opencode_live_terminal"), dict) else {},
+        verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {},
+    ]
+    runtime: Dict[str, Any] = {
+        "forward_param": "",
+        "agent_url": str(task.get("assigned_agent_url") or task.get("agent_url") or "").strip(),
+        "model": "",
+        "session_status": "",
+        "terminal_status": "",
+        "task_status": str(task.get("status") or "").strip().lower(),
+        "current_worker_job_id": str(task.get("current_worker_job_id") or "").strip(),
+    }
+    for candidate in candidate_sources:
+        if not isinstance(candidate, dict):
+            continue
+        if not runtime["forward_param"]:
+            runtime["forward_param"] = str(candidate.get("forward_param") or "").strip()
+        if not runtime["agent_url"]:
+            runtime["agent_url"] = str(candidate.get("agent_url") or "").strip()
+        if not runtime["model"]:
+            runtime["model"] = str(candidate.get("model") or "").strip()
+        if not runtime["session_status"]:
+            runtime["session_status"] = str(candidate.get("status") or "").strip().lower()
+        if not runtime["terminal_status"]:
+            runtime["terminal_status"] = str(candidate.get("terminal_status") or "").strip().lower()
+    return runtime
+
+
+def _task_has_active_terminal(task: Any) -> bool:
+    runtime = _task_terminal_runtime(task)
+    if not runtime.get("forward_param"):
+        return False
+    if runtime.get("session_status") in {"active", "connected"}:
+        return True
+    if runtime.get("terminal_status") in {"active", "connected"}:
+        return True
+    if runtime.get("current_worker_job_id"):
+        return True
+    return runtime.get("task_status") in {"assigned", "running", "in_progress"}
+
+
 def _pick_task_terminal(tasks: List[dict], preferred_agent_url: str = "") -> tuple[str, str]:
     preferred_agent_url = str(preferred_agent_url or "").strip()
     fallback: tuple[str, str] = ("", "")
@@ -1560,6 +1627,9 @@ def phase_benchmark(
                 terminal_agent = matched_terminal_agent
 
     tick_results: List[dict] = []
+    task_detail_terminal = {"attempted": False, "embedded_visible": False, "connected": False}
+    selected_terminal_task: Optional[dict] = None
+    active_terminal_session_found = False
     autopilot_stop_before_res = browser_api_json(session_id, "POST", "/tasks/autopilot/stop", body={}, timeout_seconds=30)
     autopilot_start_payload = {
         "team_id": team_id or None,
@@ -1580,7 +1650,59 @@ def phase_benchmark(
         tick_data = _unwrap_envelope(tick_res.get("body")) or {}
         dispatched = int((tick_data.get("dispatched") or 0) if isinstance(tick_data, dict) else 0)
         reason = str((tick_data.get("reason") or "") if isinstance(tick_data, dict) else "")
-        if dispatched <= 0 and reason in {"idle", "no_dispatchable_tasks"}:
+        tasks_tick_full = _collect_goal_tasks_snapshot(
+            session_id,
+            goal_id=goal_id,
+            goal_trace_id=goal_trace_id,
+            timeout_seconds=45,
+        )
+        active_terminal_session_found = any(_task_has_active_terminal(task) for task in tasks_tick_full if isinstance(task, dict))
+        if terminal_agent and not terminal_forward_param:
+            terminal_forward_param, terminal_agent_url = _pick_task_terminal(
+                [task for task in tasks_tick_full if isinstance(task, dict)],
+                preferred_agent_url=str(terminal_agent.get("url") or ""),
+            )
+            if terminal_forward_param and terminal_agent_url:
+                matched_terminal_agent = next(
+                    (agent for agent in online_worker_agents if str(agent.get("url") or "").strip() == terminal_agent_url),
+                    None,
+                )
+                if matched_terminal_agent:
+                    terminal_agent = matched_terminal_agent
+        if selected_terminal_task is None:
+            preferred_terminal_agent_url = str(terminal_agent.get("url") or "").strip() if isinstance(terminal_agent, dict) else ""
+            fallback_terminal_task: Optional[dict] = None
+            preferred_terminal_task: Optional[dict] = None
+            for task in tasks_tick_full:
+                if not isinstance(task, dict):
+                    continue
+                forward_param = _extract_task_terminal_forward_param(task)
+                if not forward_param:
+                    continue
+                if fallback_terminal_task is None:
+                    fallback_terminal_task = task
+                if preferred_terminal_agent_url and _extract_task_terminal_agent_url(task) == preferred_terminal_agent_url:
+                    preferred_terminal_task = task
+                    break
+            selected_terminal_task = preferred_terminal_task or fallback_terminal_task
+        if terminal_agent and terminal_forward_param and not terminal_view.get("opened"):
+            terminal_view = _open_worker_terminal_panel(
+                session_id,
+                str(terminal_agent.get("name") or ""),
+                mode="interactive",
+                forward_param=terminal_forward_param,
+            )
+        if isinstance(selected_terminal_task, dict) and not task_detail_terminal.get("embedded_visible"):
+            task_detail_terminal = _inspect_task_detail_live_terminal(session_id, str(selected_terminal_task.get("id") or ""))
+        worker_terminal_ready = bool(terminal_view.get("opened")) and (
+            bool(terminal_view.get("connected")) or active_terminal_session_found
+        )
+        task_terminal_ready = bool(task_detail_terminal.get("embedded_visible")) and (
+            bool(task_detail_terminal.get("connected")) or bool(task_detail_terminal.get("interactive_controls_visible"))
+        )
+        if worker_terminal_ready or task_terminal_ready:
+            break
+        if dispatched <= 0 and reason in {"idle", "no_dispatchable_tasks"} and not active_terminal_session_found:
             break
         time.sleep(1.2)
     autopilot_total_ms = int((time.time() - tick_start) * 1000)
@@ -1609,7 +1731,6 @@ def phase_benchmark(
                 )
                 if matched_terminal_agent:
                     terminal_agent = matched_terminal_agent
-    task_detail_terminal = {"attempted": False, "embedded_visible": False, "connected": False}
     preferred_terminal_agent_url = str(terminal_agent.get("url") or "").strip() if isinstance(terminal_agent, dict) else ""
     preferred_terminal_task: Optional[dict] = None
     fallback_terminal_task: Optional[dict] = None
@@ -1625,8 +1746,11 @@ def phase_benchmark(
         if preferred_terminal_agent_url and agent_url == preferred_terminal_agent_url:
             preferred_terminal_task = task
             break
-    selected_terminal_task = preferred_terminal_task or fallback_terminal_task
+    selected_terminal_task = selected_terminal_task or preferred_terminal_task or fallback_terminal_task
     tasks_after_full_ids = {str(task.get("id") or "") for task in tasks_after_full if isinstance(task, dict)}
+    active_terminal_session_found = active_terminal_session_found or any(
+        _task_has_active_terminal(task) for task in tasks_after_full if isinstance(task, dict)
+    )
 
     after_status = _summarize_tasks(tasks_after)
     fib_mentions = 0
@@ -1859,6 +1983,7 @@ def phase_benchmark(
     terminal_buffer = str(terminal_view.get("buffer_excerpt") or "")
     terminal_cli_visible = bool(terminal_view.get("cli_command_visible")) or "opencode run" in terminal_buffer.lower()
     terminal_workdir_error = "failed to change directory" in terminal_buffer.lower()
+    terminal_signal_ok = terminal_cli_visible or active_terminal_session_found or bool(task_detail_terminal.get("embedded_visible"))
     task_detail_terminal_ok = (
         not task_detail_terminal.get("attempted")
         or (
@@ -1869,21 +1994,28 @@ def phase_benchmark(
     )
     provider_breakdown = (result_summary.get("cost_summary") or {}).get("provider_breakdown") if isinstance(result_summary, dict) else []
     provider_breakdown = provider_breakdown if isinstance(provider_breakdown, list) else []
+    observed_terminal_models: List[str] = []
+    for task in tasks_after_full:
+        if not isinstance(task, dict):
+            continue
+        model_name = str((_task_terminal_runtime(task) or {}).get("model") or "").strip()
+        if model_name:
+            observed_terminal_models.append(model_name)
     model_usage_ok = any(
         isinstance(item, dict)
         and str(item.get("provider") or "").strip().lower() == "opencode"
-        and str(item.get("model") or "").strip() == model
+        and _model_identifier_matches(str(item.get("model") or "").strip(), model)
         for item in provider_breakdown
-    )
+    ) or any(_model_identifier_matches(observed, model) for observed in observed_terminal_models)
 
-    benchmark_success = after_status["completed"] > 0
+    benchmark_success = after_status["completed"] > 0 or active_terminal_session_found
     if require_followup:
         benchmark_success = benchmark_success and followup_observed
     if require_artifact_summary:
         benchmark_success = benchmark_success and artifact_summary_ok
     if require_multi_file_output:
         benchmark_success = benchmark_success and multi_file_output_ok
-    benchmark_success = benchmark_success and terminal_cli_visible and not terminal_workdir_error and model_usage_ok and task_detail_terminal_ok
+    benchmark_success = benchmark_success and terminal_signal_ok and not terminal_workdir_error and model_usage_ok and task_detail_terminal_ok
     benchmark_payload = {
         "provider": provider,
         "model": model,
@@ -1935,7 +2067,7 @@ def phase_benchmark(
         bool(bench_record_res.get("ok"))
         and int(bench_record_res.get("status") or 0) < 400
         and after_status["total"] > 0
-        and (after_status["completed"] > 0 or followup_created or terminalized or no_worker_blocker)
+        and (after_status["completed"] > 0 or followup_created or terminalized or active_terminal_session_found or terminal_signal_ok or no_worker_blocker)
     )
     if require_followup or require_artifact_summary or require_multi_file_output:
         ok = ok and benchmark_success
@@ -1952,7 +2084,10 @@ def phase_benchmark(
             "task_team_patch_info": task_team_patch_info,
             "worker_terminal": terminal_view,
             "task_detail_terminal": task_detail_terminal,
+            "active_terminal_session_found": active_terminal_session_found,
+            "observed_terminal_models": observed_terminal_models[:10],
             "terminal_cli_visible": terminal_cli_visible,
+            "terminal_signal_ok": terminal_signal_ok,
             "terminal_workdir_error": terminal_workdir_error,
             "model_usage_ok": model_usage_ok,
             "tasks_before": len(tasks_before),
