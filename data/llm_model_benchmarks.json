@@ -3832,15 +3832,15 @@
       "provider": "deerflow",
       "model": "gpt-4o",
       "overall": {
-        "total": 20,
-        "success": 20,
+        "total": 22,
+        "success": 22,
         "failed": 0,
-        "quality_pass": 20,
+        "quality_pass": 22,
         "quality_fail": 0,
         "latency_ms_total": 0,
-        "tokens_total": 120,
+        "tokens_total": 132,
         "cost_units_total": 0.0,
-        "last_seen": 1775507973,
+        "last_seen": 1775546650,
         "samples": [
           {
             "ts": 1775267062,
@@ -4043,20 +4043,42 @@
             "context": {
               "task_kind": "research"
             }
+          },
+          {
+            "ts": 1775546650,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "research"
+            }
+          },
+          {
+            "ts": 1775546650,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "research"
+            }
           }
         ]
       },
       "task_kinds": {
         "research": {
-          "total": 20,
-          "success": 20,
+          "total": 22,
+          "success": 22,
           "failed": 0,
-          "quality_pass": 20,
+          "quality_pass": 22,
           "quality_fail": 0,
           "latency_ms_total": 0,
-          "tokens_total": 120,
+          "tokens_total": 132,
           "cost_units_total": 0.0,
-          "last_seen": 1775507973,
+          "last_seen": 1775546650,
           "samples": [
             {
               "ts": 1775267062,
@@ -4251,6 +4273,28 @@
             },
             {
               "ts": 1775507973,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "research"
+              }
+            },
+            {
+              "ts": 1775546650,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "research"
+              }
+            },
+            {
+              "ts": 1775546650,
               "success": true,
               "quality_passed": true,
               "latency_ms": 0,
@@ -5159,5 +5203,5 @@
       }
     }
   },
-  "updated_at": 1775509729
+  "updated_at": 1775546650
 }

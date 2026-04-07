@@ -8,7 +8,7 @@
   },
   "providers": ["ollama"],
   "default_models": {
-    "ollama": ["ananta-default", "ananta-smoke"]
+    "ollama": ["qwen2.5-coder:7b", "qwen2.5-coder:14b", "deepseek-coder-v2:16b"]
   },
   "scoring": {
     "weights": {
@@ -85,7 +85,7 @@
   "hub_config": {
     "fixed_model": {
       "provider": "ollama",
-      "model": "ananta-default"
+      "model": "qwen2.5-coder:7b"
     },
     "fallback_enabled": true
   }
