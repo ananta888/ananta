@@ -93,8 +93,14 @@ def test_orchestration_ingest_uses_central_task_ingestion_fields(client, auth_he
 
 
 def test_orchestration_read_model_includes_artifact_flow_details(client, auth_header):
-    from agent.db_models import ContextBundleDB, MemoryEntryDB, TaskDB, WorkerJobDB, WorkerResultDB
-    from agent.repository import context_bundle_repo, memory_entry_repo, task_repo, worker_job_repo, worker_result_repo
+    from agent.db_models import AgentInfoDB, ContextBundleDB, MemoryEntryDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TemplateDB, WorkerJobDB, WorkerResultDB
+    from agent.repository import agent_repo, context_bundle_repo, memory_entry_repo, role_repo, task_repo, team_member_repo, team_repo, template_repo, worker_job_repo, worker_result_repo
+
+    template = template_repo.save(TemplateDB(name="Python Worker Template", prompt_template="Do Python work"))
+    role = role_repo.save(RoleDB(name="Python Worker", default_template_id=template.id))
+    team = team_repo.save(TeamDB(name="Flow Team"))
+    agent_repo.save(AgentInfoDB(url="http://alpha:5001", name="alpha"))
+    team_member_repo.save(TeamMemberDB(team_id=team.id, agent_url="http://alpha:5001", role_id=role.id))
 
     task = task_repo.save(
         TaskDB(
@@ -102,6 +108,9 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
             title="Flow Task",
             description="Validate sent and returned artifacts",
             status="in_progress",
+            team_id=team.id,
+            assigned_agent_url="http://alpha:5001",
+            assigned_role_id=role.id,
         )
     )
     bundle = context_bundle_repo.save(
@@ -155,5 +164,16 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
     assert target is not None
     assert "art-sent-1" in (target.get("sent_artifact_ids") or [])
     assert "art-returned-1" in (target.get("returned_artifact_ids") or [])
+    assert (target.get("assignment") or {}).get("agent_name") == "alpha"
+    assert (target.get("assignment") or {}).get("role_name") == "Python Worker"
+    assert (target.get("assignment") or {}).get("template_name") == "Python Worker Template"
+    assert {item.get("artifact_id") for item in (target.get("sent_artifacts") or [])} == {"art-sent-1"}
+    assert {item.get("artifact_id") for item in (target.get("returned_artifacts") or [])} == {"art-returned-1"}
     jobs = target.get("worker_jobs") or []
     assert jobs and jobs[0].get("worker_job_id") == "FLOW-JOB-1"
+    assert (jobs[0].get("assignment") or {}).get("template_name") == "Python Worker Template"
+    groups = artifact_flow.get("groups") or {}
+    worker_groups = groups.get("by_worker") or []
+    assignment_groups = groups.get("by_assignment") or []
+    assert any(group.get("worker_url") == "http://alpha:5001" and "art-returned-1" in (group.get("artifact_ids") or []) for group in worker_groups)
+    assert any(group.get("template_name") == "Python Worker Template" and "art-sent-1" in (group.get("artifact_ids") or []) for group in assignment_groups)

@@ -27,6 +27,7 @@ export class AdminFacade {
   searchKnowledgeCollection(baseUrl: string, collectionId: string, payload: { query: string; top_k?: number }, token?: string) { return this.hubApi.searchKnowledgeCollection(baseUrl, collectionId, payload, token); }
 
   listTeams(baseUrl: string, token?: string) { return this.hubApi.listTeams(baseUrl, token); }
+  getTaskOrchestrationReadModel(baseUrl: string, token?: string) { return this.hubApi.getTaskOrchestrationReadModel(baseUrl, token); }
   listTeamTypes(baseUrl: string, token?: string) { return this.hubApi.listTeamTypes(baseUrl, token); }
   listTeamRoles(baseUrl: string, token?: string) { return this.hubApi.listTeamRoles(baseUrl, token); }
   listAgents(baseUrl: string, token?: string) { return this.hubApi.listAgents(baseUrl, token); }

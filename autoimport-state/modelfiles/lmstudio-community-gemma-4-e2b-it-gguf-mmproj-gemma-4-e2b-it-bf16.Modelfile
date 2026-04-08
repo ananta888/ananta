@@ -1,1 +1,2 @@
 FROM /models/lmstudio-community/gemma-4-E2B-it-GGUF/mmproj-gemma-4-E2B-it-BF16.gguf
+PARAMETER num_ctx 32768
