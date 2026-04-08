@@ -1,1 +1,2 @@
 FROM /models/lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+PARAMETER num_ctx 32768

@@ -20,6 +20,10 @@ describe('TaskDetailComponent', () => {
       'provenanceEvents',
       'latestExecutionCostSummary',
       'reviewProposal',
+      'taskLiveTerminalConnection',
+      'taskDiagnosticTerminalConnection',
+      'selectedTaskTerminalConnection',
+      'taskLiveTerminalLink',
     ]) {
       if (typeof proto[methodName] === 'function') {
         (cmp as any)[methodName] = proto[methodName].bind(cmp);
@@ -110,6 +114,7 @@ describe('TaskDetailComponent', () => {
     };
 
     expect(cmp.taskLiveTerminalConnection()).toEqual({
+      kind: 'task',
       displayName: 'alpha',
       panelAgentName: 'alpha',
       agentUrl: 'http://alpha:5000',
@@ -144,6 +149,7 @@ describe('TaskDetailComponent', () => {
     };
 
     expect(cmp.taskLiveTerminalConnection()).toEqual({
+      kind: 'task',
       displayName: 'ai-agent-beta',
       panelAgentName: undefined,
       agentUrl: 'http://ai-agent-beta:5000',
@@ -156,5 +162,63 @@ describe('TaskDetailComponent', () => {
       },
     });
     expect(cmp.taskLiveTerminalLink()).toBeNull();
+  });
+
+  it('builds a direct worker diagnosis terminal without a forward parameter', () => {
+    const cmp = createComponent();
+    cmp.allAgents = [
+      { name: 'alpha', role: 'worker', url: 'http://alpha:5000', token: 'worker-token' },
+    ] as any;
+    cmp.task = {
+      assigned_agent_url: 'http://alpha:5000',
+    };
+
+    expect(cmp.taskDiagnosticTerminalConnection()).toEqual({
+      kind: 'diagnostic',
+      displayName: 'alpha',
+      panelAgentName: 'alpha',
+      agentUrl: 'http://alpha:5000',
+      token: 'worker-token',
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+      },
+    });
+  });
+
+  it('switches the worker panel link to diagnosis mode when selected', () => {
+    const cmp = createComponent();
+    cmp.allAgents = [
+      { name: 'alpha', role: 'worker', url: 'http://alpha:5000', token: 'worker-token' },
+    ] as any;
+    cmp.task = {
+      assigned_agent_url: 'http://alpha:5000',
+      verification_status: {
+        opencode_live_terminal: {
+          agent_url: 'http://alpha:5000',
+          forward_param: 'cli-forward-1',
+        },
+      },
+    };
+    cmp.taskTerminalMode = 'diagnostic';
+
+    expect(cmp.selectedTaskTerminalConnection()).toEqual({
+      kind: 'diagnostic',
+      displayName: 'alpha',
+      panelAgentName: 'alpha',
+      agentUrl: 'http://alpha:5000',
+      token: 'worker-token',
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+      },
+    });
+    expect(cmp.taskLiveTerminalLink()).toEqual({
+      agentName: 'alpha',
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+      },
+    });
   });
 });

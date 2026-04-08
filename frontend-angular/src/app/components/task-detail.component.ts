@@ -38,6 +38,12 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
     .task-live-terminal-meta {
       margin: 4px 0 10px;
     }
+    .task-terminal-mode-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
   `],
   template: `
     <div class="row title-row">
@@ -469,12 +475,25 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
             </a>
           }
         </div>
-        @if (taskLiveTerminalConnection(); as liveTerminal) {
+        @if (selectedTaskTerminalConnection(); as liveTerminal) {
           <div class="card card-light task-live-terminal-card" data-testid="task-live-terminal">
             <strong>Worker Live Terminal</strong>
+            <div class="task-terminal-mode-row">
+              @if (taskLiveTerminalConnection()) {
+                <button class="button-outline" [class.active]="taskTerminalMode === 'task'" (click)="taskTerminalMode = 'task'">Task-Terminal</button>
+              }
+              @if (taskDiagnosticTerminalConnection()) {
+                <button class="button-outline" [class.active]="taskTerminalMode === 'diagnostic'" (click)="taskTerminalMode = 'diagnostic'">Diagnose-Terminal</button>
+              }
+            </div>
             <div class="muted task-live-terminal-meta">
-              Verbunden mit <strong>{{ liveTerminal.displayName }}</strong> ueber {{ liveTerminal.forwardParam }}.
-              Eingaben werden direkt an die laufende OpenCode-Session des Workers weitergeleitet.
+              @if (liveTerminal.kind === 'task') {
+                Verbunden mit <strong>{{ liveTerminal.displayName }}</strong> ueber {{ liveTerminal.forwardParam }}.
+                Eingaben werden direkt an die laufende OpenCode-Session des Workers weitergeleitet.
+              } @else {
+                Verbunden mit <strong>{{ liveTerminal.displayName }}</strong> im Diagnosemodus.
+                Eingaben gehen in ein separates Shell-Terminal des Workers und nicht in die laufende Task-Session.
+              }
             </div>
             <app-terminal
               [baseUrl]="liveTerminal.agentUrl"
@@ -548,6 +567,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   availableProviders: any[] = [];
   isAdmin = false;
   showAdminDrilldown = false;
+  taskTerminalMode: 'task' | 'diagnostic' = 'task';
   private routeSub?: Subscription;
   private activeLogTaskId?: string;
 
@@ -559,6 +579,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       this.proposed = '';
       this.toolCalls = [];
       this.busy = false; // Sicherheits-Reset bei Task-Wechsel
+      this.taskTerminalMode = 'task';
       this.reload();
     });
   }
@@ -968,6 +989,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   }
 
   taskLiveTerminalConnection(): {
+    kind: 'task';
     displayName: string;
     panelAgentName?: string;
     agentUrl: string;
@@ -994,6 +1016,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     const matchedAgent = this.allAgents.find((agent) => this.normalizeAgentUrl(agent.url) === normalizedAgentUrl);
     const displayName = String(matchedAgent?.name || this.liveTerminalDisplayName(agentUrl)).trim();
     return {
+      kind: 'task',
       displayName,
       panelAgentName: matchedAgent?.name,
       agentUrl,
@@ -1007,8 +1030,58 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     };
   }
 
+  taskDiagnosticTerminalConnection(): {
+    kind: 'diagnostic';
+    displayName: string;
+    panelAgentName?: string;
+    agentUrl: string;
+    token?: string;
+    queryParams: Record<string, string>;
+  } | null {
+    const taskConnection = this.taskLiveTerminalConnection();
+    const agentUrl = String(
+      taskConnection?.agentUrl
+      || this.task?.assigned_agent_url
+      || this.task?.assignment?.agent_url
+      || this.task?.verification_status?.cli_session?.agent_url
+      || this.task?.verification_status?.opencode_live_terminal?.agent_url
+      || ''
+    ).trim();
+    if (!agentUrl) return null;
+    const normalizedAgentUrl = this.normalizeAgentUrl(agentUrl);
+    const matchedAgent = this.allAgents.find((agent) => this.normalizeAgentUrl(agent.url) === normalizedAgentUrl);
+    return {
+      kind: 'diagnostic',
+      displayName: String(matchedAgent?.name || this.liveTerminalDisplayName(agentUrl)).trim(),
+      panelAgentName: matchedAgent?.name,
+      agentUrl,
+      token: matchedAgent?.token,
+      queryParams: {
+        tab: 'terminal',
+        mode: 'interactive',
+      },
+    };
+  }
+
+  selectedTaskTerminalConnection(): {
+    kind: 'task' | 'diagnostic';
+    displayName: string;
+    panelAgentName?: string;
+    agentUrl: string;
+    forwardParam?: string;
+    token?: string;
+    queryParams: Record<string, string>;
+  } | null {
+    const taskConnection = this.taskLiveTerminalConnection();
+    const diagnosticConnection = this.taskDiagnosticTerminalConnection();
+    if (this.taskTerminalMode === 'diagnostic' && diagnosticConnection) {
+      return diagnosticConnection;
+    }
+    return taskConnection || diagnosticConnection;
+  }
+
   taskLiveTerminalLink(): { agentName: string; queryParams: Record<string, string> } | null {
-    const connection = this.taskLiveTerminalConnection();
+    const connection = this.selectedTaskTerminalConnection();
     if (!connection?.panelAgentName) return null;
     return {
       agentName: connection.panelAgentName,

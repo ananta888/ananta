@@ -16,6 +16,7 @@ describe('ArtifactsComponent', () => {
     getKnowledgeCollection: vi.fn(() => of({ collection: { id: 'collection-1' }, knowledge_links: [], knowledge_indices: [] })),
     indexKnowledgeCollection: vi.fn(() => of({})),
     searchKnowledgeCollection: vi.fn(() => of({ chunks: [{ source: 'README.md', content: 'timeout handling' }] })),
+    getTaskOrchestrationReadModel: vi.fn(() => of({ artifact_flow: { items: [], groups: { by_worker: [], by_assignment: [] } } })),
   };
 
   function createComponent(): ArtifactsComponent {
@@ -47,6 +48,10 @@ describe('ArtifactsComponent', () => {
     cmp.knowledgeSearchResults = [];
     cmp.newCollectionName = '';
     cmp.newCollectionDescription = '';
+    cmp.selectedArtifactProfileName = 'default';
+    cmp.selectedCollectionProfileName = 'default';
+    cmp.artifactFlowReadModel = null;
+    cmp.loadingArtifactFlow = false;
     return cmp;
   }
 
@@ -81,5 +86,43 @@ describe('ArtifactsComponent', () => {
     expect(cmp.ns.success).toHaveBeenCalledWith('Artefakt hochgeladen');
     expect(cmp.refresh).toHaveBeenCalled();
     expect(cmp.selectArtifact).toHaveBeenCalledWith('artifact-1');
+  });
+
+  it('loads execution artifact flow data from the orchestration read model', () => {
+    const cmp = createComponent();
+    hubApiMock.getTaskOrchestrationReadModel.mockReturnValueOnce(of({
+      artifact_flow: {
+        items: [{ item_id: 'task-1', sent_artifacts: [{ artifact_id: 'artifact-1', label: 'diff.patch' }] }],
+        groups: {
+          by_worker: [{ worker_url: 'http://alpha:5001', artifacts: [{ artifact_id: 'artifact-1', label: 'diff.patch' }] }],
+          by_assignment: [{ assignment_key: 'alpha::tmpl', template_name: 'Python Worker Template', artifacts: [{ artifact_id: 'artifact-1', label: 'diff.patch' }] }],
+        },
+      },
+    }));
+
+    cmp.loadArtifactFlow();
+
+    expect(hubApiMock.getTaskOrchestrationReadModel).toHaveBeenCalledWith('http://hub:5000');
+    expect(cmp.artifactFlowItems()).toHaveLength(1);
+    expect(cmp.artifactFlowWorkerGroups()).toHaveLength(1);
+    expect(cmp.artifactFlowAssignmentGroups()).toHaveLength(1);
+  });
+
+  it('deduplicates artifact summaries and opens artifact details from explorer entries', () => {
+    const cmp = createComponent();
+    cmp.selectArtifact = vi.fn();
+
+    expect(cmp.itemArtifacts({
+      sent_artifacts: [{ artifact_id: 'artifact-1', label: 'diff.patch' }],
+      returned_artifacts: [{ artifact_id: 'artifact-1', label: 'diff.patch' }, { artifact_id: 'artifact-2', label: 'result.json' }],
+      worker_jobs: [{ sent_artifacts: [{ artifact_id: 'artifact-2', label: 'result.json' }] }],
+    })).toEqual([
+      { artifact_id: 'artifact-1', label: 'diff.patch' },
+      { artifact_id: 'artifact-2', label: 'result.json' },
+    ]);
+
+    cmp.selectArtifactBySummary({ artifact_id: 'artifact-2' });
+
+    expect(cmp.selectArtifact).toHaveBeenCalledWith('artifact-2');
   });
 });

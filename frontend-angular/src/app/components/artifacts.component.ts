@@ -32,6 +32,9 @@ import { AdminFacade } from '../features/admin/admin.facade';
     .artifact-search-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
     .artifact-search-results { display: grid; gap: 10px; }
     .artifact-profile-card { border: 1px dashed var(--border); border-radius: 10px; padding: 10px; background: color-mix(in srgb, var(--card-bg) 88%, white); }
+    .artifact-flow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .artifact-flow-group { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--card-bg); }
+    .artifact-flow-artifacts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     @media (max-width: 980px) {
       .artifact-layout { grid-template-columns: 1fr; }
     }
@@ -131,6 +134,88 @@ import { AdminFacade } from '../features/admin/admin.facade';
               </div>
             </button>
           }
+        </div>
+      }
+    </div>
+
+    <div class="card mt-md">
+      <div class="row space-between">
+        <div>
+          <h3 class="no-margin">Execution Artifact Explorer</h3>
+          <p class="muted title-muted">Transparente Sicht auf Laufzeit-Artefakte pro Task, Worker und Agent/Template-Zuordnung.</p>
+        </div>
+        <button class="secondary" (click)="loadArtifactFlow()" [disabled]="loadingArtifactFlow">Neu laden</button>
+      </div>
+
+      @if (loadingArtifactFlow) {
+        <app-ui-skeleton [count]="2" [lineCount]="4"></app-ui-skeleton>
+      } @else if (!artifactFlowItems().length) {
+        <div class="artifact-empty">Noch keine Ausfuehrungs-Artefakte im Orchestrierungsmodell vorhanden.</div>
+      } @else {
+        <div class="artifact-flow-grid mt-sm">
+          <div class="artifact-flow-group">
+            <strong>Nach Task</strong>
+            <div class="artifact-stack mt-sm">
+              @for (item of artifactFlowItems(); track item.item_id || item.task_id || $index) {
+                <div class="card card-light">
+                  <div class="row space-between">
+                    <strong>{{ item.task_title || item.task_id || 'Task' }}</strong>
+                    <span class="badge">{{ artifactCount(item) }} Artefakte</span>
+                  </div>
+                  <div class="muted font-sm mt-5">
+                    {{ item.assignment?.agent_name || item.worker_name || item.worker_url || 'Unbekannter Worker' }}
+                    @if (item.assignment?.template_name) {
+                      · {{ item.assignment.template_name }}
+                    }
+                  </div>
+                  <div class="artifact-flow-artifacts">
+                    @for (artifact of itemArtifacts(item); track artifact.artifact_id) {
+                      <button class="artifact-pill" (click)="selectArtifactBySummary(artifact)">{{ artifact.label || artifact.artifact_id }}</button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="artifact-flow-group">
+            <strong>Nach Worker</strong>
+            <div class="artifact-stack mt-sm">
+              @for (group of artifactFlowWorkerGroups(); track group.worker_url || group.worker_name || $index) {
+                <div class="card card-light">
+                  <div class="row space-between">
+                    <strong>{{ group.worker_name || group.worker_url || 'Worker' }}</strong>
+                    <span class="badge">{{ (group.artifact_ids || []).length }} Artefakte</span>
+                  </div>
+                  <div class="artifact-flow-artifacts">
+                    @for (artifact of groupArtifacts(group); track artifact.artifact_id) {
+                      <button class="artifact-pill" (click)="selectArtifactBySummary(artifact)">{{ artifact.label || artifact.artifact_id }}</button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="artifact-flow-group">
+            <strong>Nach Agent / Template</strong>
+            <div class="artifact-stack mt-sm">
+              @for (group of artifactFlowAssignmentGroups(); track group.assignment_key || $index) {
+                <div class="card card-light">
+                  <div class="row space-between">
+                    <strong>{{ assignmentLabel(group) }}</strong>
+                    <span class="badge">{{ (group.artifact_ids || []).length }} Artefakte</span>
+                  </div>
+                  <div class="muted font-sm mt-5">{{ group.role_name || 'Ohne Rolle' }}</div>
+                  <div class="artifact-flow-artifacts">
+                    @for (artifact of groupArtifacts(group); track artifact.artifact_id) {
+                      <button class="artifact-pill" (click)="selectArtifactBySummary(artifact)">{{ artifact.label || artifact.artifact_id }}</button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
         </div>
       }
     </div>
@@ -417,11 +502,14 @@ export class ArtifactsComponent {
   knowledgeSearchResults: any[] = [];
   selectedArtifactProfileName = 'default';
   selectedCollectionProfileName = 'default';
+  artifactFlowReadModel: any = null;
+  loadingArtifactFlow = false;
 
   constructor() {
     this.refresh();
     this.loadCollections();
     this.loadProfiles();
+    this.loadArtifactFlow();
   }
 
   refresh() {
@@ -449,6 +537,25 @@ export class ArtifactsComponent {
         }
       },
       error: (error) => this.ns.error(this.ns.fromApiError(error, 'Artefakte konnten nicht geladen werden')),
+    });
+    this.loadArtifactFlow();
+  }
+
+  loadArtifactFlow() {
+    if (!this.hub) return;
+    this.loadingArtifactFlow = true;
+    this.hubApi.getTaskOrchestrationReadModel(this.hub.url).pipe(
+      finalize(() => {
+        this.loadingArtifactFlow = false;
+      }),
+    ).subscribe({
+      next: (payload) => {
+        this.artifactFlowReadModel = payload?.artifact_flow || null;
+      },
+      error: (error) => {
+        this.artifactFlowReadModel = null;
+        this.ns.error(this.ns.fromApiError(error, 'Artefakt-Fluss konnte nicht geladen werden'));
+      },
     });
   }
 
@@ -674,5 +781,57 @@ export class ArtifactsComponent {
 
   activeCollectionProfile(): any {
     return this.knowledgeProfiles.find((profile: any) => profile?.name === this.selectedCollectionProfileName) || null;
+  }
+
+  artifactFlowItems(): any[] {
+    return Array.isArray(this.artifactFlowReadModel?.items) ? this.artifactFlowReadModel.items : [];
+  }
+
+  artifactFlowWorkerGroups(): any[] {
+    return Array.isArray(this.artifactFlowReadModel?.groups?.by_worker) ? this.artifactFlowReadModel.groups.by_worker : [];
+  }
+
+  artifactFlowAssignmentGroups(): any[] {
+    return Array.isArray(this.artifactFlowReadModel?.groups?.by_assignment) ? this.artifactFlowReadModel.groups.by_assignment : [];
+  }
+
+  itemArtifacts(item: any): any[] {
+    const artifacts = [
+      ...(Array.isArray(item?.sent_artifacts) ? item.sent_artifacts : []),
+      ...(Array.isArray(item?.returned_artifacts) ? item.returned_artifacts : []),
+      ...((Array.isArray(item?.worker_jobs) ? item.worker_jobs : []).flatMap((job: any) => [
+        ...(Array.isArray(job?.sent_artifacts) ? job.sent_artifacts : []),
+        ...(Array.isArray(job?.returned_artifacts) ? job.returned_artifacts : []),
+      ])),
+    ];
+    return this.uniqueArtifacts(artifacts);
+  }
+
+  groupArtifacts(group: any): any[] {
+    return this.uniqueArtifacts(Array.isArray(group?.artifacts) ? group.artifacts : []);
+  }
+
+  artifactCount(item: any): number {
+    return this.itemArtifacts(item).length;
+  }
+
+  assignmentLabel(group: any): string {
+    return String(group?.template_name || group?.agent_name || group?.assignment_key || 'Unbekannte Zuordnung').trim();
+  }
+
+  selectArtifactBySummary(artifact: any) {
+    const artifactId = String(artifact?.artifact_id || '').trim();
+    if (!artifactId) return;
+    this.selectArtifact(artifactId);
+  }
+
+  private uniqueArtifacts(artifacts: any[]): any[] {
+    const seen = new Set<string>();
+    return artifacts.filter((artifact) => {
+      const artifactId = String(artifact?.artifact_id || '').trim();
+      if (!artifactId || seen.has(artifactId)) return false;
+      seen.add(artifactId);
+      return true;
+    });
   }
 }
