@@ -108,6 +108,14 @@ def test_retrieval_service_merges_knowledge_index_chunks():
     assert payload["strategy"]["fusion"]["mode"] == "deterministic_v2"
     assert payload["strategy"]["fusion"]["candidate_counts"]["knowledge_index"] == 1
     assert isinstance(payload["strategy"]["fusion"]["final_ranked_sources"], list)
+    assert [stage["stage"] for stage in payload["strategy"]["fusion"]["selection_stages"]] == [
+        "all_candidates",
+        "deduped",
+        "expanded",
+        "reranked",
+        "diversified",
+        "final",
+    ]
 
 
 def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
@@ -222,3 +230,18 @@ def test_retrieval_service_redacts_sensitive_debug_fields_in_strategy_and_source
     for chunk in payload["chunks"]:
         assert "sk-secret-token-1234567890" not in str(chunk.get("source") or "")
         assert "sk-secret-token-1234567890" not in str(chunk.get("metadata") or {})
+
+
+def test_retrieval_service_selection_stage_trace_stays_deterministic():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("timeout")
+    selection_stages = payload["strategy"]["fusion"]["selection_stages"]
+
+    assert selection_stages[0]["stage"] == "all_candidates"
+    assert selection_stages[-1]["stage"] == "final"
+    assert selection_stages[-1]["count"] == payload["strategy"]["fusion"]["candidate_counts"]["final"]
+    assert selection_stages[-1]["top"][0]["engine"] == payload["chunks"][0]["engine"]

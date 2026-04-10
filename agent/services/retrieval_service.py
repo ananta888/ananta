@@ -456,6 +456,25 @@ class RetrievalService:
             counts[str(chunk.engine or "unknown")] += 1
         return dict(sorted(counts.items(), key=lambda item: item[0]))
 
+    def _selection_stage_trace(self, stage: str, chunks: list[ContextChunk], *, limit: int = 5) -> dict[str, object]:
+        ranked = sorted(chunks, key=lambda chunk: (-chunk.score, chunk.engine, chunk.source, chunk.content[:80]))
+        top: list[dict[str, object]] = []
+        for index, chunk in enumerate(ranked[: max(1, limit)], start=1):
+            metadata = dict(chunk.metadata or {})
+            fusion = dict(metadata.get("fusion") or {})
+            top.append(
+                {
+                    "rank": index,
+                    "engine": str(chunk.engine or ""),
+                    "source": str(chunk.source or ""),
+                    "score": round(float(chunk.score or 0.0), 4),
+                    "record_kind": str(metadata.get("record_kind") or ""),
+                    "expansion_kind": metadata.get("expansion_kind"),
+                    "fused_score": fusion.get("fused_score"),
+                }
+            )
+        return {"stage": stage, "count": len(chunks), "top": top}
+
     def _serialize_context(
         self,
         *,
@@ -577,6 +596,14 @@ class RetrievalService:
                 "diversified": len(diversified_candidates),
                 "final": len(merged),
             },
+            "selection_stages": [
+                self._selection_stage_trace("all_candidates", all_candidates),
+                self._selection_stage_trace("deduped", deduped_candidates),
+                self._selection_stage_trace("expanded", expanded_candidates),
+                self._selection_stage_trace("reranked", reranked_candidates),
+                self._selection_stage_trace("diversified", diversified_candidates),
+                self._selection_stage_trace("final", merged),
+            ],
             "final_ranked_sources": self._final_merge_trace(merged),
         }
         metric_task_kind = self._normalize_task_kind(task_kind) or "unknown"

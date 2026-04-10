@@ -41,7 +41,28 @@ def test_rag_helper_index_service_exposes_profile_catalog():
     assert profiles
     assert any(item["name"] == "default" and item["is_default"] for item in profiles)
     assert any(item["name"] == "deep_code" for item in profiles)
+    assert any(item["name"] == "subtask_bugfix_local" for item in profiles)
+    assert any(item["name"] == "subtask_architecture_review" for item in profiles)
     assert any(item["name"] == "spring-large-project-profile-ultra-backend-java-xml-overview-no-resume" for item in profiles)
+
+
+def test_rag_helper_index_service_can_suggest_subtask_profile():
+    service = RagHelperIndexService()
+
+    assert (
+        service.suggest_profile_name(
+            task_kind="bugfix",
+            retrieval_intent="localize_failure_and_fix",
+        )
+        == "subtask_bugfix_local"
+    )
+    assert (
+        service.suggest_profile_name(
+            task_kind="architecture",
+            retrieval_intent="architecture_and_decision_context",
+        )
+        == "subtask_architecture_review"
+    )
 
 
 def test_rag_helper_index_service_supports_external_xml_overview_profiles():
