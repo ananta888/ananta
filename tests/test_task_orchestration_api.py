@@ -117,6 +117,36 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
         ContextBundleDB(
             task_id=task.id,
             chunks=[{"metadata": {"artifact_id": "art-sent-1"}}],
+            bundle_metadata={
+                "explainability": {
+                    "engines": ["knowledge_index"],
+                    "sources": [
+                        {
+                            "engine": "knowledge_index",
+                            "source": "docs/flow.md",
+                            "score": 1.8,
+                        }
+                    ],
+                },
+                "why_this_context": {
+                    "summary": "task_kind=implement | selected_chunks=1 | mode=standard",
+                    "top_sources": [
+                        {"engine": "knowledge_index", "source": "docs/flow.md", "score": 1.8}
+                    ],
+                },
+                "budget": {"retrieval_utilization": 0.61},
+                "context_policy": {
+                    "mode": "standard",
+                    "window_profile": "standard_32k",
+                    "bundle_strategy": "balanced",
+                    "explainability_level": "balanced",
+                    "chunk_text_style": "balanced_snippets",
+                },
+                "selection_trace": {
+                    "knowledge_index_reason": "query_overlap",
+                    "result_memory_reason": "neighbor_task_match",
+                },
+            },
         )
     )
     task.context_bundle_id = bundle.id
@@ -183,3 +213,9 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
     context_summary = recent_row.get("context_bundle_summary") or {}
     assert context_summary.get("context_bundle_id") == bundle.id
     assert context_summary.get("chunk_count") == 1
+    assert context_summary.get("why_summary") == "task_kind=implement | selected_chunks=1 | mode=standard"
+    assert context_summary.get("retrieval_utilization") == 0.61
+    assert (context_summary.get("context_policy") or {}).get("mode") == "standard"
+    assert (context_summary.get("context_policy") or {}).get("bundle_strategy") == "balanced"
+    assert (context_summary.get("selection_trace") or {}).get("knowledge_index_reason") == "query_overlap"
+    assert (context_summary.get("top_sources") or [])[0].get("source") == "docs/flow.md"

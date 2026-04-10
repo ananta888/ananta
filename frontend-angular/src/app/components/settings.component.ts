@@ -71,12 +71,27 @@ export function normalizeContextBundlePolicyConfigValue(value: any): any {
   const mode = ['compact', 'standard', 'full'].includes(String(raw.mode || '').trim().toLowerCase())
     ? String(raw.mode || '').trim().toLowerCase()
     : 'full';
+  const windowProfile = ['compact_12k', 'standard_32k', 'full_64k'].includes(String(raw.window_profile || '').trim().toLowerCase())
+    ? String(raw.window_profile || '').trim().toLowerCase()
+    : 'standard_32k';
   const compactMaxChunks = Number(raw.compact_max_chunks);
   const standardMaxChunks = Number(raw.standard_max_chunks);
+  const compactBudgetTokens = Number(raw.compact_budget_tokens);
+  const standardBudgetTokens = Number(raw.standard_budget_tokens);
+  const fullBudgetTokens = Number(raw.full_budget_tokens);
   return {
     mode,
+    window_profile: windowProfile,
     compact_max_chunks: Number.isFinite(compactMaxChunks) ? Math.max(1, Math.min(50, compactMaxChunks)) : 3,
     standard_max_chunks: Number.isFinite(standardMaxChunks) ? Math.max(1, Math.min(50, standardMaxChunks)) : 8,
+    compact_budget_tokens: Number.isFinite(compactBudgetTokens) ? Math.max(4096, Math.min(131072, compactBudgetTokens)) : 12000,
+    standard_budget_tokens: Number.isFinite(standardBudgetTokens) ? Math.max(4096, Math.min(131072, standardBudgetTokens)) : 32000,
+    full_budget_tokens: Number.isFinite(fullBudgetTokens) ? Math.max(4096, Math.min(131072, fullBudgetTokens)) : 64000,
+    budget_tokens_by_mode: {
+      compact: Number.isFinite(compactBudgetTokens) ? Math.max(4096, Math.min(131072, compactBudgetTokens)) : 12000,
+      standard: Number.isFinite(standardBudgetTokens) ? Math.max(4096, Math.min(131072, standardBudgetTokens)) : 32000,
+      full: Number.isFinite(fullBudgetTokens) ? Math.max(4096, Math.min(131072, fullBudgetTokens)) : 64000,
+    },
   };
 }
 
@@ -170,13 +185,37 @@ export function normalizeResearchBackendConfigValue(value: any): any {
 
 export function resolveContextBundlePolicyValue(config: any): any {
   const normalized = normalizeContextBundlePolicyConfigValue(config?.context_bundle_policy);
+  const budgetByMode = normalized.budget_tokens_by_mode || {};
+  const modeProfile = normalized.mode === 'compact'
+    ? { bundle_strategy: 'minimal', explainability_level: 'minimal', chunk_text_style: 'compressed_snippets' }
+    : normalized.mode === 'standard'
+      ? { bundle_strategy: 'balanced', explainability_level: 'balanced', chunk_text_style: 'balanced_snippets' }
+      : { bundle_strategy: 'deep', explainability_level: 'detailed', chunk_text_style: 'detailed_context' };
   if (normalized.mode === 'compact') {
-    return { ...normalized, include_context_text: false, max_chunks: normalized.compact_max_chunks };
+    return {
+      ...normalized,
+      include_context_text: false,
+      max_chunks: normalized.compact_max_chunks,
+      total_budget_tokens: budgetByMode.compact || normalized.compact_budget_tokens || 12000,
+      ...modeProfile,
+    };
   }
   if (normalized.mode === 'standard') {
-    return { ...normalized, include_context_text: true, max_chunks: normalized.standard_max_chunks };
+    return {
+      ...normalized,
+      include_context_text: true,
+      max_chunks: normalized.standard_max_chunks,
+      total_budget_tokens: budgetByMode.standard || normalized.standard_budget_tokens || 32000,
+      ...modeProfile,
+    };
   }
-  return { ...normalized, include_context_text: true, max_chunks: null };
+  return {
+    ...normalized,
+    include_context_text: true,
+    max_chunks: null,
+    total_budget_tokens: budgetByMode.full || normalized.full_budget_tokens || 64000,
+    ...modeProfile,
+  };
 }
 
 function findFirstModelByTokens(modelIds: string[], tokenSets: string[][]): string {
@@ -666,11 +705,27 @@ function createDefaultSettingsConfig(): any {
                 <option value="full">full</option>
               </select>
             </label>
+            <label>Window-Profil
+              <select [(ngModel)]="config.context_bundle_policy.window_profile">
+                <option value="compact_12k">compact_12k</option>
+                <option value="standard_32k">standard_32k</option>
+                <option value="full_64k">full_64k</option>
+              </select>
+            </label>
             <label>Compact max. Chunks
               <input type="number" min="1" max="50" [(ngModel)]="config.context_bundle_policy.compact_max_chunks" />
             </label>
             <label>Standard max. Chunks
               <input type="number" min="1" max="50" [(ngModel)]="config.context_bundle_policy.standard_max_chunks" />
+            </label>
+            <label>Compact Budget Tokens
+              <input type="number" min="4096" max="131072" step="256" [(ngModel)]="config.context_bundle_policy.compact_budget_tokens" />
+            </label>
+            <label>Standard Budget Tokens
+              <input type="number" min="4096" max="131072" step="256" [(ngModel)]="config.context_bundle_policy.standard_budget_tokens" />
+            </label>
+            <label>Full Budget Tokens
+              <input type="number" min="4096" max="131072" step="256" [(ngModel)]="config.context_bundle_policy.full_budget_tokens" />
             </label>
           </div>
           <div class="grid cols-2 mt-lg">
@@ -681,6 +736,22 @@ function createDefaultSettingsConfig(): any {
             <div>
               <div class="muted">Effektive Chunk-Grenze</div>
               <div>{{ getEffectiveContextBundlePolicy().max_chunks ?? 'unbegrenzt / Vollkontext' }}</div>
+            </div>
+            <div>
+              <div class="muted">Effektives Budget</div>
+              <div>{{ getEffectiveContextBundlePolicy().total_budget_tokens }} Tokens</div>
+            </div>
+            <div>
+              <div class="muted">Effektive Strategie</div>
+              <div>{{ getEffectiveContextBundlePolicy().bundle_strategy }} / {{ getEffectiveContextBundlePolicy().explainability_level }}</div>
+            </div>
+            <div>
+              <div class="muted">Chunk-Text-Stil</div>
+              <div>{{ getEffectiveContextBundlePolicy().chunk_text_style }}</div>
+            </div>
+            <div>
+              <div class="muted">Window-Profil</div>
+              <div>{{ getEffectiveContextBundlePolicy().window_profile }}</div>
             </div>
           </div>
           <div class="row mt-lg">
