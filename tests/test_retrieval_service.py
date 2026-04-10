@@ -39,6 +39,29 @@ class _FakeOrchestrator:
         }
 
 
+class _FakeRedactingOrchestrator(_FakeOrchestrator):
+    def _redact(self, text: str) -> str:
+        return str(text or "").replace("sk-secret-token-1234567890", "[REDACTED]")
+
+    def get_relevant_context(self, query: str) -> dict[str, object]:
+        return {
+            "query": query,
+            "strategy": {"repository_map": 1, "raw_query": "sk-secret-token-1234567890"},
+            "policy_version": "v1",
+            "chunks": [
+                {
+                    "engine": "repository_map",
+                    "source": "secrets/sk-secret-token-1234567890.txt",
+                    "score": 1.0,
+                    "content": "api key sk-secret-token-1234567890",
+                    "metadata": {"token_hint": "sk-secret-token-1234567890"},
+                }
+            ],
+            "context_text": "[repository_map] secrets/sk-secret-token-1234567890.txt\napi key sk-secret-token-1234567890",
+            "token_estimate": 4,
+        }
+
+
 class _FakeKnowledgeIndexRetrievalService:
     def search(self, query: str, *, top_k: int, task_kind=None, retrieval_intent=None):
         self.last_top_k = top_k
@@ -84,6 +107,7 @@ def test_retrieval_service_merges_knowledge_index_chunks():
     assert knowledge.last_top_k >= 1
     assert payload["strategy"]["fusion"]["mode"] == "deterministic_v2"
     assert payload["strategy"]["fusion"]["candidate_counts"]["knowledge_index"] == 1
+    assert isinstance(payload["strategy"]["fusion"]["final_ranked_sources"], list)
 
 
 def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
@@ -149,3 +173,52 @@ def test_retrieval_service_includes_result_memory_for_neighbor_tasks():
     assert payload["strategy"]["result_memory"] == 1
     assert payload["strategy"]["result_memory_reason"] == "ok"
     assert "result_memory" in [chunk["engine"] for chunk in payload["chunks"]]
+
+
+def test_retrieval_service_prefers_structured_result_memory_document():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    memory_repo = _FakeMemoryEntryRepo()
+    memory_repo._by_task["task-parent-1"] = [
+        type(
+            "Entry",
+            (),
+            {
+                "id": "mem-2",
+                "task_id": "task-parent-1",
+                "title": "Refactor parser",
+                "summary": "Parser refactoring done",
+                "content": "Long raw content that should be superseded",
+                "retrieval_tags": ["refactor", "completed"],
+                "entry_type": "worker_result",
+                "memory_metadata": {
+                    "retrieval_document": "summary: parser refactor\nchanged_files: app/parser.py\ntests: passed_signal=True; failed_signal=False",
+                    "structured_summary": {"focus_terms": ["parser", "refactor"]},
+                    "memory_format": "worker_result_compact_v2",
+                },
+            },
+        )()
+    ]
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=memory_repo)
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("parser refactor", task_id="task-parent-1")
+
+    memory_chunk = next(chunk for chunk in payload["chunks"] if chunk["engine"] == "result_memory")
+    assert "changed_files: app/parser.py" in memory_chunk["content"]
+    assert (memory_chunk.get("metadata") or {}).get("memory_format") == "worker_result_compact_v2"
+
+
+def test_retrieval_service_redacts_sensitive_debug_fields_in_strategy_and_sources():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeRedactingOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("expose sk-secret-token-1234567890")
+
+    assert "sk-secret-token-1234567890" not in payload["context_text"]
+    assert "sk-secret-token-1234567890" not in str(payload["strategy"])
+    for chunk in payload["chunks"]:
+        assert "sk-secret-token-1234567890" not in str(chunk.get("source") or "")
+        assert "sk-secret-token-1234567890" not in str(chunk.get("metadata") or {})

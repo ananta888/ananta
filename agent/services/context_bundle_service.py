@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
+
 from agent.config import settings
 from agent.metrics import RAG_BUNDLE_BUDGET_UTILIZATION, RAG_BUNDLE_DUPLICATE_RATE, RAG_BUNDLE_NOISE_RATE
+from agent.hybrid_context_support import redact_sensitive_text
 
 CONTEXT_BUNDLE_POLICY_MODES = {"compact", "standard", "full"}
 CONTEXT_WINDOW_PROFILES = {"compact_12k", "standard_32k", "full_64k"}
@@ -10,6 +13,11 @@ DEFAULT_BUNDLE_BUDGET_BY_MODE = {
     "standard": 32000,
     "full": 64000,
 }
+DEBUG_REDACTION_PATTERNS = [
+    re.compile(r"\b(sk-[A-Za-z0-9_-]{12,})\b"),
+    re.compile(r"\b(AKIA[0-9A-Z]{16})\b"),
+    re.compile(r"\b([A-Za-z0-9_]*(?:token|password|secret|apikey|api_key)[A-Za-z0-9_]*\s*[:=]\s*['\"]?[^'\"\s]{6,})", re.I),
+]
 
 
 def normalize_context_bundle_policy_config(value: dict | None) -> dict[str, object]:
@@ -209,12 +217,12 @@ class ContextBundleService:
                 sources.append(
                     {
                         "engine": engine,
-                        "source": source,
+                        "source": self._redact_debug_value(source),
                         "score": chunk.get("score"),
                         "record_kind": chunk_type,
                         "artifact_id": artifact_id,
                         "knowledge_index_id": knowledge_index_id,
-                        "collection_names": metadata.get("collection_names") or [],
+                        "collection_names": self._redact_debug_value(metadata.get("collection_names") or []),
                     }
                 )
 
@@ -228,6 +236,17 @@ class ContextBundleService:
             "source_count": len(sources),
             "sources": sources,
         }
+
+    def _redact_debug_value(self, value):
+        if not bool(getattr(settings, "rag_redact_sensitive", True)):
+            return value
+        if isinstance(value, dict):
+            return {str(key): self._redact_debug_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._redact_debug_value(item) for item in value]
+        if isinstance(value, str):
+            return redact_sensitive_text(value, DEBUG_REDACTION_PATTERNS)
+        return value
 
     def _mode_profile(self, mode: str) -> dict[str, object]:
         normalized = str(mode or "full").strip().lower()
@@ -281,7 +300,7 @@ class ContextBundleService:
         if mode == "compact":
             payload.pop("collection_ids", None)
             payload.pop("knowledge_index_ids", None)
-        return payload
+        return dict(self._redact_debug_value(payload) or {})
 
     def _build_why_this_context(
         self,
@@ -327,12 +346,12 @@ class ContextBundleService:
         summary_parts.append(f"selected_chunks={len(chunks)}")
         summary_parts.append(f"mode={mode}")
         return {
-            "summary": " | ".join(summary_parts),
+            "summary": self._redact_debug_value(" | ".join(summary_parts)),
             "task_kind": str(task_kind or "").strip() or None,
             "retrieval_intent": str(retrieval_intent or "").strip() or None,
             "required_context_scope": str(required_context_scope or "").strip() or None,
             "mode": mode,
-            "top_sources": top_sources,
+            "top_sources": self._redact_debug_value(top_sources),
         }
 
     def build_bundle(
@@ -410,6 +429,7 @@ class ContextBundleService:
             "knowledge_index_reason": strategy.get("knowledge_index_reason"),
             "result_memory_reason": strategy.get("result_memory_reason"),
         }
+        payload["selection_trace"] = self._redact_debug_value(payload["selection_trace"])
         payload["context_policy"] = {
             "mode": effective_mode,
             "include_context_text": bool(include_context_text),

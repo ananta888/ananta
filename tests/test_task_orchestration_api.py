@@ -219,3 +219,62 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
     assert (context_summary.get("context_policy") or {}).get("bundle_strategy") == "balanced"
     assert (context_summary.get("selection_trace") or {}).get("knowledge_index_reason") == "query_overlap"
     assert (context_summary.get("top_sources") or [])[0].get("source") == "docs/flow.md"
+
+
+def test_orchestration_read_model_exposes_task_dependency_neighborhood(client, auth_header):
+    from agent.db_models import TaskDB
+    from agent.repository import task_repo
+
+    upstream = task_repo.save(
+        TaskDB(
+            id="NEIGH-UP-1",
+            title="Prepare module",
+            description="desc",
+            status="completed",
+            goal_id="goal-neigh-1",
+            parent_task_id="PARENT-NEIGH-1",
+        )
+    )
+    center = task_repo.save(
+        TaskDB(
+            id="NEIGH-CENTER-1",
+            title="Implement center",
+            description="desc",
+            status="in_progress",
+            goal_id="goal-neigh-1",
+            parent_task_id="PARENT-NEIGH-1",
+            depends_on=[upstream.id],
+        )
+    )
+    downstream = task_repo.save(
+        TaskDB(
+            id="NEIGH-DOWN-1",
+            title="Verify center",
+            description="desc",
+            status="todo",
+            goal_id="goal-neigh-1",
+            parent_task_id="PARENT-NEIGH-1",
+            depends_on=[center.id],
+        )
+    )
+    sibling = task_repo.save(
+        TaskDB(
+            id="NEIGH-SIB-1",
+            title="Sibling task",
+            description="desc",
+            status="todo",
+            goal_id="goal-neigh-1",
+            parent_task_id="PARENT-NEIGH-1",
+        )
+    )
+
+    res = client.get("/tasks/orchestration/read-model", headers=auth_header)
+    assert res.status_code == 200
+    recent = (res.json.get("data") or {}).get("recent_tasks") or []
+    row = next((item for item in recent if item.get("id") == center.id), None)
+    assert row is not None
+    neighborhood = row.get("task_neighborhood") or {}
+    assert upstream.id in (neighborhood.get("depends_on") or [])
+    assert downstream.id in (neighborhood.get("downstream") or [])
+    assert sibling.id in (neighborhood.get("siblings") or [])
+    assert upstream.id in (neighborhood.get("related") or [])

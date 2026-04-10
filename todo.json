@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
   "created": "2026-04-10",
-  "updated": "2026-04-10T16:53:14Z",
+  "updated": "2026-04-10T17:29:17Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -96,7 +96,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Determinism, Explainability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/retrieval_service.py",
@@ -327,7 +327,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "End-to-End-Alignment, Explicitness",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/tasks/orchestration.py",
@@ -353,7 +353,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Memory-Compression, Iterative-Scalability",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/result_memory_service.py",
@@ -379,7 +379,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Dependency-Awareness, Reuse",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/orchestration.py",
@@ -507,7 +507,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Security, Least-Exposure",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/retrieval_service.py",
@@ -527,8 +527,8 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 8,
-      "partial": 12,
+      "completed": 13,
+      "partial": 7,
       "open": 0
     },
     "notes": [

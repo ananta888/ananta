@@ -156,6 +156,12 @@ class TestAutoPlanner:
 
         assert nodes[0].rationale["task_kind"] == "coding"
         assert nodes[1].rationale["task_kind"] == "testing"
+        assert nodes[0].rationale["retrieval_intent"] == "symbol_and_dependency_neighborhood"
+        assert nodes[0].rationale["required_context_scope"] == "module_and_related_symbols"
+        assert nodes[0].rationale["preferred_bundle_mode"] == "standard"
+        assert "coding" in (nodes[0].rationale.get("required_capabilities") or [])
+        assert nodes[1].rationale["retrieval_intent"] == "localize_failure_and_fix"
+        assert "testing" in (nodes[1].rationale.get("required_capabilities") or [])
         assert nodes[0].verification_spec["tests"] is True
         assert nodes[1].verification_spec["tests"] is True
 
@@ -212,6 +218,41 @@ class TestAutoPlanner:
 
         assert len(result["created_task_ids"]) == 2
         assert result.get("error") is None
+
+    def test_plan_goal_materializes_task_context_hints(self, app, monkeypatch):
+        mock_response = json.dumps(
+            [
+                {"title": "Implement helper", "description": "Implement Python helper function", "priority": "High"},
+                {"title": "Write tests", "description": "Add pytest regression tests", "priority": "Medium", "depends_on": ["1"]},
+            ]
+        )
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False)
+
+        with app.app_context():
+            result = planner.plan_goal("Implement helper milestone", create_tasks=True, use_template=False, use_repo_context=False)
+            from agent.repository import task_repo
+
+            first = task_repo.get_by_id(result["created_task_ids"][0])
+            second = task_repo.get_by_id(result["created_task_ids"][1])
+
+        assert result.get("error") is None
+        assert first is not None
+        assert second is not None
+        assert first.task_kind == "coding"
+        assert first.retrieval_intent == "symbol_and_dependency_neighborhood"
+        assert first.required_context_scope == "module_and_related_symbols"
+        assert first.preferred_bundle_mode == "standard"
+        assert "coding" in (first.required_capabilities or [])
+        assert second.task_kind == "testing"
+        assert second.retrieval_intent == "localize_failure_and_fix"
+        assert second.depends_on
 
     def test_plan_goal_marks_unstructured_llm_response(self, app, monkeypatch):
         monkeypatch.setattr(

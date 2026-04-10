@@ -82,6 +82,42 @@ def _context_bundle_summary(task: dict) -> dict | None:
     }
 
 
+def _task_neighborhood_summary(task: dict, *, tasks: list[dict]) -> dict:
+    task_id = str(task.get("id") or "").strip()
+    parent_id = str(task.get("parent_task_id") or "").strip()
+    goal_id = str(task.get("goal_id") or "").strip()
+    depends_on = [str(item).strip() for item in list(task.get("depends_on") or []) if str(item).strip()]
+
+    downstream_ids: list[str] = []
+    sibling_ids: list[str] = []
+    goal_neighbor_ids: list[str] = []
+    for item in tasks:
+        item_id = str(item.get("id") or "").strip()
+        if not item_id or item_id == task_id:
+            continue
+        item_depends_on = [str(dep).strip() for dep in list(item.get("depends_on") or []) if str(dep).strip()]
+        if task_id and task_id in item_depends_on and item_id not in downstream_ids:
+            downstream_ids.append(item_id)
+        if parent_id and str(item.get("parent_task_id") or "").strip() == parent_id and item_id not in sibling_ids:
+            sibling_ids.append(item_id)
+        if goal_id and str(item.get("goal_id") or "").strip() == goal_id and item_id not in goal_neighbor_ids:
+            goal_neighbor_ids.append(item_id)
+
+    related: list[str] = []
+    for value in [*depends_on, *downstream_ids, *sibling_ids, *goal_neighbor_ids]:
+        if value and value != task_id and value not in related:
+            related.append(value)
+        if len(related) >= 16:
+            break
+    return {
+        "depends_on": depends_on,
+        "downstream": downstream_ids[:12],
+        "siblings": sibling_ids[:12],
+        "goal_neighbors": goal_neighbor_ids[:12],
+        "related": related,
+    }
+
+
 def build_orchestration_read_model(tasks: list[dict]) -> dict:
     """
     Build a read model for orchestration status.
@@ -137,6 +173,7 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
                     None,
                 ),
                 "context_bundle_summary": _context_bundle_summary(t),
+                "task_neighborhood": _task_neighborhood_summary(t, tasks=tasks),
             }
             for t in recent
         ],

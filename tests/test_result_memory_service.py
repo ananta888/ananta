@@ -50,6 +50,9 @@ def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
     assert "completed" in entry.retrieval_tags
     assert entry.artifact_refs[0]["kind"] == "task_output"
     assert (entry.memory_metadata or {}).get("compacted_summary") is not None
+    assert (entry.memory_metadata or {}).get("memory_format") == "worker_result_compact_v2"
+    assert isinstance(((entry.memory_metadata or {}).get("structured_summary") or {}).get("focus_terms"), list)
+    assert isinstance((entry.memory_metadata or {}).get("retrieval_document"), str)
     assert isinstance((entry.memory_metadata or {}).get("bullet_points"), list)
 
 

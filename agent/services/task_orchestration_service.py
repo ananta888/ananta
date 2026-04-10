@@ -189,11 +189,15 @@ class TaskOrchestrationService:
         task_rows = repos.task_repo.get_all()
         sibling_ids: list[str] = []
         completed_neighbor_ids: list[str] = []
+        dependent_task_ids: list[str] = []
         for row in task_rows:
             item = row.model_dump()
             item_id = str(item.get("id") or "").strip()
             if not item_id or item_id == parent_task_id:
                 continue
+            item_depends_on = [str(dep).strip() for dep in list(item.get("depends_on") or []) if str(dep).strip()]
+            if parent_task_id and parent_task_id in item_depends_on:
+                dependent_task_ids.append(item_id)
             if parent_parent_id and str(item.get("parent_task_id") or "").strip() == parent_parent_id:
                 sibling_ids.append(item_id)
             if goal_id and str(item.get("goal_id") or "").strip() == goal_id:
@@ -202,13 +206,14 @@ class TaskOrchestrationService:
                     completed_neighbor_ids.append(item_id)
 
         ordered_neighbors: list[str] = []
-        for task_id in [*depends_on, *sibling_ids, *completed_neighbor_ids]:
+        for task_id in [*depends_on, *dependent_task_ids, *sibling_ids, *completed_neighbor_ids]:
             if task_id and task_id != parent_task_id and task_id not in ordered_neighbors:
                 ordered_neighbors.append(task_id)
             if len(ordered_neighbors) >= 12:
                 break
         return {
             "depends_on_task_ids": depends_on,
+            "dependent_task_ids": dependent_task_ids[:12],
             "sibling_task_ids": sibling_ids[:12],
             "completed_neighbor_task_ids": completed_neighbor_ids[:12],
             "neighbor_task_ids": ordered_neighbors[:12],
