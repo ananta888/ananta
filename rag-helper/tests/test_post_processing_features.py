@@ -70,6 +70,29 @@ class _JpaJavaExtractorWithUnnamedAssociation(_DuplicateJavaExtractor):
         }], [], [], {"kind": "java", "file": rel_path}
 
 
+class _RichJavaExtractor(_DuplicateJavaExtractor):
+    def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
+        return [{
+            "kind": "java_type",
+            "file": rel_path,
+            "id": "java_type:PaymentService",
+            "name": "PaymentService",
+            "type_kind": "class",
+            "fields": [
+                {"name": "retryPolicy", "type": "RetryPolicy", "annotations": []},
+                {"name": "invoiceRepository", "type": "InvoiceRepository", "annotations": []},
+            ],
+            "methods": [
+                {"name": "retryTimeout", "return_type": "void", "annotations": ["@Transactional"]},
+                {"name": "loadInvoice", "return_type": "Invoice", "annotations": []},
+                {"name": "emitMetric", "return_type": "void", "annotations": []},
+            ],
+            "role_labels": ["service"],
+            "annotations": ["@Service"],
+            "embedding_text": "service",
+        }], [], [], {"kind": "java", "file": rel_path}
+
+
 class _PomXmlExtractor:
     def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs
@@ -334,6 +357,43 @@ class PostProcessingFeatureTests(unittest.TestCase):
 
             jpa_chunk = next(item for item in details if item["kind"] == "jpa_entity_chunk")
             self.assertEqual(jpa_chunk["association_fields"], [])
+
+    def test_specialized_chunkers_build_focused_java_member_chunks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "PaymentService.java").write_text("class PaymentService {}", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"java"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(specialized_chunker_mode="basic"),
+                java_extractor_cls=_RichJavaExtractor,
+                adoc_extractor_cls=_NoopExtractor,
+                xml_extractor_cls=_NoopExtractor,
+                xsd_extractor_cls=_NoopExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            details = [
+                json.loads(line)
+                for line in (out_dir / "details.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            member_chunk = next(item for item in details if item["kind"] == "java_member_chunk")
+            self.assertEqual(member_chunk["chunk_granularity"], "member_group")
+            self.assertEqual(member_chunk["retrieval_focus"], "type_member_neighborhood")
+            self.assertIn("retryTimeout", member_chunk["focus_terms"])
+            self.assertGreaterEqual(manifest["specialized_chunks"]["java_member_chunk_count"], 1)
 
     def test_builds_java_module_and_build_summaries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

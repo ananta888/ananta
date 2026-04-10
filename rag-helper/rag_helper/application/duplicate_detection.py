@@ -40,6 +40,8 @@ def build_duplicate_report(index_records: list[dict], mode: str) -> tuple[dict |
                 "weight": 1,
                 "confidence": 0.75,
                 "heuristic": "normalized_structure_signature",
+                "duplicate_group_size": len(records),
+                "duplicate_signature": _duplicate_signature(records[0]),
                 "from": left.get("id"),
                 "to": right.get("id"),
                 "type": "duplicate_candidate",

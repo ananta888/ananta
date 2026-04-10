@@ -58,6 +58,7 @@ class KnowledgeIndexRetrievalService:
         "policy",
     )
     RELATION_KIND_MARKERS = ("relation", "edge", "link", "reference", "dependency", "call", "import")
+    BROAD_SUMMARY_KIND_MARKERS = ("summary", "overview")
 
     def __init__(self, knowledge_index_repository=None, knowledge_link_repository=None) -> None:
         self._knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
@@ -156,6 +157,10 @@ class KnowledgeIndexRetrievalService:
             "file_kind_weights": {"code": 1.0, "doc": 1.0, "config": 1.0},
             "symbol_multiplier": 1.0,
             "relation_bonus": 0.0,
+            "importance_weight": 0.08,
+            "duplicate_penalty": 0.12,
+            "generated_penalty": 0.18,
+            "boilerplate_penalty": 0.08,
         }
         if normalized_kind in {"bugfix", "implement", "coding", "refactor", "test", "testing"}:
             profile["record_kind_weights"]["code"] = 1.25
@@ -163,14 +168,18 @@ class KnowledgeIndexRetrievalService:
             profile["file_kind_weights"]["code"] = 1.2
             profile["symbol_multiplier"] = 1.15
             profile["relation_bonus"] = 0.35
+            profile["importance_weight"] = 0.12
+            profile["duplicate_penalty"] = 0.18
         if normalized_kind in {"architecture", "analysis", "doc", "research"}:
             profile["record_kind_weights"]["doc"] = 1.3
             profile["record_kind_weights"]["relation"] = 1.1
             profile["file_kind_weights"]["doc"] = 1.25
+            profile["boilerplate_penalty"] = 0.14
         if normalized_kind in {"config", "xml", "ops"}:
             profile["file_kind_weights"]["config"] = 1.35
             profile["record_kind_weights"]["code"] = 1.1
             profile["relation_bonus"] = 0.2
+            profile["generated_penalty"] = 0.12
 
         if "architecture" in normalized_intent or "overview" in normalized_intent:
             profile["record_kind_weights"]["doc"] = max(1.35, profile["record_kind_weights"]["doc"])
@@ -179,6 +188,9 @@ class KnowledgeIndexRetrievalService:
             profile["record_kind_weights"]["code"] = max(1.35, profile["record_kind_weights"]["code"])
             profile["record_kind_weights"]["relation"] = max(1.2, profile["record_kind_weights"]["relation"])
             profile["symbol_multiplier"] = max(1.2, profile["symbol_multiplier"])
+            profile["importance_weight"] = max(0.14, float(profile["importance_weight"]))
+        if "dependency" in normalized_intent or "neighbor" in normalized_intent or "symbol" in normalized_intent:
+            profile["relation_bonus"] = max(0.4, float(profile["relation_bonus"]))
 
         return profile
 
@@ -197,7 +209,46 @@ class KnowledgeIndexRetrievalService:
             "relations": _join(("relation", "relations", "parents", "children", "depends_on", "references")),
             "summary": _join(("summary",)),
             "content": _join(("content", "text", "description", "snippet")),
+            "focus": _join(
+                (
+                    "focus_terms",
+                    "retrieval_focus",
+                    "role_labels",
+                    "framework_roles",
+                    "member_names",
+                    "member_kinds",
+                    "chunk_granularity",
+                    "domain",
+                    "embedding_text",
+                )
+            ),
         }
+
+    def _duplicate_candidate_ids(self, records: list[tuple[str, dict[str, Any]]]) -> set[str]:
+        duplicate_ids: set[str] = set()
+        for _filename, record in records:
+            relation = str(record.get("relation") or record.get("type") or "").strip().lower()
+            if relation != "duplicate_candidate":
+                continue
+            for key in ("from", "to", "source_id", "target_resolved"):
+                value = str(record.get(key) or "").strip()
+                if value:
+                    duplicate_ids.add(value)
+        return duplicate_ids
+
+    def _is_boilerplate_candidate(self, record: dict[str, Any], *, source_hint: str, record_kind: str) -> bool:
+        source_lower = str(source_hint or "").lower()
+        role_labels = {str(item).strip().lower() for item in list(record.get("role_labels") or []) if str(item).strip()}
+        if record.get("generated_code"):
+            return True
+        if any(marker in source_lower for marker in ("generated/", "generated\\", "target/", "build/generated")):
+            return True
+        if "dto" in role_labels or "value_object" in role_labels:
+            return True
+        normalized_kind = str(record_kind or "").strip().lower()
+        if any(marker in normalized_kind for marker in self.BROAD_SUMMARY_KIND_MARKERS):
+            return True
+        return False
 
     def _record_kind_bucket(self, record_kind: str) -> str:
         normalized = str(record_kind or "").strip().lower()
@@ -235,11 +286,13 @@ class KnowledgeIndexRetrievalService:
         self,
         *,
         query: str,
+        record: dict[str, Any],
         query_features: dict[str, list[str]],
         field_texts: dict[str, str],
         record_kind: str,
         source_hint: str,
         profile: dict[str, Any],
+        duplicate_ids: set[str],
     ) -> tuple[float, dict[str, float]]:
         query_tokens = list(query_features.get("tokens") or [])
         symbol_tokens = list(query_features.get("symbols") or [])
@@ -253,6 +306,7 @@ class KnowledgeIndexRetrievalService:
             "relations": 2.0,
             "summary": 1.5,
             "content": 1.0,
+            "focus": 1.9,
         }
         weighted_hits = {
             field: self._weighted_token_hits(query_tokens, field_texts.get(field, ""), weight)
@@ -278,7 +332,18 @@ class KnowledgeIndexRetrievalService:
         record_multiplier = float((profile.get("record_kind_weights") or {}).get(record_bucket, 1.0))
         file_multiplier = float((profile.get("file_kind_weights") or {}).get(file_bucket, 1.0))
         base_score = sum(weighted_hits.values()) + symbol_hit_score + phrase_bonus + relation_signal
-        score = base_score * record_multiplier * file_multiplier
+        importance_score = float(record.get("importance_score") or 0.0)
+        importance_boost = min(0.45, importance_score * float(profile.get("importance_weight", 0.0)))
+        record_id = str(record.get("id") or "").strip()
+        duplicate_penalty = float(profile.get("duplicate_penalty", 0.0)) if record_id and record_id in duplicate_ids else 0.0
+        generated_penalty = float(profile.get("generated_penalty", 0.0)) if bool(record.get("generated_code")) else 0.0
+        boilerplate_penalty = (
+            float(profile.get("boilerplate_penalty", 0.0))
+            if self._is_boilerplate_candidate(record, source_hint=source_hint, record_kind=record_kind)
+            else 0.0
+        )
+        quality_multiplier = max(0.35, 1.0 + importance_boost - duplicate_penalty - generated_penalty - boilerplate_penalty)
+        score = base_score * record_multiplier * file_multiplier * quality_multiplier
         return score, {
             "base_score": round(base_score, 4),
             "record_multiplier": round(record_multiplier, 4),
@@ -286,6 +351,11 @@ class KnowledgeIndexRetrievalService:
             "symbol_hit_score": round(symbol_hit_score, 4),
             "relation_signal": round(relation_signal, 4),
             "phrase_bonus": round(phrase_bonus, 4),
+            "importance_boost": round(importance_boost, 4),
+            "duplicate_penalty": round(duplicate_penalty, 4),
+            "generated_penalty": round(generated_penalty, 4),
+            "boilerplate_penalty": round(boilerplate_penalty, 4),
+            "quality_multiplier": round(quality_multiplier, 4),
             "final_score": round(score, 4),
         }
 
@@ -312,7 +382,9 @@ class KnowledgeIndexRetrievalService:
             output_dir = Path(output_dir_raw)
             if not output_dir.exists():
                 continue
-            for filename, record in self._iter_output_records(output_dir):
+            output_records = list(self._iter_output_records(output_dir))
+            duplicate_ids = self._duplicate_candidate_ids(output_records)
+            for filename, record in output_records:
                 source = str(record.get("file") or record.get("path") or getattr(knowledge_index, "artifact_id", "knowledge-index"))
                 record_text = self._record_text(record)
                 if not record_text:
@@ -321,11 +393,13 @@ class KnowledgeIndexRetrievalService:
                 field_texts = self._record_field_texts(record, source)
                 score, breakdown = self._score_record(
                     query=query,
+                    record=record,
                     query_features=query_features,
                     field_texts=field_texts,
                     record_kind=record_kind,
                     source_hint=source,
                     profile=profile,
+                    duplicate_ids=duplicate_ids,
                 )
                 if score <= 0:
                     continue
@@ -347,6 +421,14 @@ class KnowledgeIndexRetrievalService:
                             "retrieval_score_breakdown": breakdown,
                             "task_kind": str(task_kind or "").strip() or None,
                             "retrieval_intent": str(retrieval_intent or "").strip() or None,
+                            "importance_score": record.get("importance_score"),
+                            "generated_code": bool(record.get("generated_code", False)),
+                            "duplicate_candidate": bool(str(record.get("id") or "").strip() in duplicate_ids),
+                            "boilerplate_candidate": self._is_boilerplate_candidate(
+                                record,
+                                source_hint=source,
+                                record_kind=record_kind,
+                            ),
                         },
                     )
                 )

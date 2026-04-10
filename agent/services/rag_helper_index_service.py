@@ -77,6 +77,90 @@ class RagHelperIndexService:
                 "include_xml_node_details": True,
             },
         },
+        "subtask_bugfix_local": {
+            "label": "Subtask Bugfix Local",
+            "description": "Fokussiert auf lokale Fehleranalyse, relevante Nachbarschaft und moeglichst kompakte Debug-Kontexte.",
+            "task_kinds": ["bugfix", "testing", "test"],
+            "retrieval_intents": ["localize_failure_and_fix", "localize bug", "execution_focused_context"],
+            "limits": {
+                "max_workers": 1,
+                "embedding_text_mode": "compact",
+                "retrieval_output_mode": "both",
+                "graph_export_mode": "off",
+                "benchmark_mode": "off",
+                "duplicate_detection_mode": "basic",
+                "specialized_chunker_mode": "basic",
+                "output_bundle_mode": "off",
+            },
+            "options": {
+                "include_code_snippets": True,
+                "exclude_trivial_methods": True,
+                "include_xml_node_details": False,
+            },
+        },
+        "subtask_refactor_navigation": {
+            "label": "Subtask Refactor Navigation",
+            "description": "Balanciert Struktur, Symbol-Nachbarschaft und fokussierte Member-Chunks fuer Refactorings.",
+            "task_kinds": ["refactor", "implement", "coding"],
+            "retrieval_intents": ["symbol_and_dependency_neighborhood", "execution_focused_context"],
+            "limits": {
+                "max_workers": 1,
+                "embedding_text_mode": "compact",
+                "retrieval_output_mode": "both",
+                "graph_export_mode": "jsonl",
+                "benchmark_mode": "off",
+                "duplicate_detection_mode": "basic",
+                "specialized_chunker_mode": "basic",
+                "output_bundle_mode": "off",
+            },
+            "options": {
+                "include_code_snippets": True,
+                "exclude_trivial_methods": False,
+                "include_xml_node_details": False,
+            },
+        },
+        "subtask_architecture_review": {
+            "label": "Subtask Architecture Review",
+            "description": "Bevorzugt Architektur-, Vertrags- und Uebersichtskontext fuer Analyse und Designentscheidungen.",
+            "task_kinds": ["architecture", "analysis", "doc", "research"],
+            "retrieval_intents": ["architecture_and_decision_context"],
+            "limits": {
+                "max_workers": 1,
+                "embedding_text_mode": "compact",
+                "retrieval_output_mode": "split",
+                "graph_export_mode": "jsonl",
+                "benchmark_mode": "off",
+                "duplicate_detection_mode": "basic",
+                "specialized_chunker_mode": "basic",
+                "output_bundle_mode": "off",
+            },
+            "options": {
+                "include_code_snippets": False,
+                "exclude_trivial_methods": True,
+                "include_xml_node_details": False,
+            },
+        },
+        "subtask_config_integration": {
+            "label": "Subtask Config Integration",
+            "description": "Zielt auf XML-, Konfigurations- und Integrationskanten fuer runtime-nahe Subtasks.",
+            "task_kinds": ["config", "xml", "ops"],
+            "retrieval_intents": ["configuration_contracts_and_runtime_edges"],
+            "limits": {
+                "max_workers": 1,
+                "embedding_text_mode": "compact",
+                "retrieval_output_mode": "both",
+                "graph_export_mode": "off",
+                "benchmark_mode": "off",
+                "duplicate_detection_mode": "basic",
+                "specialized_chunker_mode": "basic",
+                "output_bundle_mode": "off",
+            },
+            "options": {
+                "include_code_snippets": False,
+                "exclude_trivial_methods": True,
+                "include_xml_node_details": True,
+            },
+        },
     }
     PROFILE_SECTION_KEYS = {"filters", "limits", "modes", "resolution", "cache", "output", "flags"}
     PROFILE_KEY_ALIASES = {
@@ -206,6 +290,8 @@ class RagHelperIndexService:
                     "description": profile["description"],
                     "limits": dict(profile["limits"]),
                     "options": dict(profile["options"]),
+                    "task_kinds": list(profile.get("task_kinds") or []),
+                    "retrieval_intents": list(profile.get("retrieval_intents") or []),
                     "flags": {"incremental": False, "resume": False, "progress": False},
                     "source": "built_in",
                     "is_default": name == self.DEFAULT_PROFILE_NAME,
@@ -254,6 +340,8 @@ class RagHelperIndexService:
                         "exclude_trivial_methods": bool(config.get("exclude_trivial_methods", False)),
                         "include_xml_node_details": not bool(config.get("no_xml_node_details", False)),
                     },
+                    "task_kinds": list(config.get("task_kinds") or []),
+                    "retrieval_intents": list(config.get("retrieval_intent") or config.get("retrieval_intents") or []),
                     "flags": {
                         "incremental": bool(config.get("incremental", False)),
                         "resume": bool(config.get("resume", False)),
@@ -265,6 +353,34 @@ class RagHelperIndexService:
                 }
             )
         return items
+
+    def suggest_profile_name(
+        self,
+        *,
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+        required_context_scope: str | None = None,
+    ) -> str:
+        normalized_kind = str(task_kind or "").strip().lower()
+        normalized_intent = str(retrieval_intent or "").strip().lower()
+        normalized_scope = str(required_context_scope or "").strip().lower()
+        if normalized_kind in {"bugfix", "testing", "test"} or any(
+            token in normalized_intent for token in ("bug", "failure", "fix")
+        ):
+            return "subtask_bugfix_local"
+        if normalized_kind in {"architecture", "analysis", "doc", "research"} or any(
+            token in normalized_intent for token in ("architecture", "decision", "overview")
+        ):
+            return "subtask_architecture_review"
+        if normalized_kind in {"config", "xml", "ops"} or any(
+            token in normalized_scope for token in ("config", "integration", "runtime")
+        ):
+            return "subtask_config_integration"
+        if normalized_kind in {"refactor", "implement", "coding"} or any(
+            token in normalized_intent for token in ("dependency", "symbol", "execution")
+        ):
+            return "subtask_refactor_navigation"
+        return self.DEFAULT_PROFILE_NAME
 
     def _ensure_helper_imports(self) -> dict[str, Any]:
         helper_root = self._rag_helper_root().resolve()

@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
   "created": "2026-04-10",
-  "updated": "2026-04-10T17:29:17Z",
+  "updated": "2026-04-10T18:05:33Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Relevance, Correctness",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/knowledge_index_retrieval_service.py",
@@ -46,7 +46,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Context-Fit, Task-Awareness",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/retrieval_service.py",
@@ -71,7 +71,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Scalability, Precision",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/retrieval_service.py",
@@ -226,7 +226,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Retrieval-Friendliness, Structure-Preservation",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "rag-helper/codecompass_rag.py",
@@ -247,7 +247,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Task-Awareness, Reusability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/rag_helper_index_service.py",
@@ -271,7 +271,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Chunk-Quality, Signal-to-Noise",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "rag-helper/codecompass_rag.py",
@@ -296,7 +296,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Noise-Reduction, Efficiency",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "rag-helper/rag_helper/application/duplicate_detection.py",
@@ -527,8 +527,8 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 13,
-      "partial": 7,
+      "completed": 20,
+      "partial": 0,
       "open": 0
     },
     "notes": [

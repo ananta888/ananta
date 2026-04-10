@@ -24,6 +24,7 @@ def build_specialized_chunks(
     extra_details.extend(_build_xsd_schema_chunks(index_records, extra_relations, stats, embedding_text_mode))
     extra_details.extend(_build_adoc_architecture_chunks(index_records, extra_relations, stats, embedding_text_mode))
     extra_details.extend(_build_jpa_entity_chunks(index_records, extra_relations, stats, embedding_text_mode))
+    extra_details.extend(_build_type_member_chunks(index_records, extra_relations, stats, embedding_text_mode))
 
     return extra_details, extra_relations, dict(stats)
 
@@ -236,4 +237,115 @@ def _build_jpa_entity_chunks(index_records, extra_relations, stats, embedding_te
             ),
         })
         stats["jpa_entity_chunk_count"] += 1
+    return chunks
+
+
+def _chunked(values, size):
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
+def _build_type_member_chunks(index_records, extra_relations, stats, embedding_text_mode):
+    chunks = []
+    for record in index_records:
+        record_kind = record.get("kind")
+        if record_kind not in {"java_type", "cs_type"}:
+            continue
+        type_id = record.get("id")
+        type_name = record.get("name")
+        if not type_id or not type_name:
+            continue
+
+        members = []
+        for field in record.get("fields", []):
+            name = str(field.get("name") or "").strip()
+            if not name:
+                continue
+            members.append(
+                {
+                    "kind": "field",
+                    "name": name,
+                    "type": str(field.get("type") or "").strip(),
+                    "annotations": [str(item).strip() for item in list(field.get("annotations") or []) if str(item).strip()],
+                }
+            )
+        for method in record.get("methods", []):
+            name = str(method.get("name") or "").strip()
+            if not name:
+                continue
+            members.append(
+                {
+                    "kind": "method",
+                    "name": name,
+                    "return_type": str(method.get("return_type") or "").strip(),
+                    "annotations": [str(item).strip() for item in list(method.get("annotations") or []) if str(item).strip()],
+                }
+            )
+
+        if len(members) < 4:
+            continue
+
+        chunk_kind = "java_member_chunk" if record_kind == "java_type" else "cs_member_chunk"
+        chunk_size = 4 if len(members) <= 8 else 6
+        for index, group in enumerate(_chunked(members, chunk_size), start=1):
+            member_names = [item["name"] for item in group]
+            annotations = sorted(
+                {
+                    annotation.lstrip("@")
+                    for item in group
+                    for annotation in item.get("annotations", [])
+                    if annotation
+                }
+            )
+            focus_terms = [*member_names[:10], *annotations[:6]]
+            kind_counts: dict[str, int] = defaultdict(int)
+            for item in group:
+                kind_counts[item["kind"]] += 1
+            chunk_id = f"{chunk_kind}:{safe_id(type_id, str(index))}"
+            summary = (
+                f"{type_name} members chunk {index}: "
+                f"{kind_counts.get('method', 0)} methods, {kind_counts.get('field', 0)} fields."
+            )
+            chunks.append(
+                {
+                    "kind": chunk_kind,
+                    "file": record.get("file"),
+                    "id": chunk_id,
+                    "parent_id": type_id,
+                    "type_name": type_name,
+                    "member_names": member_names,
+                    "member_kinds": sorted(kind_counts.keys()),
+                    "focus_terms": focus_terms[:12],
+                    "chunk_granularity": "member_group",
+                    "retrieval_focus": "type_member_neighborhood",
+                    "summary": summary,
+                    "embedding_text": build_embedding_text(
+                        embedding_text_mode,
+                        f"{record_kind} {type_name} in {record.get('file')}. "
+                        f"Focused member group with {kind_counts.get('method', 0)} methods and "
+                        f"{kind_counts.get('field', 0)} fields. "
+                        f"Members {', '.join(member_names[:12])}. "
+                        f"Focus terms {', '.join(focus_terms[:12]) or 'none'}.",
+                        f"{type_name} members {compact_list(member_names, limit=8)}.",
+                    ),
+                }
+            )
+            extra_relations.append(
+                {
+                    "kind": "relation",
+                    "file": record.get("file"),
+                    "id": f"relation:{safe_id(chunk_id, type_id, 'specializes_type')}",
+                    "source_id": chunk_id,
+                    "source_kind": chunk_kind,
+                    "source_name": type_name,
+                    "relation": "specializes_type",
+                    "target": type_name,
+                    "target_resolved": type_id,
+                    "weight": 1,
+                    "from": chunk_id,
+                    "to": type_id,
+                    "type": "specializes_type",
+                }
+            )
+            stats[f"{chunk_kind}_count"] += 1
     return chunks
