@@ -24,11 +24,21 @@ class WorkerJobService:
         context_policy: dict | None = None,
     ) -> ContextBundleDB:
         policy = dict(context_policy or {})
+        task_kind = str(policy.get("task_kind") or "").strip() or None
+        retrieval_intent = str(policy.get("retrieval_intent") or "").strip() or None
+        required_context_scope = str(policy.get("required_context_scope") or "").strip() or None
+        preferred_bundle_mode = str(policy.get("preferred_bundle_mode") or "").strip() or None
+        total_budget_tokens = policy.get("total_budget_tokens")
         bundle = self._rag_service.retrieve_context_bundle(
             query,
             include_context_text=bool(policy.get("include_context_text", True)),
             max_chunks=policy.get("max_chunks"),
             policy_mode=str(policy.get("mode") or "full"),
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            required_context_scope=required_context_scope,
+            preferred_bundle_mode=preferred_bundle_mode,
+            total_budget_tokens=int(total_budget_tokens) if total_budget_tokens is not None else None,
         )
         retrieval_run = retrieval_run_repo.save(
             RetrievalRunDB(
@@ -39,7 +49,13 @@ class WorkerJobService:
                 chunk_count=len(bundle.get("chunks") or []),
                 token_estimate=int(bundle.get("token_estimate") or 0),
                 policy_version=str(bundle.get("policy_version") or "v1"),
-                run_metadata={"bundle_type": bundle.get("bundle_type") or "retrieval_context"},
+                run_metadata={
+                    "bundle_type": bundle.get("bundle_type") or "retrieval_context",
+                    "task_kind": task_kind,
+                    "retrieval_intent": retrieval_intent,
+                    "required_context_scope": required_context_scope,
+                    "preferred_bundle_mode": preferred_bundle_mode,
+                },
             )
         )
         return context_bundle_repo.save(
@@ -55,6 +71,14 @@ class WorkerJobService:
                     "strategy": bundle.get("strategy") or {},
                     "policy_version": bundle.get("policy_version") or "v1",
                     "context_policy": bundle.get("context_policy") or policy,
+                    "retrieval_hints": {
+                        "task_kind": task_kind,
+                        "retrieval_intent": retrieval_intent,
+                        "required_context_scope": required_context_scope,
+                        "preferred_bundle_mode": preferred_bundle_mode,
+                    },
+                    "budget": bundle.get("budget") or {},
+                    "why_this_context": bundle.get("why_this_context") or {},
                 },
             )
         )

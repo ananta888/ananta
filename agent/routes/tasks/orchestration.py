@@ -90,6 +90,9 @@ def ingest_task():
             "goal_id": payload.get("goal_id"),
             "goal_trace_id": payload.get("goal_trace_id"),
             "task_kind": payload.get("task_kind"),
+            "retrieval_intent": payload.get("retrieval_intent"),
+            "required_context_scope": payload.get("required_context_scope"),
+            "preferred_bundle_mode": payload.get("preferred_bundle_mode"),
             "required_capabilities": payload.get("required_capabilities")
             if isinstance(payload.get("required_capabilities"), list)
             else None,

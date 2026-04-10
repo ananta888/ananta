@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Relevance, Correctness",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/services/knowledge_index_retrieval_service.py",
@@ -46,7 +46,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Context-Fit, Task-Awareness",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/services/retrieval_service.py",
@@ -71,7 +71,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Scalability, Precision",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/services/retrieval_service.py",
@@ -96,7 +96,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Determinism, Explainability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/retrieval_service.py",
@@ -126,7 +126,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Budget-Control, Hardware-Fit",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -148,7 +148,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Explainability, Focus",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -172,7 +172,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Clarity, Maintainability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -195,7 +195,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Auditability, Debuggability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/worker_job_service.py",
@@ -226,7 +226,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Retrieval-Friendliness, Structure-Preservation",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "rag-helper/codecompass_rag.py",
@@ -247,7 +247,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Task-Awareness, Reusability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/rag_helper_index_service.py",
@@ -271,7 +271,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Chunk-Quality, Signal-to-Noise",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "rag-helper/codecompass_rag.py",
@@ -296,7 +296,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Noise-Reduction, Efficiency",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "rag-helper/rag_helper/application/duplicate_detection.py",
@@ -327,7 +327,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "End-to-End-Alignment, Explicitness",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/routes/tasks/orchestration.py",
@@ -353,7 +353,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Memory-Compression, Iterative-Scalability",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/services/result_memory_service.py",
@@ -379,7 +379,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Dependency-Awareness, Reuse",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/orchestration.py",
@@ -482,7 +482,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, Debuggability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -507,7 +507,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Security, Least-Exposure",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/retrieval_service.py",
@@ -525,11 +525,11 @@
     }
   ],
   "meta": {
-    "total_items": 16,
+    "total_items": 20,
     "by_status": {
       "completed": 0,
-      "partial": 0,
-      "open": 16
+      "partial": 17,
+      "open": 3
     },
     "notes": [
       "Dieser Todo-Stand fokussiert nicht auf allgemeines RAG, sondern gezielt auf Anantas Kernziel: grosse Projekte ueber kleine, selektive Subtasks und klar budgetierte Kontext-Bundles bearbeitbar machen.",

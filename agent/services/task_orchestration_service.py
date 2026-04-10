@@ -122,6 +122,63 @@ class TaskOrchestrationService:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
         return get_context_bundle_service().resolve_context_bundle_policy((agent_cfg or {}).get("context_bundle_policy"))
 
+    def _default_retrieval_hints_for_task_kind(self, task_kind: str | None) -> dict[str, str]:
+        normalized = str(task_kind or "").strip().lower()
+        if normalized in {"bugfix", "testing", "test"}:
+            return {
+                "retrieval_intent": "localize_failure_and_fix",
+                "required_context_scope": "local_code_and_failure_neighbors",
+                "preferred_bundle_mode": "standard",
+            }
+        if normalized in {"refactor", "implement", "coding"}:
+            return {
+                "retrieval_intent": "symbol_and_dependency_neighborhood",
+                "required_context_scope": "module_and_related_symbols",
+                "preferred_bundle_mode": "standard",
+            }
+        if normalized in {"architecture", "analysis", "doc", "research"}:
+            return {
+                "retrieval_intent": "architecture_and_decision_context",
+                "required_context_scope": "cross_module_docs_and_contracts",
+                "preferred_bundle_mode": "full",
+            }
+        if normalized in {"config", "xml", "ops"}:
+            return {
+                "retrieval_intent": "configuration_contracts_and_runtime_edges",
+                "required_context_scope": "config_and_integration_points",
+                "preferred_bundle_mode": "standard",
+            }
+        return {
+            "retrieval_intent": "execution_focused_context",
+            "required_context_scope": "task_and_direct_neighbors",
+            "preferred_bundle_mode": "standard",
+        }
+
+    def _derive_retrieval_hints(self, *, parent_task: dict[str, Any], data: Any, effective_task_kind: str | None) -> dict[str, str]:
+        defaults = self._default_retrieval_hints_for_task_kind(effective_task_kind)
+        retrieval_intent = (
+            str(getattr(data, "retrieval_intent", None) or "").strip()
+            or str(parent_task.get("retrieval_intent") or "").strip()
+            or defaults["retrieval_intent"]
+        )
+        required_context_scope = (
+            str(getattr(data, "required_context_scope", None) or "").strip()
+            or str(parent_task.get("required_context_scope") or "").strip()
+            or defaults["required_context_scope"]
+        )
+        preferred_bundle_mode = (
+            str(getattr(data, "preferred_bundle_mode", None) or "").strip().lower()
+            or str(parent_task.get("preferred_bundle_mode") or "").strip().lower()
+            or defaults["preferred_bundle_mode"]
+        )
+        if preferred_bundle_mode not in {"compact", "standard", "full"}:
+            preferred_bundle_mode = defaults["preferred_bundle_mode"]
+        return {
+            "retrieval_intent": retrieval_intent,
+            "required_context_scope": required_context_scope,
+            "preferred_bundle_mode": preferred_bundle_mode,
+        }
+
     def _resolve_copilot_routing_hint(
         self,
         *,
@@ -230,7 +287,18 @@ class TaskOrchestrationService:
             ]
             if item
         )
-        context_policy = self._resolve_context_bundle_policy()
+        retrieval_hints = self._derive_retrieval_hints(
+            parent_task=parent_task,
+            data=data,
+            effective_task_kind=effective_task_kind,
+        )
+        context_policy = {
+            **self._resolve_context_bundle_policy(),
+            "task_kind": effective_task_kind,
+            "retrieval_intent": retrieval_hints["retrieval_intent"],
+            "required_context_scope": retrieval_hints["required_context_scope"],
+            "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
+        }
         context_bundle = worker_job_service.create_context_bundle(
             query=context_query,
             parent_task_id=task_id,
@@ -301,6 +369,9 @@ class TaskOrchestrationService:
             "goal_id": parent_task.get("goal_id"),
             "goal_trace_id": parent_task.get("goal_trace_id"),
             "task_kind": effective_task_kind,
+            "retrieval_intent": retrieval_hints["retrieval_intent"],
+            "required_context_scope": retrieval_hints["required_context_scope"],
+            "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
             "required_capabilities": effective_required_capabilities,
             "context_bundle_id": context_bundle.id,
             "worker_execution_context": worker_execution_context,
@@ -324,6 +395,7 @@ class TaskOrchestrationService:
                         "manual_override": True,
                         "copilot_routing_hint": routing_hint,
                         "context_bundle_policy": context_policy,
+                        "retrieval_hints": retrieval_hints,
                     },
                     task_id=task_id,
                     worker_url=agent_url,
@@ -361,6 +433,7 @@ class TaskOrchestrationService:
                 "selected_by_policy": selected_by_policy,
                 "copilot_routing_hint": routing_hint,
                 "context_bundle_policy": context_policy,
+                "retrieval_hints": retrieval_hints,
                 "policy_decision_id": getattr(policy_decision, "id", None),
             },
         )
@@ -378,6 +451,7 @@ class TaskOrchestrationService:
                 "context_bundle_id": context_bundle.id,
                 "worker_job_id": worker_job.id,
                 "context_bundle_policy": context_policy,
+                "retrieval_hints": retrieval_hints,
             }
         }
 

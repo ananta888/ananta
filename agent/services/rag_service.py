@@ -18,14 +18,28 @@ class RagService:
         include_context_text: bool = True,
         max_chunks: int | None = None,
         policy_mode: str = "full",
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+        required_context_scope: str | None = None,
+        preferred_bundle_mode: str | None = None,
+        total_budget_tokens: int | None = None,
     ) -> dict[str, object]:
-        context_payload = self._retrieval_service.retrieve_context(query)
+        context_payload = self._retrieval_service.retrieve_context(
+            query,
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+        )
         return self._context_bundle_service.build_bundle(
             query=query,
             context_payload=context_payload,
             include_context_text=include_context_text,
             max_chunks=max_chunks,
             policy_mode=policy_mode,
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            required_context_scope=required_context_scope,
+            preferred_bundle_mode=preferred_bundle_mode,
+            total_budget_tokens=total_budget_tokens,
         )
 
     def build_execution_context(self, prompt: str) -> tuple[dict[str, object], str]:
