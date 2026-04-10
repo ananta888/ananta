@@ -177,3 +177,9 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
     assignment_groups = groups.get("by_assignment") or []
     assert any(group.get("worker_url") == "http://alpha:5001" and "art-returned-1" in (group.get("artifact_ids") or []) for group in worker_groups)
     assert any(group.get("template_name") == "Python Worker Template" and "art-sent-1" in (group.get("artifact_ids") or []) for group in assignment_groups)
+    recent = (res.json.get("data") or {}).get("recent_tasks") or []
+    recent_row = next((item for item in recent if item.get("id") == task.id), None)
+    assert recent_row is not None
+    context_summary = recent_row.get("context_bundle_summary") or {}
+    assert context_summary.get("context_bundle_id") == bundle.id
+    assert context_summary.get("chunk_count") == 1

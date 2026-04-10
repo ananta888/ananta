@@ -403,7 +403,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Hardware-Pragmatism, Predictability",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "agent/config.py",
@@ -435,7 +435,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Measurability, Grounded-Iteration",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "tests/",
@@ -457,7 +457,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Observability, Optimization",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/metrics.py",
@@ -528,8 +528,8 @@
     "total_items": 20,
     "by_status": {
       "completed": 0,
-      "partial": 17,
-      "open": 3
+      "partial": 20,
+      "open": 0
     },
     "notes": [
       "Dieser Todo-Stand fokussiert nicht auf allgemeines RAG, sondern gezielt auf Anantas Kernziel: grosse Projekte ueber kleine, selektive Subtasks und klar budgetierte Kontext-Bundles bearbeitbar machen.",

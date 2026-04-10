@@ -6,16 +6,19 @@ from pathlib import Path
 
 from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
+from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
+from agent.repository import memory_entry_repo as default_memory_entry_repo
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 
 
 class RetrievalService:
     """Owns retrieval-engine lifecycle and exposes a stable retrieval seam."""
 
-    def __init__(self, knowledge_index_retrieval_service=None) -> None:
+    def __init__(self, knowledge_index_retrieval_service=None, memory_entry_repository=None) -> None:
         self._orchestrator: HybridOrchestrator | None = None
         self._signature: tuple | None = None
         self._knowledge_index_retrieval_service = knowledge_index_retrieval_service or get_knowledge_index_retrieval_service()
+        self._memory_entry_repository = memory_entry_repository or default_memory_entry_repo
 
     def _config_signature(self) -> tuple:
         return (
@@ -95,6 +98,7 @@ class RetrievalService:
                 "semantic_search": 1.0,
                 "agentic_search": 0.95,
                 "knowledge_index": 1.0,
+                "result_memory": 1.05,
             },
             "max_per_source": 2,
             "max_per_engine": max(2, settings.rag_max_chunks),
@@ -105,6 +109,7 @@ class RetrievalService:
                 "semantic_search": 1.0,
                 "agentic_search": 0.9,
                 "knowledge_index": 1.25,
+                "result_memory": 1.2,
             }
         elif normalized_kind in {"refactor", "implement", "coding"}:
             profile["engine_weights"] = {
@@ -112,6 +117,7 @@ class RetrievalService:
                 "semantic_search": 1.0,
                 "agentic_search": 0.9,
                 "knowledge_index": 1.1,
+                "result_memory": 1.15,
             }
         elif normalized_kind in {"architecture", "analysis", "doc", "research"}:
             profile["engine_weights"] = {
@@ -119,6 +125,7 @@ class RetrievalService:
                 "semantic_search": 1.1,
                 "agentic_search": 1.0,
                 "knowledge_index": 1.3,
+                "result_memory": 1.1,
             }
             profile["max_per_source"] = 1
         elif normalized_kind in {"config", "xml", "ops"}:
@@ -127,6 +134,7 @@ class RetrievalService:
                 "semantic_search": 0.95,
                 "agentic_search": 1.0,
                 "knowledge_index": 1.2,
+                "result_memory": 1.15,
             }
 
         if "architecture" in normalized_intent:
@@ -137,8 +145,89 @@ class RetrievalService:
             engine_weights = dict(profile["engine_weights"] or {})
             engine_weights["repository_map"] = max(1.2, float(engine_weights.get("repository_map", 1.0)))
             engine_weights["knowledge_index"] = max(1.25, float(engine_weights.get("knowledge_index", 1.0)))
+            engine_weights["result_memory"] = max(1.25, float(engine_weights.get("result_memory", 1.0)))
             profile["engine_weights"] = engine_weights
         return profile
+
+    def _score_memory_entry(self, query_tokens: list[str], title: str, summary: str, content: str, tags: list[str]) -> float:
+        haystack = " ".join([title, summary, content, " ".join(tags or [])]).lower()
+        if not haystack.strip():
+            return 0.0
+        score = 0.0
+        for token in query_tokens:
+            count = haystack.count(token)
+            if count > 0:
+                score += 0.9 + (count - 1) * 0.12
+        return score
+
+    def _memory_candidates(
+        self,
+        *,
+        query: str,
+        task_id: str | None,
+        goal_id: str | None,
+        neighbor_task_ids: list[str] | None,
+        top_k: int,
+    ) -> tuple[list[ContextChunk], dict[str, object]]:
+        query_tokens = [token.lower() for token in re.findall(r"[A-Za-z0-9_]+", query or "") if len(token) > 2]
+        if not query_tokens:
+            return [], {"reason": "no_query_tokens", "entries_considered": 0}
+
+        neighbors = [str(item).strip() for item in (neighbor_task_ids or []) if str(item).strip()]
+        candidate_entries = []
+        if task_id:
+            candidate_entries.extend(self._memory_entry_repository.get_by_task(task_id))
+        for neighbor_id in neighbors:
+            if not task_id or neighbor_id != task_id:
+                candidate_entries.extend(self._memory_entry_repository.get_by_task(neighbor_id))
+        if goal_id:
+            goal_entries = self._memory_entry_repository.get_by_goal(goal_id)
+            existing_ids = {str(getattr(entry, "id", "")) for entry in candidate_entries}
+            for entry in goal_entries:
+                if str(getattr(entry, "id", "")) not in existing_ids:
+                    candidate_entries.append(entry)
+
+        chunks: list[ContextChunk] = []
+        for entry in candidate_entries:
+            entry_task_id = str(getattr(entry, "task_id", "") or "").strip()
+            title = str(getattr(entry, "title", "") or "").strip()
+            summary = str(getattr(entry, "summary", "") or "").strip()
+            content = str(getattr(entry, "content", "") or "").strip()
+            tags = [str(tag).strip() for tag in (getattr(entry, "retrieval_tags", None) or []) if str(tag).strip()]
+            score = self._score_memory_entry(query_tokens, title, summary, content, tags)
+            if score <= 0:
+                continue
+            relation = "goal_related"
+            if task_id and entry_task_id == task_id:
+                relation = "same_task"
+                score += 0.45
+            elif entry_task_id in neighbors:
+                relation = "task_neighbor"
+                score += 0.3
+            compact = str(((getattr(entry, "memory_metadata", None) or {}).get("compacted_summary")) or "").strip()
+            content_preview = "\n".join(part for part in [summary, compact] if part).strip() or content[:1200]
+            chunks.append(
+                ContextChunk(
+                    engine="result_memory",
+                    source=f"memory:{entry_task_id or getattr(entry, 'id', 'unknown')}",
+                    content=content_preview[:1600],
+                    score=score,
+                    metadata={
+                        "memory_entry_id": str(getattr(entry, "id", "")),
+                        "entry_type": str(getattr(entry, "entry_type", "worker_result")),
+                        "source_task_id": entry_task_id or None,
+                        "relation": relation,
+                        "retrieval_tags": tags,
+                    },
+                )
+            )
+        ranked = sorted(chunks, key=lambda item: (-item.score, item.source, item.content[:80]))
+        return ranked[: max(1, int(top_k))], {
+            "reason": "ok",
+            "entries_considered": len(candidate_entries),
+            "matches": len(ranked),
+            "neighbor_task_ids": neighbors,
+        }
 
     def get_orchestrator(self) -> HybridOrchestrator:
         signature = self._config_signature()
@@ -373,6 +462,9 @@ class RetrievalService:
         *,
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
+        task_id: str | None = None,
+        goal_id: str | None = None,
+        neighbor_task_ids: list[str] | None = None,
     ) -> dict[str, object]:
         orchestrator = self.get_orchestrator()
         context_payload = orchestrator.get_relevant_context(query)
@@ -384,13 +476,21 @@ class RetrievalService:
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
         )
+        memory_chunks, memory_meta = self._memory_candidates(
+            query=query,
+            task_id=task_id,
+            goal_id=goal_id,
+            neighbor_task_ids=neighbor_task_ids,
+            top_k=max(2, knowledge_top_k),
+        )
+        KNOWLEDGE_RETRIEVAL_CHUNKS.observe(len(knowledge_chunks))
 
         orchestrator_chunks = [
             self._deserialize_chunk(chunk_payload)
             for chunk_payload in context_payload.get("chunks", [])
             if isinstance(chunk_payload, dict)
         ]
-        all_candidates = [*orchestrator_chunks, *knowledge_chunks]
+        all_candidates = [*orchestrator_chunks, *knowledge_chunks, *memory_chunks]
         deduped_candidates, dedupe_meta = self._dedupe_candidates(all_candidates)
         expanded_candidates, expansion_meta = self._expand_candidates(
             deduped_candidates,
@@ -416,6 +516,9 @@ class RetrievalService:
         strategy = dict(context_payload.get("strategy") or {})
         strategy["knowledge_index"] = len(knowledge_chunks)
         strategy["knowledge_index_reason"] = knowledge_reason
+        strategy["result_memory"] = len(memory_chunks)
+        strategy["result_memory_reason"] = str(memory_meta.get("reason") or "unknown")
+        strategy["result_memory_meta"] = memory_meta
         strategy["fusion"] = {
             "mode": "deterministic_v2",
             "task_kind": self._normalize_task_kind(task_kind) or None,
@@ -430,6 +533,7 @@ class RetrievalService:
             "candidate_counts": {
                 "orchestrator": len(orchestrator_chunks),
                 "knowledge_index": len(knowledge_chunks),
+                "result_memory": len(memory_chunks),
                 "all": len(all_candidates),
                 "deduped": len(deduped_candidates),
                 "expanded": len(expanded_candidates),
@@ -438,6 +542,10 @@ class RetrievalService:
                 "final": len(merged),
             },
         }
+        metric_task_kind = self._normalize_task_kind(task_kind) or "unknown"
+        metric_bundle_mode = "standard_32k"
+        outcome = "with_knowledge" if knowledge_chunks else "without_knowledge"
+        RAG_RETRIEVAL_TASK_KIND_TOTAL.labels(metric_task_kind, metric_bundle_mode, outcome).inc()
         return self._serialize_context(
             orchestrator=orchestrator,
             query=query,
