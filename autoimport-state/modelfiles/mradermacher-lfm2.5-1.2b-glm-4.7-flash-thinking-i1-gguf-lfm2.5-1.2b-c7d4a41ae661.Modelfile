@@ -1,1 +1,2 @@
 FROM /models/mradermacher/LFM2.5-1.2B-GLM-4.7-Flash-Thinking-i1-GGUF/LFM2.5-1.2B-GLM-4.7-Flash-Thinking.i1-Q6_K.gguf
+PARAMETER num_ctx 32768

@@ -1,1 +1,2 @@
 FROM /models/mradermacher/openai-7B-v0.1-GGUF/openai-7B-v0.1.Q4_K_S.gguf
+PARAMETER num_ctx 32768
