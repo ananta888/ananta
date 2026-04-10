@@ -141,6 +141,8 @@ class TestWorkerJobFlow:
                     "liveness": {"status": agent.status, "available_for_routing": True},
                 }
 
+        forwarded_payload = {}
+
         monkeypatch.setattr(
             "agent.routes.tasks.orchestration._services",
             lambda: type(
@@ -177,7 +179,10 @@ class TestWorkerJobFlow:
         )
         monkeypatch.setattr(
             "agent.services.task_orchestration_service.forward_to_worker",
-            lambda worker_url, endpoint, data, token=None: {"status": "success", "data": {"accepted": True, "task_id": data["id"]}},
+            lambda worker_url, endpoint, data, token=None: (
+                forwarded_payload.update({"worker_url": worker_url, "endpoint": endpoint, "data": dict(data), "token": token})
+                or {"status": "success", "data": {"accepted": True, "task_id": data["id"]}}
+            ),
         )
 
         res = client.post(
@@ -203,6 +208,9 @@ class TestWorkerJobFlow:
         assert bundle.bundle_type == "worker_execution_context"
         assert bundle.context_text is not None
         assert bundle.bundle_metadata["context_policy"]["mode"] == "full"
+        assert bundle.bundle_metadata["context_policy"]["retrieval_intent"] == "execution_focused_context"
+        assert bundle.bundle_metadata["context_policy"]["required_context_scope"] == "task_and_direct_neighbors"
+        assert bundle.bundle_metadata["context_policy"]["preferred_bundle_mode"] == "standard"
         assert run is not None
         assert run.task_id == "parent-job-1"
 
@@ -225,6 +233,12 @@ class TestWorkerJobFlow:
         assert task.worker_execution_context["version"] == "v1"
         assert task.worker_execution_context["context_policy"]["mode"] == "full"
         assert task.worker_execution_context["routing"]["matched_roles"] == ["planner"]
+        assert payload["retrieval_hints"]["retrieval_intent"] == "execution_focused_context"
+        assert payload["retrieval_hints"]["required_context_scope"] == "task_and_direct_neighbors"
+        assert payload["retrieval_hints"]["preferred_bundle_mode"] == "standard"
+        assert forwarded_payload["data"]["retrieval_intent"] == "execution_focused_context"
+        assert forwarded_payload["data"]["required_context_scope"] == "task_and_direct_neighbors"
+        assert forwarded_payload["data"]["preferred_bundle_mode"] == "standard"
 
     def test_complete_task_records_worker_result_for_current_job(self, client, admin_auth_header):
         task_repo.save(

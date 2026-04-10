@@ -360,6 +360,9 @@ class TaskDB(SQLModel, table=True):
     plan_id: Optional[str] = Field(default=None, index=True)
     plan_node_id: Optional[str] = Field(default=None, index=True)
     task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    required_context_scope: Optional[str] = None
+    preferred_bundle_mode: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
     context_bundle_id: Optional[str] = Field(default=None, index=True)
     worker_execution_context: dict = Field(default={}, sa_column=Column(JSON))
@@ -398,6 +401,9 @@ class ArchivedTaskDB(SQLModel, table=True):
     plan_id: Optional[str] = None
     plan_node_id: Optional[str] = None
     task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    required_context_scope: Optional[str] = None
+    preferred_bundle_mode: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
     context_bundle_id: Optional[str] = None
     worker_execution_context: dict = Field(default={}, sa_column=Column(JSON))

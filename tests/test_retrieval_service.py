@@ -40,8 +40,10 @@ class _FakeOrchestrator:
 
 
 class _FakeKnowledgeIndexRetrievalService:
-    def search(self, query: str, *, top_k: int):
+    def search(self, query: str, *, top_k: int, task_kind=None, retrieval_intent=None):
         self.last_top_k = top_k
+        self.last_task_kind = task_kind
+        self.last_retrieval_intent = retrieval_intent
         del query
         return [
             ContextChunk(
@@ -68,6 +70,8 @@ def test_retrieval_service_merges_knowledge_index_chunks():
     assert [chunk["engine"] for chunk in payload["chunks"]] == ["knowledge_index", "repository_map"]
     assert "knowledge timeout context" in payload["context_text"]
     assert knowledge.last_top_k >= 1
+    assert payload["strategy"]["fusion"]["mode"] == "deterministic_v2"
+    assert payload["strategy"]["fusion"]["candidate_counts"]["knowledge_index"] == 1
 
 
 def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
@@ -78,5 +82,23 @@ def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
 
     payload = service.retrieve_context("architecture docs overview")
 
-    assert payload["strategy"]["knowledge_index_reason"] == "doc_or_architecture_query"
+    assert "query_doc_or_architecture" in payload["strategy"]["knowledge_index_reason"]
     assert knowledge.last_top_k == service._config_signature()[5]
+
+
+def test_retrieval_service_propagates_task_aware_hints():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge)
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context(
+        "investigate timeout",
+        task_kind="bugfix",
+        retrieval_intent="localize bug",
+    )
+
+    assert knowledge.last_task_kind == "bugfix"
+    assert knowledge.last_retrieval_intent == "localize bug"
+    assert "task_kind_code_or_debug" in payload["strategy"]["knowledge_index_reason"]
+    assert payload["strategy"]["fusion"]["task_kind"] == "bugfix"

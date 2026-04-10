@@ -568,6 +568,9 @@ class TaskDelegationRequest(SQLModel):
     subtask_description: str
     priority: str = "Medium"
     task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    required_context_scope: Optional[str] = None
+    preferred_bundle_mode: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
     context_query: Optional[str] = None
     allowed_tools: List[str] = Field(default_factory=list)
@@ -591,6 +594,9 @@ class TaskCreateRequest(SQLModel):
     goal_id: Optional[str] = None
     goal_trace_id: Optional[str] = None
     task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    required_context_scope: Optional[str] = None
+    preferred_bundle_mode: Optional[str] = None
     required_capabilities: Optional[List[str]] = None
     context_bundle_id: Optional[str] = None
     worker_execution_context: Optional[dict] = None
@@ -612,6 +618,9 @@ class TaskUpdateRequest(SQLModel):
     goal_id: Optional[str] = None
     goal_trace_id: Optional[str] = None
     task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    required_context_scope: Optional[str] = None
+    preferred_bundle_mode: Optional[str] = None
     required_capabilities: Optional[List[str]] = None
 
 
