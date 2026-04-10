@@ -35,6 +35,39 @@ def _infer_subtask_task_kind(subtask: dict[str, Any]) -> str:
     return "coding"
 
 
+def _retrieval_hints_for_task_kind(task_kind: str | None) -> dict[str, str]:
+    normalized = str(task_kind or "").strip().lower()
+    if normalized in {"bugfix", "testing", "test"}:
+        return {
+            "retrieval_intent": "localize_failure_and_fix",
+            "required_context_scope": "local_code_and_failure_neighbors",
+            "preferred_bundle_mode": "standard",
+        }
+    if normalized in {"refactor", "implement", "coding"}:
+        return {
+            "retrieval_intent": "symbol_and_dependency_neighborhood",
+            "required_context_scope": "module_and_related_symbols",
+            "preferred_bundle_mode": "standard",
+        }
+    if normalized in {"architecture", "analysis", "doc", "research"}:
+        return {
+            "retrieval_intent": "architecture_and_decision_context",
+            "required_context_scope": "cross_module_docs_and_contracts",
+            "preferred_bundle_mode": "full",
+        }
+    if normalized in {"config", "xml", "ops"}:
+        return {
+            "retrieval_intent": "configuration_contracts_and_runtime_edges",
+            "required_context_scope": "config_and_integration_points",
+            "preferred_bundle_mode": "standard",
+        }
+    return {
+        "retrieval_intent": "execution_focused_context",
+        "required_context_scope": "task_and_direct_neighbors",
+        "preferred_bundle_mode": "standard",
+    }
+
+
 def get_goal_feature_flags() -> dict[str, bool]:
     # Defaults are taken from agent settings when available, otherwise fallback to True
     try:
@@ -209,6 +242,15 @@ class PlanningService:
             node_key = f"{plan_id}-node-{index}"
             node_keys.append(node_key)
             task_kind = _infer_subtask_task_kind(subtask)
+            retrieval_hints = _retrieval_hints_for_task_kind(task_kind)
+            required_capabilities = derive_required_capabilities(
+                {
+                    "title": str(subtask.get("title") or ""),
+                    "description": str(subtask.get("description") or ""),
+                    "task_kind": task_kind,
+                },
+                task_kind,
+            )
             raw_depends_on = list(subtask.get("depends_on") or [])
             depends_on: list[str] = []
             if raw_depends_on:
@@ -235,6 +277,10 @@ class PlanningService:
                     rationale={
                         "planning_mode": planning_mode,
                         "task_kind": task_kind,
+                        "retrieval_intent": retrieval_hints["retrieval_intent"],
+                        "required_context_scope": retrieval_hints["required_context_scope"],
+                        "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
+                        "required_capabilities": required_capabilities,
                         "source_depends_on": raw_depends_on,
                     },
                     verification_spec=default_verification_spec(

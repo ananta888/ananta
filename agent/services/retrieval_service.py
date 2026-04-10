@@ -160,6 +160,29 @@ class RetrievalService:
                 score += 0.9 + (count - 1) * 0.12
         return score
 
+    def _redact_nested(self, value, *, orchestrator: HybridOrchestrator):
+        if isinstance(value, dict):
+            return {str(key): self._redact_nested(item, orchestrator=orchestrator) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._redact_nested(item, orchestrator=orchestrator) for item in value]
+        if isinstance(value, str):
+            return orchestrator._redact(value)
+        return value
+
+    def _final_merge_trace(self, chunks: list[ContextChunk]) -> list[dict[str, object]]:
+        ranked = sorted(chunks, key=lambda chunk: (-float(chunk.score or 0.0), chunk.engine, chunk.source, chunk.content[:80]))
+        trace: list[dict[str, object]] = []
+        for index, chunk in enumerate(ranked, start=1):
+            trace.append(
+                {
+                    "rank": index,
+                    "engine": str(chunk.engine or ""),
+                    "source": str(chunk.source or ""),
+                    "score": round(float(chunk.score or 0.0), 4),
+                }
+            )
+        return trace
+
     def _memory_candidates(
         self,
         *,
@@ -194,6 +217,9 @@ class RetrievalService:
             summary = str(getattr(entry, "summary", "") or "").strip()
             content = str(getattr(entry, "content", "") or "").strip()
             tags = [str(tag).strip() for tag in (getattr(entry, "retrieval_tags", None) or []) if str(tag).strip()]
+            memory_metadata = dict(getattr(entry, "memory_metadata", None) or {})
+            retrieval_document = str(memory_metadata.get("retrieval_document") or "").strip()
+            structured_summary = dict(memory_metadata.get("structured_summary") or {})
             score = self._score_memory_entry(query_tokens, title, summary, content, tags)
             if score <= 0:
                 continue
@@ -204,8 +230,12 @@ class RetrievalService:
             elif entry_task_id in neighbors:
                 relation = "task_neighbor"
                 score += 0.3
-            compact = str(((getattr(entry, "memory_metadata", None) or {}).get("compacted_summary")) or "").strip()
-            content_preview = "\n".join(part for part in [summary, compact] if part).strip() or content[:1200]
+            compact = str(memory_metadata.get("compacted_summary") or "").strip()
+            content_preview = (
+                retrieval_document
+                or "\n".join(part for part in [summary, compact] if part).strip()
+                or content[:1200]
+            )
             chunks.append(
                 ContextChunk(
                     engine="result_memory",
@@ -218,6 +248,8 @@ class RetrievalService:
                         "source_task_id": entry_task_id or None,
                         "relation": relation,
                         "retrieval_tags": tags,
+                        "memory_format": str(memory_metadata.get("memory_format") or ""),
+                        "focus_terms": list(structured_summary.get("focus_terms") or []),
                     },
                 )
             )
@@ -436,20 +468,23 @@ class RetrievalService:
         context_lines: list[str] = []
         for chunk in chunks:
             safe_content = orchestrator._redact(chunk.content)
-            context_lines.append(f"[{chunk.engine}] {chunk.source}\n{safe_content}")
+            safe_source = orchestrator._redact(str(chunk.source or ""))
+            safe_metadata = self._redact_nested(dict(chunk.metadata or {}), orchestrator=orchestrator)
+            context_lines.append(f"[{chunk.engine}] {safe_source}\n{safe_content}")
             serialized_chunks.append(
                 {
                     "engine": chunk.engine,
-                    "source": chunk.source,
+                    "source": safe_source,
                     "score": round(chunk.score, 3),
                     "content": safe_content,
-                    "metadata": chunk.metadata,
+                    "metadata": safe_metadata,
                 }
             )
         context_text = "\n\n".join(context_lines)
+        safe_strategy = self._redact_nested(strategy, orchestrator=orchestrator)
         return {
             "query": query,
-            "strategy": strategy,
+            "strategy": safe_strategy,
             "policy_version": orchestrator.context_manager.policy_version,
             "chunks": serialized_chunks,
             "context_text": context_text,
@@ -521,6 +556,7 @@ class RetrievalService:
         strategy["result_memory_meta"] = memory_meta
         strategy["fusion"] = {
             "mode": "deterministic_v2",
+            "deterministic_order_key": "score_desc_engine_source_content_prefix",
             "task_kind": self._normalize_task_kind(task_kind) or None,
             "retrieval_intent": str(retrieval_intent or "").strip() or None,
             "engine_contributions_before": self._engine_contributions(all_candidates),
@@ -541,6 +577,7 @@ class RetrievalService:
                 "diversified": len(diversified_candidates),
                 "final": len(merged),
             },
+            "final_ranked_sources": self._final_merge_trace(merged),
         }
         metric_task_kind = self._normalize_task_kind(task_kind) or "unknown"
         metric_bundle_mode = "standard_32k"

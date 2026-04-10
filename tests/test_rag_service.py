@@ -159,3 +159,36 @@ def test_rag_service_full_mode_keeps_detailed_explainability_profile():
     assert bundle["context_policy"]["explainability_level"] == "detailed"
     assert bundle["context_policy"]["chunk_text_style"] == "detailed_context"
     assert len(bundle["explainability"]["sources"]) <= 10
+
+
+def test_rag_service_redacts_sensitive_values_in_explainability_and_selection_trace(monkeypatch):
+    retrieval = MagicMock()
+    retrieval.retrieve_context.return_value = {
+        "query": "inspect secrets",
+        "strategy": {
+            "knowledge_index_reason": "matched sk-secret-token-1234567890",
+            "result_memory_reason": "used token=sk-secret-token-1234567890",
+            "fusion": {"candidate_counts": {"all": 2, "final": 1}},
+        },
+        "policy_version": "v1",
+        "chunks": [
+            {
+                "engine": "knowledge_index",
+                "source": "secrets/sk-secret-token-1234567890.txt",
+                "content": "token should not leak",
+                "score": 2.0,
+                "metadata": {},
+            }
+        ],
+        "context_text": "token should not leak",
+        "token_estimate": 8,
+    }
+    from agent.config import settings
+    monkeypatch.setattr(settings, "rag_redact_sensitive", True)
+    service = RagService(retrieval_service=retrieval)
+
+    bundle = service.retrieve_context_bundle("inspect secrets")
+
+    assert "sk-secret-token-1234567890" not in str(bundle.get("explainability") or {})
+    assert "sk-secret-token-1234567890" not in str(bundle.get("why_this_context") or {})
+    assert "sk-secret-token-1234567890" not in str(bundle.get("selection_trace") or {})
