@@ -595,6 +595,9 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     assert research_backend.get("enabled") is True
     assert "providers" in research_backend
     assert (research_backend.get("review_policy") or {}).get("required") is True
+    runtime_telemetry = llm_configuration.get("runtime_telemetry") or {}
+    retrieval_bundles = runtime_telemetry.get("retrieval_bundles") or {}
+    assert isinstance(retrieval_bundles.get("sample_size"), int)
 
 
 def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
@@ -612,6 +615,10 @@ def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
     runtime_telemetry = llm_configuration.get("runtime_telemetry") or {}
     assert isinstance(runtime_telemetry.get("providers"), dict)
     assert isinstance(runtime_telemetry.get("cli_backends"), dict)
+    retrieval_bundles = runtime_telemetry.get("retrieval_bundles") or {}
+    assert retrieval_bundles.get("sample_size") == 0
+    assert isinstance(retrieval_bundles.get("by_task_kind"), dict)
+    assert isinstance(retrieval_bundles.get("by_bundle_mode"), dict)
 
 
 def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token):

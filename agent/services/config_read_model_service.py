@@ -16,6 +16,92 @@ from agent.services.task_state_machine_service import build_task_state_machine_c
 class ConfigReadModelService:
     """Read-model builders for assistant and dashboard configuration views."""
 
+    def _build_retrieval_bundle_telemetry(self, tasks: list[dict], *, max_tasks: int = 200) -> dict:
+        repos = get_repository_registry()
+        recent_tasks = sorted(
+            [item for item in tasks if str(item.get("context_bundle_id") or "").strip()],
+            key=lambda task: float(task.get("updated_at") or task.get("created_at") or 0.0),
+            reverse=True,
+        )[: max(1, int(max_tasks))]
+
+        def _safe_float(value) -> float:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+
+        entries: list[dict] = []
+        for task in recent_tasks:
+            bundle_id = str(task.get("context_bundle_id") or "").strip()
+            bundle = repos.context_bundle_repo.get_by_id(bundle_id) if bundle_id else None
+            if bundle is None:
+                continue
+            metadata = dict(bundle.bundle_metadata or {})
+            retrieval_hints = dict(metadata.get("retrieval_hints") or {})
+            context_policy = dict(metadata.get("context_policy") or {})
+            budget = dict(metadata.get("budget") or {})
+            strategy = dict(metadata.get("strategy") or {})
+            fusion = dict(strategy.get("fusion") or {})
+            dedupe = dict(fusion.get("dedupe") or {})
+            candidate_counts = dict(fusion.get("candidate_counts") or {})
+            all_candidates = max(1, int(candidate_counts.get("all") or 0))
+            final_candidates = max(0, int(candidate_counts.get("final") or 0))
+            duplicate_rate = min(
+                1.0,
+                float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0)) / float(all_candidates),
+            )
+            noise_rate = min(1.0, max(0.0, float(all_candidates - final_candidates) / float(all_candidates)))
+            entries.append(
+                {
+                    "task_kind": str(
+                        retrieval_hints.get("task_kind")
+                        or task.get("task_kind")
+                        or "unknown"
+                    ).strip()
+                    or "unknown",
+                    "bundle_mode": str(context_policy.get("mode") or "unknown").strip() or "unknown",
+                    "window_profile": str(context_policy.get("window_profile") or "unknown").strip() or "unknown",
+                    "budget_utilization": min(1.0, max(0.0, _safe_float(budget.get("retrieval_utilization")))),
+                    "duplicate_rate": duplicate_rate,
+                    "noise_rate": noise_rate,
+                }
+            )
+
+        def _aggregate(key: str) -> dict[str, dict]:
+            groups: dict[str, dict] = {}
+            for entry in entries:
+                group_key = str(entry.get(key) or "unknown")
+                current = groups.setdefault(
+                    group_key,
+                    {
+                        "count": 0,
+                        "budget_utilization_sum": 0.0,
+                        "duplicate_rate_sum": 0.0,
+                        "noise_rate_sum": 0.0,
+                    },
+                )
+                current["count"] += 1
+                current["budget_utilization_sum"] += float(entry.get("budget_utilization") or 0.0)
+                current["duplicate_rate_sum"] += float(entry.get("duplicate_rate") or 0.0)
+                current["noise_rate_sum"] += float(entry.get("noise_rate") or 0.0)
+            result: dict[str, dict] = {}
+            for group_key, data in sorted(groups.items(), key=lambda item: item[0]):
+                count = max(1, int(data["count"]))
+                result[group_key] = {
+                    "count": int(data["count"]),
+                    "avg_budget_utilization": round(float(data["budget_utilization_sum"]) / float(count), 4),
+                    "avg_duplicate_rate": round(float(data["duplicate_rate_sum"]) / float(count), 4),
+                    "avg_noise_rate": round(float(data["noise_rate_sum"]) / float(count), 4),
+                }
+            return result
+
+        return {
+            "sample_size": len(entries),
+            "by_task_kind": _aggregate("task_kind"),
+            "by_bundle_mode": _aggregate("bundle_mode"),
+            "by_window_profile": _aggregate("window_profile"),
+        }
+
     def assistant_read_model(
         self,
         *,
@@ -92,6 +178,7 @@ class ConfigReadModelService:
         valid_task_kind = benchmark_task_kind if benchmark_task_kind in benchmark_task_kinds else "analysis"
         benchmark_recommendation = benchmark_recommendation_builder(task_kind=valid_task_kind, cfg=cfg)
         runtime_preflight = (get_integration_registry_service().list_execution_backends(include_preflight=True).get("preflight") or {})
+        retrieval_telemetry = self._build_retrieval_bundle_telemetry(tasks if include_task_snapshot else [])
         contract_catalog = contract_catalog_builder()
         task_status_contract = build_task_status_contract()
         task_state_machine = build_task_state_machine_contract()
@@ -273,6 +360,7 @@ class ConfigReadModelService:
                     "providers": dict(runtime_preflight.get("providers") or {}),
                     "cli_backends": dict(runtime_preflight.get("cli_backends") or {}),
                     "research_backends": dict(runtime_preflight.get("research_backends") or {}),
+                    "retrieval_bundles": retrieval_telemetry,
                 },
             },
             "benchmarks": {
