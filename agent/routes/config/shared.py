@@ -315,8 +315,12 @@ def context_bundle_policy_settings_summary(cfg: dict) -> dict:
         "effective": effective,
         "source": {
             "mode": "context_bundle_policy.mode",
+            "window_profile": "context_bundle_policy.window_profile",
             "compact_max_chunks": "context_bundle_policy.compact_max_chunks",
             "standard_max_chunks": "context_bundle_policy.standard_max_chunks",
+            "compact_budget_tokens": "context_bundle_policy.compact_budget_tokens",
+            "standard_budget_tokens": "context_bundle_policy.standard_budget_tokens",
+            "full_budget_tokens": "context_bundle_policy.full_budget_tokens",
         },
     }
 

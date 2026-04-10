@@ -199,11 +199,12 @@ def test_context_bundle_policy_is_normalized_and_merged(client, admin_token):
     get_response = client.get("/config", headers=headers)
     assert get_response.status_code == 200
     cfg = get_response.json["data"]
-    assert cfg["context_bundle_policy"] == {
-        "mode": "compact",
-        "compact_max_chunks": 1,
-        "standard_max_chunks": 12,
-    }
+    context_policy = cfg["context_bundle_policy"]
+    assert context_policy["mode"] == "compact"
+    assert context_policy["compact_max_chunks"] == 1
+    assert context_policy["standard_max_chunks"] == 12
+    assert context_policy["window_profile"] == "standard_32k"
+    assert context_policy["standard_budget_tokens"] == 32000
 
 
 def test_artifact_flow_config_is_normalized_and_merged(client, admin_token):

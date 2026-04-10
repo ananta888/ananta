@@ -29,6 +29,13 @@ class WorkerJobService:
         required_context_scope = str(policy.get("required_context_scope") or "").strip() or None
         preferred_bundle_mode = str(policy.get("preferred_bundle_mode") or "").strip() or None
         total_budget_tokens = policy.get("total_budget_tokens")
+        budget_tokens_by_mode = dict(policy.get("budget_tokens_by_mode") or {})
+        window_profile = str(policy.get("window_profile") or "").strip() or None
+        neighbor_task_ids = [
+            str(value).strip()
+            for value in list(policy.get("neighbor_task_ids") or [])
+            if str(value).strip()
+        ]
         bundle = self._rag_service.retrieve_context_bundle(
             query,
             include_context_text=bool(policy.get("include_context_text", True)),
@@ -39,6 +46,11 @@ class WorkerJobService:
             required_context_scope=required_context_scope,
             preferred_bundle_mode=preferred_bundle_mode,
             total_budget_tokens=int(total_budget_tokens) if total_budget_tokens is not None else None,
+            budget_tokens_by_mode=budget_tokens_by_mode,
+            window_profile=window_profile,
+            task_id=parent_task_id,
+            goal_id=goal_id,
+            neighbor_task_ids=neighbor_task_ids,
         )
         retrieval_run = retrieval_run_repo.save(
             RetrievalRunDB(
@@ -55,6 +67,7 @@ class WorkerJobService:
                     "retrieval_intent": retrieval_intent,
                     "required_context_scope": required_context_scope,
                     "preferred_bundle_mode": preferred_bundle_mode,
+                    "neighbor_task_ids": neighbor_task_ids,
                 },
             )
         )
@@ -71,11 +84,13 @@ class WorkerJobService:
                     "strategy": bundle.get("strategy") or {},
                     "policy_version": bundle.get("policy_version") or "v1",
                     "context_policy": bundle.get("context_policy") or policy,
+                    "explainability": bundle.get("explainability") or {},
                     "retrieval_hints": {
                         "task_kind": task_kind,
                         "retrieval_intent": retrieval_intent,
                         "required_context_scope": required_context_scope,
                         "preferred_bundle_mode": preferred_bundle_mode,
+                        "neighbor_task_ids": neighbor_task_ids,
                     },
                     "budget": bundle.get("budget") or {},
                     "why_this_context": bundle.get("why_this_context") or {},

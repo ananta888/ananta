@@ -179,6 +179,41 @@ class TaskOrchestrationService:
             "preferred_bundle_mode": preferred_bundle_mode,
         }
 
+    def _derive_task_neighborhood(self, *, parent_task: dict[str, Any]) -> dict[str, list[str]]:
+        parent_task_id = str(parent_task.get("id") or "").strip()
+        goal_id = str(parent_task.get("goal_id") or "").strip()
+        parent_parent_id = str(parent_task.get("parent_task_id") or "").strip()
+        depends_on = [str(item).strip() for item in list(parent_task.get("depends_on") or []) if str(item).strip()]
+
+        repos = get_repository_registry()
+        task_rows = repos.task_repo.get_all()
+        sibling_ids: list[str] = []
+        completed_neighbor_ids: list[str] = []
+        for row in task_rows:
+            item = row.model_dump()
+            item_id = str(item.get("id") or "").strip()
+            if not item_id or item_id == parent_task_id:
+                continue
+            if parent_parent_id and str(item.get("parent_task_id") or "").strip() == parent_parent_id:
+                sibling_ids.append(item_id)
+            if goal_id and str(item.get("goal_id") or "").strip() == goal_id:
+                status = str(item.get("status") or "").strip().lower()
+                if status in {"completed", "failed"}:
+                    completed_neighbor_ids.append(item_id)
+
+        ordered_neighbors: list[str] = []
+        for task_id in [*depends_on, *sibling_ids, *completed_neighbor_ids]:
+            if task_id and task_id != parent_task_id and task_id not in ordered_neighbors:
+                ordered_neighbors.append(task_id)
+            if len(ordered_neighbors) >= 12:
+                break
+        return {
+            "depends_on_task_ids": depends_on,
+            "sibling_task_ids": sibling_ids[:12],
+            "completed_neighbor_task_ids": completed_neighbor_ids[:12],
+            "neighbor_task_ids": ordered_neighbors[:12],
+        }
+
     def _resolve_copilot_routing_hint(
         self,
         *,
@@ -292,12 +327,14 @@ class TaskOrchestrationService:
             data=data,
             effective_task_kind=effective_task_kind,
         )
+        task_neighborhood = self._derive_task_neighborhood(parent_task=parent_task)
         context_policy = {
             **self._resolve_context_bundle_policy(),
             "task_kind": effective_task_kind,
             "retrieval_intent": retrieval_hints["retrieval_intent"],
             "required_context_scope": retrieval_hints["required_context_scope"],
             "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
+            **task_neighborhood,
         }
         context_bundle = worker_job_service.create_context_bundle(
             query=context_query,
@@ -396,6 +433,7 @@ class TaskOrchestrationService:
                         "copilot_routing_hint": routing_hint,
                         "context_bundle_policy": context_policy,
                         "retrieval_hints": retrieval_hints,
+                        "task_neighborhood": task_neighborhood,
                     },
                     task_id=task_id,
                     worker_url=agent_url,
@@ -434,6 +472,7 @@ class TaskOrchestrationService:
                 "copilot_routing_hint": routing_hint,
                 "context_bundle_policy": context_policy,
                 "retrieval_hints": retrieval_hints,
+                "task_neighborhood": task_neighborhood,
                 "policy_decision_id": getattr(policy_decision, "id", None),
             },
         )
@@ -452,6 +491,7 @@ class TaskOrchestrationService:
                 "worker_job_id": worker_job.id,
                 "context_bundle_policy": context_policy,
                 "retrieval_hints": retrieval_hints,
+                "task_neighborhood": task_neighborhood,
             }
         }
 

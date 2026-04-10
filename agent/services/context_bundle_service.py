@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from agent.config import settings
+from agent.metrics import RAG_BUNDLE_BUDGET_UTILIZATION, RAG_BUNDLE_DUPLICATE_RATE, RAG_BUNDLE_NOISE_RATE
+
 CONTEXT_BUNDLE_POLICY_MODES = {"compact", "standard", "full"}
+CONTEXT_WINDOW_PROFILES = {"compact_12k", "standard_32k", "full_64k"}
 DEFAULT_BUNDLE_BUDGET_BY_MODE = {
     "compact": 12000,
     "standard": 32000,
@@ -16,6 +20,11 @@ def normalize_context_bundle_policy_config(value: dict | None) -> dict[str, obje
 
     compact_max_chunks = payload.get("compact_max_chunks")
     standard_max_chunks = payload.get("standard_max_chunks")
+    standard_budget_tokens = payload.get("standard_budget_tokens")
+    default_window_profile = str(getattr(settings, "rag_default_window_profile", "standard_32k") or "standard_32k").strip().lower()
+    window_profile = str(payload.get("window_profile") or default_window_profile).strip().lower() or default_window_profile
+    if window_profile not in CONTEXT_WINDOW_PROFILES:
+        window_profile = "standard_32k"
 
     def _normalize_limit(raw_value, default: int) -> int:
         try:
@@ -24,10 +33,32 @@ def normalize_context_bundle_policy_config(value: dict | None) -> dict[str, obje
             value = default
         return max(1, min(50, value))
 
+    def _normalize_budget(raw_value, default: int) -> int:
+        try:
+            value = int(raw_value) if raw_value is not None else default
+        except (TypeError, ValueError):
+            value = default
+        return max(4096, min(131072, value))
+
+    compact_budget_default = int(getattr(settings, "rag_compact_budget_tokens", 12000) or 12000)
+    standard_budget_default = int(getattr(settings, "rag_standard_budget_tokens", 32000) or 32000)
+    full_budget_default = int(getattr(settings, "rag_full_budget_tokens", 64000) or 64000)
+    standard_budget = _normalize_budget(standard_budget_tokens, standard_budget_default)
+    budget_tokens_by_mode = {
+        "compact": _normalize_budget(payload.get("compact_budget_tokens"), compact_budget_default),
+        "standard": standard_budget,
+        "full": _normalize_budget(payload.get("full_budget_tokens"), full_budget_default),
+    }
+
     return {
         "mode": mode,
+        "window_profile": window_profile,
         "compact_max_chunks": _normalize_limit(compact_max_chunks, 3),
         "standard_max_chunks": _normalize_limit(standard_max_chunks, 8),
+        "compact_budget_tokens": int(budget_tokens_by_mode["compact"]),
+        "standard_budget_tokens": standard_budget,
+        "full_budget_tokens": int(budget_tokens_by_mode["full"]),
+        "budget_tokens_by_mode": budget_tokens_by_mode,
     }
 
 
@@ -42,10 +73,13 @@ def resolve_context_bundle_policy(value: dict | None) -> dict[str, object]:
     elif mode == "standard":
         include_context_text = True
         max_chunks = int(config["standard_max_chunks"])
+    budget_tokens_by_mode = dict(config.get("budget_tokens_by_mode") or {})
+    total_budget_tokens = int(budget_tokens_by_mode.get(mode) or DEFAULT_BUNDLE_BUDGET_BY_MODE.get(mode, 32000))
     return {
         **config,
         "include_context_text": include_context_text,
         "max_chunks": max_chunks,
+        "total_budget_tokens": total_budget_tokens,
     }
 
 
@@ -248,6 +282,8 @@ class ContextBundleService:
         required_context_scope: str | None = None,
         preferred_bundle_mode: str | None = None,
         total_budget_tokens: int | None = None,
+        budget_tokens_by_mode: dict[str, int] | None = None,
+        window_profile: str | None = None,
     ) -> dict[str, object]:
         payload = dict(context_payload or {})
         chunks = list(payload.get("chunks") or [])
@@ -264,6 +300,15 @@ class ContextBundleService:
         effective_mode = str(preferred_bundle_mode or policy_mode or "full").strip().lower()
         if effective_mode not in CONTEXT_BUNDLE_POLICY_MODES:
             effective_mode = str(policy_mode or "full").strip().lower() or "full"
+        mode_budget_map = dict(budget_tokens_by_mode or {})
+        effective_total_budget_tokens = total_budget_tokens
+        if mode_budget_map:
+            mapped = mode_budget_map.get(effective_mode)
+            if mapped is not None:
+                try:
+                    effective_total_budget_tokens = int(mapped)
+                except (TypeError, ValueError):
+                    effective_total_budget_tokens = total_budget_tokens
         strategy = dict(payload.get("strategy") or {})
         payload["explainability"] = self._build_explainability(list(payload.get("chunks") or []))
         payload["why_this_context"] = self._build_why_this_context(
@@ -277,14 +322,30 @@ class ContextBundleService:
             policy_mode=effective_mode,
             task_kind=task_kind,
             token_estimate=int(payload.get("token_estimate") or 0),
-            explicit_total_tokens=total_budget_tokens,
+            explicit_total_tokens=effective_total_budget_tokens,
         )
+        fusion = dict(strategy.get("fusion") or {})
+        dedupe = dict(fusion.get("dedupe") or {})
+        candidate_counts = dict(fusion.get("candidate_counts") or {})
+        all_candidates = max(1, int(candidate_counts.get("all") or 0))
+        final_candidates = max(0, int(candidate_counts.get("final") or 0))
+        duplicate_rate = min(1.0, float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0)) / float(all_candidates))
+        noise_rate = min(1.0, max(0.0, float(all_candidates - final_candidates) / float(all_candidates)))
         payload["bundle_type"] = "retrieval_context"
         payload["context_policy"] = {
             "mode": effective_mode,
             "include_context_text": bool(include_context_text),
             "max_chunks": max_chunks,
+            "total_budget_tokens": int(payload["budget"].get("total_tokens") or 0),
+            "window_profile": str(window_profile or "standard_32k").strip().lower() or "standard_32k",
         }
+        metric_task_kind = str(task_kind or "unknown").strip() or "unknown"
+        metric_bundle_mode = str(effective_mode or "unknown").strip() or "unknown"
+        RAG_BUNDLE_BUDGET_UTILIZATION.labels(metric_task_kind, metric_bundle_mode).observe(
+            float(payload["budget"].get("retrieval_utilization") or 0.0)
+        )
+        RAG_BUNDLE_DUPLICATE_RATE.labels(metric_task_kind, metric_bundle_mode).observe(duplicate_rate)
+        RAG_BUNDLE_NOISE_RATE.labels(metric_task_kind, metric_bundle_mode).observe(noise_rate)
         return payload
 
     def build_grounded_prompt(self, *, prompt: str, context_text: str) -> str:

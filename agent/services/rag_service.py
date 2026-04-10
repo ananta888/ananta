@@ -23,11 +23,19 @@ class RagService:
         required_context_scope: str | None = None,
         preferred_bundle_mode: str | None = None,
         total_budget_tokens: int | None = None,
+        budget_tokens_by_mode: dict[str, int] | None = None,
+        window_profile: str | None = None,
+        task_id: str | None = None,
+        goal_id: str | None = None,
+        neighbor_task_ids: list[str] | None = None,
     ) -> dict[str, object]:
         context_payload = self._retrieval_service.retrieve_context(
             query,
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
+            task_id=task_id,
+            goal_id=goal_id,
+            neighbor_task_ids=neighbor_task_ids,
         )
         return self._context_bundle_service.build_bundle(
             query=query,
@@ -40,6 +48,8 @@ class RagService:
             required_context_scope=required_context_scope,
             preferred_bundle_mode=preferred_bundle_mode,
             total_budget_tokens=total_budget_tokens,
+            budget_tokens_by_mode=budget_tokens_by_mode,
+            window_profile=window_profile,
         )
 
     def build_execution_context(self, prompt: str) -> tuple[dict[str, object], str]:

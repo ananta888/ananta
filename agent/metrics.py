@@ -61,6 +61,26 @@ KNOWLEDGE_RETRIEVAL_CHUNKS = Histogram(
     "knowledge_retrieval_chunks_selected",
     "Number of knowledge index chunks selected during retrieval",
 )
+RAG_BUNDLE_BUDGET_UTILIZATION = Histogram(
+    "rag_bundle_budget_utilization",
+    "Retrieval context budget utilization per bundle",
+    ["task_kind", "bundle_mode"],
+)
+RAG_BUNDLE_DUPLICATE_RATE = Histogram(
+    "rag_bundle_duplicate_rate",
+    "Duplicate candidate rate observed during retrieval fusion",
+    ["task_kind", "bundle_mode"],
+)
+RAG_BUNDLE_NOISE_RATE = Histogram(
+    "rag_bundle_noise_rate",
+    "Estimated noise rate in selected retrieval bundles",
+    ["task_kind", "bundle_mode"],
+)
+RAG_RETRIEVAL_TASK_KIND_TOTAL = Counter(
+    "rag_retrieval_task_kind_total",
+    "Total retrieval requests grouped by task kind and retrieval outcome",
+    ["task_kind", "bundle_mode", "outcome"],
+)
 
 # Ressourcen Metriken
 CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")

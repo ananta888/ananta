@@ -236,9 +236,12 @@ class TestWorkerJobFlow:
         assert payload["retrieval_hints"]["retrieval_intent"] == "execution_focused_context"
         assert payload["retrieval_hints"]["required_context_scope"] == "task_and_direct_neighbors"
         assert payload["retrieval_hints"]["preferred_bundle_mode"] == "standard"
+        assert "task_neighborhood" in payload
+        assert isinstance(payload["task_neighborhood"]["neighbor_task_ids"], list)
         assert forwarded_payload["data"]["retrieval_intent"] == "execution_focused_context"
         assert forwarded_payload["data"]["required_context_scope"] == "task_and_direct_neighbors"
         assert forwarded_payload["data"]["preferred_bundle_mode"] == "standard"
+        assert isinstance((forwarded_payload["data"]["context_bundle_policy"] or {}).get("neighbor_task_ids"), list)
 
     def test_complete_task_records_worker_result_for_current_job(self, client, admin_auth_header):
         task_repo.save(

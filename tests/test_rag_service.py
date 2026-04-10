@@ -101,6 +101,8 @@ def test_rag_service_compact_policy_trims_chunks_and_hides_context_text():
         "mode": "compact",
         "include_context_text": False,
         "max_chunks": 2,
+        "total_budget_tokens": 12000,
+        "window_profile": "standard_32k",
     }
 
 
@@ -123,4 +125,6 @@ def test_rag_service_standard_policy_records_effective_context_policy():
         "mode": "standard",
         "include_context_text": True,
         "max_chunks": 4,
+        "total_budget_tokens": 32000,
+        "window_profile": "standard_32k",
     }

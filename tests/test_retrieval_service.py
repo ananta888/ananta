@@ -56,9 +56,21 @@ class _FakeKnowledgeIndexRetrievalService:
         ]
 
 
+class _FakeMemoryEntryRepo:
+    def __init__(self) -> None:
+        self._by_task = {}
+        self._by_goal = {}
+
+    def get_by_task(self, task_id: str):
+        return list(self._by_task.get(task_id, []))
+
+    def get_by_goal(self, goal_id: str):
+        return list(self._by_goal.get(goal_id, []))
+
+
 def test_retrieval_service_merges_knowledge_index_chunks():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge)
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -76,7 +88,7 @@ def test_retrieval_service_merges_knowledge_index_chunks():
 
 def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge)
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -88,7 +100,7 @@ def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
 
 def test_retrieval_service_propagates_task_aware_hints():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge)
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -102,3 +114,38 @@ def test_retrieval_service_propagates_task_aware_hints():
     assert knowledge.last_retrieval_intent == "localize bug"
     assert "task_kind_code_or_debug" in payload["strategy"]["knowledge_index_reason"]
     assert payload["strategy"]["fusion"]["task_kind"] == "bugfix"
+
+
+def test_retrieval_service_includes_result_memory_for_neighbor_tasks():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    memory_repo = _FakeMemoryEntryRepo()
+    memory_repo._by_task["task-parent-1"] = [
+        type(
+            "Entry",
+            (),
+            {
+                "id": "mem-1",
+                "task_id": "task-parent-1",
+                "title": "Fix timeout handling",
+                "summary": "Updated timeout retry logic and tests",
+                "content": "Updated timeout retry logic and tests for worker pipeline",
+                "retrieval_tags": ["bugfix", "completed"],
+                "entry_type": "worker_result",
+                "memory_metadata": {"compacted_summary": "retry logic | tests"},
+            },
+        )()
+    ]
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=memory_repo)
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context(
+        "timeout retry",
+        task_kind="bugfix",
+        task_id="task-parent-1",
+        neighbor_task_ids=["task-parent-2"],
+    )
+
+    assert payload["strategy"]["result_memory"] == 1
+    assert payload["strategy"]["result_memory_reason"] == "ok"
+    assert "result_memory" in [chunk["engine"] for chunk in payload["chunks"]]

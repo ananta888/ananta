@@ -142,6 +142,10 @@ class Settings(BaseSettings):
     rag_agentic_timeout_seconds: int = Field(default=8, validation_alias="RAG_AGENTIC_TIMEOUT_SECONDS")
     rag_semantic_persist_dir: str = Field(default=".rag/llamaindex", validation_alias="RAG_SEMANTIC_PERSIST_DIR")
     rag_redact_sensitive: bool = Field(default=True, validation_alias="RAG_REDACT_SENSITIVE")
+    rag_default_window_profile: str = Field(default="standard_32k", validation_alias="RAG_DEFAULT_WINDOW_PROFILE")
+    rag_compact_budget_tokens: int = Field(default=12000, validation_alias="RAG_COMPACT_BUDGET_TOKENS")
+    rag_standard_budget_tokens: int = Field(default=32000, validation_alias="RAG_STANDARD_BUDGET_TOKENS")
+    rag_full_budget_tokens: int = Field(default=64000, validation_alias="RAG_FULL_BUDGET_TOKENS")
 
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
@@ -250,6 +254,15 @@ class Settings(BaseSettings):
         val = (v or "").strip().lower()
         if val not in allowed:
             raise ValueError(f"SGPT_EXECUTION_BACKEND muss einer der folgenden Werte sein: {sorted(allowed)}")
+        return val
+
+    @field_validator("rag_default_window_profile")
+    @classmethod
+    def validate_rag_default_window_profile(cls, v: str) -> str:
+        allowed = {"compact_12k", "standard_32k", "full_64k"}
+        val = (v or "").strip().lower() or "standard_32k"
+        if val not in allowed:
+            raise ValueError(f"RAG_DEFAULT_WINDOW_PROFILE muss einer der folgenden Werte sein: {sorted(allowed)}")
         return val
 
     model_config = SettingsConfigDict(

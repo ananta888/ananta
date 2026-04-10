@@ -49,6 +49,8 @@ def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
     assert entry.summary.startswith("Detailed result output")
     assert "completed" in entry.retrieval_tags
     assert entry.artifact_refs[0]["kind"] == "task_output"
+    assert (entry.memory_metadata or {}).get("compacted_summary") is not None
+    assert isinstance((entry.memory_metadata or {}).get("bullet_points"), list)
 
 
 def test_goal_detail_exposes_memory_entries(client, admin_auth_header, monkeypatch):
