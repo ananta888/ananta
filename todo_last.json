@@ -1,561 +1,251 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.3.0",
-  "created": "2026-04-05",
-  "updated": "2026-04-05T14:46:44Z",
+  "version": "5.4.1",
+  "created": "2026-04-06",
+  "updated": "2026-04-06T10:47:57Z",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "HEAD",
-    "review_goal": "Backend-Review fuer Blueprints, Templates, Rollen und Team-Instanziierung im Hub-Worker-Modell inkl. konkreter Verbesserungen.",
+    "reviewed_commit_range": "c96d280..HEAD",
+    "review_goal": "Benchmark-Stack fuer Hub und Ollama aus dem letzten Commit produktionsfaehig machen, ohne die Hub-Worker-Architektur zu brechen.",
     "notes": [
-      "Architekturvorgabe aus AGENTS.md bleibt unveraendert: Hub orchestriert, Worker fuehren aus.",
-      "Review-Fokus auf `agent/routes/teams.py`, `agent/routes/config/templates.py`, `agent/db_models.py`, `agent/services/task_template_resolution.py`.",
-      "Hauptbefunde: Seed-Blueprint-Drift, delete+recreate bei Blueprint-Children, schwache Artefakt-Validierung, fehlende DB-Constraints, nur warnende Template-Variable-Pruefung."
+      "Versionslinie bleibt bewusst auf Major 5.",
+      "Ausgangspunkt sind die Review-Befunde zum Benchmark-Modul: doppelter API-Prefix, Import-Namenskonflikt, stille Fehlerbehandlung, flacher Config-Merge, blockierende HTTP-Laeufe, doppelte Core-Logik und zu schwache Quality-Heuristik.",
+      "AGENTS.md bleibt massgeblich: Hub orchestriert, Worker fuehren aus; lang laufende Benchmark-Ausfuehrung soll deshalb nicht im Request-Thread verbleiben."
     ]
   },
   "categories": [
     {
-      "name": "import-export-blueprints",
-      "label": "Import/Export fuer Blueprint/Team/Template",
+      "name": "benchmark-api-and-routing",
+      "label": "Benchmark API und Routing",
       "items": [
         {
-          "id": "BP-050",
-          "title": "Domain-Schema fuer Full-Bundle-Export/Import definieren",
-          "description": "Ein versioniertes JSON-Schema definieren, das Blueprint, Blueprint-Rollen, referenzierte Templates, Team-Konfiguration und optional Mitglieder in einem Bundle abbildet.",
+          "id": "BM-001",
+          "title": "Ollama-Benchmark-Route-Prefix korrigieren und API-Tests ergaenzen",
+          "description": "Den doppelten Prefix `/api/api/ollama/benchmark/...` auf das erwartete `/api/ollama/benchmark/...` korrigieren und mit Route-/API-Tests absichern.",
           "priority": "critical",
-          "type": "design",
-          "principle": "Clarity, Backward-Compatibility",
+          "type": "bugfix",
+          "principle": "Backward-Compatibility, Reliability",
           "status": "completed",
-          "effort": "medium",
+          "effort": "small",
           "files": [
-            "api-spec.md",
-            "docs/",
-            "agent/models.py"
+            "agent/routes/ollama_benchmark.py",
+            "agent/ai_agent.py",
+            "tests/"
           ],
           "acceptance": [
-            "Schema enthaelt `schema_version` und klare Felder fuer Full-Bundle.",
-            "Import-Verhalten fuer fehlende/ungueltige Referenzen ist dokumentiert."
+            "Alle Ollama-Benchmark-Endpunkte sind unter genau einem `/api/ollama/benchmark`-Prefix registriert.",
+            "Ein Test prueft die registrierten Routen oder die erreichbaren HTTP-Endpunkte."
           ]
         },
         {
-          "id": "BP-051",
-          "title": "Backend-Endpunkte fuer Full-Bundle Export und Import implementieren",
-          "description": "Neue API-Endpunkte einfuehren, um eine komplette Blueprint-Konfiguration als JSON zu exportieren und wieder zu importieren (inkl. Referenzauflosung Templates/Rollen/Team-Typ).",
-          "priority": "critical",
-          "type": "feature",
-          "principle": "Operability, Testability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/routes/config/templates.py",
-            "agent/services/",
-            "agent/repositories/"
-          ],
-          "dependencies": [
-            "BP-050"
-          ],
-          "acceptance": [
-            "Export liefert ein konsistentes Bundle fuer einen Blueprint.",
-            "Import kann dasselbe Bundle idempotent erneut einspielen.",
-            "Konfliktstrategie (`fail`, `skip`, `overwrite`) ist per Request steuerbar."
-          ]
-        },
-        {
-          "id": "BP-052",
-          "title": "Split-Modus fuer getrennten Export/Import (blueprint, roles, templates, team) einfuehren",
-          "description": "Neben Full-Bundle einen Modus anbieten, der Komponenten getrennt exportiert/importiert, um Teilmigrationen und feinere Releases zu ermoeglichen.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "Flexibility, SRP",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/routes/config/templates.py",
-            "agent/services/"
-          ],
-          "dependencies": [
-            "BP-051"
-          ],
-          "acceptance": [
-            "API akzeptiert `mode=full|split`.",
-            "Split-Import kann einzelne Teile laden ohne unnoetige Nebenwirkungen.",
-            "Referenzen zwischen Teilen werden valide aufgeloest oder sauber als Fehler gemeldet."
-          ]
-        },
-        {
-          "id": "BP-053",
-          "title": "Import-Vorschau und Dry-Run mit Diff-Ausgabe ergaenzen",
-          "description": "Vor dem Import einen Dry-Run anbieten, der Create/Update/Delete-Auswirkungen und potenzielle Konflikte sichtbar macht.",
-          "priority": "high",
-          "type": "feature",
-          "principle": "Safety, Transparency",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/services/",
-            "agent/common/audit.py"
-          ],
-          "dependencies": [
-            "BP-051",
-            "BP-052"
-          ],
-          "acceptance": [
-            "Dry-Run schreibt nichts persistent.",
-            "Antwort enthaelt differenzierte Diff-Informationen pro Objektklasse."
-          ]
-        },
-        {
-          "id": "BP-054",
-          "title": "Automatisierte Tests fuer Full-/Split-ImportExport aufbauen",
-          "description": "Unit- und Integrations-Tests fuer Roundtrip, Konfliktmodi, Dry-Run und idempotentes Wiederholen einbauen.",
-          "priority": "critical",
-          "type": "test",
-          "principle": "Reliability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "tests/",
-            "agent/routes/teams.py",
-            "agent/routes/config/templates.py"
-          ],
-          "dependencies": [
-            "BP-051",
-            "BP-052",
-            "BP-053"
-          ],
-          "acceptance": [
-            "Roundtrip-Tests (export->import->export) bleiben stabil.",
-            "Konfliktfaelle und Validierungsfehler sind reproduzierbar abgesichert."
-          ]
-        },
-        {
-          "id": "BP-055",
-          "title": "UI/Operator-Flow fuer JSON-ImportExport dokumentieren und optional anbinden",
-          "description": "Runbook und API-Dokumentation fuer Admin-Nutzung erstellen; optional erste UI-Integration fuer Datei-Upload/Download vorbereiten.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Operability, UX",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/",
-            "api-spec.md",
-            "frontend-angular/src/app/"
-          ],
-          "dependencies": [
-            "BP-051",
-            "BP-052"
-          ],
-          "acceptance": [
-            "Doku beschreibt Full- und Split-Modus inkl. Konfliktmodi.",
-            "Admin kann ohne Rueckfragen Export/Import reproduzierbar ausfuehren."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "architecture-and-services",
-      "label": "Architektur und Service-Schnitt",
-      "items": [
-        {
-          "id": "BP-001",
-          "title": "ensure_default_templates in klar getrennte Services aufteilen",
-          "description": "Die aktuelle Funktion in `agent/routes/teams.py` trennt TeamType-, Template-, Role- und Link-Logik nicht sauber. Aufteilen in dedizierte Services mit einem orchestrierenden Einstiegspunkt.",
-          "priority": "critical",
-          "type": "refactor",
-          "principle": "SRP, OCP, Testability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/services/",
-            "agent/services/repository_registry.py"
-          ],
-          "acceptance": [
-            "Routen-Code delegiert an einen Service statt Fachlogik inline auszufuehren.",
-            "Service-Aufbau erlaubt isolierte Unit-Tests pro Verantwortungsbereich.",
-            "Verhalten bleibt API-kompatibel."
-          ]
-        },
-        {
-          "id": "BP-002",
-          "title": "Transaktionale Grenzen fuer Blueprint-Erstellung und -Instanziierung vereinheitlichen",
-          "description": "Gemischter Repo- und direkter Session-Zugriff soll in konsistente Transaktionen ueberfuehrt werden, um Race-Conditions und inkonsistente Zwischenzustaende zu minimieren.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Consistency, Reliability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/repositories/",
-            "agent/services/"
-          ],
-          "dependencies": [
-            "BP-001"
-          ],
-          "acceptance": [
-            "Blueprint-Operationen laufen mit klarer Commit-Grenze.",
-            "Keine unkontrollierten Session-Mischformen in derselben Fachoperation."
-          ]
-        },
-        {
-          "id": "BP-003",
-          "title": "Seed-Blueprint-Reconcile statt early-continue implementieren",
-          "description": "In `ensure_seed_blueprints` darf bei vorhandenen Rollen/Artefakten nicht nur angereichert und abgebrochen werden, sondern es braucht einen echten Abgleich gegen Seed-Definitionen.",
+          "id": "BM-002",
+          "title": "Import-Namenskonflikt bei hub_benchmark aufloesen",
+          "description": "Den Konflikt zwischen `agent/routes/hub_benchmark.py` und `agent/routes/hub_benchmark/` beseitigen, damit Import-Aufloesung und Container-Starts deterministisch bleiben.",
           "priority": "critical",
           "type": "bugfix",
           "principle": "Determinism, Maintainability",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/routes/teams.py",
-            "agent/seed_blueprints.py"
+            "agent/routes/hub_benchmark.py",
+            "agent/routes/hub_benchmark/",
+            "agent/ai_agent.py",
+            "tests/"
           ],
           "dependencies": [
-            "BP-001"
+            "BM-001"
           ],
           "acceptance": [
-            "Seed-Aenderungen werden idempotent in bestehende Blueprints uebernommen.",
-            "Kein stiller Drift zwischen Code-Seed und Datenbankzustand."
+            "Es existiert nur noch eine eindeutige Python-Importquelle fuer `agent.routes.hub_benchmark`.",
+            "App-Start und Benchmark-Routen bleiben in lokalen und Container-Umgebungen stabil."
           ]
         }
       ]
     },
     {
-      "name": "validation-and-compatibility",
-      "label": "Validierung und API-Kompatibilitaet",
+      "name": "benchmark-config-and-observability",
+      "label": "Benchmark Config und Beobachtbarkeit",
       "items": [
         {
-          "id": "BP-010",
-          "title": "Blueprint-Artifact-Validierung auf fachliche Regeln erweitern",
-          "description": "Validierung um Duplikate, sort_order-Kollisionen und erlaubte Artifact-Kinds erweitern; Fehler klar als API-Response melden.",
-          "priority": "high",
-          "type": "validation",
-          "principle": "Fail-Fast, UX",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/models.py"
-          ],
-          "acceptance": [
-            "Doppelte Artefakte werden mit 4xx abgewiesen.",
-            "Ungueltige `kind`-Werte werden frueh erkannt.",
-            "Fehlercodes bleiben fuer Frontend eindeutig."
-          ]
-        },
-        {
-          "id": "BP-011",
-          "title": "Blueprint-Rollen-Validierung um sort_order- und Template-Checks erweitern",
-          "description": "Neben Namensduplikaten auch Sortierungskonflikte und inkonsistente Template-Zuweisungen robust abfangen.",
-          "priority": "high",
-          "type": "validation",
-          "principle": "Correctness",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/models.py"
-          ],
-          "acceptance": [
-            "Mehrdeutige Rollenreihenfolge wird blockiert.",
-            "Template-Referenzen sind vor Persistierung valide."
-          ]
-        },
-        {
-          "id": "BP-012",
-          "title": "Template-Variable-Validierung optional strict schalten",
-          "description": "Bisher nur Warnung. Ueber Konfiguration optional strict-Mode einfuehren, der unbekannte Variablen fuer Admin-CRUD blockiert.",
-          "priority": "medium",
-          "type": "feature",
-          "principle": "Safety, Backward-Compatibility",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/routes/config/templates.py",
-            "config.json",
-            "README.md"
-          ],
-          "acceptance": [
-            "Default bleibt warn-only fuer Rueckwaertskompatibilitaet.",
-            "Strict-Mode kann per Config aktiviert werden und liefert 4xx bei unbekannten Variablen."
-          ]
-        },
-        {
-          "id": "BP-013",
-          "title": "Delete-Semantik fuer Blueprints mit bestehenden Teams absichern",
-          "description": "Loeschen von Blueprints soll bei bestehenden Team-Referenzen entweder sauber blockieren oder als Soft-Delete laufen, damit Historie und Nachvollziehbarkeit erhalten bleiben.",
+          "id": "BM-010",
+          "title": "Deep-Merge fuer Benchmark-Konfigurationen einfuehren",
+          "description": "Benchmark-Config-Loader fuer Hub und Ollama so umbauen, dass verschachtelte Defaults stabil erhalten bleiben und partielle Overrides kein stilles Verhalten erzeugen.",
           "priority": "high",
           "type": "bugfix",
-          "principle": "Data Integrity, Observability",
+          "principle": "Clarity, Reliability",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/routes/teams.py",
-            "agent/db_models.py",
-            "migrations/"
+            "agent/hub_benchmark.py",
+            "agent/ollama_benchmark.py",
+            "tests/test_hub_benchmark.py",
+            "tests/test_ollama_benchmark.py"
           ],
           "acceptance": [
-            "Kein unkontrolliertes Entfernen referenzierter Blueprints.",
-            "API-Fehler oder Soft-Delete-Verhalten ist dokumentiert und getestet."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "data-model-and-migrations",
-      "label": "Datenmodell und Migrationen",
-      "items": [
-        {
-          "id": "BP-020",
-          "title": "DB-Constraints fuer Blueprint-Rollen und Artefakte einfuehren",
-          "description": "Unique-Constraints fuer `blueprint_roles` und `blueprint_artifacts` ergaenzen, um doppelte oder widerspruechliche Eintraege auf Datenbankebene zu verhindern.",
-          "priority": "critical",
-          "type": "migration",
-          "principle": "Integrity, Defense-in-Depth",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/db_models.py",
-            "migrations/"
-          ],
-          "dependencies": [
-            "BP-010",
-            "BP-011"
-          ],
-          "acceptance": [
-            "Constraints sind per Migration ausgerollt.",
-            "Vorhandene Dubletten werden in einer sicheren Datenmigration behandelt."
+            "Partielle Config-Dateien behalten alle notwendigen Nested-Defaults.",
+            "Tests decken Merge-Verhalten fuer `auto_trigger`, `scoring`, `retention` und Rollen-Konfigurationen ab."
           ]
         },
         {
-          "id": "BP-021",
-          "title": "Template-Name eindeutiger machen (Unique oder Namensstrategie)",
-          "description": "Entscheidung und Umsetzung fuer stabile Template-Namensregeln, damit Admin/UI keine mehrdeutigen Eintraege erzeugen.",
-          "priority": "medium",
-          "type": "migration",
-          "principle": "Clarity, UX",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/db_models.py",
-            "agent/routes/config/templates.py",
-            "migrations/"
-          ],
-          "acceptance": [
-            "Mehrdeutige Template-Namen sind ausgeschlossen oder klar geregelt.",
-            "Bestehende Daten werden kompatibel migriert."
-          ]
-        },
-        {
-          "id": "BP-022",
-          "title": "Blueprint-Child-Persistierung auf diff-basiertes Upsert umstellen",
-          "description": "Delete+Recreate durch gezieltes Create/Update/Delete ersetzen, um stabile IDs und bessere Auditierbarkeit zu erhalten.",
+          "id": "BM-011",
+          "title": "Stille Fehlerbehandlung durch gezielte und sichtbare Fehlerpfade ersetzen",
+          "description": "Breite `except Exception: pass`-Stellen im Benchmark-Stack durch gezielte Fehlerbehandlung mit Logging oder klarer Rueckgabe ersetzen.",
           "priority": "high",
           "type": "refactor",
-          "principle": "Auditability, Maintainability",
+          "principle": "Observability, Fail-Fast",
           "status": "completed",
-          "effort": "large",
+          "effort": "medium",
           "files": [
-            "agent/routes/teams.py",
-            "agent/repositories/organization.py"
+            "agent/hub_benchmark.py",
+            "agent/ollama_benchmark.py",
+            "agent/services/hub_llm_service.py",
+            "agent/services/hub_benchmark_service.py",
+            "agent/services/ollama_benchmark_service.py",
+            "tests/"
           ],
           "dependencies": [
-            "BP-003",
-            "BP-020"
+            "BM-010"
           ],
           "acceptance": [
-            "Unveraenderte Child-Objekte behalten ihre IDs.",
-            "Aenderungen sind im Audit-Log differenziert nachvollziehbar."
+            "Kaputte JSON- oder Empfehlungsdaten werden nicht mehr still verschluckt.",
+            "Fehlerpfade sind fuer Betrieb und Tests nachvollziehbar sichtbar."
           ]
         }
       ]
     },
     {
-      "name": "tests-and-observability",
-      "label": "Tests und Nachvollziehbarkeit",
+      "name": "benchmark-execution-architecture",
+      "label": "Benchmark Ausfuehrung und Architektur",
       "items": [
         {
-          "id": "BP-030",
-          "title": "Backend-Unit-Tests fuer Blueprint-Validierung erweitern",
-          "description": "Neue Tests fuer Duplicate-Faelle, sort_order-Kollisionen, ungueltige Artifact-Kinds und Template-Referenzen ergaenzen.",
-          "priority": "high",
-          "type": "test",
-          "principle": "Testability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/",
-            "agent/routes/teams.py"
-          ],
-          "dependencies": [
-            "BP-010",
-            "BP-011"
-          ],
-          "acceptance": [
-            "Negative Faelle sind reproduzierbar durch automatisierte Tests abgesichert.",
-            "API-Fehlercodes werden explizit geprueft."
-          ]
-        },
-        {
-          "id": "BP-031",
-          "title": "Integrations-Tests fuer Seed-Reconcile und Instanziierung hinzufuegen",
-          "description": "Sicherstellen, dass Seed-Aenderungen in bestehende DB-Zustaende korrekt uebernommen werden und Instanziierung weiterhin stabil bleibt.",
+          "id": "BM-020",
+          "title": "Benchmark-Vollaeufe aus dem Request-Thread in den Task-Fluss verlagern",
+          "description": "Lang laufende Hub- und Ollama-Benchmarks sollen ueber das bestehende Hub-Task-System oder einen gleichwertig beobachtbaren Job-Fluss laufen statt synchron im HTTP-Request.",
           "priority": "critical",
-          "type": "test",
-          "principle": "Reliability, Architecture-Integrity",
+          "type": "architecture",
+          "principle": "Architecture-Integrity, Operability",
           "status": "completed",
           "effort": "large",
           "files": [
-            "tests/",
-            "agent/routes/teams.py",
-            "agent/seed_blueprints.py"
+            "agent/routes/hub_benchmark.py",
+            "agent/routes/ollama_benchmark.py",
+            "agent/services/hub_benchmark_service.py",
+            "agent/services/ollama_benchmark_service.py",
+            "agent/services/task_scoped_execution_service.py",
+            "tests/"
           ],
           "dependencies": [
-            "BP-003",
-            "BP-022"
+            "BM-001",
+            "BM-002",
+            "BM-011"
           ],
           "acceptance": [
-            "Seed-Drift wird durch Tests aktiv erkannt.",
-            "Blueprint-Instanziierung bleibt kompatibel mit bestehenden API-Flows."
+            "API startet Benchmark-Laeufe ohne lange Blockierung des Requests.",
+            "Status und Ergebnis eines Laufes bleiben ueber bestehende Ananta-Mechanismen beobachtbar."
           ]
         },
         {
-          "id": "BP-032",
-          "title": "E2E-Absicherung fuer Blueprint/Template-Admin-Flows erweitern",
-          "description": "Frontend-E2E um Admin-Faelle fuer Validierungsfehler und erfolgreiche Reconcile-Flows ergaenzen.",
+          "id": "BM-021",
+          "title": "Gemeinsamen Benchmark-Core fuer Hub und Ollama extrahieren",
+          "description": "Geteilte Score-, Retention-, Ranking- und Persistenzlogik in einen kleinen gemeinsamen Kern verschieben, damit Hub- und Ollama-Benchmark konsistent bleiben.",
           "priority": "medium",
-          "type": "test",
-          "principle": "UX, Observability",
+          "type": "refactor",
+          "principle": "SRP, DRY",
           "status": "completed",
-          "effort": "medium",
+          "effort": "large",
           "files": [
-            "frontend-angular/tests/",
-            "docs/testing.md"
+            "agent/hub_benchmark.py",
+            "agent/ollama_benchmark.py",
+            "agent/services/",
+            "tests/"
           ],
           "dependencies": [
-            "BP-012",
-            "BP-013"
+            "BM-010",
+            "BM-011"
           ],
           "acceptance": [
-            "UI zeigt valide Fehlermeldungen fuer invalides Blueprint/Template-Input.",
-            "Happy Path fuer Blueprint-Admin bleibt gruen."
-          ]
-        },
-        {
-          "id": "BP-033",
-          "title": "Audit-Events fuer Blueprint-Reconcile und Child-Diffs verfeinern",
-          "description": "Audit-Logs sollen differenziert ausweisen, welche Rollen/Artefakte geaendert, erstellt oder geloescht wurden.",
-          "priority": "medium",
-          "type": "observability",
-          "principle": "Transparency",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/routes/teams.py",
-            "agent/common/audit.py"
-          ],
-          "dependencies": [
-            "BP-022"
-          ],
-          "acceptance": [
-            "Audit-Eintraege enthalten pro Blueprint-Aktion differenzierte Change-Sets.",
-            "Logs sind fuer Fehleranalyse und Nachvollziehbarkeit direkt nutzbar."
+            "Gemeinsame Benchmark-Grundlogik liegt in einer klaren, testbaren Abstraktion.",
+            "Verhaltensunterschiede zwischen Hub und Ollama bleiben explizit und nicht versehentlich."
           ]
         }
       ]
     },
     {
-      "name": "docs-and-rollout",
-      "label": "Doku und Rollout",
+      "name": "benchmark-quality-and-selection",
+      "label": "Benchmark Quality und Modellauswahl",
       "items": [
         {
-          "id": "BP-040",
-          "title": "Architektur- und Admin-Doku fuer Blueprints/Templates aktualisieren",
-          "description": "Dokumentation fuer Seed-Reconcile, Validierungsregeln, Delete-Semantik und Strict-Mode ergaenzen.",
+          "id": "BM-030",
+          "title": "Quality-Gate fuer Benchmark-Ergebnisse fachlich staerken",
+          "description": "Die aktuelle Qualitaetsbewertung nicht nur an Antwortlaenge oder simplen Erfolgsindikatoren festmachen, sondern rollenspezifische und promptnahe Kriterien einfuehren.",
           "priority": "high",
-          "type": "documentation",
-          "principle": "Clarity",
+          "type": "improvement",
+          "principle": "Correctness, Testability",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
-            "README.md",
-            "docs/",
-            "api-spec.md"
+            "agent/hub_benchmark.py",
+            "agent/ollama_benchmark.py",
+            "agent/services/hub_benchmark_service.py",
+            "agent/services/ollama_benchmark_service.py",
+            "tests/"
           ],
           "dependencies": [
-            "BP-003",
-            "BP-012",
-            "BP-013"
+            "BM-010"
           ],
           "acceptance": [
-            "Dokumentation beschreibt den Ist-Zustand inkl. Migrations-/Kompatibilitaetshinweisen.",
-            "API-Beispiele enthalten neue Fehlerszenarien."
+            "Kurze, gute Antworten werden nicht systematisch gegen lange, aber schwache Antworten benachteiligt.",
+            "Mindestens ein Test pro Benchmark-Typ prueft die neue Bewertungslogik."
           ]
         },
         {
-          "id": "BP-041",
-          "title": "Rollout-Plan fuer Migrationen und Rueckfallstrategie definieren",
-          "description": "Fuer produktive Umgebungen einen sicheren Rollout inkl. Reihenfolge, Backup-Checks und Fallback dokumentieren.",
-          "priority": "high",
-          "type": "operations",
-          "principle": "Safety, Operability",
+          "id": "BM-031",
+          "title": "Empfehlungslogik und Default-Konfiguration auf sinnvolle Echtwerte ausrichten",
+          "description": "Empfehlungen und mitgelieferte Benchmark-Konfigurationen auf real nutzbare Provider/Modelle und nachvollziehbare Fallbacks ausrichten, damit Benchmarks im Ist-System direkt nutzbar bleiben.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Operability, UX",
           "status": "completed",
           "effort": "small",
           "files": [
-            "docs/",
-            "migrations/"
+            "hub_benchmark_config.json",
+            "data/ollama_benchmark_config.json",
+            "agent/services/hub_llm_service.py",
+            "tests/"
           ],
           "dependencies": [
-            "BP-020",
-            "BP-021"
+            "BM-011",
+            "BM-030"
           ],
           "acceptance": [
-            "Rollout-Reihenfolge ist eindeutig.",
-            "Rueckfallstrategie fuer fehlerhafte Migration ist dokumentiert."
+            "Mitgelieferte Defaults passen zur aktuellen Ananta-Umgebung.",
+            "Empfehlungsquellen und Fallbacks sind fuer Betreiber nachvollziehbar."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 22,
+    "total_items": 8,
     "by_status": {
-      "completed": 22,
+      "completed": 8,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Diese Todo-Version startet bewusst als neue Linie fuer Backend-Qualitaet bei Blueprints/Templates.",
-      "Prioritaet liegt auf deterministischem Seed-Verhalten, Datenintegritaet und klarer Validierung.",
-      "Hub-Worker-Architektur bleibt unveraendert; Verbesserungen sind additiv und kompatibel.",
-      "Neu in 5.3.0: Import/Export-Track fuer komplette Bundle-JSONs sowie getrennten Split-Modus."
+      "Diese Todo-Generation ersetzt den vorherigen Fokus durch einen gezielten Benchmark-Hardening-Track.",
+      "Version bleibt auf der 5.x-Linie und springt bewusst nicht auf Major 6.",
+      "Alle acht Benchmark-Tasks sind umgesetzt: Routing/Importe, Deep-Merge und sichtbare Fehlerpfade, bessere Qualitaetsbewertung/Defaults sowie asynchrone Benchmark-Jobs."
     ],
     "recommended_order": [
-      "BP-050",
-      "BP-051",
-      "BP-052",
-      "BP-053",
-      "BP-054",
-      "BP-055",
-      "BP-001",
-      "BP-003",
-      "BP-010",
-      "BP-011",
-      "BP-020",
-      "BP-022",
-      "BP-013",
-      "BP-012",
-      "BP-030",
-      "BP-031",
-      "BP-033",
-      "BP-032",
-      "BP-040",
-      "BP-041"
+      "BM-001",
+      "BM-002",
+      "BM-010",
+      "BM-011",
+      "BM-020",
+      "BM-030",
+      "BM-031",
+      "BM-021"
     ]
   }
 }

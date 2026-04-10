@@ -1,1 +1,2 @@
 FROM /models/tensorblock/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q2_K.gguf
+PARAMETER num_ctx 32768
