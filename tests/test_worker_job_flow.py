@@ -1,6 +1,7 @@
 from agent.db_models import AgentInfoDB, ContextBundleDB, RetrievalRunDB, TaskDB, WorkerJobDB
 from agent.config import settings
 from agent.repository import context_bundle_repo, retrieval_run_repo, task_repo, worker_job_repo, worker_result_repo, agent_repo
+from agent.services.worker_job_service import WorkerJobService
 
 
 class TestWorkerJobFlow:
@@ -284,3 +285,43 @@ class TestWorkerJobFlow:
 
         job = worker_job_repo.get_by_id("job-current-1")
         assert job.status == "completed"
+
+
+def test_worker_job_service_persists_selection_trace_and_budget_metadata():
+    class FakeRagService:
+        def retrieve_context_bundle(self, *_args, **_kwargs):
+            return {
+                "bundle_type": "retrieval_context",
+                "policy_version": "v1",
+                "chunks": [
+                    {"engine": "knowledge_index", "source": "docs/abc.md", "content": "ctx", "score": 2.1, "metadata": {}}
+                ],
+                "token_estimate": 17,
+                "strategy": {"fusion": {"candidate_counts": {"all": 3, "final": 1}}},
+                "context_policy": {"mode": "standard", "window_profile": "standard_32k"},
+                "budget": {"total_tokens": 32000, "retrieval_utilization": 0.4},
+                "why_this_context": {"summary": "task_kind=implement | selected_chunks=1 | mode=standard"},
+                "explainability": {"engines": ["knowledge_index"], "sources": [{"source": "docs/abc.md", "score": 2.1}]},
+                "selection_trace": {
+                    "fusion": {"candidate_counts": {"all": 3, "final": 1}},
+                    "knowledge_index_reason": "query_overlap",
+                    "result_memory_reason": "neighbor_task_match",
+                },
+            }
+
+    service = WorkerJobService(rag_service=FakeRagService())
+    bundle = service.create_context_bundle(
+        query="implement worker flow",
+        parent_task_id="T-parent",
+        goal_id="G-1",
+        context_policy={"mode": "standard", "task_kind": "implement", "window_profile": "standard_32k"},
+    )
+    metadata = dict(bundle.bundle_metadata or {})
+    assert (metadata.get("selection_trace") or {}).get("knowledge_index_reason") == "query_overlap"
+    assert (metadata.get("selection_trace") or {}).get("result_memory_reason") == "neighbor_task_match"
+    assert (metadata.get("budget") or {}).get("total_tokens") == 32000
+
+    run = retrieval_run_repo.get_by_id(bundle.retrieval_run_id)
+    assert run is not None
+    assert (run.run_metadata or {}).get("window_profile") == "standard_32k"
+    assert (run.run_metadata or {}).get("total_budget_tokens") == 32000

@@ -229,6 +229,60 @@ class ContextBundleService:
             "sources": sources,
         }
 
+    def _mode_profile(self, mode: str) -> dict[str, object]:
+        normalized = str(mode or "full").strip().lower()
+        if normalized == "compact":
+            return {
+                "bundle_strategy": "minimal",
+                "explainability_level": "minimal",
+                "chunk_text_style": "compressed_snippets",
+                "source_limit": 2,
+                "top_source_limit": 2,
+                "chunk_content_limit": 320,
+            }
+        if normalized == "standard":
+            return {
+                "bundle_strategy": "balanced",
+                "explainability_level": "balanced",
+                "chunk_text_style": "balanced_snippets",
+                "source_limit": 6,
+                "top_source_limit": 4,
+                "chunk_content_limit": 1200,
+            }
+        return {
+            "bundle_strategy": "deep",
+            "explainability_level": "detailed",
+            "chunk_text_style": "detailed_context",
+            "source_limit": 12,
+            "top_source_limit": 8,
+            "chunk_content_limit": 2400,
+        }
+
+    def _compact_chunks_for_mode(self, chunks: list[dict], *, mode: str) -> list[dict]:
+        profile = self._mode_profile(mode)
+        content_limit = max(120, int(profile.get("chunk_content_limit") or 1200))
+        normalized_chunks: list[dict] = []
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            content = str(chunk.get("content") or "")
+            metadata = dict(chunk.get("metadata") or {})
+            trimmed = content[:content_limit]
+            if content and len(content) > len(trimmed):
+                metadata["content_trimmed_for_mode"] = mode
+            normalized_chunks.append({**chunk, "content": trimmed, "metadata": metadata})
+        return normalized_chunks
+
+    def _mode_adjusted_explainability(self, explainability: dict[str, object], *, mode: str) -> dict[str, object]:
+        profile = self._mode_profile(mode)
+        source_limit = max(1, int(profile.get("source_limit") or 5))
+        sources = list(explainability.get("sources") or [])[:source_limit]
+        payload = {**dict(explainability or {}), "sources": sources, "source_count": len(sources)}
+        if mode == "compact":
+            payload.pop("collection_ids", None)
+            payload.pop("knowledge_index_ids", None)
+        return payload
+
     def _build_why_this_context(
         self,
         *,
@@ -237,18 +291,28 @@ class ContextBundleService:
         task_kind: str | None,
         retrieval_intent: str | None,
         required_context_scope: str | None,
+        mode: str,
     ) -> dict[str, object]:
+        profile = self._mode_profile(mode)
+        top_source_limit = max(1, int(profile.get("top_source_limit") or 5))
         top_sources: list[dict[str, object]] = []
-        for chunk in chunks[:5]:
+        for chunk in chunks[:top_source_limit]:
             if not isinstance(chunk, dict):
                 continue
             metadata = dict(chunk.get("metadata") or {})
+            fusion = dict(metadata.get("fusion") or {})
+            relevance_dimensions = [
+                key
+                for key in ("query_overlap", "relation_bonus")
+                if float(fusion.get(key) or 0.0) > 0
+            ]
             top_sources.append(
                 {
                     "engine": str(chunk.get("engine") or ""),
                     "source": str(chunk.get("source") or ""),
                     "score": chunk.get("score"),
                     "record_kind": str(metadata.get("record_kind") or ""),
+                    "relevance_dimensions": relevance_dimensions,
                 }
             )
         summary_parts = []
@@ -261,11 +325,13 @@ class ContextBundleService:
         if strategy:
             summary_parts.append(f"strategy_keys={','.join(sorted(str(key) for key in strategy.keys()))}")
         summary_parts.append(f"selected_chunks={len(chunks)}")
+        summary_parts.append(f"mode={mode}")
         return {
             "summary": " | ".join(summary_parts),
             "task_kind": str(task_kind or "").strip() or None,
             "retrieval_intent": str(retrieval_intent or "").strip() or None,
             "required_context_scope": str(required_context_scope or "").strip() or None,
+            "mode": mode,
             "top_sources": top_sources,
         }
 
@@ -300,6 +366,11 @@ class ContextBundleService:
         effective_mode = str(preferred_bundle_mode or policy_mode or "full").strip().lower()
         if effective_mode not in CONTEXT_BUNDLE_POLICY_MODES:
             effective_mode = str(policy_mode or "full").strip().lower() or "full"
+        mode_profile = self._mode_profile(effective_mode)
+        if effective_mode == "compact":
+            include_context_text = False
+            payload.pop("context_text", None)
+        payload["chunks"] = self._compact_chunks_for_mode(list(payload.get("chunks") or []), mode=effective_mode)
         mode_budget_map = dict(budget_tokens_by_mode or {})
         effective_total_budget_tokens = total_budget_tokens
         if mode_budget_map:
@@ -310,13 +381,15 @@ class ContextBundleService:
                 except (TypeError, ValueError):
                     effective_total_budget_tokens = total_budget_tokens
         strategy = dict(payload.get("strategy") or {})
-        payload["explainability"] = self._build_explainability(list(payload.get("chunks") or []))
+        base_explainability = self._build_explainability(list(payload.get("chunks") or []))
+        payload["explainability"] = self._mode_adjusted_explainability(base_explainability, mode=effective_mode)
         payload["why_this_context"] = self._build_why_this_context(
             chunks=list(payload.get("chunks") or []),
             strategy=strategy,
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
             required_context_scope=required_context_scope,
+            mode=effective_mode,
         )
         payload["budget"] = self._build_budget_model(
             policy_mode=effective_mode,
@@ -332,12 +405,20 @@ class ContextBundleService:
         duplicate_rate = min(1.0, float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0)) / float(all_candidates))
         noise_rate = min(1.0, max(0.0, float(all_candidates - final_candidates) / float(all_candidates)))
         payload["bundle_type"] = "retrieval_context"
+        payload["selection_trace"] = {
+            "fusion": dict(strategy.get("fusion") or {}),
+            "knowledge_index_reason": strategy.get("knowledge_index_reason"),
+            "result_memory_reason": strategy.get("result_memory_reason"),
+        }
         payload["context_policy"] = {
             "mode": effective_mode,
             "include_context_text": bool(include_context_text),
             "max_chunks": max_chunks,
             "total_budget_tokens": int(payload["budget"].get("total_tokens") or 0),
             "window_profile": str(window_profile or "standard_32k").strip().lower() or "standard_32k",
+            "bundle_strategy": str(mode_profile.get("bundle_strategy") or "balanced"),
+            "explainability_level": str(mode_profile.get("explainability_level") or "balanced"),
+            "chunk_text_style": str(mode_profile.get("chunk_text_style") or "balanced_snippets"),
         }
         metric_task_kind = str(task_kind or "unknown").strip() or "unknown"
         metric_bundle_mode = str(effective_mode or "unknown").strip() or "unknown"

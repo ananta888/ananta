@@ -103,7 +103,12 @@ def test_rag_service_compact_policy_trims_chunks_and_hides_context_text():
         "max_chunks": 2,
         "total_budget_tokens": 12000,
         "window_profile": "standard_32k",
+        "bundle_strategy": "minimal",
+        "explainability_level": "minimal",
+        "chunk_text_style": "compressed_snippets",
     }
+    assert bundle["why_this_context"]["mode"] == "compact"
+    assert isinstance(bundle["selection_trace"], dict)
 
 
 def test_rag_service_standard_policy_records_effective_context_policy():
@@ -127,4 +132,30 @@ def test_rag_service_standard_policy_records_effective_context_policy():
         "max_chunks": 4,
         "total_budget_tokens": 32000,
         "window_profile": "standard_32k",
+        "bundle_strategy": "balanced",
+        "explainability_level": "balanced",
+        "chunk_text_style": "balanced_snippets",
     }
+
+
+def test_rag_service_full_mode_keeps_detailed_explainability_profile():
+    retrieval = MagicMock()
+    retrieval.retrieve_context.return_value = {
+        "query": "find deep architecture context",
+        "strategy": {"repository_map": 1},
+        "policy_version": "v1",
+        "chunks": [
+            {"engine": "repository_map", "source": f"file-{idx}.md", "content": "ctx " * 800, "score": 1.0, "metadata": {}}
+            for idx in range(10)
+        ],
+        "context_text": "ctx",
+        "token_estimate": 42,
+    }
+    service = RagService(retrieval_service=retrieval)
+
+    bundle = service.retrieve_context_bundle("find deep architecture context", policy_mode="full")
+
+    assert bundle["context_policy"]["bundle_strategy"] == "deep"
+    assert bundle["context_policy"]["explainability_level"] == "detailed"
+    assert bundle["context_policy"]["chunk_text_style"] == "detailed_context"
+    assert len(bundle["explainability"]["sources"]) <= 10

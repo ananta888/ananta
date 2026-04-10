@@ -55,15 +55,30 @@ def _context_bundle_summary(task: dict) -> dict | None:
     explainability = dict(metadata.get("explainability") or {})
     why = dict(metadata.get("why_this_context") or {})
     budget = dict(metadata.get("budget") or {})
+    context_policy = dict(metadata.get("context_policy") or {})
+    selection_trace = dict(metadata.get("selection_trace") or {})
     sources = list(explainability.get("sources") or [])
+    why_top_sources = list(why.get("top_sources") or [])
     return {
         "context_bundle_id": bundle.id,
         "chunk_count": len(bundle.chunks or []),
         "token_estimate": int(bundle.token_estimate or 0),
         "engines": list(explainability.get("engines") or []),
         "top_sources": sources[:3],
+        "why_top_sources": why_top_sources[:3],
         "why_summary": why.get("summary"),
         "retrieval_utilization": budget.get("retrieval_utilization"),
+        "context_policy": {
+            "mode": context_policy.get("mode"),
+            "window_profile": context_policy.get("window_profile"),
+            "bundle_strategy": context_policy.get("bundle_strategy"),
+            "explainability_level": context_policy.get("explainability_level"),
+            "chunk_text_style": context_policy.get("chunk_text_style"),
+        },
+        "selection_trace": {
+            "knowledge_index_reason": selection_trace.get("knowledge_index_reason"),
+            "result_memory_reason": selection_trace.get("result_memory_reason"),
+        },
     }
 
 

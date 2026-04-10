@@ -68,6 +68,8 @@ class WorkerJobService:
                     "required_context_scope": required_context_scope,
                     "preferred_bundle_mode": preferred_bundle_mode,
                     "neighbor_task_ids": neighbor_task_ids,
+                    "window_profile": (bundle.get("context_policy") or {}).get("window_profile"),
+                    "total_budget_tokens": ((bundle.get("budget") or {}).get("total_tokens")),
                 },
             )
         )
@@ -94,6 +96,7 @@ class WorkerJobService:
                     },
                     "budget": bundle.get("budget") or {},
                     "why_this_context": bundle.get("why_this_context") or {},
+                    "selection_trace": bundle.get("selection_trace") or {},
                 },
             )
         )

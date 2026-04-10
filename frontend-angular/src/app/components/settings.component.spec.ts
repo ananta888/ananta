@@ -98,12 +98,27 @@ describe('SettingsComponent (benchmark config)', () => {
     const mode = ['compact', 'standard', 'full'].includes(String(raw.mode || '').trim().toLowerCase())
       ? String(raw.mode || '').trim().toLowerCase()
       : 'full';
+    const windowProfile = ['compact_12k', 'standard_32k', 'full_64k'].includes(String(raw.window_profile || '').trim().toLowerCase())
+      ? String(raw.window_profile || '').trim().toLowerCase()
+      : 'standard_32k';
     const compactMaxChunks = Number(raw.compact_max_chunks);
     const standardMaxChunks = Number(raw.standard_max_chunks);
+    const compactBudgetTokens = Number(raw.compact_budget_tokens);
+    const standardBudgetTokens = Number(raw.standard_budget_tokens);
+    const fullBudgetTokens = Number(raw.full_budget_tokens);
     return {
       mode,
+      window_profile: windowProfile,
       compact_max_chunks: Number.isFinite(compactMaxChunks) ? Math.max(1, Math.min(50, compactMaxChunks)) : 3,
       standard_max_chunks: Number.isFinite(standardMaxChunks) ? Math.max(1, Math.min(50, standardMaxChunks)) : 8,
+      compact_budget_tokens: Number.isFinite(compactBudgetTokens) ? Math.max(4096, Math.min(131072, compactBudgetTokens)) : 12000,
+      standard_budget_tokens: Number.isFinite(standardBudgetTokens) ? Math.max(4096, Math.min(131072, standardBudgetTokens)) : 32000,
+      full_budget_tokens: Number.isFinite(fullBudgetTokens) ? Math.max(4096, Math.min(131072, fullBudgetTokens)) : 64000,
+      budget_tokens_by_mode: {
+        compact: Number.isFinite(compactBudgetTokens) ? Math.max(4096, Math.min(131072, compactBudgetTokens)) : 12000,
+        standard: Number.isFinite(standardBudgetTokens) ? Math.max(4096, Math.min(131072, standardBudgetTokens)) : 32000,
+        full: Number.isFinite(fullBudgetTokens) ? Math.max(4096, Math.min(131072, fullBudgetTokens)) : 64000,
+      },
     };
   }
 
@@ -126,13 +141,37 @@ describe('SettingsComponent (benchmark config)', () => {
 
   function resolveContextBundlePolicy(config: any): any {
     const normalized = normalizeContextBundlePolicy(config?.context_bundle_policy);
+    const budgetByMode = normalized.budget_tokens_by_mode || {};
+    const modeProfile = normalized.mode === 'compact'
+      ? { bundle_strategy: 'minimal', explainability_level: 'minimal', chunk_text_style: 'compressed_snippets' }
+      : normalized.mode === 'standard'
+        ? { bundle_strategy: 'balanced', explainability_level: 'balanced', chunk_text_style: 'balanced_snippets' }
+        : { bundle_strategy: 'deep', explainability_level: 'detailed', chunk_text_style: 'detailed_context' };
     if (normalized.mode === 'compact') {
-      return { ...normalized, include_context_text: false, max_chunks: normalized.compact_max_chunks };
+      return {
+        ...normalized,
+        include_context_text: false,
+        max_chunks: normalized.compact_max_chunks,
+        total_budget_tokens: budgetByMode.compact || normalized.compact_budget_tokens || 12000,
+        ...modeProfile,
+      };
     }
     if (normalized.mode === 'standard') {
-      return { ...normalized, include_context_text: true, max_chunks: normalized.standard_max_chunks };
+      return {
+        ...normalized,
+        include_context_text: true,
+        max_chunks: normalized.standard_max_chunks,
+        total_budget_tokens: budgetByMode.standard || normalized.standard_budget_tokens || 32000,
+        ...modeProfile,
+      };
     }
-    return { ...normalized, include_context_text: true, max_chunks: null };
+    return {
+      ...normalized,
+      include_context_text: true,
+      max_chunks: null,
+      total_budget_tokens: budgetByMode.full || normalized.full_budget_tokens || 64000,
+      ...modeProfile,
+    };
   }
 
   beforeEach(() => {
@@ -552,15 +591,37 @@ describe('SettingsComponent (benchmark config)', () => {
 
     expect(cmp.config.context_bundle_policy).toEqual({
       mode: 'standard',
+      window_profile: 'standard_32k',
       compact_max_chunks: 1,
       standard_max_chunks: 12,
+      compact_budget_tokens: 12000,
+      standard_budget_tokens: 32000,
+      full_budget_tokens: 64000,
+      budget_tokens_by_mode: {
+        compact: 12000,
+        standard: 32000,
+        full: 64000,
+      },
     });
     expect(resolveContextBundlePolicy(cmp.config)).toEqual({
       mode: 'standard',
+      window_profile: 'standard_32k',
       compact_max_chunks: 1,
       standard_max_chunks: 12,
+      compact_budget_tokens: 12000,
+      standard_budget_tokens: 32000,
+      full_budget_tokens: 64000,
+      budget_tokens_by_mode: {
+        compact: 12000,
+        standard: 32000,
+        full: 64000,
+      },
       include_context_text: true,
       max_chunks: 12,
+      total_budget_tokens: 32000,
+      bundle_strategy: 'balanced',
+      explainability_level: 'balanced',
+      chunk_text_style: 'balanced_snippets',
     });
   });
 

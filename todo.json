@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
   "created": "2026-04-10",
-  "updated": "2026-04-10T00:00:00Z",
+  "updated": "2026-04-10T16:53:14Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -126,7 +126,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Budget-Control, Hardware-Fit",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -148,7 +148,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Explainability, Focus",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -172,7 +172,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Clarity, Maintainability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -195,7 +195,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Auditability, Debuggability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/worker_job_service.py",
@@ -482,7 +482,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, Debuggability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -527,8 +527,8 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 3,
-      "partial": 17,
+      "completed": 8,
+      "partial": 12,
       "open": 0
     },
     "notes": [

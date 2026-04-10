@@ -126,13 +126,35 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           <app-ui-skeleton [count]="1" [lineCount]="5"></app-ui-skeleton>
         } @else {
           <table class="table-full">
-            <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Aktion</th></tr></thead>
+            <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Bundle-Kontext</th><th>Aktion</th></tr></thead>
             <tbody>
               @for (t of rm?.recent_tasks || []; track t.id) {
                 <tr>
                   <td class="font-mono-cell">{{ t.id }}</td>
                   <td>{{ t.status }}</td>
                   <td>{{ t.assigned_agent_url || '-' }}</td>
+                  <td>
+                    @if (t.context_bundle_summary) {
+                      <div class="font-sm">
+                        Chunks {{ t.context_bundle_summary.chunk_count || 0 }} · Tokens {{ t.context_bundle_summary.token_estimate || 0 }}
+                      </div>
+                      <div class="muted font-sm">
+                        {{ t.context_bundle_summary.context_policy?.mode || 'n/a' }} · {{ t.context_bundle_summary.context_policy?.window_profile || 'n/a' }}
+                      </div>
+                      @if (t.context_bundle_summary.why_summary) {
+                        <div class="font-sm">{{ t.context_bundle_summary.why_summary }}</div>
+                      }
+                      @if (topBundleSources(t).length) {
+                        <div class="muted font-sm">
+                          @for (source of topBundleSources(t); track source.source + '-' + source.engine) {
+                            <div>{{ source.engine || 'source' }} · {{ source.source }} · {{ source.score ?? '-' }}</div>
+                          }
+                        </div>
+                      }
+                    } @else {
+                      <span class="muted">-</span>
+                    }
+                  </td>
                   <td>
                     <button class="button-outline" (click)="claim(t.id)">Uebernehmen</button>
                     <button class="button-outline" (click)="complete(t.id)">Abschliessen</button>
@@ -311,5 +333,13 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
 
   toggleArtifactFlowDetails() {
     this.showArtifactFlowDetails = !this.showArtifactFlowDetails;
+  }
+
+  topBundleSources(task: any): any[] {
+    const summary = task?.context_bundle_summary || {};
+    const explainabilitySources = Array.isArray(summary?.top_sources) ? summary.top_sources : [];
+    if (explainabilitySources.length) return explainabilitySources.slice(0, 2);
+    const whySources = Array.isArray(summary?.why_top_sources) ? summary.why_top_sources : [];
+    return whySources.slice(0, 2);
   }
 }
