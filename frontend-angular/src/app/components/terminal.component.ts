@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   ElementRef,
@@ -20,6 +21,7 @@ import { HubSystemApiClient } from '../services/hub-system-api.client';
 import { NotificationService } from '../services/notification.service';
 
 const TERMINAL_LOW_LATENCY_STORAGE_KEY = 'ananta.terminal.low-latency';
+const TERMINAL_OUTPUT_MIRROR_ENABLED = false;
 
 type TerminalButtonKeySpec = {
   key: string;
@@ -35,6 +37,7 @@ type TerminalButtonKeySpec = {
 @Component({
   standalone: true,
   selector: 'app-terminal',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule],
   providers: [TerminalService],
   styles: [`
@@ -133,7 +136,9 @@ type TerminalButtonKeySpec = {
       </div>
       <div #terminalHost class="terminal-host" aria-label="Terminal output" (click)="focusTerminal()"></div>
     </div>
-    <pre data-testid="terminal-output-buffer" style="display:none;">{{outputBuffer}}</pre>
+    @if (outputMirrorEnabled) {
+      <pre data-testid="terminal-output-buffer" style="display:none;">{{outputBuffer}}</pre>
+    }
   `,
 })
 export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -170,6 +175,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   restartBusy = false;
   workerRestartBusy = false;
   lowLatencyMode = this.readLowLatencyPreference();
+  outputMirrorEnabled = TERMINAL_OUTPUT_MIRROR_ENABLED;
 
   ngAfterViewInit(): void {
     if (!this.terminalHost) return;
@@ -191,25 +197,30 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.fitToContainer(true);
     this.focusTerminal();
 
-    this.terminal.onData((data) => {
-      if (this.mode !== 'interactive') return;
-      this.terminalService.sendInput(data);
+    this.zone.runOutsideAngular(() => {
+      this.terminal?.onData((data) => {
+        if (this.mode !== 'interactive') return;
+        this.terminalService.sendInput(data);
+      });
     });
 
     this.subs.push(
       this.terminalService.state$.subscribe((state) => {
+        if (this.status === state) return;
         this.zone.run(() => {
           this.status = state;
-          this.cdr.detectChanges();
+          this.cdr.markForCheck();
         });
       })
     );
 
-    this.subs.push(
-      this.terminalService.output$.subscribe((chunk) => {
-        this.bufferOutput(chunk);
-      })
-    );
+    this.zone.runOutsideAngular(() => {
+      this.subs.push(
+        this.terminalService.output$.subscribe((chunk) => {
+          this.bufferOutput(chunk);
+        })
+      );
+    });
 
     this.subs.push(
       this.terminalService.events$.subscribe((evt) => {
@@ -223,7 +234,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
           this.zone.run(() => {
             this.fitToContainer(true);
             this.focusTerminal();
-            this.cdr.detectChanges();
+            this.cdr.markForCheck();
           });
         }
         if (evt.type === 'error') {
@@ -233,7 +244,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
           });
           this.appendMirroredOutput(marker);
           this.zone.run(() => {
-            this.cdr.detectChanges();
+            this.cdr.markForCheck();
           });
         }
       })
@@ -290,7 +301,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.systemApi.restartTerminalSession(this.baseUrl, this.forwardParam, this.token).pipe(
       finalize(() => {
         this.restartBusy = false;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       })
     ).subscribe({
       next: () => {
@@ -310,7 +321,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.systemApi.restartProcess(this.baseUrl, this.token).pipe(
       finalize(() => {
         this.workerRestartBusy = false;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       })
     ).subscribe({
       next: () => {
@@ -433,6 +444,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private appendMirroredOutput(chunk: string): void {
+    if (!this.outputMirrorEnabled) return;
     if (!chunk) return;
     this.mirroredOutputBuffer = (this.mirroredOutputBuffer + chunk).slice(-12000);
     if (this.mirrorFlushHandle !== undefined) return;
@@ -440,7 +452,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.mirrorFlushHandle = undefined;
       this.zone.run(() => {
         this.outputBuffer = this.mirroredOutputBuffer;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       });
     }, this.lowLatencyMode ? 60 : 120);
   }
