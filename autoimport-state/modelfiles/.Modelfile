@@ -1,0 +1,2 @@
+FROM /models/unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF/mmproj-F32.gguf
+PARAMETER num_ctx 32768
