@@ -353,6 +353,10 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <div class="muted">Session Mode</div>
               <strong>{{ task?.last_proposal?.routing?.session_mode || 'stateless' }}</strong>
             </div>
+            <div>
+              <div class="muted">Session Reused</div>
+              <strong>{{ taskSessionReuseLabel() }}</strong>
+            </div>
           </div>
           @if (taskLiveTerminalLink()) {
             <div class="mt-10">
@@ -966,6 +970,14 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       };
     }
     return null;
+  }
+
+  taskSessionReuseLabel(): string {
+    const reused = this.task?.last_proposal?.routing?.session_reused;
+    if (typeof reused === 'boolean') return reused ? 'ja' : 'nein';
+    const sessionMode = String(this.task?.last_proposal?.routing?.session_mode || '').trim().toLowerCase();
+    if (sessionMode === 'stateful') return 'unbekannt';
+    return '—';
   }
 
   private normalizeAgentUrl(url: string | undefined | null): string {

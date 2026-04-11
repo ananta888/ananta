@@ -19,6 +19,7 @@ describe('TaskDetailComponent', () => {
       'researchBackendMetadata',
       'provenanceEvents',
       'latestExecutionCostSummary',
+      'taskSessionReuseLabel',
       'reviewProposal',
       'taskLiveTerminalConnection',
       'taskDiagnosticTerminalConnection',
@@ -220,5 +221,26 @@ describe('TaskDetailComponent', () => {
         mode: 'interactive',
       },
     });
+  });
+
+  it('renders explicit session reuse values', () => {
+    const cmp = createComponent();
+    cmp.task = {
+      last_proposal: { routing: { session_mode: 'stateful', session_reused: true } },
+    };
+    expect(cmp.taskSessionReuseLabel()).toBe('ja');
+
+    cmp.task = {
+      last_proposal: { routing: { session_mode: 'stateful', session_reused: false } },
+    };
+    expect(cmp.taskSessionReuseLabel()).toBe('nein');
+  });
+
+  it('renders unknown session reuse when stateful without explicit flag', () => {
+    const cmp = createComponent();
+    cmp.task = {
+      last_proposal: { routing: { session_mode: 'stateful' } },
+    };
+    expect(cmp.taskSessionReuseLabel()).toBe('unbekannt');
   });
 });

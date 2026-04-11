@@ -82,6 +82,7 @@ class TaskRoutingContract(SQLModel):
     max_hops: Optional[int] = None
     session_mode: Optional[str] = None
     session_id: Optional[str] = None
+    session_reused: Optional[bool] = None
     session_turn_id: Optional[str] = None
     live_terminal: Optional[dict] = None
     reason: Optional[str] = None

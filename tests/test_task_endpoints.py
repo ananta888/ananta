@@ -1198,6 +1198,8 @@ def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admi
     assert second_routing.get("session_mode") == "stateful"
     assert first_routing.get("session_id")
     assert second_routing.get("session_id") == first_routing.get("session_id")
+    assert first_routing.get("session_reused") is False
+    assert second_routing.get("session_reused") is True
     assert len(prompts) == 2
     assert "Turn 1 Assistant" in prompts[1]
     assert '"reason":"turn-1"' in prompts[1]
