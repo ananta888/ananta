@@ -2,7 +2,7 @@ import time
 
 from flask import Blueprint, g, request
 
-from agent.auth import check_auth
+from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.routes.tasks.status import normalize_task_status
@@ -47,6 +47,17 @@ def _actor_username() -> str:
 
 def _intervene_task(tid: str, action: str) -> tuple[bool, str, dict]:
     return get_core_services().task_admin_service.intervene_task(task_id=tid, action=action, actor=_actor_username())
+
+
+def _parse_bool_query(value: str | None, *, default: bool) -> bool:
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
 
 
 @management_bp.route("/tasks", methods=["GET"])
@@ -388,6 +399,27 @@ def get_task(tid):
     if not task:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=task)
+
+
+@management_bp.route("/tasks/<tid>/workspace/files", methods=["GET"])
+@check_auth
+@admin_required
+def task_workspace_files_route(tid):
+    tracked_only = _parse_bool_query(request.args.get("tracked_only"), default=True)
+    try:
+        max_entries = int(request.args.get("max_entries", 2000))
+    except (TypeError, ValueError):
+        max_entries = 2000
+    max_entries = max(1, min(max_entries, 10000))
+
+    payload = get_core_services().task_query_service.task_workspace_files(
+        task_id=tid,
+        tracked_only=tracked_only,
+        max_entries=max_entries,
+    )
+    if not payload:
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(data=payload)
 
 
 @management_bp.route("/tasks/<tid>", methods=["PATCH"])

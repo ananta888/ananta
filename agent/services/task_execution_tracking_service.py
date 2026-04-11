@@ -331,6 +331,7 @@ class TaskExecutionTrackingService:
                 flow_jobs.append(
                     {
                         "worker_job_id": job.id,
+                        "subtask_id": getattr(job, "subtask_id", None),
                         "status": job.status,
                         "worker_url": job.worker_url,
                         "worker_name": self._display_agent_name(url=job.worker_url),

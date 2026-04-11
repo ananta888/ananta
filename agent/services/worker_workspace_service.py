@@ -311,6 +311,43 @@ class WorkerWorkspaceService:
     def snapshot_directory(workspace_dir: Path) -> dict[str, tuple[int, int]]:
         return WorkerWorkspaceService._snapshot_tree(workspace_dir, tracked_only=True)
 
+    def list_workspace_files(
+        self,
+        *,
+        workspace_dir: Path,
+        tracked_only: bool = True,
+        max_entries: int = 2000,
+    ) -> dict:
+        safe_limit = max(1, min(int(max_entries or 2000), 10000))
+        rows: list[dict] = []
+        truncated = False
+
+        for path, rel in self._iter_workspace_files(workspace_dir, tracked_only=tracked_only):
+            if len(rows) >= safe_limit:
+                truncated = True
+                break
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            rows.append(
+                {
+                    "relative_path": rel,
+                    "size_bytes": int(stat.st_size),
+                    "modified_at": float(stat.st_mtime),
+                }
+            )
+
+        rows.sort(key=lambda item: str(item.get("relative_path") or ""))
+        return {
+            "workspace_dir": str(workspace_dir),
+            "tracked_only": bool(tracked_only),
+            "max_entries": safe_limit,
+            "file_count": len(rows),
+            "truncated": truncated,
+            "files": rows,
+        }
+
     @staticmethod
     def detect_changed_files(before: dict[str, tuple[int, int]], after: dict[str, tuple[int, int]]) -> list[str]:
         changed: set[str] = set()

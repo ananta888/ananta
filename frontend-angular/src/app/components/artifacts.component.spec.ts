@@ -18,10 +18,14 @@ describe('ArtifactsComponent', () => {
     searchKnowledgeCollection: vi.fn(() => of({ chunks: [{ source: 'README.md', content: 'timeout handling' }] })),
     getTaskOrchestrationReadModel: vi.fn(() => of({ artifact_flow: { items: [], groups: { by_worker: [], by_assignment: [] } } })),
   };
+  const agentApiMock = {
+    taskWorkspaceFiles: vi.fn(() => of({ workspace: { files: [] } })),
+  };
 
   function createComponent(): ArtifactsComponent {
-    const cmp = Object.create(ArtifactsComponent.prototype) as ArtifactsComponent & { hubApi: any; ns: any; hub: any };
+    const cmp = Object.create(ArtifactsComponent.prototype) as ArtifactsComponent & { hubApi: any; ns: any; hub: any; agentApi: any };
     cmp.hubApi = hubApiMock;
+    cmp.agentApi = agentApiMock;
     cmp.ns = { success: vi.fn(), error: vi.fn(), fromApiError: vi.fn((_e: any, fallback: string) => fallback) };
     cmp.hub = { url: 'http://hub:5000', role: 'hub' };
     cmp.artifacts = [];
@@ -52,6 +56,12 @@ describe('ArtifactsComponent', () => {
     cmp.selectedCollectionProfileName = 'default';
     cmp.artifactFlowReadModel = null;
     cmp.loadingArtifactFlow = false;
+    cmp.selectedWorkspaceRunKey = '';
+    cmp.workspaceTrackedOnly = true;
+    cmp.workspaceLoading = false;
+    cmp.workspaceLoadError = '';
+    cmp.workspaceFilePayload = null;
+    cmp.workspaceTreeLineItems = [];
     return cmp;
   }
 
@@ -124,5 +134,125 @@ describe('ArtifactsComponent', () => {
     cmp.selectArtifactBySummary({ artifact_id: 'artifact-2' });
 
     expect(cmp.selectArtifact).toHaveBeenCalledWith('artifact-2');
+  });
+
+  it('extracts workspace-relative files from worker job returned refs', () => {
+    const cmp = createComponent();
+    const files = cmp.itemWorkspaceFiles({
+      worker_jobs: [
+        {
+          worker_job_id: 'job-1',
+          worker_url: 'http://alpha:5001',
+          returned_refs: [
+            { kind: 'workspace_file', artifact_id: 'artifact-1', workspace_relative_path: 'src/app.ts' },
+            { kind: 'workspace_file', artifact_id: 'artifact-2', workspace_relative_path: 'README.md' },
+            { kind: 'workspace_file', artifact_id: 'artifact-2', workspace_relative_path: 'README.md' },
+          ],
+        },
+      ],
+    });
+
+    expect(files).toEqual([
+      {
+        kind: 'workspace_file',
+        workspace_relative_path: 'src/app.ts',
+        artifact_id: 'artifact-1',
+        filename: undefined,
+        worker_job_id: 'job-1',
+        worker_url: 'http://alpha:5001',
+        worker_name: undefined,
+      },
+      {
+        kind: 'workspace_file',
+        workspace_relative_path: 'README.md',
+        artifact_id: 'artifact-2',
+        filename: undefined,
+        worker_job_id: 'job-1',
+        worker_url: 'http://alpha:5001',
+        worker_name: undefined,
+      },
+    ]);
+  });
+
+  it('aggregates workspace files per worker group', () => {
+    const cmp = createComponent();
+    cmp.artifactFlowReadModel = {
+      items: [
+        {
+          worker_jobs: [
+            {
+              worker_job_id: 'job-1',
+              worker_url: 'http://alpha:5001',
+              returned_refs: [
+                { kind: 'workspace_file', artifact_id: 'artifact-1', workspace_relative_path: 'src/alpha.ts' },
+              ],
+            },
+            {
+              worker_job_id: 'job-2',
+              worker_url: 'http://beta:5002',
+              returned_refs: [
+                { kind: 'workspace_file', artifact_id: 'artifact-2', workspace_relative_path: 'src/beta.ts' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const alphaFiles = cmp.workerWorkspaceFiles({ worker_url: 'http://alpha:5001' });
+    const betaFiles = cmp.workerWorkspaceFiles({ worker_url: 'http://beta:5002' });
+
+    expect(alphaFiles.map((file) => file.workspace_relative_path)).toEqual(['src/alpha.ts']);
+    expect(betaFiles.map((file) => file.workspace_relative_path)).toEqual(['src/beta.ts']);
+  });
+
+  it('derives workspace run candidates from artifact flow jobs and loads workspace files', () => {
+    const cmp = createComponent();
+    cmp.artifactFlowReadModel = {
+      items: [
+        {
+          task_id: 'task-parent-1',
+          title: 'Implement worker feature',
+          updated_at: 10,
+          worker_jobs: [
+            {
+              worker_job_id: 'job-1',
+              worker_url: 'http://alpha:5001',
+              worker_name: 'alpha',
+              subtask_id: 'subtask-1',
+              updated_at: 20,
+            },
+          ],
+        },
+      ],
+    };
+    agentApiMock.taskWorkspaceFiles.mockReturnValueOnce(of({
+      workspace: {
+        workspace_dir: '/tmp/worker-runtime/alpha/subtask-1',
+        file_count: 2,
+        files: [
+          { relative_path: 'src/app.ts', size_bytes: 12 },
+          { relative_path: 'src/lib/util.ts', size_bytes: 5 },
+        ],
+      },
+    }));
+
+    expect(cmp.workspaceCandidates()).toHaveLength(1);
+    cmp.selectedWorkspaceRunKey = cmp.workspaceCandidates()[0].key;
+
+    cmp.loadSelectedWorkspaceFiles();
+
+    expect(agentApiMock.taskWorkspaceFiles).toHaveBeenCalledWith(
+      'http://alpha:5001',
+      'subtask-1',
+      undefined,
+      { trackedOnly: true, maxEntries: 4000 },
+    );
+    expect(cmp.workspaceTreeLines().map((line) => line.path)).toEqual([
+      'src',
+      'src/app.ts',
+      'src/lib',
+      'src/lib/util.ts',
+    ]);
   });
 });
