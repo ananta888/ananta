@@ -248,6 +248,7 @@ def build_default_agent_config() -> dict:
         },
         "worker_runtime": {
             "workspace_root": None,
+            "workspace_reuse_mode": "goal_worker",
         },
         "research_backend": {
             "provider": "deerflow",

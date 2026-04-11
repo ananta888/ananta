@@ -127,8 +127,10 @@ export function normalizeOpencodeRuntimeConfigValue(value: any): any {
 export function normalizeWorkerRuntimeConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const workspaceRoot = String(raw.workspace_root || '').trim();
+  const workspaceReuseMode = String(raw.workspace_reuse_mode || 'goal_worker').trim().toLowerCase();
   return {
     workspace_root: workspaceRoot || null,
+    workspace_reuse_mode: ['task', 'goal_worker'].includes(workspaceReuseMode) ? workspaceReuseMode : 'goal_worker',
   };
 }
 
@@ -597,6 +599,10 @@ function createDefaultSettingsConfig(): any {
               <div class="muted">Worker Workspace Root</div>
               <div>{{ config?.worker_runtime?.workspace_root || '(default)' }}</div>
             </div>
+            <div>
+              <div class="muted">Workspace Reuse</div>
+              <div>{{ config?.worker_runtime?.workspace_reuse_mode || 'goal_worker' }}</div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -797,7 +803,7 @@ function createDefaultSettingsConfig(): any {
         </div>
         <div class="card card-info mt-lg">
           <h3>Worker Workspace & OpenCode</h3>
-          <p class="muted">Steuert den OpenCode-Toolmodus, den Ausfuehrungsmodus und den Root-Pfad fuer task-spezifische Worker-Workspaces mit den Unterordnern artifacts und rag_helper.</p>
+          <p class="muted">Steuert den OpenCode-Toolmodus, den Ausfuehrungsmodus und den Root-Pfad fuer scope-basierte Worker-Workspaces mit den Unterordnern artifacts und rag_helper.</p>
           <div class="grid cols-2 mt-lg">
             <label>OpenCode Tool-Modus
               <select [(ngModel)]="config.opencode_runtime.tool_mode">
@@ -822,9 +828,15 @@ function createDefaultSettingsConfig(): any {
             <label>Workspace Root (optional)
               <input [(ngModel)]="config.worker_runtime.workspace_root" placeholder="z.B. /data/worker-runtime" />
             </label>
+            <label>Workspace Reuse Scope
+              <select [(ngModel)]="config.worker_runtime.workspace_reuse_mode">
+                <option value="goal_worker">goal_worker (Session/Files fortsetzen)</option>
+                <option value="task">task (isoliert pro Task)</option>
+              </select>
+            </label>
           </div>
           <div class="muted font-sm mt-md">
-            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Ausfuehrung {{ config.opencode_runtime.execution_mode }} · Launch {{ config.opencode_runtime.interactive_launch_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }}
+            Effektiv: Tool-Modus {{ config.opencode_runtime.tool_mode }} · Ausfuehrung {{ config.opencode_runtime.execution_mode }} · Launch {{ config.opencode_runtime.interactive_launch_mode }} · Workspace Root {{ config.worker_runtime.workspace_root || '(default: data/worker-runtime)' }} · Reuse {{ config.worker_runtime.workspace_reuse_mode || 'goal_worker' }}
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
