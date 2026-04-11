@@ -19,6 +19,10 @@ services:
   ollama:
     ports: !reset []
 
+  autoimport:
+    environment:
+      OLLAMA_AUTOIMPORT_MODE: "${OLLAMA_AUTOIMPORT_MODE:-seed}"
+
   ai-agent-hub:
     image: ananta-backend-compose-test:local
     build:

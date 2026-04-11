@@ -12,6 +12,7 @@ OLLAMA_SMOKE_ALIAS="${OLLAMA_SMOKE_ALIAS:-ananta-smoke}"
 OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6,lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4,mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661,bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s}"
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
 OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-32768}"
+OLLAMA_AUTOIMPORT_MODE="${OLLAMA_AUTOIMPORT_MODE:-full}"
 INITIAL_SCAN_PID=""
 
 write_modelfile() {
@@ -309,10 +310,28 @@ wait_for_bulk_scan_if_running() {
   INITIAL_SCAN_PID=""
 }
 
+autoimport_mode_is_seed_only() {
+  case "$(printf '%s' "$OLLAMA_AUTOIMPORT_MODE" | tr '[:upper:]' '[:lower:]')" in
+    seed|seed-only|seeds|minimal)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 main() {
   echo "seed import..."
   import_seed_models
   ensure_configured_aliases
+
+  if autoimport_mode_is_seed_only; then
+    echo "autoimport mode: seed-only"
+    return 0
+  fi
+
+  echo "autoimport mode: full"
   start_bulk_scan
 
   echo "rescanning /models every ${OLLAMA_RESCAN_SEC}s..."

@@ -275,3 +275,25 @@ def test_import_seed_models_imports_only_selected_seed_candidates(tmp_path: Path
         "/models/a.gguf",
         "/models/c.gguf",
     ]
+
+
+def test_autoimport_mode_seed_only_matches_expected_aliases(tmp_path: Path) -> None:
+    command = (
+        f". {shlex.quote(str(SCRIPT_PATH))}; "
+        "for mode in seed SEED-ONLY minimal full ''; do "
+        "  OLLAMA_AUTOIMPORT_MODE=\"$mode\"; "
+        "  if autoimport_mode_is_seed_only; then "
+        "    printf 'seed:%s\\n' \"$mode\"; "
+        "  else "
+        "    printf 'full:%s\\n' \"$mode\"; "
+        "  fi; "
+        "done"
+    )
+
+    assert _run_shell_function(command, tmp_path).splitlines() == [
+        "seed:seed",
+        "seed:SEED-ONLY",
+        "seed:minimal",
+        "full:full",
+        "full:",
+    ]
