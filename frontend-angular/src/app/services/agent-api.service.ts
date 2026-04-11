@@ -130,4 +130,23 @@ export class AgentApiService {
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get(`${baseUrl}/llm/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
+
+  taskWorkspaceFiles(
+    baseUrl: string,
+    taskId: string,
+    token?: string,
+    options?: { trackedOnly?: boolean; maxEntries?: number }
+  ): Observable<any> {
+    const trackedOnly = options?.trackedOnly ?? true;
+    const maxEntries = Number(options?.maxEntries || 2000);
+    const q = new URLSearchParams({
+      tracked_only: trackedOnly ? '1' : '0',
+      max_entries: String(Number.isFinite(maxEntries) ? Math.max(1, Math.min(maxEntries, 10000)) : 2000),
+    });
+    return this.unwrapResponse(
+      this.http
+        .get(`${baseUrl}/tasks/${encodeURIComponent(taskId)}/workspace/files?${q.toString()}`, this.getHeaders(baseUrl, token))
+        .pipe(timeout(45000), retry(1))
+    );
+  }
 }

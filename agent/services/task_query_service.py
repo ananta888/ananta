@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_status_service import expand_task_status_query_values, normalize_task_status
+from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
 
 
@@ -91,6 +92,38 @@ class TaskQueryService:
             return None
         repos.archived_task_repo.delete(task_id)
         return {"deleted_count": 1, "deleted_ids": [task_id]}
+
+    def task_workspace_files(
+        self,
+        *,
+        task_id: str,
+        tracked_only: bool,
+        max_entries: int,
+    ) -> dict | None:
+        repos = get_repository_registry()
+        task = repos.task_repo.get_by_id(task_id)
+        if not task:
+            return None
+
+        task_payload = task.model_dump()
+        execution_context = dict(task_payload.get("worker_execution_context") or {})
+        workspace_meta = dict(execution_context.get("workspace") or {})
+        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task_payload)
+        listing = get_worker_workspace_service().list_workspace_files(
+            workspace_dir=workspace_context.workspace_dir,
+            tracked_only=tracked_only,
+            max_entries=max_entries,
+        )
+        return {
+            "task_id": task_payload.get("id"),
+            "workspace": {
+                "scope_key": workspace_meta.get("scope_key"),
+                "worker_job_id": workspace_meta.get("worker_job_id") or task_payload.get("current_worker_job_id"),
+                "agent_url": workspace_meta.get("agent_url") or task_payload.get("assigned_agent_url"),
+                "agent_name": workspace_meta.get("agent_name"),
+                **listing,
+            },
+        }
 
 
 task_query_service = TaskQueryService()

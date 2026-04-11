@@ -180,6 +180,53 @@ def test_task_tree_returns_nested_children(client, app, admin_auth_header):
     assert grandchild["task"]["id"] == "TREE-C2"
 
 
+def test_task_workspace_files_endpoint_returns_worker_workspace_listing(client, app, admin_auth_header):
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+        from agent.services.worker_workspace_service import get_worker_workspace_service
+
+        _update_local_task_status(
+            "WS-1",
+            "in_progress",
+            worker_execution_context={
+                "workspace": {
+                    "task_id": "subtask-ws-1",
+                    "scope_key": "scope-ws-1",
+                    "worker_job_id": "job-ws-1",
+                }
+            },
+        )
+        task = _get_local_task_status("WS-1")
+        workspace = get_worker_workspace_service().resolve_workspace_context(task=task)
+        (workspace.workspace_dir / "src").mkdir(parents=True, exist_ok=True)
+        (workspace.workspace_dir / "src" / "main.ts").write_text("export const ready = true;\n", encoding="utf-8")
+        (workspace.workspace_dir / ".ananta").mkdir(parents=True, exist_ok=True)
+        (workspace.workspace_dir / ".ananta" / "internal.txt").write_text("hidden\n", encoding="utf-8")
+
+    response = client.get("/tasks/WS-1/workspace/files", headers=admin_auth_header)
+    assert response.status_code == 200
+    files = response.json["data"]["workspace"]["files"]
+    paths = [item["relative_path"] for item in files]
+    assert "src/main.ts" in paths
+    assert ".ananta/internal.txt" not in paths
+
+    untracked_response = client.get("/tasks/WS-1/workspace/files?tracked_only=0", headers=admin_auth_header)
+    assert untracked_response.status_code == 200
+    untracked_files = untracked_response.json["data"]["workspace"]["files"]
+    untracked_paths = [item["relative_path"] for item in untracked_files]
+    assert ".ananta/internal.txt" in untracked_paths
+
+
+def test_task_workspace_files_endpoint_requires_admin(client, app, user_auth_header):
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status("WS-NONADMIN", "todo")
+
+    response = client.get("/tasks/WS-NONADMIN/workspace/files", headers=user_auth_header)
+    assert response.status_code == 403
+
+
 def test_task_interventions_pause_resume_cancel_retry(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status

@@ -7,6 +7,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { AdminFacade } from '../features/admin/admin.facade';
+import { AgentApiService } from '../services/agent-api.service';
 
 @Component({
   standalone: true,
@@ -35,6 +36,15 @@ import { AdminFacade } from '../features/admin/admin.facade';
     .artifact-flow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
     .artifact-flow-group { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--card-bg); }
     .artifact-flow-artifacts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .artifact-flow-files { display: grid; gap: 6px; margin-top: 8px; max-height: 200px; overflow: auto; }
+    .artifact-file { justify-content: flex-start; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .workspace-inspector-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    .workspace-tree { margin-top: 10px; max-height: 340px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--card-bg) 92%, white); }
+    .workspace-tree-line { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 4px 8px; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+    .workspace-tree-line:first-child { border-top: none; }
+    .workspace-tree-line.dir { font-weight: 600; }
+    .workspace-tree-name { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .workspace-tree-meta { margin-left: auto; color: var(--muted, #666); font-size: 11px; }
     @media (max-width: 980px) {
       .artifact-layout { grid-template-columns: 1fr; }
     }
@@ -173,6 +183,18 @@ import { AdminFacade } from '../features/admin/admin.facade';
                       <button class="artifact-pill" (click)="selectArtifactBySummary(artifact)">{{ artifact.label || artifact.artifact_id }}</button>
                     }
                   </div>
+                  @if (itemWorkspaceFiles(item).length) {
+                    <div class="mt-sm">
+                      <div class="muted font-sm">Workspace-Dateien ({{ itemWorkspaceFiles(item).length }})</div>
+                      <div class="artifact-flow-files">
+                        @for (file of itemWorkspaceFiles(item); track file.workspace_relative_path + '-' + (file.worker_job_id || '') + '-' + (file.artifact_id || '')) {
+                          <button class="artifact-pill artifact-file" (click)="selectArtifactBySummary(file)">
+                            {{ file.workspace_relative_path }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -192,6 +214,18 @@ import { AdminFacade } from '../features/admin/admin.facade';
                       <button class="artifact-pill" (click)="selectArtifactBySummary(artifact)">{{ artifact.label || artifact.artifact_id }}</button>
                     }
                   </div>
+                  @if (workerWorkspaceFiles(group).length) {
+                    <div class="mt-sm">
+                      <div class="muted font-sm">Workspace-Dateien ({{ workerWorkspaceFiles(group).length }})</div>
+                      <div class="artifact-flow-files">
+                        @for (file of workerWorkspaceFiles(group); track file.workspace_relative_path + '-' + (file.worker_job_id || '') + '-' + (file.artifact_id || '')) {
+                          <button class="artifact-pill artifact-file" (click)="selectArtifactBySummary(file)">
+                            {{ file.workspace_relative_path }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -216,6 +250,71 @@ import { AdminFacade } from '../features/admin/admin.facade';
               }
             </div>
           </div>
+        </div>
+
+        <div class="card card-light mt-md">
+          <div class="row space-between">
+            <strong>Live Worker Workspace Explorer</strong>
+            @if (workspaceInspectorMeta()) {
+              <span class="badge">{{ workspaceInspectorMeta()?.file_count || 0 }} Dateien</span>
+            }
+          </div>
+          @if (!workspaceCandidates().length) {
+            <div class="muted mt-sm">Keine Worker-Runs mit Subtask-ID verfuegbar.</div>
+          } @else {
+            <div class="workspace-inspector-controls mt-sm">
+              <label class="label-no-margin">
+                <span class="muted font-sm">Worker-Run</span>
+                <select
+                  [ngModel]="selectedWorkspaceRunKey"
+                  (ngModelChange)="selectedWorkspaceRunKey = $event; workspaceSelectionChanged()"
+                >
+                  @for (candidate of workspaceCandidates(); track candidate.key) {
+                    <option [ngValue]="candidate.key">{{ workspaceRunLabel(candidate) }}</option>
+                  }
+                </select>
+              </label>
+              <label class="label-no-margin">
+                <span class="muted font-sm">Ansicht</span>
+                <div class="row gap-sm mt-5">
+                  <input
+                    type="checkbox"
+                    [ngModel]="workspaceTrackedOnly"
+                    (ngModelChange)="workspaceTrackedOnly = !!$event; workspaceSelectionChanged()"
+                  />
+                  <span>Nur getrackte Dateien (ohne .ananta/artifacts)</span>
+                </div>
+              </label>
+              <button class="secondary" (click)="loadSelectedWorkspaceFiles()" [disabled]="workspaceLoading">
+                {{ workspaceLoading ? 'Lade...' : 'Workspace laden' }}
+              </button>
+            </div>
+            @if (workspaceLoadError) {
+              <div class="muted mt-sm danger">{{ workspaceLoadError }}</div>
+            }
+            @if (workspaceInspectorMeta()) {
+              <div class="muted font-sm mt-sm">
+                {{ workspaceInspectorMeta()?.workspace_dir }}
+                @if (workspaceInspectorMeta()?.truncated) {
+                  · gekuerzt auf {{ workspaceInspectorMeta()?.max_entries || '-' }} Eintraege
+                }
+              </div>
+            }
+            @if (workspaceTreeLines().length) {
+              <div class="workspace-tree">
+                @for (line of workspaceTreeLines(); track line.type + ':' + line.path) {
+                  <div class="workspace-tree-line" [class.dir]="line.type === 'dir'" [style.paddingLeft.px]="8 + (line.depth * 16)">
+                    <span class="workspace-tree-name">{{ line.name }}</span>
+                    @if (line.type === 'file') {
+                      <span class="workspace-tree-meta">{{ line.size_bytes || 0 }} B</span>
+                    }
+                  </div>
+                }
+              </div>
+            } @else if (!workspaceLoading && workspaceInspectorMeta()) {
+              <div class="muted mt-sm">Keine Dateien im aktuellen Workspace gefunden.</div>
+            }
+          }
         </div>
       }
     </div>
@@ -473,6 +572,7 @@ export class ArtifactsComponent {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(AdminFacade);
   private ns = inject(NotificationService);
+  private agentApi = inject(AgentApiService);
 
   hub = this.dir.list().find((a) => a.role === 'hub');
   artifacts: any[] = [];
@@ -504,6 +604,12 @@ export class ArtifactsComponent {
   selectedCollectionProfileName = 'default';
   artifactFlowReadModel: any = null;
   loadingArtifactFlow = false;
+  selectedWorkspaceRunKey = '';
+  workspaceTrackedOnly = true;
+  workspaceLoading = false;
+  workspaceLoadError = '';
+  workspaceFilePayload: any = null;
+  workspaceTreeLineItems: any[] = [];
 
   constructor() {
     this.refresh();
@@ -551,9 +657,13 @@ export class ArtifactsComponent {
     ).subscribe({
       next: (payload) => {
         this.artifactFlowReadModel = payload?.artifact_flow || null;
+        this.ensureWorkspaceSelection();
       },
       error: (error) => {
         this.artifactFlowReadModel = null;
+        this.selectedWorkspaceRunKey = '';
+        this.workspaceFilePayload = null;
+        this.workspaceTreeLineItems = [];
         this.ns.error(this.ns.fromApiError(error, 'Artefakt-Fluss konnte nicht geladen werden'));
       },
     });
@@ -811,12 +921,116 @@ export class ArtifactsComponent {
     return this.uniqueArtifacts(Array.isArray(group?.artifacts) ? group.artifacts : []);
   }
 
+  itemWorkspaceFiles(item: any): any[] {
+    const workerJobs = Array.isArray(item?.worker_jobs) ? item.worker_jobs : [];
+    const files = workerJobs.flatMap((job: any) => this.workspaceFilesFromRefs(job?.returned_refs, {
+      worker_job_id: job?.worker_job_id,
+      worker_url: job?.worker_url,
+      worker_name: job?.worker_name,
+    }));
+    return this.uniqueWorkspaceFiles(files);
+  }
+
+  workerWorkspaceFiles(group: any): any[] {
+    const workerUrl = String(group?.worker_url || '').trim();
+    if (!workerUrl) return [];
+    const files = this.artifactFlowItems().flatMap((item: any) => {
+      const workerJobs = Array.isArray(item?.worker_jobs) ? item.worker_jobs : [];
+      return workerJobs
+        .filter((job: any) => String(job?.worker_url || '').trim() === workerUrl)
+        .flatMap((job: any) => this.workspaceFilesFromRefs(job?.returned_refs, {
+          worker_job_id: job?.worker_job_id,
+          worker_url: job?.worker_url,
+          worker_name: job?.worker_name,
+        }));
+    });
+    return this.uniqueWorkspaceFiles(files);
+  }
+
   artifactCount(item: any): number {
     return this.itemArtifacts(item).length;
   }
 
   assignmentLabel(group: any): string {
     return String(group?.template_name || group?.agent_name || group?.assignment_key || 'Unbekannte Zuordnung').trim();
+  }
+
+  workspaceCandidates(): any[] {
+    const candidates: any[] = [];
+    const seen = new Set<string>();
+    for (const item of this.artifactFlowItems()) {
+      const workerJobs = Array.isArray(item?.worker_jobs) ? item.worker_jobs : [];
+      for (const job of workerJobs) {
+        const workerUrl = String(job?.worker_url || '').trim();
+        const subtaskId = String(job?.subtask_id || '').trim();
+        if (!workerUrl || !subtaskId) continue;
+        const key = `${workerUrl}::${subtaskId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({
+          key,
+          worker_url: workerUrl,
+          worker_name: String(job?.worker_name || '').trim() || workerUrl,
+          task_id: subtaskId,
+          worker_job_id: String(job?.worker_job_id || '').trim() || undefined,
+          task_title: String(item?.title || item?.task_title || item?.task_id || '').trim(),
+          updated_at: Number(job?.updated_at || item?.updated_at || 0),
+        });
+      }
+    }
+    candidates.sort((a, b) => (Number(b.updated_at || 0) - Number(a.updated_at || 0)));
+    return candidates;
+  }
+
+  workspaceRunLabel(candidate: any): string {
+    const worker = String(candidate?.worker_name || candidate?.worker_url || 'worker').trim();
+    const taskId = String(candidate?.task_id || '').trim();
+    const title = String(candidate?.task_title || '').trim();
+    if (!title) return `${worker} · ${taskId}`;
+    return `${worker} · ${taskId} · ${title}`;
+  }
+
+  workspaceSelectionChanged() {
+    this.workspaceFilePayload = null;
+    this.workspaceTreeLineItems = [];
+    this.workspaceLoadError = '';
+  }
+
+  loadSelectedWorkspaceFiles() {
+    const candidate = this.workspaceCandidates().find((item: any) => item.key === this.selectedWorkspaceRunKey);
+    if (!candidate) return;
+    this.workspaceLoading = true;
+    this.workspaceLoadError = '';
+    this.agentApi.taskWorkspaceFiles(
+      candidate.worker_url,
+      candidate.task_id,
+      undefined,
+      { trackedOnly: this.workspaceTrackedOnly, maxEntries: 4000 },
+    ).pipe(
+      finalize(() => {
+        this.workspaceLoading = false;
+      }),
+    ).subscribe({
+      next: (payload) => {
+        this.workspaceFilePayload = payload;
+        const files = Array.isArray(payload?.workspace?.files) ? payload.workspace.files : [];
+        this.workspaceTreeLineItems = this.buildWorkspaceTreeLines(files);
+      },
+      error: (error) => {
+        this.workspaceFilePayload = null;
+        this.workspaceTreeLineItems = [];
+        this.workspaceLoadError = this.ns.fromApiError(error, 'Workspace-Dateien konnten nicht geladen werden');
+      },
+    });
+  }
+
+  workspaceInspectorMeta(): any {
+    const workspace = this.workspaceFilePayload?.workspace;
+    return workspace && typeof workspace === 'object' ? workspace : null;
+  }
+
+  workspaceTreeLines(): any[] {
+    return this.workspaceTreeLineItems;
   }
 
   selectArtifactBySummary(artifact: any) {
@@ -833,5 +1047,89 @@ export class ArtifactsComponent {
       seen.add(artifactId);
       return true;
     });
+  }
+
+  private workspaceFilesFromRefs(refs: any, fallback: { worker_job_id?: string; worker_url?: string; worker_name?: string }): any[] {
+    const rows = Array.isArray(refs) ? refs : [];
+    const files = rows
+      .filter((ref: any) => ref && typeof ref === 'object')
+      .map((ref: any) => {
+        const workspaceRelativePath = String(ref.workspace_relative_path || '').trim();
+        if (!workspaceRelativePath) return null;
+        return {
+          kind: String(ref.kind || '').trim() || 'workspace_file',
+          workspace_relative_path: workspaceRelativePath,
+          artifact_id: String(ref.artifact_id || '').trim() || undefined,
+          filename: String(ref.filename || '').trim() || undefined,
+          worker_job_id: String(ref.worker_job_id || fallback.worker_job_id || '').trim() || undefined,
+          worker_url: String(ref.worker_url || fallback.worker_url || '').trim() || undefined,
+          worker_name: String(ref.worker_name || fallback.worker_name || '').trim() || undefined,
+        };
+      })
+      .filter((entry: any) => !!entry);
+    return files as any[];
+  }
+
+  private uniqueWorkspaceFiles(files: any[]): any[] {
+    const seen = new Set<string>();
+    return files.filter((file) => {
+      const key = [
+        String(file?.worker_url || '').trim(),
+        String(file?.worker_job_id || '').trim(),
+        String(file?.workspace_relative_path || '').trim(),
+        String(file?.artifact_id || '').trim(),
+      ].join('|');
+      if (!key.replace(/\|/g, '').trim()) return false;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private ensureWorkspaceSelection() {
+    const candidates = this.workspaceCandidates();
+    const hasCurrent = candidates.some((item: any) => item.key === this.selectedWorkspaceRunKey);
+    if (hasCurrent) return;
+    this.selectedWorkspaceRunKey = candidates[0]?.key || '';
+    this.workspaceFilePayload = null;
+    this.workspaceTreeLineItems = [];
+    this.workspaceLoadError = '';
+  }
+
+  private buildWorkspaceTreeLines(files: any[]): any[] {
+    const rows = Array.isArray(files) ? files : [];
+    const normalized = rows
+      .map((item: any) => ({
+        relative_path: String(item?.relative_path || '').trim().replace(/\\/g, '/'),
+        size_bytes: Number(item?.size_bytes || 0),
+      }))
+      .filter((item: any) => !!item.relative_path)
+      .sort((a: any, b: any) => a.relative_path.localeCompare(b.relative_path));
+
+    const lines: any[] = [];
+    const seenDirs = new Set<string>();
+    for (const file of normalized) {
+      const parts = file.relative_path.split('/').filter((part: string) => !!part);
+      if (!parts.length) continue;
+      for (let index = 0; index < parts.length - 1; index += 1) {
+        const dirPath = parts.slice(0, index + 1).join('/');
+        if (seenDirs.has(dirPath)) continue;
+        seenDirs.add(dirPath);
+        lines.push({
+          type: 'dir',
+          path: dirPath,
+          name: parts[index],
+          depth: index,
+        });
+      }
+      lines.push({
+        type: 'file',
+        path: file.relative_path,
+        name: parts[parts.length - 1],
+        depth: Math.max(0, parts.length - 1),
+        size_bytes: Number.isFinite(file.size_bytes) ? file.size_bytes : 0,
+      });
+    }
+    return lines;
   }
 }
