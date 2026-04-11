@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any
 
@@ -117,6 +118,52 @@ def extract_copilot_routing_hint(raw_text: str, worker_urls: list[str]) -> dict[
 
 class TaskOrchestrationService:
     """Hub-owned orchestration use-cases for delegation, completion, and orchestration read models."""
+
+    @staticmethod
+    def _safe_scope_segment(value: str | None, *, fallback: str) -> str:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return fallback
+        normalized = re.sub(r"[^a-z0-9._-]+", "-", raw).strip("-")
+        return normalized or fallback
+
+    def _resolve_workspace_reuse_mode(self) -> str:
+        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
+        worker_runtime = (agent_cfg or {}).get("worker_runtime")
+        worker_runtime = worker_runtime if isinstance(worker_runtime, dict) else {}
+        mode = str(worker_runtime.get("workspace_reuse_mode") or "goal_worker").strip().lower()
+        return mode if mode in {"task", "goal_worker"} else "goal_worker"
+
+    def _derive_workspace_scope(
+        self,
+        *,
+        parent_task: dict[str, Any],
+        subtask_id: str,
+        worker_job_id: str,
+        agent_url: str | None,
+    ) -> dict[str, str]:
+        mode = self._resolve_workspace_reuse_mode()
+        worker_key = self._safe_scope_segment(agent_url, fallback="worker")
+        if mode == "task":
+            scope_key = f"{subtask_id}:{worker_job_id}"
+            return {
+                "mode": "task",
+                "scope_key": scope_key,
+                "session_scope_kind": "task",
+                "session_scope_key": f"task:{subtask_id}",
+            }
+
+        goal_key = self._safe_scope_segment(str(parent_task.get("goal_id") or "").strip(), fallback="")
+        team_key = self._safe_scope_segment(str(parent_task.get("team_id") or "").strip(), fallback="")
+        task_key = self._safe_scope_segment(str(parent_task.get("id") or "").strip(), fallback="task")
+        continuity_key = goal_key or team_key or task_key
+        scope_key = f"{worker_key}:{continuity_key}"
+        return {
+            "mode": "goal_worker",
+            "scope_key": scope_key,
+            "session_scope_kind": "workspace",
+            "session_scope_key": f"workspace:{scope_key}",
+        }
 
     def _resolve_context_bundle_policy(self) -> dict[str, Any]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
@@ -374,14 +421,23 @@ class TaskOrchestrationService:
                 extra_metadata={"selected_by_policy": selected_by_policy},
             ),
         )
+        workspace_scope = self._derive_workspace_scope(
+            parent_task=parent_task,
+            subtask_id=subtask_id,
+            worker_job_id=worker_job.id,
+            agent_url=agent_url,
+        )
         worker_workspace = {
             "mode": "task_scoped_workspace",
+            "scope_mode": workspace_scope["mode"],
             "task_id": subtask_id,
             "parent_task_id": task_id,
             "worker_job_id": worker_job.id,
             "agent_url": agent_url,
             "agent_name": str(agent_url or "worker").rstrip("/").split("/")[-1] or "worker",
-            "scope_key": f"{subtask_id}:{worker_job.id}",
+            "scope_key": workspace_scope["scope_key"],
+            "session_scope_kind": workspace_scope["session_scope_kind"],
+            "session_scope_key": workspace_scope["session_scope_key"],
         }
         artifact_sync = {
             "enabled": True,
@@ -478,6 +534,7 @@ class TaskOrchestrationService:
                 "context_bundle_policy": context_policy,
                 "retrieval_hints": retrieval_hints,
                 "task_neighborhood": task_neighborhood,
+                "workspace_scope": workspace_scope,
                 "policy_decision_id": getattr(policy_decision, "id", None),
             },
         )
@@ -497,6 +554,7 @@ class TaskOrchestrationService:
                 "context_bundle_policy": context_policy,
                 "retrieval_hints": retrieval_hints,
                 "task_neighborhood": task_neighborhood,
+                "workspace_scope": workspace_scope,
             }
         }
 

@@ -156,7 +156,13 @@ def set_config():
             return api_response(status="error", message="invalid_worker_runtime", code=400)
         workspace_root = worker_runtime_cfg.get("workspace_root")
         workspace_root = str(workspace_root).strip() if workspace_root is not None else None
-        new_cfg["worker_runtime"] = {"workspace_root": workspace_root or None}
+        workspace_reuse_mode = str(worker_runtime_cfg.get("workspace_reuse_mode") or "goal_worker").strip().lower() or "goal_worker"
+        if workspace_reuse_mode not in {"task", "goal_worker"}:
+            return api_response(status="error", message="invalid_worker_workspace_reuse_mode", code=400)
+        new_cfg["worker_runtime"] = {
+            "workspace_root": workspace_root or None,
+            "workspace_reuse_mode": workspace_reuse_mode,
+        }
     for key in ("role_model_overrides", "template_model_overrides", "task_kind_model_overrides"):
         if key not in new_cfg:
             continue

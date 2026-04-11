@@ -1776,6 +1776,13 @@ class TaskScopedExecutionService:
         return str(role_id or "").strip() or None, str(role_name or "").strip() or None
 
     def _resolve_task_session_scope(self, *, tid: str, task: dict, policy: dict) -> tuple[str, str, str | None]:
+        execution_context = dict((task or {}).get("worker_execution_context") or {})
+        workspace = dict(execution_context.get("workspace") or {})
+        explicit_scope_key = str(workspace.get("session_scope_key") or "").strip()
+        if explicit_scope_key:
+            explicit_scope_kind = str(workspace.get("session_scope_kind") or "workspace").strip().lower() or "workspace"
+            return explicit_scope_kind, explicit_scope_key, None
+
         reuse_scope = str(policy.get("reuse_scope") or "task").strip().lower()
         if reuse_scope == "role":
             role_id, role_name = self._resolve_task_role_identity(tid, task)

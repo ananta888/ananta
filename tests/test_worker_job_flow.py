@@ -234,9 +234,16 @@ class TestWorkerJobFlow:
         assert task.worker_execution_context["version"] == "v1"
         assert task.worker_execution_context["context_policy"]["mode"] == "full"
         assert task.worker_execution_context["routing"]["matched_roles"] == ["planner"]
+        workspace_meta = task.worker_execution_context["workspace"]
+        assert workspace_meta["scope_mode"] == "goal_worker"
+        assert workspace_meta["scope_key"].endswith(":goal-1")
+        assert workspace_meta["session_scope_kind"] == "workspace"
+        assert workspace_meta["session_scope_key"].startswith("workspace:")
         assert payload["retrieval_hints"]["retrieval_intent"] == "execution_focused_context"
         assert payload["retrieval_hints"]["required_context_scope"] == "task_and_direct_neighbors"
         assert payload["retrieval_hints"]["preferred_bundle_mode"] == "standard"
+        assert (payload.get("workspace_scope") or {}).get("mode") == "goal_worker"
+        assert str((payload.get("workspace_scope") or {}).get("scope_key") or "").endswith(":goal-1")
         assert "task_neighborhood" in payload
         assert isinstance(payload["task_neighborhood"]["neighbor_task_ids"], list)
         assert forwarded_payload["data"]["retrieval_intent"] == "execution_focused_context"

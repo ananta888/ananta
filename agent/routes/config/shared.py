@@ -122,7 +122,13 @@ def normalize_worker_runtime_config(value: dict | None) -> dict:
     payload = dict(value or {})
     workspace_root = payload.get("workspace_root")
     workspace_root = str(workspace_root).strip() if workspace_root is not None else None
-    return {"workspace_root": workspace_root or None}
+    workspace_reuse_mode = str(payload.get("workspace_reuse_mode") or "goal_worker").strip().lower() or "goal_worker"
+    if workspace_reuse_mode not in {"task", "goal_worker"}:
+        workspace_reuse_mode = "goal_worker"
+    return {
+        "workspace_root": workspace_root or None,
+        "workspace_reuse_mode": workspace_reuse_mode,
+    }
 
 
 def worker_runtime_settings_summary(cfg: dict) -> dict:
@@ -130,7 +136,10 @@ def worker_runtime_settings_summary(cfg: dict) -> dict:
     return {
         "requested": requested,
         "effective": requested,
-        "source": {"workspace_root": "worker_runtime.workspace_root"},
+        "source": {
+            "workspace_root": "worker_runtime.workspace_root",
+            "workspace_reuse_mode": "worker_runtime.workspace_reuse_mode",
+        },
     }
 
 

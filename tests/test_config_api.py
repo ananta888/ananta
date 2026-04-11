@@ -743,6 +743,26 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
     assert runtime_cfg.get("target_provider") == "ollama"
 
 
+def test_set_config_validates_worker_runtime_workspace_reuse_mode(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    bad = client.post("/config", json={"worker_runtime": {"workspace_reuse_mode": "agent"}}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_worker_workspace_reuse_mode"
+
+    ok = client.post(
+        "/config",
+        json={"worker_runtime": {"workspace_root": "/tmp/worker-runtime", "workspace_reuse_mode": "goal_worker"}},
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    worker_runtime = ((cfg.json.get("data") or {}).get("worker_runtime") or {})
+    assert worker_runtime.get("workspace_root") == "/tmp/worker-runtime"
+    assert worker_runtime.get("workspace_reuse_mode") == "goal_worker"
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 

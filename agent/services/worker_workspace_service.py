@@ -182,7 +182,7 @@ class WorkerWorkspaceService:
         agents_lines = [
             "# AGENTS.md",
             "",
-            "This is a task-scoped OpenCode workspace for the Ananta project.",
+            "This is a scoped OpenCode workspace for the Ananta project.",
             "",
             "## Mandatory architecture rules",
             "- The hub remains the control plane and owns orchestration, routing, policy, and the task queue.",
@@ -196,6 +196,7 @@ class WorkerWorkspaceService:
             "- Reuse existing abstractions before adding new ones.",
             "- Keep behavior observable; do not hide failures.",
             "- Respect the task workspace as the primary place for new files and generated context.",
+            "- The workspace may be reused across related delegated tasks; keep state intentional and auditable.",
             "",
             "## Workspace guidance",
             "- Read `.ananta/context-index.md` first for task-specific context files.",
