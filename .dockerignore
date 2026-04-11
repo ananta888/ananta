@@ -23,6 +23,13 @@ env/
 
 # Datenordner, Git, Logs, etc.
 data/
+.ollama/
+autoimport-state/
+test-reports/
+data_test_e2e/
+.ruff_cache/
+.mypy_cache/
+rag-helper/.venv/
 .git/
 .github/
 .vscode/

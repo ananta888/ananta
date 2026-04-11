@@ -1,0 +1,64 @@
+# Dev overlay: combines WSL2/Vulkan-backed Ollama with live code mounts for
+# Python hub/workers and the Angular frontend.
+#
+# Usage (full stack):
+#   docker compose \
+#     -f docker-compose.base.yml \
+#     -f docker-compose.yml \
+#     -f docker-compose.dev-vulkan-live.yml \
+#     up --build
+#
+# Usage (lighter dev stack):
+#   docker compose \
+#     -f docker-compose.base.yml \
+#     -f docker-compose-lite.yml \
+#     -f docker-compose.dev-vulkan-live.yml \
+#     up --build
+
+services:
+  ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama-wsl-amd
+    image: ollama-wsl-amd:latest
+    container_name: ollama
+    devices:
+      - "/dev/dxg:/dev/dxg"
+    environment:
+      LD_LIBRARY_PATH: ${OLLAMA_WSL_LD_LIBRARY_PATH:-/usr/lib/wsl/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64}
+      OLLAMA_VULKAN: "${OLLAMA_VULKAN:-1}"
+      VK_ICD_FILENAMES: ${OLLAMA_WSL_VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/dzn_icd.json}
+    volumes:
+      - ./.ollama:/root/.ollama
+      - /mnt/c/Users/Public/lm-models:/models:ro
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+
+  ai-agent-hub:
+    environment:
+      FLASK_DEBUG: 1
+      OLLAMA_URL: http://ollama:11434/api/generate
+    volumes:
+      - ./:/app
+      - ./data/hub:/app/data
+
+  ai-agent-alpha:
+    environment:
+      FLASK_DEBUG: 1
+      OLLAMA_URL: http://ollama:11434/api/generate
+    volumes:
+      - ./:/app
+      - ./data/alpha:/app/data
+
+  ai-agent-beta:
+    environment:
+      FLASK_DEBUG: 1
+      OLLAMA_URL: http://ollama:11434/api/generate
+    volumes:
+      - ./:/app
+      - ./data/beta:/app/data
+
+  angular-frontend:
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
