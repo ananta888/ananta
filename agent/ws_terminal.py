@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import shlex
 import threading
 import time
@@ -386,7 +387,48 @@ def register_ws_terminal(app: Any) -> None:
             return
 
         try:
+            input_preview_buffer = ""
+            pump: _WebSocketInputPump | None = None
+
+            def _append_input_preview_log(raw_line: str, *, partial: bool = False) -> None:
+                candidate = str(raw_line or "").strip()
+                if not candidate:
+                    return
+                try:
+                    preview = " ".join(shlex.split(candidate))[:120]
+                except ValueError:
+                    preview = candidate.replace("\n", " ").replace("\r", " ")[:120]
+                payload = {
+                    "timestamp": time.time(),
+                    "timestamp_iso": _utc_now_iso(),
+                    "session_id": session_id,
+                    "event": "input",
+                    "mode": mode,
+                    "principal": principal,
+                    "preview": preview,
+                }
+                if partial:
+                    payload["partial"] = True
+                _append_terminal_log(data_dir, payload)
+
+            def _flush_input_preview(*, force: bool = False) -> None:
+                nonlocal input_preview_buffer
+                while True:
+                    match = re.search(r"[\r\n]", input_preview_buffer)
+                    if not match:
+                        break
+                    line = input_preview_buffer[: match.start()]
+                    input_preview_buffer = input_preview_buffer[match.end() :]
+                    _append_input_preview_log(line, partial=False)
+                if force and input_preview_buffer.strip():
+                    _append_input_preview_log(input_preview_buffer, partial=True)
+                    input_preview_buffer = ""
+                elif not force and len(input_preview_buffer) > 4096:
+                    _append_input_preview_log(input_preview_buffer[-256:], partial=True)
+                    input_preview_buffer = ""
+
             def _handle_bridge_input(incoming: Any) -> None:
+                nonlocal input_preview_buffer
                 resize = _extract_terminal_resize(incoming)
                 if resize is not None:
                     resize_fn = getattr(bridge, "resize", None)
@@ -399,25 +441,8 @@ def register_ws_terminal(app: Any) -> None:
                     return
 
                 bridge.write(text)
-                if text.strip():
-                    try:
-                        preview = " ".join(shlex.split(text))[:120]
-                    except ValueError:
-                        preview = text.strip().replace("\n", " ")[:120]
-                else:
-                    preview = ""
-                _append_terminal_log(
-                    data_dir,
-                    {
-                        "timestamp": time.time(),
-                        "timestamp_iso": _utc_now_iso(),
-                        "session_id": session_id,
-                        "event": "input",
-                        "mode": mode,
-                        "principal": principal,
-                        "preview": preview,
-                    },
-                )
+                input_preview_buffer += text
+                _flush_input_preview(force=False)
 
             pump = _WebSocketInputPump(ws, _handle_bridge_input)
             pump.start()
@@ -428,15 +453,18 @@ def register_ws_terminal(app: Any) -> None:
                 else:
                     time.sleep(_TERMINAL_IO_TIMEOUT_SECONDS)
 
-                for chunk in bridge.drain():
-                    _send_event(ws, "output", {"chunk": chunk})
+                chunks = bridge.drain()
+                if chunks:
+                    _send_event(ws, "output", {"chunk": "".join(chunks)})
 
                 if pump.closed:
                     break
         except Exception as exc:
             LOGGER.exception("Terminal websocket session %s aborted: %s", session_id, exc)
         finally:
-            pump.close()
+            if pump is not None:
+                pump.close()
+            _flush_input_preview(force=True)
             bridge.close()
             _append_terminal_log(
                 data_dir,

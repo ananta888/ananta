@@ -166,3 +166,26 @@ def test_restart_forwards_to_existing_managed_session(app):
     assert result["ok"] is True
     assert result["session_id"] == "cli-1"
     assert fake_session.restart_calls == 1
+
+
+def test_managed_session_chunk_ring_buffer_preserves_progress(monkeypatch):
+    from agent.services import live_terminal_session_service as live_mod
+
+    monkeypatch.setattr(live_mod, "_TERMINAL_OUTPUT_MAX_CHARS", 12)
+    monkeypatch.setattr(live_mod, "_TERMINAL_OUTPUT_MAX_CHUNKS", 3)
+
+    session = live_mod.ManagedLiveTerminalSession("cli-ring")
+    try:
+        session._append_chunk("aaaa")
+        session._append_chunk("bbbb")
+        _, offset = session.read_from(0)
+        assert offset == 2
+
+        session._append_chunk("cccc")
+        session._append_chunk("dddd")
+
+        fresh, next_offset = session.read_from(offset)
+        assert fresh == ["cccc", "dddd"]
+        assert next_offset == 4
+    finally:
+        session.close()

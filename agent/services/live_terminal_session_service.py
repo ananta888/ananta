@@ -19,6 +19,20 @@ _TERMINAL_EXECUTION_MODES = {"live_terminal", "interactive_terminal"}
 _TERMINAL_READ_IDLE_SLEEP_SECONDS = 0.01
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = str(os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+_TERMINAL_OUTPUT_MAX_CHARS = max(200_000, _env_int("ANANTA_TERMINAL_OUTPUT_MAX_CHARS", 800_000))
+_TERMINAL_OUTPUT_MAX_CHUNKS = max(512, _env_int("ANANTA_TERMINAL_OUTPUT_MAX_CHUNKS", 8_192))
+
+
 def _safe_shell() -> str:
     if os.name == "nt":
         candidates = [
@@ -67,6 +81,8 @@ class ManagedLiveTerminalSession:
         self._write_lock = threading.Lock()
         self._command_lock = threading.Lock()
         self._chunks: list[str] = []
+        self._chunks_base_offset = 0
+        self._chunks_char_count = 0
         self._closed = False
         self._temp_dirs: list[tempfile.TemporaryDirectory[str]] = []
         self._runtime_cache: dict[str, object] = {}
@@ -102,6 +118,8 @@ class ManagedLiveTerminalSession:
         if reset_output:
             with self._condition:
                 self._chunks = []
+                self._chunks_base_offset = 0
+                self._chunks_char_count = 0
         self.bridge.start()
         self._closed = False
         self.updated_at = time.time()
@@ -113,6 +131,17 @@ class ManagedLiveTerminalSession:
             return
         with self._condition:
             self._chunks.append(chunk)
+            self._chunks_char_count += len(chunk)
+            while (
+                len(self._chunks) > 1
+                and (
+                    self._chunks_char_count > _TERMINAL_OUTPUT_MAX_CHARS
+                    or len(self._chunks) > _TERMINAL_OUTPUT_MAX_CHUNKS
+                )
+            ):
+                dropped = self._chunks.pop(0)
+                self._chunks_base_offset += 1
+                self._chunks_char_count = max(0, self._chunks_char_count - len(dropped))
             self.updated_at = time.time()
             self._condition.notify_all()
 
@@ -139,19 +168,24 @@ class ManagedLiveTerminalSession:
 
     def read_from(self, offset: int) -> tuple[list[str], int]:
         with self._condition:
-            start = max(0, min(int(offset or 0), len(self._chunks)))
-            return list(self._chunks[start:]), len(self._chunks)
+            absolute_offset = max(0, int(offset or 0))
+            start = absolute_offset - self._chunks_base_offset
+            start = max(0, min(start, len(self._chunks)))
+            next_offset = self._chunks_base_offset + len(self._chunks)
+            return list(self._chunks[start:]), next_offset
 
     def wait_for_update(self, offset: int, timeout: float) -> bool:
         deadline = time.time() + max(0.0, timeout)
         with self._condition:
-            current = len(self._chunks)
-            while not self._closed and len(self._chunks) <= max(0, offset) and time.time() < deadline:
+            requested = max(0, int(offset or 0))
+            latest = self._chunks_base_offset + len(self._chunks)
+            while not self._closed and latest <= requested and time.time() < deadline:
                 remaining = deadline - time.time()
                 if remaining <= 0:
                     break
                 self._condition.wait(timeout=remaining)
-            return len(self._chunks) > current or self._closed
+                latest = self._chunks_base_offset + len(self._chunks)
+            return latest > requested or self._closed
 
     def write(self, data: str) -> None:
         if not data:

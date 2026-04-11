@@ -20,11 +20,14 @@ export interface TerminalEvent {
 
 @Injectable()
 export class TerminalService {
+  private static readonly CONNECT_TIMEOUT_MS = 900;
+
   private dir = inject(AgentDirectoryService);
   private userAuth = inject(UserAuthService);
 
   private ws?: WebSocket;
   private connectAttemptId = 0;
+  private lastSuccessfulTokenByEndpoint = new Map<string, string>();
   private eventsSubject = new Subject<TerminalEvent>();
   private outputSubject = new Subject<string>();
   private stateSubject = new BehaviorSubject<'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'>('idle');
@@ -38,7 +41,8 @@ export class TerminalService {
     this.disconnect();
     this.stateSubject.next('connecting');
 
-    const tokens = await this.resolveTokenCandidates(options.baseUrl, options.token);
+    const endpointKey = this.endpointKey(options.baseUrl, options.mode, options.forwardParam);
+    const tokens = await this.resolveTokenCandidates(options.baseUrl, options.token, endpointKey);
     const tried = new Set<string>();
     const candidates = tokens.filter((token) => {
       const key = token || '__none__';
@@ -51,7 +55,11 @@ export class TerminalService {
       if (attemptId !== this.connectAttemptId) return;
       const wsUrl = this.toWsUrl(options.baseUrl, options.mode, token, options.forwardParam);
       const connected = await this.tryConnectOnce(wsUrl, attemptId);
-      if (connected) return;
+      if (connected) {
+        if (token) this.lastSuccessfulTokenByEndpoint.set(endpointKey, token);
+        else this.lastSuccessfulTokenByEndpoint.delete(endpointKey);
+        return;
+      }
     }
 
     if (attemptId !== this.connectAttemptId) return;
@@ -83,7 +91,7 @@ export class TerminalService {
     }
   }
 
-  private async resolveTokenCandidates(baseUrl: string, explicitToken?: string): Promise<(string | undefined)[]> {
+  private async resolveTokenCandidates(baseUrl: string, explicitToken?: string, endpointKey?: string): Promise<(string | undefined)[]> {
     const agent = this.dir.list().find(a => this.matchesBaseUrl(baseUrl, a.url));
     const userToken = this.userAuth.token || undefined;
     const agentToken = agent?.token;
@@ -100,6 +108,11 @@ export class TerminalService {
         }
       }
     };
+
+    const cached = endpointKey ? this.lastSuccessfulTokenByEndpoint.get(endpointKey) : undefined;
+    if (cached) {
+      await pushToken(cached);
+    }
 
     if (explicitToken) {
       await pushToken(explicitToken);
@@ -177,7 +190,6 @@ export class TerminalService {
         } catch {
           if (!ready) return;
           this.outputSubject.next(raw);
-          this.eventsSubject.next({ type: 'output', data: { chunk: raw } });
           return;
         }
 
@@ -202,10 +214,11 @@ export class TerminalService {
           return;
         }
 
-        this.eventsSubject.next({ type: msgType, data: msgData });
         if (msgType === 'output' && typeof msgData.chunk === 'string') {
           this.outputSubject.next(msgData.chunk);
+          return;
         }
+        this.eventsSubject.next({ type: msgType, data: msgData });
       };
 
       setTimeout(() => {
@@ -213,8 +226,12 @@ export class TerminalService {
           try { ws.close(); } catch {}
           finish(false);
         }
-      }, 2500);
+      }, TerminalService.CONNECT_TIMEOUT_MS);
     });
+  }
+
+  private endpointKey(baseUrl: string, mode: TerminalMode, forwardParam?: string): string {
+    return `${baseUrl}|${mode}|${forwardParam || ''}`;
   }
 
   private toWsUrl(baseUrl: string, mode: TerminalMode, token?: string, forwardParam?: string): string {
