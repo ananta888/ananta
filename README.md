@@ -92,6 +92,14 @@ scripts/start-firefox-vnc.sh stop
 scripts/compose-test-stack.sh down
 ```
 
+
+```bashDev-Compose mit WSL2/Vulkan fuer Ollama und Live-Code-Reload fuer Python + Angular:
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.dev-vulkan-live.yml up --build
+```
+- Das Overlay `docker-compose.dev-vulkan-live.yml` kombiniert den bisherigen Live-Code-Modus mit dem WSL2/Vulkan-Ollama-Setup.
+- Python-Container mounten den Projektcode nach `/app` und laufen mit `FLASK_DEBUG=1`, sodass Aenderungen automatisch neu geladen werden.
+- Das Angular-Frontend mountet `./frontend-angular` und nutzt weiter `ng serve --poll 2000`.
+
 Frontend waehrend laufender Test-Instanz ansehen (empfohlen):
 - Browser-in-Container im gleichen Compose-Netz starten:
   `scripts/start-firefox-vnc.sh start`
