@@ -741,6 +741,7 @@ class TaskScopedExecutionService:
         if session_payload:
             routing["session_mode"] = "stateful"
             routing["session_id"] = session_payload["id"]
+            routing["session_reused"] = bool(session_payload.get("session_reused"))
             session_metadata = session_payload.get("metadata") if isinstance(session_payload.get("metadata"), dict) else {}
             live_terminal_meta = (
                 dict(session_metadata.get("opencode_live_terminal") or {})
@@ -1834,8 +1835,10 @@ class TaskScopedExecutionService:
                 scope_key=scope_key,
                 scope_kind=scope_kind,
             )
+        session_reused = False
         if session and str(session.get("status") or "").strip().lower() == "active" and str(session.get("backend") or "").strip().lower() == backend_name:
             session_payload = dict(session)
+            session_reused = True
         else:
             session_payload = get_cli_session_service().create_session(
                 backend=backend_name,
@@ -1963,6 +1966,7 @@ class TaskScopedExecutionService:
                 verification_status=verification,
             )
         get_cli_session_service().prune_sessions(max_sessions=policy["max_sessions"])
+        session_payload["session_reused"] = bool(session_reused)
         session_payload["max_turns_per_session"] = policy["max_turns_per_session"]
         return session_payload
 
