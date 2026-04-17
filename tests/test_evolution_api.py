@@ -1,6 +1,7 @@
 from agent.db_models import TaskDB
 from agent.repository import task_repo
 from agent.services.evolution import (
+    ApplyResult,
     EvolutionCapability,
     EvolutionContext,
     EvolutionEngine,
@@ -13,7 +14,12 @@ from agent.services.evolution.registry import get_evolution_provider_registry
 
 class ApiEvolutionEngine(EvolutionEngine):
     provider_name = "api-evolution"
-    capabilities = [EvolutionCapability.ANALYZE, EvolutionCapability.PROPOSE, EvolutionCapability.VALIDATE]
+    capabilities = [
+        EvolutionCapability.ANALYZE,
+        EvolutionCapability.PROPOSE,
+        EvolutionCapability.VALIDATE,
+        EvolutionCapability.APPLY,
+    ]
 
     def analyze(self, context: EvolutionContext) -> EvolutionResult:
         return EvolutionResult(
@@ -31,6 +37,9 @@ class ApiEvolutionEngine(EvolutionEngine):
 
     def validate(self, context: EvolutionContext, proposal: EvolutionProposal) -> ValidationResult:
         return ValidationResult(proposal_id=proposal.proposal_id, status="passed", valid=True)
+
+    def apply(self, context: EvolutionContext, proposal: EvolutionProposal) -> ApplyResult:
+        return ApplyResult(proposal_id=proposal.proposal_id, status="prepared", applied=False)
 
 
 def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
@@ -116,6 +125,46 @@ def test_task_evolution_validate_endpoint(client, app, admin_auth_header):
     assert validate_response.status_code == 200
     assert validate_response.json["data"]["status"] == "passed"
     assert validate_response.json["data"]["valid"] is True
+
+
+def test_task_evolution_apply_endpoint_is_explicitly_policy_gated(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-APPLY", title="Apply proposal", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-APPLY/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        blocked_response = client.post(
+            f"/tasks/T-EVO-APPLY/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": False,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        apply_response = client.post(
+            f"/tasks/T-EVO-APPLY/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert blocked_response.status_code == 403
+    assert blocked_response.json["message"] == "evolution_apply_disabled"
+    assert apply_response.status_code == 200
+    assert apply_response.json["data"]["status"] == "prepared"
+    assert apply_response.json["data"]["applied"] is False
 
 
 def test_failed_task_completion_auto_triggers_evolution_analysis(client, app, admin_auth_header):

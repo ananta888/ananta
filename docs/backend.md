@@ -53,12 +53,18 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `resources/list`
   - `resources/read`
 - Erste Hub-owned Tools/Resources:
-  - Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`
-  - Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`
+  - Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`, `evolution.providers.list`, `evolution.analyze`, `evolution.proposals.list`
+  - Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`, `ananta://evolution/providers`
 - Observability:
   - Jede erfolgreiche Tool-/Resource-Ausfuehrung wird auditierbar protokolliert (`mcp_tool_called`, `mcp_resource_read`).
   - Policy-Blockierungen werden als `mcp_access_blocked` sichtbar.
   - MCP-Responses enthalten additiv `trace_id` zur Korrelation.
+
+## Evolution Rollout
+
+- Rollout-Phasen fuer disabled, analyze-only, controlled-review und spaeteres Apply sind in `docs/evolution-rollout.md` beschrieben.
+- Apply bleibt standardmaessig deaktiviert (`evolution.apply_allowed=false`) und ist nur als explizite zweite Ausbaustufe vorhanden.
+- Evolution-Metriken werden unter `/metrics` exportiert: `evolution_analyses_total`, `evolution_proposals_total`, `evolution_validations_total`, `evolution_applies_total`, `evolution_operation_duration_seconds`.
 
 ## Stateful Session-Modus (CLI)
 

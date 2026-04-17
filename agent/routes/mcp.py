@@ -23,6 +23,9 @@ def _mcp_context() -> dict:
         "task_repo": repos.task_repo,
         "artifact_repo": repos.artifact_repo,
         "knowledge_collection_repo": repos.knowledge_collection_repo,
+        "evolution_service": services.evolution_service,
+        "agent_config": current_app.config.get("AGENT_CONFIG", {}) or {},
+        "evolution_config": dict((current_app.config.get("AGENT_CONFIG", {}) or {}).get("evolution") or {}),
     }
 
 
@@ -46,7 +49,10 @@ def _enforce_mcp_policy(operation: str):
     if decision.allowed:
         return None
     if decision.policy.get("emit_audit_events", True):
-        log_audit("mcp_access_blocked", {"reason": decision.reason, "auth_source": decision.auth_source, "operation": operation})
+        log_audit(
+            "mcp_access_blocked",
+            {"reason": decision.reason, "auth_source": decision.auth_source, "operation": operation},
+        )
     return _jsonrpc_error(
         req_id=None,
         code=-32000,
@@ -64,7 +70,9 @@ def mcp_capabilities():
         return blocked
     policy = get_exposure_policy_service().resolve_mcp_policy(current_app.config.get("AGENT_CONFIG", {}) or {})
     registry = get_core_services().mcp_registry_service
-    adapters = get_core_services().integration_registry_service.list_exposure_adapters(cfg=current_app.config.get("AGENT_CONFIG", {}) or {})
+    adapters = get_core_services().integration_registry_service.list_exposure_adapters(
+        cfg=current_app.config.get("AGENT_CONFIG", {}) or {}
+    )
     adapter_entry = next((item for item in adapters if item.get("adapter") == "mcp"), None)
     payload = {
         "object": "ananta.mcp.capabilities",
@@ -114,14 +122,18 @@ def mcp_jsonrpc():
         elif method == "tools/call":
             tool_name = str(params.get("name") or "").strip()
             if not tool_name:
-                return _jsonrpc_error(req_id=req_id, code=-32602, message="invalid_params", data={"details": "name_required"})
+                return _jsonrpc_error(
+                    req_id=req_id, code=-32602, message="invalid_params", data={"details": "name_required"}
+                )
             arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
             result = registry.call_tool(name=tool_name, arguments=arguments, context=_mcp_context())
             log_audit("mcp_tool_called", {"tool": tool_name, "trace_id": trace_id})
         elif method == "resources/read":
             resource_uri = str(params.get("uri") or "").strip()
             if not resource_uri:
-                return _jsonrpc_error(req_id=req_id, code=-32602, message="invalid_params", data={"details": "uri_required"})
+                return _jsonrpc_error(
+                    req_id=req_id, code=-32602, message="invalid_params", data={"details": "uri_required"}
+                )
             result = registry.read_resource(uri=resource_uri, context=_mcp_context())
             log_audit("mcp_resource_read", {"uri": resource_uri, "trace_id": trace_id})
         else:

@@ -446,6 +446,41 @@ class EvolutionService:
             trigger=trigger,
         )
 
+    def apply_persisted_proposal(
+        self,
+        task_id: str,
+        proposal_id: str,
+        *,
+        provider_name: str | None = None,
+        config: dict[str, Any] | None = None,
+        trigger: EvolutionTrigger | None = None,
+    ) -> ApplyResult:
+        repos = self._repositories or get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        if persisted is None or str(persisted.task_id or "") != str(task_id):
+            raise KeyError("evolution_proposal_not_found")
+        context = self.build_context_for_task(task_id)
+        proposal = EvolutionProposal(
+            proposal_id=persisted.id,
+            title=persisted.title,
+            description=persisted.description,
+            proposal_type=persisted.proposal_type,
+            target_refs=list(persisted.target_refs or []),
+            rationale=persisted.rationale,
+            risk_level=persisted.risk_level,
+            confidence=persisted.confidence,
+            requires_review=persisted.requires_review,
+            provider_metadata=dict(persisted.provider_metadata or {}),
+            raw_payload=persisted.raw_payload,
+        )
+        return self.apply(
+            context,
+            proposal,
+            provider_name=provider_name or persisted.provider_name,
+            config=config,
+            trigger=trigger,
+        )
+
     def _audit_details(
         self,
         provider_name: str,
