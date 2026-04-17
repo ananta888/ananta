@@ -1,251 +1,562 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.4.1",
-  "created": "2026-04-06",
-  "updated": "2026-04-06T10:47:57Z",
+  "version": "5.5.0",
+  "created": "2026-04-10",
+  "updated": "2026-04-10T18:05:33Z",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "c96d280..HEAD",
-    "review_goal": "Benchmark-Stack fuer Hub und Ollama aus dem letzten Commit produktionsfaehig machen, ohne die Hub-Worker-Architektur zu brechen.",
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Hybrid-RAG, rag-helper und Subtask-Orchestrierung so verbessern, dass grosse Projekte ueber kleine, fokussierte Kontext-Bundles auch auf schwacher Hardware stabil nutzbar bleiben.",
     "notes": [
-      "Versionslinie bleibt bewusst auf Major 5.",
-      "Ausgangspunkt sind die Review-Befunde zum Benchmark-Modul: doppelter API-Prefix, Import-Namenskonflikt, stille Fehlerbehandlung, flacher Config-Merge, blockierende HTTP-Laeufe, doppelte Core-Logik und zu schwache Quality-Heuristik.",
-      "AGENTS.md bleibt massgeblich: Hub orchestriert, Worker fuehren aus; lang laufende Benchmark-Ausfuehrung soll deshalb nicht im Request-Thread verbleiben."
+      "Ausgangspunkt ist das Zielbild: grosse Goals werden orchestriert in Subtasks zerlegt; rag_helper soll pro Subtask nur den wirklich relevanten Teilkontext liefern.",
+      "Der aktuelle rag-helper ist bereits stark in Extraktion, Profilen und Output-Reduktion, aber die eigentliche Wiederauffindung und Priorisierung fuer Subtasks ist noch der Hauptengpass.",
+      "Wichtigstes Architekturprinzip bleibt: grosse Projekte duerfen nicht ueber riesige Einzelprompts bearbeitet werden, sondern ueber kleine, saubere Arbeitsfenster mit klarer Budgetierung, Explainability und Rueckverdichtung."
     ]
   },
   "categories": [
     {
-      "name": "benchmark-api-and-routing",
-      "label": "Benchmark API und Routing",
+      "name": "rag-retrieval-core",
+      "label": "RAG Retrieval Kern",
       "items": [
         {
-          "id": "BM-001",
-          "title": "Ollama-Benchmark-Route-Prefix korrigieren und API-Tests ergaenzen",
-          "description": "Den doppelten Prefix `/api/api/ollama/benchmark/...` auf das erwartete `/api/ollama/benchmark/...` korrigieren und mit Route-/API-Tests absichern.",
-          "priority": "critical",
-          "type": "bugfix",
-          "principle": "Backward-Compatibility, Reliability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/routes/ollama_benchmark.py",
-            "agent/ai_agent.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Alle Ollama-Benchmark-Endpunkte sind unter genau einem `/api/ollama/benchmark`-Prefix registriert.",
-            "Ein Test prueft die registrierten Routen oder die erreichbaren HTTP-Endpunkte."
-          ]
-        },
-        {
-          "id": "BM-002",
-          "title": "Import-Namenskonflikt bei hub_benchmark aufloesen",
-          "description": "Den Konflikt zwischen `agent/routes/hub_benchmark.py` und `agent/routes/hub_benchmark/` beseitigen, damit Import-Aufloesung und Container-Starts deterministisch bleiben.",
-          "priority": "critical",
-          "type": "bugfix",
-          "principle": "Determinism, Maintainability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/hub_benchmark.py",
-            "agent/routes/hub_benchmark/",
-            "agent/ai_agent.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "BM-001"
-          ],
-          "acceptance": [
-            "Es existiert nur noch eine eindeutige Python-Importquelle fuer `agent.routes.hub_benchmark`.",
-            "App-Start und Benchmark-Routen bleiben in lokalen und Container-Umgebungen stabil."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "benchmark-config-and-observability",
-      "label": "Benchmark Config und Beobachtbarkeit",
-      "items": [
-        {
-          "id": "BM-010",
-          "title": "Deep-Merge fuer Benchmark-Konfigurationen einfuehren",
-          "description": "Benchmark-Config-Loader fuer Hub und Ollama so umbauen, dass verschachtelte Defaults stabil erhalten bleiben und partielle Overrides kein stilles Verhalten erzeugen.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Clarity, Reliability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/hub_benchmark.py",
-            "agent/ollama_benchmark.py",
-            "tests/test_hub_benchmark.py",
-            "tests/test_ollama_benchmark.py"
-          ],
-          "acceptance": [
-            "Partielle Config-Dateien behalten alle notwendigen Nested-Defaults.",
-            "Tests decken Merge-Verhalten fuer `auto_trigger`, `scoring`, `retention` und Rollen-Konfigurationen ab."
-          ]
-        },
-        {
-          "id": "BM-011",
-          "title": "Stille Fehlerbehandlung durch gezielte und sichtbare Fehlerpfade ersetzen",
-          "description": "Breite `except Exception: pass`-Stellen im Benchmark-Stack durch gezielte Fehlerbehandlung mit Logging oder klarer Rueckgabe ersetzen.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Observability, Fail-Fast",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/hub_benchmark.py",
-            "agent/ollama_benchmark.py",
-            "agent/services/hub_llm_service.py",
-            "agent/services/hub_benchmark_service.py",
-            "agent/services/ollama_benchmark_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "BM-010"
-          ],
-          "acceptance": [
-            "Kaputte JSON- oder Empfehlungsdaten werden nicht mehr still verschluckt.",
-            "Fehlerpfade sind fuer Betrieb und Tests nachvollziehbar sichtbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "benchmark-execution-architecture",
-      "label": "Benchmark Ausfuehrung und Architektur",
-      "items": [
-        {
-          "id": "BM-020",
-          "title": "Benchmark-Vollaeufe aus dem Request-Thread in den Task-Fluss verlagern",
-          "description": "Lang laufende Hub- und Ollama-Benchmarks sollen ueber das bestehende Hub-Task-System oder einen gleichwertig beobachtbaren Job-Fluss laufen statt synchron im HTTP-Request.",
+          "id": "RAG-001",
+          "title": "KnowledgeIndexRetrievalService von flachem Keyword-Scoring auf strukturgewichtetes Ranking umbauen",
+          "description": "Die aktuelle Token-Vorkommens-Heuristik im KnowledgeIndexRetrievalService durch ein Ranking ersetzen, das Symboltreffer, Record-Typen, Dateitypen, Relationsnaehe, Architekturrollen und Quellkontext deutlich staerker gewichtet als blossen Volltext.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "Architecture-Integrity, Operability",
+          "principle": "Relevance, Correctness",
           "status": "completed",
           "effort": "large",
           "files": [
-            "agent/routes/hub_benchmark.py",
-            "agent/routes/ollama_benchmark.py",
-            "agent/services/hub_benchmark_service.py",
-            "agent/services/ollama_benchmark_service.py",
-            "agent/services/task_scoped_execution_service.py",
+            "agent/services/knowledge_index_retrieval_service.py",
+            "agent/services/retrieval_service.py",
+            "rag-helper/rag_helper/extractors/",
             "tests/"
           ],
-          "dependencies": [
-            "BM-001",
-            "BM-002",
-            "BM-011"
-          ],
           "acceptance": [
-            "API startet Benchmark-Laeufe ohne lange Blockierung des Requests.",
-            "Status und Ergebnis eines Laufes bleiben ueber bestehende Ananta-Mechanismen beobachtbar."
+            "Klassen-, Methoden-, Typ- und Konfigurations-Treffer werden erkennbar hoeher gewichtet als unspezifische Texttreffer.",
+            "Relationen wie gleiche Datei, gleiches Modul, Parent-Child, Type-Usage oder symbolische Nachbarschaft beeinflussen das Ranking nachvollziehbar.",
+            "Regressionstests zeigen, dass relevante technische Treffer vor generischen Texttreffern landen."
           ]
         },
         {
-          "id": "BM-021",
-          "title": "Gemeinsamen Benchmark-Core fuer Hub und Ollama extrahieren",
-          "description": "Geteilte Score-, Retention-, Ranking- und Persistenzlogik in einen kleinen gemeinsamen Kern verschieben, damit Hub- und Ollama-Benchmark konsistent bleiben.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "SRP, DRY",
+          "id": "RAG-002",
+          "title": "Task-Kind-spezifisches Retrieval einfuehren",
+          "description": "Retrieval und Chunk-Selektion an Task-Arten wie bugfix, refactor, explain, implement, config/xml, test und architecture anpassen statt fuer alle Anfragen dieselbe Suchlogik zu verwenden.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Context-Fit, Task-Awareness",
           "status": "completed",
           "effort": "large",
           "files": [
-            "agent/hub_benchmark.py",
-            "agent/ollama_benchmark.py",
-            "agent/services/",
+            "agent/services/retrieval_service.py",
+            "agent/services/knowledge_index_retrieval_service.py",
+            "agent/services/context_bundle_service.py",
+            "agent/routes/tasks/orchestration.py",
             "tests/"
           ],
           "dependencies": [
-            "BM-010",
-            "BM-011"
+            "RAG-001"
           ],
           "acceptance": [
-            "Gemeinsame Benchmark-Grundlogik liegt in einer klaren, testbaren Abstraktion.",
-            "Verhaltensunterschiede zwischen Hub und Ollama bleiben explizit und nicht versehentlich."
+            "Bugfix-Tasks priorisieren lokale Code- und Fehlerkontexte.",
+            "Refactor-Tasks priorisieren Symbol- und Relationsumfeld.",
+            "Architektur- oder Doku-Tasks priorisieren Guides, ADRs, XML-Overview, Gems und Beschreibungsartefakte."
+          ]
+        },
+        {
+          "id": "RAG-003",
+          "title": "Mehrstufige Candidate-Selektion vor dem finalen Bundle einfuehren",
+          "description": "Den Retrieval-Pfad in mehrere Stufen aufteilen: grobe Kandidatenfindung, strukturelle Erweiterung um Nachbarschaft, Reranking, Diversity-Cut und hartes Token-/Char-Budgeting fuer den finalen Worker-Kontext.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Scalability, Precision",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/retrieval_service.py",
+            "agent/services/knowledge_index_retrieval_service.py",
+            "agent/hybrid_orchestrator.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RAG-001",
+            "RAG-002"
+          ],
+          "acceptance": [
+            "Es gibt klar getrennte Phasen fuer Candidate Retrieval, Expansion, Reranking und finalen Bundle-Cut.",
+            "Das finale Bundle bleibt innerhalb der Budgetgrenzen, ohne dass nur simple Top-K-Listen abgeschnitten werden.",
+            "Groessere Repos fuehren nicht mehr proportional zu unkontrolliertem Kontextwachstum."
+          ]
+        },
+        {
+          "id": "RAG-004",
+          "title": "Semantic-, Knowledge- und Repository-Kontexte deterministisch fusionieren",
+          "description": "Die Zusammenfuehrung von HybridOrchestrator-Chunks und Knowledge-Index-Treffern so umbauen, dass Engine-Herkunft, Gewichtung, Deduplizierung und Priorisierung pro Task transparent und deterministisch bleiben.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Determinism, Explainability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/retrieval_service.py",
+            "agent/hybrid_orchestrator.py",
+            "agent/services/context_bundle_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RAG-001"
+          ],
+          "acceptance": [
+            "Merge-Entscheidungen zwischen knowledge_index, semantic, repository_map und agentic search sind reproduzierbar.",
+            "Doppelte oder nahezu gleiche Chunks werden dedupliziert.",
+            "Die Strategie-Ausgabe dokumentiert, warum welche Engine wie stark beigetragen hat."
           ]
         }
       ]
     },
     {
-      "name": "benchmark-quality-and-selection",
-      "label": "Benchmark Quality und Modellauswahl",
+      "name": "context-bundles-and-budgeting",
+      "label": "Context Bundles und Budgetierung",
       "items": [
         {
-          "id": "BM-030",
-          "title": "Quality-Gate fuer Benchmark-Ergebnisse fachlich staerken",
-          "description": "Die aktuelle Qualitaetsbewertung nicht nur an Antwortlaenge oder simplen Erfolgsindikatoren festmachen, sondern rollenspezifische und promptnahe Kriterien einfuehren.",
-          "priority": "high",
+          "id": "CTX-010",
+          "title": "Context-Bundle-Budgets pro Subtask explizit modellieren",
+          "description": "Statt nur globale Max-Werte zu nutzen soll jedes Bundle ein explizites Budget-Modell fuer orchestration, retrieved context, constraints, examples und output reserve erhalten.",
+          "priority": "critical",
           "type": "improvement",
-          "principle": "Correctness, Testability",
+          "principle": "Budget-Control, Hardware-Fit",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/hub_benchmark.py",
-            "agent/ollama_benchmark.py",
-            "agent/services/hub_benchmark_service.py",
-            "agent/services/ollama_benchmark_service.py",
+            "agent/services/context_bundle_service.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/retrieval_service.py",
+            "agent/db_models.py",
             "tests/"
           ],
-          "dependencies": [
-            "BM-010"
-          ],
           "acceptance": [
-            "Kurze, gute Antworten werden nicht systematisch gegen lange, aber schwache Antworten benachteiligt.",
-            "Mindestens ein Test pro Benchmark-Typ prueft die neue Bewertungslogik."
+            "Jedes Worker-Bundle enthaelt nachvollziehbare Teilbudgets statt nur eines Gesamttokenwerts.",
+            "32k-Workflows koennen als bewusstes Standardbudget abgebildet werden.",
+            "Die Budgetverteilung ist fuer unterschiedliche Task-Klassen konfigurierbar."
           ]
         },
         {
-          "id": "BM-031",
-          "title": "Empfehlungslogik und Default-Konfiguration auf sinnvolle Echtwerte ausrichten",
-          "description": "Empfehlungen und mitgelieferte Benchmark-Konfigurationen auf real nutzbare Provider/Modelle und nachvollziehbare Fallbacks ausrichten, damit Benchmarks im Ist-System direkt nutzbar bleiben.",
-          "priority": "medium",
+          "id": "CTX-011",
+          "title": "Bundle-Zusammenfassung mit Why-this-context-Sektion einfuehren",
+          "description": "Zusammen mit den selektierten Chunks eine knappe, maschinennahe Begruendung mitliefern, warum genau diese Quellen in den Bundle-Kontext aufgenommen wurden.",
+          "priority": "high",
           "type": "improvement",
-          "principle": "Operability, UX",
+          "principle": "Explainability, Focus",
           "status": "completed",
           "effort": "small",
           "files": [
-            "hub_benchmark_config.json",
-            "data/ollama_benchmark_config.json",
-            "agent/services/hub_llm_service.py",
+            "agent/services/context_bundle_service.py",
+            "agent/services/retrieval_service.py",
             "tests/"
           ],
           "dependencies": [
-            "BM-011",
-            "BM-030"
+            "RAG-002",
+            "CTX-010"
           ],
           "acceptance": [
-            "Mitgelieferte Defaults passen zur aktuellen Ananta-Umgebung.",
-            "Empfehlungsquellen und Fallbacks sind fuer Betreiber nachvollziehbar."
+            "Bundles enthalten eine kompakte Zusammenfassung der wichtigsten Treffergruppen.",
+            "Die Begruendung verweist auf Task-Art, Quelle und Relevanzdimension.",
+            "Worker koennen den Kontext besser interpretieren, ohne alle Rohchunks lesen zu muessen."
+          ]
+        },
+        {
+          "id": "CTX-012",
+          "title": "Context-Policy compact, standard und full fachlich schaerfen",
+          "description": "Die bestehenden Policy-Modi sollen nicht nur unterschiedliche Max-Chunk-Werte setzen, sondern unterschiedliche Bundle-Strategien, Textformen und Explainability-Stufen erzwingen.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Clarity, Maintainability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/context_bundle_service.py",
+            "agent/services/worker_job_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "CTX-010"
+          ],
+          "acceptance": [
+            "compact ist klar fuer schwache Hardware und minimalen Kontext definiert.",
+            "standard ist der normale Arbeitsmodus fuer Subtasks.",
+            "full bleibt Ausnahmefall fuer tiefe Analysen und ist klar von compact und standard abgegrenzt."
+          ]
+        },
+        {
+          "id": "CTX-013",
+          "title": "Kontextpakete fuer Worker rueckverfolgbar persistieren",
+          "description": "Worker-Kontext-Bundles so persistieren, dass spaeter klar ist, welche Chunks, Scores, Budgets und Policies zu einem Worker-Lauf gefuehrt haben.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Auditability, Debuggability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/worker_job_service.py",
+            "agent/repository.py",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "CTX-010",
+            "CTX-011"
+          ],
+          "acceptance": [
+            "Zu jedem Worker-Lauf ist der verwendete Bundle-Zuschnitt nachvollziehbar.",
+            "Budget- und Selektionsentscheidungen koennen spaeter analysiert werden.",
+            "Fehlverhalten laesst sich auf Retrieval- oder Bundle-Ebene zurueckfuehren."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rag-helper-profiles-and-artifacts",
+      "label": "rag-helper Profile und Artefakte",
+      "items": [
+        {
+          "id": "RHELP-020",
+          "title": "rag-helper Outputs staerker auf Subtask-Retrieval zuschneiden",
+          "description": "Die vom rag-helper erzeugten JSONL- und Partition-Outputs so erweitern oder normalisieren, dass spaetere Retrieval-Schritte strukturierte Informationen einfacher und verlustaermer nutzen koennen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Retrieval-Friendliness, Structure-Preservation",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "rag-helper/codecompass_rag.py",
+            "rag-helper/rag_helper/application/project_processor.py",
+            "rag-helper/rag_helper/extractors/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Wichtige Strukturfelder fuer Typ, Symbol, Rolle, Nachbarschaft und Artefaktklasse sind retrieval-freundlich vorhanden.",
+            "Die spaetere Retrieval-Schicht muss weniger Freitext flatten.",
+            "Bestehende kompakte und Ultra-Profile bleiben nutzbar."
+          ]
+        },
+        {
+          "id": "RHELP-021",
+          "title": "Profile fuer konkrete Subtask-Typen einfuehren",
+          "description": "Zusaetzlich zu default, fast_docs und deep_code eigene Profile fuer bugfix, refactor, architecture, config-heavy und ultra-32k anlegen, damit Artefaktaufbereitung und Retrieval besser zur Aufgabe passen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Task-Awareness, Reusability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/rag_helper_index_service.py",
+            "rag-helper/*.json",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "RHELP-020"
+          ],
+          "acceptance": [
+            "Es existieren klar dokumentierte Profile fuer unterschiedliche Arbeitsmodi.",
+            "Ein 32k-optimiertes Profil ist explizit vorhanden.",
+            "Profile lassen sich ueber bestehende Hub-Mechanismen abfragen und starten."
+          ]
+        },
+        {
+          "id": "RHELP-022",
+          "title": "Snippet- und Chunk-Granularitaet fuer grosse Projekte nachschaerfen",
+          "description": "Die Granularitaet der erzeugten Einheiten so anpassen, dass Worker moeglichst kleine, thematisch geschlossene und technisch verwertbare Chunks erhalten statt zu grober oder zu feiner Splitterung.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Chunk-Quality, Signal-to-Noise",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "rag-helper/codecompass_rag.py",
+            "rag-helper/rag_helper/extractors/java_member_extractor.py",
+            "rag-helper/rag_helper/extractors/java_type_extractor.py",
+            "rag-helper/rag_helper/extractors/xml_extractor.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RHELP-020"
+          ],
+          "acceptance": [
+            "Methoden-, Typ- und Config-Kontexte werden in sinnvoller Granularitaet bereitgestellt.",
+            "Zu grosse Monolith-Chunks werden reduziert.",
+            "Zu kleine, isolierte Splitter ohne genuegend Umgebung werden vermieden."
+          ]
+        },
+        {
+          "id": "RHELP-023",
+          "title": "Duplicate- und Boilerplate-Erkennung retrieval-wirksam machen",
+          "description": "Vorhandene Duplicate- und Boilerplate-Erkennung nicht nur als Report erzeugen, sondern direkt in Ranking, Dedup und Budget-Cut einfliessen lassen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Noise-Reduction, Efficiency",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "rag-helper/rag_helper/application/duplicate_detection.py",
+            "agent/services/knowledge_index_retrieval_service.py",
+            "agent/services/retrieval_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RAG-001",
+            "RHELP-020"
+          ],
+          "acceptance": [
+            "Boilerplate-lastige oder duplizierte Kontexte werden im Ranking abgesenkt oder entfernt.",
+            "Kontextbudgets werden nicht fuer mehrfach gleiche Treffer verschwendet.",
+            "Tests zeigen geringere Duplikatdichte in finalen Bundles."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "orchestration-and-subtasks",
+      "label": "Orchestrierung und Subtasks",
+      "items": [
+        {
+          "id": "ORCH-030",
+          "title": "Subtask-Erzeugung um Retrieval-Intent und Kontextbedarf erweitern",
+          "description": "Bei der Zerlegung grosser Goals in Subtasks zusaetzliche Felder wie task_kind, retrieval_intent, required_context_scope und preferred_bundle_mode mitfuehren, damit Retrieval und Bundle-Bau gezielt arbeiten koennen.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "End-to-End-Alignment, Explicitness",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/tasks/orchestration.py",
+            "agent/models.py",
+            "agent/services/task_orchestration_service.py",
+            "agent/services/worker_job_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RAG-002",
+            "CTX-010"
+          ],
+          "acceptance": [
+            "Subtasks transportieren explizite Hinweise fuer Retrieval und Kontextgroesse.",
+            "Worker-Bundles werden nicht mehr nur aus Freitext-Prompts abgeleitet.",
+            "Task-Kind und Bundle-Mode werden zwischen Orchestrierung und Worker stabil uebergeben."
+          ]
+        },
+        {
+          "id": "ORCH-031",
+          "title": "Rueckverdichtung von Worker-Ergebnissen fuer Folge-Subtasks einfuehren",
+          "description": "Statt komplette Vorlaeufe mitzuschleppen sollen Ergebnisse aus abgeschlossenen Subtasks in kompakte, strukturierte Summary-Artefakte ueberfuehrt werden, die spaeter wieder retrieval-faehig sind.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Memory-Compression, Iterative-Scalability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/result_memory_service.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/retrieval_service.py",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "CTX-013",
+            "ORCH-030"
+          ],
+          "acceptance": [
+            "Abgeschlossene Subtasks erzeugen kompakte Folgeartefakte statt nur Rohtext.",
+            "Spaetere Tasks koennen diese Summaries retrieval-seitig mitverwenden.",
+            "Historienwachstum wird deutlich begrenzt."
+          ]
+        },
+        {
+          "id": "ORCH-032",
+          "title": "Abhaengigkeits- und Nachbarschaftslogik zwischen Subtasks verbessern",
+          "description": "Subtasks sollen nicht nur hierarchisch entstehen, sondern auch symbolische oder dateibezogene Nachbarschaft kennen, um passenden Kontext aus benachbarten Teilaufgaben gezielt einbeziehen zu koennen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Dependency-Awareness, Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/tasks/orchestration.py",
+            "agent/services/task_orchestration_service.py",
+            "agent/services/result_memory_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "ORCH-030"
+          ],
+          "acceptance": [
+            "Subtasks koennen relevante Schwester- oder Vorlaeufer-Tasks erkennen.",
+            "Retrieval kann auf task-nahe Ergebnisse zugreifen, ohne globale Historie mitzuschleppen.",
+            "Die Abhaengigkeiten bleiben im Read-Model sichtbar."
+          ]
+        },
+        {
+          "id": "ORCH-033",
+          "title": "32k-Standardarbeitsfenster als First-Class-Konfiguration einfuehren",
+          "description": "Fuer dein Zielbild soll ein expliziter Standardmodus entstehen, der Retrieval, Bundle-Bau und Worker-Aufgaben bewusst fuer 32k-Kontext optimiert statt diesen Wert nur indirekt ueber Max-Token-Grenzen zu treffen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Hardware-Pragmatism, Predictability",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/config.py",
+            "agent/services/context_bundle_service.py",
+            "agent/services/retrieval_service.py",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "CTX-010",
+            "CTX-012"
+          ],
+          "acceptance": [
+            "Es gibt einen klar dokumentierten 32k-Standardmodus fuer Worker-Tasks.",
+            "Budgets, Top-K und Bundle-Verhalten sind darauf abgestimmt.",
+            "FW16- und RTX3080-Workflows koennen denselben Kontextmodus mit unterschiedlicher Laufzeit nutzen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "observability-and-quality",
+      "label": "Beobachtbarkeit und Qualitaet",
+      "items": [
+        {
+          "id": "OBS-040",
+          "title": "Retrieval-Qualitaet ueber echte Task-Szenarien benchmarken",
+          "description": "Einen Test- und Benchmark-Satz fuer typische Ananta-Subtasks aufbauen, damit Verbesserungen an Retrieval und Bundle-Bau nicht nur technisch, sondern auch aufgabenseitig messbar werden.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Measurability, Grounded-Iteration",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "docs/",
+            "scripts/",
+            "agent/services/retrieval_service.py",
+            "agent/services/knowledge_index_retrieval_service.py"
+          ],
+          "acceptance": [
+            "Es existieren reproduzierbare Szenarien fuer bugfix, refactor, architecture und config/xml.",
+            "Trefferqualitaet und Bundle-Groesse koennen ueber Metriken verglichen werden.",
+            "Aenderungen am Ranking koennen gegen Baselines bewertet werden."
+          ]
+        },
+        {
+          "id": "OBS-041",
+          "title": "Bundle- und Retrieval-Metriken pro Task-Kind erweitern",
+          "description": "Bestehende Metriken um task_kind, bundle_mode, noise_rate, duplicate_rate, budget_utilization und follow-up success ergaenzen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Observability, Optimization",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/metrics.py",
+            "agent/services/retrieval_service.py",
+            "agent/services/context_bundle_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RAG-002",
+            "CTX-010"
+          ],
+          "acceptance": [
+            "Dashboards und Metriken zeigen Unterschiede zwischen Task-Typen und Bundle-Modi.",
+            "Budget-Auslastung und Duplicate-Anteil sind sichtbar.",
+            "Schlechte Retrieval-Pfade lassen sich datenbasiert erkennen."
+          ]
+        },
+        {
+          "id": "OBS-042",
+          "title": "Explainability fuer Retrieval-Entscheidungen im UI und Read-Model sichtbar machen",
+          "description": "Die bereits vorhandene Explainability aus Context Bundles erweitern und im Orchestration-Read-Model sowie im Frontend sichtbar machen, damit man selektierte Quellen schneller ueberpruefen kann.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, Debuggability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/context_bundle_service.py",
+            "agent/routes/tasks/orchestration.py",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "CTX-011",
+            "CTX-013"
+          ],
+          "acceptance": [
+            "Im Read-Model ist sichtbar, welche Quellen und Gruende zu einem Bundle gefuehrt haben.",
+            "Das UI kann die wichtigsten Bundle-Quellen und Scores anzeigen.",
+            "Fehlselektierter Kontext ist schneller manuell erkennbar."
+          ]
+        },
+        {
+          "id": "OBS-043",
+          "title": "Sicherheits- und Redaction-Regeln im Bundle-Bau gegen Regression absichern",
+          "description": "Da mehr strukturierte Retrieval- und Explainability-Daten in Bundles landen, muessen Redaction und Secret-Schutz gezielt gegen Regression getestet und haerter validiert werden.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Security, Least-Exposure",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/retrieval_service.py",
+            "agent/services/context_bundle_service.py",
+            "agent/hybrid_orchestrator.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Secrets, Tokens und sensible Muster werden weiterhin vor dem Prompt-Zusammenbau redigiert.",
+            "Explainability- und Debugdaten oeffnen keine neuen Leckagepfade.",
+            "Regressionstests decken typische sensible Inhalte ab."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 8,
+    "total_items": 20,
     "by_status": {
-      "completed": 8,
+      "completed": 20,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Diese Todo-Generation ersetzt den vorherigen Fokus durch einen gezielten Benchmark-Hardening-Track.",
-      "Version bleibt auf der 5.x-Linie und springt bewusst nicht auf Major 6.",
-      "Alle acht Benchmark-Tasks sind umgesetzt: Routing/Importe, Deep-Merge und sichtbare Fehlerpfade, bessere Qualitaetsbewertung/Defaults sowie asynchrone Benchmark-Jobs."
+      "Dieser Todo-Stand fokussiert nicht auf allgemeines RAG, sondern gezielt auf Anantas Kernziel: grosse Projekte ueber kleine, selektive Subtasks und klar budgetierte Kontext-Bundles bearbeitbar machen.",
+      "Der groesste Hebel liegt aktuell nicht in weiterer Extraktion, sondern in tasksensitivem Ranking, mehrstufiger Selektion, Bundle-Budgetierung und Rueckverdichtung.",
+      "32k soll als bewusster Standardarbeitsmodus fuer Worker-Tasks etabliert werden; staerkere Hardware wie die RTX3080 beschleunigt denselben Modus, statt ihn durch unnoetig groessere Kontexte zu ersetzen."
     ],
     "recommended_order": [
-      "BM-001",
-      "BM-002",
-      "BM-010",
-      "BM-011",
-      "BM-020",
-      "BM-030",
-      "BM-031",
-      "BM-021"
+      "RAG-001",
+      "RAG-002",
+      "CTX-010",
+      "ORCH-030",
+      "RAG-003",
+      "RAG-004",
+      "CTX-011",
+      "CTX-012",
+      "RHELP-020",
+      "RHELP-021",
+      "RHELP-022",
+      "RHELP-023",
+      "CTX-013",
+      "ORCH-031",
+      "ORCH-032",
+      "ORCH-033",
+      "OBS-040",
+      "OBS-041",
+      "OBS-042",
+      "OBS-043"
     ]
   }
 }
