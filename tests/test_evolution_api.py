@@ -118,6 +118,46 @@ def test_task_evolution_validate_endpoint(client, app, admin_auth_header):
     assert validate_response.json["data"]["valid"] is True
 
 
+def test_failed_task_completion_auto_triggers_evolution_analysis(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-AUTO", title="Auto trigger evolution", status="assigned"))
+    cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    cfg["evolution"] = {
+        **dict(cfg.get("evolution") or {}),
+        "auto_triggers_enabled": True,
+        "enabled": True,
+    }
+    app.config["AGENT_CONFIG"] = cfg
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        complete_response = client.post(
+            "/tasks/orchestration/complete",
+            headers=admin_auth_header,
+            json={
+                "task_id": "T-EVO-AUTO",
+                "trace_id": "trace-auto",
+                "actor": "worker-test",
+                "output": "[quality_gate] failed: regression",
+                "gate_results": {"passed": False, "reason": "regression"},
+            },
+        )
+        read_response = client.get("/tasks/T-EVO-AUTO/evolution", headers=admin_auth_header)
+    finally:
+        registry.clear()
+
+    assert complete_response.status_code == 200
+    trigger = complete_response.json["data"]["evolution_trigger"]
+    assert trigger["status"] == "triggered"
+    assert trigger["provider_name"] == "api-evolution"
+
+    assert read_response.status_code == 200
+    read_payload = read_response.json["data"]
+    assert read_payload["run_count"] == 1
+    assert read_payload["runs"][0]["trigger_type"] == "verification_failure"
+    assert read_payload["proposal_count"] == 1
+
+
 def test_task_evolution_analyze_rejects_invalid_trigger(client, app, admin_auth_header):
     task_repo.save(TaskDB(id="T-EVO-BAD-TRIGGER", title="Bad trigger"))
 

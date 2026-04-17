@@ -566,6 +566,7 @@ class TaskOrchestrationService:
         verification_service,
         worker_job_service,
         result_memory_service,
+        evolution_service=None,
     ) -> dict[str, Any]:
         task = get_local_task_status(task_id)
         if not task:
@@ -630,14 +631,52 @@ class TaskOrchestrationService:
             event_actor=actor,
             event_details={"gate_results": gate, "trace_id": payload.get("trace_id"), "worker_job_id": worker_job_id},
         )
+        updated = get_local_task_status(task_id) or {}
+        evolution_trigger = self._maybe_trigger_evolution_analysis(
+            task=dict(updated or {}),
+            config=current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {},
+            evolution_service=evolution_service,
+        )
         return {
             "data": {
                 "task_id": task_id,
                 "status": final_status,
                 "gates_passed": all_passed,
                 "verification_status": verification_status,
+                "evolution_trigger": evolution_trigger,
             }
         }
+
+    def _maybe_trigger_evolution_analysis(
+        self,
+        *,
+        task: dict[str, Any],
+        config: dict[str, Any],
+        evolution_service,
+    ) -> dict[str, Any]:
+        if evolution_service is None:
+            return {"status": "skipped", "reason": "evolution_service_unavailable"}
+        try:
+            decision = evolution_service.evaluate_auto_trigger(task, config=config)
+            if not decision.allowed or decision.trigger is None:
+                return {"status": "skipped", "reasons": decision.reasons}
+            result = evolution_service.analyze_task(
+                str(task.get("id") or ""),
+                provider_name=None,
+                config=config,
+                trigger=decision.trigger,
+            )
+            return {
+                "status": "triggered",
+                "run_id": result.run_id,
+                "provider_name": result.provider_name,
+                "proposal_ids": list(result.proposal_ids),
+                "reasons": decision.reasons,
+            }
+        except Exception as exc:
+            if has_app_context():
+                current_app.logger.warning("Evolution auto-trigger failed for task %s: %s", task.get("id"), exc)
+            return {"status": "failed", "reason": str(exc)}
 
     def orchestration_read_model(self) -> dict[str, Any]:
         repos = get_repository_registry()

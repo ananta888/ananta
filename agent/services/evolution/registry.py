@@ -65,7 +65,13 @@ class EvolutionProviderRegistry:
     def resolve(self, provider_name: str | None = None, *, config: dict[str, Any] | None = None) -> EvolutionEngine:
         configured = ""
         if isinstance(config, dict):
-            configured = str(config.get("default_provider") or "").strip()
+            evolution_cfg = config.get("evolution") if isinstance(config.get("evolution"), dict) else {}
+            configured_value = (
+                evolution_cfg.get("default_provider")
+                if "evolution" in config
+                else config.get("default_provider") or ""
+            )
+            configured = str(configured_value or "").strip()
         selected = self._normalize_name(provider_name or configured or self._default_provider_name or "")
         if selected:
             return self.get(selected)

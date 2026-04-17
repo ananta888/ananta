@@ -140,7 +140,18 @@ def build_default_agent_config() -> dict:
             "max_manual_analyses_per_task": 20,
             "require_review_before_apply": True,
             "max_raw_payload_bytes": 32768,
-            "provider_overrides": {},
+            "provider_overrides": {
+                "evolver": {
+                    "enabled": False,
+                    "provider_name": "evolver",
+                    "base_url": None,
+                    "analyze_path": "/evolution/analyze",
+                    "timeout_seconds": 30.0,
+                    "default": False,
+                    "replace": True,
+                    "version": "unknown",
+                }
+            },
         },
         "goal_plan_limits": {
             "max_plan_nodes": 8,
@@ -320,6 +331,31 @@ def apply_env_config_overrides(cfg: dict) -> None:
         )
     if runtime_cfg:
         cfg["opencode_runtime"] = runtime_cfg
+
+    evolution_cfg = cfg.get("evolution") if isinstance(cfg.get("evolution"), dict) else {}
+    provider_overrides = evolution_cfg.get("provider_overrides")
+    if not isinstance(provider_overrides, dict):
+        provider_overrides = {}
+    evolver_cfg = dict(provider_overrides.get("evolver") or {})
+    env_to_key = {
+        "EVOLVER_ENABLED": ("enabled", bool(getattr(settings, "evolver_enabled", False))),
+        "EVOLVER_BASE_URL": ("base_url", getattr(settings, "evolver_base_url", None)),
+        "EVOLVER_ANALYZE_PATH": ("analyze_path", getattr(settings, "evolver_analyze_path", "/evolution/analyze")),
+        "EVOLVER_TIMEOUT_SECONDS": (
+            "timeout_seconds",
+            float(getattr(settings, "evolver_timeout_seconds", 30.0) or 30.0),
+        ),
+        "EVOLVER_DEFAULT": ("default", bool(getattr(settings, "evolver_default", False))),
+        "EVOLVER_VERSION": ("version", getattr(settings, "evolver_version", "unknown")),
+    }
+    for env_name, (key, value) in env_to_key.items():
+        if env_name in os.environ:
+            evolver_cfg[key] = value
+    provider_overrides["evolver"] = evolver_cfg
+    evolution_cfg["provider_overrides"] = provider_overrides
+    if evolver_cfg["enabled"] and evolver_cfg["default"]:
+        evolution_cfg["default_provider"] = evolver_cfg.get("provider_name") or "evolver"
+    cfg["evolution"] = evolution_cfg
 
 def _sync_default_provider_settings(lc: dict) -> str | None:
     prov = lc.get("provider")

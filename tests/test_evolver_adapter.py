@@ -76,6 +76,29 @@ def test_evolver_plugin_registers_adapter_from_config():
         registry.clear()
 
 
+def test_evolver_env_overrides_populate_provider_config(monkeypatch):
+    from agent import config_defaults
+    from agent.config_defaults import apply_env_config_overrides, build_default_agent_config
+
+    monkeypatch.setenv("EVOLVER_ENABLED", "1")
+    monkeypatch.setenv("EVOLVER_BASE_URL", "http://evolver:8080")
+    monkeypatch.setenv("EVOLVER_TIMEOUT_SECONDS", "12")
+    monkeypatch.setenv("EVOLVER_DEFAULT", "1")
+    monkeypatch.setattr(config_defaults.settings, "evolver_enabled", True, raising=False)
+    monkeypatch.setattr(config_defaults.settings, "evolver_base_url", "http://evolver:8080", raising=False)
+    monkeypatch.setattr(config_defaults.settings, "evolver_timeout_seconds", 12.0, raising=False)
+    monkeypatch.setattr(config_defaults.settings, "evolver_default", True, raising=False)
+
+    cfg = build_default_agent_config()
+    apply_env_config_overrides(cfg)
+
+    evolver_cfg = cfg["evolution"]["provider_overrides"]["evolver"]
+    assert evolver_cfg["enabled"] is True
+    assert evolver_cfg["base_url"] == "http://evolver:8080"
+    assert evolver_cfg["timeout_seconds"] == 12.0
+    assert cfg["evolution"]["default_provider"] == "evolver"
+
+
 def test_evolution_service_uses_evolver_adapter_without_core_special_case():
     transport = FakeEvolverTransport()
     registry = get_evolution_provider_registry()

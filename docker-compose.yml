@@ -47,6 +47,12 @@ services:
   ai-agent-hub:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+      EVOLVER_ENABLED: ${EVOLVER_ENABLED:-0}
+      EVOLVER_BASE_URL: ${EVOLVER_BASE_URL:-http://evolver:8080}
+      EVOLVER_ANALYZE_PATH: ${EVOLVER_ANALYZE_PATH:-/evolution/analyze}
+      EVOLVER_TIMEOUT_SECONDS: ${EVOLVER_TIMEOUT_SECONDS:-30}
+      EVOLVER_DEFAULT: ${EVOLVER_DEFAULT:-0}
+      EVOLVER_VERSION: ${EVOLVER_VERSION:-unknown}
     deploy:
       resources:
         limits:
@@ -57,6 +63,23 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  evolver:
+    image: ${EVOLVER_IMAGE:-ghcr.io/ananta/evolver:latest}
+    restart: unless-stopped
+    profiles: ["evolution"]
+    environment:
+      PYTHONUNBUFFERED: 1
+      EVOLVER_HOST: 0.0.0.0
+      EVOLVER_PORT: 8080
+    ports:
+      - "${EVOLVER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   ai-agent-alpha:
     environment:
