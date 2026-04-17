@@ -7,6 +7,9 @@ from agent.services.evolution.models import (
     EvolutionProposal,
     EvolutionProviderDescriptor,
     EvolutionResult,
+    EvolutionTrigger,
+    EvolutionTriggerType,
+    PersistedEvolutionAnalysis,
     ValidationResult,
 )
 from agent.services.evolution.registry import (
@@ -28,7 +31,10 @@ __all__ = [
     "EvolutionProviderDescriptor",
     "EvolutionProviderRegistry",
     "EvolutionResult",
+    "EvolutionTrigger",
+    "EvolutionTriggerType",
     "NoEvolutionProviderAvailable",
+    "PersistedEvolutionAnalysis",
     "UnsupportedEvolutionOperation",
     "ValidationResult",
     "get_evolution_provider_registry",

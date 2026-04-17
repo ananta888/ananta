@@ -457,6 +457,52 @@ class WorkerResultDB(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+class EvolutionRunDB(SQLModel, table=True):
+    __tablename__ = "evolution_runs"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    provider_name: str = Field(index=True)
+    status: str = "completed"
+    trigger_type: str = "manual"
+    trigger_source: Optional[str] = None
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    plan_id: Optional[str] = Field(default=None, index=True)
+    context_id: Optional[str] = Field(default=None, index=True)
+    summary: Optional[str] = None
+    context_refs: List[dict] = Field(default=[], sa_column=Column(JSON))
+    result_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    provider_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    raw_payload: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class EvolutionProposalDB(SQLModel, table=True):
+    __tablename__ = "evolution_proposals"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    run_id: str = Field(index=True)
+    provider_name: str = Field(index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    proposal_type: str = "improvement"
+    title: str
+    description: str
+    rationale: Optional[str] = None
+    risk_level: str = "unknown"
+    confidence: Optional[float] = None
+    requires_review: bool = True
+    status: str = "proposed"
+    target_refs: List[dict] = Field(default=[], sa_column=Column(JSON))
+    artifact_refs: List[dict] = Field(default=[], sa_column=Column(JSON))
+    proposal_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    provider_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    raw_payload: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class MemoryEntryDB(SQLModel, table=True):
     __tablename__ = "memory_entries"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

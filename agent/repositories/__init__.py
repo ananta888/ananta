@@ -22,6 +22,7 @@ from .artifacts import (
 )
 from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobRepository, WorkerResultRepository
 from .core import AgentRepository, ConfigRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
+from .evolution import EvolutionProposalRepository, EvolutionRunRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
 from .memory import MemoryEntryRepository
@@ -50,6 +51,8 @@ __all__ = [
     "ContextBundleRepository",
     "GoalRepository",
     "ExtractedDocumentRepository",
+    "EvolutionProposalRepository",
+    "EvolutionRunRepository",
     "KnowledgeCollectionRepository",
     "KnowledgeIndexRepository",
     "KnowledgeIndexRunRepository",
