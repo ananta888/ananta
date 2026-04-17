@@ -406,8 +406,8 @@ Unterstuetzte Methoden (erste Ausbaustufe):
 - `resources/read`
 
 Erste freigegebene Tools/Resources:
-- Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`
-- Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`
+- Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`, `evolution.providers.list`, `evolution.analyze`, `evolution.proposals.list`
+- Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`, `ananta://evolution/providers`
 
 ### Templates auflisten
 - **URL:** `/templates`
@@ -1207,3 +1207,18 @@ Provider duerfen Vorschlaege erzeugen; Apply bleibt standardmaessig deaktiviert 
   }
   ```
 - **Audit Events:** `evolution_analysis_requested`, `evolution_analysis_completed`, `evolution_analysis_failed`
+
+### Task-Evolution Proposal validieren
+- **URL:** `/tasks/<task_id>/evolution/proposals/<proposal_id>/validate`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Fuehrt einen expliziten Validierungsschritt fuer ein persistiertes Proposal aus, sofern `validate_allowed=true`.
+- **Audit Events:** `evolution_validation_requested`, `evolution_validation_completed`, `evolution_validation_failed`
+
+### Task-Evolution Proposal Apply vorbereiten
+- **URL:** `/tasks/<task_id>/evolution/proposals/<proposal_id>/apply`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Zweite Ausbaustufe fuer kontrolliertes Apply. Standardmaessig fail-closed ueber `apply_allowed=false`.
+- **Policy:** `apply_allowed=true` ist erforderlich; `require_review_before_apply=true` blockiert review-pflichtige Proposals.
+- **Audit Events:** `evolution_apply_requested`, `evolution_apply_completed`, `evolution_apply_failed`

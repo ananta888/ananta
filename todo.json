@@ -488,7 +488,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Unified-Control-Plane, Tool-Access",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -697,7 +697,7 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "Safe-Staging, Risk-Containment",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/evolution_service.py",
@@ -827,7 +827,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Safe-Adoption, Operational-Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -851,9 +851,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 29,
+      "completed": 32,
       "partial": 0,
-      "open": 3
+      "open": 0
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",

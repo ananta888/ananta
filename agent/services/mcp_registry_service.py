@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.evolution import EvolutionTrigger, EvolutionTriggerType
+
 
 @dataclass(frozen=True)
 class MCPToolSpec:
@@ -26,7 +28,11 @@ class MCPRegistryService:
         MCPToolSpec(
             name="health.get",
             description="Read hub health status via existing health builder.",
-            input_schema={"type": "object", "properties": {"basic": {"type": "boolean"}}, "additionalProperties": False},
+            input_schema={
+                "type": "object",
+                "properties": {"basic": {"type": "boolean"}},
+                "additionalProperties": False,
+            },
         ),
         MCPToolSpec(
             name="providers.list_models",
@@ -66,14 +72,60 @@ class MCPRegistryService:
             description="List knowledge collections.",
             input_schema={"type": "object", "properties": {}, "additionalProperties": False},
         ),
+        MCPToolSpec(
+            name="evolution.providers.list",
+            description="List Evolution providers, health and policy-visible configuration.",
+            input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        ),
+        MCPToolSpec(
+            name="evolution.analyze",
+            description="Run a policy-controlled Evolution analysis for a hub-owned task.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string"},
+                    "provider_name": {"type": "string"},
+                    "objective": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["task_id"],
+                "additionalProperties": False,
+            },
+        ),
+        MCPToolSpec(
+            name="evolution.proposals.list",
+            description="Read Evolution runs and proposals for a task.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+                },
+                "required": ["task_id"],
+                "additionalProperties": False,
+            },
+        ),
     )
 
     _RESOURCES: tuple[MCPResourceSpec, ...] = (
         MCPResourceSpec(uri="ananta://system/health", name="System Health", description="Current hub health snapshot."),
-        MCPResourceSpec(uri="ananta://providers/models", name="Providers Models", description="OpenAI-compatible provider model list."),
-        MCPResourceSpec(uri="ananta://tasks/recent", name="Recent Tasks", description="Recent tasks from hub task queue."),
+        MCPResourceSpec(
+            uri="ananta://providers/models",
+            name="Providers Models",
+            description="OpenAI-compatible provider model list.",
+        ),
+        MCPResourceSpec(
+            uri="ananta://tasks/recent", name="Recent Tasks", description="Recent tasks from hub task queue."
+        ),
         MCPResourceSpec(uri="ananta://artifacts/list", name="Artifacts", description="All known artifacts."),
-        MCPResourceSpec(uri="ananta://knowledge/collections", name="Knowledge Collections", description="All knowledge collections."),
+        MCPResourceSpec(
+            uri="ananta://knowledge/collections", name="Knowledge Collections", description="All knowledge collections."
+        ),
+        MCPResourceSpec(
+            uri="ananta://evolution/providers",
+            name="Evolution Providers",
+            description="Evolution provider discovery and health.",
+        ),
     )
 
     def list_tools(self) -> list[dict[str, Any]]:
@@ -143,6 +195,61 @@ class MCPRegistryService:
             items = [item.model_dump() for item in collection_repo.get_all()]
             return {"content": [{"type": "json", "json": {"items": items, "count": len(items)}}]}
 
+        if name == "evolution.providers.list":
+            evolution_service = context["evolution_service"]
+            return {
+                "content": [
+                    {
+                        "type": "json",
+                        "json": {
+                            "providers": evolution_service.list_providers(),
+                            "health": evolution_service.provider_health(),
+                            "config": context.get("evolution_config") or {},
+                        },
+                    }
+                ]
+            }
+
+        if name == "evolution.analyze":
+            task_id = str(args.get("task_id") or "").strip()
+            if not task_id:
+                raise ValueError("task_id_required")
+            trigger = EvolutionTrigger(
+                trigger_type=EvolutionTriggerType.MANUAL,
+                source="mcp",
+                reason=str(args.get("reason") or "mcp_evolution_analyze").strip(),
+            )
+            result = context["evolution_service"].analyze_task(
+                task_id,
+                objective=str(args.get("objective") or "").strip() or None,
+                provider_name=str(args.get("provider_name") or "").strip() or None,
+                config=context.get("agent_config") or {},
+                trigger=trigger,
+                persist=True,
+            )
+            return {
+                "content": [
+                    {
+                        "type": "json",
+                        "json": {
+                            "run_id": result.run_id,
+                            "provider_name": result.provider_name,
+                            "status": result.status,
+                            "proposal_ids": list(result.proposal_ids),
+                            "summary": result.result.summary,
+                        },
+                    }
+                ]
+            }
+
+        if name == "evolution.proposals.list":
+            task_id = str(args.get("task_id") or "").strip()
+            if not task_id:
+                raise ValueError("task_id_required")
+            limit = max(1, min(int(args.get("limit", 50)), 200))
+            payload = context["evolution_service"].task_read_model(task_id, limit=limit)
+            return {"content": [{"type": "json", "json": payload}]}
+
         raise KeyError("unknown_tool")
 
     def read_resource(self, *, uri: str, context: dict[str, Any]) -> dict[str, Any]:
@@ -162,13 +269,44 @@ class MCPRegistryService:
                 limit=20,
                 offset=0,
             )
-            return {"contents": [{"uri": normalized_uri, "mimeType": "application/json", "text": {"items": tasks, "count": len(tasks)}}]}
+            return {
+                "contents": [
+                    {
+                        "uri": normalized_uri,
+                        "mimeType": "application/json",
+                        "text": {"items": tasks, "count": len(tasks)},
+                    }
+                ]
+            }
         if normalized_uri == "ananta://artifacts/list":
             items = [item.model_dump() for item in context["artifact_repo"].get_all()]
-            return {"contents": [{"uri": normalized_uri, "mimeType": "application/json", "text": {"items": items, "count": len(items)}}]}
+            return {
+                "contents": [
+                    {
+                        "uri": normalized_uri,
+                        "mimeType": "application/json",
+                        "text": {"items": items, "count": len(items)},
+                    }
+                ]
+            }
         if normalized_uri == "ananta://knowledge/collections":
             items = [item.model_dump() for item in context["knowledge_collection_repo"].get_all()]
-            return {"contents": [{"uri": normalized_uri, "mimeType": "application/json", "text": {"items": items, "count": len(items)}}]}
+            return {
+                "contents": [
+                    {
+                        "uri": normalized_uri,
+                        "mimeType": "application/json",
+                        "text": {"items": items, "count": len(items)},
+                    }
+                ]
+            }
+        if normalized_uri == "ananta://evolution/providers":
+            payload = {
+                "providers": context["evolution_service"].list_providers(),
+                "health": context["evolution_service"].provider_health(),
+                "config": context.get("evolution_config") or {},
+            }
+            return {"contents": [{"uri": normalized_uri, "mimeType": "application/json", "text": payload}]}
         raise KeyError("resource_not_found")
 
 

@@ -159,3 +159,43 @@ def validate_task_evolution_proposal(task_id: str, proposal_id: str):
         return api_response(status="error", message=str(exc), code=400)
 
     return api_response(data=result.model_dump(mode="json"))
+
+
+@evolution_bp.route("/tasks/<task_id>/evolution/proposals/<proposal_id>/apply", methods=["POST"])
+@check_auth
+def apply_task_evolution_proposal(task_id: str, proposal_id: str):
+    task = _repos().task_repo.get_by_id(task_id)
+    if task is None:
+        return api_response(status="error", message="not_found", code=404)
+
+    cfg = _evolution_config()
+    if not bool(cfg.get("enabled", True)):
+        return api_response(status="error", message="evolution_disabled", code=403)
+    if not bool(cfg.get("apply_allowed", False)):
+        return api_response(status="error", message="evolution_apply_disabled", code=403)
+
+    payload = request.get_json(silent=True) or {}
+    provider_name = str(payload.get("provider_name") or payload.get("provider") or "").strip() or None
+    trigger = EvolutionTrigger(
+        trigger_type=EvolutionTriggerType.POLICY_REQUEST,
+        source=str(payload.get("trigger_source") or "manual_api"),
+        actor=_actor(),
+        reason=str(payload.get("reason") or "proposal_apply_requested").strip(),
+        trigger_metadata=payload.get("trigger_metadata") if isinstance(payload.get("trigger_metadata"), dict) else {},
+    )
+    try:
+        result = _services().evolution_service.apply_persisted_proposal(
+            task_id,
+            proposal_id,
+            provider_name=provider_name,
+            config={"default_provider": cfg.get("default_provider") or provider_name, "evolution": cfg},
+            trigger=trigger,
+        )
+    except KeyError as exc:
+        return api_response(status="error", message=str(exc).strip("'"), code=404)
+    except PermissionError as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except Exception as exc:
+        return api_response(status="error", message=str(exc), code=400)
+
+    return api_response(data=result.model_dump(mode="json"))

@@ -78,3 +78,6 @@ If the Evolver plugin is disabled or misconfigured, the hub starts normally and
 the provider is not registered. If the provider is registered but unavailable,
 the registry health endpoint reports degraded/unavailable state and analysis
 requests fail through the normal Evolution service error path.
+
+See `docs/evolution-rollout.md` for the phased rollout from disabled to
+analyze-only, controlled review and future apply staging.
