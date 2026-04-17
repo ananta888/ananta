@@ -4,6 +4,7 @@ from flask import Flask
 
 from agent.config import settings
 from agent.plugin_loader import load_plugins
+from agent.services.evolution import get_evolution_provider_registry
 
 
 def test_load_plugins_from_plugin_dirs(tmp_path: Path):
@@ -27,3 +28,106 @@ def test_load_plugins_from_plugin_dirs(tmp_path: Path):
     finally:
         settings.plugin_dirs = old_dirs
         settings.plugins = old_plugins
+
+
+def test_load_plugins_registers_declared_evolution_provider(tmp_path: Path):
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    mod = plugin_dir / "demo_evolution_provider.py"
+    mod.write_text(
+        "\n".join(
+            [
+                "from agent.services.evolution import (",
+                "    EvolutionCapability,",
+                "    EvolutionContext,",
+                "    EvolutionEngine,",
+                "    EvolutionResult,",
+                ")",
+                "",
+                "class DemoEvolutionProvider(EvolutionEngine):",
+                "    @property",
+                "    def provider_name(self):",
+                "        return 'plugin-evolution'",
+                "",
+                "    @property",
+                "    def capabilities(self):",
+                "        return [EvolutionCapability.ANALYZE]",
+                "",
+                "    def analyze(self, context: EvolutionContext) -> EvolutionResult:",
+                "        return EvolutionResult(provider_name=self.provider_name, summary=context.objective)",
+                "",
+                "evolution_provider = DemoEvolutionProvider()",
+                "evolution_provider_default = True",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    old_dirs = settings.plugin_dirs
+    old_plugins = settings.plugins
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    try:
+        settings.plugin_dirs = str(plugin_dir)
+        settings.plugins = ""
+        app = Flask(__name__)
+        loaded = load_plugins(app)
+        assert "demo_evolution_provider" in loaded
+        assert registry.resolve().provider_name == "plugin-evolution"
+        assert "plugin-evolution" in app.extensions["evolution_providers"]
+    finally:
+        settings.plugin_dirs = old_dirs
+        settings.plugins = old_plugins
+        registry.clear()
+
+
+def test_load_plugins_registers_evolution_provider_from_init_app(tmp_path: Path):
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    mod = plugin_dir / "demo_evolution_init_provider.py"
+    mod.write_text(
+        "\n".join(
+            [
+                "from agent.services.evolution import (",
+                "    EvolutionCapability,",
+                "    EvolutionContext,",
+                "    EvolutionEngine,",
+                "    EvolutionResult,",
+                "    register_evolution_provider,",
+                ")",
+                "",
+                "class DemoEvolutionProvider(EvolutionEngine):",
+                "    @property",
+                "    def provider_name(self):",
+                "        return 'plugin-init-evolution'",
+                "",
+                "    @property",
+                "    def capabilities(self):",
+                "        return [EvolutionCapability.ANALYZE]",
+                "",
+                "    def analyze(self, context: EvolutionContext) -> EvolutionResult:",
+                "        return EvolutionResult(provider_name=self.provider_name, summary=context.objective)",
+                "",
+                "def init_app(app):",
+                "    register_evolution_provider(DemoEvolutionProvider(), app=app, default=True)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    old_dirs = settings.plugin_dirs
+    old_plugins = settings.plugins
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    try:
+        settings.plugin_dirs = str(plugin_dir)
+        settings.plugins = ""
+        app = Flask(__name__)
+        loaded = load_plugins(app)
+        assert "demo_evolution_init_provider" in loaded
+        assert registry.resolve().provider_name == "plugin-init-evolution"
+        assert "plugin-init-evolution" in app.extensions["evolution_providers"]
+    finally:
+        settings.plugin_dirs = old_dirs
+        settings.plugins = old_plugins
+        registry.clear()

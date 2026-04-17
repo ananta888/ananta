@@ -2,7 +2,7 @@ import importlib
 import logging
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from flask import Flask
 
@@ -39,6 +39,36 @@ def _discover_plugins_in_dirs(paths: Iterable[Path]) -> list[str]:
     return sorted(set(discovered))
 
 
+def _coerce_provider_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return list(value)
+    return [value]
+
+
+def _register_declared_evolution_providers(app: Flask, module: Any) -> int:
+    provider_source = None
+    if hasattr(module, "get_evolution_providers"):
+        provider_source = module.get_evolution_providers(app)
+    elif hasattr(module, "evolution_providers"):
+        provider_source = module.evolution_providers
+    elif hasattr(module, "evolution_provider"):
+        provider_source = module.evolution_provider
+
+    providers = _coerce_provider_list(provider_source)
+    if not providers:
+        return 0
+
+    from agent.services.evolution import register_evolution_provider
+
+    default = bool(getattr(module, "evolution_provider_default", False))
+    replace = bool(getattr(module, "evolution_provider_replace", False))
+    for index, provider in enumerate(providers):
+        register_evolution_provider(provider, app=app, default=default and index == 0, replace=replace)
+    return len(providers)
+
+
 def load_plugins(app: Flask) -> list[str]:
     loaded: list[str] = []
     names = set(_iter_enabled_plugins())
@@ -46,20 +76,29 @@ def load_plugins(app: Flask) -> list[str]:
     for mod_name in sorted(names):
         try:
             module = importlib.import_module(mod_name)
+            evolution_provider_count = 0
             if hasattr(module, "init_app"):
                 module.init_app(app)
+                evolution_provider_count = _register_declared_evolution_providers(app, module)
                 loaded.append(mod_name)
                 logging.info("Plugin geladen: %s (init_app)", mod_name)
                 continue
             if hasattr(module, "bp"):
                 app.register_blueprint(module.bp)
+                evolution_provider_count = _register_declared_evolution_providers(app, module)
                 loaded.append(mod_name)
                 logging.info("Plugin geladen: %s (bp)", mod_name)
                 continue
             if hasattr(module, "blueprint"):
                 app.register_blueprint(module.blueprint)
+                evolution_provider_count = _register_declared_evolution_providers(app, module)
                 loaded.append(mod_name)
                 logging.info("Plugin geladen: %s (blueprint)", mod_name)
+                continue
+            evolution_provider_count = _register_declared_evolution_providers(app, module)
+            if evolution_provider_count:
+                loaded.append(mod_name)
+                logging.info("Plugin geladen: %s (%s evolution providers)", mod_name, evolution_provider_count)
                 continue
             logging.warning("Plugin %s hat keine init_app/bp/blueprint", mod_name)
         except Exception as e:
