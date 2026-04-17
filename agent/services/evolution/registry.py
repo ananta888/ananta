@@ -73,10 +73,59 @@ class EvolutionProviderRegistry:
         default_name = self._default_provider_name
         items: list[dict[str, Any]] = []
         for name in sorted(self._providers.keys()):
-            descriptor = self._providers[name].describe().model_dump(mode="json")
+            try:
+                descriptor = self._providers[name].describe().model_dump(mode="json")
+            except Exception as exc:
+                descriptor = {
+                    "provider_name": name,
+                    "version": "unknown",
+                    "status": "unavailable",
+                    "capabilities": [],
+                    "provider_metadata": {"error": str(exc), "error_type": type(exc).__name__},
+                }
             descriptor["default"] = name == default_name
             items.append(descriptor)
         return items
+
+    def health(self, provider_name: str | None = None) -> dict[str, Any]:
+        if provider_name:
+            names = [self._normalize_name(provider_name)]
+        else:
+            names = sorted(self._providers.keys())
+        providers = []
+        for name in names:
+            provider = self.get(name)
+            try:
+                descriptor = provider.describe().model_dump(mode="json")
+                status = str(descriptor.get("status") or "available")
+                error = None
+            except Exception as exc:
+                descriptor = {
+                    "provider_name": name,
+                    "version": "unknown",
+                    "capabilities": [],
+                    "provider_metadata": {},
+                }
+                status = "unavailable"
+                error = {"message": str(exc), "type": type(exc).__name__}
+            providers.append(
+                {
+                    **descriptor,
+                    "status": status,
+                    "default": name == self._default_provider_name,
+                    "error": error,
+                }
+            )
+        overall_status = (
+            "available"
+            if providers and all(item["status"] != "unavailable" for item in providers)
+            else "degraded"
+        )
+        return {
+            "status": overall_status,
+            "default_provider": self._default_provider_name,
+            "providers": providers,
+        }
 
     def describe(self, provider_name: str) -> EvolutionProviderDescriptor:
         return self.get(provider_name).describe()

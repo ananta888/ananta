@@ -33,6 +33,25 @@ class EvolutionTrigger(SQLModel):
     trigger_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class EvolutionPolicy(SQLModel):
+    enabled: bool = True
+    analyze_only: bool = True
+    validate_allowed: bool = True
+    apply_allowed: bool = False
+    auto_triggers_enabled: bool = False
+    manual_triggers_enabled: bool = True
+    require_review_before_apply: bool = True
+    max_raw_payload_bytes: int = 32768
+    max_manual_analyses_per_task: int = 20
+
+
+class EvolutionTriggerDecision(SQLModel):
+    allowed: bool
+    trigger: EvolutionTrigger | None = None
+    reasons: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
 class EvolutionProviderDescriptor(SQLModel):
     provider_name: str
     version: str = "unknown"

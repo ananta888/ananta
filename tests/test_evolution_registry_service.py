@@ -8,6 +8,7 @@ from agent.services.evolution import (
     EvolutionProviderNotFound,
     EvolutionProviderRegistry,
     EvolutionResult,
+    EvolutionTriggerType,
     NoEvolutionProviderAvailable,
     UnsupportedEvolutionOperation,
     ValidationResult,
@@ -108,3 +109,34 @@ def test_evolution_service_keeps_unsupported_validation_fail_closed():
         )
 
     assert [item[0] for item in audits] == ["evolution_validation_requested", "evolution_validation_failed"]
+
+
+def test_evolution_service_apply_policy_fails_closed():
+    registry = EvolutionProviderRegistry()
+    registry.register(SimpleEngine("alpha"))
+    service = EvolutionService(registry=registry, audit_fn=lambda *_args: None)
+
+    with pytest.raises(PermissionError, match="evolution_apply_disabled"):
+        service.apply(
+            EvolutionContext(objective="Apply"),
+            EvolutionProposal(title="Proposal", description="Description"),
+            config={"evolution": {"apply_allowed": False}},
+        )
+
+
+def test_evolution_service_auto_trigger_decision_is_policy_gated():
+    service = EvolutionService(registry=EvolutionProviderRegistry(), audit_fn=lambda *_args: None)
+
+    disabled = service.evaluate_auto_trigger(
+        {"id": "T-1", "status": "failed"},
+        config={"evolution": {"auto_triggers_enabled": False}},
+    )
+    allowed = service.evaluate_auto_trigger(
+        {"id": "T-1", "status": "failed", "verification_status": {"status": "failed"}},
+        config={"evolution": {"auto_triggers_enabled": True}},
+    )
+
+    assert disabled.allowed is False
+    assert disabled.reasons == ["auto_triggers_disabled"]
+    assert allowed.allowed is True
+    assert allowed.trigger.trigger_type == EvolutionTriggerType.VERIFICATION_FAILURE
