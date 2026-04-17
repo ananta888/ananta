@@ -1129,3 +1129,81 @@ Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Que
 | `jira` | Jira Issue Events | Jira Webhook Format |
 
 ---
+
+## Evolution API
+
+Die Evolution API stellt eine analyse- und proposal-zentrierte Integrationsstufe bereit.
+Provider duerfen Vorschlaege erzeugen; Apply bleibt standardmaessig deaktiviert und muss spaeter explizit policy-gesteuert angebunden werden.
+
+### Evolution Provider auflisten
+- **URL:** `/evolution/providers`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Liefert registrierte Evolution-Provider, Capabilities und wirksame Evolution-Konfiguration.
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "providers": [
+        {
+          "provider_name": "example-provider",
+          "version": "unknown",
+          "status": "available",
+          "capabilities": ["analyze", "propose"],
+          "provider_metadata": {},
+          "default": true
+        }
+      ],
+      "config": {
+        "enabled": true,
+        "analyze_only": true,
+        "apply_allowed": false
+      }
+    }
+  }
+  ```
+
+### Task-Evolution Read-Model
+- **URL:** `/tasks/<task_id>/evolution`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Liefert persistierte Evolution-Runs und Proposals fuer einen Task.
+- **Rückgabe:** `run_count`, `proposal_count`, `runs[]`, `proposals[]`
+
+### Task-Evolution Analyse starten
+- **URL:** `/tasks/<task_id>/evolution/analyze`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Baut einen provider-neutralen `EvolutionContext`, fuehrt `analyze` ueber den aktiven Provider aus und persistiert Run und Proposals.
+- **Body:**
+  ```json
+  {
+    "provider_name": "example-provider",
+    "objective": "Improve failed task handling",
+    "trigger_type": "manual",
+    "trigger_source": "manual_api",
+    "reason": "Manual review requested",
+    "context_options": {
+      "audit_limit": 50,
+      "verification_limit": 10,
+      "artifact_limit": 20,
+      "include_audit_details": false
+    }
+  }
+  ```
+- **Unterstuetzte Trigger-Typen:** `manual`, `verification_failure`, `error_threshold`, `periodic_review`, `policy_request`
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "run_id": "uuid",
+      "provider_name": "example-provider",
+      "status": "completed",
+      "proposal_ids": ["uuid"],
+      "summary": "Analysis summary"
+    }
+  }
+  ```
+- **Audit Events:** `evolution_analysis_requested`, `evolution_analysis_completed`, `evolution_analysis_failed`

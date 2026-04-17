@@ -38,6 +38,21 @@ class EvolutionService:
     def list_providers(self) -> list[dict[str, Any]]:
         return self._registry.list_descriptors()
 
+    def task_read_model(self, task_id: str, *, limit: int = 50) -> dict[str, Any]:
+        repos = self._repositories or get_repository_registry()
+        task = repos.task_repo.get_by_id(task_id)
+        if task is None:
+            raise KeyError("task_not_found")
+        runs = list(repos.evolution_run_repo.get_by_task_id(task_id, limit=limit))
+        proposals = list(repos.evolution_proposal_repo.get_by_task_id(task_id, limit=limit))
+        return {
+            "task_id": task_id,
+            "run_count": len(runs),
+            "proposal_count": len(proposals),
+            "runs": [self._run_read_model(run) for run in runs],
+            "proposals": [self._proposal_read_model(proposal) for proposal in proposals],
+        }
+
     def build_context_for_task(
         self,
         task_id: str,
@@ -263,6 +278,42 @@ class EvolutionService:
             "trigger_source": trigger.source,
             "actor": trigger.actor,
             "reason": trigger.reason,
+        }
+
+    def _run_read_model(self, run: EvolutionRunDB) -> dict[str, Any]:
+        return {
+            "run_id": run.id,
+            "provider_name": run.provider_name,
+            "status": run.status,
+            "trigger_type": run.trigger_type,
+            "trigger_source": run.trigger_source,
+            "task_id": run.task_id,
+            "goal_id": run.goal_id,
+            "trace_id": run.trace_id,
+            "plan_id": run.plan_id,
+            "summary": run.summary,
+            "created_at": run.created_at,
+            "updated_at": run.updated_at,
+            "result_metadata": dict(run.result_metadata or {}),
+        }
+
+    def _proposal_read_model(self, proposal: EvolutionProposalDB) -> dict[str, Any]:
+        return {
+            "proposal_id": proposal.id,
+            "run_id": proposal.run_id,
+            "provider_name": proposal.provider_name,
+            "proposal_type": proposal.proposal_type,
+            "title": proposal.title,
+            "description": proposal.description,
+            "rationale": proposal.rationale,
+            "risk_level": proposal.risk_level,
+            "confidence": proposal.confidence,
+            "requires_review": proposal.requires_review,
+            "status": proposal.status,
+            "target_refs": list(proposal.target_refs or []),
+            "artifact_refs": list(proposal.artifact_refs or []),
+            "created_at": proposal.created_at,
+            "updated_at": proposal.updated_at,
         }
 
 
