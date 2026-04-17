@@ -24,7 +24,12 @@ class VerificationRepo:
                 retry_count=1,
                 repair_attempts=1,
                 escalation_reason=None,
-                results={"quality_gates_reason": "missing_evidence"},
+                results={
+                    "quality_gates_reason": "missing_evidence",
+                    "token": "secret-token",
+                    "log": "password=secret-password",
+                    "messages": ["api_key=secret-key"],
+                },
             )
         ]
 
@@ -58,7 +63,7 @@ class FakeRepos:
                 "T-1": SimpleNamespace(
                     id="T-1",
                     title="Improve task queue",
-                    description="Make queue state clearer",
+                    description="Make queue state clearer password=secret-password",
                     status="blocked",
                     priority="High",
                     task_kind="coding",
@@ -67,7 +72,7 @@ class FakeRepos:
                     plan_id="P-1",
                     context_bundle_id="bundle-1",
                     required_capabilities=["coding"],
-                    verification_spec={"required": True},
+                    verification_spec={"required": True, "api_key": "secret-key"},
                     verification_status={"status": "failed"},
                     last_exit_code=1,
                     last_output="failure",
@@ -85,7 +90,7 @@ class FakeRepos:
                     bundle_type="worker_execution_context",
                     chunks=[{"metadata": {"artifact_id": "art-3"}}],
                     token_estimate=42,
-                    bundle_metadata={"artifact_ids": ["art-4"], "policy": "compact"},
+                    bundle_metadata={"artifact_ids": ["art-4"], "policy": "compact", "secret": "secret-value"},
                 )
             }
         )
@@ -95,7 +100,7 @@ class FakeRepos:
                     id="art-1",
                     status="stored",
                     latest_media_type="text/plain",
-                    latest_filename="proposal.txt",
+                    latest_filename="proposal-token=secret.txt",
                     size_bytes=120,
                     created_by="worker",
                 ),
@@ -136,6 +141,14 @@ def test_evolution_context_builder_collects_task_verification_audit_and_artifact
     assert {item["artifact_id"] for item in context.signals["artifacts"]} == {"art-1", "art-2", "art-3", "art-4"}
     assert context.constraints["required_capabilities"] == ["coding"]
     assert context.constraints["review_required"] is True
+    assert context.constraints["verification_spec"]["api_key"] == "***REDACTED***"
+    assert context.signals["task"]["description"] == "Make queue state clearer password=***"
+    record = context.signals["verification"]["records"][0]
+    assert record["results"]["token"] == "***REDACTED***"
+    assert record["results"]["log"] == "password=***"
+    assert record["results"]["messages"] == ["api_key=***"]
+    assert context.signals["context_bundle"]["metadata"]["secret"] == "***REDACTED***"
+    assert context.signals["artifacts"][0]["filename"] == "proposal-token=***"
 
 
 def test_context_builder_can_override_objective_and_limit_audit_details():

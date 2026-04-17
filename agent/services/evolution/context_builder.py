@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
+from agent.common.audit import SENSITIVE_FIELDS, _sanitize_details
 from agent.services.evolution.models import EvolutionContext
 from agent.services.repository_registry import get_repository_registry
 
@@ -50,7 +52,7 @@ class EvolutionContextBuilder:
             context_bundle_refs.append({"kind": "context_bundle", "context_bundle_id": context_bundle.get("id")})
         last_proposal = task_payload.get("last_proposal") or {}
         return EvolutionContext(
-            objective=self._objective(task_payload, objective),
+            objective=self._redact_value(self._objective(task_payload, objective)),
             task_id=task_payload.get("id"),
             goal_id=task_payload.get("goal_id"),
             trace_id=task_payload.get("goal_trace_id"),
@@ -69,7 +71,7 @@ class EvolutionContextBuilder:
             },
             constraints={
                 "required_capabilities": list(task_payload.get("required_capabilities") or []),
-                "verification_spec": dict(task_payload.get("verification_spec") or {}),
+                "verification_spec": self._redact_value(dict(task_payload.get("verification_spec") or {})),
                 "review_required": bool((last_proposal.get("review") or {}).get("required")),
             },
         )
@@ -92,8 +94,8 @@ class EvolutionContextBuilder:
     def _task_signal(self, task: dict[str, Any]) -> dict[str, Any]:
         return {
             "id": task.get("id"),
-            "title": task.get("title"),
-            "description": task.get("description"),
+            "title": self._redact_value(task.get("title")),
+            "description": self._redact_value(task.get("description")),
             "status": task.get("status"),
             "priority": task.get("priority"),
             "task_kind": task.get("task_kind"),
@@ -111,7 +113,7 @@ class EvolutionContextBuilder:
             "bundle_type": bundle.get("bundle_type"),
             "chunk_count": len(bundle.get("chunks") or []),
             "token_estimate": int(bundle.get("token_estimate") or 0),
-            "metadata": dict(bundle.get("bundle_metadata") or {}),
+            "metadata": self._redact_value(dict(bundle.get("bundle_metadata") or {})),
         }
 
     def _verification_signals(self, repos, task: dict[str, Any], *, limit: int) -> dict[str, Any]:
@@ -127,7 +129,7 @@ class EvolutionContextBuilder:
                     "retry_count": payload.get("retry_count"),
                     "repair_attempts": payload.get("repair_attempts"),
                     "escalation_reason": payload.get("escalation_reason"),
-                    "results": dict(payload.get("results") or {}),
+                    "results": self._redact_value(dict(payload.get("results") or {})),
                 }
             )
         return {
@@ -156,7 +158,7 @@ class EvolutionContextBuilder:
                 "trace_id": payload.get("trace_id") or details.get("trace_id"),
             }
             if include_details:
-                row["details"] = details
+                row["details"] = self._redact_value(details)
             items.append(row)
             if len(items) >= limit:
                 break
@@ -183,8 +185,8 @@ class EvolutionContextBuilder:
                     "kind": "artifact",
                     "artifact_id": payload.get("id"),
                     "status": payload.get("status"),
-                    "media_type": payload.get("latest_media_type"),
-                    "filename": payload.get("latest_filename"),
+                    "media_type": self._redact_value(payload.get("latest_media_type")),
+                    "filename": self._redact_value(payload.get("latest_filename")),
                     "size_bytes": payload.get("size_bytes"),
                     "created_by": payload.get("created_by"),
                 }
@@ -248,3 +250,20 @@ class EvolutionContextBuilder:
         if hasattr(value, "dict"):
             return value.dict()
         return dict(getattr(value, "__dict__", {}) or {})
+
+    @classmethod
+    def _redact_value(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: cls._redact_value(redacted) for key, redacted in _sanitize_details(value).items()}
+        if isinstance(value, list):
+            return [cls._redact_value(item) for item in value]
+        if isinstance(value, str):
+            return cls._redact_text(value)
+        return value
+
+    @staticmethod
+    def _redact_text(value: str) -> str:
+        redacted = value
+        for field in SENSITIVE_FIELDS:
+            redacted = re.sub(rf"({field}\s*[=:]\s*)[^\s,\)]+", r"\1***", redacted, flags=re.IGNORECASE)
+        return redacted
