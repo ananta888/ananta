@@ -174,7 +174,7 @@
           "effort": "medium",
           "files": [
             "agent/config.py",
-            "agent/routes/config.py",
+            "agent/routes/config/",
             "agent/services/evolution/",
             "tests/"
           ],
@@ -573,7 +573,9 @@
           "effort": "large",
           "files": [
             "plugins/evolver_adapter/",
-            "docker-compose*.yml",
+            "docker-compose.yml",
+            "docker-compose.base.yml",
+            "docker-compose.distributed.yml",
             "docs/",
             "tests/"
           ],
@@ -651,7 +653,7 @@
           "files": [
             "agent/config.py",
             "agent/services/evolution_service.py",
-            "agent/routes/config.py",
+            "agent/routes/config/",
             "tests/"
           ],
           "dependencies": [
@@ -847,11 +849,11 @@
     }
   ],
   "meta": {
-    "total_items": 28,
+    "total_items": 32,
     "by_status": {
       "completed": 0,
       "partial": 0,
-      "open": 28
+      "open": 32
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
@@ -866,6 +868,7 @@
       "EVO-010",
       "EVO-011",
       "EVO-012",
+      "EVO-013",
       "EVO-020",
       "EVO-021",
       "EVO-022",
