@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from flask import Flask
+
 from agent.services.evolution.engine import EvolutionEngine
 from agent.services.evolution.models import EvolutionCapability, EvolutionProviderDescriptor
 
@@ -144,3 +146,19 @@ evolution_provider_registry = EvolutionProviderRegistry()
 
 def get_evolution_provider_registry() -> EvolutionProviderRegistry:
     return evolution_provider_registry
+
+
+def register_evolution_provider(
+    engine: EvolutionEngine,
+    *,
+    app: Flask | None = None,
+    default: bool = False,
+    replace: bool = False,
+) -> EvolutionEngine:
+    registry = get_evolution_provider_registry()
+    registered = registry.register(engine, default=default, replace=replace)
+    if app is not None:
+        app.extensions["evolution_provider_registry"] = registry
+        names = app.extensions.setdefault("evolution_providers", set())
+        names.add(registered.provider_name)
+    return registered

@@ -19,6 +19,7 @@ from agent.services.evolution.registry import (
     EvolutionProviderRegistry,
     NoEvolutionProviderAvailable,
     get_evolution_provider_registry,
+    register_evolution_provider,
 )
 
 __all__ = [
@@ -42,4 +43,5 @@ __all__ = [
     "UnsupportedEvolutionOperation",
     "ValidationResult",
     "get_evolution_provider_registry",
+    "register_evolution_provider",
 ]
