@@ -129,6 +129,18 @@ def build_default_agent_config() -> dict:
                 "emit_audit_events": True,
             },
         },
+        "evolution": {
+            "enabled": True,
+            "default_provider": None,
+            "analyze_only": True,
+            "validate_allowed": True,
+            "apply_allowed": False,
+            "auto_triggers_enabled": False,
+            "manual_triggers_enabled": True,
+            "max_manual_analyses_per_task": 20,
+            "require_review_before_apply": True,
+            "provider_overrides": {},
+        },
         "goal_plan_limits": {
             "max_plan_nodes": 8,
             "max_plan_depth": 8,
