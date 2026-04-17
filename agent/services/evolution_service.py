@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from agent.services.evolution.context_builder import EvolutionContextBuilder, EvolutionContextBuildOptions
 from agent.services.evolution.models import (
     ApplyResult,
     EvolutionContext,
@@ -19,13 +20,36 @@ class EvolutionService:
         self,
         *,
         registry: EvolutionProviderRegistry | None = None,
+        context_builder: EvolutionContextBuilder | None = None,
         audit_fn: Callable[[str, dict], None] | None = None,
     ):
         self._registry = registry or get_evolution_provider_registry()
+        self._context_builder = context_builder or EvolutionContextBuilder()
         self._audit_fn = audit_fn
 
     def list_providers(self) -> list[dict[str, Any]]:
         return self._registry.list_descriptors()
+
+    def build_context_for_task(
+        self,
+        task_id: str,
+        *,
+        objective: str | None = None,
+        options: EvolutionContextBuildOptions | None = None,
+    ) -> EvolutionContext:
+        return self._context_builder.build_for_task(task_id, objective=objective, options=options)
+
+    def analyze_task(
+        self,
+        task_id: str,
+        *,
+        objective: str | None = None,
+        provider_name: str | None = None,
+        config: dict[str, Any] | None = None,
+        options: EvolutionContextBuildOptions | None = None,
+    ) -> EvolutionResult:
+        context = self.build_context_for_task(task_id, objective=objective, options=options)
+        return self.analyze(context, provider_name=provider_name, config=config)
 
     def analyze(
         self,

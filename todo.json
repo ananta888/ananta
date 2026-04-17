@@ -249,7 +249,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Context-Quality, Reproducibility",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/evolution_service.py",
@@ -851,9 +851,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 4,
+      "completed": 5,
       "partial": 2,
-      "open": 26
+      "open": 25
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
