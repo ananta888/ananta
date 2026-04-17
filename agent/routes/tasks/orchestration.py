@@ -151,6 +151,7 @@ def complete_task():
         verification_service=_services().verification_service,
         worker_job_service=_services().worker_job_service,
         result_memory_service=_services().result_memory_service,
+        evolution_service=_services().evolution_service,
     )
     if result.get("error"):
         return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))

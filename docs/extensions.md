@@ -71,6 +71,9 @@ Fehlerhafte Evolution-Plugins werden beim Laden geloggt und blockieren den
 Rest des Systems nicht. Provider muessen mindestens `ANALYZE` unterstuetzen;
 Validate und Apply bleiben Capability-gesteuert und policy-abhaengig.
 
+Der erste konkrete Provider ist der optionale Evolver-Adapter. Betriebsdetails
+stehen in `docs/evolver-adapter.md`.
+
 ## Einsatz fuer neue Rollen
 
 Neue Rollen koennen ueber eine Extension oder ein Plugin eigene Endpunkte, Workflows oder Validierungen hinzufuegen.

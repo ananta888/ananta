@@ -60,6 +60,8 @@ def test_registry_resolves_provider_from_config_and_fails_clearly():
     registry.register(SimpleEngine("alpha"))
 
     assert registry.resolve(config={"default_provider": "alpha"}).provider_name == "alpha"
+    nested_config = {"default_provider": "ollama", "evolution": {"default_provider": "alpha"}}
+    assert registry.resolve(config=nested_config).provider_name == "alpha"
 
     with pytest.raises(EvolutionProviderNotFound) as exc:
         registry.resolve("missing")
