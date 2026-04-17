@@ -17,6 +17,22 @@ class EvolutionCapability(str, Enum):
     REVIEW_HINTS = "review_hints"
 
 
+class EvolutionTriggerType(str, Enum):
+    MANUAL = "manual"
+    VERIFICATION_FAILURE = "verification_failure"
+    ERROR_THRESHOLD = "error_threshold"
+    PERIODIC_REVIEW = "periodic_review"
+    POLICY_REQUEST = "policy_request"
+
+
+class EvolutionTrigger(SQLModel):
+    trigger_type: EvolutionTriggerType = EvolutionTriggerType.MANUAL
+    source: str = "hub"
+    actor: str | None = None
+    reason: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class EvolutionProviderDescriptor(SQLModel):
     provider_name: str
     version: str = "unknown"
@@ -84,3 +100,11 @@ class EvolutionResult(SQLModel):
     provider_metadata: dict[str, Any] = Field(default_factory=dict)
     raw_payload: dict[str, Any] | None = None
     created_at: float = Field(default_factory=time.time)
+
+
+class PersistedEvolutionAnalysis(SQLModel):
+    run_id: str
+    provider_name: str
+    status: str
+    proposal_ids: list[str] = Field(default_factory=list)
+    result: EvolutionResult

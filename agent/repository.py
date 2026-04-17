@@ -16,6 +16,8 @@ from agent.repositories import (
     ConfigRepository,
     ContextBundleRepository,
     ExtractedDocumentRepository,
+    EvolutionProposalRepository,
+    EvolutionRunRepository,
     GoalRepository,
     KnowledgeCollectionRepository,
     KnowledgeIndexRepository,
@@ -60,6 +62,8 @@ retrieval_run_repo = RetrievalRunRepository()
 context_bundle_repo = ContextBundleRepository()
 worker_job_repo = WorkerJobRepository()
 worker_result_repo = WorkerResultRepository()
+evolution_run_repo = EvolutionRunRepository()
+evolution_proposal_repo = EvolutionProposalRepository()
 memory_entry_repo = MemoryEntryRepository()
 team_repo = TeamRepository()
 template_repo = TemplateRepository()
@@ -97,6 +101,8 @@ __all__ = [
     "ConfigRepository",
     "ContextBundleRepository",
     "ExtractedDocumentRepository",
+    "EvolutionProposalRepository",
+    "EvolutionRunRepository",
     "GoalRepository",
     "KnowledgeCollectionRepository",
     "KnowledgeIndexRepository",
@@ -135,6 +141,8 @@ __all__ = [
     "config_repo",
     "context_bundle_repo",
     "extracted_document_repo",
+    "evolution_proposal_repo",
+    "evolution_run_repo",
     "goal_repo",
     "knowledge_collection_repo",
     "knowledge_index_repo",

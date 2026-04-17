@@ -16,6 +16,8 @@ from agent.repository import (
     config_repo,
     context_bundle_repo,
     extracted_document_repo,
+    evolution_proposal_repo,
+    evolution_run_repo,
     goal_repo,
     knowledge_collection_repo,
     knowledge_index_repo,
@@ -59,6 +61,8 @@ class RepositoryRegistry:
     config_repo: object
     context_bundle_repo: object
     extracted_document_repo: object
+    evolution_proposal_repo: object
+    evolution_run_repo: object
     goal_repo: object
     knowledge_collection_repo: object
     knowledge_index_repo: object
@@ -101,6 +105,8 @@ def build_repository_registry() -> RepositoryRegistry:
         config_repo=config_repo,
         context_bundle_repo=context_bundle_repo,
         extracted_document_repo=extracted_document_repo,
+        evolution_proposal_repo=evolution_proposal_repo,
+        evolution_run_repo=evolution_run_repo,
         goal_repo=goal_repo,
         knowledge_collection_repo=knowledge_collection_repo,
         knowledge_index_repo=knowledge_index_repo,
