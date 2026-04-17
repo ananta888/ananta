@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Callable
 
 from agent.common.audit import _sanitize_details, log_audit
 from agent.db_models import EvolutionProposalDB, EvolutionRunDB
+from agent.metrics import (
+    EVOLUTION_ANALYSES_TOTAL,
+    EVOLUTION_APPLIES_TOTAL,
+    EVOLUTION_OPERATION_DURATION_SECONDS,
+    EVOLUTION_PROPOSALS_TOTAL,
+    EVOLUTION_VALIDATIONS_TOTAL,
+)
 from agent.services.evolution.context_builder import EvolutionContextBuilder, EvolutionContextBuildOptions
 from agent.services.evolution.models import (
     ApplyResult,
@@ -148,6 +156,7 @@ class EvolutionService:
             "evolution_analysis_requested",
             self._audit_details(engine.provider_name, context, resolved_trigger),
         )
+        started_at = time.monotonic()
         try:
             result = engine.analyze(context)
             if not result.provider_name:
@@ -164,6 +173,8 @@ class EvolutionService:
                     "proposal_count": proposal_count,
                 },
             )
+            self._record_analysis_metrics(engine.provider_name, resolved_trigger, result)
+            self._observe_operation_duration(engine.provider_name, "analyze", result.status, started_at)
             return persisted or result
         except Exception as exc:
             self._audit(
@@ -174,6 +185,12 @@ class EvolutionService:
                     "error_type": type(exc).__name__,
                 },
             )
+            EVOLUTION_ANALYSES_TOTAL.labels(
+                provider=self._metric_label(engine.provider_name),
+                trigger_type=self._metric_label(resolved_trigger.trigger_type.value),
+                status="failed",
+            ).inc()
+            self._observe_operation_duration(engine.provider_name, "analyze", "failed", started_at)
             raise
 
     def validate(
@@ -195,6 +212,7 @@ class EvolutionService:
             "proposal_id": proposal.proposal_id,
         }
         self._audit("evolution_validation_requested", details)
+        started_at = time.monotonic()
         try:
             result = engine.validate(context, proposal)
             self._audit(
@@ -206,12 +224,24 @@ class EvolutionService:
                     "valid": result.valid,
                 },
             )
+            EVOLUTION_VALIDATIONS_TOTAL.labels(
+                provider=self._metric_label(engine.provider_name),
+                status=self._metric_label(result.status),
+                valid=str(bool(result.valid)).lower(),
+            ).inc()
+            self._observe_operation_duration(engine.provider_name, "validate", result.status, started_at)
             return result
         except Exception as exc:
             self._audit(
                 "evolution_validation_failed",
                 {**details, "error": str(exc), "error_type": type(exc).__name__},
             )
+            EVOLUTION_VALIDATIONS_TOTAL.labels(
+                provider=self._metric_label(engine.provider_name),
+                status="failed",
+                valid="false",
+            ).inc()
+            self._observe_operation_duration(engine.provider_name, "validate", "failed", started_at)
             raise
 
     def apply(
@@ -235,6 +265,7 @@ class EvolutionService:
             "proposal_id": proposal.proposal_id,
         }
         self._audit("evolution_apply_requested", details)
+        started_at = time.monotonic()
         try:
             result = engine.apply(context, proposal)
             self._audit(
@@ -246,17 +277,66 @@ class EvolutionService:
                     "applied": result.applied,
                 },
             )
+            EVOLUTION_APPLIES_TOTAL.labels(
+                provider=self._metric_label(engine.provider_name),
+                status=self._metric_label(result.status),
+                applied=str(bool(result.applied)).lower(),
+            ).inc()
+            self._observe_operation_duration(engine.provider_name, "apply", result.status, started_at)
             return result
         except Exception as exc:
             self._audit(
                 "evolution_apply_failed",
                 {**details, "error": str(exc), "error_type": type(exc).__name__},
             )
+            EVOLUTION_APPLIES_TOTAL.labels(
+                provider=self._metric_label(engine.provider_name),
+                status="failed",
+                applied="false",
+            ).inc()
+            self._observe_operation_duration(engine.provider_name, "apply", "failed", started_at)
             raise
 
     def _audit(self, action: str, details: dict[str, Any]) -> None:
         if self._audit_fn is not None:
             self._audit_fn(action, details)
+
+    def _record_analysis_metrics(
+        self,
+        provider_name: str,
+        trigger: EvolutionTrigger,
+        result: EvolutionResult,
+    ) -> None:
+        EVOLUTION_ANALYSES_TOTAL.labels(
+            provider=self._metric_label(provider_name),
+            trigger_type=self._metric_label(trigger.trigger_type.value),
+            status=self._metric_label(result.status),
+        ).inc()
+        for proposal in result.proposals:
+            EVOLUTION_PROPOSALS_TOTAL.labels(
+                provider=self._metric_label(provider_name),
+                proposal_type=self._metric_label(proposal.proposal_type),
+                risk_level=self._metric_label(proposal.risk_level),
+                requires_review=str(bool(proposal.requires_review)).lower(),
+            ).inc()
+
+    def _observe_operation_duration(
+        self,
+        provider_name: str,
+        operation: str,
+        status: str,
+        started_at: float,
+    ) -> None:
+        EVOLUTION_OPERATION_DURATION_SECONDS.labels(
+            provider=self._metric_label(provider_name),
+            operation=self._metric_label(operation),
+            status=self._metric_label(status),
+        ).observe(max(0.0, time.monotonic() - started_at))
+
+    @staticmethod
+    def _metric_label(value: Any) -> str:
+        text = str(value or "unknown").strip().lower()
+        return text[:80] or "unknown"
 
     def _persist_analysis(
         self,

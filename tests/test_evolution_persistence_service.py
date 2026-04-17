@@ -1,4 +1,5 @@
 from agent.db_models import EvolutionProposalDB, EvolutionRunDB, TaskDB
+from agent.metrics import generate_latest
 from agent.repository import audit_repo, evolution_proposal_repo, evolution_run_repo, task_repo
 from agent.services.evolution import (
     EvolutionCapability,
@@ -103,3 +104,8 @@ def test_analyze_task_persists_run_proposals_and_audit_events():
     assert actions["evolution_analysis_completed"].details["provider_name"] == "proposal-engine"
     assert actions["evolution_analysis_completed"].details["trigger_type"] == "verification_failure"
     assert actions["evolution_analysis_completed"].details["proposal_count"] == 1
+
+    metrics_payload = generate_latest().decode("utf-8")
+    assert "evolution_analyses_total" in metrics_payload
+    assert 'provider="proposal-engine"' in metrics_payload
+    assert "evolution_proposals_total" in metrics_payload

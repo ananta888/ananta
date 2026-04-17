@@ -40,6 +40,31 @@ TASK_FAILED = Counter("task_failed_total", "Total tasks failed")
 LLM_CALL_DURATION = Histogram("llm_call_duration_seconds", "Duration of LLM calls")
 HTTP_REQUEST_DURATION = Histogram("http_request_duration_seconds", "HTTP request duration", ["method", "target"])
 RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
+EVOLUTION_ANALYSES_TOTAL = Counter(
+    "evolution_analyses_total",
+    "Total Evolution analyses grouped by provider, trigger and outcome status",
+    ["provider", "trigger_type", "status"],
+)
+EVOLUTION_PROPOSALS_TOTAL = Counter(
+    "evolution_proposals_total",
+    "Total Evolution proposals grouped by provider, proposal type, risk and review requirement",
+    ["provider", "proposal_type", "risk_level", "requires_review"],
+)
+EVOLUTION_VALIDATIONS_TOTAL = Counter(
+    "evolution_validations_total",
+    "Total Evolution proposal validations grouped by provider and result status",
+    ["provider", "status", "valid"],
+)
+EVOLUTION_APPLIES_TOTAL = Counter(
+    "evolution_applies_total",
+    "Total Evolution apply attempts grouped by provider and result status",
+    ["provider", "status", "applied"],
+)
+EVOLUTION_OPERATION_DURATION_SECONDS = Histogram(
+    "evolution_operation_duration_seconds",
+    "Duration of Evolution provider operations",
+    ["provider", "operation", "status"],
+)
 SHELL_POOL_SIZE = Gauge("shell_pool_size", "Total size of the shell pool")
 SHELL_POOL_BUSY = Gauge("shell_pool_busy", "Number of busy shells in the pool")
 SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")
