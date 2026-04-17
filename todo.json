@@ -92,7 +92,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Boundary-Clarity, Forward-Compatibility",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/evolution/models.py",
@@ -170,7 +170,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Configurability, Operational-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/config.py",
@@ -224,7 +224,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Single-Orchestration-Entry, Separation-of-Concerns",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -437,7 +437,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Operability, Explicit-Access",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -462,7 +462,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, Reviewability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/",
@@ -512,7 +512,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Clarity, Contract-Stability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "api-spec.md",
@@ -851,9 +851,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 9,
-      "partial": 3,
-      "open": 20
+      "completed": 15,
+      "partial": 1,
+      "open": 16
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
