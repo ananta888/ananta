@@ -139,6 +139,7 @@ def build_default_agent_config() -> dict:
             "manual_triggers_enabled": True,
             "max_manual_analyses_per_task": 20,
             "require_review_before_apply": True,
+            "max_raw_payload_bytes": 32768,
             "provider_overrides": {},
         },
         "goal_plan_limits": {

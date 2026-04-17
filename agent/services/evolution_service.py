@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Callable
 
-from agent.common.audit import log_audit
+from agent.common.audit import _sanitize_details, log_audit
 from agent.db_models import EvolutionProposalDB, EvolutionRunDB
 from agent.services.evolution.context_builder import EvolutionContextBuilder, EvolutionContextBuildOptions
 from agent.services.evolution.models import (
     ApplyResult,
     EvolutionContext,
+    EvolutionPolicy,
     EvolutionProposal,
     EvolutionResult,
     EvolutionTrigger,
+    EvolutionTriggerDecision,
     EvolutionTriggerType,
     PersistedEvolutionAnalysis,
     ValidationResult,
@@ -37,6 +40,57 @@ class EvolutionService:
 
     def list_providers(self) -> list[dict[str, Any]]:
         return self._registry.list_descriptors()
+
+    def provider_health(self, provider_name: str | None = None) -> dict[str, Any]:
+        return self._registry.health(provider_name)
+
+    def resolve_policy(self, config: dict[str, Any] | None = None) -> EvolutionPolicy:
+        raw = dict((config or {}).get("evolution") or config or {})
+        return EvolutionPolicy(
+            enabled=bool(raw.get("enabled", True)),
+            analyze_only=bool(raw.get("analyze_only", True)),
+            validate_allowed=bool(raw.get("validate_allowed", True)),
+            apply_allowed=bool(raw.get("apply_allowed", False)),
+            auto_triggers_enabled=bool(raw.get("auto_triggers_enabled", False)),
+            manual_triggers_enabled=bool(raw.get("manual_triggers_enabled", True)),
+            require_review_before_apply=bool(raw.get("require_review_before_apply", True)),
+            max_raw_payload_bytes=max(1024, min(int(raw.get("max_raw_payload_bytes") or 32768), 1024 * 1024)),
+            max_manual_analyses_per_task=max(1, min(int(raw.get("max_manual_analyses_per_task") or 20), 1000)),
+        )
+
+    def evaluate_auto_trigger(
+        self,
+        task: dict[str, Any],
+        *,
+        config: dict[str, Any] | None = None,
+    ) -> EvolutionTriggerDecision:
+        policy = self.resolve_policy(config)
+        if not policy.enabled:
+            return EvolutionTriggerDecision(allowed=False, reasons=["evolution_disabled"])
+        if not policy.auto_triggers_enabled:
+            return EvolutionTriggerDecision(allowed=False, reasons=["auto_triggers_disabled"])
+
+        status = str(task.get("status") or "").strip().lower()
+        verification_status = dict(task.get("verification_status") or {})
+        verification_failed = str(verification_status.get("status") or "").strip().lower() in {"failed", "escalated"}
+        task_failed = status in {"failed", "blocked"}
+        if verification_failed or task_failed:
+            return EvolutionTriggerDecision(
+                allowed=True,
+                trigger=EvolutionTrigger(
+                    trigger_type=EvolutionTriggerType.VERIFICATION_FAILURE,
+                    source="task_policy",
+                    reason="verification_or_task_failure",
+                    trigger_metadata={"task_status": status, "verification_status": verification_status.get("status")},
+                ),
+                reasons=["verification_or_task_failure"],
+                details={"task_status": status, "verification_status": verification_status.get("status")},
+            )
+        return EvolutionTriggerDecision(
+            allowed=False,
+            reasons=["no_matching_trigger_condition"],
+            details={"task_status": status, "verification_status": verification_status.get("status")},
+        )
 
     def task_read_model(self, task_id: str, *, limit: int = 50) -> dict[str, Any]:
         repos = self._repositories or get_repository_registry()
@@ -87,6 +141,9 @@ class EvolutionService:
     ) -> PersistedEvolutionAnalysis | EvolutionResult:
         engine = self._registry.resolve(provider_name, config=config)
         resolved_trigger = trigger or EvolutionTrigger(trigger_type=EvolutionTriggerType.MANUAL)
+        policy = self.resolve_policy(config)
+        if not policy.enabled:
+            raise PermissionError("evolution_disabled")
         self._audit(
             "evolution_analysis_requested",
             self._audit_details(engine.provider_name, context, resolved_trigger),
@@ -95,7 +152,7 @@ class EvolutionService:
             result = engine.analyze(context)
             if not result.provider_name:
                 result.provider_name = engine.provider_name
-            persisted = self._persist_analysis(context, result, resolved_trigger) if persist else None
+            persisted = self._persist_analysis(context, result, resolved_trigger, policy=policy) if persist else None
             run_id = persisted.run_id if persisted else result.run_id
             proposal_count = len(persisted.proposal_ids) if persisted else len(result.proposals)
             self._audit(
@@ -128,6 +185,9 @@ class EvolutionService:
         config: dict[str, Any] | None = None,
         trigger: EvolutionTrigger | None = None,
     ) -> ValidationResult:
+        policy = self.resolve_policy(config)
+        if not policy.validate_allowed:
+            raise PermissionError("evolution_validation_disabled")
         engine = self._registry.resolve(provider_name, config=config)
         resolved_trigger = trigger or EvolutionTrigger(trigger_type=EvolutionTriggerType.MANUAL)
         details = {
@@ -163,6 +223,11 @@ class EvolutionService:
         config: dict[str, Any] | None = None,
         trigger: EvolutionTrigger | None = None,
     ) -> ApplyResult:
+        policy = self.resolve_policy(config)
+        if not policy.apply_allowed:
+            raise PermissionError("evolution_apply_disabled")
+        if policy.require_review_before_apply and proposal.requires_review:
+            raise PermissionError("evolution_apply_requires_review")
         engine = self._registry.resolve(provider_name, config=config)
         resolved_trigger = trigger or EvolutionTrigger(trigger_type=EvolutionTriggerType.MANUAL)
         details = {
@@ -198,6 +263,8 @@ class EvolutionService:
         context: EvolutionContext,
         result: EvolutionResult,
         trigger: EvolutionTrigger,
+        *,
+        policy: EvolutionPolicy,
     ) -> PersistedEvolutionAnalysis:
         repos = self._repositories or get_repository_registry()
         run = repos.evolution_run_repo.save(
@@ -219,13 +286,13 @@ class EvolutionService:
                     "validation_count": len(result.validation_results),
                     "trigger": trigger.model_dump(mode="json"),
                 },
-                provider_metadata=dict(result.provider_metadata or {}),
-                raw_payload=result.raw_payload,
+                provider_metadata=self._bounded_payload(result.provider_metadata or {}, policy=policy),
+                raw_payload=self._bounded_payload(result.raw_payload, policy=policy),
             )
         )
         proposal_ids: list[str] = []
         for proposal in result.proposals:
-            saved = repos.evolution_proposal_repo.save(self._proposal_db(run, context, result, proposal))
+            saved = repos.evolution_proposal_repo.save(self._proposal_db(run, context, result, proposal, policy=policy))
             proposal_ids.append(saved.id)
         return PersistedEvolutionAnalysis(
             run_id=run.id,
@@ -241,6 +308,8 @@ class EvolutionService:
         context: EvolutionContext,
         result: EvolutionResult,
         proposal: EvolutionProposal,
+        *,
+        policy: EvolutionPolicy,
     ) -> EvolutionProposalDB:
         return EvolutionProposalDB(
             id=proposal.proposal_id,
@@ -258,8 +327,43 @@ class EvolutionService:
             requires_review=proposal.requires_review,
             target_refs=list(proposal.target_refs or []),
             proposal_metadata={"context_id": context.context_id},
-            provider_metadata=dict(proposal.provider_metadata or {}),
-            raw_payload=proposal.raw_payload,
+            provider_metadata=self._bounded_payload(proposal.provider_metadata or {}, policy=policy),
+            raw_payload=self._bounded_payload(proposal.raw_payload, policy=policy),
+        )
+
+    def validate_persisted_proposal(
+        self,
+        task_id: str,
+        proposal_id: str,
+        *,
+        provider_name: str | None = None,
+        config: dict[str, Any] | None = None,
+        trigger: EvolutionTrigger | None = None,
+    ) -> ValidationResult:
+        repos = self._repositories or get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        if persisted is None or str(persisted.task_id or "") != str(task_id):
+            raise KeyError("evolution_proposal_not_found")
+        context = self.build_context_for_task(task_id)
+        proposal = EvolutionProposal(
+            proposal_id=persisted.id,
+            title=persisted.title,
+            description=persisted.description,
+            proposal_type=persisted.proposal_type,
+            target_refs=list(persisted.target_refs or []),
+            rationale=persisted.rationale,
+            risk_level=persisted.risk_level,
+            confidence=persisted.confidence,
+            requires_review=persisted.requires_review,
+            provider_metadata=dict(persisted.provider_metadata or {}),
+            raw_payload=persisted.raw_payload,
+        )
+        return self.validate(
+            context,
+            proposal,
+            provider_name=provider_name or persisted.provider_name,
+            config=config,
+            trigger=trigger,
         )
 
     def _audit_details(
@@ -278,6 +382,24 @@ class EvolutionService:
             "trigger_source": trigger.source,
             "actor": trigger.actor,
             "reason": trigger.reason,
+        }
+
+    def _bounded_payload(self, payload: Any, *, policy: EvolutionPolicy) -> Any:
+        if payload is None:
+            return None
+        sanitized = _sanitize_details(payload) if isinstance(payload, dict) else payload
+        try:
+            encoded = json.dumps(sanitized, ensure_ascii=True, sort_keys=True, default=str)
+        except TypeError:
+            sanitized = {"value": str(sanitized)}
+            encoded = json.dumps(sanitized, ensure_ascii=True, sort_keys=True)
+        if len(encoded.encode("utf-8")) <= policy.max_raw_payload_bytes:
+            return sanitized
+        preview = encoded[: policy.max_raw_payload_bytes]
+        return {
+            "_truncated": True,
+            "max_raw_payload_bytes": policy.max_raw_payload_bytes,
+            "preview": preview,
         }
 
     def _run_read_model(self, run: EvolutionRunDB) -> dict[str, Any]:

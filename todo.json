@@ -194,7 +194,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Observability, Robustness",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/evolution/registry.py",
@@ -406,7 +406,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Security, Bounded-Storage",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -648,7 +648,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Least-Privilege, Policy-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/config.py",
@@ -673,7 +673,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Defense-in-Depth, Preflight-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -851,9 +851,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 15,
+      "completed": 19,
       "partial": 1,
-      "open": 16
+      "open": 12
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
