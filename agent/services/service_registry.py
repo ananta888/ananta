@@ -57,6 +57,7 @@ class CoreServiceRegistry:
     auto_planner_runtime_service: Any
     scheduler_runtime_service: Any
     config_read_model_service: Any
+    evolution_service: Any
     task_handler_registry: Any
     task_queue_service: Any
     task_runtime_service: Any
@@ -104,6 +105,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.automation_snapshot_service import get_automation_snapshot_service
     from agent.services.config_read_model_service import get_config_read_model_service
     from agent.services.cost_aggregation_service import get_cost_aggregation_service
+    from agent.services.evolution_service import get_evolution_service
     from agent.services.goal_service import get_goal_service
     from agent.services.integration_registry_service import get_integration_registry_service
     from agent.services.ingestion_service import get_ingestion_service
@@ -144,6 +146,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         auto_planner_runtime_service=get_auto_planner_runtime_service(),
         scheduler_runtime_service=get_scheduler_runtime_service(),
         config_read_model_service=get_config_read_model_service(),
+        evolution_service=get_evolution_service(),
         task_handler_registry=get_task_handler_registry(app),
         task_queue_service=get_task_queue_service(),
         task_runtime_service=get_task_runtime_service(),

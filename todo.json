@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Abstraction, Replaceability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution/",
@@ -45,7 +45,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Interface-First, Decoupling",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution/engine.py",
@@ -69,7 +69,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Discoverability, Safe-Integration",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/evolution/models.py",
@@ -92,7 +92,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Boundary-Clarity, Forward-Compatibility",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "agent/services/evolution/models.py",
@@ -122,7 +122,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Extensibility, Runtime-Selection",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution/registry.py",
@@ -224,7 +224,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Single-Orchestration-Entry, Separation-of-Concerns",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -851,9 +851,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 0,
-      "partial": 0,
-      "open": 32
+      "completed": 4,
+      "partial": 2,
+      "open": 26
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
