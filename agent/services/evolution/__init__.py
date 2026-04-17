@@ -1,3 +1,4 @@
+from agent.services.evolution.context_builder import EvolutionContextBuilder, EvolutionContextBuildOptions
 from agent.services.evolution.engine import EvolutionEngine, UnsupportedEvolutionOperation
 from agent.services.evolution.models import (
     ApplyResult,
@@ -19,6 +20,8 @@ __all__ = [
     "ApplyResult",
     "EvolutionCapability",
     "EvolutionContext",
+    "EvolutionContextBuilder",
+    "EvolutionContextBuildOptions",
     "EvolutionEngine",
     "EvolutionProposal",
     "EvolutionProviderNotFound",
