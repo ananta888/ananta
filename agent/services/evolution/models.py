@@ -30,7 +30,7 @@ class EvolutionTrigger(SQLModel):
     source: str = "hub"
     actor: str | None = None
     reason: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    trigger_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class EvolutionProviderDescriptor(SQLModel):

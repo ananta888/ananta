@@ -90,18 +90,21 @@ def test_evolution_service_selects_provider_and_emits_audit_metadata():
 
     assert result.provider_name == "alpha"
     assert result.summary == "Improve proposal flow"
-    assert audits[0][0] == "evolution_analysis_completed"
-    assert audits[0][1]["provider_name"] == "alpha"
-    assert audits[0][1]["task_id"] == "T-2"
+    assert [item[0] for item in audits] == ["evolution_analysis_requested", "evolution_analysis_completed"]
+    assert audits[1][1]["provider_name"] == "alpha"
+    assert audits[1][1]["task_id"] == "T-2"
 
 
 def test_evolution_service_keeps_unsupported_validation_fail_closed():
     registry = EvolutionProviderRegistry()
     registry.register(SimpleEngine("alpha"))
-    service = EvolutionService(registry=registry)
+    audits: list[tuple[str, dict]] = []
+    service = EvolutionService(registry=registry, audit_fn=lambda action, details: audits.append((action, details)))
 
     with pytest.raises(UnsupportedEvolutionOperation):
         service.validate(
             EvolutionContext(objective="Validate"),
             EvolutionProposal(title="Proposal", description="Description"),
         )
+
+    assert [item[0] for item in audits] == ["evolution_validation_requested", "evolution_validation_failed"]

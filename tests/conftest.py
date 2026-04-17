@@ -55,6 +55,8 @@ def _db_runtime() -> dict[str, Any]:
         ConfigDB,
         ContextBundleDB,
         ExtractedDocumentDB,
+        EvolutionProposalDB,
+        EvolutionRunDB,
         GoalDB,
         KnowledgeCollectionDB,
         KnowledgeIndexDB,
@@ -93,6 +95,8 @@ def _db_runtime() -> dict[str, Any]:
         "models": (
             WorkerResultDB,
             WorkerJobDB,
+            EvolutionProposalDB,
+            EvolutionRunDB,
             ContextBundleDB,
             RetrievalRunDB,
             MemoryEntryDB,

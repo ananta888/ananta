@@ -274,7 +274,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Control, Non-Intrusiveness",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -299,7 +299,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Safe-Iteration, Human-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -331,7 +331,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Auditability, Traceability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -356,7 +356,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Reviewability, Structured-Followup",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -381,7 +381,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Governance, Non-Repudiation",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/db_models.py",
@@ -851,9 +851,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 5,
-      "partial": 2,
-      "open": 25
+      "completed": 9,
+      "partial": 3,
+      "open": 20
     },
     "notes": [
       "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
