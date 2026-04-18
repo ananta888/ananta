@@ -190,6 +190,31 @@ Zentrale Tabellen/Modelle liegen in `agent/db_models.py` (Users, Teams, Tasks, T
 - `POST /teams/blueprints/{id}/instantiate`: materialisiert aus einem Blueprint ein Team, erzeugt Rollenlinks und initiale Artefakte.
 - `POST /teams/setup-scrum`: Legacy-Shortcut, delegiert intern jetzt an den Seed-Blueprint `Scrum`.
 
+### Definition-Versionierung und Drift
+- Templates und Team-Blueprints enthalten additiv `version_metadata` mit deterministischen Content-/Definition-Revisions.
+- Blueprint-Instanzen speichern die verwendete Revision im `blueprint_snapshot`; Teams expose zusaetzlich `definition_metadata`.
+- `GET /teams/{team_id}/blueprint-diff` vergleicht gespeicherten Instanz-Snapshot mit der aktuellen Blueprint-Definition.
+- `origin_kind` und `drift_status` unterscheiden Seed-Instanzen, Custom-Blueprint-Instanzen und live angepasste Teams.
+
+## Result-Memory und Task-Nachbarschaft
+- Worker-Ergebnisse werden standardmaessig als kompakte `worker_result_compact_v3` Memory-Eintraege persistiert.
+- Die Rohhistorie bleibt optional referenzierbar, ist aber nicht mehr der Normalpfad fuer Folgekontexte.
+- `TaskNeighborhoodService` leitet Nachbar-Tasks aus Goal, Plan, Dependencies, Parent/Child-Beziehungen und Datei-/Symbolnaehe ab.
+- Retrieval kann bei vorhandenem `task_id` automatisch task-nahe Result-Memory bevorzugen.
+- Die Verdichtung ist ueber `result_memory_policy` budgetiert und begrenzt.
+
+## Remote-Ananta-Federation
+- Remote-Ananta-Backends werden ueber `remote_federation_policy` mit Trust-Level, erlaubten Operationen und Provenance-Anforderungen modelliert.
+- Standardmaessig sind Remote-Datei- und Artefaktzugriffe blockiert.
+- Foederierte Requests koennen `X-Ananta-Instance-ID`, `X-Ananta-Hop-Count` und `X-Ananta-Trace-ID` tragen.
+- Provider-Katalog und Integration Registry expose die normalisierten Federation-Grenzen fuer Read-Models und UI.
+
+## Operations Observability
+- Das Dashboard-Read-Model enthaelt unter `llm_configuration.runtime_telemetry.operations` verdichtete Ursachen- und Outcome-Sichten.
+- Sichtbar sind Top-Ursachen fuer Verification-Fails, Routing-/Policy-Entscheidungen, Task-Fehler und Task-Kind-Outcomes.
+- Kontextbudget, Chunk-Anzahl, Quellmischung und Task-Erfolg werden pro Task-Typ aggregiert.
+- Die Metrik-Namen `task_kind_routing_outcome_total`, `task_kind_verification_outcome_total` und `context_efficiency_budget_utilization` sind fuer kuenftige Prometheus-Auswertung definiert.
+
 ## Redaction und Sensitivitaetskontrolle
 
 - Eine zentrale Redaction-Schicht (`agent/common/redaction.py`) schuetzt sensible Daten in Logs, Audits, Prompt-Bundles und API-Antworten.

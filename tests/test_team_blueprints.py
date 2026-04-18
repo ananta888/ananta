@@ -25,6 +25,8 @@ def test_seed_blueprints_are_listed(client):
 
     scrum_blueprint = next(blueprint for blueprint in blueprints if blueprint["name"] == "Scrum")
     assert scrum_blueprint["is_seed"] is True
+    assert (scrum_blueprint.get("version_metadata") or {}).get("origin_kind") == "seed_blueprint"
+    assert (scrum_blueprint.get("version_metadata") or {}).get("revision")
     assert {role["name"] for role in scrum_blueprint["roles"]} == {"Product Owner", "Scrum Master", "Developer"}
     assert any(artifact["title"] == "Scrum Backlog" for artifact in scrum_blueprint["artifacts"])
 
@@ -138,6 +140,8 @@ def test_blueprint_crud_and_instantiate(client):
     assert team["blueprint_id"] == scrum_blueprint["id"]
     assert team["is_active"] is True
     assert team["blueprint_snapshot"]["name"] == "Scrum"
+    assert (team.get("definition_metadata") or {}).get("origin_kind") == "seed_blueprint_instance"
+    assert (team.get("definition_metadata") or {}).get("drift_status") == "in_sync"
 
     with Session(engine) as session:
         persisted_team = session.get(TeamDB, team["id"])
@@ -150,6 +154,56 @@ def test_blueprint_crud_and_instantiate(client):
     assert len(persisted_members) == 1
     assert persisted_members[0].blueprint_role_id == developer_role["id"]
     assert any(task.title == "Blueprint Team Alpha: Scrum Backlog" for task in persisted_tasks)
+
+
+def test_team_blueprint_diff_reports_snapshot_drift(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    scrum_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum")
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{scrum_blueprint['id']}/instantiate",
+        json={"name": "Drift Check Team", "activate": False, "members": []},
+        headers=auth_header,
+    )
+    assert instantiate_response.status_code == 201
+    team = instantiate_response.json["data"]["team"]
+
+    update_response = client.patch(
+        f"/teams/blueprints/{scrum_blueprint['id']}",
+        json={
+            "roles": [
+                *[
+                    {
+                        "name": role["name"],
+                        "description": role.get("description"),
+                        "template_id": role.get("template_id"),
+                        "sort_order": role.get("sort_order"),
+                        "is_required": role.get("is_required", True),
+                        "config": role.get("config") or {},
+                    }
+                    for role in scrum_blueprint["roles"]
+                ],
+                {
+                    "name": "Definition Drift Reviewer",
+                    "description": "Reviews blueprint drift.",
+                    "sort_order": 999,
+                    "is_required": False,
+                    "config": {},
+                },
+            ]
+        },
+        headers=auth_header,
+    )
+    assert update_response.status_code == 200
+
+    diff_response = client.get(f"/teams/{team['id']}/blueprint-diff", headers=auth_header)
+    assert diff_response.status_code == 200
+    diff = diff_response.json["data"]
+    assert diff["definition_metadata"]["drift_status"] == "drifted"
+    assert "Definition Drift Reviewer" in diff["diff"]["roles_added"]
 
 
 def test_setup_scrum_uses_seed_blueprint(client):

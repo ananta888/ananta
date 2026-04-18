@@ -13,6 +13,7 @@ from agent.database import engine
 from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
 from agent.models import TemplateCreateRequest
 from agent.services.repository_registry import get_repository_registry
+from agent.services.team_definition_version_service import serialize_template_with_version
 from agent.utils import validate_request
 
 templates_bp = Blueprint("config_templates", __name__)
@@ -99,7 +100,7 @@ def _template_strict_validation_error(prompt_template: str):
 @check_auth
 def list_templates():
     templates = _template_repo().get_all()
-    return api_response(data=[template.model_dump() for template in templates])
+    return api_response(data=[serialize_template_with_version(template) for template in templates])
 
 
 @templates_bp.route("/templates", methods=["POST"])
@@ -123,7 +124,7 @@ def create_template():
     except IntegrityError:
         return api_response(status="error", message="template_name_exists", data={"name": template_name}, code=409)
     log_audit("template_created", {"template_id": new_template.id, "name": new_template.name})
-    payload = new_template.model_dump()
+    payload = serialize_template_with_version(new_template)
     if warnings:
         payload["warnings"] = warnings
     return api_response(data=payload, code=201)
@@ -158,7 +159,7 @@ def update_template(tpl_id):
     except IntegrityError:
         return api_response(status="error", message="template_name_exists", data={"name": template.name}, code=409)
     log_audit("template_updated", {"template_id": tpl_id, "name": template.name})
-    payload = template.model_dump()
+    payload = serialize_template_with_version(template)
     if warnings:
         payload["warnings"] = warnings
     return api_response(data=payload)
