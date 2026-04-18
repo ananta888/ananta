@@ -50,6 +50,12 @@ def goals_readiness():
     return api_response(data=_goal_service().goal_readiness())
 
 
+@goals_bp.route("/goals/modes", methods=["GET"])
+@check_auth
+def list_goal_modes():
+    return api_response(data=_goal_service().get_guided_modes())
+
+
 @goals_bp.route("/goals", methods=["GET"])
 @check_auth
 def list_goals():
@@ -177,6 +183,10 @@ def test_provision_goal():
 def create_goal():
     payload: GoalCreateRequest = g.validated_data
     goal_text = str(payload.goal or "").strip()
+
+    if payload.mode and payload.mode != "generic":
+        goal_text = _goal_service().build_goal_from_mode(payload.mode, payload.mode_data or {})
+
     if not goal_text:
         return api_response(status="error", message="goal_required", code=400)
 
@@ -212,6 +222,8 @@ def create_goal():
         workflow_effective=effective,
         workflow_provenance=provenance,
         readiness=readiness,
+        mode=str(payload.mode or "generic"),
+        mode_data=dict(payload.mode_data or {}),
     )
     goal_record = _repos().goal_repo.save(goal_record)
     goal_record = _services().goal_lifecycle_service.transition_goal(

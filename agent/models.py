@@ -790,6 +790,8 @@ class GoalCreateRequest(SQLModel):
     execution_preferences: dict = Field(default_factory=dict)
     visibility: dict = Field(default_factory=dict)
     workflow: dict = Field(default_factory=dict)
+    mode: Optional[str] = "generic"
+    mode_data: dict = Field(default_factory=dict)
 
 
 class SgptExecuteRequest(SQLModel):

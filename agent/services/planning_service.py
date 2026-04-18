@@ -198,6 +198,8 @@ class PlanningService:
         context: Optional[str],
         use_template: bool,
         use_repo_context: bool,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
     ) -> dict[str, Any]:
         result = self._run_planning_strategies(
             planner=planner,
@@ -205,6 +207,8 @@ class PlanningService:
             context=context,
             use_template=use_template,
             use_repo_context=use_repo_context,
+            mode=mode,
+            mode_data=mode_data,
         )
         return {
             "subtasks": result.subtasks,
@@ -222,6 +226,8 @@ class PlanningService:
         context: Optional[str],
         use_template: bool,
         use_repo_context: bool,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
     ) -> PlanningStrategyResult:
         strategies = [
             TemplatePlanningStrategy(enabled=use_template),
@@ -229,7 +235,7 @@ class PlanningService:
             LLMPlanningStrategy(use_repo_context=use_repo_context),
         ]
         for strategy in strategies:
-            result = strategy.execute(planner, goal, context)
+            result = strategy.execute(planner, goal, context, mode=mode, mode_data=mode_data)
             if result is not None:
                 return result
         raise RuntimeError("planning_strategy_resolution_failed")
@@ -445,6 +451,8 @@ class PlanningService:
         use_repo_context: bool = True,
         goal_id: Optional[str] = None,
         goal_trace_id: Optional[str] = None,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
     ) -> dict[str, Any]:
         flags = get_goal_feature_flags()
         if not flags.get("goal_workflow_enabled", True):
@@ -464,6 +472,8 @@ class PlanningService:
                 context=context,
                 use_template=use_template,
                 use_repo_context=use_repo_context,
+                mode=mode,
+                mode_data=mode_data,
             )
         except Exception as exc:
             planner._stats["errors"] += 1

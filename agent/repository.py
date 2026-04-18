@@ -5,6 +5,7 @@ The concrete classes now live in `agent.repositories.*` split by domain.
 """
 
 from agent.repositories import (
+    ActionPackRepository,
     AgentRepository,
     ArtifactRepository,
     ArtifactVersionRepository,
@@ -28,6 +29,7 @@ from agent.repositories import (
     PasswordHistoryRepository,
     PlanNodeRepository,
     PlanRepository,
+    PlaybookRepository,
     PolicyDecisionRepository,
     RefreshTokenRepository,
     RoleRepository,
@@ -48,6 +50,8 @@ from agent.repositories import (
 )
 
 # Singletons für Repositories
+playbook_repo = PlaybookRepository()
+action_pack_repo = ActionPackRepository()
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
 agent_repo = AgentRepository()
@@ -90,6 +94,7 @@ blueprint_artifact_repo = BlueprintArtifactRepository()
 team_type_role_link_repo = TeamTypeRoleLinkRepository()
 
 __all__ = [
+    "ActionPackRepository",
     "AgentRepository",
     "ArtifactRepository",
     "ArtifactVersionRepository",
@@ -114,6 +119,7 @@ __all__ = [
     "PlanNodeRepository",
     "PlanRepository",
     "PolicyDecisionRepository",
+    "PlaybookRepository",
     "RefreshTokenRepository",
     "RoleRepository",
     "ScheduledTaskRepository",
@@ -130,6 +136,7 @@ __all__ = [
     "RetrievalRunRepository",
     "WorkerJobRepository",
     "WorkerResultRepository",
+    "action_pack_repo",
     "agent_repo",
     "artifact_repo",
     "artifact_version_repo",
@@ -152,6 +159,7 @@ __all__ = [
     "memory_entry_repo",
     "password_history_repo",
     "plan_node_repo",
+    "playbook_repo",
     "plan_repo",
     "policy_decision_repo",
     "refresh_token_repo",

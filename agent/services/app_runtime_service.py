@@ -36,4 +36,14 @@ def initialize_runtime_state(app: Flask) -> dict[str, Any]:
     apply_env_config_overrides(default_cfg)
     app.config["AGENT_CONFIG"] = default_cfg
     sync_runtime_state(app, default_cfg)
+
+    try:
+        from agent.services.action_pack_service import get_action_pack_service
+        get_action_pack_service().initialize_action_packs()
+
+        from agent.services.playbook_service import get_playbook_service
+        get_playbook_service().initialize_standard_playbooks()
+    except Exception as e:
+        app.logger.warning(f"Failed to initialize action packs or playbooks: {e}")
+
     return default_cfg

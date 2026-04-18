@@ -31,19 +31,42 @@ class PlannerLike(Protocol):
 
 
 class PlanningStrategy(Protocol):
-    def execute(self, planner: PlannerLike, goal: str, context: str | None) -> PlanningStrategyResult | None: ...
+    def execute(
+        self,
+        planner: PlannerLike,
+        goal: str,
+        context: str | None,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
+    ) -> PlanningStrategyResult | None: ...
 
 
 class TemplatePlanningStrategy:
     def __init__(self, enabled: bool) -> None:
         self._enabled = bool(enabled)
 
-    def execute(self, planner: PlannerLike, goal: str, context: str | None) -> PlanningStrategyResult | None:
+    def execute(
+        self,
+        planner: PlannerLike,
+        goal: str,
+        context: str | None,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
+    ) -> PlanningStrategyResult | None:
         if not self._enabled:
             return None
-        template_subtasks = match_goal_template(goal)
+
+        # Bevorzugt Modus-basiertes Template, falls vorhanden
+        template_subtasks = None
+        if mode and mode != "generic":
+            template_subtasks = match_goal_template(mode)
+
+        if not template_subtasks:
+            template_subtasks = match_goal_template(goal)
+
         if not template_subtasks:
             return None
+
         return PlanningStrategyResult(
             subtasks=template_subtasks[: planner.max_subtasks_per_goal],
             raw_response=None,
@@ -64,11 +87,19 @@ class LLMPlanningStrategy:
         context: str | None,
         max_subtasks: int,
         previous_output: str,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
     ) -> str:
         prompt = (
             "Der vorherige Planungs-Output war unstrukturiert oder leer.\n"
             "Erzeuge jetzt einen reparierten Plan als strikt valides JSON.\n\n"
             f"ZIEL:\n{goal}\n\n"
+        )
+        if mode != "generic" and mode_data:
+            prompt = f"{prompt}STEUERUNGSDATEN (Modus: {mode}):\n{json.dumps(mode_data, indent=2)}\n\n"
+
+        prompt = (
+            f"{prompt}"
             "ANFORDERUNGEN:\n"
             f"1. Liefere mindestens 3 und hoechstens {max_subtasks} Teilaufgaben\n"
             "2. Jede Teilaufgabe muss title, description, priority enthalten\n"
@@ -86,12 +117,22 @@ class LLMPlanningStrategy:
             prompt = f"{prompt}\n\nKONTEXT:\n{context}"
         return prompt
 
-    def execute(self, planner: PlannerLike, goal: str, context: str | None) -> PlanningStrategyResult | None:
+    def execute(
+        self,
+        planner: PlannerLike,
+        goal: str,
+        context: str | None,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
+    ) -> PlanningStrategyResult | None:
         resolved_context = context
         if self._use_repo_context and not resolved_context:
             repo_context = try_load_repo_context(goal)
             if repo_context:
                 resolved_context = repo_context
+
+        if mode != "generic" and mode_data:
+            resolved_context = f"{(resolved_context or '').strip()}\n\nSTEUERUNGSDATEN (Modus: {mode}):\n{json.dumps(mode_data, indent=2)}".strip()
 
         prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
@@ -103,6 +144,8 @@ class LLMPlanningStrategy:
                 context=resolved_context,
                 max_subtasks=planner.max_subtasks_per_goal,
                 previous_output=raw_response,
+                mode=mode,
+                mode_data=mode_data,
             )
             repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
             repaired_subtasks = parse_subtasks_from_llm_response(
@@ -125,7 +168,14 @@ class HubCopilotPlanningStrategy:
     def __init__(self, use_repo_context: bool) -> None:
         self._use_repo_context = bool(use_repo_context)
 
-    def execute(self, planner: PlannerLike, goal: str, context: str | None) -> PlanningStrategyResult | None:
+    def execute(
+        self,
+        planner: PlannerLike,
+        goal: str,
+        context: str | None,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
+    ) -> PlanningStrategyResult | None:
         hub_llm = get_hub_llm_service()
         copilot_config = hub_llm.resolve_copilot_config()
         if not copilot_config.get("enabled") or not copilot_config.get("supports_planning") or not copilot_config.get("active"):
@@ -136,6 +186,9 @@ class HubCopilotPlanningStrategy:
             repo_context = try_load_repo_context(goal)
             if repo_context:
                 resolved_context = repo_context
+
+        if mode != "generic" and mode_data:
+            resolved_context = f"{(resolved_context or '').strip()}\n\nSTEUERUNGSDATEN (Modus: {mode}):\n{json.dumps(mode_data, indent=2)}".strip()
 
         prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         response = hub_llm.plan_with_copilot(prompt=prompt, timeout=getattr(planner, "llm_timeout", None))

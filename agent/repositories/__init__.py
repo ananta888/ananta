@@ -21,10 +21,10 @@ from .artifacts import (
     KnowledgeLinkRepository,
 )
 from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobRepository, WorkerResultRepository
-from .core import AgentRepository, ConfigRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
+from .core import AgentRepository, ConfigRepository, PlaybookRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
 from .evolution import EvolutionProposalRepository, EvolutionRunRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
-from .governance import AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
+from .governance import ActionPackRepository, AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
 from .memory import MemoryEntryRepository
 from .operations import StatsRepository
 from .organization import (
@@ -39,6 +39,7 @@ from .organization import (
 from .tasks import ArchivedTaskRepository, TaskRepository
 
 __all__ = [
+    "ActionPackRepository",
     "AgentRepository",
     "ArtifactRepository",
     "ArtifactVersionRepository",
@@ -63,6 +64,7 @@ __all__ = [
     "PlanNodeRepository",
     "PlanRepository",
     "PolicyDecisionRepository",
+    "PlaybookRepository",
     "RefreshTokenRepository",
     "RoleRepository",
     "ScheduledTaskRepository",

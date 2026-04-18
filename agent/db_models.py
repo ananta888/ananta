@@ -300,6 +300,18 @@ class GoalDB(SQLModel, table=True):
     workflow_effective: dict = Field(default={}, sa_column=Column(JSON))
     workflow_provenance: dict = Field(default={}, sa_column=Column(JSON))
     readiness: dict = Field(default={}, sa_column=Column(JSON))
+    mode: str = Field(default="generic", index=True)
+    mode_data: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlaybookDB(SQLModel, table=True):
+    __tablename__ = "playbooks"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+    tasks: List[dict] = Field(default=[], sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
@@ -591,4 +603,16 @@ class VerificationRecordDB(SQLModel, table=True):
     escalation_code: Optional[str] = None
     escalation_details: dict = Field(default={}, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class ActionPackDB(SQLModel, table=True):
+    __tablename__ = "action_packs"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+    enabled: bool = True
+    capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    policy_config: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)

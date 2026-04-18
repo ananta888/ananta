@@ -31,6 +31,7 @@ export class HubTasksApiClient {
   claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/claim`, body, baseUrl, token); }
   completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/complete`, body, baseUrl, token); }
   listGoals(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/goals`, baseUrl, token, true); }
+  getGoalModes(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/goals/modes`, baseUrl, token, true); }
   getGoal(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/goals/${id}`, baseUrl, token, true); }
   getGoalDetail(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/goals/${id}/detail`, baseUrl, token, true); }
   getGoalPlan(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/goals/${id}/plan`, baseUrl, token, true); }

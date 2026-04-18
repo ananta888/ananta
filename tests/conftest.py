@@ -44,6 +44,7 @@ def _db_runtime() -> dict[str, Any]:
     from sqlmodel import Session, delete
 
     from agent.db_models import (
+        ActionPackDB,
         AgentInfoDB,
         ArtifactDB,
         ArtifactVersionDB,
@@ -93,6 +94,7 @@ def _db_runtime() -> dict[str, Any]:
         "Session": Session,
         "delete": delete,
         "models": (
+            ActionPackDB,
             WorkerResultDB,
             WorkerJobDB,
             EvolutionProposalDB,

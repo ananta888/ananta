@@ -82,6 +82,14 @@ export class AiAssistantDomainService {
   }
 
   quickActions(route: string): Array<{ label: string; prompt: string }> {
+    if (route.startsWith('/goal/')) {
+      const gid = route.split('/goal/')[1]?.split('?')[0];
+      return [
+        { label: 'Status Check', prompt: `Analysiere den Fortschritt von Goal #${gid} und identifiziere Blockaden.` },
+        { label: 'Next Task', prompt: `Was ist der wichtigste naechste Schritt fuer Goal #${gid}?` },
+        { label: 'Summary', prompt: `Fasse die bisherigen Ergebnisse von Goal #${gid} zusammen.` },
+      ];
+    }
     if (route.startsWith('/teams')) {
       return [
         { label: 'Team Check', prompt: 'Pruefe Team-Konfiguration und gib konkrete Verbesserungen aus.' },

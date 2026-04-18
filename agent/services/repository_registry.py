@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from flask import Flask, current_app
 
 from agent.repository import (
+    action_pack_repo,
     agent_repo,
     audit_repo,
     artifact_repo,
@@ -27,6 +28,7 @@ from agent.repository import (
     memory_entry_repo,
     password_history_repo,
     plan_node_repo,
+    playbook_repo,
     plan_repo,
     policy_decision_repo,
     refresh_token_repo,
@@ -50,6 +52,7 @@ from agent.repository import (
 
 @dataclass(frozen=True)
 class RepositoryRegistry:
+    action_pack_repo: object
     agent_repo: object
     audit_repo: object
     artifact_repo: object
@@ -72,6 +75,7 @@ class RepositoryRegistry:
     memory_entry_repo: object
     password_history_repo: object
     plan_node_repo: object
+    playbook_repo: object
     plan_repo: object
     policy_decision_repo: object
     refresh_token_repo: object
@@ -94,6 +98,7 @@ class RepositoryRegistry:
 
 def build_repository_registry() -> RepositoryRegistry:
     return RepositoryRegistry(
+        action_pack_repo=action_pack_repo,
         agent_repo=agent_repo,
         audit_repo=audit_repo,
         artifact_repo=artifact_repo,
@@ -116,6 +121,7 @@ def build_repository_registry() -> RepositoryRegistry:
         memory_entry_repo=memory_entry_repo,
         password_history_repo=password_history_repo,
         plan_node_repo=plan_node_repo,
+        playbook_repo=playbook_repo,
         plan_repo=plan_repo,
         policy_decision_repo=policy_decision_repo,
         refresh_token_repo=refresh_token_repo,

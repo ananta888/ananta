@@ -850,3 +850,442 @@ def set_autopilot_state_tool(
         tick = autonomous_loop.tick_once()
         return {"status": "ticked", "result": tick, "autopilot": autonomous_loop.status()}
     return {"error": "invalid_action", "allowed": ["start", "stop", "tick"]}
+
+
+# --- Datei Action Pack Tools ---
+
+def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
+    from agent.services.platform_governance_service import get_platform_governance_service
+    gov = get_platform_governance_service()
+    cfg = current_app.config.get("AGENT_CONFIG")
+    if not gov.evaluate_action_pack_access("file", cfg):
+        return False, "Action Pack 'file' ist deaktiviert."
+
+    # Einfacher Check gegen Path Traversal
+    import os
+    abs_path = os.path.abspath(path)
+    cwd = os.path.abspath(".")
+    if not abs_path.startswith(cwd) and not abs_path.startswith(os.path.abspath("/tmp")):
+        # Wir erlauben nur Zugriffe innerhalb des CWD oder /tmp
+        return False, f"Zugriff auf Pfad '{path}' verweigert (außerhalb des Workspaces)."
+
+    return True, ""
+
+@registry.register(
+    name="file_read",
+    description="Liest den Inhalt einer Datei.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Pfad zur Datei"},
+            "encoding": {"type": "string", "description": "Encoding", "default": "utf-8"},
+        },
+        "required": ["path"],
+    },
+)
+def file_read_tool(path: str, encoding: str = "utf-8"):
+    ok, err = _check_file_access(path, "read")
+    if not ok: return {"error": err}
+
+    import os
+    if not os.path.exists(path):
+        return {"error": f"Datei '{path}' nicht gefunden."}
+    try:
+        with open(path, "r", encoding=encoding) as f:
+            content = f.read()
+            from agent.common.audit import log_audit
+            log_audit("file_read", {"path": path, "size": len(content)})
+            return {"content": content, "path": path}
+    except Exception as e:
+        return {"error": f"Fehler beim Lesen der Datei: {e}"}
+
+@registry.register(
+    name="file_write",
+    description="Schreibt Inhalt in eine Datei (ueberschreibt existierende).",
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Pfad zur Datei"},
+            "content": {"type": "string", "description": "Inhalt"},
+            "encoding": {"type": "string", "description": "Encoding", "default": "utf-8"},
+        },
+        "required": ["path", "content"],
+    },
+)
+def file_write_tool(path: str, content: str, encoding: str = "utf-8"):
+    ok, err = _check_file_access(path, "write")
+    if not ok: return {"error": err}
+
+    import os
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, "w", encoding=encoding) as f:
+            f.write(content)
+            from agent.common.audit import log_audit
+            log_audit("file_write", {"path": path, "size": len(content)})
+            return {"status": "success", "path": path, "size": len(content)}
+    except Exception as e:
+        return {"error": f"Fehler beim Schreiben der Datei: {e}"}
+
+@registry.register(
+    name="file_list",
+    description="Listet Dateien in einem Verzeichnis auf.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Pfad zum Verzeichnis", "default": "."},
+            "recursive": {"type": "boolean", "description": "Rekursiv auflisten", "default": false},
+        },
+    },
+)
+def file_list_tool(path: str = ".", recursive: bool = False):
+    ok, err = _check_file_access(path, "read")
+    if not ok: return {"error": err}
+
+    import os
+    if not os.path.exists(path):
+        return {"error": f"Verzeichnis '{path}' nicht gefunden."}
+
+    try:
+        files = []
+        if recursive:
+            for root, dirs, filenames in os.walk(path):
+                for f in filenames:
+                    files.append(os.path.relpath(os.path.join(root, f), path))
+        else:
+            files = os.listdir(path)
+        return {"files": files, "path": path}
+    except Exception as e:
+        return {"error": f"Fehler beim Auflisten: {e}"}
+
+@registry.register(
+    name="file_patch",
+    description="Wendet einen Patch auf eine Datei an (Search & Replace Modell).",
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Pfad zur Datei"},
+            "search": {"type": "string", "description": "Zu suchender Text"},
+            "replace": {"type": "string", "description": "Ersatztext"},
+        },
+        "required": ["path", "search", "replace"],
+    },
+)
+def file_patch_tool(path: str, search: str, replace: str):
+    ok, err = _check_file_access(path, "write")
+    if not ok: return {"error": err}
+
+    import os
+    if not os.path.exists(path):
+        return {"error": f"Datei '{path}' nicht gefunden."}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if search not in content:
+            return {"error": "Suchtext wurde in der Datei nicht gefunden."}
+
+        new_content = content.replace(search, replace)
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+
+        from agent.common.audit import log_audit
+        log_audit("file_patch", {"path": path, "search_len": len(search), "replace_len": len(replace)})
+        return {"status": "success", "path": path}
+    except Exception as e:
+        return {"error": f"Fehler beim Patchen der Datei: {e}"}
+
+
+# --- Git Action Pack Tools ---
+
+def _check_git_access(operation: str = "read") -> tuple[bool, str]:
+    from agent.services.platform_governance_service import get_platform_governance_service
+    gov = get_platform_governance_service()
+    cfg = current_app.config.get("AGENT_CONFIG")
+    if not gov.evaluate_action_pack_access("git", cfg):
+        return False, "Action Pack 'git' ist deaktiviert."
+    return True, ""
+
+@registry.register(
+    name="git_status",
+    description="Zeigt den aktuellen Git-Status.",
+    parameters={"type": "object", "properties": {}},
+)
+def git_status_tool():
+    ok, err = _check_git_access("read")
+    if not ok: return {"error": err}
+
+    import subprocess
+    try:
+        res = subprocess.run(["git", "status"], capture_output=True, text=True, timeout=10)
+        return {"output": res.stdout}
+    except Exception as e:
+        return {"error": f"Git-Fehler: {e}"}
+
+@registry.register(
+    name="git_diff",
+    description="Zeigt Diffs von Aenderungen.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Optionaler Pfadfilter"},
+            "cached": {"type": "boolean", "description": "Gestagete Aenderungen zeigen", "default": false},
+        },
+    },
+)
+def git_diff_tool(path: Optional[str] = None, cached: bool = False):
+    ok, err = _check_git_access("read")
+    if not ok: return {"error": err}
+
+    import subprocess
+    cmd = ["git", "diff"]
+    if cached: cmd.append("--cached")
+    if path: cmd.append(path)
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return {"output": res.stdout}
+    except Exception as e:
+        return {"error": f"Git-Fehler: {e}"}
+
+@registry.register(
+    name="git_log",
+    description="Zeigt die Commit-Historie.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "limit": {"type": "integer", "description": "Anzahl der Commits", "default": 10},
+        },
+    },
+)
+def git_log_tool(limit: int = 10):
+    ok, err = _check_git_access("read")
+    if not ok: return {"error": err}
+
+    import subprocess
+    try:
+        res = subprocess.run(["git", "log", "-n", str(limit), "--oneline"], capture_output=True, text=True, timeout=10)
+        return {"output": res.stdout}
+    except Exception as e:
+        return {"error": f"Git-Fehler: {e}"}
+
+@registry.register(
+    name="git_commit",
+    description="Erstellt einen Commit mit den aktuell gestageten Aenderungen.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "message": {"type": "string", "description": "Commit-Nachricht"},
+        },
+        "required": ["message"],
+    },
+)
+def git_commit_tool(message: str):
+    ok, err = _check_git_access("write")
+    if not ok: return {"error": err}
+
+    import subprocess
+    try:
+        # Commit erstellen
+        res = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, timeout=10)
+        if res.returncode != 0:
+            return {"error": f"Commit fehlgeschlagen: {res.stderr}"}
+
+        from agent.common.audit import log_audit
+        log_audit("git_commit", {"message": message})
+        return {"status": "success", "output": res.stdout}
+    except Exception as e:
+        return {"error": f"Git-Fehler: {e}"}
+
+
+# --- Shell Action Pack Tools ---
+
+@registry.register(
+    name="shell_execute",
+    description="Fuehrt ein Shell-Kommando aus (Hochrisiko, standardmaessig deaktiviert).",
+    parameters={
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "description": "Das auszufuehrende Kommando"},
+            "timeout": {"type": "integer", "description": "Timeout in Sekunden", "default": 30},
+        },
+        "required": ["command"],
+    },
+)
+def shell_execute_tool(command: str, timeout: int = 30):
+    from agent.services.platform_governance_service import get_platform_governance_service
+    gov = get_platform_governance_service()
+    cfg = current_app.config.get("AGENT_CONFIG")
+
+    if not gov.evaluate_action_pack_access("shell", cfg):
+        return {"error": "Action Pack 'shell' ist deaktiviert. Shell-Zugriff muss explizit freigeschaltet werden."}
+
+    # Hartes Guardrail-Modell: Blacklist von Kommandos
+    blacklist = ["rm -rf", "sudo ", "chmod 777", "mkfs", "dd ", "shutdown", "reboot"]
+    cmd_lower = command.lower()
+    if any(b in cmd_lower for b in blacklist):
+        return {"error": f"Kommando enthaelt verbotene Sequenzen (Security Policy)."}
+
+    import subprocess
+    try:
+        from agent.common.audit import log_audit
+        log_audit("shell_execute", {"command": command})
+
+        # Auf Windows ist shell=True okay, aber wir muessen vorsichtig sein.
+        res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
+        return {
+            "stdout": res.stdout,
+            "stderr": res.stderr,
+            "exit_code": res.returncode
+        }
+    except subprocess.TimeoutExpired:
+        return {"error": f"Kommando-Timeout nach {timeout}s"}
+    except Exception as e:
+        return {"error": f"Fehler bei Ausfuehrung: {e}"}
+
+
+# --- Browser Action Pack Tools ---
+
+@registry.register(
+    name="web_fetch",
+    description="Ruft den Textinhalt einer Webseite ab.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Die abzurufende URL"},
+        },
+        "required": ["url"],
+    },
+)
+def web_fetch_tool(url: str):
+    from agent.services.platform_governance_service import get_platform_governance_service
+    gov = get_platform_governance_service()
+    cfg = current_app.config.get("AGENT_CONFIG")
+
+    if not gov.evaluate_action_pack_access("browser", cfg):
+        return {"error": "Action Pack 'browser' ist deaktiviert."}
+
+    import requests
+    from lxml import html
+    try:
+        from agent.common.audit import log_audit
+        log_audit("web_fetch", {"url": url})
+
+        headers = {"User-Agent": "AnantaAgent/1.0"}
+        res = requests.get(url, headers=headers, timeout=15)
+        res.raise_for_status()
+
+        tree = html.fromstring(res.content)
+        for script in tree.xpath("//script | //style"):
+            if script.getparent() is not None:
+                script.getparent().remove(script)
+
+        text = tree.text_content()
+        cleaned_text = " ".join(text.split())
+
+        return {
+            "content": cleaned_text[:12000],
+            "url": url,
+            "status_code": res.status_code
+        }
+    except Exception as e:
+        return {"error": f"Fehler beim Abrufen von {url}: {e}"}
+
+@registry.register(
+    name="web_search",
+    description="Sucht im Web nach Informationen (simuliert/mock).",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Suchbegriff"},
+        },
+        "required": ["query"],
+    },
+)
+def web_search_tool(query: str):
+    from agent.services.platform_governance_service import get_platform_governance_service
+    gov = get_platform_governance_service()
+    cfg = current_app.config.get("AGENT_CONFIG")
+
+    if not gov.evaluate_action_pack_access("browser", cfg):
+        return {"error": "Action Pack 'browser' ist deaktiviert."}
+
+    from agent.common.audit import log_audit
+    log_audit("web_search", {"query": query})
+
+    # Da wir keine Live-API konfiguriert haben, geben wir einen Hinweis zur Konfiguration
+    return {
+        "message": "Websuche ist derzeit im Mock-Modus. Bitte konfigurieren Sie ein Research-Backend (z.B. DeerFlow).",
+        "query": query,
+        "results": []
+    }
+
+
+# --- Dokument Action Pack Tools ---
+
+@registry.register(
+    name="doc_extract",
+    description="Extrahiert Text aus einem Dokument (PDF, DOCX, XLSX, PPTX).",
+    parameters={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Pfad zum Dokument"},
+        },
+        "required": ["path"],
+    },
+)
+def doc_extract_tool(path: str):
+    from agent.services.platform_governance_service import get_platform_governance_service
+    gov = get_platform_governance_service()
+    cfg = current_app.config.get("AGENT_CONFIG")
+
+    if not gov.evaluate_action_pack_access("document", cfg):
+        return {"error": "Action Pack 'document' ist deaktiviert."}
+
+    import os
+    if not os.path.exists(path):
+        return {"error": f"Datei '{path}' nicht gefunden."}
+
+    ext = os.path.splitext(path)[1].lower()
+    text = ""
+
+    try:
+        if ext == ".pdf":
+            from pypdf import PdfReader
+            reader = PdfReader(path)
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted: text += extracted + "\n"
+        elif ext == ".docx":
+            import docx
+            doc = docx.Document(path)
+            for para in doc.paragraphs:
+                text += para.text + "\n"
+        elif ext == ".xlsx":
+            import openpyxl
+            wb = openpyxl.load_workbook(path, data_only=True)
+            for sheet in wb.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    text += "\t".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
+        elif ext == ".pptx":
+            import pptx
+            prs = pptx.Presentation(path)
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        text += shape.text + "\n"
+        else:
+            return {"error": f"Unterstuetztes Format für '{ext}' nicht gefunden."}
+
+        from agent.common.audit import log_audit
+        log_audit("doc_extract", {"path": path, "size": len(text)})
+
+        return {
+            "content": text[:30000],
+            "path": path,
+            "format": ext.lstrip(".")
+        }
+    except Exception as e:
+        return {"error": f"Fehler bei Extraktion aus {path}: {e}"}

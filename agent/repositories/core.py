@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import AgentInfoDB, ConfigDB, ScheduledTaskDB, TeamDB, TemplateDB
+from agent.db_models import AgentInfoDB, ConfigDB, PlaybookDB, ScheduledTaskDB, TeamDB, TemplateDB
 
 
 class AgentRepository:
@@ -122,3 +122,33 @@ class ConfigRepository:
             session.commit()
             session.refresh(merged)
             return merged
+
+
+class PlaybookRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            return session.exec(select(PlaybookDB)).all()
+
+    def get_by_name(self, name: str):
+        with Session(engine) as session:
+            return session.exec(select(PlaybookDB).where(PlaybookDB.name == name)).first()
+
+    def get_by_id(self, playbook_id: str):
+        with Session(engine) as session:
+            return session.get(PlaybookDB, playbook_id)
+
+    def save(self, playbook: PlaybookDB):
+        with Session(engine) as session:
+            merged = session.merge(playbook)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+    def delete(self, playbook_id: str):
+        with Session(engine) as session:
+            playbook = session.get(PlaybookDB, playbook_id)
+            if playbook:
+                session.delete(playbook)
+                session.commit()
+                return True
+            return False

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import ipaddress
+import time
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List, Optional
 
 
 PLATFORM_MODES = ("local-dev", "trusted-internal", "admin-only", "semi-public")
@@ -161,6 +162,35 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
 }
 
 
+_DEFAULT_ACTION_PACKS: dict[str, dict[str, Any]] = {
+    "file": {
+        "description": "Datei-Operationen (Lesen, Schreiben, Patchen)",
+        "capabilities": ["file_read", "file_write", "file_patch"],
+        "enabled_by_default": True,
+    },
+    "git": {
+        "description": "Git-Operationen (Status, Diff, Commit)",
+        "capabilities": ["git_status", "git_diff", "git_commit"],
+        "enabled_by_default": True,
+    },
+    "shell": {
+        "description": "Shell-Kommandoausfuehrung (Eingeschraenkt)",
+        "capabilities": ["shell_exec"],
+        "enabled_by_default": False,
+    },
+    "browser": {
+        "description": "Web-Recherche und Seitenabruf",
+        "capabilities": ["web_search", "web_fetch"],
+        "enabled_by_default": False,
+    },
+    "document": {
+        "description": "Dokumenten-Extraktion und Umwandlung",
+        "capabilities": ["doc_extract", "doc_convert"],
+        "enabled_by_default": True,
+    },
+}
+
+
 @dataclass(frozen=True)
 class TerminalAccessDecision:
     allowed: bool
@@ -308,12 +338,14 @@ class PlatformGovernanceService:
         mode = self.resolve_platform_mode(cfg)
         exposure_policy = self.resolve_exposure_policy(cfg)
         terminal_policy = self.resolve_terminal_policy(cfg)
+        action_packs = self.resolve_action_packs(cfg)
         return {
             "policy_version": "platform-governance-v1",
             "platform_mode": mode,
             "available_modes": list(PLATFORM_MODES),
             "exposure_policy": exposure_policy,
             "terminal_policy": terminal_policy,
+            "action_packs": action_packs,
             "decisions": {
                 "openai_compat": {
                     "allowed": bool(exposure_policy.get("openai_compat", {}).get("enabled", False)),
@@ -337,8 +369,38 @@ class PlatformGovernanceService:
                     ),
                     "reason": "configured_by_platform_mode",
                 },
+                **{
+                    f"action_pack_{p['name']}": {
+                        "allowed": p["enabled"],
+                        "reason": "configured_by_action_pack_policy"
+                    } for p in action_packs
+                }
             },
         }
+
+    def resolve_action_packs(self, cfg: dict[str, Any] | None) -> List[dict[str, Any]]:
+        cfg = cfg if isinstance(cfg, dict) else {}
+        action_packs_cfg = cfg.get("action_packs") if isinstance(cfg.get("action_packs"), dict) else {}
+
+        resolved = []
+        for name, defaults in _DEFAULT_ACTION_PACKS.items():
+            override = action_packs_cfg.get(name) or {}
+            enabled = bool(override.get("enabled", defaults["enabled_by_default"]))
+            resolved.append({
+                "name": name,
+                "description": defaults["description"],
+                "capabilities": defaults["capabilities"],
+                "enabled": enabled,
+                "source": "default" if not override else "config"
+            })
+        return resolved
+
+    def evaluate_action_pack_access(self, action_pack_name: str, cfg: dict[str, Any] | None) -> bool:
+        packs = self.resolve_action_packs(cfg)
+        for pack in packs:
+            if pack["name"] == action_pack_name:
+                return pack["enabled"]
+        return False
 
 
 platform_governance_service = PlatformGovernanceService()

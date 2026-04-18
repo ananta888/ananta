@@ -289,6 +289,8 @@ class AutoPlanner:
         use_repo_context: bool = True,
         goal_id: Optional[str] = None,
         goal_trace_id: Optional[str] = None,
+        mode: str = "generic",
+        mode_data: Optional[dict] = None,
     ) -> dict:
         """
         Analysiert ein Goal und generiert Subtasks.
@@ -307,6 +309,8 @@ class AutoPlanner:
             use_repo_context=use_repo_context,
             goal_id=goal_id,
             goal_trace_id=goal_trace_id,
+            mode=mode,
+            mode_data=mode_data,
         )
 
         created_ids = list(result.get("created_task_ids") or [])
