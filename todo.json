@@ -1,898 +1,720 @@
 {
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
-  "created": "2026-04-17",
-  "updated": "2026-04-17T00:00:00Z",
+  "created": "2026-04-18",
+  "updated": "2026-04-18T00:00:00Z",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "HEAD",
-    "review_goal": "Einen austauschbaren Evolution-Provider in Ananta einbauen, sodass Evolver als erste Implementierung integrierbar ist, ohne den Core an einen einzelnen Anbieter oder ein einzelnes Evolutionsmodell zu koppeln.",
+    "reviewed_commit_range": "439d5d5a3f794e592b773729c2f48442d30acff7..HEAD",
+    "review_goal": "Die bereits integrierte Evolver-Anbindung fachlich und betrieblich absichern, ohne die Provider-Neutralitaet von Ananta zu verlieren.",
     "notes": [
-      "Der Core soll nur generische Evolution- und Improvement-Konzepte kennen, keine provider-spezifischen Fachbegriffe wie Gene, Capsule oder GEP.",
-      "Ananta bleibt die fuehrende Control Plane; Evolution-Provider liefern Analysen und Vorschlaege, aber keine unkontrollierte Core-Steuerung.",
-      "Die erste sinnvolle Ausbaustufe ist analyse- und proposal-zentriert; automatisches Apply sollte erst nach sauberer Policy-, Audit- und Verification-Integration folgen."
+      "Die Grundintegration ist architektonisch bereits sinnvoll: Evolver haengt als Plugin an der EvolutionEngine-SPI und nicht als Core-Sonderfall.",
+      "Der groesste Restbedarf liegt nicht mehr in der Grundverdrahtung, sondern in Robustheit, Healthchecks, Fehlerabbildung, Response-Validierung und Governance-Haertung.",
+      "Analyse-first ist als erste Stufe sinnvoll; Validate- und Apply-Pfade muessen jetzt klarer vom tatsaechlich unterstuetzten Provider-Verhalten getrennt und fail-closed gehalten werden."
     ]
   },
   "categories": [
     {
-      "name": "evolution-core-contract",
-      "label": "Evolution Core Vertrag",
+      "name": "evolver-transport-hardening",
+      "label": "Evolver Transport Haertung",
       "items": [
         {
-          "id": "EVO-001",
-          "title": "Generisches Evolution-Domain-Modell im Core definieren",
-          "description": "Ein provider-neutrales Domain-Modell fuer EvolutionContext, EvolutionResult, EvolutionProposal, ValidationResult und ApplyResult einfuehren, damit der Core keine Evolver-spezifischen Fachobjekte direkt kennen muss.",
+          "id": "EVR-001",
+          "title": "HTTP-Transportfehler fuer Evolver sauber auf domänenspezifische Fehler abbilden",
+          "description": "Den aktuellen HttpEvolverTransport so erweitern, dass Timeouts, Connection-Fehler, invalide JSON-Antworten und HTTP-Statuscodes nicht nur generische Exceptions werfen, sondern als klare, providerbezogene Fehler im Evolution-Layer sichtbar werden.",
           "priority": "critical",
-          "type": "architecture",
-          "principle": "Abstraction, Replaceability",
-          "status": "completed",
+          "type": "bugfix",
+          "principle": "Robustness, Diagnosability",
+          "status": "open",
           "effort": "medium",
           "files": [
+            "plugins/evolver_adapter/adapter.py",
             "agent/services/evolution/",
-            "agent/models.py",
             "tests/"
           ],
           "acceptance": [
-            "Der Core definiert eigene generische Evolution-Modelle ohne harte Abhaengigkeit auf Evolver-Begriffe.",
-            "Provider-spezifische Zusatzdaten koennen additiv ueber provider_metadata transportiert werden.",
-            "Tests zeigen, dass mehrere unterschiedliche Provider dieselben Core-Modelle verwenden koennen."
+            "Netzwerkfehler, Timeouts und non-2xx Antworten werden in klar unterscheidbare Fehlerklassen oder Fehlercodes gemappt.",
+            "EvolutionService-Audit und Metriken koennen Transportfehler nachvollziehbar von Provider-Fachfehlern unterscheiden.",
+            "Tests decken mindestens Timeout, HTTP-500, invalide JSON-Antwort und leere Antwort ab."
           ]
         },
         {
-          "id": "EVO-002",
-          "title": "EvolutionEngine-SPI als stabile Adapter-Schnittstelle einfuehren",
-          "description": "Eine klar versionierbare interne Schnittstelle fuer Evolution-Provider einfuehren, ueber die Analyze-, Validate- und spaeter Apply-Funktionen angebunden werden koennen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Interface-First, Decoupling",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution/engine.py",
-            "agent/services/evolution/models.py",
-            "agent/services/evolution/registry.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-001"
-          ],
-          "acceptance": [
-            "Es existiert eine klar dokumentierte EvolutionEngine-Schnittstelle.",
-            "Analyze ist verpflichtend; Validate und Apply koennen als Capabilities oder optionale Methoden modelliert werden.",
-            "Der Rest des Systems spricht nur gegen den SPI-Vertrag und nicht direkt gegen Evolver."
-          ]
-        },
-        {
-          "id": "EVO-003",
-          "title": "Capability-Modell fuer Evolution-Provider festlegen",
-          "description": "Ein generisches Capability-Modell einfuehren, damit Provider offenlegen koennen, ob sie Analyse, Vorschlagsgenerierung, Validierung, automatisches Apply, Risk-Scoring oder Review-Hinweise unterstuetzen.",
+          "id": "EVR-002",
+          "title": "Optionale Authentifizierung und Header-Injektion fuer Evolver-HTTP-Aufrufe einfuehren",
+          "description": "Den Evolver-Transport um konfigurierbare Authentifizierungs- und Zusatzheader erweitern, damit ein separater Evolver-Service nicht nur ungeschuetzt innerhalb eines lokalen Netzes angenommen wird.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Discoverability, Safe-Integration",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/services/evolution/models.py",
-            "agent/services/evolution/engine.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-002"
-          ],
-          "acceptance": [
-            "Provider koennen ihre Faehigkeiten maschinenlesbar beschreiben.",
-            "Der Hub kann provider-abhaengige Features fail-closed steuern.",
-            "Nicht unterstuetzte Operationen fuehren zu klaren, reproduzierbaren Fehlerantworten."
-          ]
-        },
-        {
-          "id": "EVO-004",
-          "title": "Provider-spezifische Daten strikt additiv kapseln",
-          "description": "Einen verbindlichen Mechanismus festlegen, wie provider-spezifische Daten in provider_metadata oder raw_payload gespeichert werden, ohne dass der Core-Schema-Raum mit Evolver-spezifischen Feldern verschmutzt wird.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Boundary-Clarity, Forward-Compatibility",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/services/evolution/models.py",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-001",
-            "EVO-002"
-          ],
-          "acceptance": [
-            "Gene-, Capsule-, Event- oder GEP-spezifische Felder sind nicht als Pflichtfelder im Core-Domain-Modell verankert.",
-            "Provider-spezifische Daten bleiben serialisierbar und auditierbar erhalten.",
-            "Ein zweiter hypothetischer Provider kann ohne Schema-Umbauten integriert werden."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "provider-registry-and-loading",
-      "label": "Provider Registry und Loading",
-      "items": [
-        {
-          "id": "EVO-010",
-          "title": "Evolution-Provider-Registry im Backend einfuehren",
-          "description": "Eine Registry bauen, die mehrere Evolution-Provider verwalten, benennen, priorisieren und zur Laufzeit aufloesen kann.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Extensibility, Runtime-Selection",
-          "status": "completed",
+          "principle": "Security, Deployment-Flexibility",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/services/evolution/registry.py",
-            "agent/services/integration_registry_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-002",
-            "EVO-003"
-          ],
-          "acceptance": [
-            "Mehrere Evolution-Provider koennen gleichzeitig registriert werden.",
-            "Provider sind per Name oder Konfiguration selektierbar.",
-            "Die Registry meldet eindeutig, welcher Provider aktiv oder default ist."
-          ]
-        },
-        {
-          "id": "EVO-011",
-          "title": "Plugin- und Extension-Loading fuer Evolution-Provider anbinden",
-          "description": "Das bestehende Extension-/Plugin-Modell so erweitern, dass externe Evolution-Provider als Plugins nachgeladen und in der Evolution-Registry registriert werden koennen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Modularity, Low-Core-Coupling",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/ai_agent.py",
-            "agent/services/evolution/registry.py",
-            "docs/extensions.md",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-010"
-          ],
-          "acceptance": [
-            "Ein externer Provider kann ueber das bestehende Plugin-/Extension-System registriert werden.",
-            "Fehlende oder defekte Evolution-Plugins blockieren den Rest des Systems nicht.",
-            "Die Dokumentation beschreibt klar, wie ein Drittanbieter-Provider eingebunden wird."
-          ]
-        },
-        {
-          "id": "EVO-012",
-          "title": "Provider-Konfiguration im zentralen Config-Modell modellieren",
-          "description": "Eine Konfiguration fuer default_provider, provider-spezifische Parameter, erlaubte Features, Timeouts, Review-Pflicht und Failover-Verhalten einfuehren.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Configurability, Operational-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
+            "plugins/evolver_adapter/adapter.py",
+            "plugins/evolver_adapter/__init__.py",
             "agent/config.py",
-            "agent/routes/config/",
-            "agent/services/evolution/",
             "tests/"
           ],
           "dependencies": [
-            "EVO-010"
+            "EVR-001"
           ],
           "acceptance": [
-            "Der aktive oder bevorzugte Evolution-Provider ist zentral konfigurierbar.",
-            "Provider-spezifische Defaults koennen gesetzt werden, ohne den Core-Code anzufassen.",
-            "Policy-relevante Flags wie auto_apply_enabled oder require_review_before_apply sind fail-closed konfigurierbar."
+            "Bearer-Token oder statische Header koennen ueber Konfiguration gesetzt werden.",
+            "Header-Werte werden nicht unbeabsichtigt in Audit- oder Debug-Payloads geleakt.",
+            "Transport-Tests pruefen, dass konfigurierten Header korrekt gesetzt werden."
           ]
         },
         {
-          "id": "EVO-013",
-          "title": "Health- und Discovery-Mechanismus fuer Evolution-Provider ergänzen",
-          "description": "Provider sollen ueber einen einheitlichen Discovery- und Health-Mechanismus ihren Zustand, ihre Version und ihre Capabilities melden koennen.",
+          "id": "EVR-003",
+          "title": "Retry- und Backoff-Strategie fuer transiente Evolver-Fehler einbauen",
+          "description": "Fuer klar transiente Fehler wie Verbindungsabbrueche oder 502/503-Antworten eine konservative Retry-Strategie mit begrenztem Backoff einfuehren, ohne Analyse-Pfade unkontrolliert zu verlaengern.",
           "priority": "medium",
           "type": "improvement",
-          "principle": "Observability, Robustness",
-          "status": "completed",
-          "effort": "small",
+          "principle": "Resilience, Bounded-Retry",
+          "status": "open",
+          "effort": "medium",
           "files": [
+            "plugins/evolver_adapter/adapter.py",
+            "agent/config.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-001"
+          ],
+          "acceptance": [
+            "Nur klar definierte transiente Fehler werden erneut versucht.",
+            "Retry-Anzahl und Backoff sind zentral konfigurierbar und konservativ begrenzt.",
+            "Metriken oder Logs machen sichtbar, ob ein Ergebnis erst nach Retry zustande kam."
+          ]
+        },
+        {
+          "id": "EVR-004",
+          "title": "Transport-Timeouts und Groessenlimits getrennt fuer Connect, Read und Payload modellieren",
+          "description": "Statt nur eines pauschalen timeout_seconds-Werts feinere Grenzen fuer Verbindungsaufbau, Antwortlesen und maximale Antwortgroesse einfuehren, damit Evolver-Aufrufe besser gegen haengende oder ausufernde Responses abgesichert sind.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Resource-Bounding, Operational-Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "plugins/evolver_adapter/adapter.py",
+            "agent/config.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-001"
+          ],
+          "acceptance": [
+            "Connect- und Read-Timeout lassen sich getrennt konfigurieren.",
+            "Uebergrosse Antworten werden begrenzt oder abgelehnt.",
+            "Fehlerbilder fuer Timeout und Payload-Limit sind unterscheidbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evolver-health-and-discovery",
+      "label": "Evolver Health und Discovery",
+      "items": [
+        {
+          "id": "EVR-010",
+          "title": "Echten Provider-Healthcheck fuer Evolver statt statischem available-Status einfuehren",
+          "description": "Den aktuellen describe()-Status des EvolverAdapters durch einen echten Erreichbarkeits- oder Capability-Check ergaenzen, damit der Provider nicht nur als konfiguriert, sondern als tatsaechlich gesund angezeigt wird.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Truthful-Status, Operability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "plugins/evolver_adapter/adapter.py",
             "agent/services/evolution/registry.py",
-            "agent/routes/",
             "tests/"
           ],
-          "dependencies": [
-            "EVO-003",
-            "EVO-010"
-          ],
           "acceptance": [
-            "Der Hub kann Provider-Status und Capabilities abfragen.",
-            "Nicht erreichbare Provider werden sauber als degraded oder unavailable markiert.",
-            "Die UI oder API kann aktive und verfuegbare Provider sichtbar machen."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "evolution-service-and-pipeline",
-      "label": "Evolution Service und Pipeline",
-      "items": [
-        {
-          "id": "EVO-020",
-          "title": "EvolutionService als orchestrierende Core-Schicht einführen",
-          "description": "Einen EvolutionService bauen, der Context aufbereitet, den passenden Provider auswaehlt, Analyze ausfuehrt, Ergebnisse normalisiert und Audit-/Persistenz-Hooks triggert.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Single-Orchestration-Entry, Separation-of-Concerns",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution_service.py",
-            "agent/services/evolution/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-001",
-            "EVO-002",
-            "EVO-010"
-          ],
-          "acceptance": [
-            "Der Rest des Systems ruft Evolution nicht direkt ueber konkrete Provider auf, sondern ueber EvolutionService.",
-            "Provider-Auswahl, Fehlerbehandlung und Ergebnis-Normalisierung liegen zentral an einer Stelle.",
-            "Die Service-Schicht ist ohne Evolver als konkrete Implementation testbar."
+            "Provider-Status spiegelt mindestens erreichbar vs. nicht erreichbar realistisch wider.",
+            "Healthchecks brechen Analysepfade nicht unnötig oder unkontrolliert auf.",
+            "Tests decken healthy-, degraded- und unavailable-Faelle ab."
           ]
         },
         {
-          "id": "EVO-021",
-          "title": "EvolutionContext aus Task-, Log-, Verification- und Artifact-Daten aufbauen",
-          "description": "Eine einheitliche Context-Aufbereitung einfuehren, die aus Aufgabenstatus, trace_id, Logs, Verification-Ergebnissen, Artefakten und optionalen Workspace-Referenzen einen Provider-tauglichen EvolutionContext bildet.",
-          "priority": "critical",
+          "id": "EVR-011",
+          "title": "Optionalen Evolver-Health-Endpunkt und Fallback-Verhalten modellieren",
+          "description": "Falls Evolver einen dedizierten Health- oder Capabilities-Endpunkt bereitstellt, diesen bevorzugt nutzen und bei Abwesenheit auf einen konservativen Fallback zurueckfallen.",
+          "priority": "medium",
           "type": "improvement",
-          "principle": "Context-Quality, Reproducibility",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/evolution_service.py",
-            "agent/services/worker_job_service.py",
-            "agent/services/result_memory_service.py",
-            "agent/repository.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-020"
-          ],
-          "acceptance": [
-            "EvolutionContext enthaelt die minimal noetigen Informationen fuer reproduzierbare Analysen.",
-            "Kontextaufbau ist deterministisch und nachvollziehbar.",
-            "Fehlende optionale Quellen fuehren nicht zu harten Fehlern, sondern zu sauber degradiertem Verhalten."
-          ]
-        },
-        {
-          "id": "EVO-022",
-          "title": "Trigger-Modell fuer Evolution-Analysen definieren",
-          "description": "Festlegen, unter welchen Bedingungen Evolution-Analysen ausgelöst werden, etwa nach Verification-Failure, Fehlerhaeufung, manueller Anforderung oder periodischer Review.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Control, Non-Intrusiveness",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution_service.py",
-            "agent/routes/tasks/",
-            "agent/services/task_orchestration_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-020",
-            "EVO-021"
-          ],
-          "acceptance": [
-            "Es existieren klar dokumentierte Trigger fuer automatische und manuelle Evolution-Analysen.",
-            "Riskante oder spammy Trigger-Pfade sind begrenzt und policy-gesteuert.",
-            "Der Ursprung einer Analyse ist im Ergebnis und im Audit ersichtlich."
-          ]
-        },
-        {
-          "id": "EVO-023",
-          "title": "Proposal-zentrierten ersten Integrationsmodus bauen",
-          "description": "Die erste lauffaehige Integrationsstufe so umsetzen, dass Evolution-Provider nur Vorschlaege erzeugen und speichern, aber noch keine direkten Code- oder Systemaenderungen ausloesen.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Safe-Iteration, Human-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution_service.py",
-            "agent/routes/tasks/",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-020",
-            "EVO-021",
-            "EVO-022"
-          ],
-          "acceptance": [
-            "Analyze erzeugt persistierte Vorschlaege oder Improvement-Artefakte, aber kein blindes Apply.",
-            "Der Hub oder der Mensch kann Vorschlaege spaeter explizit weiterverarbeiten.",
-            "Die erste Evolver-Integration ist damit produktiv testbar, ohne die Sicherheitsgrenzen zu ueberschreiten."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "persistence-and-audit",
-      "label": "Persistenz und Audit",
-      "items": [
-        {
-          "id": "EVO-030",
-          "title": "Generische Persistenz fuer Evolution-Runs einführen",
-          "description": "Eine Persistenz fuer Evolution-Laeufe schaffen, in der Eingabekontext-Referenzen, Provider, Status, Ergebniszusammenfassung und Trace-Verknuepfung abgelegt werden.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Auditability, Traceability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/db_models.py",
-            "agent/repository.py",
-            "agent/services/evolution_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-020",
-            "EVO-021"
-          ],
-          "acceptance": [
-            "Jeder Evolution-Lauf ist mit task_id und trace_id rueckverfolgbar.",
-            "Provider, Ausloeser, Zeitpunkt und Status sind persistent gespeichert.",
-            "Persistenz bleibt generisch und provider-neutral."
-          ]
-        },
-        {
-          "id": "EVO-031",
-          "title": "Persistenz fuer Evolution-Proposals und Folgeartefakte ergänzen",
-          "description": "Vorschlaege aus Evolution-Analysen strukturiert speichern, inklusive Typ, Risiko, requires_review, Summary und provider-spezifischem Payload.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Reviewability, Structured-Followup",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/db_models.py",
-            "agent/repository.py",
-            "agent/services/evolution_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-023",
-            "EVO-030"
-          ],
-          "acceptance": [
-            "Proposals koennen spaeter einzeln angezeigt, bewertet und weiterverarbeitet werden.",
-            "Risiko, Confidence und Review-Pflicht sind persistiert.",
-            "Provider-Payload bleibt additiv erhalten, ohne das Kernschema zu dominieren."
-          ]
-        },
-        {
-          "id": "EVO-032",
-          "title": "Audit-Events fuer Analyse, Validierung und Apply modellieren",
-          "description": "Auditierbare Events fuer evolution_analysis_requested, evolution_analysis_completed, evolution_validation_requested und spaeter evolution_apply_requested einführen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Governance, Non-Repudiation",
-          "status": "completed",
+          "principle": "Compatibility, Graceful-Degradation",
+          "status": "open",
           "effort": "small",
           "files": [
-            "agent/db_models.py",
-            "agent/repository.py",
-            "agent/services/evolution_service.py",
+            "plugins/evolver_adapter/adapter.py",
+            "plugins/evolver_adapter/__init__.py",
             "tests/"
           ],
           "dependencies": [
-            "EVO-030",
-            "EVO-031"
+            "EVR-010"
           ],
           "acceptance": [
-            "Evolution-relevante Aktionen sind als eigene Audit-Typen sichtbar.",
-            "Audit-Eintraege enthalten Provider, Actor, Trigger und Trace-Bezug.",
-            "Fehler- und Blockierungsfaelle werden ebenfalls auditierbar sichtbar."
+            "Ein dedizierter Health- oder Capabilities-Pfad ist konfigurierbar.",
+            "Fehlt dieser, bleibt das Verhalten kontrolliert und dokumentiert.",
+            "Die Registry-Health-Ausgabe zeigt den Unterschied zwischen konfiguriert und geprueft."
           ]
         },
         {
-          "id": "EVO-033",
-          "title": "Provider-Rohdaten mit Redaction und Groessenlimits absichern",
-          "description": "Provider-Outputs und Rohpayloads so persistieren, dass keine unkontrollierte Datenausweitung oder Leckage sensibler Informationen entsteht.",
+          "id": "EVR-012",
+          "title": "Provider-Metadaten im Health-Read-Model um Transport- und Endpoint-Informationen erweitern",
+          "description": "Die Discovery- und Health-Ausgaben so erweitern, dass fuer Admins nachvollziehbar bleibt, ueber welchen Transport und welchen Endpoint der Evolver-Provider angesprochen wird, ohne sensible Daten offenzulegen.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "Observability, Admin-Debuggability",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "plugins/evolver_adapter/adapter.py",
+            "agent/services/evolution/registry.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-010"
+          ],
+          "acceptance": [
+            "Health- oder Provider-Descriptor zeigt fuer Admins transportrelevante Metadaten.",
+            "Sensible Header, Tokens oder Credentials werden nicht offengelegt.",
+            "Die Informationen reichen aus, um Fehlkonfigurationen schneller zu erkennen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "response-mapping-and-schema",
+      "label": "Response Mapping und Schema",
+      "items": [
+        {
+          "id": "EVR-020",
+          "title": "Evolver-Antwort vor dem Mapping gegen ein minimales Vertragsschema validieren",
+          "description": "Vor der eigentlichen Umwandlung in EvolutionResult sicherstellen, dass die grobe Antwortstruktur von Evolver einem minimierten Vertrag entspricht, damit Mapping-Fehler frueh und sauber erkannt werden.",
           "priority": "high",
           "type": "bugfix",
-          "principle": "Security, Bounded-Storage",
-          "status": "completed",
+          "principle": "Contract-Safety, Fail-Fast",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/services/evolution_service.py",
-            "agent/repository.py",
-            "agent/services/",
+            "plugins/evolver_adapter/adapter.py",
+            "plugins/evolver_adapter/mapper.py",
             "tests/"
           ],
-          "dependencies": [
-            "EVO-030",
-            "EVO-031"
-          ],
           "acceptance": [
-            "Provider-Rohdaten werden vor Persistenz auf Secrets und sensible Muster geprueft.",
-            "Payload-Groessen sind begrenzt oder werden gekappt/komprimiert.",
-            "Debug-Wert bleibt erhalten, ohne unnoetige Risikoausweitung."
+            "Antworten mit grundlegend falscher Struktur werden frueh abgewiesen.",
+            "Fehlertexte machen klar, ob ein Schemafehler oder ein Mappingfehler vorliegt.",
+            "Regressionstests decken mehrere ungueltige Response-Varianten ab."
           ]
-        }
-      ]
-    },
-    {
-      "name": "api-mcp-and-read-model",
-      "label": "API, MCP und Read Model",
-      "items": [
+        },
         {
-          "id": "EVO-040",
-          "title": "REST-Endpunkte fuer Evolution-Provider-Discovery und Analyse anlegen",
-          "description": "API-Endpunkte fuer Provider-Liste, Provider-Details und taskbezogene Evolution-Analyse schaffen.",
+          "id": "EVR-021",
+          "title": "Proposal-Extraktion im Mapper weniger heuristisch und expliziter machen",
+          "description": "Die aktuelle Suche ueber proposals, improvements, candidates und events strenger modellieren, damit fachlich verschiedene Antworttypen nicht stillschweigend miteinander vermischt werden.",
           "priority": "high",
-          "type": "improvement",
-          "principle": "Operability, Explicit-Access",
-          "status": "completed",
+          "type": "refactor",
+          "principle": "Determinism, Semantic-Clarity",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/",
-            "agent/services/evolution_service.py",
+            "plugins/evolver_adapter/mapper.py",
             "tests/"
           ],
           "dependencies": [
-            "EVO-013",
-            "EVO-020",
-            "EVO-023"
+            "EVR-020"
           ],
           "acceptance": [
-            "Es gibt mindestens Endpunkte fuer Provider-Liste und taskbezogene Analyze-Requests.",
-            "Antworten enthalten trace_id, provider_name und normalisierte Ergebnisdaten.",
-            "Nicht verfuegbare Provider liefern konsistente Fehlercodes."
+            "Unterschiedliche Evolver-Response-Typen werden klar dokumentiert und explizit behandelt.",
+            "Der Mapper waehlt nicht mehr stillschweigend nur das erste zufaellig passende Listenfeld.",
+            "Aenderungen an der Evolver-Antwortstruktur fuehren zu klaren Testfehlern statt stillen Fehlmappings."
           ]
         },
         {
-          "id": "EVO-041",
-          "title": "Read-Model fuer Evolution-Historie und Proposals ergänzen",
-          "description": "Die vorhandenen Read-Model- oder Dashboard-Ausgaben so erweitern, dass Evolution-Laeufe, Vorschlaege, Risiken und Review-Zustaende sichtbar werden.",
+          "id": "EVR-022",
+          "title": "Risk-, Status- und Proposal-Type-Mapping zentralisieren und dokumentieren",
+          "description": "Die Abbildung von Evolver-Kategorien, Statuswerten und Risikostufen in generische Ananta-Konzepte an einer Stelle vereinheitlichen und mit Tests absichern.",
           "priority": "medium",
           "type": "improvement",
-          "principle": "Transparency, Reviewability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/tasks/",
-            "agent/services/evolution_service.py",
-            "frontend-angular/src/app/components/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-030",
-            "EVO-031",
-            "EVO-040"
-          ],
-          "acceptance": [
-            "Task- oder Dashboard-Ansichten koennen Evolution-Historie und Vorschlaege anzeigen.",
-            "Review-relevante Felder wie risk_level und requires_review sind sichtbar.",
-            "Provider-spezifische Details bleiben optional und additiv."
-          ]
-        },
-        {
-          "id": "EVO-042",
-          "title": "MCP-Tools fuer Evolution-Discovery und Analyse ergänzen",
-          "description": "Die Hub-eigene MCP-Exposition um evolution.providers.list, evolution.analyze und spaeter evolution.proposals.list erweitern.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Unified-Control-Plane, Tool-Access",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/services/evolution_service.py",
-            "agent/services/integration_registry_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-040"
-          ],
-          "acceptance": [
-            "Evolution-Funktionen sind ueber MCP kontrolliert und auditierbar erreichbar.",
-            "MCP-Responses enthalten additiv trace_id und provider_name.",
-            "Policy-Blockierungen verhalten sich konsistent zu den restlichen Hub-Tools."
-          ]
-        },
-        {
-          "id": "EVO-043",
-          "title": "OpenAPI- und API-Spezifikation fuer Evolution erweitern",
-          "description": "Die API-Spezifikation und Dokumentation um die neuen Evolution-Endpunkte, Modelle und Governance-Regeln erweitern.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Clarity, Contract-Stability",
-          "status": "completed",
+          "principle": "Consistency, Interoperability",
+          "status": "open",
           "effort": "small",
           "files": [
-            "api-spec.md",
-            "docs/backend.md",
-            "docs/extensions.md",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-040",
-            "EVO-041"
-          ],
-          "acceptance": [
-            "Die neuen Endpunkte und JSON-Modelle sind dokumentiert.",
-            "Provider-Neutralitaet und provider_metadata-Konzept sind klar beschrieben.",
-            "Die Doku erklaert die erste sichere Proposal-only Integrationsstufe."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "evolver-adapter-first-provider",
-      "label": "Evolver Adapter als erster Provider",
-      "items": [
-        {
-          "id": "EVO-050",
-          "title": "EvolverAdapter als erste konkrete EvolutionEngine-Implementierung bauen",
-          "description": "Eine erste konkrete Adapter-Implementierung erstellen, die Evolver in den generischen EvolutionEngine-Vertrag einpasst.",
-          "priority": "critical",
-          "type": "integration",
-          "principle": "Proof-of-Architecture, Real-World-Fit",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "plugins/evolver_adapter/",
-            "agent/services/evolution/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-002",
-            "EVO-010",
-            "EVO-011",
-            "EVO-020"
-          ],
-          "acceptance": [
-            "Evolver ist als regulärer Provider in der Registry sichtbar.",
-            "Der Adapter mappt Evolver-Ergebnisse auf generische EvolutionResult- und Proposal-Strukturen.",
-            "Der Core muss fuer Evolver keine Sonderpfade oder Sondermodelle kennen."
-          ]
-        },
-        {
-          "id": "EVO-051",
-          "title": "Lose Kopplung fuer Evolver ueber externen Prozess oder Service einführen",
-          "description": "Die erste Evolver-Anbindung bewusst lose gestalten, etwa ueber separaten Prozess, CLI-Bridge oder HTTP-Service, damit der Core nicht in enges In-Process-Coupling rutscht.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Isolation, Swapability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "plugins/evolver_adapter/",
-            "docker-compose.yml",
-            "docker-compose.base.yml",
-            "docker-compose.distributed.yml",
+            "plugins/evolver_adapter/mapper.py",
             "docs/",
             "tests/"
           ],
           "dependencies": [
-            "EVO-050"
+            "EVR-021"
           ],
           "acceptance": [
-            "Evolver laesst sich ohne Core-Umbau austauschen oder deaktivieren.",
-            "Kommunikation, Timeouts und Fehlerfaelle sind klar kontrolliert.",
-            "Die Integrationsform ist dokumentiert und reproduzierbar betreibbar."
+            "Type-, Status- und Risk-Mappings sind an zentraler Stelle nachvollziehbar.",
+            "Unbekannte Werte werden kontrolliert auf generische Defaults oder Fehlerpfade gemappt.",
+            "Tests decken bekannte und unbekannte Mapping-Werte ab."
           ]
         },
         {
-          "id": "EVO-052",
-          "title": "Mapper fuer Evolver-spezifische Begriffe in generische Proposal-Typen bauen",
-          "description": "Einen Mapping-Layer bauen, der Evolver-Konzepte wie Gene, Capsule, GEP-Prompt oder EvolutionEvent in generische Improvement-, Repair-, Policy- oder Prompt-Proposals uebersetzt.",
-          "priority": "high",
+          "id": "EVR-023",
+          "title": "Provider-Metadaten aus Evolver-Responses feiner und selektiver uebernehmen",
+          "description": "Nicht nur run_id oder id uebernehmen, sondern relevante Evolver-Zusatzinformationen gezielt und begrenzt in provider_metadata ablegen, ohne das generische Core-Modell aufzuweichen.",
+          "priority": "low",
           "type": "improvement",
-          "principle": "Semantic-Decoupling, Interoperability",
-          "status": "completed",
+          "principle": "Useful-Metadata, Bounded-Specificity",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "plugins/evolver_adapter/mapper.py",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-020"
+          ],
+          "acceptance": [
+            "Relevante Evolver-Kontextdaten bleiben fuer Admin-Debugging erhalten.",
+            "Provider-Metadaten bleiben additiv und verletzen nicht die Core-Provider-Neutralitaet.",
+            "Die Persistenz der Zusatzdaten bleibt durch bestehende Payload-Grenzen kontrolliert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "plugin-loading-and-registration",
+      "label": "Plugin Loading und Registrierung",
+      "items": [
+        {
+          "id": "EVR-030",
+          "title": "Doppelregistrierung von Evolution-Providern im Plugin-Loader explizit absichern",
+          "description": "Den Plugin-Loader so haerten, dass Plugins mit init_app und zusaetzlich deklarativen evolution_provider-Feldern nicht unbeabsichtigt doppelt registriert oder stillschweigend ueberschrieben werden.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Determinism, Loader-Safety",
+          "status": "open",
           "effort": "medium",
           "files": [
+            "agent/plugin_loader.py",
+            "agent/services/evolution/registry.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Ein Plugin wird pro Provider nur einmal wirksam registriert, ausser ein expliziter Replace-Fall ist beabsichtigt.",
+            "Konflikt- und Duplikatfaelle sind testabgedeckt.",
+            "Logs oder Fehlertexte machen Konfliktursachen eindeutig sichtbar."
+          ]
+        },
+        {
+          "id": "EVR-031",
+          "title": "Loader-Kontrakt fuer deklarative vs. imperative Provider-Registrierung dokumentieren",
+          "description": "Den beabsichtigten Plugin-Kontrakt klarziehen, wann ein Plugin provider selbst in init_app registrieren soll und wann deklarative Felder wie evolution_provider genutzt werden duerfen.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Clarity, Extensibility",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "docs/extensions.md",
+            "agent/plugin_loader.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-030"
+          ],
+          "acceptance": [
+            "Die Doku beschreibt eindeutig die bevorzugte Registrierungsform.",
+            "Missverstaendliche Mischformen werden benannt oder explizit eingeschraenkt.",
+            "Drittanbieter koennen einen Provider schreiben, ohne versehentlich Loader-Randfaelle zu triggern."
+          ]
+        },
+        {
+          "id": "EVR-032",
+          "title": "Provider-Konfliktverhalten bei identischen Namen haerter testen",
+          "description": "Mehr Tests fuer Replace-, Default- und Namenskonflikte einfuehren, damit spaetere weitere Evolution-Provider den Loader und die Registry nicht subtil brechen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Regression-Safety, Multi-Provider-Readiness",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "tests/test_plugin_loader.py",
+            "tests/",
+            "agent/services/evolution/registry.py"
+          ],
+          "dependencies": [
+            "EVR-030"
+          ],
+          "acceptance": [
+            "Tests decken Namenskonflikte mit und ohne replace ab.",
+            "Default-Provider-Umschaltung bleibt deterministisch.",
+            "Mehrere Provider koennen parallel registriert werden, ohne versteckte Seiteneffekte."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "governance-and-capabilities",
+      "label": "Governance und Capabilities",
+      "items": [
+        {
+          "id": "EVR-040",
+          "title": "Tatsaechlich unterstuetzte Evolver-Capabilities strenger von zukuenftigen Wunsch-Capabilities trennen",
+          "description": "Die Capability-Angaben des EvolverAdapters darauf pruefen, ob sie exakt das heute real vorhandene Verhalten widerspiegeln, damit Registry, API und UI keine zu optimistischen Erwartungen an Validate oder Apply entwickeln.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Truthful-Capabilities, Least-Assumption",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "plugins/evolver_adapter/adapter.py",
+            "agent/services/evolution/engine.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Capabilites spiegeln nur heute verlässlich vorhandenes Verhalten wider.",
+            "Nicht implementierte Operationen koennen nicht versehentlich als unterstuetzt erscheinen.",
+            "Tests pruefen das Verhalten fuer supports(), describe() und Registry-Descriptor konsistent."
+          ]
+        },
+        {
+          "id": "EVR-041",
+          "title": "Validate- und Apply-Pfade fuer Evolver explizit fail-closed absichern",
+          "description": "Falls Evolver aktuell nur Analyze sinnvoll unterstützt, sollen Validate- und Apply-Pfade fuer diesen Provider explizit und sauber blockiert sein, statt auf implizites Basisklassenverhalten oder spaete Fehler zu vertrauen.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Fail-Closed, Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "plugins/evolver_adapter/adapter.py",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-040"
+          ],
+          "acceptance": [
+            "Validate- und Apply-Aufrufe gegen Evolver liefern klar definierte, kontrollierte Fehler.",
+            "Audit und Metriken koennen diese Blockierungen sinnvoll unterscheiden.",
+            "Es existieren gezielte Tests fuer nicht erlaubte Operationen."
+          ]
+        },
+        {
+          "id": "EVR-042",
+          "title": "Provider-spezifische Policy-Guards fuer externe Evolver-Services ergänzen",
+          "description": "Die bestehende Evolution-Policy um Guards erweitern, die speziell fuer externe Provider wie Evolver greifen, etwa erlaubte Endpunkte, zulässige Hosts oder Pflicht zu Review-only in bestimmten Modi.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Boundary-Control, Deployment-Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/config.py",
+            "agent/services/evolution_service.py",
+            "plugins/evolver_adapter/__init__.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-041"
+          ],
+          "acceptance": [
+            "Externe Evolver-Provider koennen restriktiver konfiguriert werden als interne oder lokale Provider.",
+            "Review-only- oder analyze-only-Betrieb laesst sich fuer Evolver explizit erzwingen.",
+            "Konfigurationsfehler fuehren fail-closed statt implizit zu offenem Betrieb."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security-redaction-and-persistence",
+      "label": "Security, Redaction und Persistenz",
+      "items": [
+        {
+          "id": "EVR-050",
+          "title": "Kontext-Minimierung fuer Evolver-Aufrufe gezielt ueberpruefen und nachschaerfen",
+          "description": "Pruefen, ob der an Evolver uebergebene EvolutionContext nur die wirklich noetigen Informationen enthaelt, und gegebenenfalls Kontextteile fuer externe Provider weiter reduzieren oder maskieren.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Least-Exposure, External-Boundary-Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/evolution/context_builder.py",
+            "agent/services/evolution_service.py",
+            "plugins/evolver_adapter/adapter.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Externe Provider erhalten nur den minimal noetigen fachlichen Kontext.",
+            "Nicht noetige interne IDs, Pfade oder grosse Rohdaten werden reduziert oder weggelassen.",
+            "Tests oder Review-Checks zeigen, dass die Evolver-Nutzlast kontrolliert klein und zweckgebunden bleibt."
+          ]
+        },
+        {
+          "id": "EVR-051",
+          "title": "Redaction fuer provider_metadata und raw_payload gegen Evolver-spezifische Leckagepfade erweitern",
+          "description": "Die bereits vorhandene Begrenzung und Sanitization um Evolver-nahe Spezialfaelle erweitern, damit auch transport- oder providerbezogene Zusatzdaten keine neuen Leckagewege oeffnen.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Security, Defensive-Persistence",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/evolution_service.py",
             "plugins/evolver_adapter/mapper.py",
             "plugins/evolver_adapter/adapter.py",
             "tests/"
           ],
           "dependencies": [
-            "EVO-050"
+            "EVR-050"
           ],
           "acceptance": [
-            "Gene- oder Capsule-basierte Ergebnisse erscheinen im Core als generische Proposal-Typen.",
-            "Provider-spezifische Originaldaten bleiben optional zugaenglich.",
-            "Ein zweiter anderer Provider koennte dieselben generischen Proposal-Typen ebenfalls bedienen."
+            "Sensible Header, Tokens, lokale URLs oder interne Pfade werden nicht unkontrolliert persistiert.",
+            "Bounding und Sanitization gelten auch fuer Evolver-spezifische Zusatzdaten.",
+            "Regressionstests decken mehrere realistische Leckagemuster ab."
           ]
         },
         {
-          "id": "EVO-053",
-          "title": "Evolver-spezifische Konfigurations- und Sicherheitsgrenzen dokumentieren",
-          "description": "Alle provider-spezifischen Randbedingungen wie externe Runtime, noetige Verzeichnisse, Timeouts, erlaubte Modi und Risikoannahmen fuer Evolver explizit dokumentieren.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Operational-Safety, Maintainability",
-          "status": "completed",
+          "id": "EVR-052",
+          "title": "Persistierte Evolver-Rohpayloads semantisch kuerzen statt nur stumpf abzuschneiden",
+          "description": "Die bisherige Preview-Kappung fuer ueberschwere Payloads so verbessern, dass wichtige Diagnoseinformationen erhalten bleiben, ohne rohe Grosspayloads einfach nur am Zeichenlimit abzuschneiden.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "Debuggability, Bounded-Storage",
+          "status": "open",
           "effort": "small",
           "files": [
-            "docs/",
-            "plugins/evolver_adapter/",
+            "agent/services/evolution_service.py",
             "tests/"
           ],
           "dependencies": [
-            "EVO-051",
-            "EVO-052"
+            "EVR-051"
           ],
           "acceptance": [
-            "Betriebsdoku erklaert klar, wie Evolver sicher angebunden wird.",
-            "Grenzen und Nicht-Ziele der ersten Integration sind beschrieben.",
-            "Ein spaeterer Austausch gegen einen anderen Provider bleibt organisatorisch nachvollziehbar."
+            "Gekappte Payloads behalten strukturierte Kerndaten wie run_id, status und proposal count.",
+            "Die Speicherung bleibt groessenbegrenzt.",
+            "Debug-Nutzen ist hoeher als bei blosser String-Kappung."
           ]
         }
       ]
     },
     {
-      "name": "governance-apply-and-safety",
-      "label": "Governance, Apply und Safety",
+      "name": "api-read-model-and-ux",
+      "label": "API, Read Model und UX",
       "items": [
         {
-          "id": "EVO-060",
-          "title": "Policy-Modell fuer Review-Pflicht und Auto-Apply vorbereiten",
-          "description": "Ein Governance-Modell schaffen, das provider- und proposal-abhängig steuert, ob nur Analyse, Analyse plus Validierung oder spaeter auch Apply erlaubt ist.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Least-Privilege, Policy-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/config.py",
-            "agent/services/evolution_service.py",
-            "agent/routes/config/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-012",
-            "EVO-023"
-          ],
-          "acceptance": [
-            "Es gibt explizite Policy-Schalter fuer analyze_only, validate_allowed und apply_allowed.",
-            "Review-Pflichten koennen global oder proposal-spezifisch greifen.",
-            "Nicht explizit erlaubte Apply-Pfade bleiben fail-closed."
-          ]
-        },
-        {
-          "id": "EVO-061",
-          "title": "Validierungs-Pfad fuer Evolution-Proposals vorbereiten",
-          "description": "Einen generischen Validierungs-Pfad schaffen, ueber den Proposals vor einem spaeteren Apply gegen Regeln, Tests oder Policies geprueft werden koennen.",
+          "id": "EVR-060",
+          "title": "Evolution-Provider-Read-Model fuer Adminsicht um echte Health- und Fehlersignale erweitern",
+          "description": "Die bestehende Provider- und Health-Ausgabe so erweitern, dass Admins nicht nur provider_name und Status sehen, sondern auch die relevanten letzten Fehler- oder Degradationshinweise.",
           "priority": "medium",
           "type": "improvement",
-          "principle": "Defense-in-Depth, Preflight-Safety",
-          "status": "completed",
+          "principle": "Operability, Fast-Diagnosis",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/services/evolution_service.py",
-            "agent/services/evolution/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-002",
-            "EVO-060"
-          ],
-          "acceptance": [
-            "Validation ist als eigener Schritt modelliert und auditierbar.",
-            "Provider ohne Validation-Capability koennen sauber degradiert behandelt werden.",
-            "Der spaetere Weg zu kontrolliertem Apply ist damit vorbereitet, ohne ihn sofort zu aktivieren."
-          ]
-        },
-        {
-          "id": "EVO-062",
-          "title": "Apply-Pfad nur als explizite zweite Ausbaustufe vorbereiten",
-          "description": "Den technischen und fachlichen Rahmen fuer spaeteres Apply vorbereiten, aber in der ersten Iteration standardmaessig deaktiviert lassen.",
-          "priority": "medium",
-          "type": "architecture",
-          "principle": "Safe-Staging, Risk-Containment",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/services/evolution_service.py",
+            "agent/services/evolution/registry.py",
             "agent/routes/",
-            "docs/",
+            "frontend-angular/src/app/components/",
             "tests/"
           ],
           "dependencies": [
-            "EVO-060",
-            "EVO-061"
+            "EVR-010"
           ],
           "acceptance": [
-            "Apply ist im Design vorgesehen, aber standardmaessig deaktiviert.",
-            "Die Doku trennt klar zwischen Proposal-only und spaeteren Apply-Modi.",
-            "Es entstehen keine versteckten Auto-Apply-Pfade durch den ersten Evolver-Einbau."
+            "Admin-Read-Model zeigt bei Problemen nachvollziehbare Health-Fehler.",
+            "Fehlerinformationen bleiben knapp und sicher redigiert.",
+            "Die Anzeige unterscheidet konfiguriert, erreichbar, degraded und unavailable."
           ]
         },
         {
-          "id": "EVO-063",
-          "title": "Secrets-, Prompt- und Log-Redaction fuer Evolution-Kontext absichern",
-          "description": "Sicherstellen, dass Logs, Fehlerkontexte, Verifikationsdaten und Provider-Payloads beim Evolution-Kontextbau dieselben oder haertere Redaction-Regeln wie andere Prompt-Pfade durchlaufen.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Security, Least-Exposure",
-          "status": "completed",
-          "effort": "medium",
+          "id": "EVR-061",
+          "title": "Proposal-Ansichten um Evolver-Herkunft und Mapping-Transparenz ergaenzen",
+          "description": "Im Read-Model oder UI sichtbar machen, aus welchem Evolver-Kind ein generisches Proposal entstanden ist, ohne den Core wieder an Evolver-Fachbegriffe zu koppeln.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "Traceability, Explainability",
+          "status": "open",
+          "effort": "small",
           "files": [
             "agent/services/evolution_service.py",
-            "agent/services/",
+            "frontend-angular/src/app/components/",
             "tests/"
           ],
           "dependencies": [
-            "EVO-021",
-            "EVO-033"
+            "EVR-022"
           ],
           "acceptance": [
-            "Evolution-Kontexte oeffnen keine neuen Leckagepfade fuer Secrets oder sensible Inhalte.",
-            "Regressionstests decken typische Secret-, Token- und Path-Leaks ab.",
-            "Provider erhalten nur den fuer die Analyse noetigen minimierten Kontext."
+            "Admins koennen nachvollziehen, ob ein Proposal aus gene, capsule oder anderem Evolver-Material stammt.",
+            "Die Zusatzanzeige bleibt optional und additiv.",
+            "Nicht-Evolver-Provider werden dadurch nicht benachteiligt oder semantisch verformt."
+          ]
+        },
+        {
+          "id": "EVR-062",
+          "title": "API-Fehlercodes fuer externe Provider-Ausfaelle konsolidieren",
+          "description": "Die API-Antworten fuer Health-, Analyze-, Validate- und Apply-Aufrufe so vereinheitlichen, dass externe Provider-Ausfaelle fuer Clients konsistent erkennbar und auswertbar bleiben.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Client-Stability, Predictable-Errors",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVR-001",
+            "EVR-041"
+          ],
+          "acceptance": [
+            "API-Clients koennen Transportfehler, Providerfehler und Policy-Blockierungen klar auseinanderhalten.",
+            "Fehlercodes und Fehlerschluessel sind dokumentiert und stabil.",
+            "Tests decken typische externe Provider-Fehlerpfade auf API-Ebene ab."
           ]
         }
       ]
     },
     {
-      "name": "observability-tests-and-rollout",
-      "label": "Observability, Tests und Rollout",
+      "name": "tests-and-rollout",
+      "label": "Tests und Rollout",
       "items": [
         {
-          "id": "EVO-070",
-          "title": "Unit- und Contract-Tests fuer den Evolution-SPI aufbauen",
-          "description": "Eine Testsuite fuer den generischen SPI, Registry-Verhalten, Fehlerfaelle und Provider-Mocking einfuehren, damit der Austausch einzelner Provider regressionsarm bleibt.",
+          "id": "EVR-070",
+          "title": "Contract-Tests fuer Evolver-Responses mit mehreren realistischen Payload-Varianten aufbauen",
+          "description": "Eine dedizierte Testsuite einfuehren, die typische und problematische Evolver-Antworten gegen Adapter und Mapper prueft, damit spaetere Evolver-Aenderungen frueh auffallen.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Contract-Stability, Replaceability",
-          "status": "completed",
+          "principle": "Regression-Safety, Contract-Validation",
+          "status": "open",
           "effort": "medium",
           "files": [
+            "tests/test_evolver_adapter.py",
             "tests/",
-            "agent/services/evolution/",
-            "plugins/evolver_adapter/"
+            "plugins/evolver_adapter/mapper.py"
           ],
           "dependencies": [
-            "EVO-002",
-            "EVO-010",
-            "EVO-050"
+            "EVR-020",
+            "EVR-021"
           ],
           "acceptance": [
-            "Contract-Tests pruefen generisches Verhalten unabhaengig vom konkreten Provider.",
-            "Provider lassen sich mit Testdoubles austauschen.",
-            "Registry- und Fallback-Verhalten ist reproduzierbar abgedeckt."
+            "Mehrere gueltige und ungueltige Payload-Varianten sind testabgedeckt.",
+            "Mapping-Regressionen werden frueh und gezielt sichtbar.",
+            "Die Tests sind nicht nur happy-path-zentriert."
           ]
         },
         {
-          "id": "EVO-071",
-          "title": "Integrations- und E2E-Szenarien fuer Analyse-Trigger definieren",
-          "description": "Echte oder realistische Szenarien fuer Verification-Failure, wiederholte Fehler und manuelle Analyse-Anforderung aufbauen, um den End-to-End-Pfad von Task ueber Evolution bis Proposal zu pruefen.",
+          "id": "EVR-071",
+          "title": "E2E-Test fuer konfigurierten aber nicht erreichbaren Evolver-Service ergaenzen",
+          "description": "Ein integrierter Testfall pruefen, wie sich Plugin-Loading, Provider-Health, Analyse-Aufruf und API-Verhalten verhalten, wenn Evolver aktiviert aber zur Laufzeit nicht erreichbar ist.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Grounded-Testing, Workflow-Coverage",
-          "status": "completed",
-          "effort": "large",
+          "principle": "Operational-Readiness, Failure-Testing",
+          "status": "open",
+          "effort": "medium",
           "files": [
             "tests/",
-            "scripts/",
-            "docs/",
+            "plugins/evolver_adapter/",
             "agent/services/evolution_service.py"
           ],
           "dependencies": [
-            "EVO-022",
-            "EVO-023",
-            "EVO-050"
+            "EVR-010",
+            "EVR-062"
           ],
           "acceptance": [
-            "Mindestens manuelle Analyse und ein automatischer Fehlertrigger sind E2E-testbar.",
-            "Die Ergebnisse sind in Persistenz, Audit und Read-Model sichtbar.",
-            "Fehlerhafte Provider-Responses werden sauber behandelt."
+            "Nicht erreichbarer Evolver fuehrt zu sauberem degradiertem Verhalten.",
+            "Der Rest des Systems bleibt betriebsfaehig.",
+            "Health-, Audit- und API-Signale bleiben konsistent."
           ]
         },
         {
-          "id": "EVO-072",
-          "title": "Metriken fuer Evolution-Nutzung und Wirksamkeit ergänzen",
-          "description": "Metriken fuer Anzahl der Analysen, Provider-Nutzung, Proposal-Typen, requires_review-Quoten, Fehlerraten und spaeter Follow-up-Success einfuehren.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Observability, Operational-Learning",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/metrics.py",
-            "agent/services/evolution_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVO-030",
-            "EVO-031"
-          ],
-          "acceptance": [
-            "Evolution-bezogene Metriken sind im Backend verfuegbar.",
-            "Provider-spezifische Unterschiede koennen beobachtet werden.",
-            "Analyse-Haeufungen oder Fehler-Spitzen lassen sich frueh erkennen."
-          ]
-        },
-        {
-          "id": "EVO-073",
-          "title": "Phasenweisen Rollout fuer Evolution-Provider dokumentieren",
-          "description": "Einen klaren Rollout-Plan fuer disabled, analyze-only, controlled-review und spaeter validate/apply vorbereiten, damit die Integration betrieblich sauber eingefuehrt werden kann.",
+          "id": "EVR-072",
+          "title": "Rollout-Doku fuer analyze-only Betriebsmodus des Evolver-Providers schreiben",
+          "description": "Die Betriebsdokumentation explizit um einen empfohlenen analyze-only Rollout fuer Evolver erweitern, inklusive Healthchecks, Konfigurationsbeispielen und klaren Nicht-Zielen fuer die erste Produktionsstufe.",
           "priority": "medium",
           "type": "documentation",
           "principle": "Safe-Adoption, Operational-Clarity",
-          "status": "completed",
+          "status": "open",
           "effort": "small",
           "files": [
             "docs/",
-            "agent/config.py",
+            "docs/extensions.md",
+            "docs/backend.md"
+          ],
+          "dependencies": [
+            "EVR-041",
+            "EVR-042"
+          ],
+          "acceptance": [
+            "Die Doku beschreibt klar den empfohlenen analyze-only Startmodus.",
+            "Konfiguration, typische Fehler und Grenzen des ersten Betriebsmodus sind benannt.",
+            "Validate und Apply werden nicht missverstaendlich als bereits produktionsreif dargestellt."
+          ]
+        },
+        {
+          "id": "EVR-073",
+          "title": "Metriken fuer externe Provider-Ausfaelle und Retry-Verhalten ergaenzen",
+          "description": "Die bestehenden Evolution-Metriken um Signale erweitern, die speziell fuer externe Provider wie Evolver relevant sind, etwa Transportfehler, Retry-Haeufigkeit und Health-Degradation.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "Observability, Runtime-Learning",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/metrics.py",
+            "agent/services/evolution_service.py",
+            "plugins/evolver_adapter/adapter.py",
             "tests/"
           ],
           "dependencies": [
-            "EVO-023",
-            "EVO-060",
-            "EVO-072"
+            "EVR-003",
+            "EVR-010"
           ],
           "acceptance": [
-            "Die Doku beschreibt einen mehrstufigen sicheren Rollout.",
-            "Analyze-only ist als empfohlene erste Produktionsstufe klar benannt.",
-            "Spaetere Erweiterungen sind vorgesehen, aber sauber von der Erstintegration getrennt."
+            "Transport- und Health-spezifische Evolver-Probleme sind in Metriken sichtbar.",
+            "Retry-Verhalten kann beobachtet und bewertet werden.",
+            "Die neuen Metriken bleiben mit dem generischen Evolution-Metrikmodell vereinbar."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 32,
+    "total_items": 25,
     "by_status": {
-      "completed": 32,
+      "completed": 0,
       "partial": 0,
-      "open": 0
+      "open": 25
     },
     "notes": [
-      "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
-      "Die wichtigste Schutzmassnahme fuer spaetere Austauschbarkeit ist, provider-spezifische Begriffe und Payloads nicht ins Core-Domain-Modell zu zementieren.",
-      "Die erste sinnvolle Produktivstufe ist analyze-only mit persistierten Proposals, Audit und Review-Pflicht statt sofortigem automatischem Apply."
+      "Diese Todo-Datei setzt bewusst nicht mehr bei der Grundintegration an, sondern bei der Haertung und Betriebsreife der bereits vorhandenen Evolver-Einbindung.",
+      "Der groesste technische Hebel liegt jetzt in Healthchecks, Fehlerklassifikation, Response-Vertrag und fail-closed Governance fuer externe Provider.",
+      "Das wichtigste Architekturprinzip bleibt: Evolver soll als austauschbarer Provider staerker werden, ohne dass Anantas Core wieder in provider-spezifische Sonderlogik abrutscht."
     ],
     "recommended_order": [
-      "EVO-001",
-      "EVO-002",
-      "EVO-003",
-      "EVO-004",
-      "EVO-010",
-      "EVO-011",
-      "EVO-012",
-      "EVO-013",
-      "EVO-020",
-      "EVO-021",
-      "EVO-022",
-      "EVO-023",
-      "EVO-030",
-      "EVO-031",
-      "EVO-032",
-      "EVO-033",
-      "EVO-040",
-      "EVO-041",
-      "EVO-043",
-      "EVO-050",
-      "EVO-051",
-      "EVO-052",
-      "EVO-053",
-      "EVO-060",
-      "EVO-061",
-      "EVO-063",
-      "EVO-070",
-      "EVO-071",
-      "EVO-072",
-      "EVO-073",
-      "EVO-042",
-      "EVO-062"
+      "EVR-001",
+      "EVR-010",
+      "EVR-020",
+      "EVR-030",
+      "EVR-040",
+      "EVR-041",
+      "EVR-050",
+      "EVR-051",
+      "EVR-021",
+      "EVR-022",
+      "EVR-002",
+      "EVR-004",
+      "EVR-011",
+      "EVR-062",
+      "EVR-070",
+      "EVR-071",
+      "EVR-031",
+      "EVR-032",
+      "EVR-042",
+      "EVR-072",
+      "EVR-003",
+      "EVR-012",
+      "EVR-023",
+      "EVR-060",
+      "EVR-061",
+      "EVR-052",
+      "EVR-073"
     ]
   }
 }
