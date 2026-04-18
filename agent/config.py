@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     evolver_enabled: bool = Field(default=False, validation_alias="EVOLVER_ENABLED")
     evolver_base_url: Optional[str] = Field(default=None, validation_alias="EVOLVER_BASE_URL")
     evolver_analyze_path: str = Field(default="/evolution/analyze", validation_alias="EVOLVER_ANALYZE_PATH")
+    evolver_health_path: Optional[str] = Field(default=None, validation_alias="EVOLVER_HEALTH_PATH")
     evolver_timeout_seconds: float = Field(default=30.0, validation_alias="EVOLVER_TIMEOUT_SECONDS")
     evolver_default: bool = Field(default=False, validation_alias="EVOLVER_DEFAULT")
     evolver_version: str = Field(default="unknown", validation_alias="EVOLVER_VERSION")

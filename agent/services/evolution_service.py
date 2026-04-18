@@ -177,20 +177,22 @@ class EvolutionService:
             self._observe_operation_duration(engine.provider_name, "analyze", result.status, started_at)
             return persisted or result
         except Exception as exc:
+            failure_status = self._failure_metric_status(exc)
             self._audit(
                 "evolution_analysis_failed",
                 {
                     **self._audit_details(engine.provider_name, context, resolved_trigger),
                     "error": str(exc),
                     "error_type": type(exc).__name__,
+                    **self._failure_audit_details(exc),
                 },
             )
             EVOLUTION_ANALYSES_TOTAL.labels(
                 provider=self._metric_label(engine.provider_name),
                 trigger_type=self._metric_label(resolved_trigger.trigger_type.value),
-                status="failed",
+                status=failure_status,
             ).inc()
-            self._observe_operation_duration(engine.provider_name, "analyze", "failed", started_at)
+            self._observe_operation_duration(engine.provider_name, "analyze", failure_status, started_at)
             raise
 
     def validate(
@@ -337,6 +339,26 @@ class EvolutionService:
     def _metric_label(value: Any) -> str:
         text = str(value or "unknown").strip().lower()
         return text[:80] or "unknown"
+
+    @classmethod
+    def _failure_metric_status(cls, exc: Exception) -> str:
+        code = getattr(exc, "code", None)
+        if code:
+            return cls._metric_label(f"failed_{code}")
+        return "failed"
+
+    @staticmethod
+    def _failure_audit_details(exc: Exception) -> dict[str, Any]:
+        details: dict[str, Any] = {}
+        code = getattr(exc, "code", None)
+        if code:
+            details["error_code"] = str(code)
+        if hasattr(exc, "transient"):
+            details["transient"] = bool(getattr(exc, "transient"))
+        status_code = getattr(exc, "status_code", None)
+        if status_code is not None:
+            details["status_code"] = status_code
+        return details
 
     def _persist_analysis(
         self,

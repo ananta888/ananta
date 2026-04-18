@@ -341,6 +341,7 @@ def apply_env_config_overrides(cfg: dict) -> None:
         "EVOLVER_ENABLED": ("enabled", bool(getattr(settings, "evolver_enabled", False))),
         "EVOLVER_BASE_URL": ("base_url", getattr(settings, "evolver_base_url", None)),
         "EVOLVER_ANALYZE_PATH": ("analyze_path", getattr(settings, "evolver_analyze_path", "/evolution/analyze")),
+        "EVOLVER_HEALTH_PATH": ("health_path", getattr(settings, "evolver_health_path", None)),
         "EVOLVER_TIMEOUT_SECONDS": (
             "timeout_seconds",
             float(getattr(settings, "evolver_timeout_seconds", 30.0) or 30.0),

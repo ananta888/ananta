@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+import socket
+from urllib import error
+
+import pytest
 from flask import Flask
 
-from agent.services.evolution import EvolutionContext, get_evolution_provider_registry
+from agent.services.evolution import EvolutionCapability, EvolutionContext, get_evolution_provider_registry
 from agent.services.evolution_service import EvolutionService
 from plugins.evolver_adapter import init_app
-from plugins.evolver_adapter.adapter import EvolverAdapter
+from plugins.evolver_adapter.adapter import (
+    EvolverAdapter,
+    EvolverHttpError,
+    EvolverInvalidResponseError,
+    EvolverTimeoutError,
+    HttpEvolverTransport,
+)
+from plugins.evolver_adapter.mapper import EvolverResponseSchemaError, map_evolver_result
 
 
 class FakeEvolverTransport:
@@ -76,16 +87,112 @@ def test_evolver_plugin_registers_adapter_from_config():
         registry.clear()
 
 
+def test_evolver_adapter_reports_real_transport_health():
+    class HealthyTransport(FakeEvolverTransport):
+        def health(self):
+            return {"status": "available"}
+
+    class DownTransport(FakeEvolverTransport):
+        def health(self):
+            raise EvolverHttpError(503)
+
+    healthy = EvolverAdapter(transport=HealthyTransport()).describe()
+    down = EvolverAdapter(transport=DownTransport()).describe()
+
+    assert healthy.status == "available"
+    assert healthy.provider_metadata["health_checked"] is True
+    assert down.status == "degraded"
+    assert down.provider_metadata["last_error"]["code"] == "http_error"
+
+
+def test_evolver_adapter_exposes_only_truthful_current_capabilities():
+    adapter = EvolverAdapter(transport=FakeEvolverTransport())
+
+    assert adapter.supports(EvolutionCapability.ANALYZE) is True
+    assert adapter.supports(EvolutionCapability.PROPOSE) is False
+    assert adapter.supports(EvolutionCapability.VALIDATE) is False
+    assert adapter.supports(EvolutionCapability.APPLY) is False
+
+
+def test_evolution_service_audit_distinguishes_evolver_transport_failures():
+    class TimeoutTransport(FakeEvolverTransport):
+        def analyze(self, payload: dict) -> dict:
+            raise EvolverTimeoutError()
+
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(EvolverAdapter(transport=TimeoutTransport()), default=True)
+    audits: list[tuple[str, dict]] = []
+    try:
+        service = EvolutionService(registry=registry, audit_fn=lambda action, details: audits.append((action, details)))
+        with pytest.raises(EvolverTimeoutError):
+            service.analyze(EvolutionContext(objective="Improve task", task_id="T-EVOLVER"))
+    finally:
+        registry.clear()
+
+    failed = audits[-1]
+    assert failed[0] == "evolution_analysis_failed"
+    assert failed[1]["error_type"] == "EvolverTimeoutError"
+    assert failed[1]["error_code"] == "timeout"
+    assert failed[1]["transient"] is True
+
+
+def test_http_evolver_transport_maps_http_timeout_and_invalid_json(monkeypatch):
+    transport = HttpEvolverTransport(base_url="http://evolver:8080", timeout_seconds=1)
+
+    def raise_http_error(*_args, **_kwargs):
+        raise error.HTTPError("http://evolver:8080/evolution/analyze", 500, "server error", {}, None)
+
+    monkeypatch.setattr("plugins.evolver_adapter.adapter.request.urlopen", raise_http_error)
+    with pytest.raises(EvolverHttpError) as http_exc:
+        transport.analyze({"context": {}})
+    assert http_exc.value.status_code == 500
+    assert http_exc.value.transient is True
+
+    def raise_timeout(*_args, **_kwargs):
+        raise socket.timeout()
+
+    monkeypatch.setattr("plugins.evolver_adapter.adapter.request.urlopen", raise_timeout)
+    with pytest.raises(EvolverTimeoutError):
+        transport.analyze({"context": {}})
+
+    class InvalidJsonResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b"{not-json"
+
+    monkeypatch.setattr("plugins.evolver_adapter.adapter.request.urlopen", lambda *_args, **_kwargs: InvalidJsonResponse())
+    with pytest.raises(EvolverInvalidResponseError):
+        transport.analyze({"context": {}})
+
+
+def test_evolver_response_schema_rejects_invalid_contracts():
+    with pytest.raises(EvolverResponseSchemaError, match="proposals"):
+        map_evolver_result({"status": "completed", "proposals": {"id": "not-a-list"}})
+
+    with pytest.raises(EvolverResponseSchemaError, match="status"):
+        map_evolver_result({"status": 200, "proposals": []})
+
+
 def test_evolver_env_overrides_populate_provider_config(monkeypatch):
     from agent import config_defaults
     from agent.config_defaults import apply_env_config_overrides, build_default_agent_config
 
     monkeypatch.setenv("EVOLVER_ENABLED", "1")
     monkeypatch.setenv("EVOLVER_BASE_URL", "http://evolver:8080")
+    monkeypatch.setenv("EVOLVER_HEALTH_PATH", "/health")
     monkeypatch.setenv("EVOLVER_TIMEOUT_SECONDS", "12")
     monkeypatch.setenv("EVOLVER_DEFAULT", "1")
     monkeypatch.setattr(config_defaults.settings, "evolver_enabled", True, raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_base_url", "http://evolver:8080", raising=False)
+    monkeypatch.setattr(config_defaults.settings, "evolver_health_path", "/health", raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_timeout_seconds", 12.0, raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_default", True, raising=False)
 
@@ -95,6 +202,7 @@ def test_evolver_env_overrides_populate_provider_config(monkeypatch):
     evolver_cfg = cfg["evolution"]["provider_overrides"]["evolver"]
     assert evolver_cfg["enabled"] is True
     assert evolver_cfg["base_url"] == "http://evolver:8080"
+    assert evolver_cfg["health_path"] == "/health"
     assert evolver_cfg["timeout_seconds"] == 12.0
     assert cfg["evolution"]["default_provider"] == "evolver"
 
