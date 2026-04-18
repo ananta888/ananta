@@ -275,7 +275,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Determinism, Workflow-Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/models.py",
@@ -297,7 +297,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Expressiveness, Operational-Precision",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/models.py",
@@ -321,7 +321,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Consistency, Integrity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",

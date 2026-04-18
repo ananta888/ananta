@@ -6,7 +6,14 @@ from flask import current_app
 from agent.db_models import TaskDB
 from agent.config import settings
 from agent.services.repository_registry import get_repository_registry
-from agent.services.task_runtime_service import _subscribers_lock, _task_subscribers, append_task_history_event, notify_task_update
+from agent.services.task_runtime_service import (
+    _subscribers_lock,
+    _task_subscribers,
+    append_task_history_event,
+    get_local_task_status,
+    notify_task_update,
+    update_local_task_status,
+)
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
 
@@ -34,8 +41,7 @@ def _notify_task_update(tid: str):
 
 
 def _get_local_task_status(tid: str):
-    task = task_repo.get_by_id(tid)
-    return task.model_dump() if task else None
+    return get_local_task_status(tid)
 
 
 def _update_local_task_status(
@@ -46,22 +52,14 @@ def _update_local_task_status(
     event_details: dict | None = None,
     **kwargs,
 ):
-    task = task_repo.get_by_id(tid)
-    if not task:
-        task = TaskDB(id=tid, created_at=time.time())
-
-    task.status = normalize_task_status(status)
-    task.updated_at = time.time()
-
-    for key, value in kwargs.items():
-        if hasattr(task, key):
-            setattr(task, key, value)
-
-    if event_type:
-        append_task_history_event(task, event_type=event_type, actor=event_actor, details=event_details or {})
-
-    task_repo.save(task)
-    _notify_task_update(tid)
+    update_local_task_status(
+        tid,
+        status,
+        event_type=event_type,
+        event_actor=event_actor,
+        event_details=event_details,
+        **kwargs,
+    )
 
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:

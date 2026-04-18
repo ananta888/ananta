@@ -2,6 +2,7 @@ import uuid
 from typing import List, Optional
 
 from sqlmodel import Field, SQLModel
+from agent.task_models import TaskStatus
 
 
 class TaskStepProposeRequest(SQLModel):
