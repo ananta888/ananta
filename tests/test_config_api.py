@@ -639,6 +639,63 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     openai_compat = exposure_policy.get("openai_compat") or {}
     assert openai_compat.get("enabled") in {True, False}
     assert openai_compat.get("require_admin_for_user_auth") in {True, False}
+    platform_governance = governance.get("platform_governance") or {}
+    assert platform_governance.get("policy_version") == "platform-governance-v1"
+    assert platform_governance.get("platform_mode") in {"local-dev", "trusted-internal", "admin-only", "semi-public"}
+    assert (platform_governance.get("terminal_policy") or {}).get("enabled") in {True, False}
+
+
+def test_governance_policy_read_model_is_machine_readable(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    res = client.get("/governance/policy", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json.get("data") or {}
+    assert data.get("policy_version") == "platform-governance-v1"
+    assert data.get("platform_mode") == "local-dev"
+    assert isinstance(data.get("decisions"), dict)
+    assert data["decisions"]["terminal_interactive"]["allowed"] is False
+    assert "remote_hubs" in data.get("exposure_policy", {})
+
+
+def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    invalid_mode = client.post("/config", json={"platform_mode": "internet"}, headers=headers)
+    assert invalid_mode.status_code == 400
+    assert invalid_mode.json["message"] == "invalid_platform_mode"
+
+    invalid_terminal = client.post("/config", json={"terminal_policy": "open"}, headers=headers)
+    assert invalid_terminal.status_code == 400
+    assert invalid_terminal.json["message"] == "invalid_terminal_policy"
+
+    invalid_remote_hubs = client.post(
+        "/config",
+        json={"exposure_policy": {"remote_hubs": {"max_hops": 0}}},
+        headers=headers,
+    )
+    assert invalid_remote_hubs.status_code == 400
+    assert invalid_remote_hubs.json["message"] == "invalid_remote_hubs_max_hops"
+
+    ok = client.post(
+        "/config",
+        json={
+            "platform_mode": "admin-only",
+            "terminal_policy": {
+                "enabled": True,
+                "allow_read": True,
+                "allow_interactive": False,
+                "require_admin": True,
+            },
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    policy = client.get("/governance/policy", headers=headers)
+    data = policy.json.get("data") or {}
+    assert data["platform_mode"] == "admin-only"
+    assert data["terminal_policy"]["enabled"] is True
+    assert data["terminal_policy"]["allow_read"] is True
 
 
 def test_set_config_validates_exposure_policy_shape(client, admin_token):
@@ -817,6 +874,7 @@ def test_provider_catalog_exposes_remote_ananta_backend_metadata(client, admin_t
     caps = remote.get("capabilities") or {}
     assert caps.get("provider_type") == "remote_ananta"
     assert caps.get("remote_hub") is True
+    assert (caps.get("remote_hub_policy") or {}).get("enabled") is True
     assert caps.get("instance_id") == "remote-prod-1"
     assert caps.get("max_hops") == 5
 

@@ -15,6 +15,7 @@ import jwt
 
 from agent.config import settings
 from agent.services.live_terminal_session_service import get_live_terminal_session_service
+from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.terminal_bridge import build_terminal_bridge
 
 try:
@@ -71,6 +72,13 @@ def _decode_token(provided_token: str, agent_token: str | None) -> dict[str, Any
         return None
 
     return None
+
+
+def _auth_payload_is_admin(auth_payload: dict[str, Any] | None) -> bool:
+    payload = auth_payload if isinstance(auth_payload, dict) else {}
+    role = str(payload.get("role") or "").strip().lower()
+    roles = payload.get("roles") if isinstance(payload.get("roles"), list) else []
+    return role == "admin" or "admin" in {str(item or "").strip().lower() for item in roles}
 
 
 def _extract_ws_context(ws: Any) -> tuple[dict[str, Any], str | None, str, str | None]:
@@ -238,6 +246,38 @@ def register_ws_terminal(app: Any) -> None:
             return
 
         principal = (auth_payload or {}).get("sub") or "anonymous"
+        terminal_decision = get_platform_governance_service().evaluate_terminal_access(
+            cfg=app.config.get("AGENT_CONFIG", {}) or {},
+            terminal_mode=mode,
+            is_admin=_auth_payload_is_admin(auth_payload),
+        )
+        if not terminal_decision.allowed:
+            _send_event(
+                ws,
+                "error",
+                {
+                    "message": "forbidden",
+                    "details": terminal_decision.reason,
+                    "platform_mode": terminal_decision.platform_mode,
+                    "mode": terminal_decision.mode,
+                },
+            )
+            if terminal_decision.policy.get("emit_audit_events", True):
+                _append_terminal_log(
+                    data_dir,
+                    {
+                        "timestamp": time.time(),
+                        "timestamp_iso": _utc_now_iso(),
+                        "session_id": session_id,
+                        "event": "session_blocked",
+                        "mode": mode,
+                        "principal": principal,
+                        "reason": terminal_decision.reason,
+                        "platform_mode": terminal_decision.platform_mode,
+                        "remote_addr": remote_addr,
+                    },
+                )
+            return
         _append_terminal_log(
             data_dir,
             {

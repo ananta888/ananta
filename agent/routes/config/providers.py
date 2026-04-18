@@ -152,7 +152,8 @@ def list_provider_catalog():
             model_id = str(item.get("id") or "").strip()
             if not model_id:
                 continue
-            available_model_ids.add(f"{backend['provider']}:{model_id}")
+            if bool(backend.get("available")):
+                available_model_ids.add(f"{backend['provider']}:{model_id}")
             local_models.append(
                 _decorate_model(
                     backend["provider"],
@@ -171,7 +172,7 @@ def list_provider_catalog():
             _catalog_entry(
                 backend["provider"],
                 backend.get("base_url"),
-                bool(local_models or list(backend.get("models") or [])),
+                bool(backend.get("available")) and bool(local_models or list(backend.get("models") or [])),
                 local_models,
                 capabilities={
                     "dynamic_models": True,
@@ -183,6 +184,7 @@ def list_provider_catalog():
                     "remote_hub": bool(backend.get("remote_hub")),
                     "instance_id": backend.get("instance_id"),
                     "max_hops": backend.get("max_hops"),
+                    "remote_hub_policy": (backend.get("capabilities") or {}).get("remote_hub_policy"),
                 },
                 task_kind=task_kind,
             )

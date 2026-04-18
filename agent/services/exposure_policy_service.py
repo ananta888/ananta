@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.platform_governance_service import get_platform_governance_service
+
 
 @dataclass(frozen=True)
 class OpenAICompatAccessDecision:
@@ -40,6 +42,12 @@ class ExposurePolicyService:
         "require_admin_for_user_auth": True,
         "emit_audit_events": True,
     }
+    _REMOTE_HUBS_DEFAULTS = {
+        "enabled": True,
+        "require_admin_for_user_auth": True,
+        "emit_audit_events": True,
+        "max_hops": 3,
+    }
 
     def _normalize_openai_compat_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw or {}
@@ -74,22 +82,45 @@ class ExposurePolicyService:
             "emit_audit_events": bool(raw.get("emit_audit_events", self._MCP_DEFAULTS["emit_audit_events"])),
         }
 
+    def _normalize_remote_hubs_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
+        raw = raw or {}
+        max_hops_raw = raw.get("max_hops", self._REMOTE_HUBS_DEFAULTS["max_hops"])
+        try:
+            max_hops = int(max_hops_raw)
+        except (TypeError, ValueError):
+            max_hops = int(self._REMOTE_HUBS_DEFAULTS["max_hops"])
+        max_hops = max(1, max_hops)
+        return {
+            "enabled": bool(raw.get("enabled", self._REMOTE_HUBS_DEFAULTS["enabled"])),
+            "require_admin_for_user_auth": bool(
+                raw.get("require_admin_for_user_auth", self._REMOTE_HUBS_DEFAULTS["require_admin_for_user_auth"])
+            ),
+            "emit_audit_events": bool(raw.get("emit_audit_events", self._REMOTE_HUBS_DEFAULTS["emit_audit_events"])),
+            "max_hops": max_hops,
+        }
+
     def normalize_exposure_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw if isinstance(raw, dict) else {}
         openai_compat = raw.get("openai_compat") if isinstance(raw.get("openai_compat"), dict) else {}
         mcp = raw.get("mcp") if isinstance(raw.get("mcp"), dict) else {}
+        remote_hubs = raw.get("remote_hubs") if isinstance(raw.get("remote_hubs"), dict) else {}
         return {
             "openai_compat": self._normalize_openai_compat_policy(openai_compat),
             "mcp": self._normalize_mcp_policy(mcp),
+            "remote_hubs": self._normalize_remote_hubs_policy(remote_hubs),
         }
 
     def resolve_openai_compat_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
-        normalized = self.normalize_exposure_policy((cfg or {}).get("exposure_policy"))
+        normalized = self.normalize_exposure_policy(get_platform_governance_service().resolve_exposure_policy(cfg))
         return normalized["openai_compat"]
 
     def resolve_mcp_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
-        normalized = self.normalize_exposure_policy((cfg or {}).get("exposure_policy"))
+        normalized = self.normalize_exposure_policy(get_platform_governance_service().resolve_exposure_policy(cfg))
         return normalized["mcp"]
+
+    def resolve_remote_hubs_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
+        normalized = self.normalize_exposure_policy(get_platform_governance_service().resolve_exposure_policy(cfg))
+        return normalized["remote_hubs"]
 
     @staticmethod
     def resolve_auth_source(*, is_agent_auth: bool, is_user_auth: bool) -> str:
