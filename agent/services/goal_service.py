@@ -286,6 +286,101 @@ class GoalService:
             ],
         }
 
+    def get_guided_modes(self) -> List[dict[str, Any]]:
+        return [
+            {
+                "id": "code_fix",
+                "title": "Codeproblem loesen",
+                "description": "Ein spezifisches Codeproblem analysieren und beheben.",
+                "icon": "code",
+                "fields": [
+                    {"name": "issue_description", "label": "Problembeschreibung", "type": "textarea", "required": True},
+                    {"name": "affected_files", "label": "Betroffene Dateien (optional)", "type": "text", "required": False}
+                ],
+                "recommended_capabilities": ["file_read", "file_write", "file_patch"]
+            },
+            {
+                "id": "repo_analysis",
+                "title": "Projekt analysieren",
+                "description": "Die Struktur und Qualitaet eines Projekts untersuchen.",
+                "icon": "analytics",
+                "fields": [
+                    {"name": "scope", "label": "Analyseschwerpunkt", "type": "text", "placeholder": "z.B. Security, Architektur", "required": False}
+                ],
+                "recommended_capabilities": ["file_read"]
+            },
+            {
+                "id": "doc_summary",
+                "title": "Datei zusammenfassen",
+                "description": "Den Inhalt einer oder mehrerer Dateien verständlich zusammenfassen.",
+                "icon": "description",
+                "fields": [
+                    {"name": "files", "label": "Dateien", "type": "text", "required": True},
+                    {"name": "detail_level", "label": "Detailgrad", "type": "select", "options": ["kurz", "mittel", "ausführlich"], "default": "mittel"}
+                ],
+                "recommended_capabilities": ["file_read"]
+            },
+            {
+                "id": "sys_diag",
+                "title": "Systemdiagnose",
+                "description": "Laufzeitprobleme, Logs oder Container-Status prüfen.",
+                "icon": "troubleshoot",
+                "fields": [
+                    {"name": "target", "label": "Diagnoseziel", "type": "text", "placeholder": "z.B. Docker Compose, App Log", "required": True}
+                ],
+                "recommended_capabilities": ["shell_exec"]
+            },
+            {
+                "id": "doc_gen",
+                "title": "Dokumentation erstellen",
+                "description": "Erzeugt technische Dokumentation, READMEs oder Architekturuebersichten.",
+                "icon": "auto_stories",
+                "fields": [
+                    {"name": "topic", "label": "Thema / Scope", "type": "text", "required": True},
+                    {"name": "format", "label": "Format", "type": "select", "options": ["Markdown", "HTML", "Plain Text"], "default": "Markdown"}
+                ],
+                "recommended_capabilities": ["file_read", "file_write"]
+            },
+            {
+                "id": "code_review",
+                "title": "Code Review durchfuehren",
+                "description": "Analysiert Code oder Diffs auf Probleme und schlaegt Verbesserungen vor.",
+                "icon": "rate_review",
+                "fields": [
+                    {"name": "scope", "label": "Review Scope", "type": "text", "placeholder": "z.B. letzte Commits, spezifische Datei", "required": True}
+                ],
+                "recommended_capabilities": ["git_diff", "file_read"]
+            }
+        ]
+
+    def build_goal_from_mode(self, mode: str, mode_data: dict[str, Any]) -> str:
+        if mode == "code_fix":
+            desc = mode_data.get("issue_description", "")
+            files = mode_data.get("affected_files", "")
+            goal = f"Behebe folgendes Codeproblem: {desc}"
+            if files:
+                goal += f" In den Dateien: {files}"
+            return goal
+        if mode == "repo_analysis":
+            scope = mode_data.get("scope") or "allgemeine Struktur"
+            return f"Analysiere das Repository mit Schwerpunkt auf: {scope}"
+        if mode == "doc_summary":
+            files = mode_data.get("files", "")
+            level = mode_data.get("detail_level", "mittel")
+            return f"Fasse folgende Dateien {level} zusammen: {files}"
+        if mode == "sys_diag":
+            target = mode_data.get("target", "")
+            return f"Fuehre eine Systemdiagnose für {target} durch und identifiziere Probleme."
+        if mode == "doc_gen":
+            topic = mode_data.get("topic", "")
+            fmt = mode_data.get("format", "Markdown")
+            return f"Erstelle eine Dokumentation im Format {fmt} zum Thema: {topic}"
+        if mode == "code_review":
+            scope = mode_data.get("scope", "")
+            return f"Fuehre ein Code-Review durch fuer: {scope}. Achte auf SOLID und Best Practices."
+
+        return "Generic Goal"
+
 
 goal_service = GoalService()
 

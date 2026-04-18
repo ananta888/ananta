@@ -107,6 +107,10 @@ export class ControlPlaneFacade {
     return this.hubApi.listGoals(baseUrl, token);
   }
 
+  listGoalModes(baseUrl: string, token?: string) {
+    return this.hubApi.listGoalModes(baseUrl, token);
+  }
+
   configureAutoPlanner(baseUrl: string, config: any, token?: string) {
     return this.hubApi.configureAutoPlanner(baseUrl, config, token);
   }

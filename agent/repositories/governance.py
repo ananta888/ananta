@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import AuditLogDB, PolicyDecisionDB, VerificationRecordDB
+from agent.db_models import ActionPackDB, AuditLogDB, PolicyDecisionDB, VerificationRecordDB
 
 
 class PolicyDecisionRepository:
@@ -95,3 +95,37 @@ class AuditLogRepository:
             session.commit()
             session.refresh(log_entry)
             return log_entry
+
+
+class ActionPackRepository:
+    def get_by_id(self, action_pack_id: str) -> Optional[ActionPackDB]:
+        with Session(engine) as session:
+            return session.get(ActionPackDB, action_pack_id)
+
+    def get_by_name(self, name: str) -> Optional[ActionPackDB]:
+        with Session(engine) as session:
+            statement = select(ActionPackDB).where(ActionPackDB.name == name)
+            return session.exec(statement).first()
+
+    def get_all(self, enabled_only: bool = False) -> List[ActionPackDB]:
+        with Session(engine) as session:
+            statement = select(ActionPackDB)
+            if enabled_only:
+                statement = statement.where(ActionPackDB.enabled == True)
+            return session.exec(statement).all()
+
+    def save(self, action_pack: ActionPackDB):
+        with Session(engine) as session:
+            merged = session.merge(action_pack)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+    def delete(self, action_pack_id: str):
+        with Session(engine) as session:
+            action_pack = session.get(ActionPackDB, action_pack_id)
+            if action_pack:
+                session.delete(action_pack)
+                session.commit()
+                return True
+            return False

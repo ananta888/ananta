@@ -40,6 +40,50 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 
     @if (hub) {
       <div class="card card-primary mb-md">
+        <h3 class="no-margin">Geführte Goals</h3>
+        <p class="muted font-sm mt-sm">Waehle einen Modus fuer strukturierte Aufgaben.</p>
+
+        @if (!selectedGoalMode) {
+          <div class="grid cols-4 gap-sm mt-sm">
+            @for (mode of goalModes; track mode.id) {
+              <div class="card card-light clickable text-center" (click)="setGoalMode(mode)" style="min-height: 100px; display: flex; flex-direction: column; justify-content: center;">
+                <div class="mb-xs"><strong>{{ mode.title }}</strong></div>
+                <div class="muted font-sm mt-xs">{{ mode.description }}</div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="card card-light mt-sm">
+            <div class="row space-between">
+              <strong>{{ selectedGoalMode.title }}</strong>
+              <button class="secondary btn-small" (click)="setGoalMode(null)">Zurueck</button>
+            </div>
+            <div class="grid cols-1 gap-sm mt-md">
+              @for (field of selectedGoalMode.fields; track field.name) {
+                <label>
+                  {{ field.label }}
+                  @if (field.type === 'textarea') {
+                    <textarea [(ngModel)]="goalModeData[field.name]" class="w-full" rows="3" style="min-height: 80px;"></textarea>
+                  } @else if (field.type === 'select') {
+                    <select [(ngModel)]="goalModeData[field.name]" class="w-full">
+                      @for (opt of field.options; track opt) {
+                        <option [value]="opt">{{ opt }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <input [(ngModel)]="goalModeData[field.name]" [type]="field.type" [placeholder]="field.placeholder || ''" class="w-full" />
+                  }
+                </label>
+              }
+            </div>
+            <div class="row mt-md">
+              <button (click)="submitGuidedGoal()" [disabled]="quickGoalBusy">Goal planen</button>
+            </div>
+          </div>
+        }
+
+        <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
         <h3 class="no-margin">Quick Action: Neues Goal</h3>
         <p class="muted font-sm mt-sm">Beschreibe ein Ziel und lasse automatisch Tasks generieren.</p>
         <div class="row gap-sm mt-sm flex-end">
@@ -66,7 +110,12 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           <div class="card-success mt-sm">
             <div class="row space-between">
               <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
-              <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
+              <div class="row gap-sm">
+                @if (quickGoalResult.goal_id) {
+                  <button class="secondary btn-small" (click)="goToGoal(quickGoalResult.goal_id)">Zum Goal Detail</button>
+                }
+                <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
+              </div>
             </div>
             @if (quickGoalResult.task_ids?.length) {
               <div class="muted status-text-sm">
@@ -853,6 +902,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   goalDetail: any = null;
   goalGovernance: any = null;
   goalReportingLoading = false;
+  goalModes: any[] = [];
+  selectedGoalMode: any = null;
+  goalModeData: Record<string, any> = {};
   viewState: UiAsyncState = { loading: true, error: null, empty: false };
   timelineTeamId = '';
   timelineAgent = '';
@@ -860,7 +912,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   timelineErrorOnly = false;
   quickGoalText = '';
   quickGoalBusy = false;
-  quickGoalResult: { tasks_created: number; task_ids: string[] } | null = null;
+  quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
   private sub?: Subscription;
   private connectedTaskCollectionHubUrl: string | null = null;
   private refreshSafetyTimer?: ReturnType<typeof setTimeout>;
@@ -869,6 +921,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     if (this.hub?.url) this.ensureTaskCollection();
     this.refresh();
+    this.refreshGoalModes();
     this.sub = interval(10000).subscribe(() => this.refresh());
   }
 
@@ -1024,6 +1077,53 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.autopilotSecurityLevel = (s?.security_level || 'safe');
       },
       error: () => this.ns.error('Autopilot-Status konnte nicht geladen werden')
+    });
+  }
+
+  refreshGoalModes() {
+    if (!this.hub) return;
+    this.hubApi.listGoalModes(this.hub.url).subscribe({
+      next: modes => this.goalModes = modes,
+      error: () => this.ns.error('Goal-Modi konnten nicht geladen werden')
+    });
+  }
+
+  setGoalMode(mode: any) {
+    this.selectedGoalMode = mode;
+    this.goalModeData = {};
+    if (mode) {
+      mode.fields?.forEach((f: any) => {
+        if (f.default !== undefined) this.goalModeData[f.name] = f.default;
+      });
+    }
+  }
+
+  submitGuidedGoal() {
+    if (!this.hub || !this.selectedGoalMode) return;
+    this.quickGoalBusy = true;
+    this.quickGoalResult = null;
+
+    this.hubApi.createGoal(this.hub.url, {
+      mode: this.selectedGoalMode.id,
+      mode_data: this.goalModeData,
+      create_tasks: true
+    }).subscribe({
+      next: (result: any) => {
+        this.quickGoalBusy = false;
+        this.quickGoalResult = {
+          tasks_created: result?.created_task_ids?.length || 0,
+          task_ids: result?.created_task_ids || [],
+          goal_id: result?.goal?.id
+        };
+        this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
+        this.selectedGoalMode = null;
+        this.goalModeData = {};
+        this.refresh();
+      },
+      error: (err) => {
+        this.quickGoalBusy = false;
+        this.ns.error('Gefuehrte Goal-Planung fehlgeschlagen: ' + (err.error?.message || err.message));
+      }
     });
   }
 
@@ -1464,7 +1564,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.quickGoalBusy = false;
         this.quickGoalResult = {
           tasks_created: result?.created_task_ids?.length || 0,
-          task_ids: result?.created_task_ids || []
+          task_ids: result?.created_task_ids || [],
+          goal_id: result?.goal_id
         };
         this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
         this.quickGoalText = '';
@@ -1479,5 +1580,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   goToBoard() {
     this.router.navigate(['/board']);
+  }
+
+  goToGoal(id: string) {
+    this.router.navigate(['/goal', id]);
   }
 }

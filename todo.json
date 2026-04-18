@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Capability-Bounding, Governance-First",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/",
@@ -47,7 +47,7 @@
           "priority": "critical",
           "type": "integration",
           "principle": "High-Utility, Controlled-Execution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -70,7 +70,7 @@
           "priority": "high",
           "type": "integration",
           "principle": "Developer-Usefulness, Safe-Change-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -93,7 +93,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Least-Privilege, High-Risk-Containment",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/",
@@ -117,7 +117,7 @@
           "priority": "high",
           "type": "integration",
           "principle": "Practical-Utility, Boundary-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -140,7 +140,7 @@
           "priority": "medium",
           "type": "integration",
           "principle": "General-Utility, Reusable-Workflows",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -168,7 +168,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Approachability, Guided-Usefulness",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -189,7 +189,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Structured-Inputs, Better-Planning",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -213,7 +213,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Fast-Time-to-Value, Reusable-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -243,7 +243,7 @@
           "priority": "high",
           "type": "integration",
           "principle": "Immediate-Utility, Controlled-Insight",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -263,7 +263,7 @@
           "priority": "high",
           "type": "integration",
           "principle": "Developer-Workflow, Verification-Friendly",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/",
@@ -287,7 +287,7 @@
           "priority": "high",
           "type": "integration",
           "principle": "Fast-Debugging, Practical-Operations",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -333,7 +333,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Broad-Usefulness, Low-Risk-Value",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -362,7 +362,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Usability, Unified-Work-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/",
@@ -430,7 +430,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Reusability, Fast-Time-to-Value",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "docs/",
@@ -450,7 +450,7 @@
           "priority": "high",
           "type": "integration",
           "principle": "Practical-Workflow-Design, Repeatability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -622,9 +622,9 @@
   "meta": {
     "total_items": 22,
     "by_status": {
-      "completed": 0,
+      "completed": 16,
       "partial": 0,
-      "open": 22
+      "open": 6
     },
     "notes": [
       "Diese Todo-Datei uebersetzt den Wunsch nach mehr direkter Nutzbarkeit in einen governance-first Ausbaupfad statt in einen capability-first Assistentenklon.",

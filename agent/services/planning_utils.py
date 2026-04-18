@@ -70,13 +70,100 @@ GOAL_TEMPLATES = {
             {"title": "Test-Strategie", "description": "Test-Strategie und Abdeckung definieren", "priority": "High"},
             {"title": "Unit Tests", "description": "Unit Tests schreiben", "priority": "High"},
             {"title": "Integration Tests", "description": "Integration Tests implementieren", "priority": "Medium"},
-            {
-                "title": "Coverage-Report",
+            {"title": "Coverage-Report",
                 "description": "Test-Abdeckung analysieren und dokumentieren",
                 "priority": "Low",
             },
         ],
     },
+    "repo_analysis": {
+        "keywords": ["repo_analysis", "projekt analysieren", "analyse", "struktur", "risiken"],
+        "subtasks": [
+            {
+                "title": "Projektstruktur scannen",
+                "description": "Die Ordnerstruktur und wichtigsten Dateien des Projekts auflisten.",
+                "priority": "High",
+            },
+            {
+                "title": "Abhaengigkeiten pruefen",
+                "description": "Externe Bibliotheken und deren Versionen auf Aktualitaet und Risiken pruefen.",
+                "priority": "Medium",
+            },
+            {
+                "title": "Code-Qualitaet Stichproben",
+                "description": "Kernkomponenten auf SOLID-Prinzipien und Best Practices untersuchen.",
+                "priority": "Medium",
+            },
+            {
+                "title": "Sicherheits-Audit",
+                "description": "Nach offensichtlichen Sicherheitsluecken oder Fehlkonfigurationen suchen.",
+                "priority": "High",
+            },
+            {
+                "title": "Analyse-Bericht erstellen",
+                "description": "Zusammenfassung der Ergebnisse als strukturiertes Artefakt speichern.",
+                "priority": "Medium",
+            },
+        ],
+    },
+    "sys_diag": {
+        "keywords": ["sys_diag", "systemdiagnose", "diagnose", "fehler", "logs", "docker", "testfehler"],
+        "subtasks": [
+            {
+                "title": "Logs scannen",
+                "description": "App- und System-Logs auf Fehlermeldungen und Warnungen untersuchen.",
+                "priority": "High",
+            },
+            {
+                "title": "Laufzeitstatus pruefen",
+                "description": "Container-Status, Netzwerkverbindungen und Ressourcenverbrauch kontrollieren.",
+                "priority": "High",
+            },
+            {
+                "title": "Build/Test Re-Run",
+                "description": "Build- oder Test-Prozess manuell triggern, um Fehler zu isolieren.",
+                "priority": "Medium",
+            },
+            {
+                "title": "Ursachenanalyse",
+                "description": "Gefundene Probleme korrelieren und moegliche Ursachen identifizieren.",
+                "priority": "High",
+            },
+            {
+                "title": "Diagnose-Bericht",
+                "description": "Strukturierte Zusammenfassung mit Problemsignalen und Handlungsempfehlungen.",
+                "priority": "Medium",
+            },
+        ],
+    },
+    "incident": {
+        "keywords": ["incident", "notfall", "ausfall", "down", "kritisch"],
+        "subtasks": [
+            {"title": "Systemstatus pruefen", "description": "Laufzeit, Logs und Metriken sofort scannen.", "priority": "High"},
+            {"title": "Eingrenzung", "description": "Betroffene Komponente identifizieren.", "priority": "High"},
+            {"title": "Mitigation", "description": "Sofortmassnahmen zur Stabilisierung einleiten.", "priority": "High"},
+            {"title": "Post-Mortem", "description": "Ursache dokumentieren und dauerhaften Fix planen.", "priority": "Medium"},
+        ]
+    },
+    "architecture_review": {
+        "keywords": ["architecture_review", "architekturreview", "architektur", "design review"],
+        "subtasks": [
+            {"title": "Struktur-Audit", "description": "Modulabhaengigkeiten und Boundaries pruefen.", "priority": "Medium"},
+            {"title": "SOLID Check", "description": "Einhaltung der Engineering-Prinzipien untersuchen.", "priority": "Medium"},
+            {"title": "Design-Dokumentation", "description": "Architekturentscheidungen (ADRs) sichten oder erstellen.", "priority": "Low"},
+            {"title": "Empfehlungsliste", "description": "Konkrete Design-Verbesserungen vorschlagen.", "priority": "Medium"},
+        ]
+    },
+    "code_fix": {
+        "keywords": ["code_fix", "codeproblem", "beheben", "patch"],
+        "subtasks": [
+            {"title": "Analyse & Reproduktion", "description": "Problem im Code lokalisieren und Ursache verstehen.", "priority": "High"},
+            {"title": "Loesungskonzept", "description": "Korrekturvorgehen planen.", "priority": "High"},
+            {"title": "Patch erstellen", "description": "Gezielte Code-Aenderungen (Patches) vorbereiten.", "priority": "High"},
+            {"title": "Verifikation", "description": "Sicherstellen, dass der Fix das Problem loest.", "priority": "Medium"},
+            {"title": "Review-Vorschlag", "description": "Aenderungen als Patch-Vorschlag zur Freigabe einreichen.", "priority": "Low"},
+        ]
+    }
 }
 
 EXECUTION_FOCUSED_GOAL_HINTS = (
@@ -335,6 +422,9 @@ def build_execution_focused_goal_template(goal: str) -> list[dict]:
 
 
 def match_goal_template(goal: str) -> Optional[list[dict]]:
+    if goal in GOAL_TEMPLATES:
+        return GOAL_TEMPLATES[goal]["subtasks"]
+
     lower_goal = goal.lower()
     if any(hint in lower_goal for hint in EXECUTION_FOCUSED_GOAL_HINTS):
         return build_execution_focused_goal_template(goal)

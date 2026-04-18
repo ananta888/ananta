@@ -1,0 +1,240 @@
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
+import { AgentDirectoryService } from '../services/agent-directory.service';
+import { NotificationService } from '../services/notification.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
+import { interval, Subscription } from 'rxjs';
+
+@Component({
+  standalone: true,
+  selector: 'app-goal-detail',
+  imports: [CommonModule, RouterLink, UiSkeletonComponent],
+  template: `
+    <div class="container pb-lg">
+      @if (loading && !goal) {
+        <app-ui-skeleton [count]="1" [lineCount]="2" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
+        <div class="grid cols-2 gap-md mt-md">
+           <app-ui-skeleton [count]="1" [lineCount]="5" lineClass="skeleton block"></app-ui-skeleton>
+           <app-ui-skeleton [count]="1" [lineCount]="5" lineClass="skeleton block"></app-ui-skeleton>
+        </div>
+      }
+
+      @if (goal) {
+        <div class="goal-header-card card card-primary">
+          <div class="row space-between align-start">
+            <div>
+              <div class="muted font-sm mb-xs">Goal #{{ gid }}</div>
+              <h2 class="no-margin">{{ goal.summary || 'Unbenanntes Goal' }}</h2>
+            </div>
+            <div class="row gap-sm">
+              <span class="badge" [class.success]="goal.status === 'completed'" [class.warning]="goal.status === 'planning' || goal.status === 'planned'">
+                {{ goal.status }}
+              </span>
+              <button class="secondary btn-small" (click)="refresh()">Refresh</button>
+            </div>
+          </div>
+          <div class="goal-description-box mt-md">
+            <strong>Beschreibung:</strong>
+            <p class="mt-xs">{{ goal.goal }}</p>
+          </div>
+        </div>
+
+        <div class="grid cols-3 gap-md mt-md">
+          <!-- Linke Spalte: Plan & Status -->
+          <div class="col-span-2">
+            <div class="card h-full">
+              <div class="row space-between">
+                <h3 class="no-margin">Plan & Task-Fortschritt</h3>
+                <div class="muted font-sm">{{ tasks.length }} Tasks</div>
+              </div>
+
+              <div class="task-timeline mt-md">
+                @for (task of tasks; track task.id; let i = $index) {
+                  <div class="task-node-item" [class.done]="task.status === 'completed'" [class.failed]="task.status === 'failed'" [class.active]="task.status === 'in_progress'">
+                    <div class="task-node-status-line">
+                      <div class="status-circle"></div>
+                      @if (i < tasks.length - 1) { <div class="status-connector"></div> }
+                    </div>
+                    <div class="task-node-content card card-light clickable" [routerLink]="['/task', task.id]">
+                      <div class="row space-between">
+                        <strong>{{ task.title }}</strong>
+                        <span class="badge font-xs">{{ task.status }}</span>
+                      </div>
+                      <div class="muted font-sm mt-xs line-clamp-1">{{ task.id }}</div>
+                      @if (task.verification_status?.status) {
+                        <div class="mt-xs">
+                          <span class="badge font-xs" [class.success]="task.verification_status.status === 'passed'">
+                            Verification: {{ task.verification_status.status }}
+                          </span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (!tasks.length) {
+                  <div class="empty-state p-lg text-center">
+                    <p class="muted">Noch keine Tasks fuer diesen Plan generiert.</p>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- Rechte Spalte: Artefakte & Kosten -->
+          <div class="column flex-column gap-md">
+            <div class="card">
+              <h3 class="no-margin">Erzeugte Artefakte</h3>
+              <div class="artifact-list mt-md">
+                @for (art of artifacts; track art.task_id) {
+                  <div class="artifact-item list-item clickable" [routerLink]="['/task', art.task_id]">
+                    <div class="font-weight-medium">{{ art.title }}</div>
+                    <div class="muted font-sm mt-xs line-clamp-2">{{ art.preview }}</div>
+                  </div>
+                }
+                @if (!artifacts.length) {
+                  <p class="muted p-md text-center">Keine Artefakte vorhanden.</p>
+                }
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="no-margin">Governance & Kosten</h3>
+              @if (costSummary) {
+                <div class="grid cols-2 gap-sm mt-md">
+                   <div>
+                     <div class="muted font-sm">Tokens</div>
+                     <strong>{{ costSummary.total_tokens | number }}</strong>
+                   </div>
+                   <div>
+                     <div class="muted font-sm">Kosten (Units)</div>
+                     <strong>{{ costSummary.total_cost_units | number:'1.2-4' }}</strong>
+                   </div>
+                </div>
+              }
+              @if (governance) {
+                <div class="mt-md">
+                   <div class="row space-between font-sm">
+                     <span>Verification:</span>
+                     <strong>{{ governance.verification?.passed }}/{{ governance.verification?.total }} passed</strong>
+                   </div>
+                   <div class="row space-between font-sm mt-xs">
+                     <span>Policies:</span>
+                     <strong>{{ governance.policy?.approved }} approved</strong>
+                   </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <style>
+      .task-timeline {
+        display: flex;
+        flex-direction: column;
+      }
+      .task-node-item {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 10px;
+      }
+      .task-node-status-line {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 20px;
+        padding-top: 15px;
+      }
+      .status-circle {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--border);
+        border: 2px solid var(--card-bg);
+        z-index: 2;
+      }
+      .status-connector {
+        width: 2px;
+        flex-grow: 1;
+        background: var(--border);
+        margin: 5px 0;
+      }
+      .task-node-content {
+        flex-grow: 1;
+        padding: 12px;
+        margin: 0 !important;
+      }
+      .task-node-item.done .status-circle, .task-node-item.done .status-connector {
+        background: var(--success);
+      }
+      .task-node-item.active .status-circle {
+        background: var(--warning);
+        box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.2);
+      }
+      .task-node-item.failed .status-circle {
+        background: var(--danger);
+      }
+      .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+      .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .artifact-item { padding: 10px; border-radius: 4px; }
+      .artifact-item:hover { background: rgba(255,255,255,0.05); }
+    </style>
+  `
+})
+export class GoalDetailComponent implements OnInit, OnDestroy {
+  private route = inject(ActivatedRoute);
+  private facade = inject(ControlPlaneFacade);
+  private dir = inject(AgentDirectoryService);
+  private ns = inject(NotificationService);
+  private cdr = inject(ChangeDetectorRef);
+
+  gid = '';
+  goal: any;
+  tasks: any[] = [];
+  artifacts: any[] = [];
+  governance: any;
+  costSummary: any;
+  loading = false;
+  private sub?: Subscription;
+
+  get hub() {
+    return this.dir.list().find(a => a.role === 'hub');
+  }
+
+  ngOnInit() {
+    this.route.paramMap.subscribe(params => {
+      this.gid = params.get('id') || '';
+      this.refresh();
+    });
+    this.sub = interval(15000).subscribe(() => this.refresh(true));
+  }
+
+  ngOnDestroy() {
+    this.sub?.unsubscribe();
+  }
+
+  refresh(silent = false) {
+    if (!this.hub || !this.gid) return;
+    if (!silent) this.loading = true;
+
+    this.facade.getGoalDetail(this.hub.url, this.gid).subscribe({
+      next: (res: any) => {
+        this.goal = res.goal;
+        this.tasks = res.tasks || [];
+        this.artifacts = res.artifacts?.artifacts || [];
+        this.governance = res.governance;
+        this.costSummary = res.cost_summary;
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        if (!silent) this.ns.error('Goal-Details konnten nicht geladen werden.');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+}
