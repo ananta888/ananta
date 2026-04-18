@@ -1,0 +1,1091 @@
+{
+  "agents": {
+    "count": "int",
+    "items": []
+  },
+  "assistant_capabilities": {
+    "allowed_tools": [
+      "str"
+    ],
+    "is_admin": "bool",
+    "tools": [
+      {
+        "allowed_now": "bool",
+        "category": "str",
+        "description": "str",
+        "mutates_state": "bool",
+        "name": "str",
+        "requires_admin": "bool"
+      }
+    ]
+  },
+  "automation": {
+    "auto_planner": {
+      "auto_followup_enabled": "bool",
+      "auto_start_autopilot": "bool",
+      "default_priority": "str",
+      "enabled": "bool",
+      "llm_retry_attempts": "int",
+      "llm_retry_backoff": "float",
+      "llm_timeout": "int",
+      "max_subtasks_per_goal": "int",
+      "stats": {
+        "errors": "int",
+        "followups_created": "int",
+        "goals_processed": "int",
+        "llm_retries": "int",
+        "tasks_created": "int"
+      }
+    },
+    "autopilot": {
+      "budget_label": "str",
+      "circuit_breakers": {
+        "failure_streak": {},
+        "open_count": "int",
+        "open_workers": []
+      },
+      "completed_count": "int",
+      "dispatched_count": "int",
+      "effective_security_policy": {
+        "allowed_tool_classes": [
+          "str"
+        ],
+        "execute_retries": "int",
+        "execute_timeout": "int",
+        "level": "str",
+        "max_concurrency_cap": "int"
+      },
+      "failed_count": "int",
+      "goal": "str",
+      "interval_seconds": "int",
+      "last_error": "NoneType",
+      "last_tick_at": "NoneType",
+      "max_concurrency": "int",
+      "running": "bool",
+      "security_level": "str",
+      "started_at": "NoneType",
+      "team_id": "str",
+      "tick_count": "int"
+    },
+    "triggers": {
+      "auto_start_planner": "bool",
+      "configured_handlers": [
+        "str"
+      ],
+      "dedup": {
+        "enabled": "bool",
+        "replay_window_seconds": "int",
+        "tracked_fingerprints": "int",
+        "ttl_seconds": "int"
+      },
+      "enabled_sources": [
+        "str"
+      ],
+      "ip_whitelists": {},
+      "rate_limits": {},
+      "stats": {
+        "deduplicated": "int",
+        "ip_blocked": "int",
+        "policy_blocked": "int",
+        "rate_limited": "int",
+        "rejected": "int",
+        "replay_blocked": "int",
+        "tasks_created": "int",
+        "webhooks_received": "int"
+      },
+      "webhook_secrets_configured": []
+    }
+  },
+  "config": {
+    "effective": {
+      "adaptive_model_routing_enabled": "bool",
+      "adaptive_model_routing_min_samples": "int",
+      "adaptive_model_routing_top_k": "int",
+      "autonomous_guardrails": {
+        "enabled": "bool",
+        "max_dispatched_total": "int",
+        "max_runtime_seconds": "int",
+        "max_ticks_total": "int"
+      },
+      "autonomous_resilience": {
+        "circuit_breaker_open_seconds": "int",
+        "circuit_breaker_threshold": "int",
+        "retry_attempts": "int",
+        "retry_backoff_seconds": "float",
+        "retry_jitter_factor": "float",
+        "retry_max_backoff_seconds": "float"
+      },
+      "autopilot_security_policies": {
+        "aggressive": {
+          "allowed_tool_classes": [
+            "str"
+          ],
+          "execute_retries": "int",
+          "execute_timeout": "int",
+          "max_concurrency_cap": "int"
+        },
+        "balanced": {
+          "allowed_tool_classes": [
+            "str"
+          ],
+          "execute_retries": "int",
+          "execute_timeout": "int",
+          "max_concurrency_cap": "int"
+        },
+        "safe": {
+          "allowed_tool_classes": [
+            "str"
+          ],
+          "execute_retries": "int",
+          "execute_timeout": "int",
+          "max_concurrency_cap": "int"
+        }
+      },
+      "autopilot_strategy_fallback_models": [
+        "str"
+      ],
+      "autopilot_strategy_max_attempts": "int",
+      "autopilot_strategy_retry_delay_seconds": "int",
+      "autopilot_strategy_temperature_profiles": [
+        "float"
+      ],
+      "cli_session_mode": {
+        "allow_task_scoped_auto_session": "bool",
+        "enabled": "bool",
+        "max_sessions": "int",
+        "max_turns_per_session": "int",
+        "native_opencode_sessions": "bool",
+        "reuse_scope": "str",
+        "stateful_backends": [
+          "str"
+        ]
+      },
+      "codex_cli": {
+        "api_key_profile": "str",
+        "base_url": "NoneType",
+        "prefer_lmstudio": "bool"
+      },
+      "default_model": "str",
+      "default_provider": "str",
+      "evolution": {
+        "analyze_only": "bool",
+        "apply_allowed": "bool",
+        "auto_triggers_enabled": "bool",
+        "default_provider": "NoneType",
+        "enabled": "bool",
+        "manual_triggers_enabled": "bool",
+        "max_manual_analyses_per_task": "int",
+        "max_raw_payload_bytes": "int",
+        "provider_overrides": {
+          "evolver": {
+            "analyze_path": "str",
+            "base_url": "NoneType",
+            "default": "bool",
+            "enabled": "bool",
+            "provider_name": "str",
+            "replace": "bool",
+            "timeout_seconds": "float",
+            "version": "str"
+          }
+        },
+        "require_review_before_apply": "bool",
+        "validate_allowed": "bool"
+      },
+      "execution_fallback_policy": {
+        "allow_hub_worker_fallback": "bool",
+        "escalate_on_fallback_block": "bool",
+        "fallback_block_status": "str"
+      },
+      "execution_risk_policy": {
+        "default_action": "str",
+        "deny_risk_levels": [
+          "str"
+        ],
+        "enabled": "bool",
+        "require_terminal_capability_for_command": "bool",
+        "review_risk_levels": [
+          "str"
+        ],
+        "task_scoped_only": "bool",
+        "terminal_capability_name": "str"
+      },
+      "exposure_policy": {
+        "mcp": {
+          "allow_agent_auth": "bool",
+          "allow_user_auth": "bool",
+          "emit_audit_events": "bool",
+          "enabled": "bool",
+          "require_admin_for_user_auth": "bool"
+        },
+        "openai_compat": {
+          "allow_agent_auth": "bool",
+          "allow_files_api": "bool",
+          "allow_user_auth": "bool",
+          "emit_audit_events": "bool",
+          "enabled": "bool",
+          "instance_id": "NoneType",
+          "max_hops": "int",
+          "require_admin_for_user_auth": "bool"
+        },
+        "remote_hubs": {
+          "emit_audit_events": "bool",
+          "enabled": "bool",
+          "max_hops": "int",
+          "require_admin_for_user_auth": "bool"
+        }
+      },
+      "goal_plan_limits": {
+        "max_plan_depth": "int",
+        "max_plan_nodes": "int"
+      },
+      "llm_config": {
+        "base_url": "str",
+        "lmstudio_api_mode": "str",
+        "model": "str",
+        "provider": "str"
+      },
+      "llm_pricing": {
+        "default": {
+          "cost_per_1k_tokens": "str"
+        }
+      },
+      "llm_tool_guardrails": {
+        "chars_per_token_estimate": "str",
+        "class_cost_units": {
+          "admin": "int",
+          "read": "int",
+          "unknown": "int",
+          "write": "int"
+        },
+        "class_limits": {
+          "admin": "int",
+          "read": "int",
+          "write": "int"
+        },
+        "enabled": "bool",
+        "external_classes": [
+          "str"
+        ],
+        "max_estimated_cost_units_per_request": "int",
+        "max_external_calls_per_request": "int",
+        "max_tokens_per_request": "str",
+        "max_tool_calls_per_request": "int",
+        "tool_classes": {
+          "activate_team": "str",
+          "analyze_logs": "str",
+          "assign_role": "str",
+          "configure_auto_planner": "str",
+          "configure_triggers": "str",
+          "create_team": "str",
+          "create_template": "str",
+          "delete_role": "str",
+          "delete_team": "str",
+          "delete_team_type": "str",
+          "delete_template": "str",
+          "ensure_team_templates": "str",
+          "link_role_to_team_type": "str",
+          "list_agents": "str",
+          "list_roles": "str",
+          "list_teams": "str",
+          "list_templates": "str",
+          "read_agent_logs": "str",
+          "set_autopilot_state": "str",
+          "set_role_template_mapping": "str",
+          "unlink_role_from_team_type": "str",
+          "update_config": "str",
+          "update_template": "str",
+          "upsert_role": "str",
+          "upsert_team": "str",
+          "upsert_team_type": "str"
+        }
+      },
+      "max_summary_length": "int",
+      "model": "str",
+      "opencode_default_model": "str",
+      "opencode_runtime": {
+        "execution_mode": "str",
+        "interactive_launch_mode": "str",
+        "target_provider": "str",
+        "tool_mode": "str"
+      },
+      "platform_mode": "str",
+      "provider": "str",
+      "quality_gates": {
+        "autopilot_enforce": "bool",
+        "coding_keywords": [
+          "str"
+        ],
+        "enabled": "bool",
+        "min_output_chars": "int",
+        "required_output_markers_for_coding": [
+          "str"
+        ]
+      },
+      "remote_federation_policy": {
+        "allow_artifact_access": "bool",
+        "allow_file_access": "bool",
+        "allowed_operations": [
+          "str"
+        ],
+        "default_trust_level": "str",
+        "enabled": "bool",
+        "max_hops": "int",
+        "require_provenance": "bool"
+      },
+      "research_backend": {
+        "command": "str",
+        "docker_binary": "str",
+        "enabled": "bool",
+        "mode": "str",
+        "provider": "str",
+        "result_format": "str",
+        "sandbox_image": "NoneType",
+        "sandbox_mount_repo": "bool",
+        "sandbox_network": "str",
+        "sandbox_read_only": "bool",
+        "sandbox_tmp_dir": "str",
+        "sandbox_workdir": "str",
+        "timeout_seconds": "int",
+        "working_dir": "NoneType"
+      },
+      "result_memory_policy": {
+        "archive_raw_output": "bool",
+        "create_followup_artifact": "bool",
+        "enabled": "bool",
+        "neighbor_file_terms_enabled": "bool",
+        "raw_history_max_chars": "int",
+        "retrieval_document_max_chars": "int"
+      },
+      "review_policy": {
+        "enabled": "bool",
+        "file_access_risk_level": "str",
+        "min_risk_level_for_review": "str",
+        "policy_version": "str",
+        "research_backends": [
+          "str"
+        ],
+        "task_kinds": [
+          "str"
+        ],
+        "terminal_risk_level": "str"
+      },
+      "routing_fallback_policy": {
+        "allow_local_backends": "bool",
+        "allow_remote_hubs": "bool",
+        "allow_stateful_cli": "bool",
+        "allow_stateless_generation": "bool",
+        "allow_static_providers": "bool",
+        "enabled": "bool",
+        "fallback_order": [
+          "str"
+        ],
+        "unavailable_action": "str"
+      },
+      "runtime_profile": "str",
+      "runtime_profile_catalog": {
+        "compose-safe": {
+          "description": "str",
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str"
+        },
+        "distributed-strict": {
+          "description": "str",
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str"
+        },
+        "local-dev": {
+          "description": "str",
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str"
+        },
+        "trusted-lab": {
+          "description": "str",
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str"
+        }
+      },
+      "sgpt_routing": {
+        "default_backend": "str",
+        "policy_version": "str",
+        "research_capability_backend": {},
+        "task_kind_backend": {
+          "analysis": "str",
+          "coding": "str",
+          "doc": "str",
+          "ops": "str",
+          "research": "str"
+        }
+      },
+      "task_kind_execution_policies": {
+        "analysis": {
+          "command_retries": "int",
+          "command_retry_delay": "int",
+          "command_timeout": "int"
+        },
+        "coding": {
+          "command_max_retry_delay": "int",
+          "command_retries": "int",
+          "command_retry_delay": "int",
+          "command_retry_strategy": "str",
+          "command_timeout": "int"
+        },
+        "doc": {
+          "command_retries": "int",
+          "command_retry_delay": "int",
+          "command_timeout": "int"
+        },
+        "ops": {
+          "command_max_retry_delay": "int",
+          "command_retries": "int",
+          "command_retry_delay": "int",
+          "command_retry_strategy": "str",
+          "command_timeout": "int"
+        },
+        "research": {
+          "command_max_retry_delay": "int",
+          "command_retries": "int",
+          "command_retry_delay": "int",
+          "command_retry_strategy": "str",
+          "command_timeout": "int"
+        }
+      },
+      "task_propose_timeout_seconds": "int",
+      "terminal_policy": {
+        "allow_interactive": "bool",
+        "allow_read": "bool",
+        "allowed_cidrs": [],
+        "allowed_roles": [],
+        "emit_audit_events": "bool",
+        "enabled": "bool",
+        "idle_timeout_seconds": "int",
+        "input_preview_max_chars": "int",
+        "max_session_seconds": "int",
+        "require_admin": "bool"
+      },
+      "worker_runtime": {
+        "workspace_reuse_mode": "str",
+        "workspace_root": "NoneType"
+      }
+    },
+    "has_sensitive_redactions": "bool"
+  },
+  "context_timestamp": "int",
+  "roles": {
+    "count": "int",
+    "items": []
+  },
+  "settings": {
+    "editable_count": "int",
+    "editable_inventory": [
+      {
+        "allowed_values": [
+          "str"
+        ],
+        "editable": "bool",
+        "endpoint": "str",
+        "key": "str",
+        "path": "str",
+        "type": "str"
+      }
+    ],
+    "runtime_telemetry": {
+      "cli_backends": {
+        "aider": {
+          "binary_available": "bool",
+          "binary_path": "NoneType",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
+        "ananta_research": {
+          "binary_available": "bool",
+          "binary_path": "NoneType",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
+        "codex": {
+          "binary_available": "bool",
+          "binary_path": "NoneType",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
+        "deerflow": {
+          "binary_available": "bool",
+          "binary_path": "str",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
+        "mistral_code": {
+          "binary_available": "bool",
+          "binary_path": "NoneType",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
+        "opencode": {
+          "binary_available": "bool",
+          "binary_path": "NoneType",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
+        "sgpt": {
+          "binary_available": "bool",
+          "binary_path": "str",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        }
+      },
+      "providers": {
+        "codex": {
+          "api_key_configured": "bool",
+          "api_key_source": "str",
+          "base_url": "str",
+          "base_url_source": "str",
+          "configured": "bool",
+          "diagnostics": [],
+          "host_kind": "str",
+          "instance_id": "NoneType",
+          "is_local": "bool",
+          "max_hops": "NoneType",
+          "prefer_lmstudio": "bool",
+          "remote_hub": "bool",
+          "target_kind": "str",
+          "target_provider": "str",
+          "target_provider_type": "NoneType"
+        },
+        "lmstudio": {
+          "base_url": "str",
+          "candidate_count": "int",
+          "candidates": [
+            {
+              "context_length": "NoneType",
+              "id": "str"
+            }
+          ],
+          "configured": "bool",
+          "host_kind": "str",
+          "is_local": "bool",
+          "models_url": "str",
+          "reachable": "bool",
+          "status": "str"
+        },
+        "local_openai": [
+          {
+            "api_key_profile": "NoneType",
+            "base_url": "str",
+            "instance_id": "NoneType",
+            "max_hops": "NoneType",
+            "name": "str",
+            "provider": "str",
+            "provider_type": "str",
+            "remote_hub": "bool",
+            "supports_tool_calls": "bool",
+            "transport_provider": "str"
+          }
+        ],
+        "ollama": {
+          "activity": {
+            "active_count": "int",
+            "active_models": [],
+            "executor_summary": {
+              "cpu": "int",
+              "gpu": "int",
+              "unknown": "int"
+            },
+            "gpu_active": "bool",
+            "ps_url": "str",
+            "reachable": "bool",
+            "status": "str"
+          },
+          "base_url": "str",
+          "candidate_count": "int",
+          "configured": "bool",
+          "host_kind": "str",
+          "is_local": "bool",
+          "models": [],
+          "reachable": "bool",
+          "status": "str",
+          "tags_url": "str"
+        }
+      }
+    },
+    "summary": {
+      "counts": {
+        "teams": "int",
+        "templates": "int"
+      },
+      "governance": {
+        "execution_risk_policy": {
+          "default_action": "str",
+          "deny_risk_levels": [
+            "str"
+          ],
+          "enabled": "bool",
+          "review_risk_levels": [
+            "str"
+          ],
+          "task_scoped_only": "bool"
+        },
+        "exposure_policy": {
+          "mcp": {
+            "allow_agent_auth": "bool",
+            "allow_user_auth": "bool",
+            "emit_audit_events": "bool",
+            "enabled": "bool",
+            "require_admin_for_user_auth": "bool"
+          },
+          "openai_compat": {
+            "allow_agent_auth": "bool",
+            "allow_files_api": "bool",
+            "allow_user_auth": "bool",
+            "emit_audit_events": "bool",
+            "enabled": "bool",
+            "instance_id": "NoneType",
+            "max_hops": "int",
+            "require_admin_for_user_auth": "bool"
+          },
+          "remote_hubs": {
+            "emit_audit_events": "bool",
+            "enabled": "bool",
+            "max_hops": "int",
+            "require_admin_for_user_auth": "bool"
+          }
+        },
+        "platform_governance": {
+          "available_modes": [
+            "str"
+          ],
+          "decisions": {
+            "mcp": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "openai_compat": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "remote_hubs": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "terminal_interactive": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "terminal_read": {
+              "allowed": "bool",
+              "reason": "str"
+            }
+          },
+          "exposure_policy": {
+            "mcp": {
+              "allow_agent_auth": "bool",
+              "allow_user_auth": "bool",
+              "emit_audit_events": "bool",
+              "enabled": "bool",
+              "require_admin_for_user_auth": "bool"
+            },
+            "openai_compat": {
+              "allow_agent_auth": "bool",
+              "allow_files_api": "bool",
+              "allow_user_auth": "bool",
+              "emit_audit_events": "bool",
+              "enabled": "bool",
+              "instance_id": "NoneType",
+              "max_hops": "int",
+              "require_admin_for_user_auth": "bool"
+            },
+            "remote_hubs": {
+              "emit_audit_events": "bool",
+              "enabled": "bool",
+              "max_hops": "int",
+              "require_admin_for_user_auth": "bool"
+            }
+          },
+          "platform_mode": "str",
+          "policy_version": "str",
+          "terminal_policy": {
+            "allow_interactive": "bool",
+            "allow_read": "bool",
+            "allowed_cidrs": [],
+            "allowed_roles": [],
+            "emit_audit_events": "bool",
+            "enabled": "bool",
+            "idle_timeout_seconds": "int",
+            "input_preview_max_chars": "int",
+            "max_session_seconds": "int",
+            "require_admin": "bool"
+          }
+        },
+        "remote_federation_policy": {
+          "allow_artifact_access": "bool",
+          "allow_file_access": "bool",
+          "allowed_operations": [
+            "str"
+          ],
+          "default_trust_level": "str",
+          "enabled": "bool",
+          "max_hops": "int",
+          "require_provenance": "bool"
+        },
+        "result_memory_policy": {
+          "archive_raw_output": "bool",
+          "create_followup_artifact": "bool",
+          "enabled": "bool",
+          "neighbor_file_terms_enabled": "bool",
+          "raw_history_max_chars": "int",
+          "retrieval_document_max_chars": "int"
+        },
+        "review_policy": {
+          "enabled": "bool",
+          "file_access_risk_level": "str",
+          "min_risk_level_for_review": "str",
+          "policy_version": "str",
+          "terminal_risk_level": "str"
+        },
+        "routing_fallback_policy": {
+          "allow_local_backends": "bool",
+          "allow_remote_hubs": "bool",
+          "allow_stateful_cli": "bool",
+          "allow_stateless_generation": "bool",
+          "allow_static_providers": "bool",
+          "enabled": "bool",
+          "fallback_order": [
+            "str"
+          ],
+          "unavailable_action": "str"
+        }
+      },
+      "llm": {
+        "artifact_flow": {
+          "effective": {
+            "enabled": "bool",
+            "max_tasks": "int",
+            "max_worker_jobs_per_task": "int",
+            "rag_enabled": "bool",
+            "rag_include_content": "bool",
+            "rag_top_k": "int"
+          },
+          "requested": {
+            "enabled": "bool",
+            "max_tasks": "int",
+            "max_worker_jobs_per_task": "int",
+            "rag_enabled": "bool",
+            "rag_include_content": "bool",
+            "rag_top_k": "int"
+          },
+          "source": {
+            "enabled": "str",
+            "max_tasks": "str",
+            "max_worker_jobs_per_task": "str",
+            "rag_enabled": "str",
+            "rag_include_content": "str",
+            "rag_top_k": "str"
+          }
+        },
+        "cli_session_mode": {
+          "allow_task_scoped_auto_session": "bool",
+          "enabled": "bool",
+          "max_sessions": "int",
+          "max_turns_per_session": "int",
+          "native_opencode_sessions": "bool",
+          "reuse_scope": "str",
+          "runtime": {
+            "active": "int",
+            "closed": "int",
+            "total": "int",
+            "updated_at": "float"
+          },
+          "stateful_backends": [
+            "str"
+          ]
+        },
+        "codex_cli": {
+          "api_key_profile": "str",
+          "base_url": "NoneType",
+          "prefer_lmstudio": "bool"
+        },
+        "context_bundle_policy": {
+          "effective": {
+            "budget_tokens_by_mode": {
+              "compact": "int",
+              "full": "int",
+              "standard": "int"
+            },
+            "compact_budget_tokens": "int",
+            "compact_max_chunks": "int",
+            "full_budget_tokens": "int",
+            "include_context_text": "bool",
+            "max_chunks": "NoneType",
+            "mode": "str",
+            "standard_budget_tokens": "int",
+            "standard_max_chunks": "int",
+            "total_budget_tokens": "int",
+            "window_profile": "str"
+          },
+          "requested": {
+            "budget_tokens_by_mode": {
+              "compact": "int",
+              "full": "int",
+              "standard": "int"
+            },
+            "compact_budget_tokens": "int",
+            "compact_max_chunks": "int",
+            "full_budget_tokens": "int",
+            "mode": "str",
+            "standard_budget_tokens": "int",
+            "standard_max_chunks": "int",
+            "window_profile": "str"
+          },
+          "source": {
+            "compact_budget_tokens": "str",
+            "compact_max_chunks": "str",
+            "full_budget_tokens": "str",
+            "mode": "str",
+            "standard_budget_tokens": "str",
+            "standard_max_chunks": "str",
+            "window_profile": "str"
+          }
+        },
+        "default_model": "str",
+        "default_provider": "str",
+        "hub_copilot": {
+          "active": "bool",
+          "effective": {
+            "base_url": "str",
+            "model": "str",
+            "provider": "str",
+            "temperature": "NoneType"
+          },
+          "enabled": "bool",
+          "requested": {
+            "base_url": "NoneType",
+            "model": "NoneType",
+            "provider": "NoneType",
+            "temperature": "NoneType"
+          },
+          "source": {
+            "base_url": "str",
+            "model": "str",
+            "provider": "str",
+            "temperature": "NoneType"
+          },
+          "strategy_mode": "str"
+        },
+        "opencode_runtime": {
+          "effective": {
+            "execution_mode": "str",
+            "interactive_launch_mode": "str",
+            "target_provider": "str",
+            "tool_mode": "str"
+          },
+          "requested": {
+            "execution_mode": "str",
+            "interactive_launch_mode": "str",
+            "target_provider": "str",
+            "tool_mode": "str"
+          },
+          "source": {
+            "execution_mode": "str",
+            "interactive_launch_mode": "str",
+            "target_provider": "str",
+            "tool_mode": "str"
+          }
+        },
+        "research_backend": {
+          "binary_available": "bool",
+          "binary_path": "str",
+          "command": "str",
+          "configured": "bool",
+          "docker_available": "bool",
+          "docker_binary": "str",
+          "enabled": "bool",
+          "mode": "str",
+          "provider": "str",
+          "providers": {
+            "ananta_research": {
+              "binary_available": "bool",
+              "binary_path": "NoneType",
+              "command": "str",
+              "configured": "bool",
+              "display_name": "str",
+              "docker_available": "bool",
+              "docker_binary": "str",
+              "enabled": "bool",
+              "install_hint": "str",
+              "mode": "str",
+              "provider": "str",
+              "result_format": "str",
+              "sandbox_image": "NoneType",
+              "sandbox_mount_repo": "bool",
+              "sandbox_network": "str",
+              "sandbox_read_only": "bool",
+              "sandbox_workdir": "str",
+              "selected": "bool",
+              "selected_provider": "str",
+              "supports_model": "bool",
+              "timeout_seconds": "int",
+              "verify_command": "str",
+              "working_dir": "NoneType",
+              "working_dir_exists": "bool"
+            },
+            "deerflow": {
+              "binary_available": "bool",
+              "binary_path": "str",
+              "command": "str",
+              "configured": "bool",
+              "display_name": "str",
+              "docker_available": "bool",
+              "docker_binary": "str",
+              "enabled": "bool",
+              "install_hint": "str",
+              "mode": "str",
+              "provider": "str",
+              "result_format": "str",
+              "sandbox_image": "NoneType",
+              "sandbox_mount_repo": "bool",
+              "sandbox_network": "str",
+              "sandbox_read_only": "bool",
+              "sandbox_workdir": "str",
+              "selected": "bool",
+              "selected_provider": "str",
+              "supports_model": "bool",
+              "timeout_seconds": "int",
+              "verify_command": "str",
+              "working_dir": "NoneType",
+              "working_dir_exists": "bool"
+            }
+          },
+          "result_format": "str",
+          "sandbox_image": "NoneType",
+          "sandbox_mount_repo": "bool",
+          "sandbox_network": "str",
+          "sandbox_read_only": "bool",
+          "sandbox_workdir": "str",
+          "supported_providers": [
+            "str"
+          ],
+          "timeout_seconds": "int",
+          "working_dir": "NoneType",
+          "working_dir_exists": "bool"
+        },
+        "role_model_overrides": {},
+        "task_kind_model_overrides": {},
+        "team_agent_name": "NoneType",
+        "template_agent_name": "NoneType",
+        "template_model_overrides": {},
+        "worker_runtime": {
+          "effective": {
+            "workspace_reuse_mode": "str",
+            "workspace_root": "NoneType"
+          },
+          "requested": {
+            "workspace_reuse_mode": "str",
+            "workspace_root": "NoneType"
+          },
+          "source": {
+            "workspace_reuse_mode": "str",
+            "workspace_root": "str"
+          }
+        }
+      },
+      "quality_gates": {
+        "autopilot_enforce": "bool",
+        "enabled": "bool",
+        "min_output_chars": "int"
+      },
+      "system": {
+        "agent_offline_timeout": "NoneType",
+        "command_timeout": "NoneType",
+        "http_timeout": "NoneType",
+        "log_level": "NoneType",
+        "runtime_profile": {
+          "catalog": {
+            "compose-safe": {
+              "description": "str",
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str"
+            },
+            "distributed-strict": {
+              "description": "str",
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str"
+            },
+            "local-dev": {
+              "description": "str",
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str"
+            },
+            "trusted-lab": {
+              "description": "str",
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str"
+            }
+          },
+          "effective": "str",
+          "profile": {
+            "description": "str",
+            "label": "str",
+            "recommended_compose_profiles": [
+              "str"
+            ],
+            "review_mode": "str",
+            "security_posture": "str"
+          },
+          "requested": "str",
+          "source": "str",
+          "valid": "bool",
+          "validation": {
+            "message": "NoneType",
+            "status": "str"
+          }
+        }
+      }
+    }
+  },
+  "teams": {
+    "count": "int",
+    "items": []
+  },
+  "templates": {
+    "count": "int",
+    "items": []
+  }
+}
