@@ -124,4 +124,5 @@ def load_plugins(app: Flask) -> list[str]:
             logging.warning("Plugin %s hat keine init_app/bp/blueprint", mod_name)
         except Exception as e:
             logging.error("Fehler beim Laden des Plugins %s: %s", mod_name, e)
+    app.extensions["loaded_plugins"] = loaded
     return loaded

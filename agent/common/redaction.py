@@ -66,7 +66,7 @@ class Redactor:
         # Generische Muster für String-Inhalte
         patterns = {
             SensitiveDataClass.TOKEN: re.compile(
-                r"(?:api[_-]key|token|auth[_-]token)[=:]\s*([^\s,\)\"\']+)|(sk-[A-Za-z0-9_-]{20,})|(AKIA[0-9A-Z]{16})",
+                r"(?:api[_-]key|token|auth[_-]token)[=:]\s*([^\s,\)\"\']+)|(\bsk-[A-Za-z0-9_-]{20,})|(AKIA[0-9A-Z]{16})",
                 re.IGNORECASE
             ),
             SensitiveDataClass.SECRET: re.compile(
