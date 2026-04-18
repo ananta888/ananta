@@ -934,7 +934,7 @@ def file_write_tool(path: str, content: str, encoding: str = "utf-8"):
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Pfad zum Verzeichnis", "default": "."},
-            "recursive": {"type": "boolean", "description": "Rekursiv auflisten", "default": false},
+            "recursive": {"type": "boolean", "description": "Rekursiv auflisten", "default": False},
         },
     },
 )
@@ -1031,7 +1031,7 @@ def git_status_tool():
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Optionaler Pfadfilter"},
-            "cached": {"type": "boolean", "description": "Gestagete Aenderungen zeigen", "default": false},
+            "cached": {"type": "boolean", "description": "Gestagete Aenderungen zeigen", "default": False},
         },
     },
 )

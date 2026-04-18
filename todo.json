@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Separation-of-Concerns, Bootstrap-Clarity",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/ai_agent.py",
@@ -894,11 +894,11 @@
     }
   ],
   "meta": {
-    "total_items": 31,
+    "total_items": 37,
     "by_status": {
       "completed": 0,
-      "partial": 0,
-      "open": 31
+      "partial": 1,
+      "open": 36
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",
