@@ -1,0 +1,114 @@
+{
+  "properties": {
+    "acceptance_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Acceptance Criteria",
+      "type": "array"
+    },
+    "constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context"
+    },
+    "create_tasks": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Create Tasks"
+    },
+    "execution_preferences": {
+      "additionalProperties": true,
+      "title": "Execution Preferences",
+      "type": "object"
+    },
+    "goal": {
+      "title": "Goal",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "ui",
+      "title": "Source"
+    },
+    "team_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Team Id"
+    },
+    "use_repo_context": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Use Repo Context"
+    },
+    "use_template": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Use Template"
+    },
+    "visibility": {
+      "additionalProperties": true,
+      "title": "Visibility",
+      "type": "object"
+    },
+    "workflow": {
+      "additionalProperties": true,
+      "title": "Workflow",
+      "type": "object"
+    }
+  },
+  "required": [
+    "goal"
+  ],
+  "title": "GoalCreateRequest",
+  "type": "object"
+}

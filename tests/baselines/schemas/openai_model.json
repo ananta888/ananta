@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "created": {
+      "title": "Created",
+      "type": "integer"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "object": {
+      "default": "model",
+      "title": "Object",
+      "type": "string"
+    },
+    "owned_by": {
+      "default": "ananta",
+      "title": "Owned By",
+      "type": "string"
+    },
+    "parent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent"
+    },
+    "permission": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Permission",
+      "type": "array"
+    },
+    "root": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Root"
+    }
+  },
+  "required": [
+    "id",
+    "created"
+  ],
+  "title": "OpenAIModelContract",
+  "type": "object"
+}

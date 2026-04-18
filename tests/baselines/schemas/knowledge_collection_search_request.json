@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "query": {
+      "title": "Query",
+      "type": "string"
+    },
+    "top_k": {
+      "default": 5,
+      "title": "Top K",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "KnowledgeCollectionSearchRequest",
+  "type": "object"
+}

@@ -1,0 +1,92 @@
+{
+  "properties": {
+    "matched_capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Matched Capabilities",
+      "type": "array"
+    },
+    "matched_roles": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Matched Roles",
+      "type": "array"
+    },
+    "preferred_backend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preferred Backend"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "required_capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Capabilities",
+      "type": "array"
+    },
+    "research_specialization": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Research Specialization"
+    },
+    "selected_by_policy": {
+      "default": false,
+      "title": "Selected By Policy",
+      "type": "boolean"
+    },
+    "strategy": {
+      "default": "manual_override",
+      "title": "Strategy",
+      "type": "string"
+    },
+    "task_kind": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Kind"
+    },
+    "worker_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worker Url"
+    }
+  },
+  "title": "WorkerRoutingDecisionContract",
+  "type": "object"
+}

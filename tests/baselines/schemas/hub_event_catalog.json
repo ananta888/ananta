@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "channels": {
+      "additionalProperties": true,
+      "title": "Channels",
+      "type": "object"
+    },
+    "kind": {
+      "default": "hub_event_catalog",
+      "title": "Kind",
+      "type": "string"
+    },
+    "notes": {
+      "additionalProperties": true,
+      "title": "Notes",
+      "type": "object"
+    },
+    "version": {
+      "default": "v1",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "title": "HubEventCatalogContract",
+  "type": "object"
+}

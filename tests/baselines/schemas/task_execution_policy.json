@@ -1,0 +1,55 @@
+{
+  "properties": {
+    "jitter_factor": {
+      "default": 0.0,
+      "title": "Jitter Factor",
+      "type": "number"
+    },
+    "max_retry_delay_seconds": {
+      "default": 60,
+      "title": "Max Retry Delay Seconds",
+      "type": "integer"
+    },
+    "retries": {
+      "title": "Retries",
+      "type": "integer"
+    },
+    "retry_backoff_strategy": {
+      "default": "constant",
+      "title": "Retry Backoff Strategy",
+      "type": "string"
+    },
+    "retry_delay_seconds": {
+      "title": "Retry Delay Seconds",
+      "type": "integer"
+    },
+    "retry_on_timeouts": {
+      "default": true,
+      "title": "Retry On Timeouts",
+      "type": "boolean"
+    },
+    "retryable_exit_codes": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Retryable Exit Codes",
+      "type": "array"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "timeout_seconds": {
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "timeout_seconds",
+    "retries",
+    "retry_delay_seconds",
+    "source"
+  ],
+  "title": "TaskExecutionPolicyContract",
+  "type": "object"
+}

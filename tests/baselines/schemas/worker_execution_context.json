@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "WorkerRoutingDecisionContract": {
+      "properties": {
+        "matched_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Matched Capabilities",
+          "type": "array"
+        },
+        "matched_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Matched Roles",
+          "type": "array"
+        },
+        "preferred_backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preferred Backend"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "required_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Capabilities",
+          "type": "array"
+        },
+        "research_specialization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Research Specialization"
+        },
+        "selected_by_policy": {
+          "default": false,
+          "title": "Selected By Policy",
+          "type": "boolean"
+        },
+        "strategy": {
+          "default": "manual_override",
+          "title": "Strategy",
+          "type": "string"
+        },
+        "task_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Kind"
+        },
+        "worker_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Url"
+        }
+      },
+      "title": "WorkerRoutingDecisionContract",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "artifact_sync": {
+      "additionalProperties": true,
+      "title": "Artifact Sync",
+      "type": "object"
+    },
+    "context": {
+      "additionalProperties": true,
+      "title": "Context",
+      "type": "object"
+    },
+    "context_bundle_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Bundle Id"
+    },
+    "context_policy": {
+      "additionalProperties": true,
+      "title": "Context Policy",
+      "type": "object"
+    },
+    "expected_output_schema": {
+      "additionalProperties": true,
+      "title": "Expected Output Schema",
+      "type": "object"
+    },
+    "instructions": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instructions"
+    },
+    "kind": {
+      "default": "worker_execution_context",
+      "title": "Kind",
+      "type": "string"
+    },
+    "routing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkerRoutingDecisionContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "version": {
+      "default": "v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "workspace": {
+      "additionalProperties": true,
+      "title": "Workspace",
+      "type": "object"
+    }
+  },
+  "title": "WorkerExecutionContextContract",
+  "type": "object"
+}

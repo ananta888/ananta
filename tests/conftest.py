@@ -301,10 +301,11 @@ def auth_header(client):
 def user_auth_header(client, app):
     """Creates a regular user and returns auth header."""
     with app.app_context():
-        from agent.auth import hash_password
+        from werkzeug.security import generate_password_hash
+        from agent.db_models import UserDB
         from agent.repository import user_repo
 
-        user_repo.create("testuser", hash_password("testpass"), role="user")
+        user_repo.save(UserDB(username="testuser", password_hash=generate_password_hash("testpass"), role="user"))
 
     response = client.post("/login", json={"username": "testuser", "password": "testpass"})
     token = response.json["data"]["access_token"]

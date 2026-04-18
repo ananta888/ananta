@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "AgentLivenessContract": {
+      "properties": {
+        "available_for_routing": {
+          "default": true,
+          "title": "Available For Routing",
+          "type": "boolean"
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        },
+        "offline_timeout_seconds": {
+          "default": 0,
+          "title": "Offline Timeout Seconds",
+          "type": "integer"
+        },
+        "stale_seconds": {
+          "default": 0,
+          "title": "Stale Seconds",
+          "type": "integer"
+        },
+        "status": {
+          "default": "online",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "title": "AgentLivenessContract",
+      "type": "object"
+    },
+    "WorkerExecutionLimitsContract": {
+      "properties": {
+        "max_parallel_tasks": {
+          "default": 1,
+          "title": "Max Parallel Tasks",
+          "type": "integer"
+        },
+        "max_runtime_seconds": {
+          "default": 900,
+          "title": "Max Runtime Seconds",
+          "type": "integer"
+        },
+        "max_workspace_mb": {
+          "default": 1024,
+          "title": "Max Workspace Mb",
+          "type": "integer"
+        }
+      },
+      "title": "WorkerExecutionLimitsContract",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "available_for_routing": {
+      "default": true,
+      "title": "Available For Routing",
+      "type": "boolean"
+    },
+    "capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "current_load": {
+      "default": 0,
+      "title": "Current Load",
+      "type": "integer"
+    },
+    "execution_limits": {
+      "$ref": "#/$defs/WorkerExecutionLimitsContract"
+    },
+    "liveness": {
+      "$ref": "#/$defs/AgentLivenessContract"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "registration_validated": {
+      "default": true,
+      "title": "Registration Validated",
+      "type": "boolean"
+    },
+    "role": {
+      "default": "worker",
+      "title": "Role",
+      "type": "string"
+    },
+    "routing_signals": {
+      "additionalProperties": true,
+      "title": "Routing Signals",
+      "type": "object"
+    },
+    "security_level": {
+      "default": "medium",
+      "title": "Security Level",
+      "type": "string"
+    },
+    "status": {
+      "default": "online",
+      "title": "Status",
+      "type": "string"
+    },
+    "url": {
+      "title": "Url",
+      "type": "string"
+    },
+    "worker_roles": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Worker Roles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "url"
+  ],
+  "title": "AgentDirectoryEntryContract",
+  "type": "object"
+}

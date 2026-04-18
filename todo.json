@@ -270,7 +270,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Change-Visibility, Stable-Interfaces",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -294,7 +294,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Predictable-Errors, Client-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -338,7 +338,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "System-Confidence, Realistic-Validation",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "docker-compose*.yml",
@@ -463,7 +463,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Performance-Visibility, Regression-Detection",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/",
@@ -484,7 +484,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Load-Shedding, Faster-Startup",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -508,7 +508,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Budget-Guardrails, Sustainable-Speed",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/",
@@ -666,9 +666,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 15,
+      "completed": 21,
       "partial": 0,
-      "open": 12
+      "open": 6
     },
     "notes": [
       "Diese Todo-Datei vergleicht Ananta nicht funktional mit OpenClaw, sondern technisch auf Ebene von Repo-Haertung, Boundary-Enforcement, Testtopologie und Build-/Release-Reife.",

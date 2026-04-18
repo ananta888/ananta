@@ -1,0 +1,824 @@
+{
+  "$defs": {
+    "ResearchArtifact": {
+      "properties": {
+        "backend_metadata": {
+          "additionalProperties": true,
+          "title": "Backend Metadata",
+          "type": "object"
+        },
+        "citations": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "kind": {
+          "default": "research_report",
+          "title": "Kind",
+          "type": "string"
+        },
+        "report_markdown": {
+          "title": "Report Markdown",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/ResearchSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "trace": {
+          "additionalProperties": true,
+          "title": "Trace",
+          "type": "object"
+        },
+        "verification": {
+          "additionalProperties": true,
+          "title": "Verification",
+          "type": "object"
+        }
+      },
+      "required": [
+        "summary",
+        "report_markdown"
+      ],
+      "title": "ResearchArtifact",
+      "type": "object"
+    },
+    "ResearchContextSummaryContract": {
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "artifacts": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "context_char_count": {
+          "default": 0,
+          "title": "Context Char Count",
+          "type": "integer"
+        },
+        "knowledge_collection_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Knowledge Collection Ids",
+          "type": "array"
+        },
+        "knowledge_collections": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Knowledge Collections",
+          "type": "array"
+        },
+        "prompt_section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Section"
+        },
+        "repo_scope_refs": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Repo Scope Refs",
+          "type": "array"
+        },
+        "repo_scopes": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Repo Scopes",
+          "type": "array"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "ResearchContextSummaryContract",
+      "type": "object"
+    },
+    "ResearchSource": {
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "web",
+          "title": "Kind"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "ResearchSource",
+      "type": "object"
+    },
+    "TaskCliResultContract": {
+      "properties": {
+        "latency_ms": {
+          "default": 0,
+          "title": "Latency Ms",
+          "type": "integer"
+        },
+        "output_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Source"
+        },
+        "repair_attempted": {
+          "default": false,
+          "title": "Repair Attempted",
+          "type": "boolean"
+        },
+        "repair_backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Backend"
+        },
+        "repair_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Model"
+        },
+        "returncode": {
+          "default": 0,
+          "title": "Returncode",
+          "type": "integer"
+        },
+        "stderr_preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stderr Preview"
+        }
+      },
+      "title": "TaskCliResultContract",
+      "type": "object"
+    },
+    "TaskReviewStateContract": {
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "policy_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Version"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "reviewed_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed At"
+        },
+        "reviewed_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed By"
+        },
+        "risk_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Level"
+        },
+        "status": {
+          "default": "not_required",
+          "title": "Status",
+          "type": "string"
+        },
+        "uses_file_access": {
+          "default": false,
+          "title": "Uses File Access",
+          "type": "boolean"
+        },
+        "uses_terminal": {
+          "default": false,
+          "title": "Uses Terminal",
+          "type": "boolean"
+        }
+      },
+      "title": "TaskReviewStateContract",
+      "type": "object"
+    },
+    "TaskRoutingContract": {
+      "properties": {
+        "effective_backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Backend"
+        },
+        "execution_backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Backend"
+        },
+        "execution_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Mode"
+        },
+        "inference_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Base Url"
+        },
+        "inference_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Model"
+        },
+        "inference_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Provider"
+        },
+        "inference_target_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Target Kind"
+        },
+        "inference_target_provider_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Target Provider Type"
+        },
+        "inference_temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Temperature"
+        },
+        "instance_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instance Id"
+        },
+        "live_terminal": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Live Terminal"
+        },
+        "max_hops": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Hops"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "remote_hub": {
+          "default": false,
+          "title": "Remote Hub",
+          "type": "boolean"
+        },
+        "requested_backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Backend"
+        },
+        "required_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Capabilities",
+          "type": "array"
+        },
+        "research_specialization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Research Specialization"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "session_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Mode"
+        },
+        "session_reused": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Reused"
+        },
+        "session_turn_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Turn Id"
+        },
+        "task_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Kind"
+        }
+      },
+      "title": "TaskRoutingContract",
+      "type": "object"
+    },
+    "TaskWorkerContextSummaryContract": {
+      "properties": {
+        "allowed_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Tools",
+          "type": "array"
+        },
+        "context_bundle_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context Bundle Id"
+        },
+        "context_chunk_count": {
+          "default": 0,
+          "title": "Context Chunk Count",
+          "type": "integer"
+        },
+        "expected_output_schema": {
+          "additionalProperties": true,
+          "title": "Expected Output Schema",
+          "type": "object"
+        },
+        "has_context_text": {
+          "default": false,
+          "title": "Has Context Text",
+          "type": "boolean"
+        }
+      },
+      "title": "TaskWorkerContextSummaryContract",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "backend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Backend"
+    },
+    "cli_result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskCliResultContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "command": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Command"
+    },
+    "comparisons": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparisons"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "pipeline": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pipeline"
+    },
+    "raw": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Raw"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "research_artifact": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResearchArtifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "research_context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResearchContextSummaryContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "review": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskReviewStateContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "routing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskRoutingContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "default": "proposing",
+      "title": "Status",
+      "type": "string"
+    },
+    "tool_calls": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Calls"
+    },
+    "trace": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trace"
+    },
+    "worker_context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskWorkerContextSummaryContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "title": "TaskScopedStepProposeResponse",
+  "type": "object"
+}

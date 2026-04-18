@@ -1,0 +1,42 @@
+{
+  "properties": {
+    "agent_url": {
+      "title": "Agent Url",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "lease_seconds": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 120,
+      "title": "Lease Seconds"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "agent_url"
+  ],
+  "title": "TaskClaimRequest",
+  "type": "object"
+}

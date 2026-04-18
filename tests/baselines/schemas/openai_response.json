@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "OpenAIResponseOutput": {
+      "properties": {
+        "content": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Content",
+          "type": "array"
+        },
+        "role": {
+          "default": "assistant",
+          "title": "Role",
+          "type": "string"
+        },
+        "type": {
+          "default": "message",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "title": "OpenAIResponseOutput",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "conversation": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conversation"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "integer"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "object": {
+      "default": "response",
+      "title": "Object",
+      "type": "string"
+    },
+    "output": {
+      "items": {
+        "$ref": "#/$defs/OpenAIResponseOutput"
+      },
+      "title": "Output",
+      "type": "array"
+    },
+    "output_text": {
+      "title": "Output Text",
+      "type": "string"
+    },
+    "trace_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trace Id"
+    },
+    "usage": {
+      "additionalProperties": true,
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "created_at",
+    "model",
+    "output",
+    "output_text",
+    "usage"
+  ],
+  "title": "OpenAIResponseContract",
+  "type": "object"
+}

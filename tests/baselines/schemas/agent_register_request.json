@@ -1,0 +1,66 @@
+{
+  "properties": {
+    "capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "execution_limits": {
+      "additionalProperties": true,
+      "title": "Execution Limits",
+      "type": "object"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "registration_token": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Registration Token"
+    },
+    "role": {
+      "default": "worker",
+      "title": "Role",
+      "type": "string"
+    },
+    "token": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Token"
+    },
+    "url": {
+      "title": "Url",
+      "type": "string"
+    },
+    "worker_roles": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Worker Roles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "url"
+  ],
+  "title": "AgentRegisterRequest",
+  "type": "object"
+}

@@ -1,0 +1,121 @@
+{
+  "properties": {
+    "agent_token": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agent Token"
+    },
+    "agent_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agent Url"
+    },
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "context_query": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Query"
+    },
+    "expected_output_schema": {
+      "additionalProperties": true,
+      "title": "Expected Output Schema",
+      "type": "object"
+    },
+    "preferred_bundle_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preferred Bundle Mode"
+    },
+    "priority": {
+      "default": "Medium",
+      "title": "Priority",
+      "type": "string"
+    },
+    "required_capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Capabilities",
+      "type": "array"
+    },
+    "required_context_scope": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Required Context Scope"
+    },
+    "retrieval_intent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Intent"
+    },
+    "subtask_description": {
+      "title": "Subtask Description",
+      "type": "string"
+    },
+    "task_kind": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Kind"
+    }
+  },
+  "required": [
+    "subtask_description"
+  ],
+  "title": "TaskDelegationRequest",
+  "type": "object"
+}

@@ -1,0 +1,31 @@
+{
+  "properties": {
+    "data": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Data"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "status": {
+      "default": "error",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "title": "ApiErrorResponseContract",
+  "type": "object"
+}

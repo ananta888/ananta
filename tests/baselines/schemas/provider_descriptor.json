@@ -1,0 +1,50 @@
+{
+  "properties": {
+    "configured": {
+      "title": "Configured",
+      "type": "boolean"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "install_hint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Install Hint"
+    },
+    "mode": {
+      "title": "Mode",
+      "type": "string"
+    },
+    "provider": {
+      "title": "Provider",
+      "type": "string"
+    },
+    "supports_model": {
+      "title": "Supports Model",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "provider",
+    "display_name",
+    "enabled",
+    "configured",
+    "mode",
+    "supports_model"
+  ],
+  "title": "ProviderDescriptorContract",
+  "type": "object"
+}

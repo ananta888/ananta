@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "command": {
+      "title": "Command",
+      "type": "string"
+    },
+    "interval_seconds": {
+      "title": "Interval Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "command",
+    "interval_seconds"
+  ],
+  "title": "ScheduledTaskCreateRequest",
+  "type": "object"
+}

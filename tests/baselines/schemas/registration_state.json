@@ -1,0 +1,91 @@
+{
+  "properties": {
+    "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "last_attempt_at": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Attempt At"
+    },
+    "last_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Error"
+    },
+    "last_success_at": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Success At"
+    },
+    "max_retries": {
+      "default": 0,
+      "title": "Max Retries",
+      "type": "integer"
+    },
+    "next_retry_at": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Retry At"
+    },
+    "registered_as": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Registered As"
+    },
+    "running": {
+      "default": false,
+      "title": "Running",
+      "type": "boolean"
+    },
+    "thread_started": {
+      "default": false,
+      "title": "Thread Started",
+      "type": "boolean"
+    }
+  },
+  "title": "RegistrationStateReadModel",
+  "type": "object"
+}

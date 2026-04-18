@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    },
+    "source": {
+      "default": "generic",
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "title": "TriggerTestRequest",
+  "type": "object"
+}

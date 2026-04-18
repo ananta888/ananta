@@ -1,0 +1,36 @@
+{
+  "properties": {
+    "async": {
+      "default": false,
+      "title": "Async",
+      "type": "boolean"
+    },
+    "profile_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Profile Name"
+    },
+    "profile_overrides": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Profile Overrides"
+    }
+  },
+  "title": "ArtifactRagIndexRequest",
+  "type": "object"
+}

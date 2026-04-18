@@ -283,6 +283,118 @@ class ResearchContextSummaryContract(SQLModel):
     context_char_count: int = 0
 
 
+class OpenAIModelContract(SQLModel):
+    id: str
+    object: str = "model"
+    created: int
+    owned_by: str = "ananta"
+    root: Optional[str] = None
+    parent: Optional[str] = None
+    permission: List[dict] = Field(default_factory=list)
+
+
+class OpenAIChatCompletionChoice(SQLModel):
+    index: int
+    message: dict
+    finish_reason: str = "stop"
+
+
+class OpenAIChatCompletionContract(SQLModel):
+    id: str
+    object: str = "chat.completion"
+    created: int
+    model: str
+    choices: List[OpenAIChatCompletionChoice]
+    usage: dict
+    trace_id: Optional[str] = None
+    conversation: Optional[dict] = None
+
+
+class OpenAIResponseOutput(SQLModel):
+    type: str = "message"
+    role: str = "assistant"
+    content: List[dict]
+
+
+class OpenAIResponseContract(SQLModel):
+    id: str
+    object: str = "response"
+    created_at: int
+    model: str
+    output: List[OpenAIResponseOutput]
+    output_text: str
+    usage: dict
+    trace_id: Optional[str] = None
+    conversation: Optional[dict] = None
+
+
+class OpenAIFileContract(SQLModel):
+    id: str
+    object: str = "file"
+    bytes: int
+    created_at: int
+    filename: str
+    purpose: str = "assistants"
+    status: str
+    media_type: Optional[str] = None
+    sha256: Optional[str] = None
+    version_id: Optional[str] = None
+    extracted_document_count: int = 0
+
+
+class ExposurePolicyGroupContract(SQLModel):
+    enabled: bool = False
+    allow_agent_auth: bool = False
+    allow_user_auth: bool = False
+    require_admin_for_user_auth: bool = True
+    emit_audit_events: bool = True
+    instance_id: Optional[str] = None
+    max_hops: Optional[int] = 3
+    allow_files_api: Optional[bool] = None
+
+
+class ExposurePolicyContract(SQLModel):
+    openai_compat: ExposurePolicyGroupContract
+    mcp: ExposurePolicyGroupContract
+    remote_hubs: ExposurePolicyGroupContract
+
+
+class TerminalPolicyContract(SQLModel):
+    enabled: bool = False
+    allow_read: bool = False
+    allow_interactive: bool = False
+    require_admin: bool = True
+    emit_audit_events: bool = True
+    max_session_seconds: int = 1800
+    idle_timeout_seconds: int = 300
+    input_preview_max_chars: int = 120
+    allowed_roles: List[str] = Field(default_factory=list)
+    allowed_cidrs: List[str] = Field(default_factory=list)
+
+
+class GovernancePolicyReadModelContract(SQLModel):
+    exposure_policy: ExposurePolicyContract
+    terminal_policy: TerminalPolicyContract
+    platform_mode: str
+    is_custom: bool = False
+
+
+class ProviderDescriptorContract(SQLModel):
+    provider: str
+    display_name: str
+    enabled: bool
+    configured: bool
+    mode: str
+    supports_model: bool
+    install_hint: Optional[str] = None
+
+
+class ApiErrorResponseContract(SQLModel):
+    status: str = "error"
+    message: str
+    data: Optional[dict] = None
+
+
 class AgentRegisterRequest(SQLModel):
     name: str
     url: str
