@@ -19,7 +19,12 @@ _TYPE_MAP = {
 }
 
 
+class EvolverResponseSchemaError(ValueError):
+    pass
+
+
 def map_evolver_result(raw: dict[str, Any], *, provider_name: str = "evolver") -> EvolutionResult:
+    validate_evolver_response(raw)
     proposals = [_map_proposal(item) for item in _proposal_items(raw)]
     validations = [_map_validation(item) for item in _validation_items(raw)]
     return EvolutionResult(
@@ -34,6 +39,25 @@ def map_evolver_result(raw: dict[str, Any], *, provider_name: str = "evolver") -
         },
         raw_payload=raw,
     )
+
+
+def validate_evolver_response(raw: dict[str, Any]) -> None:
+    if not isinstance(raw, dict):
+        raise EvolverResponseSchemaError("evolver_response_must_be_object")
+
+    for key in ("proposals", "improvements", "candidates", "events"):
+        if key in raw and raw[key] is not None and not isinstance(raw[key], list):
+            raise EvolverResponseSchemaError(f"evolver_response_field_must_be_list:{key}")
+
+    for key in ("validation_results", "validations"):
+        if key in raw and raw[key] is not None and not isinstance(raw[key], list):
+            raise EvolverResponseSchemaError(f"evolver_response_field_must_be_list:{key}")
+
+    if "status" in raw and raw["status"] is not None and not isinstance(raw["status"], str):
+        raise EvolverResponseSchemaError("evolver_response_status_must_be_string")
+
+    if "summary" in raw and raw["summary"] is not None and not isinstance(raw["summary"], str):
+        raise EvolverResponseSchemaError("evolver_response_summary_must_be_string")
 
 
 def _proposal_items(raw: dict[str, Any]) -> list[Any]:

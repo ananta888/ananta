@@ -62,6 +62,9 @@ class EvolutionProviderRegistry:
             raise EvolutionProviderNotFound(name)
         return provider
 
+    def contains(self, provider_name: str) -> bool:
+        return self._normalize_name(provider_name) in self._providers
+
     def resolve(self, provider_name: str | None = None, *, config: dict[str, Any] | None = None) -> EvolutionEngine:
         configured = ""
         if isinstance(config, dict):

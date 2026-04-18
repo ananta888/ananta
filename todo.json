@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "bugfix",
           "principle": "Robustness, Diagnosability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -121,7 +121,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Truthful-Status, Operability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -193,7 +193,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Contract-Safety, Fail-Fast",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -287,7 +287,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Determinism, Loader-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/plugin_loader.py",
@@ -359,7 +359,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Truthful-Capabilities, Least-Assumption",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -676,11 +676,11 @@
     }
   ],
   "meta": {
-    "total_items": 25,
+    "total_items": 27,
     "by_status": {
-      "completed": 0,
+      "completed": 5,
       "partial": 0,
-      "open": 25
+      "open": 22
     },
     "notes": [
       "Diese Todo-Datei setzt bewusst nicht mehr bei der Grundintegration an, sondern bei der Haertung und Betriebsreife der bereits vorhandenen Evolver-Einbindung.",

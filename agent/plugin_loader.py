@@ -47,7 +47,11 @@ def _coerce_provider_list(value: Any) -> list[Any]:
     return [value]
 
 
-def _register_declared_evolution_providers(app: Flask, module: Any) -> int:
+def _provider_name(provider: Any) -> str:
+    return str(getattr(provider, "provider_name", "") or "").strip().lower()
+
+
+def _register_declared_evolution_providers(app: Flask, module: Any, *, allow_existing: bool = False) -> int:
     provider_source = None
     if hasattr(module, "get_evolution_providers"):
         provider_source = module.get_evolution_providers(app)
@@ -60,13 +64,27 @@ def _register_declared_evolution_providers(app: Flask, module: Any) -> int:
     if not providers:
         return 0
 
-    from agent.services.evolution import register_evolution_provider
+    from agent.services.evolution import get_evolution_provider_registry, register_evolution_provider
 
     default = bool(getattr(module, "evolution_provider_default", False))
     replace = bool(getattr(module, "evolution_provider_replace", False))
+    registry = get_evolution_provider_registry()
+    app_provider_names = {str(name).strip().lower() for name in app.extensions.get("evolution_providers", set())}
+    registered_count = 0
     for index, provider in enumerate(providers):
+        name = _provider_name(provider)
+        if not name:
+            raise ValueError("declared_evolution_provider_name_required")
+        already_registered = name in app_provider_names or registry.contains(name)
+        if already_registered and not replace:
+            if allow_existing and name in app_provider_names:
+                logging.warning("Deklarativer Evolution-Provider %s bereits durch init_app registriert", name)
+                continue
+            raise ValueError(f"declared_evolution_provider_conflict:{name}")
         register_evolution_provider(provider, app=app, default=default and index == 0, replace=replace)
-    return len(providers)
+        app_provider_names.add(name)
+        registered_count += 1
+    return registered_count
 
 
 def load_plugins(app: Flask) -> list[str]:
@@ -79,7 +97,7 @@ def load_plugins(app: Flask) -> list[str]:
             evolution_provider_count = 0
             if hasattr(module, "init_app"):
                 module.init_app(app)
-                evolution_provider_count = _register_declared_evolution_providers(app, module)
+                evolution_provider_count = _register_declared_evolution_providers(app, module, allow_existing=True)
                 loaded.append(mod_name)
                 logging.info("Plugin geladen: %s (init_app)", mod_name)
                 continue
