@@ -373,6 +373,11 @@ def apply_env_config_overrides(cfg: dict) -> None:
             "max_response_bytes",
             int(getattr(settings, "evolver_max_response_bytes", 1048576) or 1048576),
         ),
+        "EVOLVER_RETRY_COUNT": ("retry_count", int(getattr(settings, "evolver_retry_count", 0) or 0)),
+        "EVOLVER_RETRY_BACKOFF_SECONDS": (
+            "retry_backoff_seconds",
+            float(getattr(settings, "evolver_retry_backoff_seconds", 0.0) or 0.0),
+        ),
         "EVOLVER_BEARER_TOKEN": ("bearer_token", getattr(settings, "evolver_bearer_token", None)),
         "EVOLVER_HEADERS": ("headers", parsed_evolver_headers),
         "EVOLVER_ALLOWED_HOSTS": ("allowed_hosts", allowed_hosts),

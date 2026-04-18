@@ -66,6 +66,11 @@ def map_evolver_result(raw: dict[str, Any], *, provider_name: str = "evolver") -
         validation_results=validations,
         provider_metadata={
             "evolver_run_id": raw.get("run_id") or raw.get("id"),
+            "evolver_status": raw.get("status"),
+            "evolver_proposal_source": proposal_source,
+            "evolver_proposal_count": len(proposals),
+            "evolver_validation_count": len(validations),
+            "evolver_response_keys": sorted(str(key) for key in raw.keys())[:20],
             "source": "evolver",
         },
         raw_payload=raw,
@@ -142,6 +147,7 @@ def _map_proposal(item: Any, *, source_field: str | None) -> EvolutionProposal:
             "evolver_id": item.get("id") or item.get("gene_id") or item.get("capsule_id"),
             "evolver_kind": evolver_kind,
             "evolver_source_field": source_field,
+            "source": "evolver",
         },
         raw_payload=item,
     )

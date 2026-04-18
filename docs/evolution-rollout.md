@@ -47,7 +47,9 @@ For Evolver, keep the provider override restricted during this phase:
         "force_analyze_only": true,
         "connect_timeout_seconds": 10,
         "read_timeout_seconds": 30,
-        "max_response_bytes": 1048576
+        "max_response_bytes": 1048576,
+        "retry_count": 1,
+        "retry_backoff_seconds": 0.5
       }
     }
   }
@@ -67,6 +69,9 @@ global Evolution policy later permits those operations for other providers.
   and implement Validate should receive validation calls.
 - Monitor `evolution_analyses_total`, `evolution_proposals_total` and
   `evolution_validations_total` for spikes and provider-specific failures.
+- Monitor `evolution_provider_failures_total`,
+  `evolution_provider_retries_total` and `evolution_provider_health_total`
+  before increasing retry count or enabling automatic triggers.
 
 ## Phase 3: Validate / Apply Staging
 

@@ -34,6 +34,8 @@ The built-in defaults keep Evolver disabled:
         "connect_timeout_seconds": 10,
         "read_timeout_seconds": 30,
         "max_response_bytes": 1048576,
+        "retry_count": 1,
+        "retry_backoff_seconds": 0.5,
         "allowed_hosts": ["evolver"],
         "force_analyze_only": true,
         "default": false,
@@ -56,6 +58,8 @@ EVOLVER_TIMEOUT_SECONDS=30
 EVOLVER_CONNECT_TIMEOUT_SECONDS=10
 EVOLVER_READ_TIMEOUT_SECONDS=30
 EVOLVER_MAX_RESPONSE_BYTES=1048576
+EVOLVER_RETRY_COUNT=1
+EVOLVER_RETRY_BACKOFF_SECONDS=0.5
 EVOLVER_ALLOWED_HOSTS=evolver
 EVOLVER_DEFAULT=1
 ```
@@ -90,6 +94,8 @@ Set `EVOLVER_IMAGE` if the runtime image is hosted under a different name.
   match an explicitly approved hostname before registration.
 - Set separate connect/read timeouts and a bounded `max_response_bytes` limit
   for remote Evolver services.
+- Keep retries conservative. Retry only transient failures such as timeouts,
+  connection errors and 502/503-style HTTP responses.
 - Do not mount the Ananta workspace into the Evolver container unless a later
   reviewed Apply mode explicitly requires it.
 - Avoid sharing secrets with Evolver. If provider authentication becomes
@@ -103,6 +109,10 @@ If the Evolver plugin is disabled or misconfigured, the hub starts normally and
 the provider is not registered. If the provider is registered but unavailable,
 the registry health endpoint reports degraded/unavailable state and analysis
 requests fail through the normal Evolution service error path.
+
+Retries and health transitions are observable through
+`evolution_provider_retries_total`, `evolution_provider_failures_total` and
+`evolution_provider_health_total`.
 
 API error responses for Evolution operations include a stable `data.error_code`
 for client handling. External provider failures use codes such as

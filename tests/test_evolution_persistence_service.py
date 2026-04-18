@@ -5,6 +5,7 @@ from agent.services.evolution import (
     EvolutionCapability,
     EvolutionContext,
     EvolutionEngine,
+    EvolutionPolicy,
     EvolutionProposal,
     EvolutionResult,
     EvolutionTrigger,
@@ -129,3 +130,22 @@ def test_analyze_task_persists_run_proposals_and_audit_events():
     assert "evolution_analyses_total" in metrics_payload
     assert 'provider="proposal-engine"' in metrics_payload
     assert "evolution_proposals_total" in metrics_payload
+
+
+def test_bounded_payload_keeps_semantic_preview_for_large_evolver_payload():
+    service = EvolutionService(registry=EvolutionProviderRegistry(), audit_fn=lambda *_args: None)
+    payload = {
+        "run_id": "run-large",
+        "status": "completed",
+        "summary": "Large payload",
+        "proposals": [{"id": f"p-{idx}", "content": "x" * 200} for idx in range(20)],
+        "debug_blob": "y" * 5000,
+    }
+
+    bounded = service._bounded_payload(payload, policy=EvolutionPolicy(max_raw_payload_bytes=1024))
+
+    assert bounded["_truncated"] is True
+    assert bounded["semantic_preview"]["run_id"] == "run-large"
+    assert bounded["semantic_preview"]["status"] == "completed"
+    assert bounded["semantic_preview"]["proposals_count"] == 20
+    assert "debug_blob" in bounded["semantic_preview"]["preview_keys"]

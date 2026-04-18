@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import socket
+import time
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from urllib import error, request
 
+from agent.metrics import EVOLUTION_PROVIDER_FAILURES_TOTAL, EVOLUTION_PROVIDER_HEALTH_TOTAL, EVOLUTION_PROVIDER_RETRIES_TOTAL
 from agent.services.evolution import (
     EvolutionCapability,
     EvolutionContext,
@@ -97,6 +99,19 @@ class EvolverHttpLimits:
         )
 
 
+@dataclass(frozen=True)
+class EvolverRetryPolicy:
+    max_attempts: int = 1
+    backoff_seconds: float = 0.0
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "EvolverRetryPolicy":
+        retry_count = int(config.get("retry_count") or 0)
+        attempts = max(1, min(retry_count + 1, 5))
+        backoff = max(0.0, min(float(config.get("retry_backoff_seconds") or 0.0), 30.0))
+        return cls(max_attempts=attempts, backoff_seconds=backoff)
+
+
 class EvolverTransport(Protocol):
     def analyze(self, payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
@@ -112,6 +127,8 @@ class HttpEvolverTransport:
         health_path: str | None = None,
         headers: dict[str, str] | None = None,
         limits: EvolverHttpLimits | None = None,
+        retry_policy: EvolverRetryPolicy | None = None,
+        sleep_fn: Callable[[float], None] | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.analyze_path = analyze_path if analyze_path.startswith("/") else f"/{analyze_path}"
@@ -119,6 +136,8 @@ class HttpEvolverTransport:
         self.timeout_seconds = self.limits.connect_timeout_seconds
         self.health_path = self._normalize_path(health_path) if health_path else None
         self.headers = dict(headers or {})
+        self.retry_policy = retry_policy or EvolverRetryPolicy()
+        self._sleep = sleep_fn or time.sleep
 
     @property
     def endpoint(self) -> str:
@@ -136,7 +155,7 @@ class HttpEvolverTransport:
             headers=self._headers({"Content-Type": "application/json", "Accept": "application/json"}),
             method="POST",
         )
-        raw = self._open(req)
+        raw = self._open_with_retry(req, operation="analyze")
         decoded = self._decode_json(raw)
         if not isinstance(decoded, dict):
             raise EvolverInvalidResponseError("evolver_response_must_be_object")
@@ -150,7 +169,7 @@ class HttpEvolverTransport:
             headers=self._headers({"Accept": "application/json"}),
             method="GET",
         )
-        raw = self._open(req)
+        raw = self._open_with_retry(req, operation="health")
         if not raw.strip():
             return {"status": "available"}
         decoded = self._decode_json(raw)
@@ -190,6 +209,24 @@ class HttpEvolverTransport:
                 raise EvolverTimeoutError() from exc
             raise EvolverConnectionError() from exc
 
+    def _open_with_retry(self, req: request.Request, *, operation: str) -> str:
+        last_exc: EvolverTransportError | None = None
+        for attempt in range(1, self.retry_policy.max_attempts + 1):
+            try:
+                return self._open(req)
+            except EvolverTransportError as exc:
+                last_exc = exc
+                self._record_failure(operation, exc)
+                should_retry = exc.transient and attempt < self.retry_policy.max_attempts
+                if not should_retry:
+                    raise
+                self._record_retry(operation, exc)
+                if self.retry_policy.backoff_seconds > 0:
+                    self._sleep(self.retry_policy.backoff_seconds * attempt)
+        if last_exc is not None:
+            raise last_exc
+        raise EvolverConnectionError()
+
     @staticmethod
     def _decode_json(raw: str) -> Any:
         try:
@@ -221,6 +258,21 @@ class HttpEvolverTransport:
         except Exception:
             return
 
+    def _record_failure(self, operation: str, exc: EvolverTransportError) -> None:
+        EVOLUTION_PROVIDER_FAILURES_TOTAL.labels(
+            provider="evolver",
+            operation=operation,
+            error_code=exc.code,
+            transient=str(bool(exc.transient)).lower(),
+        ).inc()
+
+    def _record_retry(self, operation: str, exc: EvolverTransportError) -> None:
+        EVOLUTION_PROVIDER_RETRIES_TOTAL.labels(
+            provider="evolver",
+            operation=operation,
+            error_code=exc.code,
+        ).inc()
+
 
 class EvolverAdapter(EvolutionEngine):
     def __init__(
@@ -242,6 +294,7 @@ class EvolverAdapter(EvolutionEngine):
         if not base_url:
             raise ValueError("evolver_base_url_required")
         limits = EvolverHttpLimits.from_config(config)
+        retry_policy = EvolverRetryPolicy.from_config(config)
         headers = _headers_from_config(config)
         transport = HttpEvolverTransport(
             base_url=base_url,
@@ -250,6 +303,7 @@ class EvolverAdapter(EvolutionEngine):
             health_path=config.get("health_path"),
             headers=headers,
             limits=limits,
+            retry_policy=retry_policy,
         )
         return cls(
             transport=transport,
@@ -263,6 +317,8 @@ class EvolverAdapter(EvolutionEngine):
                 "connect_timeout_seconds": limits.connect_timeout_seconds,
                 "read_timeout_seconds": limits.read_timeout_seconds,
                 "max_response_bytes": limits.max_response_bytes,
+                "retry_count": retry_policy.max_attempts - 1,
+                "retry_backoff_seconds": retry_policy.backoff_seconds,
                 "configured_header_names": sorted(headers.keys()),
             },
         )
@@ -309,6 +365,7 @@ class EvolverAdapter(EvolutionEngine):
                 metadata["last_error"] = {"code": "health_error", "message": str(exc)}
         else:
             metadata["health_checked"] = False
+        EVOLUTION_PROVIDER_HEALTH_TOTAL.labels(provider=self.provider_name, status=status).inc()
         return EvolutionProviderDescriptor(
             provider_name=self.provider_name,
             version=self.version,

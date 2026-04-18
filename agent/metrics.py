@@ -65,6 +65,21 @@ EVOLUTION_OPERATION_DURATION_SECONDS = Histogram(
     "Duration of Evolution provider operations",
     ["provider", "operation", "status"],
 )
+EVOLUTION_PROVIDER_FAILURES_TOTAL = Counter(
+    "evolution_provider_failures_total",
+    "Total Evolution provider failures grouped by provider, operation and error code",
+    ["provider", "operation", "error_code", "transient"],
+)
+EVOLUTION_PROVIDER_RETRIES_TOTAL = Counter(
+    "evolution_provider_retries_total",
+    "Total Evolution provider retries grouped by provider, operation and error code",
+    ["provider", "operation", "error_code"],
+)
+EVOLUTION_PROVIDER_HEALTH_TOTAL = Counter(
+    "evolution_provider_health_total",
+    "Total Evolution provider health checks grouped by provider and status",
+    ["provider", "status"],
+)
 SHELL_POOL_SIZE = Gauge("shell_pool_size", "Total size of the shell pool")
 SHELL_POOL_BUSY = Gauge("shell_pool_busy", "Number of busy shells in the pool")
 SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")

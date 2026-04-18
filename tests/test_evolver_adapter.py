@@ -6,6 +6,7 @@ from urllib import error
 import pytest
 from flask import Flask
 
+from agent.metrics import generate_latest
 from agent.services.evolution import EvolutionCapability, EvolutionContext, get_evolution_provider_registry
 from agent.services.evolution.engine import UnsupportedEvolutionOperation
 from agent.services.evolution_service import EvolutionService
@@ -17,6 +18,7 @@ from plugins.evolver_adapter.adapter import (
     EvolverPayloadLimitError,
     EvolverTimeoutError,
     EvolverHttpLimits,
+    EvolverRetryPolicy,
     HttpEvolverTransport,
 )
 from plugins.evolver_adapter.mapper import EvolverResponseSchemaError, map_evolver_result
@@ -306,6 +308,44 @@ def test_http_evolver_health_uses_configured_endpoint_or_safe_fallback(monkeypat
     assert captured["url"] == "http://evolver:8080/health"
 
 
+def test_http_evolver_transport_retries_transient_failures_and_records_metrics(monkeypatch):
+    calls = {"count": 0}
+    transport = HttpEvolverTransport(
+        base_url="http://evolver:8080",
+        retry_policy=EvolverRetryPolicy(max_attempts=2, backoff_seconds=0),
+    )
+
+    class SuccessResponse:
+        status = 200
+        sent = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, *_args):
+            if self.sent:
+                return b""
+            self.sent = True
+            return b'{"status":"completed"}'
+
+    def flaky_urlopen(*_args, **_kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise error.HTTPError("http://evolver:8080/evolution/analyze", 503, "unavailable", {}, None)
+        return SuccessResponse()
+
+    monkeypatch.setattr("plugins.evolver_adapter.adapter.request.urlopen", flaky_urlopen)
+
+    assert transport.analyze({"context": {}}) == {"status": "completed"}
+    assert calls["count"] == 2
+    metrics_payload = generate_latest().decode("utf-8")
+    assert "evolution_provider_retries_total" in metrics_payload
+    assert 'error_code="http_error"' in metrics_payload
+
+
 def test_evolver_response_schema_rejects_invalid_contracts():
     with pytest.raises(EvolverResponseSchemaError, match="proposals"):
         map_evolver_result({"status": "completed", "proposals": {"id": "not-a-list"}})
@@ -365,6 +405,8 @@ def test_evolver_env_overrides_populate_provider_config(monkeypatch):
     monkeypatch.setenv("EVOLVER_CONNECT_TIMEOUT_SECONDS", "2")
     monkeypatch.setenv("EVOLVER_READ_TIMEOUT_SECONDS", "4")
     monkeypatch.setenv("EVOLVER_MAX_RESPONSE_BYTES", "4096")
+    monkeypatch.setenv("EVOLVER_RETRY_COUNT", "2")
+    monkeypatch.setenv("EVOLVER_RETRY_BACKOFF_SECONDS", "0.5")
     monkeypatch.setenv("EVOLVER_BEARER_TOKEN", "secret-token")
     monkeypatch.setenv("EVOLVER_HEADERS", '{"X-Evolver-Tenant":"alpha"}')
     monkeypatch.setenv("EVOLVER_ALLOWED_HOSTS", "evolver,backup-evolver")
@@ -377,6 +419,8 @@ def test_evolver_env_overrides_populate_provider_config(monkeypatch):
     monkeypatch.setattr(config_defaults.settings, "evolver_connect_timeout_seconds", 2.0, raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_read_timeout_seconds", 4.0, raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_max_response_bytes", 4096, raising=False)
+    monkeypatch.setattr(config_defaults.settings, "evolver_retry_count", 2, raising=False)
+    monkeypatch.setattr(config_defaults.settings, "evolver_retry_backoff_seconds", 0.5, raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_bearer_token", "secret-token", raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_headers", '{"X-Evolver-Tenant":"alpha"}', raising=False)
     monkeypatch.setattr(config_defaults.settings, "evolver_allowed_hosts", "evolver,backup-evolver", raising=False)
@@ -394,6 +438,8 @@ def test_evolver_env_overrides_populate_provider_config(monkeypatch):
     assert evolver_cfg["connect_timeout_seconds"] == 2.0
     assert evolver_cfg["read_timeout_seconds"] == 4.0
     assert evolver_cfg["max_response_bytes"] == 4096
+    assert evolver_cfg["retry_count"] == 2
+    assert evolver_cfg["retry_backoff_seconds"] == 0.5
     assert evolver_cfg["bearer_token"] == "secret-token"
     assert evolver_cfg["headers"] == {"X-Evolver-Tenant": "alpha"}
     assert evolver_cfg["allowed_hosts"] == ["evolver", "backup-evolver"]
