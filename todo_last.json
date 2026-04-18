@@ -1,708 +1,662 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.6.0",
+  "version": "5.7.0",
   "created": "2026-04-18",
   "updated": "2026-04-18T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Die technische Codequalitaet, Repo-Disziplin, Boundary-Haertung, Testtiefe und Build-/Release-Mechanik von Ananta auf ein staerker industrialisiertes Niveau anheben, wie es bei grossen produktionsnahen Open-Source-Agentensystemen sichtbar ist.",
+    "review_goal": "Ananta schrittweise um direkt nutzbare, alltagsrelevante Faehigkeiten erweitern, ohne das governance-first, task-first und verification-first Architekturmodell zugunsten eines capability-first Assistentensystems aufzuweichen.",
     "notes": [
-      "Ananta ist architektonisch stark in Control Plane, Governance, Verification und Hub-Worker-Denke, aber mechanische Repo-Haertung und automatisierte Boundary-Kontrolle sind noch weniger ausgebaut.",
-      "OpenClaw wirkt technisch vor allem durch seine starke Tooling-Schicht, Boundary-Checks, Contract-Tests, Build-/Release-Skripte und fein aufgeteilte Testmodi reifer.",
-      "Diese Todo-Datei zielt nicht auf blinden Feature-Nachbau, sondern auf technische Reifegrade wie Importgrenzen, Dead-Code-Kontrolle, Contract-Stabilitaet, Performance-Messbarkeit und belastbarere CI-Schutzmechanismen."
+      "Ananta soll nicht zu einem unscharfen OpenClaw-Klon werden, sondern zu einer kontrollierten, direkt nutzbaren Arbeitsplattform mit sicheren Faehigkeiten und guten Einstiegspunkten.",
+      "Direkt nutzbare Faehigkeiten sollen immer ueber Goals, Plans, Tasks, Verification, Policies, Audit und klar begrenzte Capability-Sets eingebunden werden.",
+      "Die Reihenfolge ist wichtig: zuerst sichere lokale Nutzenstifter, dann einfache Interaktionsadapter, spaeter externe Kanaele und zuletzt ein strengeres Drittanbieter-Plugin-Modell."
     ]
   },
   "categories": [
     {
-      "name": "repo-governance-and-quality-gates",
-      "label": "Repo Governance und Quality Gates",
+      "name": "safe-action-packs",
+      "label": "Sichere Action Packs",
       "items": [
         {
-          "id": "QGT-001",
-          "title": "Zentrale Repo-Quality-Gates und einheitliche Check-Pipeline einfuehren",
-          "description": "Eine zentrale Pipeline fuer Linting, Type-Checking und schnelle Tests schaffen, die lokal und in CI identisch funktioniert.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Reproducible-Quality, Fast-Failure",
+          "id": "SAP-001",
+          "title": "Action-Pack-Modell fuer kontrollierte direkt nutzbare Faehigkeiten einfuehren",
+          "description": "Ein klares Modell fuer Action Packs einfuehren, damit direkt nutzbare Faehigkeiten wie Dateiarbeit, Git, Shell, Browser oder Dokument-Operationen nicht als lose Toolwiese, sondern als kontrollierte, policy-faehige Capability-Buendel eingebunden werden.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Capability-Bounding, Governance-First",
           "status": "completed",
-          "effort": "medium",
+          "effort": "large",
           "files": [
-            "Makefile",
-            "pyproject.toml",
-            "scripts/",
-            ".github/workflows/",
+            "agent/services/",
+            "agent/config.py",
+            "agent/db_models.py",
+            "docs/",
             "tests/"
           ],
           "acceptance": [
-            "Es existiert ein klarer Standard-Check-Einstiegspunkt fuer lokale Entwicklung und CI.",
-            "Lint, Type-Checks, Format und definierte Repo-Regeln laufen reproduzierbar in derselben Pipeline.",
-            "Fehlerbilder sind fuer Entwickler klar genug, um Grenzverletzungen schnell zu verstehen."
+            "Action Packs sind als explizite Capability-Buendel modelliert.",
+            "Jedes Pack kann getrennt aktiviert, deaktiviert und policy-gesteuert werden.",
+            "Action Packs verhalten sich als first-class Governance-Objekte und nicht als lose Tool-Sammlung."
           ]
         },
         {
-          "id": "QGT-002",
-          "title": "Pre-Push- und CI-Gates fuer kritische Architekturregeln verbindlich machen",
-          "description": "Die wichtigsten Grenzen wie keine zyklischen Modulbeziehungen, keine verbotenen Imports und keine unsicheren Direktpfade vor Merge oder Push automatisch pruefen, statt sich auf manuelle Disziplin zu verlassen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Preventive-Quality, Shift-Left",
+          "id": "SAP-002",
+          "title": "Datei-Action-Pack fuer sichere Lese-, Schreib- und Patch-Operationen aufbauen",
+          "description": "Ein direkt nuetzliches Datei-Action-Pack bereitstellen, das Datei-Lesen, gezielte Schreibvorgaenge, Patch-Vorschlaege und kontrollierte Dateianlagen sicher und auditierbar unterstuetzt.",
+          "priority": "critical",
+          "type": "integration",
+          "principle": "High-Utility, Controlled-Execution",
           "status": "completed",
           "effort": "medium",
           "files": [
-            ".github/workflows/",
-            "git-hooks/",
-            "scripts/",
+            "agent/services/",
+            "agent/routes/",
             "tests/"
           ],
           "dependencies": [
-            "QGT-001"
+            "SAP-001"
           ],
           "acceptance": [
-            "Kritische Architekturregeln werden automatisch vor oder spaetestens in CI geprüft.",
-            "Verstoesse blockieren den Merge-Pfad statt nur nachtraeglich sichtbar zu werden.",
-            "Die Regelbasis ist dokumentiert und wartbar."
+            "Dateioperationen koennen gezielt und policy-konform ausgefuehrt werden.",
+            "Schreiboperationen lassen sich auf erlaubte Pfade oder Workspaces begrenzen.",
+            "Audit und Verification koennen nachvollziehen, welche Dateien betroffen waren."
           ]
         },
         {
-          "id": "QGT-003",
-          "title": "Projektweite Check-Klassen in schnell, standard und tief staffeln",
-          "description": "Die Qualitätssicherung in klar benannte Stufen wie fast, standard und deep aufteilen, damit Entwickler schnell arbeiten koennen ohne die harten Vollpruefungen aus dem Blick zu verlieren.",
+          "id": "SAP-003",
+          "title": "Git-Action-Pack fuer Diff-, Status-, Commit- und Review-nahe Aufgaben ergänzen",
+          "description": "Ein Git-orientiertes Action-Pack schaffen, das fuer Entwicklungsarbeit direkt nutzbar ist, ohne unkontrollierte Repo-Manipulation zuzulassen.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Developer-Usefulness, Safe-Change-Surface",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Git-Status, Diffs, Branch-Infos und kontrollierte Commit-nahe Workflows sind nutzbar.",
+            "Riskantere Operationen wie Push oder Reset sind explizit policy-gesteuert oder standardmaessig geblockt.",
+            "Die Ergebnisse sind fuer Task-, Review- und Artifact-Pfade verwertbar."
+          ]
+        },
+        {
+          "id": "SAP-004",
+          "title": "Shell-Action-Pack mit hartem Guardrail-Modell einführen",
+          "description": "Shell-Ausfuehrung als streng begrenztes Hochrisiko-Action-Pack modellieren, statt freien Kommandozugriff als Normalfall zu behandeln.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Least-Privilege, High-Risk-Containment",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/",
+            "agent/config.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Shell-Ausfuehrung ist standardmaessig stark eingeschraenkt oder deaktiviert.",
+            "Allowlist-, Workspace-, Timeout- und Review-Regeln sind vorhanden.",
+            "Shell-Pfade sind klar als Hochrisiko-Capability erkennbar und auditierbar."
+          ]
+        },
+        {
+          "id": "SAP-005",
+          "title": "Browser- und Web-Action-Pack fuer kontrollierte Recherche und Abrufe ergänzen",
+          "description": "Ein sicheres Web-Action-Pack bereitstellen, das Recherche, Seitenabruf, Extraktion und spaeter browsernahe Interaktion kontrolliert unterstuetzt.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Practical-Utility, Boundary-Control",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Web-Recherche und Seitenabruf sind ueber kontrollierte Capability-Pfade verfuegbar.",
+            "Domain-, Netzwerk- oder Datenmengen-Grenzen sind modellierbar.",
+            "Resultate sind als Artefakte oder strukturierte Zusammenfassungen weiterverwendbar."
+          ]
+        },
+        {
+          "id": "SAP-006",
+          "title": "Dokumenten- und Office-Action-Pack fuer direkt nutzbare Arbeitsaufgaben aufbauen",
+          "description": "Direkt nuetzliche Dokument-Faehigkeiten fuer Zusammenfassung, Extraktion, Umwandlung, Strukturierung und kontrolliertes Erzeugen von Ausgaben bereitstellen.",
           "priority": "medium",
-          "type": "improvement",
-          "principle": "Developer-Flow, Scalable-QA",
+          "type": "integration",
+          "principle": "General-Utility, Reusable-Workflows",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
-            "scripts/",
-            ".github/workflows/",
-            "README.md",
+            "agent/services/",
             "tests/"
           ],
           "dependencies": [
-            "QGT-001"
+            "SAP-001"
           ],
           "acceptance": [
-            "Es gibt klar benannte QA-Stufen mit dokumentiertem Umfang.",
-            "Schnelle lokale Checks und tiefere CI-Checks greifen ineinander statt nebeneinander zu stehen.",
-            "Entwickler verstehen, wann welche Check-Stufe sinnvoll ist."
+            "Ananta kann haeufige Dokumentaufgaben als direkte Nutzfaehigkeiten anbieten.",
+            "Dokumentpfade sind mit dem Goal-, Task- und Artifact-Modell verbunden.",
+            "Die Funktionen bleiben kontrolliert und auditierbar statt in offene Dateitools auszuarten."
           ]
         }
       ]
     },
     {
-      "name": "architecture-boundaries-and-import-discipline",
-      "label": "Architekturgrenzen und Importdisziplin",
+      "name": "guided-entry-points-and-goal-modes",
+      "label": "Einstiegspunkte und Goal Modi",
       "items": [
         {
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/",
-            "plugins/",
-            "scripts/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Zentrale Schichtgrenzen sind formal beschrieben und automatisiert pruefbar.",
-            "Routes greifen nicht beliebig an allen Schichten vorbei direkt in tiefe technische Details.",
-            "Plugins und Integrationen umgehen nicht stillschweigend die vorgesehenen Provider- oder Servicegrenzen."
-          ]
-        },
-        {
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "scripts/",
-            "agent/",
-            "plugins/",
-            "tests/"
-          ],
-          "dependencies": [
-            "BND-010"
-          ],
-          "acceptance": [
-            "Verbotene Importpfade werden maschinell erkannt.",
-            "Breite oder instabile interne Imports werden auf definierte Schnittstellen zurueckgedraengt.",
-            "Tests oder Check-Skripte zeigen echte Verstosse reproduzierbar an."
-          ]
-        },
-        {
-          "id": "BND-011",
-          "title": "Unerlaubte Schichtdurchgriffe in der Agent-Core-Logik maschinell blockieren",
-          "description": "Automatisierte Checks einfuehren, die verhindern, dass fachfremde oder zu tiefe Schichten (wie Repositories) direkt aus den obersten Ebenen (Routes) ohne Service-Abstraktion genutzt werden.",
-          "priority": "high",
+          "id": "GEM-010",
+          "title": "Gefuehrte Goal-Einstiegspunkte fuer haeufige Nutzungsarten einfuehren",
+          "description": "Statt nur generisches Goal-Textfeld sollen gefuehrte Einstiegspunkte fuer typische Aufgaben wie Codeproblem loesen, Projekt analysieren, Datei zusammenfassen oder Systemdiagnose bereitgestellt werden.",
+          "priority": "critical",
           "type": "improvement",
-          "principle": "Layer-Separation, Abstraction-Integrity",
+          "principle": "Approachability, Guided-Usefulness",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "scripts/",
-            "agent/",
+            "frontend-angular/",
+            "agent/routes/",
+            "agent/services/",
             "tests/"
           ],
-          "dependencies": [
-            "BND-010"
-          ],
           "acceptance": [
-            "Schichtverletzungen werden automatisch erkannt und gemeldet.",
-            "Die Check-Pipeline blockiert bei neuen Verstößen.",
-            "Bestehende Verstöße sind dokumentiert oder über Ausnahmen erfasst."
+            "Nutzer koennen haeufige Zieltypen ueber gefuehrte Modi statt nur ueber Freitext starten.",
+            "Die Modi erzeugen strukturiertere Goals und bessere Startkontexte.",
+            "Die UX senkt die Einstiegshuerde ohne die Architektur zu vereinfachen."
           ]
         },
         {
-          "id": "BND-012",
-          "title": "Architekturdrift fuer Plugin- und Provider-Schnittstellen mit Contract-Boundaries absichern",
-          "description": "Fuer Plugin-, Provider- und Runtime-Schnittstellen explizite Vertragsgrenzen schaffen, damit interne Refactorings nicht unbemerkt die externen oder halbexternen Extension-Pfade brechen.",
+          "id": "GEM-011",
+          "title": "Goal-Typen in strukturierte Startschemas ueberfuehren",
+          "description": "Hauefige Goal-Arten sollen ueber strukturierte Startschemas mit Feldern, Defaults und optionalen Sicherheitsgrenzen modelliert werden.",
           "priority": "high",
           "type": "architecture",
-          "principle": "Stable-Seams, Replaceability",
+          "principle": "Structured-Inputs, Better-Planning",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "GEM-010"
+          ],
+          "acceptance": [
+            "Goal-Modi koennen strukturierte Startdaten statt nur Freitext aufnehmen.",
+            "Planung und Routing profitieren von besserer Eingangsspezifikation.",
+            "Die Startschemas bleiben erweiterbar und versionierbar."
+          ]
+        },
+        {
+          "id": "GEM-012",
+          "title": "Default-Playbooks fuer die wichtigsten Goal-Modi hinterlegen",
+          "description": "Zu den gefuehrten Einstiegspunkten passende Standard-Playbooks oder Task-Skizzen bereitstellen, damit Ananta direkt nuetzlich reagiert und nicht jedes Mal bei null beginnt.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Fast-Time-to-Value, Reusable-Orchestration",
           "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
-            "plugins/",
-            "tests/",
-            "docs/extensions.md"
+            "docs/",
+            "tests/"
           ],
           "dependencies": [
-            "BND-010"
+            "GEM-010",
+            "GEM-011"
           ],
           "acceptance": [
-            "Wichtige Plugin- und Provider-Seams sind als Contracts testbar beschrieben.",
-            "Interne Refactorings koennen gegen diese Grenzen validiert werden.",
-            "Drittanbieter-Integrationen haben stabilere und klarere Anschlussstellen."
+            "Goal-Modi koennen auf passende Standard-Playbooks zugreifen.",
+            "Nutzer erhalten schneller brauchbare Erstresultate.",
+            "Die Playbooks bleiben explizit, nachvollziehbar und reviewbar."
           ]
         }
       ]
     },
     {
-      "name": "import-cycles-duplication-and-dead-code",
-      "label": "Importzyklen, Duplikate und Dead Code",
+      "name": "local-assistant-capabilities",
+      "label": "Lokale direkte Assistenz Faehigkeiten",
       "items": [
         {
-          "id": "CLN-020",
-          "title": "Importzyklen repo-weit automatisch erkennen und abbauen",
-          "description": "Ein systematisches Cycle-Audit fuer Python-Module und relevante Frontend-Bereiche einfuehren, damit verdeckte zyklische Abhaengigkeiten frueh sichtbar werden und nicht erst bei Refactorings oder Runtime-Nebenwirkungen auffallen.",
+          "id": "LAC-020",
+          "title": "Repo-Analyse als first-class direkt nutzbare Faehigkeit einführen",
+          "description": "Ein direkter Modus fuer Projekt- oder Repo-Analyse bereitstellen, der Struktur, Probleme, Risiken und Verbesserungspotenziale gezielt zusammenfasst.",
           "priority": "high",
-          "type": "refactor",
-          "principle": "Acyclic-Architecture, Maintainability",
+          "type": "integration",
+          "principle": "Immediate-Utility, Controlled-Insight",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/",
+            "agent/services/",
             "frontend-angular/",
-            "scripts/",
             "tests/"
           ],
           "acceptance": [
-            "Importzyklen werden automatisiert berichtet.",
-            "Kritische oder hochfrequente Zyklen sind priorisiert und abgebaut.",
-            "Neue Zyklen koennen in CI blockiert oder zumindest klar als Regression markiert werden."
+            "Ein Nutzer kann ein Projekt oder Repo direkt analysieren lassen.",
+            "Die Ergebnisse erscheinen als strukturierte Artefakte und nicht nur als freier Chattext.",
+            "Analysepfade nutzen vorhandene Governance- und Kontextmechanismen."
           ]
         },
         {
-          "id": "CLN-021",
-          "title": "Duplikatpruefung fuer Services, Routen und Utility-Logik einführen",
-          "description": "Code-Duplikate in Service-, Route- und Hilfsmodulen systematisch erkennen, damit wiederkehrende Muster wie Auth-, Mapping-, Error-Handling- oder Read-Model-Logik nicht weiter unkontrolliert kopiert werden.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "DRY, Long-Term-Maintainability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "scripts/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Relevante Duplikate werden maschinell sichtbar.",
-            "Haeufige Copy-Paste-Muster in Kernmodulen sind identifiziert und priorisiert.",
-            "Die Check-Konfiguration ist so eingestellt, dass sie echte Probleme hervorhebt statt nur Rauschen zu produzieren."
-          ]
-        },
-        {
-          "id": "CLN-022",
-          "title": "Dead-Code- und ungenutzte Exportanalyse in den normalen QA-Pfad aufnehmen",
-          "description": "Unbenutzte Funktionen, Routen, Hilfsmodule und veraltete Exporte regelmaessig erfassen, damit die Codebasis nicht langsam mit halbtoten Konzepten, Legacy-Pfaden und Experimentresten volllaeuft.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Code-Hygiene, Surface-Reduction",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "scripts/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Dead-Code-Berichte existieren als wiederholbarer Check.",
-            "Legacy- oder ungenutzte Exporte sind sichtbar und koennen schrittweise abgebaut werden.",
-            "Das Team hat einen definierten Umgang mit false positives und absichtlich gehaltenen API-Punkten."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "contract-tests-and-schema-stability",
-      "label": "Contract Tests und Schema-Stabilitaet",
-      "items": [
-        {
+          "id": "LAC-021",
+          "title": "Issue-zu-Plan-zu-Patch-Vorschlag Workflow direkt nutzbar machen",
+          "description": "Einen alltagsnahen Entwicklungsworkflow bereitstellen, in dem aus einem Problem oder Issue ein Plan und ein kontrollierter Patch-Vorschlag erzeugt wird.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Developer-Workflow, Verification-Friendly",
           "status": "completed",
           "effort": "large",
           "files": [
-            "agent/routes/",
             "agent/services/",
-            "plugins/",
+            "agent/routes/",
             "tests/"
           ],
+          "dependencies": [
+            "SAP-002",
+            "SAP-003"
+          ],
           "acceptance": [
-            "Kritische Schnittstellen haben explizite Contract-Tests.",
-            "Aenderungen an Antwortformaten oder Eingabemodellen werden frueh erkannt.",
-            "Contracts decken nicht nur happy path, sondern auch Fehler- und Blockierungsfaelle ab."
+            "Aus einem Problemtext oder Issue laesst sich direkt ein sinnvoller Umsetzungsworkflow starten.",
+            "Der Patch entsteht als kontrollierter Vorschlag mit Review- und Verification-Bezug.",
+            "Die Pipeline passt in Goals, Tasks, Verification und Artifacts."
           ]
         },
         {
-          "id": "CNT-031",
-          "title": "Schema-Baselines fuer zentrale Read-Models und Expositionspfade einfuehren",
-          "description": "Maschinenlesbare Baselines oder Snapshots fuer Kernschemas wie Governance-Read-Model, Task-Read-Model, Provider-Descriptor oder OpenAI-Compat-Responses einfuehren.",
+          "id": "LAC-022",
+          "title": "Build-, Test- und Log-Diagnose als direkte Servicefaehigkeit bündeln",
+          "description": "Build-Fehler, Testfehler und Log-Auffaelligkeiten sollen als direkt nutzbarer Diagnosemodus verfuegbar sein, statt nur indirekt als Nebenergebnis anderer Flows aufzutreten.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Fast-Debugging, Practical-Operations",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-004"
+          ],
+          "acceptance": [
+            "Build-, Test- und Log-Diagnosen sind als eigene Startmodi verfuegbar.",
+            "Ergebnisse werden strukturiert als Problemsignale, Ursachen und Folgeempfehlungen ausgegeben.",
+            "Shell- oder Laufzeitnutzung bleibt innerhalb der Policy-Grenzen."
+          ]
+        },
+        {
+          "id": "LAC-023",
+          "title": "Compose-, Docker- und Laufzeit-Reparaturflows direkt nutzbar machen",
+          "description": "Fuer typische DevOps- und lokale Laufzeitprobleme sollen gefuehrte Diagnose- und Reparaturflows bereitgestellt werden.",
+          "priority": "medium",
+          "type": "integration",
+          "principle": "Operational-Helpfulness, Safe-Repair",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-004",
+            "GEM-012"
+          ],
+          "acceptance": [
+            "Nutzer koennen typische Container- oder Compose-Probleme direkt analysieren lassen.",
+            "Vorschlaege bleiben kontrolliert und reviewbar.",
+            "Die Resultate koennen als Folge-Tasks oder Repair-Artefakte weiterverarbeitet werden."
+          ]
+        },
+        {
+          "id": "LAC-024",
+          "title": "Dokumentations- und Review-Assistenten als direkte Standardfaehigkeiten ergänzen",
+          "description": "Praktische Alltagsfaehigkeiten wie Diff-Zusammenfassung, Review-Notizen, Architekturzusammenfassung oder Doku-Entwurf als direkte Nutzmodi einbauen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Broad-Usefulness, Low-Risk-Value",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-006"
+          ],
+          "acceptance": [
+            "Review- und Doku-nahe Aufgaben sind als erste Standardfaehigkeiten direkt benutzbar.",
+            "Die Ergebnisse lassen sich als Artefakte speichern und weiterverwenden.",
+            "Die Modi schaffen breiten Nutzen ohne offene Hochrisiko-Capabilities."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "simple-interaction-adapters",
+      "label": "Einfache Interaktionsadapter",
+      "items": [
+        {
+          "id": "SIA-030",
+          "title": "Web-UI Chat und Goal-Interaktion enger mit Tasks und Artifacts verzahnen",
+          "description": "Die bestehende UI soll staerker von einer reinen Verwaltungsoberflaeche zu einer direkt nutzbaren Arbeitsoberflaeche weiterentwickelt werden, in der Goal-Eingabe, Verlauf, Artefakte und Folgeaktionen eng zusammenliegen.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Usability, Unified-Work-Surface",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Nutzer koennen Goals, Ergebnisse, Folgefragen und Artefakte in einer konsistenten UI erleben.",
+            "Die UI fuehlt sich fuer direkte Nutzung weniger nach Admin-Panel und mehr nach Arbeitsoberflaeche an.",
+            "Governance- und Artifact-Modelle bleiben sichtbar und gehen nicht hinter Chat weg."
+          ]
+        },
+        {
+          "id": "SIA-031",
+          "title": "CLI als first-class direkter Arbeitszugang ausbauen",
+          "description": "Eine einfache, schnelle CLI fuer Goals, Diagnosemodi, Artefaktabruf und Folgeaktionen bereitstellen, damit Ananta auch ohne umfangreiche UI direkt nuetzlich ist.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Change-Visibility, Stable-Interfaces",
+          "principle": "Direct-Use, Automation-Friendly",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "agent/",
+            "docs/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die CLI deckt haeufige direkte Anwendungsfaelle sinnvoll ab.",
+            "Sie ist nicht nur Admin-Werkzeug, sondern echte Nutzoberflaeche.",
+            "Goals, Status und Resultate koennen ueber die CLI sinnvoll bearbeitet werden."
+          ]
+        },
+        {
+          "id": "SIA-032",
+          "title": "Webhook- und API-basierte Fremdintegration als stabilen Aussenrand stärken",
+          "description": "Statt frueh viele Messenger einzubauen soll der API- und Webhook-Aussenrand so gut werden, dass andere Systeme Ananta einfach und kontrolliert nutzen koennen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Extensibility, Clean-External-Surface",
           "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
-            "agent/services/",
+            "api-spec.md",
             "tests/",
             "docs/"
           ],
-          "dependencies": [
-            "CNT-030"
+          "acceptance": [
+            "Externe Systeme koennen Goals und Folgeaktionen sauber ueber APIs oder Webhooks anstossen.",
+            "Der Aussenrand ist stabiler und sinnvoller als frueh viele spezialisierte Kanaele einzubauen.",
+            "Auth, Audit und Policy bleiben konsistent."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "skills-playbooks-and-blueprints",
+      "label": "Skills Playbooks und Blueprints",
+      "items": [
+        {
+          "id": "SPB-040",
+          "title": "Bibliothek direkt nutzbarer Skills und Playbooks aufbauen",
+          "description": "Eine kuratierte Bibliothek aus direkt nutzbaren Skills und Playbooks schaffen, die typische Arbeitsaufgaben kontrolliert und wiederverwendbar abbildet.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Reusability, Fast-Time-to-Value",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "docs/",
+            "agent/services/",
+            "tests/"
           ],
           "acceptance": [
-            "Kernschemas sind als Baselines pruefbar.",
-            "Unbeabsichtigte Strukturveraenderungen werden sichtbar.",
-            "Bewusste Vertragsaenderungen lassen sich sauber dokumentieren und versionieren."
+            "Es gibt eine erkennbare Sammlung wiederverwendbarer Skills oder Playbooks.",
+            "Die Bibliothek ist nicht nur interne Technik, sondern klar fuer reale Anwendungsfaelle nutzbar.",
+            "Skills bleiben in Goals, Tasks, Verification und Artifacts eingebettet."
           ]
         },
         {
-          "id": "CNT-032",
-          "title": "Fehlervertrags-Tests fuer Policy-Blockierungen, Auth und Provider-Ausfaelle ergänzen",
-          "description": "Nicht nur Erfolgsantworten, sondern auch Fehlervertragsformen fuer Auth, Policy, Verification und Providerfehler als stabile Schnittstellen behandeln.",
+          "id": "SPB-041",
+          "title": "Standard-Playbooks fuer Bugfix, Refactoring, Incident und Architekturreview bereitstellen",
+          "description": "Fuer haeufige professionelle Arbeitsfaelle konkrete Standard-Playbooks mit sinnvollen Taskfolgen und Verifikationspunkten bereitstellen.",
           "priority": "high",
-          "type": "bugfix",
-          "principle": "Predictable-Errors, Client-Safety",
+          "type": "integration",
+          "principle": "Practical-Workflow-Design, Repeatability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SPB-040"
+          ],
+          "acceptance": [
+            "Wichtige Kernanwendungsfaelle sind durch konkrete Standard-Playbooks abgedeckt.",
+            "Playbooks lassen sich direkt starten oder als Vorlage verwenden.",
+            "Verification und Escalation sind in den Playbooks bewusst vorgesehen."
+          ]
+        },
+        {
+          "id": "SPB-042",
+          "title": "Blueprints und Teams enger mit direkt nutzbaren Arbeitsmodi verbinden",
+          "description": "Blueprints und Teamdefinitionen sollen nicht nur Verwaltungsobjekte sein, sondern direkt nutzbare vordefinierte Arbeitsmodi und Faehigkeitsprofile repraesentieren.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Usable-Configuration, Role-Based-Capabilities",
           "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
             "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "CNT-030"
-          ],
-          "acceptance": [
-            "Wichtige Fehlerpfade haben stabile Fehlerschluessel und Struktur.",
-            "Clients koennen Blockierungen und technische Fehler klar unterscheiden.",
-            "Regressionsfaelle fuer Fehlerformate werden von Contract-Tests abgedeckt."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "test-topology-and-live-e2e",
-      "label": "Test Topologie und Live E2E",
-      "items": [
-        {
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/",
-            "scripts/",
-            "docker-compose*.yml",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Testmodi sind sauber benannt und dokumentiert.",
-            "Entwickler koennen gezielt schnelle oder tiefe Testlaeufe waehlen.",
-            "CI nutzt die Testmodi nachvollziehbar statt als uneinheitlichen Mix."
-          ]
-        },
-        {
-          "id": "TST-041",
-          "title": "Mehr echte Compose-Live-Tests fuer Provider, Remote-Hubs und kritische Integrationen aufbauen",
-          "description": "Neben Unit- und Service-Tests mehr echte systemnahe Compose-Tests aufbauen, die reale Container, Konfigurationen und Cross-Service-Pfade pruefen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "System-Confidence, Realistic-Validation",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "docker-compose*.yml",
-            "tests/",
-            "scripts/",
-            ".github/workflows/"
-          ],
-          "dependencies": [
-            "TST-040"
-          ],
-          "acceptance": [
-            "Kritische Integrationspfade haben echte Compose-Live-Tests.",
-            "Provider- und Remote-Pfade werden nicht nur mit Mocks getestet.",
-            "Fehlerbilder aus realen Netzwerk- oder Startreihenfolgeproblemen werden frueher sichtbar."
-          ]
-        },
-        {
-          "id": "TST-042",
-          "title": "Frontend-E2E mit Governance-, Routing- und High-Risk-Pfaden erweitern",
-          "description": "Die UI-E2E-Tests staerker auf Governance-Read-Models, Review-Zustaende, Terminal-Schutz, Routing-Erklaerungen und Fehlerdarstellungen ausrichten.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Operator-Confidence, End-to-End-Coverage",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
             "frontend-angular/",
-            "tests/",
-            "agent/routes/"
-          ],
-          "dependencies": [
-            "TST-040"
-          ],
-          "acceptance": [
-            "Operator-relevante UI-Pfade sind end-to-end getestet.",
-            "Governance- und High-Risk-Ansichten werden nicht nur technisch, sondern auch im UI-Verhalten validiert.",
-            "Wichtige Zustandswechsel und Fehlermeldungen sind regressionssicherer."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "build-release-and-runtime-hardening",
-      "label": "Build, Release und Runtime Haertung",
-      "items": [
-        {
-          "id": "BLD-050",
-          "title": "Build-, Package- und Release-Pfade reproduzierbarer und pruefbarer machen",
-          "description": "Den Weg von lokalem Build ueber Compose-Build bis zu Release-Artefakten staerker standardisieren und gegen fehlende Dateien, unstabile Inputs oder unvollstaendige Paketinhalte absichern.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Reproducibility, Release-Safety",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "Dockerfile*",
-            "docker-compose*.yml",
-            "scripts/",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Build- und Releasepfade sind dokumentiert und weitgehend reproduzierbar.",
-            "Wichtige Artefakte werden vor Release oder Image-Bau validiert.",
-            "Fehlende Runtime-Dateien oder unstimmige Build-Zustaende werden frueh erkannt."
-          ]
-        },
-        {
-          "id": "BLD-051",
-          "title": "Startup-Smoke-Checks fuer unterschiedliche Deployment-Profile automatisieren",
-          "description": "Schnelle Starttests fuer hub, worker, compose-safe, test und plugin-lastige Profile aufbauen, damit Konfigurations- oder Migrationsfehler nicht erst spaet im Lauf entdeckt werden.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Fast-Failure, Deployability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "scripts/",
-            "tests/",
-            "docker-compose*.yml",
-            ".github/workflows/"
-          ],
-          "dependencies": [
-            "BLD-050"
-          ],
-          "acceptance": [
-            "Mehrere typische Startprofile werden automatisch smoke-getestet.",
-            "Migrationen, Konfig-Ladepfade und Plugin-Loading sind darin einbezogen.",
-            "Startregressionen fallen frueher auf als heute."
-          ]
-        },
-        {
-          "id": "BLD-052",
-          "title": "Dependency- und Runtime-Oberflaeche regelmaessig auditieren",
-          "description": "Abhaengigkeiten, optionale Runtime-Pfade und externe Binary- oder CLI-Annahmen regelmaessig pruefen, damit Compose-, local- und CI-Umgebungen nicht unbemerkt auseinanderlaufen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Environment-Consistency, Supply-Chain-Hygiene",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "requirements*.txt",
-            "pyproject.toml",
-            "Dockerfile*",
-            "scripts/"
-          ],
-          "acceptance": [
-            "Kritische Abhaengigkeiten und optionale Laufzeitannahmen sind sichtbar dokumentiert.",
-            "Environment-Drift zwischen lokal, Compose und CI wird reduziert.",
-            "Die Runtime-Oberflaeche wird regelmaessig auf Ueberraschungen geprueft."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "performance-import-cost-and-startup",
-      "label": "Performance, Importkosten und Startup",
-      "items": [
-        {
-          "id": "PRF-060",
-          "title": "Startup-Zeit und Kaltstartkosten fuer Hub und Worker messbar machen",
-          "description": "Metriken und Tests einbauen, die Startzeit, Importdauer und Initialisierungskosten fuer Hub- und Worker-Profile nachvollziehbar machen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Performance-Visibility, Regression-Detection",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "scripts/",
-            "agent/",
-            "tests/",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Hub- und Worker-Kaltstartzeiten sind messbar und vergleichbar.",
-            "Groessere Startup-Regressionen werden sichtbar.",
-            "Die Daten koennen fuer spaetere Optimierungen genutzt werden."
-          ]
-        },
-        {
-          "id": "PRF-061",
-          "title": "Schwere Importpfade und Lazy-Load-Potenziale analysieren",
-          "description": "Analysieren, welche Module beim Start oder in oft genutzten Codepfaden unnoetig frueh geladen werden, und gezielt Lazy-Load- oder Entkopplungsmoeglichkeiten schaffen.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Load-Shedding, Faster-Startup",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "plugins/",
-            "scripts/",
             "tests/"
           ],
           "dependencies": [
-            "PRF-060"
+            "SPB-040"
           ],
           "acceptance": [
-            "Schwere Importpfade sind identifiziert.",
-            "Nicht immer benoetigte Pfade koennen spaeter oder bedarfsorientiert geladen werden.",
-            "Messungen zeigen Verbesserungen oder zumindest fundierte Transparenz."
+            "Teams und Blueprints koennen als nutzbare Arbeitsprofile gestartet werden.",
+            "Action Packs, Goal-Modi und Playbooks lassen sich mit Blueprints sinnvoll verknuepfen.",
+            "Die Nutzerperspektive auf Blueprints wird greifbarer und direkter."
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "selected-external-adapters",
+      "label": "Ausgewählte externe Adapter",
+      "items": [
         {
-          "id": "PRF-062",
-          "title": "Performance-Budgets fuer kritische Pfade definieren und pruefen",
-          "description": "Fuer Startzeit, wichtige API-Read-Models und ausgewählte Compose-Testpfade grobe Performance-Budgets festlegen, damit sich der Code nicht schleichend verlangsamt.",
-          "priority": "low",
-          "type": "improvement",
-          "principle": "Budget-Guardrails, Sustainable-Speed",
+          "id": "SEA-050",
+          "title": "Externe Adapter erst nach stabilem Web UI CLI und API Kern ergänzen",
+          "description": "Eine klare Produktregel verankern, dass externe Kanäle wie Slack, Matrix oder andere Messaging-Wege erst nach stabilem Kernzugang ueber Web-UI, CLI und API priorisiert werden.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Focus, Controlled-Surface-Growth",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "scripts/",
-            "tests/",
-            ".github/workflows/"
-          ],
-          "dependencies": [
-            "PRF-060"
-          ],
-          "acceptance": [
-            "Fuer einige kritische Pfade existieren einfache Performance-Budgets.",
-            "Groessere Regressionen werden sichtbar statt nur gefuehlt.",
-            "Budgets sind realistisch und erzeugen nicht nur flakige CI-Probleme."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "plugin-sdk-and-extension-maturity",
-      "label": "Plugin SDK und Extension Reife",
-      "items": [
-        {
-          "id": "PLG-070",
-          "title": "Extension- und Plugin-Vertragsflaeche als halbformales SDK konsolidieren",
-          "description": "Die vorhandenen Plugin- und Provider-Seams zu einer klareren, dokumentierten und testbaren SDK-aehnlichen Schicht konsolidieren, damit Erweiterungen nicht zu sehr an impliziten internen Details haengen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Stable-Extensions, Reduced-Internal-Coupling",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "plugins/",
-            "agent/plugin_loader.py",
-            "agent/services/",
-            "docs/extensions.md",
-            "tests/"
-          ],
-          "acceptance": [
-            "Es existiert eine klarer definierte Extension-Vertragsflaeche.",
-            "Plugin-Autoren muessen weniger auf interne Moduldetails zugreifen.",
-            "SDK-aehnliche Kernpfade lassen sich contract-testen und dokumentieren."
-          ]
-        },
-        {
-          "id": "PLG-071",
-          "title": "Plugin-Beispiele, Baselines und Boundary-Tests fuer Drittanbieter-Erweiterungen verbessern",
-          "description": "Beispielplugins, Testdoubles und Boundary-Checks fuer Erweiterungen bereitstellen, damit externe Integrationen nicht nur funktionieren, sondern sauber innerhalb der vorgesehenen Grenzen bleiben.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Extensibility, Safer-Plugin-Ecosystem",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/",
-            "docs/extensions.md",
-            "tests/"
-          ],
-          "dependencies": [
-            "PLG-070"
-          ],
-          "acceptance": [
-            "Es gibt gepflegte Beispiel- oder Canary-Plugins fuer die Kernpfade.",
-            "Plugin-Grenzen werden nicht nur dokumentiert, sondern auch getestet.",
-            "Drittanbieter koennen Erweiterungen mit weniger Ratearbeit bauen."
-          ]
-        },
-        {
-          "id": "PLG-072",
-          "title": "Plugin-Loading, Versioning und Konfliktverhalten uebergreifend haerter testen",
-          "description": "Registrierung, Reihenfolge, Versionierung, Konfliktverhalten und defekte Plugins in mehr Szenarien automatisiert pruefen, damit das System auch mit wachsender Plugin-Zahl stabil bleibt.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Robustness, Multi-Plugin-Readiness",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/plugin_loader.py",
-            "plugins/",
-            "tests/"
-          ],
-          "dependencies": [
-            "PLG-070"
-          ],
-          "acceptance": [
-            "Plugin-Ladeverhalten ist in Konflikt- und Fehlerfaellen reproduzierbar getestet.",
-            "Versionierungs- und Prioritaetsregeln sind nachvollziehbar.",
-            "Defekte oder doppelte Plugins bringen das restliche System nicht unkontrolliert aus dem Tritt."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "developer-experience-and-docs-for-engineering",
-      "label": "Developer Experience und Engineering Doku",
-      "items": [
-        {
-          "status": "completed",
-          "effort": "medium",
           "files": [
             "README.md",
             "docs/",
-            "CONTRIBUTING.md",
-            "scripts/"
+            "CONTRIBUTING.md"
           ],
           "acceptance": [
-            "Entwickler finden schnell heraus, wie Qualitaetschecks und Testmodi gedacht sind.",
-            "Boundary- und Repo-Regeln sind nicht nur im Code versteckt, sondern erklart.",
-            "Neue Mitwirkende brauchen weniger Reverse Engineering des Build- und Testsystems."
+            "Die Prioritaet des Kernprodukts vor Kanaelvielfalt ist dokumentiert.",
+            "Neue Aussenadapter muessen begruendet und nicht reflexhaft eingebaut werden.",
+            "Das Projekt bewahrt Fokus auf kontrollierten Kernnutzen."
           ]
         },
         {
-          "id": "DEV-081",
-          "title": "Begruendete Architekturguardrails fuer PR-Groesse und Themenfokus formulieren",
-          "description": "Aehnlich wie reifere Projekte klare Guardrails fuer Themenfokus, PR-Groesse und Architekturgrenzen formulieren, damit die Codequalitaet nicht unter unkontrollierter Aenderungsbreite leidet.",
+          "id": "SEA-051",
+          "title": "Einen ersten leichten externen Adapter mit harter Policy-Grenze pilotieren",
+          "description": "Nach stabilem Kern genau einen leichten externen Adapter pilotieren, um die Integrationsfaehigkeit zu pruefen ohne sofort in Kanalchaos zu geraten.",
+          "priority": "low",
+          "type": "integration",
+          "principle": "Measured-Expansion, Learn-Before-Scale",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "docs/extensions.md",
+            "tests/"
+          ],
+          "dependencies": [
+            "SIA-032",
+            "SEA-050"
+          ],
+          "acceptance": [
+            "Genau ein externer Adapter kann als Pilot sicher betrieben werden.",
+            "Die Policy- und Audit-Grenzen bleiben auch ueber den Adapter erhalten.",
+            "Die Pilotintegration liefert Erkenntnisse fuer spaetere Ausweitung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "strict-extension-model",
+      "label": "Strenges Extension Modell",
+      "items": [
+        {
+          "id": "SEM-060",
+          "title": "Ein strenges Drittanbieter-Extension-Modell fuer direkt nutzbare Faehigkeiten definieren",
+          "description": "Wenn Ananta spaeter breiter nutzbar wird, muss ein strenges Extension-Modell definieren, welche Zusatzfaehigkeiten als externe Erweiterungen eingebunden werden duerfen und unter welchen Grenzen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Extensibility-with-Guardrails, Secure-Ecosystem",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "docs/extensions.md",
+            "agent/plugin_loader.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Es gibt klare Regeln fuer Erweiterungen direkt nutzbarer Faehigkeiten.",
+            "Extension-Autoren muessen definierte Sicherheits- und Capability-Grenzen respektieren.",
+            "Das Modell verhindert, dass Ananta in unkontrollierte Toolvielfalt abgleitet."
+          ]
+        },
+        {
+          "id": "SEM-061",
+          "title": "Action Packs und Skills fuer Erweiterungen als capability-gebundene Contracts modellieren",
+          "description": "Externe Erweiterungen sollen nicht frei in den Core greifen, sondern nur ueber klar definierte capability-gebundene Contracts fuer Action Packs und Skills andocken.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Stable-Seams, Safe-Pluggability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "plugins/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SEM-060",
+            "SAP-001",
+            "SPB-040"
+          ],
+          "acceptance": [
+            "Action Packs und Skills haben stabile Erweiterungsschnittstellen.",
+            "Externe Erweiterungen umgehen den Governance-Kern nicht.",
+            "Plugin- und Capability-Grenzen bleiben mechanisch pruefbar."
+          ]
+        },
+        {
+          "id": "SEM-062",
+          "title": "Marktplatz oder Oekosystem-Ideen erst nach stabilen Kern-Contracts zulassen",
+          "description": "Etwaige spaetere Oekosystem- oder Marktplatzideen sollen explizit an die Bedingung eines stabilen, gehärteten Kernmodells gebunden werden.",
           "priority": "low",
           "type": "documentation",
-          "principle": "Reviewability, Healthy-Change-Size",
+          "principle": "Do-Not-Scale-Chaos, Core-First-Maturity",
           "status": "completed",
           "effort": "small",
           "files": [
-            "CONTRIBUTING.md",
             "README.md",
-            "docs/"
+            "docs/",
+            "CONTRIBUTING.md"
+          ],
+          "dependencies": [
+            "SEM-060",
+            "SEM-061"
           ],
           "acceptance": [
-            "Die Doku setzt klare Erwartungen fuer Aenderungsumfang und Themenfokus.",
-            "Reviewkosten und Architekturdrift werden dadurch reduziert.",
-            "Regeln sind praxisnah und nicht nur formale Huerden."
-          ]
-        },
-        {
-          "id": "DEV-082",
-          "title": "Codequalitaets-Status und technische Schulden regelmaessig als Artefakte ausgeben",
-          "description": "Dead-Code-Berichte, Cycle-Reports, Perf-Snapshots und Contract-Abweichungen als nachvollziehbare Artefakte ausgeben, damit technische Schulden sichtbar und priorisierbar bleiben.",
-          "priority": "low",
-          "type": "improvement",
-          "principle": "Transparency, Continuous-Improvement",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "scripts/",
-            ".github/workflows/",
-            ".artifacts/",
-            "docs/"
-          ],
-          "acceptance": [
-            "Wichtige technische Schulden und Qualitaetssignale werden als Artefakte erzeugt.",
-            "Die Ergebnisse koennen fuer priorisierte Verbesserungsrunden genutzt werden.",
-            "Die Reports bleiben knapp genug, um im Alltag nutzbar zu sein."
+            "Das Projekt priorisiert reife Kernvertraege vor Erweiterungsoekosystemen.",
+            "Feature-Wachstum bleibt an Sicherheits- und Governance-Reife gekoppelt.",
+            "Die Projektlinie bleibt fokusiert und nachvollziehbar."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 27,
+    "total_items": 25,
     "by_status": {
-      "completed": 27,
+      "completed": 25,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Diese Todo-Datei vergleicht Ananta nicht funktional mit OpenClaw, sondern technisch auf Ebene von Repo-Haertung, Boundary-Enforcement, Testtopologie und Build-/Release-Reife.",
-      "Der groesste Hebel liegt weniger in neuer Fachlogik als in mechanischer Qualitaetssicherung: Regeln, die Architekturabsichten automatisch schuetzen statt nur in Doku zu behaupten.",
-      "Ananta muss OpenClaw nicht in Integrationsbreite kopieren; die wertvollere Annäherung liegt in derselben technischen Disziplin bei Checks, Contracts, Buildpfaden und Testhärte."
+      "Diese Todo-Datei uebersetzt den Wunsch nach mehr direkter Nutzbarkeit in einen governance-first Ausbaupfad statt in einen capability-first Assistentenklon.",
+      "Der rote Faden ist: sichere Action Packs, gefuehrte Goal-Modi, praktische lokale Arbeitsfaehigkeiten, wenige starke Einstiegspunkte und erst spaeter ausgewaehlte Aussenadapter.",
+      "Ananta soll breiter nutzbar werden, ohne seinen eigentlichen Mehrwert zu verlieren: kontrollierte Planung, Verification, Policies, Audit und klare Verantwortungsgrenzen."
     ],
     "recommended_order": [
-      "QGT-001",
-      "BND-010",
-      "CNT-030",
-      "TST-040",
-      "QGT-002",
-      "BND-011",
-      "CLN-020",
-      "BLD-050",
-      "PLG-070",
-      "CNT-031",
-      "CNT-032",
-      "TST-041",
-      "CLN-021",
-      "CLN-022",
-      "PRF-060",
-      "PRF-061",
-      "BND-012",
-      "PLG-072",
-      "PLG-071",
-      "BLD-051",
-      "BLD-052",
-      "TST-042",
-      "QGT-003",
-      "DEV-080",
-      "DEV-082",
-      "PRF-062",
-      "DEV-081"
+      "SAP-001",
+      "GEM-010",
+      "GEM-011",
+      "SIA-030",
+      "SAP-002",
+      "SAP-003",
+      "SAP-004",
+      "LAC-020",
+      "LAC-022",
+      "SPB-040",
+      "GEM-012",
+      "SPB-041",
+      "LAC-021",
+      "SAP-005",
+      "SAP-006",
+      "LAC-024",
+      "SIA-031",
+      "SIA-032",
+      "SPB-042",
+      "LAC-023",
+      "SEM-060",
+      "SEM-061",
+      "SEA-050",
+      "SEA-051",
+      "SEM-062"
     ]
   }
 }
