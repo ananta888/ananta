@@ -26,12 +26,14 @@ class ApiEvolutionEngine(EvolutionEngine):
         return EvolutionResult(
             provider_name=self.provider_name,
             summary=f"API analysis for {context.task_id}",
+            provider_metadata={"source": "api-test", "evolver_status": "completed"},
             proposals=[
                 EvolutionProposal(
                     title="Review failed task",
                     description="Create a reviewable proposal from the API trigger.",
                     risk_level="low",
                     confidence=0.7,
+                    provider_metadata={"source": "api-test", "evolver_kind": "gene"},
                 )
             ],
         )
@@ -120,7 +122,9 @@ def test_task_evolution_analyze_and_read_model_endpoints(client, app, admin_auth
     assert read_payload["run_count"] == 1
     assert read_payload["proposal_count"] == 1
     assert read_payload["runs"][0]["trigger_type"] == "manual"
+    assert read_payload["runs"][0]["provider_metadata"]["source"] == "api-test"
     assert read_payload["proposals"][0]["title"] == "Review failed task"
+    assert read_payload["proposals"][0]["provider_metadata"]["evolver_kind"] == "gene"
 
 
 def test_task_evolution_validate_endpoint(client, app, admin_auth_header):

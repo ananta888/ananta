@@ -554,12 +554,42 @@ class EvolutionService:
             encoded = json.dumps(sanitized, ensure_ascii=True, sort_keys=True)
         if len(encoded.encode("utf-8")) <= policy.max_raw_payload_bytes:
             return sanitized
+        semantic_preview = self._semantic_payload_preview(sanitized)
+        if semantic_preview:
+            return {
+                "_truncated": True,
+                "max_raw_payload_bytes": policy.max_raw_payload_bytes,
+                **semantic_preview,
+            }
         preview = encoded[: policy.max_raw_payload_bytes]
         return {
             "_truncated": True,
             "max_raw_payload_bytes": policy.max_raw_payload_bytes,
             "preview": preview,
         }
+
+    @classmethod
+    def _semantic_payload_preview(cls, payload: Any) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        keep_keys = (
+            "run_id",
+            "id",
+            "status",
+            "summary",
+            "message",
+            "source",
+            "evolver_run_id",
+            "evolver_status",
+        )
+        preview = {key: payload[key] for key in keep_keys if key in payload}
+        for key in ("proposals", "improvements", "candidates", "events", "validation_results", "validations"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                preview[f"{key}_count"] = len(value)
+        if preview:
+            preview["preview_keys"] = sorted(str(key) for key in payload.keys())[:30]
+        return {"semantic_preview": preview} if preview else {}
 
     @classmethod
     def _sanitize_persisted_payload(cls, payload: Any) -> Any:
@@ -627,6 +657,7 @@ class EvolutionService:
             "created_at": run.created_at,
             "updated_at": run.updated_at,
             "result_metadata": dict(run.result_metadata or {}),
+            "provider_metadata": dict(run.provider_metadata or {}),
         }
 
     def _proposal_read_model(self, proposal: EvolutionProposalDB) -> dict[str, Any]:
@@ -644,6 +675,7 @@ class EvolutionService:
             "status": proposal.status,
             "target_refs": list(proposal.target_refs or []),
             "artifact_refs": list(proposal.artifact_refs or []),
+            "provider_metadata": dict(proposal.provider_metadata or {}),
             "created_at": proposal.created_at,
             "updated_at": proposal.updated_at,
         }

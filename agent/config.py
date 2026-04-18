@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     evolver_connect_timeout_seconds: Optional[float] = Field(default=None, validation_alias="EVOLVER_CONNECT_TIMEOUT_SECONDS")
     evolver_read_timeout_seconds: Optional[float] = Field(default=None, validation_alias="EVOLVER_READ_TIMEOUT_SECONDS")
     evolver_max_response_bytes: int = Field(default=1048576, validation_alias="EVOLVER_MAX_RESPONSE_BYTES")
+    evolver_retry_count: int = Field(default=0, validation_alias="EVOLVER_RETRY_COUNT")
+    evolver_retry_backoff_seconds: float = Field(default=0.0, validation_alias="EVOLVER_RETRY_BACKOFF_SECONDS")
     evolver_bearer_token: Optional[str] = Field(default=None, validation_alias="EVOLVER_BEARER_TOKEN")
     evolver_headers: Optional[str] = Field(default=None, validation_alias="EVOLVER_HEADERS")
     evolver_allowed_hosts: Optional[str] = Field(default=None, validation_alias="EVOLVER_ALLOWED_HOSTS")

@@ -69,7 +69,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Resilience, Bounded-Retry",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -164,7 +164,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Observability, Admin-Debuggability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -258,7 +258,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Useful-Metadata, Bounded-Specificity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "plugins/evolver_adapter/mapper.py",
@@ -477,7 +477,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Debuggability, Bounded-Storage",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/evolution_service.py",
@@ -505,7 +505,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Operability, Fast-Diagnosis",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution/registry.py",
@@ -529,7 +529,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Traceability, Explainability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/evolution_service.py",
@@ -654,7 +654,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Observability, Runtime-Learning",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/metrics.py",
@@ -678,9 +678,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 20,
+      "completed": 27,
       "partial": 0,
-      "open": 7
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei setzt bewusst nicht mehr bei der Grundintegration an, sondern bei der Haertung und Betriebsreife der bereits vorhandenen Evolver-Einbindung.",
