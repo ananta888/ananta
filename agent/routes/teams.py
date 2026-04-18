@@ -56,6 +56,11 @@ from agent.services.team_blueprint_service import (
     reconcile_seed_blueprints as reconcile_seed_blueprints_service,
     save_blueprint as save_blueprint_service,
 )
+from agent.services.team_definition_version_service import (
+    build_team_blueprint_diff,
+    enrich_blueprint_payload,
+    team_definition_metadata,
+)
 from agent.utils import validate_request
 
 teams_bp = Blueprint("teams", __name__)
@@ -1171,7 +1176,7 @@ def _serialize_blueprint(
     blueprint_artifacts = artifacts if artifacts is not None else _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
     blueprint_dict["roles"] = [role.model_dump() for role in blueprint_roles]
     blueprint_dict["artifacts"] = [artifact.model_dump() for artifact in blueprint_artifacts]
-    return blueprint_dict
+    return enrich_blueprint_payload(blueprint_dict, blueprint, blueprint_roles, blueprint_artifacts)
 
 
 ALLOWED_BLUEPRINT_ARTIFACT_KINDS = {"task", "policy"}
@@ -1542,7 +1547,9 @@ def instantiate_team_blueprint(blueprint_id):
         return instantiated
 
     log_audit("team_blueprint_instantiated", {"blueprint_id": blueprint_id, "team_id": instantiated.id})
-    return api_response(data={"team": instantiated.model_dump(), "blueprint": _serialize_blueprint(blueprint)}, code=201)
+    team_payload = instantiated.model_dump()
+    team_payload["definition_metadata"] = team_definition_metadata(instantiated)
+    return api_response(data={"team": team_payload, "blueprint": _serialize_blueprint(blueprint)}, code=201)
 
 
 @teams_bp.route("/teams/roles", methods=["GET"])
@@ -1688,11 +1695,21 @@ def list_teams():
     result = []
     for t in teams:
         team_dict = t.model_dump()
+        team_dict["definition_metadata"] = team_definition_metadata(t)
         # Mitglieder laden
         members = _repos().team_member_repo.get_by_team(t.id)
         team_dict["members"] = [m.model_dump() for m in members]
         result.append(team_dict)
     return api_response(data=result)
+
+
+@teams_bp.route("/teams/<team_id>/blueprint-diff", methods=["GET"])
+@check_auth
+def get_team_blueprint_diff(team_id):
+    diff = build_team_blueprint_diff(team_id)
+    if diff is None:
+        return _team_error("not_found", 404)
+    return api_response(data=diff)
 
 
 @teams_bp.route("/teams", methods=["POST"])
@@ -1770,7 +1787,9 @@ def create_team():
         if team_type and team_type.name == "Scrum":
             initialize_scrum_artifacts(new_team.name, new_team.id)
     log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
-    return api_response(data=new_team.model_dump(), code=201)
+    payload = new_team.model_dump()
+    payload["definition_metadata"] = team_definition_metadata(new_team)
+    return api_response(data=payload, code=201)
 
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
@@ -1848,7 +1867,9 @@ def update_team(team_id):
     else:
         _repos().team_repo.save(team)
     log_audit("team_updated", {"team_id": team_id})
-    return api_response(data=team.model_dump())
+    payload = team.model_dump()
+    payload["definition_metadata"] = team_definition_metadata(team)
+    return api_response(data=payload)
 
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
@@ -1888,7 +1909,10 @@ def setup_scrum():
     )
     return api_response(
         message=f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
-        data={"team": instantiated.model_dump(), "blueprint": _serialize_blueprint(scrum_blueprint)},
+        data={
+            "team": {**instantiated.model_dump(), "definition_metadata": team_definition_metadata(instantiated)},
+            "blueprint": _serialize_blueprint(scrum_blueprint),
+        },
         code=201,
     )
 

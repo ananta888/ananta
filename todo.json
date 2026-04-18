@@ -425,7 +425,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Traceability, Controlled-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/db_models.py",
@@ -446,7 +446,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Maintainability, Drift-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -470,7 +470,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Semantic-Clarity, Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -723,7 +723,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Root-Cause-Visibility, Operability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -744,7 +744,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Measurability, Runtime-Learning",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/metrics.py",
@@ -768,7 +768,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Context-Efficiency, Evidence-Based-Tuning",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/context_bundle_service.py",
@@ -791,9 +791,9 @@
   "meta": {
     "total_items": 31,
     "by_status": {
-      "completed": 25,
+      "completed": 31,
       "partial": 0,
-      "open": 6
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",

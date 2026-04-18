@@ -26,6 +26,7 @@ from agent.models import (
     TeamBlueprintInstantiateRequest,
     TeamBlueprintUpdateRequest,
 )
+from agent.services.team_definition_version_service import enrich_blueprint_payload
 
 
 @dataclass(frozen=True)
@@ -580,4 +581,4 @@ def _serialize_blueprint_snapshot(
     payload = blueprint.model_dump()
     payload["roles"] = [role.model_dump() for role in roles]
     payload["artifacts"] = [artifact.model_dump() for artifact in artifacts]
-    return payload
+    return enrich_blueprint_payload(payload, blueprint, roles, artifacts)

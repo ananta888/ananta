@@ -623,6 +623,63 @@ def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
     assert isinstance(retrieval_bundles.get("by_bundle_mode"), dict)
 
 
+def test_dashboard_read_model_exposes_operations_observability(client, admin_token):
+    from agent.db_models import ContextBundleDB, PolicyDecisionDB, TaskDB, VerificationRecordDB
+    from agent.repository import context_bundle_repo, policy_decision_repo, task_repo, verification_record_repo
+
+    task_repo.save(
+        TaskDB(
+            id="obs-task-1",
+            title="Observe routing",
+            status="failed",
+            task_kind="coding",
+            status_reason_code="verification_failed",
+            context_bundle_id="obs-bundle-1",
+        )
+    )
+    context_bundle_repo.save(
+        ContextBundleDB(
+            id="obs-bundle-1",
+            task_id="obs-task-1",
+            chunks=[{"source_type": "memory"}, {"source_type": "knowledge"}],
+            token_estimate=1200,
+            bundle_metadata={
+                "budget": {"retrieval_utilization": 0.75},
+                "strategy": {"source_mix": {"memory": 1, "knowledge": 1}},
+            },
+        )
+    )
+    policy_decision_repo.save(
+        PolicyDecisionDB(
+            task_id="obs-task-1",
+            decision_type="routing",
+            status="blocked",
+            policy_name="routing-policy",
+            policy_version="v1",
+            reasons=["provider_unavailable"],
+        )
+    )
+    verification_record_repo.save(
+        VerificationRecordDB(
+            task_id="obs-task-1",
+            verification_type="quality_gate",
+            status="failed",
+            escalation_code="missing_test_evidence",
+        )
+    )
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    res = client.get("/dashboard/read-model?include_task_snapshot=1", headers=headers)
+
+    assert res.status_code == 200
+    runtime_telemetry = (((res.json["data"].get("llm_configuration") or {}).get("runtime_telemetry")) or {})
+    operations = runtime_telemetry.get("operations") or {}
+    assert operations.get("sample_size", 0) >= 1
+    assert {"key": "missing_test_evidence", "count": 1} in (operations.get("root_causes") or {}).get("verification_failures", [])
+    assert {"key": "provider_unavailable", "count": 1} in (operations.get("root_causes") or {}).get("routing_reasons", [])
+    assert ((operations.get("context_efficiency") or {}).get("by_task_kind") or {}).get("coding", {}).get("avg_budget_utilization") == 0.75
+
+
 def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     res = client.get("/assistant/read-model", headers=headers)

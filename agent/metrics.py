@@ -121,6 +121,21 @@ RAG_RETRIEVAL_TASK_KIND_TOTAL = Counter(
     "Total retrieval requests grouped by task kind and retrieval outcome",
     ["task_kind", "bundle_mode", "outcome"],
 )
+TASK_KIND_ROUTING_OUTCOME_TOTAL = Counter(
+    "task_kind_routing_outcome_total",
+    "Total policy and routing outcomes grouped by task kind, policy and status",
+    ["task_kind", "policy_name", "status"],
+)
+TASK_KIND_VERIFICATION_OUTCOME_TOTAL = Counter(
+    "task_kind_verification_outcome_total",
+    "Total verification outcomes grouped by task kind, verification type and status",
+    ["task_kind", "verification_type", "status"],
+)
+CONTEXT_EFFICIENCY_BUDGET_UTILIZATION = Histogram(
+    "context_efficiency_budget_utilization",
+    "Context budget utilization grouped by task kind and final task status",
+    ["task_kind", "task_status"],
+)
 
 # Ressourcen Metriken
 CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")

@@ -21,6 +21,7 @@ def test_template_create_warns_for_unknown_variables_by_default(client):
     assert response.status_code == 201
     payload = response.json["data"]
     assert payload["warnings"][0]["type"] == "unknown_variables"
+    assert (payload.get("version_metadata") or {}).get("version_scheme") == "content-sha256-16"
 
 
 def test_template_create_rejects_unknown_variables_in_strict_mode(client):
