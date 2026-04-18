@@ -11,6 +11,7 @@ from agent.common.sgpt import (
 )
 from agent.local_llm_backends import get_local_openai_backends, list_openai_compatible_models
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.platform_governance_service import get_platform_governance_service
 
 
 class IntegrationRegistryService:
@@ -27,9 +28,11 @@ class IntegrationRegistryService:
         return payload
 
     def list_exposure_adapters(self, *, cfg: dict[str, Any] | None) -> list[dict[str, Any]]:
-        policies = get_exposure_policy_service().normalize_exposure_policy((cfg or {}).get("exposure_policy"))
+        exposure_service = get_exposure_policy_service()
+        policies = exposure_service.normalize_exposure_policy(get_platform_governance_service().resolve_exposure_policy(cfg))
         openai_policy = policies.get("openai_compat") or {}
         mcp_policy = policies.get("mcp") or {}
+        remote_hubs_policy = policies.get("remote_hubs") or {}
         return [
             {
                 "adapter": "openai_compat",
@@ -65,6 +68,20 @@ class IntegrationRegistryService:
                     "jsonrpc": True,
                 },
                 "routing": {},
+            },
+            {
+                "adapter": "remote_hubs",
+                "enabled": bool(remote_hubs_policy.get("enabled")),
+                "auth": {
+                    "require_admin_for_user_auth": bool(remote_hubs_policy.get("require_admin_for_user_auth")),
+                },
+                "features": {
+                    "remote_ananta": True,
+                    "openai_compatible": True,
+                },
+                "routing": {
+                    "max_hops": remote_hubs_policy.get("max_hops"),
+                },
             },
         ]
 
@@ -113,24 +130,27 @@ class IntegrationRegistryService:
             },
         ]
         providers: list[dict[str, Any]] = [dict(item) for item in static_providers]
+        remote_hubs_policy = get_exposure_policy_service().resolve_remote_hubs_policy(agent_cfg)
         for backend in get_local_openai_backends(
             agent_cfg=agent_cfg,
             provider_urls=provider_urls,
             default_provider=default_provider,
             default_model=default_model,
         ):
+            is_remote_hub = bool(backend.get("remote_hub"))
+            remote_hub_allowed = (not is_remote_hub) or bool(remote_hubs_policy.get("enabled"))
             providers.append(
                 {
                     "provider": backend["provider"],
                     "name": backend.get("name") or backend["provider"],
                     "display_name": backend.get("name") or backend["provider"],
                     "base_url": backend.get("base_url"),
-                    "available": bool(backend.get("base_url")),
+                    "available": bool(backend.get("base_url")) and remote_hub_allowed,
                     "models": list(backend.get("configured_models") or []),
                     "transport_provider": backend.get("transport_provider"),
                     "supports_tool_calls": bool(backend.get("supports_tool_calls")),
                     "provider_type": backend.get("provider_type") or "local_openai_compatible",
-                    "remote_hub": bool(backend.get("remote_hub")),
+                    "remote_hub": is_remote_hub,
                     "instance_id": backend.get("instance_id"),
                     "max_hops": backend.get("max_hops"),
                     "capabilities": {
@@ -140,7 +160,8 @@ class IntegrationRegistryService:
                         "transport_provider": backend.get("transport_provider"),
                         "supports_tool_calls": bool(backend.get("supports_tool_calls")),
                         "provider_type": backend.get("provider_type") or "local_openai_compatible",
-                        "remote_hub": bool(backend.get("remote_hub")),
+                        "remote_hub": is_remote_hub,
+                        "remote_hub_policy": dict(remote_hubs_policy) if is_remote_hub else None,
                         "instance_id": backend.get("instance_id"),
                         "max_hops": backend.get("max_hops"),
                     },

@@ -29,7 +29,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 ## OpenAI-kompatible Exposition (Hub)
 
 - Endpunkte: `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `GET/POST /v1/files`, `GET /v1/ananta/capabilities`
-- Alle OpenAI-Compat-Endpunkte sind ueber `exposure_policy.openai_compat` kontrolliert.
+- Alle OpenAI-Compat-Endpunkte sind ueber das effektive Plattform-Governance-Modell kontrolliert: `platform_mode` liefert Defaults, `exposure_policy.openai_compat` kann diese explizit ueberschreiben.
 - Self-Loop- und Hop-Guards werden ueber `X-Ananta-Instance-ID` und `X-Ananta-Hop-Count` fail-closed erzwungen.
 - Empfohlener Betriebsmodus:
   - `enabled=true`
@@ -38,7 +38,8 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `max_hops` konservativ halten (z.B. `3`)
   - `allow_files_api` nur bei Bedarf aktiv
 - Policy-Sichtbarkeit:
-- `GET /assistant/read-model` unter `settings.summary.governance.exposure_policy`
+- `GET /governance/policy` liefert das maschinenlesbare effektive Governance-Read-Model.
+- `GET /assistant/read-model` unter `settings.summary.governance.exposure_policy` und `settings.summary.governance.platform_governance`
 - `GET /dashboard/read-model` unter `llm_configuration.exposure`
 - OpenAI-Compat Responses koennen additive Conversation-Metadaten transportieren (`conversation_id`/`session_id` Echo + `turn_id`), ohne bestehende Clients zu brechen.
 
@@ -46,7 +47,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 
 - Endpunkte: `GET /v1/mcp/capabilities`, `POST /v1/mcp`
 - Der MCP-Pfad bleibt additiv zur OpenAI-Compat-Exposition und nutzt dieselben Hub-Services statt Worker-direkter Steuerung.
-- Alle MCP-Aufrufe sind ueber `exposure_policy.mcp` fail-closed kontrolliert (`enabled`, `allow_agent_auth`, `allow_user_auth`, `require_admin_for_user_auth`).
+- Alle MCP-Aufrufe sind ueber das effektive Plattform-Governance-Modell fail-closed kontrolliert (`platform_mode` plus `exposure_policy.mcp` mit `enabled`, `allow_agent_auth`, `allow_user_auth`, `require_admin_for_user_auth`).
 - Erste erlaubte JSON-RPC-Methoden:
   - `tools/list`
   - `tools/call`
@@ -75,6 +76,21 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - read/list
   - close
 - Task-scoped Nutzung ist policy-gesteuert ueber `cli_session_mode.allow_task_scoped_auto_session`.
+
+## Plattform-Governance-Modi
+
+- `platform_mode` ist der zentrale Betriebsmodus fuer exponierte Hub-Schnittstellen und Hochrisiko-Zugriffe.
+- Unterstuetzte Modi:
+  - `local-dev`: lokale Entwicklung, OpenAI-Compat bleibt kompatibel aktiv, MCP und Terminal bleiben standardmaessig aus.
+  - `trusted-internal`: interne Nutzung mit expliziten Admin-Grenzen; MCP kann aus dem Modus heraus aktiviert werden.
+  - `admin-only`: Exposition ist auf Admin-/Agent-Kontexte ausgerichtet; Terminal bleibt trotzdem nur mit explizitem `terminal_policy.enabled=true` nutzbar.
+  - `semi-public`: stark eingeschraenkte Exposition, Files API und Agent-Auth fuer OpenAI-Compat sind standardmaessig aus.
+- Explizite Einzelpolicies bleiben additiv und ueberschreiben Modus-Defaults:
+  - `exposure_policy.openai_compat`
+  - `exposure_policy.mcp`
+  - `exposure_policy.remote_hubs`
+  - `terminal_policy`
+- Das Read-Model `GET /governance/policy` zeigt `policy_version`, `platform_mode`, effektive Exposure-/Terminal-Policies und strukturierte Entscheidungen.
 
 ## Remote-Ananta als Provider-Typ
 
@@ -105,11 +121,14 @@ python devtools/export_route_inventory.py --include-methods
 - Modi:
   - `interactive`: startet eine PTY-Shell (`/bin/sh` oder `SHELL_PATH`) und bridged I/O bidirektional.
   - `read`: read-only Stream fuer `data/terminal_log.jsonl` (tail/follow).
+- Zugriff ist standardmaessig fail-closed. `terminal_policy.enabled=true` ist erforderlich.
+- `terminal_policy.allow_read` und `terminal_policy.allow_interactive` sind getrennte Freigaben; read-only schaltet keine interaktive Shell frei.
+- `terminal_policy.require_admin=true` verlangt eine Admin-Rolle im Token bzw. den Agent-Token.
 - Nachrichtenformat:
   - Server -> Client: JSON Events `{ "type": "ready|output|error", "data": ... }`
   - Client -> Server (interactive): `{ "type": "input", "data": "<text>" }`
 - Audit/Logs:
-  - Session-Open/Close und Input-Previews werden in `data/terminal_log.jsonl` protokolliert.
+  - Session-Open/Close, blockierte Zugriffe und Input-Previews werden in `data/terminal_log.jsonl` protokolliert.
 
 ## Sicherheitshinweise
 - Terminal-Zugriff gibt Shell-Zugang auf den jeweiligen Agent-Container/Host-Kontext.

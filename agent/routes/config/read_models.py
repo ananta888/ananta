@@ -7,6 +7,7 @@ from agent.common.errors import api_response
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
@@ -38,6 +39,15 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "template_variable_validation", "path": "config.template_variable_validation", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "quality_gates", "path": "config.quality_gates", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "exposure_policy", "path": "config.exposure_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {
+            "key": "platform_mode",
+            "path": "config.platform_mode",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["local-dev", "trusted-internal", "admin-only", "semi-public"],
+            "endpoint": "POST /config",
+        },
+        {"key": "terminal_policy", "path": "config.terminal_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_retention", "path": "config.benchmark_retention", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_identity_precedence", "path": "config.benchmark_identity_precedence", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "http_timeout", "path": "config.http_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},
@@ -68,7 +78,8 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
     codex_cli = cfg.get("codex_cli") if isinstance(cfg.get("codex_cli"), dict) else {}
     review_cfg = cfg.get("review_policy") if isinstance(cfg.get("review_policy"), dict) else {}
     risk_cfg = cfg.get("execution_risk_policy") if isinstance(cfg.get("execution_risk_policy"), dict) else {}
-    exposure_policy = get_exposure_policy_service().normalize_exposure_policy(cfg.get("exposure_policy"))
+    platform_governance = get_platform_governance_service().build_policy_read_model(cfg)
+    exposure_policy = get_exposure_policy_service().normalize_exposure_policy(platform_governance.get("exposure_policy"))
     cli_session_mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
     return {
         "llm": {
@@ -150,6 +161,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
                 "task_scoped_only": bool(risk_cfg.get("task_scoped_only", True)),
             },
             "exposure_policy": exposure_policy,
+            "platform_governance": platform_governance,
         },
         "counts": {"teams": len(teams), "templates": len(templates)},
     }
@@ -177,6 +189,13 @@ def assistant_read_model():
             automation_snapshot_builder=assistant_automation_snapshot,
         )
     )
+
+
+@read_models_bp.route("/governance/policy", methods=["GET"])
+@check_auth
+def governance_policy_read_model():
+    cfg = shared.sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
+    return api_response(data=get_platform_governance_service().build_policy_read_model(cfg))
 
 
 @read_models_bp.route("/dashboard/read-model", methods=["GET"])

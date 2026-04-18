@@ -57,6 +57,13 @@ def test_extract_terminal_input_preserves_raw_text():
     assert ws_mod._extract_terminal_input("echo hi\n") == "echo hi\n"
 
 
+def test_auth_payload_is_admin_accepts_role_and_roles():
+    assert ws_mod._auth_payload_is_admin({"role": "admin"}) is True
+    assert ws_mod._auth_payload_is_admin({"roles": ["viewer", "admin"]}) is True
+    assert ws_mod._auth_payload_is_admin({"role": "user"}) is False
+    assert ws_mod._auth_payload_is_admin(None) is False
+
+
 def test_websocket_input_pump_forwards_messages_and_closes_on_disconnect(monkeypatch):
     ws = object()
     seen: list[str] = []

@@ -13,6 +13,7 @@ from agent.db_models import ConfigDB
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.repository_registry import get_repository_registry
 
 from . import shared
@@ -63,6 +64,12 @@ def set_config():
         if requested_profile not in runtime_profile_catalog():
             return api_response(status="error", message="invalid_runtime_profile", code=400)
         new_cfg["runtime_profile"] = requested_profile
+    if "platform_mode" in new_cfg:
+        requested_mode = str(new_cfg.get("platform_mode") or "").strip().lower()
+        governance_service = get_platform_governance_service()
+        if not governance_service.is_supported_platform_mode(requested_mode):
+            return api_response(status="error", message="invalid_platform_mode", code=400)
+        new_cfg["platform_mode"] = governance_service.normalize_platform_mode(requested_mode)
     if "execution_fallback_policy" in new_cfg:
         fallback_cfg = new_cfg.get("execution_fallback_policy")
         if not isinstance(fallback_cfg, dict):
@@ -88,17 +95,37 @@ def set_config():
             return api_response(status="error", message="invalid_exposure_policy", code=400)
         openai_cfg = exposure_cfg.get("openai_compat", {})
         mcp_cfg = exposure_cfg.get("mcp", {})
+        remote_hubs_cfg = exposure_cfg.get("remote_hubs", {})
         if openai_cfg and not isinstance(openai_cfg, dict):
             return api_response(status="error", message="invalid_openai_compat_exposure_policy", code=400)
         if mcp_cfg and not isinstance(mcp_cfg, dict):
             return api_response(status="error", message="invalid_mcp_exposure_policy", code=400)
+        if remote_hubs_cfg and not isinstance(remote_hubs_cfg, dict):
+            return api_response(status="error", message="invalid_remote_hubs_exposure_policy", code=400)
         if isinstance(openai_cfg, dict) and "max_hops" in openai_cfg:
             try:
                 if int(openai_cfg.get("max_hops")) < 1:
                     return api_response(status="error", message="invalid_openai_compat_max_hops", code=400)
             except (TypeError, ValueError):
                 return api_response(status="error", message="invalid_openai_compat_max_hops", code=400)
+        if isinstance(remote_hubs_cfg, dict) and "max_hops" in remote_hubs_cfg:
+            try:
+                if int(remote_hubs_cfg.get("max_hops")) < 1:
+                    return api_response(status="error", message="invalid_remote_hubs_max_hops", code=400)
+            except (TypeError, ValueError):
+                return api_response(status="error", message="invalid_remote_hubs_max_hops", code=400)
         new_cfg["exposure_policy"] = get_exposure_policy_service().normalize_exposure_policy(exposure_cfg)
+    if "terminal_policy" in new_cfg:
+        terminal_cfg = new_cfg.get("terminal_policy")
+        if not isinstance(terminal_cfg, dict):
+            return api_response(status="error", message="invalid_terminal_policy", code=400)
+        new_cfg["terminal_policy"] = {
+            "enabled": bool(terminal_cfg.get("enabled", False)),
+            "allow_read": bool(terminal_cfg.get("allow_read", False)),
+            "allow_interactive": bool(terminal_cfg.get("allow_interactive", False)),
+            "require_admin": bool(terminal_cfg.get("require_admin", True)),
+            "emit_audit_events": bool(terminal_cfg.get("emit_audit_events", True)),
+        }
     if "cli_session_mode" in new_cfg:
         mode_cfg = new_cfg.get("cli_session_mode")
         if not isinstance(mode_cfg, dict):

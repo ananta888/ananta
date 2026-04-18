@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Fail-Closed, Operational-Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/config.py",
@@ -46,7 +46,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Consistency, Security",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/config.py",
@@ -70,7 +70,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Explainability, Auditability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -101,7 +101,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Least-Privilege, High-Risk-Isolation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -122,7 +122,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Mode-Separation, Risk-Reduction",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -790,9 +790,9 @@
   "meta": {
     "total_items": 31,
     "by_status": {
-      "completed": 0,
+      "completed": 5,
       "partial": 0,
-      "open": 31
+      "open": 26
     },
     "notes": [
       "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",

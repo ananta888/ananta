@@ -129,6 +129,20 @@ def build_default_agent_config() -> dict:
                 "require_admin_for_user_auth": True,
                 "emit_audit_events": True,
             },
+            "remote_hubs": {
+                "enabled": True,
+                "require_admin_for_user_auth": True,
+                "emit_audit_events": True,
+                "max_hops": 3,
+            },
+        },
+        "platform_mode": "local-dev",
+        "terminal_policy": {
+            "enabled": False,
+            "allow_read": False,
+            "allow_interactive": False,
+            "require_admin": True,
+            "emit_audit_events": True,
         },
         "evolution": {
             "enabled": True,
