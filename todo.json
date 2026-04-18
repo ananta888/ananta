@@ -213,7 +213,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Determinism, Semantic-Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/mapper.py",
@@ -235,7 +235,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Consistency, Interoperability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "plugins/evolver_adapter/mapper.py",
@@ -379,7 +379,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Fail-Closed, Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -432,7 +432,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Least-Exposure, External-Boundary-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution/context_builder.py",
@@ -453,7 +453,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Security, Defensive-Persistence",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/evolution_service.py",
@@ -552,7 +552,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Client-Stability, Predictable-Errors",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -582,7 +582,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Regression-Safety, Contract-Validation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/test_evolver_adapter.py",
@@ -606,7 +606,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Operational-Readiness, Failure-Testing",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -678,9 +678,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 5,
+      "completed": 13,
       "partial": 0,
-      "open": 22
+      "open": 14
     },
     "notes": [
       "Diese Todo-Datei setzt bewusst nicht mehr bei der Grundintegration an, sondern bei der Haertung und Betriebsreife der bereits vorhandenen Evolver-Einbindung.",

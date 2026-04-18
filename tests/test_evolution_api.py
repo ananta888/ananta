@@ -10,6 +10,7 @@ from agent.services.evolution import (
     ValidationResult,
 )
 from agent.services.evolution.registry import get_evolution_provider_registry
+from plugins.evolver_adapter.adapter import EvolverAdapter, EvolverTimeoutError
 
 
 class ApiEvolutionEngine(EvolutionEngine):
@@ -40,6 +41,26 @@ class ApiEvolutionEngine(EvolutionEngine):
 
     def apply(self, context: EvolutionContext, proposal: EvolutionProposal) -> ApplyResult:
         return ApplyResult(proposal_id=proposal.proposal_id, status="prepared", applied=False)
+
+
+class TimeoutEvolverTransport:
+    def analyze(self, payload: dict) -> dict:
+        raise EvolverTimeoutError()
+
+    def health(self) -> dict:
+        raise EvolverTimeoutError()
+
+
+class AnalyzeOnlyEvolverTransport:
+    def analyze(self, payload: dict) -> dict:
+        return {
+            "status": "completed",
+            "summary": "Analyze-only result",
+            "proposals": [{"id": "evolver-proposal", "title": "Review only", "risk": "low"}],
+        }
+
+    def health(self) -> dict:
+        return {"status": "available"}
 
 
 def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
@@ -218,3 +239,71 @@ def test_task_evolution_analyze_rejects_invalid_trigger(client, app, admin_auth_
 
     assert response.status_code == 400
     assert response.json["message"] == "invalid_trigger_type"
+
+
+def test_task_evolution_analyze_reports_external_provider_failure_code(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-DOWN", title="External Evolver down", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(EvolverAdapter(transport=TimeoutEvolverTransport()), default=True)
+    try:
+        providers_response = client.get("/evolution/providers", headers=admin_auth_header)
+        response = client.post(
+            "/tasks/T-EVO-DOWN/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+    finally:
+        registry.clear()
+
+    assert providers_response.status_code == 200
+    health_provider = providers_response.json["data"]["health"]["providers"][0]
+    assert health_provider["provider_name"] == "evolver"
+    assert health_provider["status"] == "degraded"
+    assert health_provider["provider_metadata"]["last_error"]["code"] == "timeout"
+    assert response.status_code == 502
+    assert response.json["data"]["error_code"] == "provider_timeout"
+    assert response.json["data"]["retryable"] is True
+    assert response.json["data"]["error_type"] == "EvolverTimeoutError"
+
+
+def test_task_evolution_validate_and_apply_fail_closed_for_analyze_only_evolver(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-ANALYZE-ONLY", title="Analyze only Evolver", status="failed"))
+    old_cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    cfg["evolution"] = {
+        **dict(cfg.get("evolution") or {}),
+        "validate_allowed": True,
+        "apply_allowed": True,
+        "require_review_before_apply": False,
+    }
+    app.config["AGENT_CONFIG"] = cfg
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(EvolverAdapter(transport=AnalyzeOnlyEvolverTransport()), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-ANALYZE-ONLY/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        validate_response = client.post(
+            f"/tasks/T-EVO-ANALYZE-ONLY/evolution/proposals/{proposal_id}/validate",
+            headers=admin_auth_header,
+            json={},
+        )
+        apply_response = client.post(
+            f"/tasks/T-EVO-ANALYZE-ONLY/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+        app.config["AGENT_CONFIG"] = old_cfg
+
+    assert analyze_response.status_code == 200
+    assert validate_response.status_code == 403
+    assert validate_response.json["data"]["error_code"] == "provider_operation_not_supported"
+    assert apply_response.status_code == 403
+    assert apply_response.json["data"]["error_code"] == "provider_operation_not_supported"

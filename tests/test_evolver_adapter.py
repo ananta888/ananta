@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 
 from agent.services.evolution import EvolutionCapability, EvolutionContext, get_evolution_provider_registry
+from agent.services.evolution.engine import UnsupportedEvolutionOperation
 from agent.services.evolution_service import EvolutionService
 from plugins.evolver_adapter import init_app
 from plugins.evolver_adapter.adapter import (
@@ -60,7 +61,10 @@ def test_evolver_adapter_maps_results_to_generic_evolution_models():
     assert [proposal.proposal_type for proposal in result.proposals] == ["improvement", "repair"]
     assert result.proposals[0].provider_metadata["evolver_kind"] == "gene"
     assert result.proposals[0].raw_payload["gene_id"] == "g-1"
-    assert transport.payloads[0]["context"]["task_id"] == "T-EVOLVER"
+    sent_context = transport.payloads[0]["context"]
+    assert sent_context["objective"] == "Improve task"
+    assert "task_id" not in sent_context
+    assert "source_refs" not in sent_context
 
 
 def test_evolver_plugin_registers_adapter_from_config():
@@ -112,6 +116,18 @@ def test_evolver_adapter_exposes_only_truthful_current_capabilities():
     assert adapter.supports(EvolutionCapability.PROPOSE) is False
     assert adapter.supports(EvolutionCapability.VALIDATE) is False
     assert adapter.supports(EvolutionCapability.APPLY) is False
+
+
+def test_evolver_adapter_validate_and_apply_fail_closed():
+    adapter = EvolverAdapter(transport=FakeEvolverTransport())
+    context = EvolutionContext(objective="Improve task", task_id="T-EVOLVER")
+    proposal = adapter.analyze(context).proposals[0]
+
+    with pytest.raises(UnsupportedEvolutionOperation, match="validate"):
+        adapter.validate(context, proposal)
+
+    with pytest.raises(UnsupportedEvolutionOperation, match="apply"):
+        adapter.apply(context, proposal)
 
 
 def test_evolution_service_audit_distinguishes_evolver_transport_failures():
@@ -179,6 +195,47 @@ def test_evolver_response_schema_rejects_invalid_contracts():
 
     with pytest.raises(EvolverResponseSchemaError, match="status"):
         map_evolver_result({"status": 200, "proposals": []})
+
+    with pytest.raises(EvolverResponseSchemaError, match="ambiguous_proposal_sources"):
+        map_evolver_result({"status": "completed", "proposals": [], "events": []})
+
+
+def test_evolver_mapper_handles_explicit_payload_variants_deterministically():
+    genes = map_evolver_result(
+        {
+            "status": "success",
+            "proposals": [
+                {
+                    "id": "gene-1",
+                    "kind": "gene",
+                    "title": "Tune prompt",
+                    "risk": "minimal",
+                    "confidence": 0.9,
+                }
+            ],
+        }
+    )
+    events = map_evolver_result(
+        {
+            "status": "completed",
+            "events": [
+                {
+                    "event_id": "evt-1",
+                    "type": "repair",
+                    "summary": "Repair verification",
+                    "risk_level": "moderate",
+                }
+            ],
+        }
+    )
+
+    assert genes.status == "completed"
+    assert genes.proposals[0].proposal_type == "improvement"
+    assert genes.proposals[0].risk_level == "low"
+    assert genes.proposals[0].provider_metadata["evolver_source_field"] == "proposals"
+    assert events.proposals[0].proposal_type == "repair"
+    assert events.proposals[0].risk_level == "medium"
+    assert events.proposals[0].provider_metadata["evolver_source_field"] == "events"
 
 
 def test_evolver_env_overrides_populate_provider_config(monkeypatch):

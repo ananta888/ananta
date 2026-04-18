@@ -4,7 +4,12 @@ from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.services.evolution import EvolutionContextBuildOptions, EvolutionTrigger, EvolutionTriggerType
+from agent.services.evolution import (
+    EvolutionContextBuildOptions,
+    EvolutionTrigger,
+    EvolutionTriggerType,
+    UnsupportedEvolutionOperation,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 
@@ -26,6 +31,41 @@ def _evolution_config() -> dict:
 def _actor() -> str:
     user = getattr(g, "user", {}) or {}
     return str(user.get("sub") or user.get("username") or "system")
+
+
+def _evolution_error_response(exc: Exception, *, default_code: int = 400):
+    error_code = _evolution_error_code(exc)
+    payload = {
+        "error_code": error_code,
+        "error_type": type(exc).__name__,
+    }
+    if hasattr(exc, "transient"):
+        payload["transient"] = bool(getattr(exc, "transient"))
+        payload["retryable"] = bool(getattr(exc, "transient"))
+    status_code = getattr(exc, "status_code", None)
+    if status_code is not None:
+        payload["provider_status_code"] = status_code
+    return api_response(status="error", message=str(exc), data=payload, code=_evolution_http_status(exc, default_code))
+
+
+def _evolution_error_code(exc: Exception) -> str:
+    code = getattr(exc, "code", None)
+    if code:
+        return f"provider_{str(code).strip().lower()}"
+    if isinstance(exc, UnsupportedEvolutionOperation):
+        return "provider_operation_not_supported"
+    if isinstance(exc, PermissionError):
+        return "evolution_policy_blocked"
+    return "evolution_error"
+
+
+def _evolution_http_status(exc: Exception, default_code: int) -> int:
+    if isinstance(exc, PermissionError | UnsupportedEvolutionOperation):
+        return 403
+    code = getattr(exc, "code", None)
+    if code in {"timeout", "connection_error", "http_error", "invalid_response"}:
+        return 502
+    return default_code
 
 
 @evolution_bp.route("/evolution/providers", methods=["GET"])
@@ -108,7 +148,7 @@ def analyze_task_evolution(task_id: str):
     except KeyError as exc:
         return api_response(status="error", message=str(exc).strip("'"), code=404)
     except Exception as exc:
-        return api_response(status="error", message=str(exc), code=400)
+        return _evolution_error_response(exc)
 
     return api_response(
         data={
@@ -154,9 +194,9 @@ def validate_task_evolution_proposal(task_id: str, proposal_id: str):
     except KeyError as exc:
         return api_response(status="error", message=str(exc).strip("'"), code=404)
     except PermissionError as exc:
-        return api_response(status="error", message=str(exc), code=403)
+        return _evolution_error_response(exc, default_code=403)
     except Exception as exc:
-        return api_response(status="error", message=str(exc), code=400)
+        return _evolution_error_response(exc)
 
     return api_response(data=result.model_dump(mode="json"))
 
@@ -194,8 +234,8 @@ def apply_task_evolution_proposal(task_id: str, proposal_id: str):
     except KeyError as exc:
         return api_response(status="error", message=str(exc).strip("'"), code=404)
     except PermissionError as exc:
-        return api_response(status="error", message=str(exc), code=403)
+        return _evolution_error_response(exc, default_code=403)
     except Exception as exc:
-        return api_response(status="error", message=str(exc), code=400)
+        return _evolution_error_response(exc)
 
     return api_response(data=result.model_dump(mode="json"))
