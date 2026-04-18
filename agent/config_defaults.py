@@ -1,4 +1,5 @@
 import logging
+import json
 import os
 from typing import Any
 from flask import Flask
@@ -337,6 +338,20 @@ def apply_env_config_overrides(cfg: dict) -> None:
     if not isinstance(provider_overrides, dict):
         provider_overrides = {}
     evolver_cfg = dict(provider_overrides.get("evolver") or {})
+    evolver_headers = getattr(settings, "evolver_headers", None)
+    parsed_evolver_headers = {}
+    if evolver_headers:
+        try:
+            raw_headers = json.loads(evolver_headers)
+            if isinstance(raw_headers, dict):
+                parsed_evolver_headers = {str(key): str(value) for key, value in raw_headers.items()}
+        except Exception:
+            parsed_evolver_headers = {}
+    allowed_hosts = [
+        item.strip()
+        for item in str(getattr(settings, "evolver_allowed_hosts", "") or "").split(",")
+        if item.strip()
+    ]
     env_to_key = {
         "EVOLVER_ENABLED": ("enabled", bool(getattr(settings, "evolver_enabled", False))),
         "EVOLVER_BASE_URL": ("base_url", getattr(settings, "evolver_base_url", None)),
@@ -345,6 +360,25 @@ def apply_env_config_overrides(cfg: dict) -> None:
         "EVOLVER_TIMEOUT_SECONDS": (
             "timeout_seconds",
             float(getattr(settings, "evolver_timeout_seconds", 30.0) or 30.0),
+        ),
+        "EVOLVER_CONNECT_TIMEOUT_SECONDS": (
+            "connect_timeout_seconds",
+            getattr(settings, "evolver_connect_timeout_seconds", None),
+        ),
+        "EVOLVER_READ_TIMEOUT_SECONDS": (
+            "read_timeout_seconds",
+            getattr(settings, "evolver_read_timeout_seconds", None),
+        ),
+        "EVOLVER_MAX_RESPONSE_BYTES": (
+            "max_response_bytes",
+            int(getattr(settings, "evolver_max_response_bytes", 1048576) or 1048576),
+        ),
+        "EVOLVER_BEARER_TOKEN": ("bearer_token", getattr(settings, "evolver_bearer_token", None)),
+        "EVOLVER_HEADERS": ("headers", parsed_evolver_headers),
+        "EVOLVER_ALLOWED_HOSTS": ("allowed_hosts", allowed_hosts),
+        "EVOLVER_FORCE_ANALYZE_ONLY": (
+            "force_analyze_only",
+            bool(getattr(settings, "evolver_force_analyze_only", True)),
         ),
         "EVOLVER_DEFAULT": ("default", bool(getattr(settings, "evolver_default", False))),
         "EVOLVER_VERSION": ("version", getattr(settings, "evolver_version", "unknown")),

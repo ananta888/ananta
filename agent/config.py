@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     evolver_analyze_path: str = Field(default="/evolution/analyze", validation_alias="EVOLVER_ANALYZE_PATH")
     evolver_health_path: Optional[str] = Field(default=None, validation_alias="EVOLVER_HEALTH_PATH")
     evolver_timeout_seconds: float = Field(default=30.0, validation_alias="EVOLVER_TIMEOUT_SECONDS")
+    evolver_connect_timeout_seconds: Optional[float] = Field(default=None, validation_alias="EVOLVER_CONNECT_TIMEOUT_SECONDS")
+    evolver_read_timeout_seconds: Optional[float] = Field(default=None, validation_alias="EVOLVER_READ_TIMEOUT_SECONDS")
+    evolver_max_response_bytes: int = Field(default=1048576, validation_alias="EVOLVER_MAX_RESPONSE_BYTES")
+    evolver_bearer_token: Optional[str] = Field(default=None, validation_alias="EVOLVER_BEARER_TOKEN")
+    evolver_headers: Optional[str] = Field(default=None, validation_alias="EVOLVER_HEADERS")
+    evolver_allowed_hosts: Optional[str] = Field(default=None, validation_alias="EVOLVER_ALLOWED_HOSTS")
+    evolver_force_analyze_only: bool = Field(default=True, validation_alias="EVOLVER_FORCE_ANALYZE_ONLY")
     evolver_default: bool = Field(default=False, validation_alias="EVOLVER_DEFAULT")
     evolver_version: str = Field(default="unknown", validation_alias="EVOLVER_VERSION")
 

@@ -153,6 +153,7 @@ class EvolutionService:
         policy = self.resolve_policy(config)
         if not policy.enabled:
             raise PermissionError("evolution_disabled")
+        self._enforce_provider_policy(engine.provider_name, config=config, operation="analyze")
         self._audit(
             "evolution_analysis_requested",
             self._audit_details(engine.provider_name, context, resolved_trigger),
@@ -209,6 +210,7 @@ class EvolutionService:
         if not policy.validate_allowed:
             raise PermissionError("evolution_validation_disabled")
         engine = self._registry.resolve(provider_name, config=config)
+        self._enforce_provider_policy(engine.provider_name, config=config, operation="validate")
         resolved_trigger = trigger or EvolutionTrigger(trigger_type=EvolutionTriggerType.MANUAL)
         details = {
             **self._audit_details(engine.provider_name, context, resolved_trigger),
@@ -262,6 +264,7 @@ class EvolutionService:
         if policy.require_review_before_apply and proposal.requires_review:
             raise PermissionError("evolution_apply_requires_review")
         engine = self._registry.resolve(provider_name, config=config)
+        self._enforce_provider_policy(engine.provider_name, config=config, operation="apply")
         resolved_trigger = trigger or EvolutionTrigger(trigger_type=EvolutionTriggerType.MANUAL)
         details = {
             **self._audit_details(engine.provider_name, context, resolved_trigger),
@@ -303,6 +306,24 @@ class EvolutionService:
     def _audit(self, action: str, details: dict[str, Any]) -> None:
         if self._audit_fn is not None:
             self._audit_fn(action, details)
+
+    def _enforce_provider_policy(
+        self,
+        provider_name: str,
+        *,
+        config: dict[str, Any] | None,
+        operation: str,
+    ) -> None:
+        provider_cfg = self._provider_config(provider_name, config=config)
+        if bool(provider_cfg.get("force_analyze_only", False)) and operation != "analyze":
+            raise PermissionError("evolution_provider_analyze_only")
+
+    @staticmethod
+    def _provider_config(provider_name: str, *, config: dict[str, Any] | None) -> dict[str, Any]:
+        raw = dict((config or {}).get("evolution") or config or {})
+        overrides = raw.get("provider_overrides") if isinstance(raw.get("provider_overrides"), dict) else {}
+        provider_cfg = overrides.get(str(provider_name or "").strip().lower())
+        return dict(provider_cfg or {})
 
     def _record_analysis_metrics(
         self,

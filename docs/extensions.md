@@ -67,6 +67,12 @@ Alternativ kann ein Plugin deklarativ `evolution_provider`,
 `evolution_provider_default = True` wird der erste deklarierte Provider als
 Default registriert.
 
+Ein Plugin darf nicht denselben Provider gleichzeitig deklarativ und imperativ
+registrieren. Wenn `init_app(app)` den Provider bereits registriert hat, wird
+eine identische deklarative Angabe nur als kompatibler Altfall uebersprungen.
+Konflikte mit bereits registrierten Providernamen schlagen ohne explizites
+`evolution_provider_replace = True` fehl.
+
 Fehlerhafte Evolution-Plugins werden beim Laden geloggt und blockieren den
 Rest des Systems nicht. Provider muessen mindestens `ANALYZE` unterstuetzen;
 Validate und Apply bleiben Capability-gesteuert und policy-abhaengig.
