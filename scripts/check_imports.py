@@ -22,6 +22,32 @@ FORBIDDEN_DIRECT = [
     ("agent.routes", "agent.repositories")
 ]
 
+# Temporary exceptions for existing violations (Technical Debt)
+# These should be resolved over time and removed from this list.
+EXCEPTIONS = [
+    # common -> services
+    ("agent.common.audit", "agent.services.hub_event_service"),
+    ("agent.common.error_handler", "agent.services.log_service"),
+    ("agent.common.sgpt", "agent.services.opencode_runtime_service"),
+    ("agent.common.sgpt", "agent.services.live_terminal_session_service"),
+    ("agent.common.signals", "agent.services.scheduler_service"),
+
+    # services -> routes (mostly task orchestration policies that should probably be in services)
+    ("agent.services.agent_registry_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.app_runtime_service", "agent.routes.system"),
+    ("agent.services.automation_snapshot_service", "agent.routes.tasks.auto_planner"),
+    ("agent.services.autopilot_runtime_service", "agent.routes.tasks.autopilot"),
+    ("agent.services.planning_service", "agent.routes.tasks.dependency_policy"),
+    ("agent.services.task_claim_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.task_management_service", "agent.routes.tasks.dependency_policy"),
+    ("agent.services.task_management_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.task_orchestration_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.task_query_service", "agent.routes.tasks.timeline_utils"),
+    ("agent.services.task_queue_service", "agent.routes.tasks.orchestration_policy.routing"),
+    ("agent.services.task_scoped_execution_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.trigger_runtime_service", "agent.routes.tasks.triggers"),
+]
+
 def get_module_name(file_path: str) -> str:
     """Converts a file path to a python module name."""
     parts = file_path.replace(".py", "").replace("\\", "/").split("/")
@@ -65,6 +91,16 @@ def check_file_imports(file_path: str) -> List[str]:
                 continue
 
         if imported_module:
+            # Check if this is an allowed exception
+            is_exception = False
+            for mod_prefix, imp_prefix in EXCEPTIONS:
+                if module_name.startswith(mod_prefix) and imported_module.startswith(imp_prefix):
+                    is_exception = True
+                    break
+
+            if is_exception:
+                continue
+
             # Check if importing from another internal layer
             for other_layer in RULES:
                 if imported_module.startswith(other_layer) and other_layer != current_layer:

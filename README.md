@@ -112,12 +112,16 @@ Alternative fuer dauerhaftes Windows-`localhost` (WSL2 ohne Docker Desktop):
 - Danach sind `http://localhost:4200` und `http://localhost:7900` nach WSL weitergeleitet.
 
 ## Entwicklung und Qualitaet
-### Check-Pipeline
+### Check-Pipeline und Quality-Gates
 Das Projekt nutzt eine vereinheitlichte Check-Pipeline fuer lokale Entwicklung und CI:
 - **Standard Check:** `make check` (fuehrt Formatierung, Linting, Type-Checks, Architektur-Regeln und schnelle Tests aus)
 - **Fast Check:** `make check-fast` (nur Formatierung und Linting)
 - **Deep Check:** `make check-deep` (alle Checks + die gesamte Test-Suite ohne Live-Compose-Tests)
 - **Formatierung:** `make format` (nutzt ruff)
+
+**Verbindliche Quality-Gates:**
+- **Pre-Push Hook:** Ein Git-Hook (`git-hooks/pre-push`) stellt sicher, dass der `Standard Check` erfolgreich durchlaeuft, bevor Code gepusht werden kann. Zur Einrichtung: `git config core.hooksPath git-hooks`.
+- **CI-Enforcement:** Die GitHub Actions Pipeline führt bei jedem Push und Pull Request dieselben Checks aus. Ein Merge ist nur bei erfolgreichem `Standard Check` möglich.
 
 ### Architektur-Guardrails (BND-010)
 Um Schichtverletzungen zu vermeiden, werden Import-Regeln automatisch geprueft (`scripts/check_imports.py`):

@@ -31,6 +31,18 @@ def check_arch():
     print("\n--- Checking Architecture Rules (BND-010/BND-011) ---")
     return run_command([sys.executable, "scripts/check_imports.py"])
 
+def check_cycles():
+    print("\n--- Checking Import Cycles (CLN-020) ---")
+    return run_command([sys.executable, "scripts/check_cycles.py"])
+
+def check_duplicates():
+    print("\n--- Checking Code Duplicates (CLN-021) ---")
+    return run_command([sys.executable, "scripts/check_duplicates.py"])
+
+def check_dead_code():
+    print("\n--- Checking Dead Code (CLN-022) ---")
+    return run_command([sys.executable, "scripts/check_dead_code.py"])
+
 def check_fast_tests():
     print("\n--- Running Fast Tests (pytest) ---")
     # Running core unit tests, contract tests and smoke tests as fast tests
@@ -58,6 +70,9 @@ def main():
     if args.mode in ["standard", "deep"]:
         if not check_types(): success = False
         if not check_arch(): success = False
+        if not check_cycles(): success = False
+        if not check_duplicates(): success = False
+        if not check_dead_code(): success = False
         if not check_fast_tests(): success = False
 
     if args.mode == "deep":
