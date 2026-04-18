@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import re
 import uuid
 from typing import Any
 
@@ -17,290 +15,36 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
-from agent.services.context_bundle_service import get_context_bundle_service
-from agent.services.hub_llm_service import get_hub_llm_service
+from agent.services.copilot_routing_advisor import (
+    build_copilot_routing_prompt,
+    extract_copilot_routing_hint,
+    get_copilot_routing_advisor,
+)
+from agent.services.task_context_policy_service import get_task_context_policy_service
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
+from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
 
-
-def build_copilot_routing_prompt(
-    *,
-    task: dict[str, Any],
-    task_kind: str | None,
-    required_capabilities: list[str] | None,
-    workers: list[dict[str, Any]],
-) -> str:
-    worker_rows = []
-    for worker in workers:
-        execution_limits = dict(worker.get("execution_limits") or {})
-        worker_rows.append(
-            {
-                "url": worker.get("url"),
-                "status": worker.get("status"),
-                "worker_roles": list(worker.get("worker_roles") or []),
-                "capabilities": list(worker.get("capabilities") or []),
-                "current_load": worker.get("current_load"),
-                "max_parallel_tasks": execution_limits.get("max_parallel_tasks"),
-                "success_rate": dict(worker.get("routing_signals") or {}).get(
-                    "success_rate",
-                    worker.get("success_rate", dict(worker.get("metrics") or {}).get("success_rate")),
-                ),
-                "quality_rate": dict(worker.get("routing_signals") or {}).get(
-                    "quality_rate",
-                    worker.get("quality_rate", dict(worker.get("metrics") or {}).get("quality_rate")),
-                ),
-                "security_level": worker.get("security_level") or worker.get("security_tier"),
-                "registration_validated": worker.get("registration_validated"),
-                "available_for_routing": worker.get("available_for_routing"),
-            }
-        )
-    prompt_payload = {
-        "task": {
-            "id": task.get("id"),
-            "title": task.get("title"),
-            "description": task.get("description"),
-            "task_kind": task_kind or task.get("task_kind"),
-            "required_capabilities": list(required_capabilities or []),
-        },
-        "workers": worker_rows,
-        "instructions": {
-            "goal": "Gib nur einen strategischen Routing-Hinweis fuer den Hub. Du delegierst keine Ausfuehrung selbst.",
-            "constraints": [
-                "Antworte ausschliesslich als JSON.",
-                "Waehle suggested_worker_url nur aus der uebergebenen Worker-Liste.",
-                "Wenn kein klarer Hinweis moeglich ist, setze suggested_worker_url auf null.",
-                "Der Hinweis dient nur als Advisor fuer Routing/Governance und ersetzt keine Policy-Entscheidung.",
-            ],
-            "response_schema": {
-                "suggested_worker_url": "string|null",
-                "reasoning": "string",
-                "confidence": "number_between_0_and_1",
-            },
-        },
-    }
-    return json.dumps(prompt_payload, ensure_ascii=True, indent=2)
-
-
-def extract_copilot_routing_hint(raw_text: str, worker_urls: list[str]) -> dict[str, Any] | None:
-    text = str(raw_text or "").strip()
-    if not text:
-        return None
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-
-    suggested_worker_url = payload.get("suggested_worker_url")
-    if suggested_worker_url is not None:
-        suggested_worker_url = str(suggested_worker_url).strip() or None
-    known_urls = {str(url).strip() for url in worker_urls if str(url).strip()}
-    if suggested_worker_url and suggested_worker_url not in known_urls:
-        suggested_worker_url = None
-
-    reasoning = str(payload.get("reasoning") or "").strip() or None
-    try:
-        confidence = float(payload.get("confidence")) if payload.get("confidence") is not None else None
-    except (TypeError, ValueError):
-        confidence = None
-    if confidence is not None:
-        confidence = max(0.0, min(1.0, confidence))
-
-    return {
-        "suggested_worker_url": suggested_worker_url,
-        "reasoning": reasoning,
-        "confidence": confidence,
-        "raw_response": text,
-    }
+__all__ = [
+    "TaskOrchestrationService",
+    "get_task_orchestration_service",
+    "build_copilot_routing_prompt",
+    "extract_copilot_routing_hint",
+]
 
 
 class TaskOrchestrationService:
-    """Hub-owned orchestration use-cases for delegation, completion, and orchestration read models."""
+    """Hub-owned Orchestrierungs-Fassade für Delegation, Completion und Read-Model.
 
-    @staticmethod
-    def _safe_scope_segment(value: str | None, *, fallback: str) -> str:
-        raw = str(value or "").strip().lower()
-        if not raw:
-            return fallback
-        normalized = re.sub(r"[^a-z0-9._-]+", "-", raw).strip("-")
-        return normalized or fallback
+    Fachliche Details sind in dedizierten Services gekapselt:
 
-    def _resolve_workspace_reuse_mode(self) -> str:
-        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
-        worker_runtime = (agent_cfg or {}).get("worker_runtime")
-        worker_runtime = worker_runtime if isinstance(worker_runtime, dict) else {}
-        mode = str(worker_runtime.get("workspace_reuse_mode") or "goal_worker").strip().lower()
-        return mode if mode in {"task", "goal_worker"} else "goal_worker"
-
-    def _derive_workspace_scope(
-        self,
-        *,
-        parent_task: dict[str, Any],
-        subtask_id: str,
-        worker_job_id: str,
-        agent_url: str | None,
-    ) -> dict[str, str]:
-        mode = self._resolve_workspace_reuse_mode()
-        worker_key = self._safe_scope_segment(agent_url, fallback="worker")
-        if mode == "task":
-            scope_key = f"{subtask_id}:{worker_job_id}"
-            return {
-                "mode": "task",
-                "scope_key": scope_key,
-                "session_scope_kind": "task",
-                "session_scope_key": f"task:{subtask_id}",
-            }
-
-        goal_key = self._safe_scope_segment(str(parent_task.get("goal_id") or "").strip(), fallback="")
-        team_key = self._safe_scope_segment(str(parent_task.get("team_id") or "").strip(), fallback="")
-        task_key = self._safe_scope_segment(str(parent_task.get("id") or "").strip(), fallback="task")
-        continuity_key = goal_key or team_key or task_key
-        scope_key = f"{worker_key}:{continuity_key}"
-        return {
-            "mode": "goal_worker",
-            "scope_key": scope_key,
-            "session_scope_kind": "workspace",
-            "session_scope_key": f"workspace:{scope_key}",
-        }
-
-    def _resolve_context_bundle_policy(self) -> dict[str, Any]:
-        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
-        return get_context_bundle_service().resolve_context_bundle_policy((agent_cfg or {}).get("context_bundle_policy"))
-
-    def _default_retrieval_hints_for_task_kind(self, task_kind: str | None) -> dict[str, str]:
-        normalized = str(task_kind or "").strip().lower()
-        if normalized in {"bugfix", "testing", "test"}:
-            return {
-                "retrieval_intent": "localize_failure_and_fix",
-                "required_context_scope": "local_code_and_failure_neighbors",
-                "preferred_bundle_mode": "standard",
-            }
-        if normalized in {"refactor", "implement", "coding"}:
-            return {
-                "retrieval_intent": "symbol_and_dependency_neighborhood",
-                "required_context_scope": "module_and_related_symbols",
-                "preferred_bundle_mode": "standard",
-            }
-        if normalized in {"architecture", "analysis", "doc", "research"}:
-            return {
-                "retrieval_intent": "architecture_and_decision_context",
-                "required_context_scope": "cross_module_docs_and_contracts",
-                "preferred_bundle_mode": "full",
-            }
-        if normalized in {"config", "xml", "ops"}:
-            return {
-                "retrieval_intent": "configuration_contracts_and_runtime_edges",
-                "required_context_scope": "config_and_integration_points",
-                "preferred_bundle_mode": "standard",
-            }
-        return {
-            "retrieval_intent": "execution_focused_context",
-            "required_context_scope": "task_and_direct_neighbors",
-            "preferred_bundle_mode": "standard",
-        }
-
-    def _derive_retrieval_hints(self, *, parent_task: dict[str, Any], data: Any, effective_task_kind: str | None) -> dict[str, str]:
-        defaults = self._default_retrieval_hints_for_task_kind(effective_task_kind)
-        retrieval_intent = (
-            str(getattr(data, "retrieval_intent", None) or "").strip()
-            or str(parent_task.get("retrieval_intent") or "").strip()
-            or defaults["retrieval_intent"]
-        )
-        required_context_scope = (
-            str(getattr(data, "required_context_scope", None) or "").strip()
-            or str(parent_task.get("required_context_scope") or "").strip()
-            or defaults["required_context_scope"]
-        )
-        preferred_bundle_mode = (
-            str(getattr(data, "preferred_bundle_mode", None) or "").strip().lower()
-            or str(parent_task.get("preferred_bundle_mode") or "").strip().lower()
-            or defaults["preferred_bundle_mode"]
-        )
-        if preferred_bundle_mode not in {"compact", "standard", "full"}:
-            preferred_bundle_mode = defaults["preferred_bundle_mode"]
-        return {
-            "retrieval_intent": retrieval_intent,
-            "required_context_scope": required_context_scope,
-            "preferred_bundle_mode": preferred_bundle_mode,
-        }
-
-    def _derive_task_neighborhood(self, *, parent_task: dict[str, Any]) -> dict[str, list[str]]:
-        parent_task_id = str(parent_task.get("id") or "").strip()
-        goal_id = str(parent_task.get("goal_id") or "").strip()
-        parent_parent_id = str(parent_task.get("parent_task_id") or "").strip()
-        depends_on = [str(item).strip() for item in list(parent_task.get("depends_on") or []) if str(item).strip()]
-
-        repos = get_repository_registry()
-        task_rows = repos.task_repo.get_all()
-        sibling_ids: list[str] = []
-        completed_neighbor_ids: list[str] = []
-        dependent_task_ids: list[str] = []
-        for row in task_rows:
-            item = row.model_dump()
-            item_id = str(item.get("id") or "").strip()
-            if not item_id or item_id == parent_task_id:
-                continue
-            item_depends_on = [str(dep).strip() for dep in list(item.get("depends_on") or []) if str(dep).strip()]
-            if parent_task_id and parent_task_id in item_depends_on:
-                dependent_task_ids.append(item_id)
-            if parent_parent_id and str(item.get("parent_task_id") or "").strip() == parent_parent_id:
-                sibling_ids.append(item_id)
-            if goal_id and str(item.get("goal_id") or "").strip() == goal_id:
-                status = str(item.get("status") or "").strip().lower()
-                if status in {"completed", "failed"}:
-                    completed_neighbor_ids.append(item_id)
-
-        ordered_neighbors: list[str] = []
-        for task_id in [*depends_on, *dependent_task_ids, *sibling_ids, *completed_neighbor_ids]:
-            if task_id and task_id != parent_task_id and task_id not in ordered_neighbors:
-                ordered_neighbors.append(task_id)
-            if len(ordered_neighbors) >= 12:
-                break
-        return {
-            "depends_on_task_ids": depends_on,
-            "dependent_task_ids": dependent_task_ids[:12],
-            "sibling_task_ids": sibling_ids[:12],
-            "completed_neighbor_task_ids": completed_neighbor_ids[:12],
-            "neighbor_task_ids": ordered_neighbors[:12],
-        }
-
-    def _resolve_copilot_routing_hint(
-        self,
-        *,
-        task: dict[str, Any],
-        workers: list[dict[str, Any]],
-        task_kind: str | None,
-        required_capabilities: list[str] | None,
-    ) -> dict[str, Any] | None:
-        hub_llm = get_hub_llm_service()
-        copilot_config = hub_llm.resolve_copilot_config()
-        if not copilot_config.get("active") or not copilot_config.get("supports_routing"):
-            return None
-        prompt = build_copilot_routing_prompt(
-            task=task,
-            task_kind=task_kind,
-            required_capabilities=required_capabilities,
-            workers=workers,
-        )
-        try:
-            result = hub_llm.route_with_copilot(prompt=prompt)
-        except Exception:
-            return None
-        hint = extract_copilot_routing_hint(
-            str(result.get("text") or ""),
-            worker_urls=[str(worker.get("url") or "") for worker in workers],
-        )
-        if not hint:
-            return None
-        return {
-            **hint,
-            "strategy_mode": copilot_config.get("strategy_mode"),
-            "effective_provider": dict(copilot_config.get("effective") or {}).get("provider"),
-            "effective_model": dict(copilot_config.get("effective") or {}).get("model"),
-        }
+    * :mod:`agent.services.copilot_routing_advisor` – Copilot-Routing-Hints (Prompt/LLM/Parsing).
+    * :mod:`agent.services.task_context_policy_service` – Context-Bundle-Policy,
+      Retrieval-Hints und Task-Nachbarschaft.
+    * :mod:`agent.services.workspace_scope_builder` – Workspace-Scope-Ableitung und Worker-Workspace.
+    """
 
     def delegate_task(
         self,
@@ -323,12 +67,15 @@ class TaskOrchestrationService:
         policy_decision = None
         routing_hint = None
         effective_task_kind = data.task_kind or parent_task.get("task_kind")
-        effective_required_capabilities = data.required_capabilities or parent_task.get("required_capabilities") or derive_required_capabilities(
-            parent_task,
-            effective_task_kind,
+        effective_required_capabilities = (
+            data.required_capabilities
+            or parent_task.get("required_capabilities")
+            or derive_required_capabilities(parent_task, effective_task_kind)
         )
         preferred_backend = (
-            resolve_research_backend_config(agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {}).get("provider")
+            resolve_research_backend_config(
+                agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {}
+            ).get("provider")
             if str(effective_task_kind or "").strip().lower() == "research"
             else None
         )
@@ -338,7 +85,7 @@ class TaskOrchestrationService:
                 agent_registry_service.build_directory_entry(agent=worker, timeout=300)
                 for worker in repos.agent_repo.get_all()
             ]
-            routing_hint = self._resolve_copilot_routing_hint(
+            routing_hint = get_copilot_routing_advisor().resolve_routing_hint(
                 task=parent_task,
                 workers=available_workers,
                 task_kind=effective_task_kind,
@@ -375,20 +122,13 @@ class TaskOrchestrationService:
             ]
             if item
         )
-        retrieval_hints = self._derive_retrieval_hints(
-            parent_task=parent_task,
-            data=data,
-            effective_task_kind=effective_task_kind,
+        context_policy, retrieval_hints, task_neighborhood = (
+            get_task_context_policy_service().build_context_policy(
+                parent_task=parent_task,
+                data=data,
+                effective_task_kind=effective_task_kind,
+            )
         )
-        task_neighborhood = self._derive_task_neighborhood(parent_task=parent_task)
-        context_policy = {
-            **self._resolve_context_bundle_policy(),
-            "task_kind": effective_task_kind,
-            "retrieval_intent": retrieval_hints["retrieval_intent"],
-            "required_context_scope": retrieval_hints["required_context_scope"],
-            "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
-            **task_neighborhood,
-        }
         context_bundle = worker_job_service.create_context_bundle(
             query=context_query,
             parent_task_id=task_id,
@@ -422,24 +162,19 @@ class TaskOrchestrationService:
                 extra_metadata={"selected_by_policy": selected_by_policy},
             ),
         )
-        workspace_scope = self._derive_workspace_scope(
+        workspace_scope = derive_workspace_scope(
             parent_task=parent_task,
             subtask_id=subtask_id,
             worker_job_id=worker_job.id,
             agent_url=agent_url,
         )
-        worker_workspace = {
-            "mode": "task_scoped_workspace",
-            "scope_mode": workspace_scope["mode"],
-            "task_id": subtask_id,
-            "parent_task_id": task_id,
-            "worker_job_id": worker_job.id,
-            "agent_url": agent_url,
-            "agent_name": str(agent_url or "worker").rstrip("/").split("/")[-1] or "worker",
-            "scope_key": workspace_scope["scope_key"],
-            "session_scope_kind": workspace_scope["session_scope_kind"],
-            "session_scope_key": workspace_scope["session_scope_key"],
-        }
+        worker_workspace = build_worker_workspace(
+            scope=workspace_scope,
+            parent_task_id=task_id,
+            subtask_id=subtask_id,
+            worker_job_id=worker_job.id,
+            agent_url=agent_url,
+        )
         artifact_sync = {
             "enabled": True,
             "sync_to_hub": True,

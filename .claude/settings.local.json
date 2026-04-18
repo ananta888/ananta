@@ -15,7 +15,22 @@
       "Bash(docker-compose:*)",
       "Bash(npm run:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+    "Bash(python3 -c ' *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/pytest tests/test_agent_extensions.py -q)",
+      "Bash(.venv/bin/pytest tests/ -q --ignore=tests/test_plugin_robustness.py -x --timeout=60)",
+      "Bash(.venv/bin/pytest tests/ -q --ignore=tests/test_plugin_robustness.py -x)",
+      "Bash(git stash *)",
+      "Bash(.venv/bin/pytest tests/test_ai_agent_create_app_refactor.py -q)",
+      "Bash(.venv/bin/pytest tests/ -q --ignore=tests/test_plugin_robustness.py --deselect tests/test_ai_agent_create_app_refactor.py::test_should_skip_threads_for_reloader)",
+      "Bash(.venv/bin/pytest tests/test_agent_extensions.py tests/test_agent_endpoints.py tests/test_autopilot_orchestration.py tests/test_task_admin_routes.py tests/test_tasks_routes.py tests/test_tasks_orchestration_routes.py tests/test_knowledge_routes.py tests/test_system_routes.py tests/test_auth.py tests/test_openai_compat.py -q)",
+      "Bash(.venv/bin/pytest tests/test_agent_extensions.py tests/test_agent_endpoints.py tests/test_autopilot_integration.py tests/test_tasks_autopilot.py tests/test_task_endpoints.py tests/test_task_orchestration_api.py tests/test_knowledge_retrieval_service.py tests/test_openai_compat.py tests/test_mcp.py tests/test_auth.py -q)",
+      "Bash(.venv/bin/pytest tests/test_agent_extensions.py tests/test_agent_endpoints.py tests/test_autopilot_integration.py tests/test_tasks_autopilot.py tests/test_task_endpoints.py tests/test_task_orchestration_api.py tests/test_knowledge_routes.py tests/test_openai_compat.py tests/test_mcp_route.py tests/test_auth_scenarios.py tests/test_admin_auth.py -q)",
+      "Bash(.venv/bin/pytest tests/test_tasks_autopilot.py::test_autopilot_blocks_hub_fallback_when_policy_disallows_it tests/test_tasks_autopilot.py::test_autopilot_retries_proposal_with_next_strategy_model tests/test_task_endpoints.py::test_create_followups_deduplicates tests/test_task_endpoints.py::test_autopilot_unblocks_child_when_parent_completed tests/test_task_endpoints.py::test_task_propose_uses_worker_execution_context_and_allowed_tools -q)",
+      "Bash(.venv/bin/pytest tests/test_tasks_autopilot.py::test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal tests/test_tasks_autopilot.py::test_autopilot_strategy_exhaustion_returns_task_to_hub_queue -q)",
+      "Bash(.venv/bin/pytest tests/test_orchestration_policy.py tests/test_worker_job_flow.py tests/test_task_orchestration_api.py tests/test_agent_extensions.py -q)",
+      "Bash(.venv/bin/pytest tests/test_tasks_autopilot.py tests/test_task_endpoints.py tests/test_autopilot_integration.py tests/test_task_flow.py tests/test_task_delegation_policy.py -q)"
     ]
   }
 }
