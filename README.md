@@ -112,9 +112,25 @@ Alternative fuer dauerhaftes Windows-`localhost` (WSL2 ohne Docker Desktop):
 - Danach sind `http://localhost:4200` und `http://localhost:7900` nach WSL weitergeleitet.
 
 ## Entwicklung und Qualitaet
-- Backend lokal: `agent/README.md`
-- Frontend lokal: `frontend-angular/README.md`
-- Backend-Tests: `pytest`
+### Check-Pipeline
+Das Projekt nutzt eine vereinheitlichte Check-Pipeline fuer lokale Entwicklung und CI:
+- **Standard Check:** `make check` (fuehrt Formatierung, Linting, Type-Checks, Architektur-Regeln und schnelle Tests aus)
+- **Fast Check:** `make check-fast` (nur Formatierung und Linting)
+- **Deep Check:** `make check-deep` (alle Checks + die gesamte Test-Suite ohne Live-Compose-Tests)
+- **Formatierung:** `make format` (nutzt ruff)
+
+### Architektur-Guardrails (BND-010)
+Um Schichtverletzungen zu vermeiden, werden Import-Regeln automatisch geprueft (`scripts/check_imports.py`):
+- `agent.routes` -> darf nur `services`, `common`, `models`, `auth`, `config`, `utils` importieren.
+- `agent.services` -> darf nur `repositories`, `common`, `models`, `config`, `utils`, `auth` importieren.
+- Direkte Importe von `repositories` in `routes` sind verboten.
+
+### Contract-Tests (CNT-030)
+Zentrale API-Schnittstellen werden durch Contract-Tests (`tests/test_api_contract_tasks.py`) gegen Regressionen geschuetzt. Diese Tests validieren die Response-Struktur gegen Pydantic-Modelle.
+
+### Weitere Tests
+- Backend lokal: `pytest`
+- Frontend lokal: `cd frontend-angular && npm run lint`
 - Frontend E2E: `cd frontend-angular && npm run test:e2e`
 - Frontend E2E gegen laufenden Docker-Stack:
   `cd frontend-angular && npm run test:e2e:compose`
