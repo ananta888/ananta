@@ -6,41 +6,13 @@ import re
 from flask import g, has_request_context, request
 from sqlmodel import Session, select
 
+from agent.common.redaction import redact, VisibilityLevel
 from agent.database import engine
 from agent.db_models import AuditLogDB
 from agent.services.hub_event_service import build_hub_event
 
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
-
-# Sensitive Felder die maskiert werden sollen
-SENSITIVE_FIELDS = {"password", "new_password", "old_password", "api_key", "token", "secret", "authorization"}
-
-
-def _sanitize_details(details: dict) -> dict:
-    """Entfernt oder maskiert sensitive Daten aus Audit-Log Details."""
-    if not isinstance(details, dict):
-        return details
-
-    sanitized = {}
-    for key, value in details.items():
-        if key.lower() in SENSITIVE_FIELDS:
-            sanitized[key] = "***REDACTED***"
-        elif isinstance(value, dict):
-            sanitized[key] = _sanitize_details(value)
-        elif isinstance(value, list):
-            sanitized[key] = [_sanitize_details(item) if isinstance(item, dict) else item for item in value]
-        elif isinstance(value, str):
-            # Maskiere potenzielle Secrets in Strings (z.B. "password=xyz")
-            sanitized_str = value
-            for field in SENSITIVE_FIELDS:
-                pattern = rf"({field}\s*[=:]\s*)[^\s,\)]+"
-                sanitized_str = re.sub(pattern, r"\1***", sanitized_str, flags=re.IGNORECASE)
-            sanitized[key] = sanitized_str
-        else:
-            sanitized[key] = value
-
-    return sanitized
 
 
 def log_audit(action: str, details: dict = None):
@@ -71,10 +43,10 @@ def log_audit(action: str, details: dict = None):
     # Nachricht für das Log
     msg = f"Action: {action} | User: {username} | IP: {ip}"
 
-    # Extra Felder für strukturiertes Logging (JSON)
-    extra = {"extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": details or {}}}
+    # Extra Felder für strukturiertes Logging (JSON) - maskiert
+    sanitized_details = redact(details or {})
+    extra = {"extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": sanitized_details}}
 
-    sanitized_details = _sanitize_details(details or {})
     event_context = build_hub_event(
         channel="audit",
         event_type=action,
