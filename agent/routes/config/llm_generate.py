@@ -13,6 +13,7 @@ from agent.llm_integration import _default_model_for_provider, resolve_preferred
 from agent.local_llm_backends import resolve_local_openai_backend
 from agent.runtime_policy import normalize_task_kind
 from agent.services.hub_llm_service import generate_text
+from agent.services.routing_decision_service import get_routing_decision_service
 from agent.tool_capabilities import (
     build_capability_contract,
     describe_capabilities,
@@ -215,6 +216,20 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
         routing["recommendation"] = recommendation
     if runtime_choice:
         routing["runtime_selection"] = runtime_choice
+    routing["decision_chain"] = get_routing_decision_service().build_decision_chain(
+        cfg=agent_cfg,
+        task_kind=inferred_task_kind,
+        requested=routing["requested"],
+        effective=routing["effective"],
+        sources={
+            "provider_source": provider_source,
+            "model_source": model_source,
+            "base_url_source": base_url_source,
+        },
+        recommendation=recommendation,
+        runtime_selection=runtime_choice,
+    )
+    routing["fallback_policy"] = routing["decision_chain"]["fallback_policy"]
     return {
         "agent_cfg": agent_cfg,
         "llm_cfg": llm_cfg,

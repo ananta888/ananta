@@ -14,6 +14,7 @@ from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_cata
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.platform_governance_service import get_platform_governance_service
+from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.repository_registry import get_repository_registry
 
 from . import shared
@@ -82,6 +83,13 @@ def set_config():
         if normalized_fallback["fallback_block_status"] not in {"blocked", "failed", "todo"}:
             return api_response(status="error", message="invalid_fallback_block_status", code=400)
         new_cfg["execution_fallback_policy"] = normalized_fallback
+    if "routing_fallback_policy" in new_cfg:
+        routing_fallback_cfg = new_cfg.get("routing_fallback_policy")
+        if not isinstance(routing_fallback_cfg, dict):
+            return api_response(status="error", message="invalid_routing_fallback_policy", code=400)
+        if "fallback_order" in routing_fallback_cfg and not isinstance(routing_fallback_cfg.get("fallback_order"), list):
+            return api_response(status="error", message="invalid_routing_fallback_order", code=400)
+        new_cfg["routing_fallback_policy"] = get_routing_decision_service().normalize_fallback_policy(routing_fallback_cfg)
     if "autonomous_resilience" in new_cfg:
         resilience_cfg = new_cfg.get("autonomous_resilience")
         if not isinstance(resilience_cfg, dict):

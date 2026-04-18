@@ -97,6 +97,22 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - `remote_ananta_backends` in `/config` fuegt explizite OpenAI-kompatible Remote-Hubs als additiven Provider-Typ hinzu.
 - Diese Backends erscheinen in `/providers/catalog` mit `capabilities.provider_type=remote_ananta` sowie `instance_id`/`max_hops`.
 
+## Routing-Entscheidungen und Fallbacks
+
+- Routing ist als Entscheidungskette modelliert, ohne die Hub-Control-Plane zu umgehen.
+- `GET /providers/catalog` liefert je Provider `routing_decision` mit `policy_version`, Provider-Typ, Remote-Hub-Kennung, Verfuegbarkeit und Begruendung.
+- `POST /llm/generate` liefert unter `routing.decision_chain` die Schritte fuer Request-Override, Benchmark-Auswahl, Default-Konfiguration und Runtime-Probe.
+- `GET /dashboard/read-model` zeigt unter `llm_configuration.routing_split.decision_chain` dieselbe maschinenlesbare Struktur fuer die aktuelle Laufzeitkonfiguration.
+- `routing_fallback_policy` steuert additiv, welche Fallback-Klassen genutzt werden duerfen:
+  - `allow_static_providers`
+  - `allow_local_backends`
+  - `allow_remote_hubs`
+  - `allow_stateful_cli`
+  - `allow_stateless_generation`
+  - `fallback_order`
+  - `unavailable_action`
+- Remote-Hubs werden nur als verfuegbar fuer Routing markiert, wenn sowohl die Exposure-Governance als auch `routing_fallback_policy.allow_remote_hubs` dies erlauben.
+
 ## Route-Inventory / Contract-Check
 Zum schnellen Abgleich von Dokumentation und implementierten Routen:
 

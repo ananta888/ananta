@@ -6,13 +6,19 @@ import re
 from flask import g, has_request_context, request
 from sqlmodel import Session, select
 
-from agent.common.redaction import redact, VisibilityLevel
+from agent.common.redaction import DEFAULT_SENSITIVE_KEYS, VisibilityLevel, redact
 from agent.database import engine
 from agent.db_models import AuditLogDB
 from agent.services.hub_event_service import build_hub_event
 
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
+SENSITIVE_FIELDS = tuple(sorted({key for keys in DEFAULT_SENSITIVE_KEYS.values() for key in keys}))
+
+
+def _sanitize_details(details: dict | None) -> dict:
+    sanitized = redact(details or {}, VisibilityLevel.USER)
+    return sanitized if isinstance(sanitized, dict) else {}
 
 
 def log_audit(action: str, details: dict = None):

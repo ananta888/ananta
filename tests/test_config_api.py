@@ -590,6 +590,8 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     routing_split = llm_configuration.get("routing_split") or {}
     assert (routing_split.get("inference") or {}).get("default_provider") is not None
     assert (routing_split.get("execution") or {}).get("default_backend") in {"sgpt", "codex", "opencode", "aider", "mistral_code", "auto"}
+    assert (routing_split.get("decision_chain") or {}).get("policy_version") == "routing-decision-v1"
+    assert (routing_split.get("fallback_policy") or {}).get("enabled") is True
     research_backend = llm_configuration.get("research_backend") or {}
     assert research_backend.get("provider") == "deerflow"
     assert research_backend.get("enabled") is True
@@ -709,6 +711,37 @@ def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_to
     assert data["terminal_policy"]["idle_timeout_seconds"] == 30
     assert data["terminal_policy"]["input_preview_max_chars"] == 64
     assert data["terminal_policy"]["allowed_roles"] == ["operator"]
+
+
+def test_set_config_validates_routing_fallback_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    bad = client.post("/config", json={"routing_fallback_policy": "invalid"}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_routing_fallback_policy"
+
+    bad_order = client.post("/config", json={"routing_fallback_policy": {"fallback_order": "remote_hub"}}, headers=headers)
+    assert bad_order.status_code == 400
+    assert bad_order.json["message"] == "invalid_routing_fallback_order"
+
+    ok = client.post(
+        "/config",
+        json={
+            "routing_fallback_policy": {
+                "allow_remote_hubs": False,
+                "fallback_order": ["configured_default", "local_runtime_probe"],
+                "unavailable_action": "skip",
+            }
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    policy = (cfg.json.get("data") or {}).get("routing_fallback_policy") or {}
+    assert policy["allow_remote_hubs"] is False
+    assert policy["fallback_order"] == ["configured_default", "local_runtime_probe"]
+    assert policy["unavailable_action"] == "skip"
 
 
 def test_set_config_validates_exposure_policy_shape(client, admin_token):
@@ -888,6 +921,7 @@ def test_provider_catalog_exposes_remote_ananta_backend_metadata(client, admin_t
     assert caps.get("provider_type") == "remote_ananta"
     assert caps.get("remote_hub") is True
     assert (caps.get("remote_hub_policy") or {}).get("enabled") is True
+    assert (remote.get("routing_decision") or {}).get("policy_version") == "routing-decision-v1"
     assert caps.get("instance_id") == "remote-prod-1"
     assert caps.get("max_hops") == 5
 
@@ -936,5 +970,7 @@ def test_llm_generate_uses_benchmark_recommendation_for_available_model(client, 
     assert routing["effective"]["transport_provider"] == "openai"
     assert routing["effective"]["model"] == "qwen2.5-coder"
     assert routing["recommendation"]["selection_source"] == "benchmarks_available_top_ranked"
+    assert routing["decision_chain"]["steps"][0]["step"] == "task_benchmark"
+    assert routing["fallback_policy"]["enabled"] is True
     assert mock_generate.call_args.kwargs["provider"] == "openai"
     assert mock_generate.call_args.kwargs["base_url"] == "http://127.0.0.1:8010/v1"

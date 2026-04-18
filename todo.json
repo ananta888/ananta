@@ -351,7 +351,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Separation-of-Concerns, Explainable-Routing",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/integration_registry_service.py",
@@ -372,7 +372,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Explainability, Operability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -396,7 +396,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Predictability, Resilience",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/config.py",
@@ -791,9 +791,9 @@
   "meta": {
     "total_items": 31,
     "by_status": {
-      "completed": 10,
+      "completed": 19,
       "partial": 0,
-      "open": 21
+      "open": 12
     },
     "notes": [
       "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",

@@ -12,6 +12,7 @@ from agent.common.sgpt import (
 from agent.local_llm_backends import get_local_openai_backends, list_openai_compatible_models
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.platform_governance_service import get_platform_governance_service
+from agent.services.routing_decision_service import get_routing_decision_service
 
 
 class IntegrationRegistryService:
@@ -131,6 +132,7 @@ class IntegrationRegistryService:
         ]
         providers: list[dict[str, Any]] = [dict(item) for item in static_providers]
         remote_hubs_policy = get_exposure_policy_service().resolve_remote_hubs_policy(agent_cfg)
+        routing_fallback_policy = get_routing_decision_service().resolve_fallback_policy(agent_cfg)
         for backend in get_local_openai_backends(
             agent_cfg=agent_cfg,
             provider_urls=provider_urls,
@@ -138,7 +140,10 @@ class IntegrationRegistryService:
             default_model=default_model,
         ):
             is_remote_hub = bool(backend.get("remote_hub"))
-            remote_hub_allowed = (not is_remote_hub) or bool(remote_hubs_policy.get("enabled"))
+            remote_hub_allowed = (
+                (not is_remote_hub)
+                or (bool(remote_hubs_policy.get("enabled")) and bool(routing_fallback_policy.get("allow_remote_hubs", True)))
+            )
             providers.append(
                 {
                     "provider": backend["provider"],
