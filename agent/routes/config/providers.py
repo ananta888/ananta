@@ -193,6 +193,11 @@ def list_provider_catalog():
                 "instance_id": backend.get("instance_id"),
                 "max_hops": backend.get("max_hops"),
                 "remote_hub_policy": (backend.get("capabilities") or {}).get("remote_hub_policy"),
+                "federation_policy": (backend.get("capabilities") or {}).get("federation_policy"),
+                "trust_level": backend.get("trust_level"),
+                "allowed_operations": list(backend.get("allowed_operations") or []),
+                "allow_artifact_access": bool(backend.get("allow_artifact_access", False)),
+                "allow_file_access": bool(backend.get("allow_file_access", False)),
             },
             task_kind=task_kind,
         )

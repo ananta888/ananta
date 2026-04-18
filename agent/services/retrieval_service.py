@@ -8,6 +8,7 @@ from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
+from agent.services.task_neighborhood_service import get_task_neighborhood_service
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 
 
@@ -197,6 +198,9 @@ class RetrievalService:
             return [], {"reason": "no_query_tokens", "entries_considered": 0}
 
         neighbors = [str(item).strip() for item in (neighbor_task_ids or []) if str(item).strip()]
+        if task_id and not neighbors:
+            neighborhood = get_task_neighborhood_service().build_neighborhood(task_id)
+            neighbors = list(neighborhood.get("neighbor_task_ids") or [])
         candidate_entries = []
         if task_id:
             candidate_entries.extend(self._memory_entry_repository.get_by_task(task_id))

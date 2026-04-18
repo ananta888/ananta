@@ -744,6 +744,42 @@ def test_set_config_validates_routing_fallback_policy(client, admin_token):
     assert policy["unavailable_action"] == "skip"
 
 
+def test_set_config_validates_memory_and_remote_federation_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    bad_memory = client.post("/config", json={"result_memory_policy": "invalid"}, headers=headers)
+    assert bad_memory.status_code == 400
+    assert bad_memory.json["message"] == "invalid_result_memory_policy"
+
+    bad_federation = client.post("/config", json={"remote_federation_policy": {"allowed_operations": "chat"}}, headers=headers)
+    assert bad_federation.status_code == 400
+    assert bad_federation.json["message"] == "invalid_remote_federation_operations"
+
+    ok = client.post(
+        "/config",
+        json={
+            "result_memory_policy": {
+                "archive_raw_output": True,
+                "retrieval_document_max_chars": 800,
+            },
+            "remote_federation_policy": {
+                "default_trust_level": "trusted-internal",
+                "allowed_operations": ["models", "chat", "artifact"],
+                "allow_artifact_access": True,
+                "max_hops": 4,
+            },
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    data = cfg.json.get("data") or {}
+    assert data["result_memory_policy"]["archive_raw_output"] is True
+    assert data["remote_federation_policy"]["default_trust_level"] == "trusted-internal"
+    assert data["remote_federation_policy"]["allow_artifact_access"] is True
+
+
 def test_set_config_validates_exposure_policy_shape(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
 
@@ -922,6 +958,8 @@ def test_provider_catalog_exposes_remote_ananta_backend_metadata(client, admin_t
     assert caps.get("remote_hub") is True
     assert (caps.get("remote_hub_policy") or {}).get("enabled") is True
     assert (remote.get("routing_decision") or {}).get("policy_version") == "routing-decision-v1"
+    assert (caps.get("federation_policy") or {}).get("trust_level") == "partner"
+    assert caps.get("allow_artifact_access") is False
     assert caps.get("instance_id") == "remote-prod-1"
     assert caps.get("max_hops") == 5
 

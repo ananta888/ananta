@@ -6,6 +6,26 @@ from agent.db_models import MemoryEntryDB
 from agent.repository import memory_entry_repo
 
 
+def normalize_result_memory_policy(value: dict | None) -> dict[str, object]:
+    payload = value if isinstance(value, dict) else {}
+
+    def _positive_int(raw, default: int, *, minimum: int = 1, maximum: int = 100000) -> int:
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "create_followup_artifact": bool(payload.get("create_followup_artifact", True)),
+        "retrieval_document_max_chars": _positive_int(payload.get("retrieval_document_max_chars"), 2200, minimum=400, maximum=12000),
+        "raw_history_max_chars": _positive_int(payload.get("raw_history_max_chars"), 12000, minimum=1000, maximum=100000),
+        "archive_raw_output": bool(payload.get("archive_raw_output", False)),
+        "neighbor_file_terms_enabled": bool(payload.get("neighbor_file_terms_enabled", True)),
+    }
+
+
 class ResultMemoryService:
     """Persists worker results as hub-owned memory entries for later retrieval."""
 
@@ -96,6 +116,7 @@ class ResultMemoryService:
         summary: str | None,
         bullets: list[str],
         structured: dict[str, object],
+        max_chars: int = 2200,
     ) -> str:
         lines: list[str] = []
         if summary:
@@ -118,7 +139,7 @@ class ResultMemoryService:
             lines.append("next_steps: " + " | ".join(next_steps[:4]))
         if bullets:
             lines.append("highlights: " + " | ".join(str(item) for item in bullets[:6]))
-        return "\n".join(line for line in lines if line).strip()[:2200]
+        return "\n".join(line for line in lines if line).strip()[: max(400, int(max_chars or 2200))]
 
     def record_worker_result_memory(
         self,
@@ -132,7 +153,9 @@ class ResultMemoryService:
         artifact_refs: list[dict] | None = None,
         retrieval_tags: list[str] | None = None,
         metadata: dict | None = None,
+        policy: dict | None = None,
     ) -> MemoryEntryDB:
+        memory_policy = normalize_result_memory_policy(policy)
         raw_output = str(output or "")
         compact = self._compact_output(raw_output)
         summary = str(compact.get("summary") or "") or (raw_output[:280] if raw_output else None)
@@ -145,8 +168,18 @@ class ResultMemoryService:
             summary=summary,
             bullets=list(compact.get("bullet_points") or []),
             structured=structured,
+            max_chars=int(memory_policy["retrieval_document_max_chars"]),
         )
         base_metadata = dict(metadata or {})
+        followup_artifact = {
+            "kind": "task_result_summary",
+            "task_id": task_id,
+            "goal_id": goal_id,
+            "trace_id": trace_id,
+            "summary": summary,
+            "structured_summary": structured,
+            "retrieval_tags": list(retrieval_tags or []),
+        } if bool(memory_policy["create_followup_artifact"]) else None
         return memory_entry_repo.save(
             MemoryEntryDB(
                 task_id=task_id,
@@ -161,11 +194,14 @@ class ResultMemoryService:
                 retrieval_tags=list(retrieval_tags or []),
                 memory_metadata={
                     **base_metadata,
+                    "followup_artifact": followup_artifact,
                     "compacted_summary": compact.get("compacted_summary"),
                     "bullet_points": list(compact.get("bullet_points") or []),
                     "structured_summary": structured,
                     "retrieval_document": retrieval_document or None,
-                    "memory_format": "worker_result_compact_v2",
+                    "memory_format": "worker_result_compact_v3",
+                    "compaction_policy": memory_policy,
+                    "raw_history": raw_output[: int(memory_policy["raw_history_max_chars"])] if bool(memory_policy["archive_raw_output"]) else None,
                     "original_output_chars": len(raw_output),
                 },
             )

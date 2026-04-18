@@ -500,7 +500,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Memory-Compression, Scalability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/result_memory_service.py",
@@ -521,7 +521,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Locality, Context-Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -545,7 +545,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Bounded-Context, Hardware-Fit",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -648,7 +648,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Trust-Boundaries, Least-Privilege",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/config.py",
@@ -669,7 +669,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Traceability, Anti-Loop-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -693,7 +693,7 @@
           "priority": "high",
           "type": "bugfix",
           "principle": "Least-Exposure, Data-Boundary-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -791,9 +791,9 @@
   "meta": {
     "total_items": 31,
     "by_status": {
-      "completed": 19,
+      "completed": 25,
       "partial": 0,
-      "open": 12
+      "open": 6
     },
     "notes": [
       "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",

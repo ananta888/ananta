@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent.llm_integration import _list_lmstudio_candidates, _normalize_lmstudio_base_url, probe_lmstudio_runtime
+from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 
 
 def normalize_openai_compatible_base_url(url: str | None) -> str | None:
@@ -85,6 +86,7 @@ def get_local_openai_backends(
         )
         if not normalized:
             continue
+        federation_policy = get_remote_federation_policy_service().normalize_backend(raw_item, cfg=agent_cfg)
         normalized["provider_type"] = "remote_ananta"
         normalized["remote_hub"] = True
         normalized["instance_id"] = str(raw_item.get("instance_id") or "").strip() or None
@@ -93,6 +95,11 @@ def get_local_openai_backends(
             normalized["max_hops"] = max(1, int(max_hops_raw))
         except (TypeError, ValueError):
             normalized["max_hops"] = 3
+        normalized["federation_policy"] = federation_policy
+        normalized["trust_level"] = federation_policy["trust_level"]
+        normalized["allowed_operations"] = list(federation_policy["allowed_operations"])
+        normalized["allow_artifact_access"] = bool(federation_policy["allow_artifact_access"])
+        normalized["allow_file_access"] = bool(federation_policy["allow_file_access"])
         normalized["source"] = "agent_config.remote_ananta_backends"
         entries.append(normalized)
 

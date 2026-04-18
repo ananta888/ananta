@@ -14,6 +14,8 @@ from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_cata
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.platform_governance_service import get_platform_governance_service
+from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
+from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.repository_registry import get_repository_registry
 
@@ -90,6 +92,18 @@ def set_config():
         if "fallback_order" in routing_fallback_cfg and not isinstance(routing_fallback_cfg.get("fallback_order"), list):
             return api_response(status="error", message="invalid_routing_fallback_order", code=400)
         new_cfg["routing_fallback_policy"] = get_routing_decision_service().normalize_fallback_policy(routing_fallback_cfg)
+    if "result_memory_policy" in new_cfg:
+        memory_cfg = new_cfg.get("result_memory_policy")
+        if not isinstance(memory_cfg, dict):
+            return api_response(status="error", message="invalid_result_memory_policy", code=400)
+        new_cfg["result_memory_policy"] = normalize_result_memory_policy(memory_cfg)
+    if "remote_federation_policy" in new_cfg:
+        federation_cfg = new_cfg.get("remote_federation_policy")
+        if not isinstance(federation_cfg, dict):
+            return api_response(status="error", message="invalid_remote_federation_policy", code=400)
+        if "allowed_operations" in federation_cfg and not isinstance(federation_cfg.get("allowed_operations"), list):
+            return api_response(status="error", message="invalid_remote_federation_operations", code=400)
+        new_cfg["remote_federation_policy"] = get_remote_federation_policy_service().normalize_policy(federation_cfg)
     if "autonomous_resilience" in new_cfg:
         resilience_cfg = new_cfg.get("autonomous_resilience")
         if not isinstance(resilience_cfg, dict):
