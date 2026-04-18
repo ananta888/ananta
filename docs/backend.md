@@ -142,6 +142,27 @@ Optional mit Methodenansicht:
 python devtools/export_route_inventory.py --include-methods
 ```
 
+Alias- und Kanonikrouten koennen explizit ausgewiesen werden:
+
+```bash
+python devtools/export_route_inventory.py --include-methods --include-route-kind
+```
+
+`route_kind=canonical` beschreibt die eigentliche API-Route. `route_kind=alias` beschreibt bewusst registrierte Kompatibilitaets- oder Operator-Kurzpfade und enthaelt `canonical_path`.
+
+## Flask Startup
+
+`agent.ai_agent.create_app()` bleibt der zentrale Startup-Orchestrator. Konkrete Bootstrap-Verantwortlichkeiten liegen in `agent/bootstrap/`:
+
+- `request_hooks.py`: Audit-Logger, Correlation-ID, Shutdown-Check und Security-Headers
+- `routes.py` und `route_aliases.py`: kanonische Blueprints sowie deklarierte Alias-Routen
+- `extensions.py`: CORS, Swagger, externe Extensions und Plugins
+- `runtime_hints.py`: Host-/Runtime-Hinweise
+- `background.py`: Background-Service-Lifecycle
+- `startup.py`: strukturierte Startup-Phasen mit Dauer, Status und Fehlerphase
+
+Die Reihenfolge ist absichtlich in `create_app()` sichtbar, damit der Hub-Startup kontrolliert bleibt und einzelne Bootstrap-Schritte isoliert getestet werden koennen.
+
 ## Authentifizierung
 - System-Token: `AGENT_TOKEN` (Bearer)
 - User-JWT: Login ueber `/login`, Refresh ueber `/refresh-token`

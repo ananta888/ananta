@@ -52,6 +52,17 @@ Folgende vorkonfigurierte Dashboards sind enthalten:
 - Retries als Fehlerindikator
 - Task-Aktivität (5-Minuten-Buckets)
 
+## Startup-Metriken
+
+Der Flask-Startup veroeffentlicht neben der Gesamtdauer auch einzelne Phasen:
+
+- `app_startup_duration_seconds`
+- `app_startup_phase_duration_seconds{phase,status}`
+- `app_startup_phase_total{phase,status}`
+- `app_startup_failures_total{phase,error_type}`
+
+Die Phasen entsprechen den benannten Bootstrap-Schritten in `agent.ai_agent.create_app()`, zum Beispiel `database`, `blueprints`, `extensions`, `core_services` und `background_services`. Fehler werden mit Phase und Fehlertyp geloggt, damit Compose-, Plugin-, DB- und Registry-Probleme schneller voneinander unterscheidbar sind.
+
 ## Sicherheitskonfiguration für Produktion
 
 Für den produktiven Einsatz sollten folgende Schritte durchgeführt werden:

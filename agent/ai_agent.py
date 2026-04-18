@@ -9,6 +9,7 @@ from agent.bootstrap.extensions import configure_cors, configure_swagger, load_e
 from agent.bootstrap.request_hooks import configure_audit_logger, register_request_hooks
 from agent.bootstrap.routes import register_alias_routes, register_blueprints
 from agent.bootstrap.runtime_hints import log_runtime_hints
+from agent.bootstrap.startup import run_startup_phase
 from agent.common.error_handler import register_error_handler
 from agent.common.logging import setup_logging
 from agent.common.signals import setup_signal_handlers
@@ -56,25 +57,25 @@ def _check_token_rotation(app: Flask) -> None:
 def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App fuer den Agenten (API-Server)."""
     _start_perf = time.perf_counter()
-    setup_logging(level=settings.log_level, json_format=settings.log_json)
-    setup_signal_handlers()
-    log_runtime_hints()
-    configure_audit_logger()
-    init_db()
+    run_startup_phase("logging", setup_logging, level=settings.log_level, json_format=settings.log_json)
+    run_startup_phase("signals", setup_signal_handlers)
+    run_startup_phase("runtime_hints", log_runtime_hints)
+    run_startup_phase("audit_logger", configure_audit_logger)
+    run_startup_phase("database", init_db)
 
-    app = Flask(__name__)
-    register_request_hooks(app)
-    register_error_handler(app)
-    configure_cors(app)
-    app.config.update(build_base_app_config(agent))
-    configure_swagger(app)
-    register_blueprints(app)
-    register_alias_routes(app)
-    initialize_runtime_state(app)
-    load_extensions(app)
-    initialize_repository_registry(app)
-    initialize_core_services(app)
-    start_background_services(app)
+    app = run_startup_phase("flask_app", Flask, __name__)
+    run_startup_phase("request_hooks", register_request_hooks, app)
+    run_startup_phase("error_handlers", register_error_handler, app)
+    run_startup_phase("cors", configure_cors, app)
+    app.config.update(run_startup_phase("base_config", build_base_app_config, agent))
+    run_startup_phase("swagger", configure_swagger, app)
+    run_startup_phase("blueprints", register_blueprints, app)
+    run_startup_phase("alias_routes", register_alias_routes, app)
+    run_startup_phase("runtime_state", initialize_runtime_state, app)
+    run_startup_phase("extensions", load_extensions, app)
+    run_startup_phase("repository_registry", initialize_repository_registry, app)
+    run_startup_phase("core_services", initialize_core_services, app)
+    run_startup_phase("background_services", start_background_services, app)
 
     elapsed = time.perf_counter() - _start_perf
     APP_STARTUP_DURATION.set(elapsed)

@@ -2,6 +2,7 @@ import logging
 
 from flask import Flask
 
+from agent.bootstrap.route_aliases import register_route_aliases
 from agent.routes.artifacts import artifacts_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
@@ -38,29 +39,6 @@ def register_blueprints(app: Flask) -> None:
 
 def register_alias_routes(app: Flask) -> None:
     try:
-        from agent.routes.system import (
-            analyze_audit_logs,
-            get_audit_logs,
-            get_stats_history,
-            health,
-            list_agents,
-            metrics,
-            readiness_check,
-            register_agent,
-            stream_system_events,
-            system_stats,
-        )
-
-        app.add_url_rule("/health", view_func=health)
-        app.add_url_rule("/ready", view_func=readiness_check)
-        app.add_url_rule("/metrics", view_func=metrics)
-        app.add_url_rule("/stats", view_func=system_stats)
-        app.add_url_rule("/stats/history", view_func=get_stats_history)
-        app.add_url_rule("/events", view_func=stream_system_events)
-        app.add_url_rule("/agents", view_func=list_agents)
-        app.add_url_rule("/audit-logs", view_func=get_audit_logs)
-        app.add_url_rule("/audit/analyze", view_func=analyze_audit_logs, methods=["POST"])
-        app.add_url_rule("/register", view_func=register_agent, methods=["POST"])
+        register_route_aliases(app)
     except Exception as e:
         logging.warning(f"Konnte Alias-Routen nicht registrieren: {e}")
-
