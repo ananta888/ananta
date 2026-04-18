@@ -313,7 +313,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Observability, Plugin-Debuggability",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/plugin_loader.py",
@@ -365,7 +365,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Drift-Control, Mechanical-Documentation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "devtools/",
@@ -836,7 +836,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Focused-Reviewing, Hotspot-Discipline",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -856,7 +856,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Preventive-Maintainability, Early-Warning",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/",
@@ -877,7 +877,7 @@
           "priority": "low",
           "type": "documentation",
           "principle": "Risk-Based-Refactoring, Long-Term-Health",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "todo.json",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 3,
+      "completed": 8,
       "partial": 0,
-      "open": 34
+      "open": 29
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",

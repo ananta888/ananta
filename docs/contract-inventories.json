@@ -1,0 +1,308 @@
+{
+  "capabilities": [
+    {
+      "category": "write",
+      "description": "Activate team.",
+      "mutates_state": true,
+      "name": "activate_team",
+      "requires_admin": true
+    },
+    {
+      "category": "read",
+      "description": "Read latest audit logs.",
+      "mutates_state": false,
+      "name": "analyze_logs",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Assign role to team member.",
+      "mutates_state": true,
+      "name": "assign_role",
+      "requires_admin": true
+    },
+    {
+      "category": "admin",
+      "description": "Configure auto-planner.",
+      "mutates_state": true,
+      "name": "configure_auto_planner",
+      "requires_admin": true
+    },
+    {
+      "category": "admin",
+      "description": "Configure triggers.",
+      "mutates_state": true,
+      "name": "configure_triggers",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Create a new team.",
+      "mutates_state": true,
+      "name": "create_team",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Create new template.",
+      "mutates_state": true,
+      "name": "create_template",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Delete role.",
+      "mutates_state": true,
+      "name": "delete_role",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Delete team.",
+      "mutates_state": true,
+      "name": "delete_team",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Delete team type.",
+      "mutates_state": true,
+      "name": "delete_team_type",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Delete template.",
+      "mutates_state": true,
+      "name": "delete_template",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Ensure default templates/roles for team types.",
+      "mutates_state": true,
+      "name": "ensure_team_templates",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Link role to team type.",
+      "mutates_state": true,
+      "name": "link_role_to_team_type",
+      "requires_admin": true
+    },
+    {
+      "category": "read",
+      "description": "List all registered agents.",
+      "mutates_state": false,
+      "name": "list_agents",
+      "requires_admin": true
+    },
+    {
+      "category": "read",
+      "description": "List all roles.",
+      "mutates_state": false,
+      "name": "list_roles",
+      "requires_admin": true
+    },
+    {
+      "category": "read",
+      "description": "List all teams.",
+      "mutates_state": false,
+      "name": "list_teams",
+      "requires_admin": true
+    },
+    {
+      "category": "read",
+      "description": "List all prompt templates.",
+      "mutates_state": false,
+      "name": "list_templates",
+      "requires_admin": true
+    },
+    {
+      "category": "read",
+      "description": "Read selected agent log file.",
+      "mutates_state": false,
+      "name": "read_agent_logs",
+      "requires_admin": true
+    },
+    {
+      "category": "admin",
+      "description": "Start/stop/tick autopilot.",
+      "mutates_state": true,
+      "name": "set_autopilot_state",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Set role-template mapping.",
+      "mutates_state": true,
+      "name": "set_role_template_mapping",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Unlink role from team type.",
+      "mutates_state": true,
+      "name": "unlink_role_from_team_type",
+      "requires_admin": true
+    },
+    {
+      "category": "admin",
+      "description": "Update global configuration.",
+      "mutates_state": true,
+      "name": "update_config",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Update template.",
+      "mutates_state": true,
+      "name": "update_template",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Create or update role.",
+      "mutates_state": true,
+      "name": "upsert_role",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Create or update team.",
+      "mutates_state": true,
+      "name": "upsert_team",
+      "requires_admin": true
+    },
+    {
+      "category": "write",
+      "description": "Create or update team type.",
+      "mutates_state": true,
+      "name": "upsert_team_type",
+      "requires_admin": true
+    }
+  ],
+  "policies": [
+    {
+      "kind": "function",
+      "lineno": 6,
+      "module": "agent.routes.tasks.autopilot_dispatch_policy",
+      "name": "resolve_effective_concurrency",
+      "path": "agent/routes/tasks/autopilot_dispatch_policy.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 14,
+      "module": "agent.routes.tasks.autopilot_dispatch_policy",
+      "name": "resolve_target_worker_for_task",
+      "path": "agent/routes/tasks/autopilot_dispatch_policy.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 115,
+      "module": "agent.runtime_policy",
+      "name": "evaluate_trigger_precheck",
+      "path": "agent/runtime_policy.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 40,
+      "module": "agent.runtime_policy",
+      "name": "resolve_cli_backend",
+      "path": "agent/runtime_policy.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 75,
+      "module": "agent.runtime_policy",
+      "name": "review_policy",
+      "path": "agent/runtime_policy.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 27,
+      "module": "agent.services.execution_risk_policy_service",
+      "name": "_policy",
+      "path": "agent/services/execution_risk_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 41,
+      "module": "agent.services.execution_risk_policy_service",
+      "name": "evaluate_execution_risk",
+      "path": "agent/services/execution_risk_policy_service.py"
+    },
+    {
+      "kind": "class",
+      "lineno": 25,
+      "module": "agent.services.exposure_policy_service",
+      "name": "ExposurePolicyService",
+      "path": "agent/services/exposure_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 196,
+      "module": "agent.services.exposure_policy_service",
+      "name": "get_exposure_policy_service",
+      "path": "agent/services/exposure_policy_service.py"
+    },
+    {
+      "kind": "class",
+      "lineno": 40,
+      "module": "agent.services.remote_federation_policy_service",
+      "name": "RemoteFederationPolicyService",
+      "path": "agent/services/remote_federation_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 114,
+      "module": "agent.services.remote_federation_policy_service",
+      "name": "get_remote_federation_policy_service",
+      "path": "agent/services/remote_federation_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 17,
+      "module": "agent.services.task_execution_policy_service",
+      "name": "_policy_value",
+      "path": "agent/services/task_execution_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 9,
+      "module": "agent.services.task_execution_policy_service",
+      "name": "_task_kind_policy",
+      "path": "agent/services/task_execution_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 31,
+      "module": "agent.services.task_execution_policy_service",
+      "name": "resolve_execution_policy",
+      "path": "agent/services/task_execution_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 183,
+      "module": "agent.services.task_execution_policy_service",
+      "name": "resolve_task_scope_allowed_tools",
+      "path": "agent/services/task_execution_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 40,
+      "module": "agent.services.verification_policy_service",
+      "name": "_normalize_quality_gate_policy",
+      "path": "agent/services/verification_policy_service.py"
+    },
+    {
+      "kind": "function",
+      "lineno": 47,
+      "module": "agent.services.verification_policy_service",
+      "name": "evaluate_quality_gates",
+      "path": "agent/services/verification_policy_service.py"
+    }
+  ],
+  "version": "v1"
+}

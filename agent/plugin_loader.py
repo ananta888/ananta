@@ -1,12 +1,59 @@
 import importlib
 import logging
 import sys
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
 from flask import Flask
 
 from agent.config import settings
+
+
+@dataclass
+class PluginReportEntry:
+    name: str
+    status: str
+    registration_mode: str | None = None
+    evolution_provider_count: int = 0
+    error: str | None = None
+    duration_seconds: float = 0.0
+
+
+@dataclass
+class PluginStartupReport:
+    loaded: list[str] = field(default_factory=list)
+    entries: list[PluginReportEntry] = field(default_factory=list)
+
+    def add(self, entry: PluginReportEntry) -> None:
+        self.entries.append(entry)
+        if entry.status == "loaded":
+            self.loaded.append(entry.name)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "loaded": list(self.loaded),
+            "entries": [
+                {
+                    "name": entry.name,
+                    "status": entry.status,
+                    "registration_mode": entry.registration_mode,
+                    "evolution_provider_count": entry.evolution_provider_count,
+                    "error": entry.error,
+                    "duration_seconds": round(entry.duration_seconds, 6),
+                }
+                for entry in self.entries
+            ],
+            "errors": [
+                {
+                    "name": entry.name,
+                    "error": entry.error,
+                }
+                for entry in self.entries
+                if entry.status == "failed"
+            ],
+        }
 
 
 def _iter_enabled_plugins() -> list[str]:
@@ -91,38 +138,88 @@ def _register_declared_evolution_providers(app: Flask, module: Any, *, allow_exi
 
 
 def load_plugins(app: Flask) -> list[str]:
-    loaded: list[str] = []
+    report = PluginStartupReport()
     names = set(_iter_enabled_plugins())
     names.update(_discover_plugins_in_dirs(_iter_plugin_dirs()))
     for mod_name in sorted(names):
+        started = time.perf_counter()
         try:
             module = importlib.import_module(mod_name)
             evolution_provider_count = 0
             if hasattr(module, "init_app"):
                 module.init_app(app)
                 evolution_provider_count = _register_declared_evolution_providers(app, module, allow_existing=True)
-                loaded.append(mod_name)
+                report.add(
+                    PluginReportEntry(
+                        name=mod_name,
+                        status="loaded",
+                        registration_mode="init_app",
+                        evolution_provider_count=evolution_provider_count,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                )
                 logging.info("Plugin geladen: %s (init_app)", mod_name)
                 continue
             if hasattr(module, "bp"):
                 app.register_blueprint(module.bp)
                 evolution_provider_count = _register_declared_evolution_providers(app, module)
-                loaded.append(mod_name)
+                report.add(
+                    PluginReportEntry(
+                        name=mod_name,
+                        status="loaded",
+                        registration_mode="bp",
+                        evolution_provider_count=evolution_provider_count,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                )
                 logging.info("Plugin geladen: %s (bp)", mod_name)
                 continue
             if hasattr(module, "blueprint"):
                 app.register_blueprint(module.blueprint)
                 evolution_provider_count = _register_declared_evolution_providers(app, module)
-                loaded.append(mod_name)
+                report.add(
+                    PluginReportEntry(
+                        name=mod_name,
+                        status="loaded",
+                        registration_mode="blueprint",
+                        evolution_provider_count=evolution_provider_count,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                )
                 logging.info("Plugin geladen: %s (blueprint)", mod_name)
                 continue
             evolution_provider_count = _register_declared_evolution_providers(app, module)
             if evolution_provider_count:
-                loaded.append(mod_name)
+                report.add(
+                    PluginReportEntry(
+                        name=mod_name,
+                        status="loaded",
+                        registration_mode="evolution_provider",
+                        evolution_provider_count=evolution_provider_count,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                )
                 logging.info("Plugin geladen: %s (%s evolution providers)", mod_name, evolution_provider_count)
                 continue
+            report.add(
+                PluginReportEntry(
+                    name=mod_name,
+                    status="ignored",
+                    registration_mode="none",
+                    duration_seconds=time.perf_counter() - started,
+                )
+            )
             logging.warning("Plugin %s hat keine init_app/bp/blueprint", mod_name)
         except Exception as e:
+            report.add(
+                PluginReportEntry(
+                    name=mod_name,
+                    status="failed",
+                    error=str(e),
+                    duration_seconds=time.perf_counter() - started,
+                )
+            )
             logging.error("Fehler beim Laden des Plugins %s: %s", mod_name, e)
-    app.extensions["loaded_plugins"] = loaded
-    return loaded
+    app.extensions["loaded_plugins"] = list(report.loaded)
+    app.extensions["plugin_startup_report"] = report.to_dict()
+    return list(report.loaded)
