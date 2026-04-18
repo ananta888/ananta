@@ -1,6 +1,8 @@
 from typing import Any, Optional, TypeVar
 
-from flask import Response, jsonify
+from flask import Response, g, jsonify
+
+from agent.common.redaction import VisibilityLevel, redact
 
 
 def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int = 200) -> Response:
@@ -10,7 +12,19 @@ def api_response(data: Any = None, status: str = "success", message: Optional[st
     """
     response_body = {"status": status}
     if data is not None:
-        response_body["data"] = data
+        # Automatisches Redacting basierend auf dem aktuellen Kontext
+        visibility = VisibilityLevel.USER
+        try:
+            if hasattr(g, "is_admin") and g.is_admin:
+                visibility = VisibilityLevel.ADMIN
+            elif not hasattr(g, "user") or not g.user:
+                # Kein User-Kontext -> Public (strengste Maskierung)
+                visibility = VisibilityLevel.PUBLIC
+        except (RuntimeError, AttributeError):
+            # Außerhalb eines Request-Kontexts
+            pass
+
+        response_body["data"] = redact(data, visibility=visibility)
     if message is not None:
         response_body["message"] = message
 

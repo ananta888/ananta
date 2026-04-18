@@ -4,7 +4,7 @@ import re
 
 from agent.config import settings
 from agent.metrics import RAG_BUNDLE_BUDGET_UTILIZATION, RAG_BUNDLE_DUPLICATE_RATE, RAG_BUNDLE_NOISE_RATE
-from agent.hybrid_context_support import redact_sensitive_text
+from agent.common.redaction import redact, VisibilityLevel
 
 CONTEXT_BUNDLE_POLICY_MODES = {"compact", "standard", "full"}
 CONTEXT_WINDOW_PROFILES = {"compact_12k", "standard_32k", "full_64k"}
@@ -240,13 +240,7 @@ class ContextBundleService:
     def _redact_debug_value(self, value):
         if not bool(getattr(settings, "rag_redact_sensitive", True)):
             return value
-        if isinstance(value, dict):
-            return {str(key): self._redact_debug_value(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [self._redact_debug_value(item) for item in value]
-        if isinstance(value, str):
-            return redact_sensitive_text(value, DEBUG_REDACTION_PATTERNS)
-        return value
+        return redact(value)
 
     def _mode_profile(self, mode: str) -> dict[str, object]:
         normalized = str(mode or "full").strip().lower()

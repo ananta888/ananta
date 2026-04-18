@@ -106,6 +106,10 @@ class Settings(BaseSettings):
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
+
+    # Redaction
+    redaction_visibility: int = Field(default=1, validation_alias="REDACTION_VISIBILITY") # 1 = USER, 2 = ADMIN, 0 = PUBLIC
+
     auth_rate_limit_window_short_seconds: int = Field(
         default=60, validation_alias="AUTH_RATE_LIMIT_WINDOW_SHORT_SECONDS"
     )

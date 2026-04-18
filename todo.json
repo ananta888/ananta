@@ -575,7 +575,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Security, Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/common/",
@@ -596,7 +596,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Semantic-Security, Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/common/",
@@ -619,7 +619,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Regression-Safety, Defense-in-Depth",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",

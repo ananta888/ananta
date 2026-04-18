@@ -158,6 +158,19 @@ Zentrale Tabellen/Modelle liegen in `agent/db_models.py` (Users, Teams, Tasks, T
 - `POST /teams/blueprints/{id}/instantiate`: materialisiert aus einem Blueprint ein Team, erzeugt Rollenlinks und initiale Artefakte.
 - `POST /teams/setup-scrum`: Legacy-Shortcut, delegiert intern jetzt an den Seed-Blueprint `Scrum`.
 
+## Redaction und Sensitivitaetskontrolle
+
+- Eine zentrale Redaction-Schicht (`agent/common/redaction.py`) schuetzt sensible Daten in Logs, Audits, Prompt-Bundles und API-Antworten.
+- Unterstuetzte Datenklassen (`SensitiveDataClass`): `token`, `secret`, `credential`, `path`, `internal_url`, `private_prompt`, `ip_address`.
+- Sichtbarkeitsstufen (`VisibilityLevel`):
+  - `PUBLIC` (0): Maximale Maskierung (standard fuer nicht authentifizierte Zugriffe).
+  - `USER` (1): Standard fuer authentifizierte Benutzer; Secrets/Tokens sind maskiert.
+  - `ADMIN` (2): Admins duerfen Pfade und interne URLs sehen.
+  - `DEBUG` (3): Keine Maskierung (nur fuer lokale Entwicklung).
+- Die Redaction erfolgt automatisch in `api_response` basierend auf dem `g.user` Kontext.
+- In `agent/common/logging.py` und `agent/common/audit.py` ist die Redaction fest integriert.
+- Prompt-Bundles im `ContextBundleService` nutzen ebenfalls die zentrale Redaction, um Leckagen in Richtung LLM-Provider zu minimieren.
+
 ## Verwandte Dokus
 - API-Spezifikation: `api-spec.md`
 - Agent-Setup: `agent/README.md`

@@ -8,11 +8,10 @@ from typing import Optional
 
 import yaml
 
+from agent.common.redaction import redact, VisibilityLevel
+
 # ContextVar für Korrelations-ID (Thread-sicher und Async-sicher)
 correlation_id_ctx: ContextVar[str] = ContextVar("correlation_id", default="")
-
-# Liste von sensitiven Begriffen, die maskiert werden sollen
-SENSITIVE_KEYS = {"api_key", "token", "password", "secret", "authorization"}
 
 
 class JsonFormatter(logging.Formatter):
@@ -21,11 +20,8 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         msg = record.getMessage()
 
-        # Einfaches Maskieren von Key-Value Paaren in der Nachricht
-        for key in SENSITIVE_KEYS:
-            # Maskiere "key": "value" oder "key": value
-            msg = re.sub(rf'("{key}"\s*:\s*)"[^"]+"', r'\1"***"', msg, flags=re.IGNORECASE)
-            msg = re.sub(rf"({key}\s*=\s*)[^,\s\)]+", r"\1***", msg, flags=re.IGNORECASE)
+        # Zentrale Redaction für die Nachricht
+        msg = redact(msg)
 
         log_data = {
             "timestamp": self.formatTime(record, self.datefmt),
@@ -37,9 +33,9 @@ class JsonFormatter(logging.Formatter):
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
 
-        # Füge extra Felder hinzu, falls vorhanden
+        # Füge extra Felder hinzu, falls vorhanden (ebenfalls maskiert)
         if hasattr(record, "extra_fields"):
-            log_data.update(record.extra_fields)
+            log_data.update(redact(record.extra_fields))
 
         return json.dumps(log_data, ensure_ascii=False)
 
