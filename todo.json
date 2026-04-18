@@ -19,6 +19,12 @@
       "label": "Repo Governance und Quality Gates",
       "items": [
         {
+          "id": "QGT-001",
+          "title": "Zentrale Repo-Quality-Gates und einheitliche Check-Pipeline einfuehren",
+          "description": "Eine zentrale Pipeline fuer Linting, Type-Checking und schnelle Tests schaffen, die lokal und in CI identisch funktioniert.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Reproducible-Quality, Fast-Failure",
           "status": "completed",
           "effort": "medium",
           "files": [
@@ -41,7 +47,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Preventive-Quality, Shift-Left",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -65,7 +71,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Developer-Flow, Scalable-QA",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/",
@@ -122,6 +128,29 @@
           ]
         },
         {
+          "id": "BND-011",
+          "title": "Unerlaubte Schichtdurchgriffe in der Agent-Core-Logik maschinell blockieren",
+          "description": "Automatisierte Checks einfuehren, die verhindern, dass fachfremde oder zu tiefe Schichten (wie Repositories) direkt aus den obersten Ebenen (Routes) ohne Service-Abstraktion genutzt werden.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Layer-Separation, Abstraction-Integrity",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "agent/",
+            "tests/"
+          ],
+          "dependencies": [
+            "BND-010"
+          ],
+          "acceptance": [
+            "Schichtverletzungen werden automatisch erkannt und gemeldet.",
+            "Die Check-Pipeline blockiert bei neuen Verstößen.",
+            "Bestehende Verstöße sind dokumentiert oder über Ausnahmen erfasst."
+          ]
+        },
+        {
           "id": "BND-012",
           "title": "Architekturdrift fuer Plugin- und Provider-Schnittstellen mit Contract-Boundaries absichern",
           "description": "Fuer Plugin-, Provider- und Runtime-Schnittstellen explizite Vertragsgrenzen schaffen, damit interne Refactorings nicht unbemerkt die externen oder halbexternen Extension-Pfade brechen.",
@@ -158,7 +187,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Acyclic-Architecture, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -179,7 +208,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "DRY, Long-Term-Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -199,7 +228,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Code-Hygiene, Surface-Reduction",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -637,9 +666,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 6,
+      "completed": 13,
       "partial": 0,
-      "open": 21
+      "open": 14
     },
     "notes": [
       "Diese Todo-Datei vergleicht Ananta nicht funktional mit OpenClaw, sondern technisch auf Ebene von Repo-Haertung, Boundary-Enforcement, Testtopologie und Build-/Release-Reife.",
