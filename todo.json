@@ -19,13 +19,7 @@
       "label": "Repo Governance und Quality Gates",
       "items": [
         {
-          "id": "QGT-001",
-          "title": "Zentrale Check-Pipeline fuer Format, Lint, Type-Checks und Architekturregeln vereinheitlichen",
-          "description": "Eine klar definierte Haupt-Check-Pipeline aufbauen, die Formatierung, statische Analyse, Type-Checks, Architekturgrenzen und schnelle Tests in konsistenter Reihenfolge ausfuehrt, damit lokale Entwicklung und CI dieselben Schutzbarrieren verwenden.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Consistency, Mechanical-Discipline",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "Makefile",
@@ -95,13 +89,7 @@
       "label": "Architekturgrenzen und Importdisziplin",
       "items": [
         {
-          "id": "BND-010",
-          "title": "Explizite Modulgrenzen zwischen Core, Routes, Services, Plugins und Integrationen maschinenpruefbar machen",
-          "description": "Die Architekturgrenzen zwischen Core-Domain, Service-Schicht, Routen, Plugins und externen Integrationen als technische Regeln modellieren, damit Schichtverletzungen nicht schleichend in den Code einziehen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Layering, Boundary-Enforcement",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/",
@@ -116,13 +104,7 @@
           ]
         },
         {
-          "id": "BND-011",
-          "title": "Verbotene Importmuster und Monolith-Entry-Imports automatisiert erkennen",
-          "description": "Skripte oder Lint-Regeln einfuehren, die zu breite Imports, Schichtspruenge oder den rueckwaertigen Zugriff auf interne Module automatisch erkennen und blockieren.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Boundary-Safety, Encapsulation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/",
@@ -238,13 +220,7 @@
       "label": "Contract Tests und Schema-Stabilitaet",
       "items": [
         {
-          "id": "CNT-030",
-          "title": "Contract-Tests fuer zentrale API-, Plugin- und Provider-Schnittstellen ausbauen",
-          "description": "Die wichtigsten JSON-, HTTP- und internen Adapter-Vertraege als eigene Contract-Tests modellieren, damit Refactorings nicht stillschweigend Clients, Plugins oder Provider brechen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Contract-Stability, Refactor-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/",
@@ -312,13 +288,7 @@
       "label": "Test Topologie und Live E2E",
       "items": [
         {
-          "id": "TST-040",
-          "title": "Testlandschaft in klar abgegrenzte Modi fuer unit, integration, contract, compose-live und frontend-e2e staffeln",
-          "description": "Die bestehenden Tests in besser erkennbare, getrennte Testmodi gliedern, damit Testauswahl, Laufzeitkosten und Diagnose klarer werden.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Test-Clarity, Scalability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -606,13 +576,7 @@
       "label": "Developer Experience und Engineering Doku",
       "items": [
         {
-          "id": "DEV-080",
-          "title": "Engineering-Runbooks fuer Build, Testmodi, Boundary-Regeln und Release pflegen",
-          "description": "Technische Runbooks schaffen, die nicht nur Nutzer-Features, sondern speziell Repo-Regeln, Testklassen, Releasepfade, Plugin-Grenzen und typische Entwicklungsablaeufe klar erklaeren.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Contributor-Productivity, Shared-Mental-Model",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "README.md",
@@ -673,9 +637,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 0,
+      "completed": 6,
       "partial": 0,
-      "open": 27
+      "open": 21
     },
     "notes": [
       "Diese Todo-Datei vergleicht Ananta nicht funktional mit OpenClaw, sondern technisch auf Ebene von Repo-Haertung, Boundary-Enforcement, Testtopologie und Build-/Release-Reife.",
