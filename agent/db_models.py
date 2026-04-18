@@ -369,6 +369,8 @@ class TaskDB(SQLModel, table=True):
     current_worker_job_id: Optional[str] = Field(default=None, index=True)
     verification_spec: dict = Field(default={}, sa_column=Column(JSON))
     verification_status: dict = Field(default={}, sa_column=Column(JSON))
+    status_reason_code: Optional[str] = None
+    status_reason_details: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -410,6 +412,8 @@ class ArchivedTaskDB(SQLModel, table=True):
     current_worker_job_id: Optional[str] = None
     verification_spec: dict = Field(default={}, sa_column=Column(JSON))
     verification_status: dict = Field(default={}, sa_column=Column(JSON))
+    status_reason_code: Optional[str] = None
+    status_reason_details: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -584,5 +588,7 @@ class VerificationRecordDB(SQLModel, table=True):
     retry_count: int = 0
     repair_attempts: int = 0
     escalation_reason: Optional[str] = None
+    escalation_code: Optional[str] = None
+    escalation_details: dict = Field(default={}, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time, index=True)
     updated_at: float = Field(default_factory=time.time)

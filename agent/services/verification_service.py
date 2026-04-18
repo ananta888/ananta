@@ -4,6 +4,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from agent.common.audit import log_audit
+from agent.common.governance_codes import GovernanceReasonCode
 from agent.database import engine
 from agent.db_models import TaskDB, VerificationRecordDB
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
@@ -109,6 +110,7 @@ class VerificationService:
                     external_gate_results=external_gate,
                     exit_code=exit_code,
                 )
+                record.escalation_code = failure_classification
                 repair_workflow = self._build_repair_workflow(failure_classification, int(record.retry_count or 0) + 1)
             record.results = {
                 "quality_gates_passed": passed,
@@ -124,6 +126,7 @@ class VerificationService:
                 record.repair_attempts = min(record.retry_count, 3)
                 if record.retry_count >= 3:
                     record.status = "escalated"
+                    record.escalation_code = GovernanceReasonCode.RETRY_EXHAUSTED.value
                     record.escalation_reason = "verification_retry_limit_reached"
             record.updated_at = time.time()
 
@@ -134,6 +137,7 @@ class VerificationService:
                 "record_id": merged_record.id,
                 "retry_count": merged_record.retry_count,
                 "repair_attempts": merged_record.repair_attempts,
+                "escalation_code": merged_record.escalation_code,
                 "escalation_reason": merged_record.escalation_reason,
                 "failure_classification": (merged_record.results or {}).get("failure_classification"),
                 "repair_workflow": (merged_record.results or {}).get("repair_workflow"),
@@ -172,6 +176,7 @@ class VerificationService:
                 "status": saved.status,
                 "retry_count": saved.retry_count,
                 "repair_attempts": saved.repair_attempts,
+                "escalation_code": saved.escalation_code,
                 "escalation_reason": saved.escalation_reason,
                 "failure_classification": (saved.results or {}).get("failure_classification"),
             },

@@ -7,6 +7,7 @@ from typing import Any
 from flask import current_app, g
 
 from agent.common.audit import log_audit
+from agent.common.governance_codes import GovernanceReasonCode
 from agent.metrics import TASK_RECEIVED
 from agent.research_backend import resolve_research_backend_config
 from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
@@ -141,6 +142,8 @@ class TaskManagementService:
             last_proposal=proposal,
             history=history,
             manual_override_until=time.time() + 600,
+            status_reason_code=GovernanceReasonCode.POLICY_VIOLATION.value if action == "reject" else None,
+            status_reason_details={"comment": comment} if action == "reject" else {},
         )
         log_audit("task_proposal_reviewed", {"task_id": task_id, "action": action, "actor": self.actor_username()})
         return {"data": {"id": task_id, "review": review, "status": new_status}}
@@ -171,7 +174,11 @@ class TaskManagementService:
             worker_url=data.agent_url,
         )
         if not can_assign:
-            return {"error": "assignment_policy_blocked", "code": 409, "data": {"reasons": reasons}}
+            return {
+                "error": "assignment_policy_blocked",
+                "code": 409,
+                "data": {"reasons": reasons, "status_reason_code": GovernanceReasonCode.POLICY_VIOLATION.value},
+            }
         update_local_task_status(
             task_id,
             "assigned",
@@ -213,6 +220,12 @@ class TaskManagementService:
             task_id=task_id,
         )
         if not selection.worker_url:
+            update_local_task_status(
+                task_id,
+                "blocked",
+                status_reason_code=GovernanceReasonCode.RESOURCE_UNAVAILABLE.value,
+                status_reason_details={"reasons": selection.reasons},
+            )
             return {"error": "no_worker_available", "code": 409, "data": {"reasons": selection.reasons}}
         update_local_task_status(
             task_id,
