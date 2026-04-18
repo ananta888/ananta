@@ -2,719 +2,836 @@
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
   "created": "2026-04-18",
-  "updated": "2026-04-18T00:00:00Z",
+  "updated": "2026-04-18T18:00:00Z",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "439d5d5a3f794e592b773729c2f48442d30acff7..HEAD",
-    "review_goal": "Die bereits integrierte Evolver-Anbindung fachlich und betrieblich absichern, ohne die Provider-Neutralitaet von Ananta zu verlieren.",
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Die Control Plane, Governance, Sicherheit, Observability und Skalierbarkeit von Ananta in den zentralen Plattformbereichen weiter haerten und klarer modellieren.",
     "notes": [
-      "Die Grundintegration ist architektonisch bereits sinnvoll: Evolver haengt als Plugin an der EvolutionEngine-SPI und nicht als Core-Sonderfall.",
-      "Der groesste Restbedarf liegt nicht mehr in der Grundverdrahtung, sondern in Robustheit, Healthchecks, Fehlerabbildung, Response-Validierung und Governance-Haertung.",
-      "Analyse-first ist als erste Stufe sinnvoll; Validate- und Apply-Pfade muessen jetzt klarer vom tatsaechlich unterstuetzten Provider-Verhalten getrennt und fail-closed gehalten werden."
+      "Ananta ist bereits stark bei Hub-Worker-Orchestrierung, Goal-basierter Ausrichtung, Explainability, Traceability und provider-neutraler Runtime-Integration.",
+      "Der groesste naechste Hebel liegt weniger in noch mehr Feature-Breite als in haerterer Governance, klareren Zustandsmodellen, besserer Betriebsdiagnostik und konsequenterer Kontextdisziplin.",
+      "Wichtige Architekturprinzipien bleiben: zentrale Task-Control-Plane, serverseitig validierte Delegation, fail-closed Exposition, nachvollziehbare trace_id-Ketten und klare Trennung zwischen Hub, Worker und optionalen externen Capabilities."
     ]
   },
   "categories": [
     {
-      "name": "evolver-transport-hardening",
-      "label": "Evolver Transport Haertung",
+      "name": "policy-mode-matrix",
+      "label": "Policy und Betriebsmodi",
       "items": [
         {
-          "id": "EVR-001",
-          "title": "HTTP-Transportfehler fuer Evolver sauber auf domänenspezifische Fehler abbilden",
-          "description": "Den aktuellen HttpEvolverTransport so erweitern, dass Timeouts, Connection-Fehler, invalide JSON-Antworten und HTTP-Statuscodes nicht nur generische Exceptions werfen, sondern als klare, providerbezogene Fehler im Evolution-Layer sichtbar werden.",
+          "id": "GOV-001",
+          "title": "Explizite Plattform-Betriebsmodi fuer Exposition und Ausfuehrung einfuehren",
+          "description": "Eine klare Modus-Matrix fuer local-dev, trusted-internal, admin-only und semi-public einfuehren, damit OpenAI-Compat, MCP, Terminal, Files API und Remote-Hubs nicht nur ueber verteilte Einzel-Flags, sondern ueber konsistente Betriebsprofile gesteuert werden.",
           "priority": "critical",
-          "type": "bugfix",
-          "principle": "Robustness, Diagnosability",
+          "type": "architecture",
+          "principle": "Fail-Closed, Operational-Clarity",
           "status": "completed",
-          "effort": "medium",
+          "effort": "large",
           "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/services/evolution/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Netzwerkfehler, Timeouts und non-2xx Antworten werden in klar unterscheidbare Fehlerklassen oder Fehlercodes gemappt.",
-            "EvolutionService-Audit und Metriken koennen Transportfehler nachvollziehbar von Provider-Fachfehlern unterscheiden.",
-            "Tests decken mindestens Timeout, HTTP-500, invalide JSON-Antwort und leere Antwort ab."
-          ]
-        },
-        {
-          "id": "EVR-002",
-          "title": "Optionale Authentifizierung und Header-Injektion fuer Evolver-HTTP-Aufrufe einfuehren",
-          "description": "Den Evolver-Transport um konfigurierbare Authentifizierungs- und Zusatzheader erweitern, damit ein separater Evolver-Service nicht nur ungeschuetzt innerhalb eines lokalen Netzes angenommen wird.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Security, Deployment-Flexibility",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "plugins/evolver_adapter/__init__.py",
             "agent/config.py",
+            "agent/routes/config.py",
+            "docs/backend.md",
             "tests/"
           ],
-          "dependencies": [
-            "EVR-001"
-          ],
           "acceptance": [
-            "Bearer-Token oder statische Header koennen ueber Konfiguration gesetzt werden.",
-            "Header-Werte werden nicht unbeabsichtigt in Audit- oder Debug-Payloads geleakt.",
-            "Transport-Tests pruefen, dass konfigurierten Header korrekt gesetzt werden."
+            "Es existieren klar definierte Plattformmodi mit dokumentierten Sicherheits- und Freigaberegeln.",
+            "OpenAI-Compat, MCP, Terminal und Files API koennen aus einem Modusprofil abgeleitet werden statt nur aus verstreuten Einzelwerten.",
+            "Ein unsicherer Mischbetrieb durch widerspruechliche Flags wird reduziert oder explizit blockiert."
           ]
         },
         {
-          "id": "EVR-003",
-          "title": "Retry- und Backoff-Strategie fuer transiente Evolver-Fehler einbauen",
-          "description": "Fuer klar transiente Fehler wie Verbindungsabbrueche oder 502/503-Antworten eine konservative Retry-Strategie mit begrenztem Backoff einfuehren, ohne Analyse-Pfade unkontrolliert zu verlaengern.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Resilience, Bounded-Retry",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/config.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-001"
-          ],
-          "acceptance": [
-            "Nur klar definierte transiente Fehler werden erneut versucht.",
-            "Retry-Anzahl und Backoff sind zentral konfigurierbar und konservativ begrenzt.",
-            "Metriken oder Logs machen sichtbar, ob ein Ergebnis erst nach Retry zustande kam."
-          ]
-        },
-        {
-          "id": "EVR-004",
-          "title": "Transport-Timeouts und Groessenlimits getrennt fuer Connect, Read und Payload modellieren",
-          "description": "Statt nur eines pauschalen timeout_seconds-Werts feinere Grenzen fuer Verbindungsaufbau, Antwortlesen und maximale Antwortgroesse einfuehren, damit Evolver-Aufrufe besser gegen haengende oder ausufernde Responses abgesichert sind.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Resource-Bounding, Operational-Safety",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/config.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-001"
-          ],
-          "acceptance": [
-            "Connect- und Read-Timeout lassen sich getrennt konfigurieren.",
-            "Uebergrosse Antworten werden begrenzt oder abgelehnt.",
-            "Fehlerbilder fuer Timeout und Payload-Limit sind unterscheidbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "evolver-health-and-discovery",
-      "label": "Evolver Health und Discovery",
-      "items": [
-        {
-          "id": "EVR-010",
-          "title": "Echten Provider-Healthcheck fuer Evolver statt statischem available-Status einfuehren",
-          "description": "Den aktuellen describe()-Status des EvolverAdapters durch einen echten Erreichbarkeits- oder Capability-Check ergaenzen, damit der Provider nicht nur als konfiguriert, sondern als tatsaechlich gesund angezeigt wird.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Truthful-Status, Operability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/services/evolution/registry.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Provider-Status spiegelt mindestens erreichbar vs. nicht erreichbar realistisch wider.",
-            "Healthchecks brechen Analysepfade nicht unnötig oder unkontrolliert auf.",
-            "Tests decken healthy-, degraded- und unavailable-Faelle ab."
-          ]
-        },
-        {
-          "id": "EVR-011",
-          "title": "Optionalen Evolver-Health-Endpunkt und Fallback-Verhalten modellieren",
-          "description": "Falls Evolver einen dedizierten Health- oder Capabilities-Endpunkt bereitstellt, diesen bevorzugt nutzen und bei Abwesenheit auf einen konservativen Fallback zurueckfallen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Compatibility, Graceful-Degradation",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "plugins/evolver_adapter/__init__.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-010"
-          ],
-          "acceptance": [
-            "Ein dedizierter Health- oder Capabilities-Pfad ist konfigurierbar.",
-            "Fehlt dieser, bleibt das Verhalten kontrolliert und dokumentiert.",
-            "Die Registry-Health-Ausgabe zeigt den Unterschied zwischen konfiguriert und geprueft."
-          ]
-        },
-        {
-          "id": "EVR-012",
-          "title": "Provider-Metadaten im Health-Read-Model um Transport- und Endpoint-Informationen erweitern",
-          "description": "Die Discovery- und Health-Ausgaben so erweitern, dass fuer Admins nachvollziehbar bleibt, ueber welchen Transport und welchen Endpoint der Evolver-Provider angesprochen wird, ohne sensible Daten offenzulegen.",
-          "priority": "low",
-          "type": "improvement",
-          "principle": "Observability, Admin-Debuggability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/services/evolution/registry.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-010"
-          ],
-          "acceptance": [
-            "Health- oder Provider-Descriptor zeigt fuer Admins transportrelevante Metadaten.",
-            "Sensible Header, Tokens oder Credentials werden nicht offengelegt.",
-            "Die Informationen reichen aus, um Fehlkonfigurationen schneller zu erkennen."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "response-mapping-and-schema",
-      "label": "Response Mapping und Schema",
-      "items": [
-        {
-          "id": "EVR-020",
-          "title": "Evolver-Antwort vor dem Mapping gegen ein minimales Vertragsschema validieren",
-          "description": "Vor der eigentlichen Umwandlung in EvolutionResult sicherstellen, dass die grobe Antwortstruktur von Evolver einem minimierten Vertrag entspricht, damit Mapping-Fehler frueh und sauber erkannt werden.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Contract-Safety, Fail-Fast",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "plugins/evolver_adapter/mapper.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Antworten mit grundlegend falscher Struktur werden frueh abgewiesen.",
-            "Fehlertexte machen klar, ob ein Schemafehler oder ein Mappingfehler vorliegt.",
-            "Regressionstests decken mehrere ungueltige Response-Varianten ab."
-          ]
-        },
-        {
-          "id": "EVR-021",
-          "title": "Proposal-Extraktion im Mapper weniger heuristisch und expliziter machen",
-          "description": "Die aktuelle Suche ueber proposals, improvements, candidates und events strenger modellieren, damit fachlich verschiedene Antworttypen nicht stillschweigend miteinander vermischt werden.",
+          "id": "GOV-002",
+          "title": "Expositionsregeln fuer OpenAI-Compat, MCP und Remote-Hubs vereinheitlichen",
+          "description": "Die bisher getrennt wirkenden exposure_policy-Regeln zu einem einheitlichen Regelmodell zusammenziehen, damit Authentication, Admin-Pflicht, Agent-Zugriff, Hop-Grenzen und Files-Exposition konsistent ueber alle Expositionspfade hinweg bewertet werden.",
           "priority": "high",
           "type": "refactor",
-          "principle": "Determinism, Semantic-Clarity",
+          "principle": "Consistency, Security",
           "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/mapper.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-020"
-          ],
-          "acceptance": [
-            "Unterschiedliche Evolver-Response-Typen werden klar dokumentiert und explizit behandelt.",
-            "Der Mapper waehlt nicht mehr stillschweigend nur das erste zufaellig passende Listenfeld.",
-            "Aenderungen an der Evolver-Antwortstruktur fuehren zu klaren Testfehlern statt stillen Fehlmappings."
-          ]
-        },
-        {
-          "id": "EVR-022",
-          "title": "Risk-, Status- und Proposal-Type-Mapping zentralisieren und dokumentieren",
-          "description": "Die Abbildung von Evolver-Kategorien, Statuswerten und Risikostufen in generische Ananta-Konzepte an einer Stelle vereinheitlichen und mit Tests absichern.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Consistency, Interoperability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "plugins/evolver_adapter/mapper.py",
-            "docs/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-021"
-          ],
-          "acceptance": [
-            "Type-, Status- und Risk-Mappings sind an zentraler Stelle nachvollziehbar.",
-            "Unbekannte Werte werden kontrolliert auf generische Defaults oder Fehlerpfade gemappt.",
-            "Tests decken bekannte und unbekannte Mapping-Werte ab."
-          ]
-        },
-        {
-          "id": "EVR-023",
-          "title": "Provider-Metadaten aus Evolver-Responses feiner und selektiver uebernehmen",
-          "description": "Nicht nur run_id oder id uebernehmen, sondern relevante Evolver-Zusatzinformationen gezielt und begrenzt in provider_metadata ablegen, ohne das generische Core-Modell aufzuweichen.",
-          "priority": "low",
-          "type": "improvement",
-          "principle": "Useful-Metadata, Bounded-Specificity",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "plugins/evolver_adapter/mapper.py",
-            "agent/services/evolution_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-020"
-          ],
-          "acceptance": [
-            "Relevante Evolver-Kontextdaten bleiben fuer Admin-Debugging erhalten.",
-            "Provider-Metadaten bleiben additiv und verletzen nicht die Core-Provider-Neutralitaet.",
-            "Die Persistenz der Zusatzdaten bleibt durch bestehende Payload-Grenzen kontrolliert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "plugin-loading-and-registration",
-      "label": "Plugin Loading und Registrierung",
-      "items": [
-        {
-          "id": "EVR-030",
-          "title": "Doppelregistrierung von Evolution-Providern im Plugin-Loader explizit absichern",
-          "description": "Den Plugin-Loader so haerten, dass Plugins mit init_app und zusaetzlich deklarativen evolution_provider-Feldern nicht unbeabsichtigt doppelt registriert oder stillschweigend ueberschrieben werden.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Determinism, Loader-Safety",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/plugin_loader.py",
-            "agent/services/evolution/registry.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Ein Plugin wird pro Provider nur einmal wirksam registriert, ausser ein expliziter Replace-Fall ist beabsichtigt.",
-            "Konflikt- und Duplikatfaelle sind testabgedeckt.",
-            "Logs oder Fehlertexte machen Konfliktursachen eindeutig sichtbar."
-          ]
-        },
-        {
-          "id": "EVR-031",
-          "title": "Loader-Kontrakt fuer deklarative vs. imperative Provider-Registrierung dokumentieren",
-          "description": "Den beabsichtigten Plugin-Kontrakt klarziehen, wann ein Plugin provider selbst in init_app registrieren soll und wann deklarative Felder wie evolution_provider genutzt werden duerfen.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Clarity, Extensibility",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "docs/extensions.md",
-            "agent/plugin_loader.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-030"
-          ],
-          "acceptance": [
-            "Die Doku beschreibt eindeutig die bevorzugte Registrierungsform.",
-            "Missverstaendliche Mischformen werden benannt oder explizit eingeschraenkt.",
-            "Drittanbieter koennen einen Provider schreiben, ohne versehentlich Loader-Randfaelle zu triggern."
-          ]
-        },
-        {
-          "id": "EVR-032",
-          "title": "Provider-Konfliktverhalten bei identischen Namen haerter testen",
-          "description": "Mehr Tests fuer Replace-, Default- und Namenskonflikte einfuehren, damit spaetere weitere Evolution-Provider den Loader und die Registry nicht subtil brechen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Regression-Safety, Multi-Provider-Readiness",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "tests/test_plugin_loader.py",
-            "tests/",
-            "agent/services/evolution/registry.py"
-          ],
-          "dependencies": [
-            "EVR-030"
-          ],
-          "acceptance": [
-            "Tests decken Namenskonflikte mit und ohne replace ab.",
-            "Default-Provider-Umschaltung bleibt deterministisch.",
-            "Mehrere Provider koennen parallel registriert werden, ohne versteckte Seiteneffekte."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "governance-and-capabilities",
-      "label": "Governance und Capabilities",
-      "items": [
-        {
-          "id": "EVR-040",
-          "title": "Tatsaechlich unterstuetzte Evolver-Capabilities strenger von zukuenftigen Wunsch-Capabilities trennen",
-          "description": "Die Capability-Angaben des EvolverAdapters darauf pruefen, ob sie exakt das heute real vorhandene Verhalten widerspiegeln, damit Registry, API und UI keine zu optimistischen Erwartungen an Validate oder Apply entwickeln.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Truthful-Capabilities, Least-Assumption",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/services/evolution/engine.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Capabilites spiegeln nur heute verlässlich vorhandenes Verhalten wider.",
-            "Nicht implementierte Operationen koennen nicht versehentlich als unterstuetzt erscheinen.",
-            "Tests pruefen das Verhalten fuer supports(), describe() und Registry-Descriptor konsistent."
-          ]
-        },
-        {
-          "id": "EVR-041",
-          "title": "Validate- und Apply-Pfade fuer Evolver explizit fail-closed absichern",
-          "description": "Falls Evolver aktuell nur Analyze sinnvoll unterstützt, sollen Validate- und Apply-Pfade fuer diesen Provider explizit und sauber blockiert sein, statt auf implizites Basisklassenverhalten oder spaete Fehler zu vertrauen.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Fail-Closed, Safety",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "plugins/evolver_adapter/adapter.py",
-            "agent/services/evolution_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-040"
-          ],
-          "acceptance": [
-            "Validate- und Apply-Aufrufe gegen Evolver liefern klar definierte, kontrollierte Fehler.",
-            "Audit und Metriken koennen diese Blockierungen sinnvoll unterscheiden.",
-            "Es existieren gezielte Tests fuer nicht erlaubte Operationen."
-          ]
-        },
-        {
-          "id": "EVR-042",
-          "title": "Provider-spezifische Policy-Guards fuer externe Evolver-Services ergänzen",
-          "description": "Die bestehende Evolution-Policy um Guards erweitern, die speziell fuer externe Provider wie Evolver greifen, etwa erlaubte Endpunkte, zulässige Hosts oder Pflicht zu Review-only in bestimmten Modi.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Boundary-Control, Deployment-Safety",
-          "status": "completed",
-          "effort": "medium",
+          "effort": "large",
           "files": [
             "agent/config.py",
-            "agent/services/evolution_service.py",
-            "plugins/evolver_adapter/__init__.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-041"
-          ],
-          "acceptance": [
-            "Externe Evolver-Provider koennen restriktiver konfiguriert werden als interne oder lokale Provider.",
-            "Review-only- oder analyze-only-Betrieb laesst sich fuer Evolver explizit erzwingen.",
-            "Konfigurationsfehler fuehren fail-closed statt implizit zu offenem Betrieb."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "security-redaction-and-persistence",
-      "label": "Security, Redaction und Persistenz",
-      "items": [
-        {
-          "id": "EVR-050",
-          "title": "Kontext-Minimierung fuer Evolver-Aufrufe gezielt ueberpruefen und nachschaerfen",
-          "description": "Pruefen, ob der an Evolver uebergebene EvolutionContext nur die wirklich noetigen Informationen enthaelt, und gegebenenfalls Kontextteile fuer externe Provider weiter reduzieren oder maskieren.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Least-Exposure, External-Boundary-Safety",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution/context_builder.py",
-            "agent/services/evolution_service.py",
-            "plugins/evolver_adapter/adapter.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Externe Provider erhalten nur den minimal noetigen fachlichen Kontext.",
-            "Nicht noetige interne IDs, Pfade oder grosse Rohdaten werden reduziert oder weggelassen.",
-            "Tests oder Review-Checks zeigen, dass die Evolver-Nutzlast kontrolliert klein und zweckgebunden bleibt."
-          ]
-        },
-        {
-          "id": "EVR-051",
-          "title": "Redaction fuer provider_metadata und raw_payload gegen Evolver-spezifische Leckagepfade erweitern",
-          "description": "Die bereits vorhandene Begrenzung und Sanitization um Evolver-nahe Spezialfaelle erweitern, damit auch transport- oder providerbezogene Zusatzdaten keine neuen Leckagewege oeffnen.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Security, Defensive-Persistence",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution_service.py",
-            "plugins/evolver_adapter/mapper.py",
-            "plugins/evolver_adapter/adapter.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-050"
-          ],
-          "acceptance": [
-            "Sensible Header, Tokens, lokale URLs oder interne Pfade werden nicht unkontrolliert persistiert.",
-            "Bounding und Sanitization gelten auch fuer Evolver-spezifische Zusatzdaten.",
-            "Regressionstests decken mehrere realistische Leckagemuster ab."
-          ]
-        },
-        {
-          "id": "EVR-052",
-          "title": "Persistierte Evolver-Rohpayloads semantisch kuerzen statt nur stumpf abzuschneiden",
-          "description": "Die bisherige Preview-Kappung fuer ueberschwere Payloads so verbessern, dass wichtige Diagnoseinformationen erhalten bleiben, ohne rohe Grosspayloads einfach nur am Zeichenlimit abzuschneiden.",
-          "priority": "low",
-          "type": "improvement",
-          "principle": "Debuggability, Bounded-Storage",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/services/evolution_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-051"
-          ],
-          "acceptance": [
-            "Gekappte Payloads behalten strukturierte Kerndaten wie run_id, status und proposal count.",
-            "Die Speicherung bleibt groessenbegrenzt.",
-            "Debug-Nutzen ist hoeher als bei blosser String-Kappung."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "api-read-model-and-ux",
-      "label": "API, Read Model und UX",
-      "items": [
-        {
-          "id": "EVR-060",
-          "title": "Evolution-Provider-Read-Model fuer Adminsicht um echte Health- und Fehlersignale erweitern",
-          "description": "Die bestehende Provider- und Health-Ausgabe so erweitern, dass Admins nicht nur provider_name und Status sehen, sondern auch die relevanten letzten Fehler- oder Degradationshinweise.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Operability, Fast-Diagnosis",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/evolution/registry.py",
             "agent/routes/",
-            "frontend-angular/src/app/components/",
+            "agent/services/integration_registry_service.py",
             "tests/"
           ],
           "dependencies": [
-            "EVR-010"
+            "GOV-001"
           ],
           "acceptance": [
-            "Admin-Read-Model zeigt bei Problemen nachvollziehbare Health-Fehler.",
-            "Fehlerinformationen bleiben knapp und sicher redigiert.",
-            "Die Anzeige unterscheidet konfiguriert, erreichbar, degraded und unavailable."
+            "OpenAI-Compat-, MCP- und Remote-Hub-Pfade verwenden dieselben oder bewusst kompatible Governance-Grundbegriffe.",
+            "User-, Agent- und Admin-Zugriffsregeln sind pro Expositionspfad nachvollziehbar und nicht widerspruechlich.",
+            "Die Doku beschreibt den Zusammenhang der Expositionspfade aus einer gemeinsamen Governance-Sicht."
           ]
         },
         {
-          "id": "EVR-061",
-          "title": "Proposal-Ansichten um Evolver-Herkunft und Mapping-Transparenz ergaenzen",
-          "description": "Im Read-Model oder UI sichtbar machen, aus welchem Evolver-Kind ein generisches Proposal entstanden ist, ohne den Core wieder an Evolver-Fachbegriffe zu koppeln.",
-          "priority": "low",
+          "id": "GOV-003",
+          "title": "Policy-Entscheidungen als eigenes maschinenlesbares Read-Model bereitstellen",
+          "description": "Ein Governance-Read-Model aufbauen, das fuer Requests und Task-Operationen nachvollziehbar macht, welche Policy-Regel was erlaubt, geblockt oder eingeschraenkt hat.",
+          "priority": "high",
           "type": "improvement",
-          "principle": "Traceability, Explainability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/services/evolution_service.py",
-            "frontend-angular/src/app/components/",
-            "tests/"
-          ],
-          "dependencies": [
-            "EVR-022"
-          ],
-          "acceptance": [
-            "Admins koennen nachvollziehen, ob ein Proposal aus gene, capsule oder anderem Evolver-Material stammt.",
-            "Die Zusatzanzeige bleibt optional und additiv.",
-            "Nicht-Evolver-Provider werden dadurch nicht benachteiligt oder semantisch verformt."
-          ]
-        },
-        {
-          "id": "EVR-062",
-          "title": "API-Fehlercodes fuer externe Provider-Ausfaelle konsolidieren",
-          "description": "Die API-Antworten fuer Health-, Analyze-, Validate- und Apply-Aufrufe so vereinheitlichen, dass externe Provider-Ausfaelle fuer Clients konsistent erkennbar und auswertbar bleiben.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Client-Stability, Predictable-Errors",
+          "principle": "Explainability, Auditability",
           "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
-            "agent/services/evolution_service.py",
+            "agent/services/",
+            "agent/repository.py",
             "tests/"
           ],
           "dependencies": [
-            "EVR-001",
-            "EVR-041"
+            "GOV-001",
+            "GOV-002"
           ],
           "acceptance": [
-            "API-Clients koennen Transportfehler, Providerfehler und Policy-Blockierungen klar auseinanderhalten.",
-            "Fehlercodes und Fehlerschluessel sind dokumentiert und stabil.",
-            "Tests decken typische externe Provider-Fehlerpfade auf API-Ebene ab."
+            "Policy-Blockierungen und Freigaben werden in strukturierter Form sichtbar.",
+            "Admins koennen nachvollziehen, welche Regel zu welcher Entscheidung gefuehrt hat.",
+            "Governance-Daten lassen sich spaeter im Dashboard oder Read-Model anzeigen."
           ]
         }
       ]
     },
     {
-      "name": "tests-and-rollout",
-      "label": "Tests und Rollout",
+      "name": "terminal-and-high-risk-access",
+      "label": "Terminal und Hochrisiko-Zugriffe",
       "items": [
         {
-          "id": "EVR-070",
-          "title": "Contract-Tests fuer Evolver-Responses mit mehreren realistischen Payload-Varianten aufbauen",
-          "description": "Eine dedizierte Testsuite einfuehren, die typische und problematische Evolver-Antworten gegen Adapter und Mapper prueft, damit spaetere Evolver-Aenderungen frueh auffallen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Regression-Safety, Contract-Validation",
+          "id": "TRM-010",
+          "title": "Terminal-Zugriff standardmaessig fail-closed und separat policy-gesteuert machen",
+          "description": "Den WebSocket-Terminalpfad als eigenen Hochrisiko-Kanal behandeln und standardmaessig deaktiviert halten, statt ihn nur als normalen authentifizierten Nebenpfad zu behandeln.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Least-Privilege, High-Risk-Isolation",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "tests/test_evolver_adapter.py",
-            "tests/",
-            "plugins/evolver_adapter/mapper.py"
-          ],
-          "dependencies": [
-            "EVR-020",
-            "EVR-021"
+            "agent/routes/",
+            "agent/config.py",
+            "docs/backend.md",
+            "tests/"
           ],
           "acceptance": [
-            "Mehrere gueltige und ungueltige Payload-Varianten sind testabgedeckt.",
-            "Mapping-Regressionen werden frueh und gezielt sichtbar.",
-            "Die Tests sind nicht nur happy-path-zentriert."
+            "Terminal-Zugriff ist standardmaessig deaktiviert oder klar admin-only.",
+            "Eigene Policy-Flags fuer Terminal existieren getrennt von allgemeiner API-Auth.",
+            "Nicht freigegebene Terminal-Zugriffe werden sauber geblockt und auditierbar protokolliert."
           ]
         },
         {
-          "id": "EVR-071",
-          "title": "E2E-Test fuer konfigurierten aber nicht erreichbaren Evolver-Service ergaenzen",
-          "description": "Ein integrierter Testfall pruefen, wie sich Plugin-Loading, Provider-Health, Analyse-Aufruf und API-Verhalten verhalten, wenn Evolver aktiviert aber zur Laufzeit nicht erreichbar ist.",
+          "id": "TRM-011",
+          "title": "Interactive- und Read-Only-Terminal-Modus sicherheitlich strikt trennen",
+          "description": "Den read-only Follow/Tail-Modus klar vom interaktiven Shell-Modus trennen, damit Beobachtung und aktive Shell-Eingriffe nicht ueber denselben Vertrauenspfad laufen.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Operational-Readiness, Failure-Testing",
+          "principle": "Mode-Separation, Risk-Reduction",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "tests/",
-            "plugins/evolver_adapter/",
-            "agent/services/evolution_service.py"
+            "agent/routes/",
+            "agent/config.py",
+            "tests/"
           ],
           "dependencies": [
-            "EVR-010",
-            "EVR-062"
+            "TRM-010"
           ],
           "acceptance": [
-            "Nicht erreichbarer Evolver fuehrt zu sauberem degradiertem Verhalten.",
-            "Der Rest des Systems bleibt betriebsfaehig.",
-            "Health-, Audit- und API-Signale bleiben konsistent."
+            "Read-Only und Interactive haben getrennte Policy- und Berechtigungsregeln.",
+            "Read-Only-Zugriffe koennen erlaubt sein, ohne automatisch Interactive freizuschalten.",
+            "UI und API machen die Modusunterschiede klar sichtbar."
           ]
         },
         {
-          "id": "EVR-072",
-          "title": "Rollout-Doku fuer analyze-only Betriebsmodus des Evolver-Providers schreiben",
-          "description": "Die Betriebsdokumentation explizit um einen empfohlenen analyze-only Rollout fuer Evolver erweitern, inklusive Healthchecks, Konfigurationsbeispielen und klaren Nicht-Zielen fuer die erste Produktionsstufe.",
+          "id": "TRM-012",
+          "title": "Terminal-Sessions mit Idle-, Laufzeit- und Audit-Grenzen haerten",
+          "description": "Fuer Terminal-Sessions explizite maximale Lebensdauer, Inaktivitaets-Timeouts, Input-Previews und strengere Audit-Metadaten einfuehren, um Missbrauch und lange offene Sitzungen zu reduzieren.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Session-Control, Auditability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/common/",
+            "agent/config.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "TRM-010"
+          ],
+          "acceptance": [
+            "Terminal-Sessions laufen nicht unbegrenzt weiter.",
+            "Session-Beginn, Session-Ende und relevante Input-Metadaten sind sauber auditierbar.",
+            "Timeout- und Abbruchverhalten ist reproduzierbar getestet."
+          ]
+        },
+        {
+          "id": "TRM-013",
+          "title": "Optionale Netzwerk- und Rollenrestriktionen fuer Terminal einfuehren",
+          "description": "Zusatzgrenzen wie Admin-only, bestimmte Rollen, interne Netze oder explizite Operator-Gruppen als zusaetzliche Terminal-Schutzschicht einbauen.",
           "priority": "medium",
-          "type": "documentation",
-          "principle": "Safe-Adoption, Operational-Clarity",
+          "type": "improvement",
+          "principle": "Defense-in-Depth, Operational-Safety",
           "status": "completed",
           "effort": "small",
           "files": [
-            "docs/",
-            "docs/extensions.md",
-            "docs/backend.md"
+            "agent/config.py",
+            "agent/routes/",
+            "tests/"
           ],
           "dependencies": [
-            "EVR-041",
-            "EVR-042"
+            "TRM-010"
           ],
           "acceptance": [
-            "Die Doku beschreibt klar den empfohlenen analyze-only Startmodus.",
-            "Konfiguration, typische Fehler und Grenzen des ersten Betriebsmodus sind benannt.",
-            "Validate und Apply werden nicht missverstaendlich als bereits produktionsreif dargestellt."
+            "Terminal kann zusaetzlich durch Rollen- oder Netzwerkbedingungen eingeschraenkt werden.",
+            "Diese Einschraenkungen sind explizit konfigurierbar und dokumentiert.",
+            "Fehlkonfigurationen fuehren fail-closed statt implizit zu offenerem Zugriff."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "governance-read-model",
+      "label": "Governance Read Model",
+      "items": [
+        {
+          "id": "GRM-020",
+          "title": "Zentrales Governance-Read-Model fuer Routing-, Policy- und Verification-Entscheidungen einführen",
+          "description": "Ein einheitliches Read-Model schaffen, das fuer Goals, Plans und Tasks sichtbar macht, welche Routing-, Policy- und Verification-Entscheidungen auf dem Weg zur Ausfuehrung getroffen wurden.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Observability, Explainability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/tasks/",
+            "agent/services/",
+            "agent/repositories/governance.py",
+            "agent/repository.py",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Routing-, Policy- und Verification-Informationen sind ueber ein gemeinsames Read-Model abrufbar.",
+            "Trace-Ketten zwischen Goal, Plan, Task, Verification und Artifact bleiben erhalten.",
+            "Nicht-admin Views koennen weiterhin auf Summary-Level begrenzt werden."
           ]
         },
         {
-          "id": "EVR-073",
-          "title": "Metriken fuer externe Provider-Ausfaelle und Retry-Verhalten ergaenzen",
-          "description": "Die bestehenden Evolution-Metriken um Signale erweitern, die speziell fuer externe Provider wie Evolver relevant sind, etwa Transportfehler, Retry-Haeufigkeit und Health-Degradation.",
-          "priority": "low",
+          "id": "GRM-021",
+          "title": "Escalation- und Blockierungsgruende strukturiert modellieren",
+          "description": "Statt reine Statuswechsel oder freie Fehltexte zu verwenden sollen Escalations und Blockierungen ueber klar benannte reason codes und strukturierte Zusatzdaten sichtbar werden.",
+          "priority": "high",
           "type": "improvement",
-          "principle": "Observability, Runtime-Learning",
+          "principle": "Debuggability, Determinism",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/services/",
+            "agent/routes/tasks/",
+            "tests/"
+          ],
+          "dependencies": [
+            "GRM-020"
+          ],
+          "acceptance": [
+            "Escalations und Blockierungen tragen strukturierte reason codes statt nur freie Texte.",
+            "Diese Gruende sind im Read-Model und spaeter im Dashboard sichtbar.",
+            "Regressionstests pruefen mehrere typische Fehler- und Escalation-Klassen."
+          ]
+        },
+        {
+          "id": "GRM-022",
+          "title": "Summary-Level Governance-Daten fuer Nicht-Admins explizit zuschneiden",
+          "description": "Die bereits angedachte Trennung zwischen summary-level governance data und privilegierten Detaildaten konsequenter modellieren, damit Beobachtbarkeit nicht in zu breite Einsicht ausartet.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Least-Exposure, Role-Appropriate-Visibility",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "GRM-020"
+          ],
+          "acceptance": [
+            "Nicht-Admins sehen nur geeignete Summary-Governance-Daten.",
+            "Detailinformationen bleiben klar privilegiert.",
+            "Tests decken Sichtbarkeitsunterschiede zwischen Rollen ab."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "task-lifecycle-state-machine",
+      "label": "Task Lifecycle und State Machine",
+      "items": [
+        {
+          "id": "TSM-030",
+          "title": "Formale State-Machine fuer Tasks, Verification und Escalation einfuehren",
+          "description": "Die Task-Lebenszyklen von ingest bis completion oder escalation ueber explizit erlaubte Zustandsuebergaenge modellieren, statt sich auf lose Statuskonventionen und implizite Pfade zu verlassen.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Determinism, Workflow-Clarity",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/models.py",
+            "agent/services/task_orchestration_service.py",
+            "agent/routes/tasks/",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Es existiert eine explizite Zustandsmaschine fuer Tasks und verwandte Uebergaenge.",
+            "Ungueltige Statuswechsel werden serverseitig geblockt.",
+            "Die erlaubten Uebergaenge sind dokumentiert und testabgedeckt."
+          ]
+        },
+        {
+          "id": "TSM-031",
+          "title": "Zwischenzustaende wie waiting_for_review, verification_failed und blocked_by_dependency first-class machen",
+          "description": "Wichtige Zwischen- und Governance-Zustaende als echte first-class Stati modellieren, statt sie nur indirekt ueber Freitext oder Nebenflags auszudruecken.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Expressiveness, Operational-Precision",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/models.py",
+            "agent/db_models.py",
+            "agent/routes/tasks/",
+            "tests/"
+          ],
+          "dependencies": [
+            "TSM-030"
+          ],
+          "acceptance": [
+            "Review-, Verification- und Dependency-bezogene Zwischenzustaende sind explizit sichtbar.",
+            "UI und API koennen diese Zustaende gezielt darstellen.",
+            "Task-Historien werden dadurch semantisch klarer und besser auswertbar."
+          ]
+        },
+        {
+          "id": "TSM-032",
+          "title": "Task-, Verification- und Artifact-Zustaende konsistent koppeln",
+          "description": "Definieren, wie Task-Status, Verification-Status und Artefaktstatus zusammenhaengen, damit keine semantischen Widersprueche wie completed bei fehlgeschlagener Verification entstehen.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Consistency, Integrity",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/db_models.py",
+            "agent/routes/tasks/",
+            "tests/"
+          ],
+          "dependencies": [
+            "TSM-030"
+          ],
+          "acceptance": [
+            "Widerspruechliche Statuskombinationen werden verhindert oder klar markiert.",
+            "Verification und Artifact-Entstehung passen semantisch zum Task-Lebenszyklus.",
+            "Integritaets-Tests decken ungueltige Kombinationen ab."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "provider-runtime-routing",
+      "label": "Provider, Runtime und Routing",
+      "items": [
+        {
+          "id": "RTR-040",
+          "title": "Routing-Entscheidungen zwischen Task-Typ, Provider, Modell und Backend explizit zerlegen",
+          "description": "Die bestehende Modell- und Backend-Auswahl in eine staerker getrennte Entscheidungskette aufteilen, damit fachlicher Task-Typ, Provider-Typ, Modellwahl und konkretes Execution-Backend sauber voneinander unterschieden werden.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Separation-of-Concerns, Explainable-Routing",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/integration_registry_service.py",
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Task-Typ, Provider-Wahl, Modell-Wahl und konkretes Backend sind als getrennte Entscheidungsschritte erkennbar.",
+            "Routing ist weniger implizit und dadurch besser debugbar.",
+            "Die bestehenden Katalog- und Routing-Endpunkte koennen die Entscheidungskette nachvollziehbar ausgeben."
+          ]
+        },
+        {
+          "id": "RTR-041",
+          "title": "Routing-Explainability im Read-Model und API ausbauen",
+          "description": "Zu jeder Routing-Entscheidung eine knappe maschinenlesbare Begruendung liefern, warum ein bestimmter Provider, ein bestimmtes Modell oder eine bestimmte Session-Strategie gewaehlt wurde.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Explainability, Operability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "RTR-040"
+          ],
+          "acceptance": [
+            "API und Read-Model koennen die Kernbegruendung fuer Routing-Entscheidungen anzeigen.",
+            "Routing-Explainability bleibt kompakt und verraet keine unnoetigen sensitiven Details.",
+            "Tests decken typische Routing-Szenarien mit unterschiedlichen Backends ab."
+          ]
+        },
+        {
+          "id": "RTR-042",
+          "title": "Fallback-Strategien fuer lokale und Remote-Backends explizit definieren",
+          "description": "Statt impliziter Laufzeitwahl klare Fallback-Regeln formulieren, wann lokale Backends, Remote-Ananta, stateful CLI oder stateless Generierung eingesetzt oder uebersprungen werden duerfen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Predictability, Resilience",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/config.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "RTR-040"
+          ],
+          "acceptance": [
+            "Fallback-Regeln sind explizit dokumentiert und testbar.",
+            "Systemverhalten bei nicht verfuegbaren Backends bleibt reproduzierbar.",
+            "Implizite und schwer nachvollziehbare Routing-Spruenge werden reduziert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "blueprints-templates-and-versioning",
+      "label": "Blueprints, Templates und Versionierung",
+      "items": [
+        {
+          "id": "BTV-050",
+          "title": "Versionierung fuer Blueprints und Templates einfuehren",
+          "description": "Seed- und benutzerdefinierte Blueprints sowie Templates versionieren, damit spaetere Aenderungen nachvollziehbar sind und Teaminstanzen nicht stillschweigend semantisch driften.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Traceability, Controlled-Evolution",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/db_models.py",
+            "agent/repository.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Blueprints und Templates besitzen nachvollziehbare Versionen oder Revisionsstaende.",
+            "Aenderungen an Vorlagen ueberschreiben nicht stillschweigend bestehende Instanzen.",
+            "Die Herkunft einer Teaminstanz oder Vorlage ist spaeter eindeutig rekonstruierbar."
+          ]
+        },
+        {
+          "id": "BTV-051",
+          "title": "Diff- und Migrationssicht zwischen Blueprint-Ursprung und Teaminstanz ergaenzen",
+          "description": "Eine Sicht einbauen, die zeigt, worin sich eine konkrete Teaminstanz vom zugrunde liegenden Blueprint oder von einer neueren Blueprint-Version unterscheidet.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Maintainability, Drift-Control",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "BTV-050"
+          ],
+          "acceptance": [
+            "Abweichungen zwischen Blueprint und Teaminstanz sind sichtbar.",
+            "Admins koennen erkennen, ob eine Instanz bewusst angepasst oder veraltet ist.",
+            "Die Sicht ist maschinenlesbar genug fuer spaetere Migrationshilfen."
+          ]
+        },
+        {
+          "id": "BTV-052",
+          "title": "Seed-, org-spezifische und live angepasste Teamdefinitionen strenger trennen",
+          "description": "Die semantische Trennung zwischen Seed-Blueprints, organisationsspezifischen Ableitungen und live modifizierten Teaminstanzen konsequenter im Datenmodell und in der API sichtbar machen.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Semantic-Clarity, Governance",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/routes/",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "BTV-050"
+          ],
+          "acceptance": [
+            "Seed-, abgeleitete und live angepasste Definitionen sind sauber unterscheidbar.",
+            "UI und API machen diese Unterschiede sichtbar.",
+            "Unerwuenschte Vermischung oder Verwechslung zwischen Typen wird reduziert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "result-compaction-and-task-neighborhood",
+      "label": "Rueckverdichtung und Task-Nachbarschaft",
+      "items": [
+        {
+          "id": "RCN-060",
+          "title": "Kompakte Folgeartefakte fuer abgeschlossene Tasks als Standard etablieren",
+          "description": "Abgeschlossene Tasks sollen standardmaessig nicht nur Rohhistorie hinterlassen, sondern ein strukturiertes, retrieval-faehiges Folgeartefakt erzeugen, das fuer spaetere Tasks wiederverwendbar bleibt.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Memory-Compression, Scalability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/result_memory_service.py",
+            "agent/services/worker_job_service.py",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Abgeschlossene Tasks erzeugen kompakte strukturierte Summary-Artefakte.",
+            "Spaetere Tasks koennen diese Artefakte retrieval-seitig gezielt nutzen.",
+            "Rohe Historien bleiben drilldown-faehig, sind aber nicht mehr der Normalpfad."
+          ]
+        },
+        {
+          "id": "RCN-061",
+          "title": "Task-Nachbarschaft ueber Datei-, Symbol- und Abhaengigkeitsnaehe first-class machen",
+          "description": "Neben hierarchischer Subtask-Struktur soll ein explizites Nachbarschaftsmodell eingefuehrt werden, das datei-, symbol- oder dependency-nahe Tasks fuer Retrieval, Routing und Folgearbeit sichtbar macht.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Locality, Context-Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_orchestration_service.py",
+            "agent/services/result_memory_service.py",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RCN-060"
+          ],
+          "acceptance": [
+            "Task-Nachbarschaften sind nicht nur implizit, sondern explizit modelliert.",
+            "Retrieval und Folgeplanung koennen task-nahe Ergebnisse bevorzugen.",
+            "Das Read-Model kann relevante Nachbar-Tasks sichtbar machen."
+          ]
+        },
+        {
+          "id": "RCN-062",
+          "title": "Historienwachstum ueber Budget- und Verdichtungsregeln begrenzen",
+          "description": "Regeln einfuehren, wann Rohhistorien, Zwischenlogs und Folgekontexte verdichtet, archiviert oder nur noch referenziert statt voll weitergereicht werden.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Bounded-Context, Hardware-Fit",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/config.py",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RCN-060"
+          ],
+          "acceptance": [
+            "Kontext- und Historienwachstum bleibt ueber Regeln und Budgets kontrolliert.",
+            "Worker erhalten standardmaessig verdichtete statt ausufernde Altkontexte.",
+            "Tests oder Benchmarks zeigen kontrollierteres Wachstum bei laengeren Task-Ketten."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "central-redaction-and-sensitive-data-control",
+      "label": "Zentrale Redaction und Sensitive Data Control",
+      "items": [
+        {
+          "id": "RDX-070",
+          "title": "Eine zentrale Redaction-Schicht fuer Audit, Bundles, Provider-Metadata und Logs schaffen",
+          "description": "Statt mehrere einzelne Sanitization-Pfade nebeneinander zu pflegen eine gemeinsame Schutzschicht schaffen, die fuer Prompt-Bundles, Audit-Details, Provider-Daten, Terminal-Logs und Explainability-Ausgaben gilt.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Security, Consistency",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/common/",
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die wichtigsten Ausgabepfade nutzen dieselbe oder kompatible Redaction-Logik.",
+            "Secrets, Tokens, interne Pfade und andere sensible Muster werden zentral behandelt.",
+            "Regressionstests pruefen mehrere Schutzpfade gegen bekannte Leak-Muster."
+          ]
+        },
+        {
+          "id": "RDX-071",
+          "title": "Sensitive-Data-Klassen und Sichtbarkeitsstufen explizit modellieren",
+          "description": "Statt nur Muster zu maskieren sensible Datenklassen wie token, secret, credential, path, internal_url oder private_prompt in Sichtbarkeitsstufen und Behandlungsregeln ueberfuehren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Semantic-Security, Governance",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/common/",
+            "agent/config.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RDX-070"
+          ],
+          "acceptance": [
+            "Sensitive Datenklassen sind benannt und mit Behandlungsregeln verknuepft.",
+            "Unterschiedliche Ausgabepfade koennen je nach Zielrolle oder Zielkanal unterschiedlich strikt reagieren.",
+            "Die Doku erklaert die Schutzlogik nachvollziehbar."
+          ]
+        },
+        {
+          "id": "RDX-072",
+          "title": "Redaction-Checks in E2E- und Integrationspfade aufnehmen",
+          "description": "Sicherheitsrelevante Redaction-Regeln nicht nur unit-testen, sondern gezielt in die wichtigsten End-to-End- und Integrationspfade aufnehmen, damit spaetere Features keine stillen Leckagepfade einfuehren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Regression-Safety, Defense-in-Depth",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/services/",
+            "agent/routes/"
+          ],
+          "dependencies": [
+            "RDX-070"
+          ],
+          "acceptance": [
+            "Wichtige API-, Bundle-, Audit- und Log-Pfade sind auf Leckage-Regressionsfaelle getestet.",
+            "Neue Features koennen nicht so leicht unbemerkt an der zentralen Redaction vorbeigehen.",
+            "Sicherheitsregressionen sind frueh sichtbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "remote-ananta-and-federation",
+      "label": "Remote Ananta und Foederation",
+      "items": [
+        {
+          "id": "FED-080",
+          "title": "Trust-Level und Rollenmodell fuer Remote-Ananta-Backends einfuehren",
+          "description": "Remote-Hubs nicht nur als technische Provider behandeln, sondern ueber explizite Trust-Level und erlaubte Rollen oder Capabilities modellieren, damit Foederation nicht stillschweigend wie lokaler Vollvertrauensbetrieb behandelt wird.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Trust-Boundaries, Least-Privilege",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/config.py",
+            "agent/services/integration_registry_service.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Remote-Hubs haben explizite Trust-Level oder Sicherheitsprofile.",
+            "Erlaubte Operationen koennen pro Remote-Ziel eingeschraenkt werden.",
+            "Lokale und entfernte Hubs werden nicht stillschweigend gleich behandelt."
+          ]
+        },
+        {
+          "id": "FED-081",
+          "title": "Hop-, Loop- und Provenance-Schutz fuer foederierte Antworten ausbauen",
+          "description": "Die vorhandenen Hop- und Self-Loop-Guards um staerkere Provenance-Informationen und remote-spezifische Grenzen erweitern, damit Antwortketten zwischen mehreren Hubs nachvollziehbar und begrenzt bleiben.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Traceability, Anti-Loop-Safety",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "agent/config.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "FED-080"
+          ],
+          "acceptance": [
+            "Foederierte Antworten tragen klarere Provenance-Informationen.",
+            "Hop- und Loop-Grenzen koennen pro Remote-Kontext oder global kontrolliert werden.",
+            "Tests decken verschachtelte oder selbstreferenzielle Hub-Pfade ab."
+          ]
+        },
+        {
+          "id": "FED-082",
+          "title": "Remote-Artefakt- und Dateizugriffe restriktiver und expliziter modellieren",
+          "description": "Datei- und Artefaktzugriffe ueber Remote-Hubs nur ueber klar definierte Regeln, whitelists oder explizite Capabilities erlauben, damit Foederation nicht zu einem stillen Datenabflusskanal wird.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Least-Exposure, Data-Boundary-Control",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/config.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "FED-080"
+          ],
+          "acceptance": [
+            "Remote-Datei- oder Artefaktzugriffe sind explizit erlaubnispflichtig.",
+            "Unnoetige oder zu breite Freigaben sind standardmaessig blockiert.",
+            "Audit und Read-Model koennen solche Grenzueberschreitungen sichtbar machen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "operations-dashboard-and-runtime-observability",
+      "label": "Operations Dashboard und Runtime Observability",
+      "items": [
+        {
+          "id": "OBS-090",
+          "title": "Dashboard von Statussicht auf Ursachen- und Fehlerursachenanalyse erweitern",
+          "description": "Das Dashboard soll nicht nur aktuelle Stati anzeigen, sondern die haeufigsten Verification-Fails, Routing-Fehlentscheidungen, Escalation-Gruende und Provider-Ausfaelle verdichtet sichtbar machen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Root-Cause-Visibility, Operability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Das Dashboard zeigt verdichtete Top-Ursachen statt nur Rohstatus.",
+            "Verification-, Routing- und Escalation-Probleme sind schnell erkennbar.",
+            "Die Anzeige basiert auf strukturierten Daten statt nur auf Freitext-Logs."
+          ]
+        },
+        {
+          "id": "OBS-091",
+          "title": "Metriken fuer Task-Typ, Routing-Entscheidung, Verification und Folgeerfolg verknuepfen",
+          "description": "Metriken einbauen oder erweitern, die sichtbar machen, welche Task-Typen mit welchen Routing- und Verification-Pfaden gut oder schlecht funktionieren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Measurability, Runtime-Learning",
+          "status": "completed",
+          "effort": "medium",
           "files": [
             "agent/metrics.py",
-            "agent/services/evolution_service.py",
-            "plugins/evolver_adapter/adapter.py",
+            "agent/services/",
             "tests/"
           ],
           "dependencies": [
-            "EVR-003",
-            "EVR-010"
+            "GRM-020",
+            "RTR-040"
           ],
           "acceptance": [
-            "Transport- und Health-spezifische Evolver-Probleme sind in Metriken sichtbar.",
-            "Retry-Verhalten kann beobachtet und bewertet werden.",
-            "Die neuen Metriken bleiben mit dem generischen Evolution-Metrikmodell vereinbar."
+            "Task-Typ, Routing und Ergebnisqualitaet koennen gemeinsam ausgewertet werden.",
+            "Schwache Kombinationen aus Task-Typ und Backend werden datenbasiert sichtbar.",
+            "Metriken sind fuer spaetere Dashboards und Tuning nutzbar."
+          ]
+        },
+        {
+          "id": "OBS-092",
+          "title": "Kontextbudget, Kontextquelle und Task-Erfolg zusammenfuehren",
+          "description": "Die vorhandene starke Retrieval- und Bundle-Logik um eine Sicht erweitern, die Budgetauslastung, Quellmischung und tatsaechlichen Task-Erfolg zueinander in Beziehung setzt.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Context-Efficiency, Evidence-Based-Tuning",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/context_bundle_service.py",
+            "agent/services/retrieval_service.py",
+            "agent/metrics.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "RCN-060"
+          ],
+          "acceptance": [
+            "Kontextbudget und Task-Erfolg lassen sich gemeinsam beobachten.",
+            "Zu grosse, zu kleine oder schlecht gemischte Bundles werden datenbasiert sichtbar.",
+            "Die Daten helfen bei Routing- und Bundle-Tuning fuer reale Workflows."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 27,
+    "total_items": 31,
     "by_status": {
-      "completed": 27,
+      "completed": 31,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Diese Todo-Datei setzt bewusst nicht mehr bei der Grundintegration an, sondern bei der Haertung und Betriebsreife der bereits vorhandenen Evolver-Einbindung.",
-      "Der groesste technische Hebel liegt jetzt in Healthchecks, Fehlerklassifikation, Response-Vertrag und fail-closed Governance fuer externe Provider.",
-      "Das wichtigste Architekturprinzip bleibt: Evolver soll als austauschbarer Provider staerker werden, ohne dass Anantas Core wieder in provider-spezifische Sonderlogik abrutscht."
+      "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",
+      "Der rote Faden ist nicht mehr Feature-Breite, sondern haertere Kontrollierbarkeit, klarere Semantik und bessere Betriebsfaehigkeit unter realen Mehragenten- und Langlaufbedingungen.",
+      "Die priorisierten Architekturthemen sollen Ananta als steuerbare, auditierbare und sicherer betreibbare Control Plane schaerfen, nicht in Richtung lockerer Agentenautonomie aufweichen."
     ],
     "recommended_order": [
-      "EVR-001",
-      "EVR-010",
-      "EVR-020",
-      "EVR-030",
-      "EVR-040",
-      "EVR-041",
-      "EVR-050",
-      "EVR-051",
-      "EVR-021",
-      "EVR-022",
-      "EVR-002",
-      "EVR-004",
-      "EVR-011",
-      "EVR-062",
-      "EVR-070",
-      "EVR-071",
-      "EVR-031",
-      "EVR-032",
-      "EVR-042",
-      "EVR-072",
-      "EVR-003",
-      "EVR-012",
-      "EVR-023",
-      "EVR-060",
-      "EVR-061",
-      "EVR-052",
-      "EVR-073"
+      "GOV-001",
+      "TRM-010",
+      "TSM-030",
+      "GRM-020",
+      "RDX-070",
+      "RTR-040",
+      "RCN-060",
+      "FED-080",
+      "OBS-090",
+      "GOV-002",
+      "TRM-011",
+      "TRM-012",
+      "GRM-021",
+      "TSM-031",
+      "TSM-032",
+      "RTR-041",
+      "RTR-042",
+      "BTV-050",
+      "RCN-061",
+      "RCN-062",
+      "RDX-071",
+      "RDX-072",
+      "FED-081",
+      "FED-082",
+      "OBS-091",
+      "OBS-092",
+      "GOV-003",
+      "GRM-022",
+      "BTV-051",
+      "BTV-052",
+      "TRM-013"
     ]
   }
 }

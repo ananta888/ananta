@@ -5767,7 +5767,83 @@
           ]
         }
       }
+    },
+    "deerflow:ananta-default": {
+      "provider": "deerflow",
+      "model": "ananta-default",
+      "overall": {
+        "total": 2,
+        "success": 2,
+        "failed": 0,
+        "quality_pass": 2,
+        "quality_fail": 0,
+        "latency_ms_total": 0,
+        "tokens_total": 12,
+        "cost_units_total": 0.0,
+        "last_seen": 1776535405,
+        "samples": [
+          {
+            "ts": 1776535404,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "research"
+            }
+          },
+          {
+            "ts": 1776535405,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "research"
+            }
+          }
+        ]
+      },
+      "task_kinds": {
+        "research": {
+          "total": 2,
+          "success": 2,
+          "failed": 0,
+          "quality_pass": 2,
+          "quality_fail": 0,
+          "latency_ms_total": 0,
+          "tokens_total": 12,
+          "cost_units_total": 0.0,
+          "last_seen": 1776535405,
+          "samples": [
+            {
+              "ts": 1776535404,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "research"
+              }
+            },
+            {
+              "ts": 1776535405,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "research"
+              }
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1776534684
+  "updated_at": 1776535405
 }

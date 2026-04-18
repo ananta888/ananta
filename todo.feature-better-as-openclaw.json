@@ -1,6 +1,6 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.5.0",
+  "version": "5.7.0",
   "created": "2026-04-18",
   "updated": "2026-04-18T00:00:00Z",
   "project": "ananta",

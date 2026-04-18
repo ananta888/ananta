@@ -254,7 +254,10 @@ class EvolutionContextBuilder:
     @classmethod
     def _redact_value(cls, value: Any) -> Any:
         if isinstance(value, dict):
-            return {key: cls._redact_value(redacted) for key, redacted in _sanitize_details(value).items()}
+            return {
+                key: ("***REDACTED***" if isinstance(redacted, str) and redacted.startswith("***REDACTED_") else cls._redact_value(redacted))
+                for key, redacted in _sanitize_details(value).items()
+            }
         if isinstance(value, list):
             return [cls._redact_value(item) for item in value]
         if isinstance(value, str):

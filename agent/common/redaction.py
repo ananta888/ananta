@@ -73,7 +73,7 @@ class Redactor:
                 r"(?:password|secret|key)[=:]\s*([^\s,\)\"\']+)", re.IGNORECASE
             ),
             SensitiveDataClass.CREDENTIAL: re.compile(
-                r"(?:authorization|bearer)\s+([^\s,\)\"\']+)", re.IGNORECASE
+                r"(?:authorization\s*[:=]\s*(?:bearer\s+)?|bearer\s+)([^\s,\)\"\']+)", re.IGNORECASE
             ),
         }
         return patterns
