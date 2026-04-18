@@ -1,562 +1,898 @@
 {
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
-  "created": "2026-04-10",
-  "updated": "2026-04-10T18:05:33Z",
+  "created": "2026-04-17",
+  "updated": "2026-04-17T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Hybrid-RAG, rag-helper und Subtask-Orchestrierung so verbessern, dass grosse Projekte ueber kleine, fokussierte Kontext-Bundles auch auf schwacher Hardware stabil nutzbar bleiben.",
+    "review_goal": "Einen austauschbaren Evolution-Provider in Ananta einbauen, sodass Evolver als erste Implementierung integrierbar ist, ohne den Core an einen einzelnen Anbieter oder ein einzelnes Evolutionsmodell zu koppeln.",
     "notes": [
-      "Ausgangspunkt ist das Zielbild: grosse Goals werden orchestriert in Subtasks zerlegt; rag_helper soll pro Subtask nur den wirklich relevanten Teilkontext liefern.",
-      "Der aktuelle rag-helper ist bereits stark in Extraktion, Profilen und Output-Reduktion, aber die eigentliche Wiederauffindung und Priorisierung fuer Subtasks ist noch der Hauptengpass.",
-      "Wichtigstes Architekturprinzip bleibt: grosse Projekte duerfen nicht ueber riesige Einzelprompts bearbeitet werden, sondern ueber kleine, saubere Arbeitsfenster mit klarer Budgetierung, Explainability und Rueckverdichtung."
+      "Der Core soll nur generische Evolution- und Improvement-Konzepte kennen, keine provider-spezifischen Fachbegriffe wie Gene, Capsule oder GEP.",
+      "Ananta bleibt die fuehrende Control Plane; Evolution-Provider liefern Analysen und Vorschlaege, aber keine unkontrollierte Core-Steuerung.",
+      "Die erste sinnvolle Ausbaustufe ist analyse- und proposal-zentriert; automatisches Apply sollte erst nach sauberer Policy-, Audit- und Verification-Integration folgen."
     ]
   },
   "categories": [
     {
-      "name": "rag-retrieval-core",
-      "label": "RAG Retrieval Kern",
+      "name": "evolution-core-contract",
+      "label": "Evolution Core Vertrag",
       "items": [
         {
-          "id": "RAG-001",
-          "title": "KnowledgeIndexRetrievalService von flachem Keyword-Scoring auf strukturgewichtetes Ranking umbauen",
-          "description": "Die aktuelle Token-Vorkommens-Heuristik im KnowledgeIndexRetrievalService durch ein Ranking ersetzen, das Symboltreffer, Record-Typen, Dateitypen, Relationsnaehe, Architekturrollen und Quellkontext deutlich staerker gewichtet als blossen Volltext.",
+          "id": "EVO-001",
+          "title": "Generisches Evolution-Domain-Modell im Core definieren",
+          "description": "Ein provider-neutrales Domain-Modell fuer EvolutionContext, EvolutionResult, EvolutionProposal, ValidationResult und ApplyResult einfuehren, damit der Core keine Evolver-spezifischen Fachobjekte direkt kennen muss.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "Relevance, Correctness",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/knowledge_index_retrieval_service.py",
-            "agent/services/retrieval_service.py",
-            "rag-helper/rag_helper/extractors/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Klassen-, Methoden-, Typ- und Konfigurations-Treffer werden erkennbar hoeher gewichtet als unspezifische Texttreffer.",
-            "Relationen wie gleiche Datei, gleiches Modul, Parent-Child, Type-Usage oder symbolische Nachbarschaft beeinflussen das Ranking nachvollziehbar.",
-            "Regressionstests zeigen, dass relevante technische Treffer vor generischen Texttreffern landen."
-          ]
-        },
-        {
-          "id": "RAG-002",
-          "title": "Task-Kind-spezifisches Retrieval einfuehren",
-          "description": "Retrieval und Chunk-Selektion an Task-Arten wie bugfix, refactor, explain, implement, config/xml, test und architecture anpassen statt fuer alle Anfragen dieselbe Suchlogik zu verwenden.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Context-Fit, Task-Awareness",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/retrieval_service.py",
-            "agent/services/knowledge_index_retrieval_service.py",
-            "agent/services/context_bundle_service.py",
-            "agent/routes/tasks/orchestration.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RAG-001"
-          ],
-          "acceptance": [
-            "Bugfix-Tasks priorisieren lokale Code- und Fehlerkontexte.",
-            "Refactor-Tasks priorisieren Symbol- und Relationsumfeld.",
-            "Architektur- oder Doku-Tasks priorisieren Guides, ADRs, XML-Overview, Gems und Beschreibungsartefakte."
-          ]
-        },
-        {
-          "id": "RAG-003",
-          "title": "Mehrstufige Candidate-Selektion vor dem finalen Bundle einfuehren",
-          "description": "Den Retrieval-Pfad in mehrere Stufen aufteilen: grobe Kandidatenfindung, strukturelle Erweiterung um Nachbarschaft, Reranking, Diversity-Cut und hartes Token-/Char-Budgeting fuer den finalen Worker-Kontext.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Scalability, Precision",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/retrieval_service.py",
-            "agent/services/knowledge_index_retrieval_service.py",
-            "agent/hybrid_orchestrator.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RAG-001",
-            "RAG-002"
-          ],
-          "acceptance": [
-            "Es gibt klar getrennte Phasen fuer Candidate Retrieval, Expansion, Reranking und finalen Bundle-Cut.",
-            "Das finale Bundle bleibt innerhalb der Budgetgrenzen, ohne dass nur simple Top-K-Listen abgeschnitten werden.",
-            "Groessere Repos fuehren nicht mehr proportional zu unkontrolliertem Kontextwachstum."
-          ]
-        },
-        {
-          "id": "RAG-004",
-          "title": "Semantic-, Knowledge- und Repository-Kontexte deterministisch fusionieren",
-          "description": "Die Zusammenfuehrung von HybridOrchestrator-Chunks und Knowledge-Index-Treffern so umbauen, dass Engine-Herkunft, Gewichtung, Deduplizierung und Priorisierung pro Task transparent und deterministisch bleiben.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Determinism, Explainability",
+          "principle": "Abstraction, Replaceability",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/services/retrieval_service.py",
-            "agent/hybrid_orchestrator.py",
-            "agent/services/context_bundle_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RAG-001"
-          ],
-          "acceptance": [
-            "Merge-Entscheidungen zwischen knowledge_index, semantic, repository_map und agentic search sind reproduzierbar.",
-            "Doppelte oder nahezu gleiche Chunks werden dedupliziert.",
-            "Die Strategie-Ausgabe dokumentiert, warum welche Engine wie stark beigetragen hat."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "context-bundles-and-budgeting",
-      "label": "Context Bundles und Budgetierung",
-      "items": [
-        {
-          "id": "CTX-010",
-          "title": "Context-Bundle-Budgets pro Subtask explizit modellieren",
-          "description": "Statt nur globale Max-Werte zu nutzen soll jedes Bundle ein explizites Budget-Modell fuer orchestration, retrieved context, constraints, examples und output reserve erhalten.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Budget-Control, Hardware-Fit",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/context_bundle_service.py",
-            "agent/services/worker_job_service.py",
-            "agent/services/retrieval_service.py",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Jedes Worker-Bundle enthaelt nachvollziehbare Teilbudgets statt nur eines Gesamttokenwerts.",
-            "32k-Workflows koennen als bewusstes Standardbudget abgebildet werden.",
-            "Die Budgetverteilung ist fuer unterschiedliche Task-Klassen konfigurierbar."
-          ]
-        },
-        {
-          "id": "CTX-011",
-          "title": "Bundle-Zusammenfassung mit Why-this-context-Sektion einfuehren",
-          "description": "Zusammen mit den selektierten Chunks eine knappe, maschinennahe Begruendung mitliefern, warum genau diese Quellen in den Bundle-Kontext aufgenommen wurden.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Explainability, Focus",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/services/context_bundle_service.py",
-            "agent/services/retrieval_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RAG-002",
-            "CTX-010"
-          ],
-          "acceptance": [
-            "Bundles enthalten eine kompakte Zusammenfassung der wichtigsten Treffergruppen.",
-            "Die Begruendung verweist auf Task-Art, Quelle und Relevanzdimension.",
-            "Worker koennen den Kontext besser interpretieren, ohne alle Rohchunks lesen zu muessen."
-          ]
-        },
-        {
-          "id": "CTX-012",
-          "title": "Context-Policy compact, standard und full fachlich schaerfen",
-          "description": "Die bestehenden Policy-Modi sollen nicht nur unterschiedliche Max-Chunk-Werte setzen, sondern unterschiedliche Bundle-Strategien, Textformen und Explainability-Stufen erzwingen.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Clarity, Maintainability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/context_bundle_service.py",
-            "agent/services/worker_job_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "CTX-010"
-          ],
-          "acceptance": [
-            "compact ist klar fuer schwache Hardware und minimalen Kontext definiert.",
-            "standard ist der normale Arbeitsmodus fuer Subtasks.",
-            "full bleibt Ausnahmefall fuer tiefe Analysen und ist klar von compact und standard abgegrenzt."
-          ]
-        },
-        {
-          "id": "CTX-013",
-          "title": "Kontextpakete fuer Worker rueckverfolgbar persistieren",
-          "description": "Worker-Kontext-Bundles so persistieren, dass spaeter klar ist, welche Chunks, Scores, Budgets und Policies zu einem Worker-Lauf gefuehrt haben.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Auditability, Debuggability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/worker_job_service.py",
-            "agent/repository.py",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "CTX-010",
-            "CTX-011"
-          ],
-          "acceptance": [
-            "Zu jedem Worker-Lauf ist der verwendete Bundle-Zuschnitt nachvollziehbar.",
-            "Budget- und Selektionsentscheidungen koennen spaeter analysiert werden.",
-            "Fehlverhalten laesst sich auf Retrieval- oder Bundle-Ebene zurueckfuehren."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "rag-helper-profiles-and-artifacts",
-      "label": "rag-helper Profile und Artefakte",
-      "items": [
-        {
-          "id": "RHELP-020",
-          "title": "rag-helper Outputs staerker auf Subtask-Retrieval zuschneiden",
-          "description": "Die vom rag-helper erzeugten JSONL- und Partition-Outputs so erweitern oder normalisieren, dass spaetere Retrieval-Schritte strukturierte Informationen einfacher und verlustaermer nutzen koennen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Retrieval-Friendliness, Structure-Preservation",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "rag-helper/codecompass_rag.py",
-            "rag-helper/rag_helper/application/project_processor.py",
-            "rag-helper/rag_helper/extractors/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Wichtige Strukturfelder fuer Typ, Symbol, Rolle, Nachbarschaft und Artefaktklasse sind retrieval-freundlich vorhanden.",
-            "Die spaetere Retrieval-Schicht muss weniger Freitext flatten.",
-            "Bestehende kompakte und Ultra-Profile bleiben nutzbar."
-          ]
-        },
-        {
-          "id": "RHELP-021",
-          "title": "Profile fuer konkrete Subtask-Typen einfuehren",
-          "description": "Zusaetzlich zu default, fast_docs und deep_code eigene Profile fuer bugfix, refactor, architecture, config-heavy und ultra-32k anlegen, damit Artefaktaufbereitung und Retrieval besser zur Aufgabe passen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Task-Awareness, Reusability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/rag_helper_index_service.py",
-            "rag-helper/*.json",
-            "docs/",
-            "tests/"
-          ],
-          "dependencies": [
-            "RHELP-020"
-          ],
-          "acceptance": [
-            "Es existieren klar dokumentierte Profile fuer unterschiedliche Arbeitsmodi.",
-            "Ein 32k-optimiertes Profil ist explizit vorhanden.",
-            "Profile lassen sich ueber bestehende Hub-Mechanismen abfragen und starten."
-          ]
-        },
-        {
-          "id": "RHELP-022",
-          "title": "Snippet- und Chunk-Granularitaet fuer grosse Projekte nachschaerfen",
-          "description": "Die Granularitaet der erzeugten Einheiten so anpassen, dass Worker moeglichst kleine, thematisch geschlossene und technisch verwertbare Chunks erhalten statt zu grober oder zu feiner Splitterung.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Chunk-Quality, Signal-to-Noise",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "rag-helper/codecompass_rag.py",
-            "rag-helper/rag_helper/extractors/java_member_extractor.py",
-            "rag-helper/rag_helper/extractors/java_type_extractor.py",
-            "rag-helper/rag_helper/extractors/xml_extractor.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RHELP-020"
-          ],
-          "acceptance": [
-            "Methoden-, Typ- und Config-Kontexte werden in sinnvoller Granularitaet bereitgestellt.",
-            "Zu grosse Monolith-Chunks werden reduziert.",
-            "Zu kleine, isolierte Splitter ohne genuegend Umgebung werden vermieden."
-          ]
-        },
-        {
-          "id": "RHELP-023",
-          "title": "Duplicate- und Boilerplate-Erkennung retrieval-wirksam machen",
-          "description": "Vorhandene Duplicate- und Boilerplate-Erkennung nicht nur als Report erzeugen, sondern direkt in Ranking, Dedup und Budget-Cut einfliessen lassen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Noise-Reduction, Efficiency",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "rag-helper/rag_helper/application/duplicate_detection.py",
-            "agent/services/knowledge_index_retrieval_service.py",
-            "agent/services/retrieval_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RAG-001",
-            "RHELP-020"
-          ],
-          "acceptance": [
-            "Boilerplate-lastige oder duplizierte Kontexte werden im Ranking abgesenkt oder entfernt.",
-            "Kontextbudgets werden nicht fuer mehrfach gleiche Treffer verschwendet.",
-            "Tests zeigen geringere Duplikatdichte in finalen Bundles."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "orchestration-and-subtasks",
-      "label": "Orchestrierung und Subtasks",
-      "items": [
-        {
-          "id": "ORCH-030",
-          "title": "Subtask-Erzeugung um Retrieval-Intent und Kontextbedarf erweitern",
-          "description": "Bei der Zerlegung grosser Goals in Subtasks zusaetzliche Felder wie task_kind, retrieval_intent, required_context_scope und preferred_bundle_mode mitfuehren, damit Retrieval und Bundle-Bau gezielt arbeiten koennen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "End-to-End-Alignment, Explicitness",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/tasks/orchestration.py",
+            "agent/services/evolution/",
             "agent/models.py",
-            "agent/services/task_orchestration_service.py",
-            "agent/services/worker_job_service.py",
             "tests/"
           ],
-          "dependencies": [
-            "RAG-002",
-            "CTX-010"
-          ],
           "acceptance": [
-            "Subtasks transportieren explizite Hinweise fuer Retrieval und Kontextgroesse.",
-            "Worker-Bundles werden nicht mehr nur aus Freitext-Prompts abgeleitet.",
-            "Task-Kind und Bundle-Mode werden zwischen Orchestrierung und Worker stabil uebergeben."
+            "Der Core definiert eigene generische Evolution-Modelle ohne harte Abhaengigkeit auf Evolver-Begriffe.",
+            "Provider-spezifische Zusatzdaten koennen additiv ueber provider_metadata transportiert werden.",
+            "Tests zeigen, dass mehrere unterschiedliche Provider dieselben Core-Modelle verwenden koennen."
           ]
         },
         {
-          "id": "ORCH-031",
-          "title": "Rueckverdichtung von Worker-Ergebnissen fuer Folge-Subtasks einfuehren",
-          "description": "Statt komplette Vorlaeufe mitzuschleppen sollen Ergebnisse aus abgeschlossenen Subtasks in kompakte, strukturierte Summary-Artefakte ueberfuehrt werden, die spaeter wieder retrieval-faehig sind.",
+          "id": "EVO-002",
+          "title": "EvolutionEngine-SPI als stabile Adapter-Schnittstelle einfuehren",
+          "description": "Eine klar versionierbare interne Schnittstelle fuer Evolution-Provider einfuehren, ueber die Analyze-, Validate- und spaeter Apply-Funktionen angebunden werden koennen.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Interface-First, Decoupling",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/evolution/engine.py",
+            "agent/services/evolution/models.py",
+            "agent/services/evolution/registry.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-001"
+          ],
+          "acceptance": [
+            "Es existiert eine klar dokumentierte EvolutionEngine-Schnittstelle.",
+            "Analyze ist verpflichtend; Validate und Apply koennen als Capabilities oder optionale Methoden modelliert werden.",
+            "Der Rest des Systems spricht nur gegen den SPI-Vertrag und nicht direkt gegen Evolver."
+          ]
+        },
+        {
+          "id": "EVO-003",
+          "title": "Capability-Modell fuer Evolution-Provider festlegen",
+          "description": "Ein generisches Capability-Modell einfuehren, damit Provider offenlegen koennen, ob sie Analyse, Vorschlagsgenerierung, Validierung, automatisches Apply, Risk-Scoring oder Review-Hinweise unterstuetzen.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Memory-Compression, Iterative-Scalability",
+          "principle": "Discoverability, Safe-Integration",
           "status": "completed",
-          "effort": "large",
+          "effort": "small",
           "files": [
-            "agent/services/result_memory_service.py",
-            "agent/services/worker_job_service.py",
-            "agent/services/retrieval_service.py",
+            "agent/services/evolution/models.py",
+            "agent/services/evolution/engine.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-002"
+          ],
+          "acceptance": [
+            "Provider koennen ihre Faehigkeiten maschinenlesbar beschreiben.",
+            "Der Hub kann provider-abhaengige Features fail-closed steuern.",
+            "Nicht unterstuetzte Operationen fuehren zu klaren, reproduzierbaren Fehlerantworten."
+          ]
+        },
+        {
+          "id": "EVO-004",
+          "title": "Provider-spezifische Daten strikt additiv kapseln",
+          "description": "Einen verbindlichen Mechanismus festlegen, wie provider-spezifische Daten in provider_metadata oder raw_payload gespeichert werden, ohne dass der Core-Schema-Raum mit Evolver-spezifischen Feldern verschmutzt wird.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Boundary-Clarity, Forward-Compatibility",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/services/evolution/models.py",
             "agent/db_models.py",
             "tests/"
           ],
           "dependencies": [
-            "CTX-013",
-            "ORCH-030"
+            "EVO-001",
+            "EVO-002"
           ],
           "acceptance": [
-            "Abgeschlossene Subtasks erzeugen kompakte Folgeartefakte statt nur Rohtext.",
-            "Spaetere Tasks koennen diese Summaries retrieval-seitig mitverwenden.",
-            "Historienwachstum wird deutlich begrenzt."
+            "Gene-, Capsule-, Event- oder GEP-spezifische Felder sind nicht als Pflichtfelder im Core-Domain-Modell verankert.",
+            "Provider-spezifische Daten bleiben serialisierbar und auditierbar erhalten.",
+            "Ein zweiter hypothetischer Provider kann ohne Schema-Umbauten integriert werden."
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "provider-registry-and-loading",
+      "label": "Provider Registry und Loading",
+      "items": [
         {
-          "id": "ORCH-032",
-          "title": "Abhaengigkeits- und Nachbarschaftslogik zwischen Subtasks verbessern",
-          "description": "Subtasks sollen nicht nur hierarchisch entstehen, sondern auch symbolische oder dateibezogene Nachbarschaft kennen, um passenden Kontext aus benachbarten Teilaufgaben gezielt einbeziehen zu koennen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Dependency-Awareness, Reuse",
+          "id": "EVO-010",
+          "title": "Evolution-Provider-Registry im Backend einfuehren",
+          "description": "Eine Registry bauen, die mehrere Evolution-Provider verwalten, benennen, priorisieren und zur Laufzeit aufloesen kann.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Extensibility, Runtime-Selection",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/routes/tasks/orchestration.py",
-            "agent/services/task_orchestration_service.py",
-            "agent/services/result_memory_service.py",
+            "agent/services/evolution/registry.py",
+            "agent/services/integration_registry_service.py",
             "tests/"
           ],
           "dependencies": [
-            "ORCH-030"
+            "EVO-002",
+            "EVO-003"
           ],
           "acceptance": [
-            "Subtasks koennen relevante Schwester- oder Vorlaeufer-Tasks erkennen.",
-            "Retrieval kann auf task-nahe Ergebnisse zugreifen, ohne globale Historie mitzuschleppen.",
-            "Die Abhaengigkeiten bleiben im Read-Model sichtbar."
+            "Mehrere Evolution-Provider koennen gleichzeitig registriert werden.",
+            "Provider sind per Name oder Konfiguration selektierbar.",
+            "Die Registry meldet eindeutig, welcher Provider aktiv oder default ist."
           ]
         },
         {
-          "id": "ORCH-033",
-          "title": "32k-Standardarbeitsfenster als First-Class-Konfiguration einfuehren",
-          "description": "Fuer dein Zielbild soll ein expliziter Standardmodus entstehen, der Retrieval, Bundle-Bau und Worker-Aufgaben bewusst fuer 32k-Kontext optimiert statt diesen Wert nur indirekt ueber Max-Token-Grenzen zu treffen.",
+          "id": "EVO-011",
+          "title": "Plugin- und Extension-Loading fuer Evolution-Provider anbinden",
+          "description": "Das bestehende Extension-/Plugin-Modell so erweitern, dass externe Evolution-Provider als Plugins nachgeladen und in der Evolution-Registry registriert werden koennen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Modularity, Low-Core-Coupling",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/ai_agent.py",
+            "agent/services/evolution/registry.py",
+            "docs/extensions.md",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-010"
+          ],
+          "acceptance": [
+            "Ein externer Provider kann ueber das bestehende Plugin-/Extension-System registriert werden.",
+            "Fehlende oder defekte Evolution-Plugins blockieren den Rest des Systems nicht.",
+            "Die Dokumentation beschreibt klar, wie ein Drittanbieter-Provider eingebunden wird."
+          ]
+        },
+        {
+          "id": "EVO-012",
+          "title": "Provider-Konfiguration im zentralen Config-Modell modellieren",
+          "description": "Eine Konfiguration fuer default_provider, provider-spezifische Parameter, erlaubte Features, Timeouts, Review-Pflicht und Failover-Verhalten einfuehren.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Hardware-Pragmatism, Predictability",
+          "principle": "Configurability, Operational-Control",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
             "agent/config.py",
-            "agent/services/context_bundle_service.py",
-            "agent/services/retrieval_service.py",
-            "docs/",
+            "agent/routes/config/",
+            "agent/services/evolution/",
             "tests/"
           ],
           "dependencies": [
-            "CTX-010",
-            "CTX-012"
+            "EVO-010"
           ],
           "acceptance": [
-            "Es gibt einen klar dokumentierten 32k-Standardmodus fuer Worker-Tasks.",
-            "Budgets, Top-K und Bundle-Verhalten sind darauf abgestimmt.",
-            "FW16- und RTX3080-Workflows koennen denselben Kontextmodus mit unterschiedlicher Laufzeit nutzen."
+            "Der aktive oder bevorzugte Evolution-Provider ist zentral konfigurierbar.",
+            "Provider-spezifische Defaults koennen gesetzt werden, ohne den Core-Code anzufassen.",
+            "Policy-relevante Flags wie auto_apply_enabled oder require_review_before_apply sind fail-closed konfigurierbar."
+          ]
+        },
+        {
+          "id": "EVO-013",
+          "title": "Health- und Discovery-Mechanismus fuer Evolution-Provider ergänzen",
+          "description": "Provider sollen ueber einen einheitlichen Discovery- und Health-Mechanismus ihren Zustand, ihre Version und ihre Capabilities melden koennen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Observability, Robustness",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/services/evolution/registry.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-003",
+            "EVO-010"
+          ],
+          "acceptance": [
+            "Der Hub kann Provider-Status und Capabilities abfragen.",
+            "Nicht erreichbare Provider werden sauber als degraded oder unavailable markiert.",
+            "Die UI oder API kann aktive und verfuegbare Provider sichtbar machen."
           ]
         }
       ]
     },
     {
-      "name": "observability-and-quality",
-      "label": "Beobachtbarkeit und Qualitaet",
+      "name": "evolution-service-and-pipeline",
+      "label": "Evolution Service und Pipeline",
       "items": [
         {
-          "id": "OBS-040",
-          "title": "Retrieval-Qualitaet ueber echte Task-Szenarien benchmarken",
-          "description": "Einen Test- und Benchmark-Satz fuer typische Ananta-Subtasks aufbauen, damit Verbesserungen an Retrieval und Bundle-Bau nicht nur technisch, sondern auch aufgabenseitig messbar werden.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Measurability, Grounded-Iteration",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "tests/",
-            "docs/",
-            "scripts/",
-            "agent/services/retrieval_service.py",
-            "agent/services/knowledge_index_retrieval_service.py"
-          ],
-          "acceptance": [
-            "Es existieren reproduzierbare Szenarien fuer bugfix, refactor, architecture und config/xml.",
-            "Trefferqualitaet und Bundle-Groesse koennen ueber Metriken verglichen werden.",
-            "Aenderungen am Ranking koennen gegen Baselines bewertet werden."
-          ]
-        },
-        {
-          "id": "OBS-041",
-          "title": "Bundle- und Retrieval-Metriken pro Task-Kind erweitern",
-          "description": "Bestehende Metriken um task_kind, bundle_mode, noise_rate, duplicate_rate, budget_utilization und follow-up success ergaenzen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Observability, Optimization",
+          "id": "EVO-020",
+          "title": "EvolutionService als orchestrierende Core-Schicht einführen",
+          "description": "Einen EvolutionService bauen, der Context aufbereitet, den passenden Provider auswaehlt, Analyze ausfuehrt, Ergebnisse normalisiert und Audit-/Persistenz-Hooks triggert.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Single-Orchestration-Entry, Separation-of-Concerns",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/metrics.py",
-            "agent/services/retrieval_service.py",
-            "agent/services/context_bundle_service.py",
+            "agent/services/evolution_service.py",
+            "agent/services/evolution/",
             "tests/"
           ],
           "dependencies": [
-            "RAG-002",
-            "CTX-010"
+            "EVO-001",
+            "EVO-002",
+            "EVO-010"
           ],
           "acceptance": [
-            "Dashboards und Metriken zeigen Unterschiede zwischen Task-Typen und Bundle-Modi.",
-            "Budget-Auslastung und Duplicate-Anteil sind sichtbar.",
-            "Schlechte Retrieval-Pfade lassen sich datenbasiert erkennen."
+            "Der Rest des Systems ruft Evolution nicht direkt ueber konkrete Provider auf, sondern ueber EvolutionService.",
+            "Provider-Auswahl, Fehlerbehandlung und Ergebnis-Normalisierung liegen zentral an einer Stelle.",
+            "Die Service-Schicht ist ohne Evolver als konkrete Implementation testbar."
           ]
         },
         {
-          "id": "OBS-042",
-          "title": "Explainability fuer Retrieval-Entscheidungen im UI und Read-Model sichtbar machen",
-          "description": "Die bereits vorhandene Explainability aus Context Bundles erweitern und im Orchestration-Read-Model sowie im Frontend sichtbar machen, damit man selektierte Quellen schneller ueberpruefen kann.",
-          "priority": "medium",
+          "id": "EVO-021",
+          "title": "EvolutionContext aus Task-, Log-, Verification- und Artifact-Daten aufbauen",
+          "description": "Eine einheitliche Context-Aufbereitung einfuehren, die aus Aufgabenstatus, trace_id, Logs, Verification-Ergebnissen, Artefakten und optionalen Workspace-Referenzen einen Provider-tauglichen EvolutionContext bildet.",
+          "priority": "critical",
           "type": "improvement",
-          "principle": "Transparency, Debuggability",
+          "principle": "Context-Quality, Reproducibility",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/evolution_service.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/result_memory_service.py",
+            "agent/repository.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-020"
+          ],
+          "acceptance": [
+            "EvolutionContext enthaelt die minimal noetigen Informationen fuer reproduzierbare Analysen.",
+            "Kontextaufbau ist deterministisch und nachvollziehbar.",
+            "Fehlende optionale Quellen fuehren nicht zu harten Fehlern, sondern zu sauber degradiertem Verhalten."
+          ]
+        },
+        {
+          "id": "EVO-022",
+          "title": "Trigger-Modell fuer Evolution-Analysen definieren",
+          "description": "Festlegen, unter welchen Bedingungen Evolution-Analysen ausgelöst werden, etwa nach Verification-Failure, Fehlerhaeufung, manueller Anforderung oder periodischer Review.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Control, Non-Intrusiveness",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/services/context_bundle_service.py",
-            "agent/routes/tasks/orchestration.py",
+            "agent/services/evolution_service.py",
+            "agent/routes/tasks/",
+            "agent/services/task_orchestration_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-020",
+            "EVO-021"
+          ],
+          "acceptance": [
+            "Es existieren klar dokumentierte Trigger fuer automatische und manuelle Evolution-Analysen.",
+            "Riskante oder spammy Trigger-Pfade sind begrenzt und policy-gesteuert.",
+            "Der Ursprung einer Analyse ist im Ergebnis und im Audit ersichtlich."
+          ]
+        },
+        {
+          "id": "EVO-023",
+          "title": "Proposal-zentrierten ersten Integrationsmodus bauen",
+          "description": "Die erste lauffaehige Integrationsstufe so umsetzen, dass Evolution-Provider nur Vorschlaege erzeugen und speichern, aber noch keine direkten Code- oder Systemaenderungen ausloesen.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Safe-Iteration, Human-Control",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/evolution_service.py",
+            "agent/routes/tasks/",
+            "agent/db_models.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-020",
+            "EVO-021",
+            "EVO-022"
+          ],
+          "acceptance": [
+            "Analyze erzeugt persistierte Vorschlaege oder Improvement-Artefakte, aber kein blindes Apply.",
+            "Der Hub oder der Mensch kann Vorschlaege spaeter explizit weiterverarbeiten.",
+            "Die erste Evolver-Integration ist damit produktiv testbar, ohne die Sicherheitsgrenzen zu ueberschreiten."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "persistence-and-audit",
+      "label": "Persistenz und Audit",
+      "items": [
+        {
+          "id": "EVO-030",
+          "title": "Generische Persistenz fuer Evolution-Runs einführen",
+          "description": "Eine Persistenz fuer Evolution-Laeufe schaffen, in der Eingabekontext-Referenzen, Provider, Status, Ergebniszusammenfassung und Trace-Verknuepfung abgelegt werden.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Auditability, Traceability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/repository.py",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-020",
+            "EVO-021"
+          ],
+          "acceptance": [
+            "Jeder Evolution-Lauf ist mit task_id und trace_id rueckverfolgbar.",
+            "Provider, Ausloeser, Zeitpunkt und Status sind persistent gespeichert.",
+            "Persistenz bleibt generisch und provider-neutral."
+          ]
+        },
+        {
+          "id": "EVO-031",
+          "title": "Persistenz fuer Evolution-Proposals und Folgeartefakte ergänzen",
+          "description": "Vorschlaege aus Evolution-Analysen strukturiert speichern, inklusive Typ, Risiko, requires_review, Summary und provider-spezifischem Payload.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Reviewability, Structured-Followup",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/repository.py",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-023",
+            "EVO-030"
+          ],
+          "acceptance": [
+            "Proposals koennen spaeter einzeln angezeigt, bewertet und weiterverarbeitet werden.",
+            "Risiko, Confidence und Review-Pflicht sind persistiert.",
+            "Provider-Payload bleibt additiv erhalten, ohne das Kernschema zu dominieren."
+          ]
+        },
+        {
+          "id": "EVO-032",
+          "title": "Audit-Events fuer Analyse, Validierung und Apply modellieren",
+          "description": "Auditierbare Events fuer evolution_analysis_requested, evolution_analysis_completed, evolution_validation_requested und spaeter evolution_apply_requested einführen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Governance, Non-Repudiation",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/db_models.py",
+            "agent/repository.py",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-030",
+            "EVO-031"
+          ],
+          "acceptance": [
+            "Evolution-relevante Aktionen sind als eigene Audit-Typen sichtbar.",
+            "Audit-Eintraege enthalten Provider, Actor, Trigger und Trace-Bezug.",
+            "Fehler- und Blockierungsfaelle werden ebenfalls auditierbar sichtbar."
+          ]
+        },
+        {
+          "id": "EVO-033",
+          "title": "Provider-Rohdaten mit Redaction und Groessenlimits absichern",
+          "description": "Provider-Outputs und Rohpayloads so persistieren, dass keine unkontrollierte Datenausweitung oder Leckage sensibler Informationen entsteht.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Security, Bounded-Storage",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/evolution_service.py",
+            "agent/repository.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-030",
+            "EVO-031"
+          ],
+          "acceptance": [
+            "Provider-Rohdaten werden vor Persistenz auf Secrets und sensible Muster geprueft.",
+            "Payload-Groessen sind begrenzt oder werden gekappt/komprimiert.",
+            "Debug-Wert bleibt erhalten, ohne unnoetige Risikoausweitung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "api-mcp-and-read-model",
+      "label": "API, MCP und Read Model",
+      "items": [
+        {
+          "id": "EVO-040",
+          "title": "REST-Endpunkte fuer Evolution-Provider-Discovery und Analyse anlegen",
+          "description": "API-Endpunkte fuer Provider-Liste, Provider-Details und taskbezogene Evolution-Analyse schaffen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Operability, Explicit-Access",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-013",
+            "EVO-020",
+            "EVO-023"
+          ],
+          "acceptance": [
+            "Es gibt mindestens Endpunkte fuer Provider-Liste und taskbezogene Analyze-Requests.",
+            "Antworten enthalten trace_id, provider_name und normalisierte Ergebnisdaten.",
+            "Nicht verfuegbare Provider liefern konsistente Fehlercodes."
+          ]
+        },
+        {
+          "id": "EVO-041",
+          "title": "Read-Model fuer Evolution-Historie und Proposals ergänzen",
+          "description": "Die vorhandenen Read-Model- oder Dashboard-Ausgaben so erweitern, dass Evolution-Laeufe, Vorschlaege, Risiken und Review-Zustaende sichtbar werden.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, Reviewability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/tasks/",
+            "agent/services/evolution_service.py",
             "frontend-angular/src/app/components/",
             "tests/"
           ],
           "dependencies": [
-            "CTX-011",
-            "CTX-013"
+            "EVO-030",
+            "EVO-031",
+            "EVO-040"
           ],
           "acceptance": [
-            "Im Read-Model ist sichtbar, welche Quellen und Gruende zu einem Bundle gefuehrt haben.",
-            "Das UI kann die wichtigsten Bundle-Quellen und Scores anzeigen.",
-            "Fehlselektierter Kontext ist schneller manuell erkennbar."
+            "Task- oder Dashboard-Ansichten koennen Evolution-Historie und Vorschlaege anzeigen.",
+            "Review-relevante Felder wie risk_level und requires_review sind sichtbar.",
+            "Provider-spezifische Details bleiben optional und additiv."
           ]
         },
         {
-          "id": "OBS-043",
-          "title": "Sicherheits- und Redaction-Regeln im Bundle-Bau gegen Regression absichern",
-          "description": "Da mehr strukturierte Retrieval- und Explainability-Daten in Bundles landen, muessen Redaction und Secret-Schutz gezielt gegen Regression getestet und haerter validiert werden.",
+          "id": "EVO-042",
+          "title": "MCP-Tools fuer Evolution-Discovery und Analyse ergänzen",
+          "description": "Die Hub-eigene MCP-Exposition um evolution.providers.list, evolution.analyze und spaeter evolution.proposals.list erweitern.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Unified-Control-Plane, Tool-Access",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/evolution_service.py",
+            "agent/services/integration_registry_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-040"
+          ],
+          "acceptance": [
+            "Evolution-Funktionen sind ueber MCP kontrolliert und auditierbar erreichbar.",
+            "MCP-Responses enthalten additiv trace_id und provider_name.",
+            "Policy-Blockierungen verhalten sich konsistent zu den restlichen Hub-Tools."
+          ]
+        },
+        {
+          "id": "EVO-043",
+          "title": "OpenAPI- und API-Spezifikation fuer Evolution erweitern",
+          "description": "Die API-Spezifikation und Dokumentation um die neuen Evolution-Endpunkte, Modelle und Governance-Regeln erweitern.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Clarity, Contract-Stability",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "api-spec.md",
+            "docs/backend.md",
+            "docs/extensions.md",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-040",
+            "EVO-041"
+          ],
+          "acceptance": [
+            "Die neuen Endpunkte und JSON-Modelle sind dokumentiert.",
+            "Provider-Neutralitaet und provider_metadata-Konzept sind klar beschrieben.",
+            "Die Doku erklaert die erste sichere Proposal-only Integrationsstufe."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evolver-adapter-first-provider",
+      "label": "Evolver Adapter als erster Provider",
+      "items": [
+        {
+          "id": "EVO-050",
+          "title": "EvolverAdapter als erste konkrete EvolutionEngine-Implementierung bauen",
+          "description": "Eine erste konkrete Adapter-Implementierung erstellen, die Evolver in den generischen EvolutionEngine-Vertrag einpasst.",
+          "priority": "critical",
+          "type": "integration",
+          "principle": "Proof-of-Architecture, Real-World-Fit",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "plugins/evolver_adapter/",
+            "agent/services/evolution/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-002",
+            "EVO-010",
+            "EVO-011",
+            "EVO-020"
+          ],
+          "acceptance": [
+            "Evolver ist als regulärer Provider in der Registry sichtbar.",
+            "Der Adapter mappt Evolver-Ergebnisse auf generische EvolutionResult- und Proposal-Strukturen.",
+            "Der Core muss fuer Evolver keine Sonderpfade oder Sondermodelle kennen."
+          ]
+        },
+        {
+          "id": "EVO-051",
+          "title": "Lose Kopplung fuer Evolver ueber externen Prozess oder Service einführen",
+          "description": "Die erste Evolver-Anbindung bewusst lose gestalten, etwa ueber separaten Prozess, CLI-Bridge oder HTTP-Service, damit der Core nicht in enges In-Process-Coupling rutscht.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Isolation, Swapability",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "plugins/evolver_adapter/",
+            "docker-compose.yml",
+            "docker-compose.base.yml",
+            "docker-compose.distributed.yml",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-050"
+          ],
+          "acceptance": [
+            "Evolver laesst sich ohne Core-Umbau austauschen oder deaktivieren.",
+            "Kommunikation, Timeouts und Fehlerfaelle sind klar kontrolliert.",
+            "Die Integrationsform ist dokumentiert und reproduzierbar betreibbar."
+          ]
+        },
+        {
+          "id": "EVO-052",
+          "title": "Mapper fuer Evolver-spezifische Begriffe in generische Proposal-Typen bauen",
+          "description": "Einen Mapping-Layer bauen, der Evolver-Konzepte wie Gene, Capsule, GEP-Prompt oder EvolutionEvent in generische Improvement-, Repair-, Policy- oder Prompt-Proposals uebersetzt.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Semantic-Decoupling, Interoperability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "plugins/evolver_adapter/mapper.py",
+            "plugins/evolver_adapter/adapter.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-050"
+          ],
+          "acceptance": [
+            "Gene- oder Capsule-basierte Ergebnisse erscheinen im Core als generische Proposal-Typen.",
+            "Provider-spezifische Originaldaten bleiben optional zugaenglich.",
+            "Ein zweiter anderer Provider koennte dieselben generischen Proposal-Typen ebenfalls bedienen."
+          ]
+        },
+        {
+          "id": "EVO-053",
+          "title": "Evolver-spezifische Konfigurations- und Sicherheitsgrenzen dokumentieren",
+          "description": "Alle provider-spezifischen Randbedingungen wie externe Runtime, noetige Verzeichnisse, Timeouts, erlaubte Modi und Risikoannahmen fuer Evolver explizit dokumentieren.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Operational-Safety, Maintainability",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "docs/",
+            "plugins/evolver_adapter/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-051",
+            "EVO-052"
+          ],
+          "acceptance": [
+            "Betriebsdoku erklaert klar, wie Evolver sicher angebunden wird.",
+            "Grenzen und Nicht-Ziele der ersten Integration sind beschrieben.",
+            "Ein spaeterer Austausch gegen einen anderen Provider bleibt organisatorisch nachvollziehbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "governance-apply-and-safety",
+      "label": "Governance, Apply und Safety",
+      "items": [
+        {
+          "id": "EVO-060",
+          "title": "Policy-Modell fuer Review-Pflicht und Auto-Apply vorbereiten",
+          "description": "Ein Governance-Modell schaffen, das provider- und proposal-abhängig steuert, ob nur Analyse, Analyse plus Validierung oder spaeter auch Apply erlaubt ist.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Least-Privilege, Policy-Control",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/config.py",
+            "agent/services/evolution_service.py",
+            "agent/routes/config/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-012",
+            "EVO-023"
+          ],
+          "acceptance": [
+            "Es gibt explizite Policy-Schalter fuer analyze_only, validate_allowed und apply_allowed.",
+            "Review-Pflichten koennen global oder proposal-spezifisch greifen.",
+            "Nicht explizit erlaubte Apply-Pfade bleiben fail-closed."
+          ]
+        },
+        {
+          "id": "EVO-061",
+          "title": "Validierungs-Pfad fuer Evolution-Proposals vorbereiten",
+          "description": "Einen generischen Validierungs-Pfad schaffen, ueber den Proposals vor einem spaeteren Apply gegen Regeln, Tests oder Policies geprueft werden koennen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Defense-in-Depth, Preflight-Safety",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/evolution_service.py",
+            "agent/services/evolution/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-002",
+            "EVO-060"
+          ],
+          "acceptance": [
+            "Validation ist als eigener Schritt modelliert und auditierbar.",
+            "Provider ohne Validation-Capability koennen sauber degradiert behandelt werden.",
+            "Der spaetere Weg zu kontrolliertem Apply ist damit vorbereitet, ohne ihn sofort zu aktivieren."
+          ]
+        },
+        {
+          "id": "EVO-062",
+          "title": "Apply-Pfad nur als explizite zweite Ausbaustufe vorbereiten",
+          "description": "Den technischen und fachlichen Rahmen fuer spaeteres Apply vorbereiten, aber in der ersten Iteration standardmaessig deaktiviert lassen.",
+          "priority": "medium",
+          "type": "architecture",
+          "principle": "Safe-Staging, Risk-Containment",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/services/evolution_service.py",
+            "agent/routes/",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-060",
+            "EVO-061"
+          ],
+          "acceptance": [
+            "Apply ist im Design vorgesehen, aber standardmaessig deaktiviert.",
+            "Die Doku trennt klar zwischen Proposal-only und spaeteren Apply-Modi.",
+            "Es entstehen keine versteckten Auto-Apply-Pfade durch den ersten Evolver-Einbau."
+          ]
+        },
+        {
+          "id": "EVO-063",
+          "title": "Secrets-, Prompt- und Log-Redaction fuer Evolution-Kontext absichern",
+          "description": "Sicherstellen, dass Logs, Fehlerkontexte, Verifikationsdaten und Provider-Payloads beim Evolution-Kontextbau dieselben oder haertere Redaction-Regeln wie andere Prompt-Pfade durchlaufen.",
           "priority": "high",
           "type": "bugfix",
           "principle": "Security, Least-Exposure",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/services/retrieval_service.py",
-            "agent/services/context_bundle_service.py",
-            "agent/hybrid_orchestrator.py",
+            "agent/services/evolution_service.py",
+            "agent/services/",
             "tests/"
           ],
+          "dependencies": [
+            "EVO-021",
+            "EVO-033"
+          ],
           "acceptance": [
-            "Secrets, Tokens und sensible Muster werden weiterhin vor dem Prompt-Zusammenbau redigiert.",
-            "Explainability- und Debugdaten oeffnen keine neuen Leckagepfade.",
-            "Regressionstests decken typische sensible Inhalte ab."
+            "Evolution-Kontexte oeffnen keine neuen Leckagepfade fuer Secrets oder sensible Inhalte.",
+            "Regressionstests decken typische Secret-, Token- und Path-Leaks ab.",
+            "Provider erhalten nur den fuer die Analyse noetigen minimierten Kontext."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "observability-tests-and-rollout",
+      "label": "Observability, Tests und Rollout",
+      "items": [
+        {
+          "id": "EVO-070",
+          "title": "Unit- und Contract-Tests fuer den Evolution-SPI aufbauen",
+          "description": "Eine Testsuite fuer den generischen SPI, Registry-Verhalten, Fehlerfaelle und Provider-Mocking einfuehren, damit der Austausch einzelner Provider regressionsarm bleibt.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Contract-Stability, Replaceability",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/services/evolution/",
+            "plugins/evolver_adapter/"
+          ],
+          "dependencies": [
+            "EVO-002",
+            "EVO-010",
+            "EVO-050"
+          ],
+          "acceptance": [
+            "Contract-Tests pruefen generisches Verhalten unabhaengig vom konkreten Provider.",
+            "Provider lassen sich mit Testdoubles austauschen.",
+            "Registry- und Fallback-Verhalten ist reproduzierbar abgedeckt."
+          ]
+        },
+        {
+          "id": "EVO-071",
+          "title": "Integrations- und E2E-Szenarien fuer Analyse-Trigger definieren",
+          "description": "Echte oder realistische Szenarien fuer Verification-Failure, wiederholte Fehler und manuelle Analyse-Anforderung aufbauen, um den End-to-End-Pfad von Task ueber Evolution bis Proposal zu pruefen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Grounded-Testing, Workflow-Coverage",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "scripts/",
+            "docs/",
+            "agent/services/evolution_service.py"
+          ],
+          "dependencies": [
+            "EVO-022",
+            "EVO-023",
+            "EVO-050"
+          ],
+          "acceptance": [
+            "Mindestens manuelle Analyse und ein automatischer Fehlertrigger sind E2E-testbar.",
+            "Die Ergebnisse sind in Persistenz, Audit und Read-Model sichtbar.",
+            "Fehlerhafte Provider-Responses werden sauber behandelt."
+          ]
+        },
+        {
+          "id": "EVO-072",
+          "title": "Metriken fuer Evolution-Nutzung und Wirksamkeit ergänzen",
+          "description": "Metriken fuer Anzahl der Analysen, Provider-Nutzung, Proposal-Typen, requires_review-Quoten, Fehlerraten und spaeter Follow-up-Success einfuehren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Observability, Operational-Learning",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/metrics.py",
+            "agent/services/evolution_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-030",
+            "EVO-031"
+          ],
+          "acceptance": [
+            "Evolution-bezogene Metriken sind im Backend verfuegbar.",
+            "Provider-spezifische Unterschiede koennen beobachtet werden.",
+            "Analyse-Haeufungen oder Fehler-Spitzen lassen sich frueh erkennen."
+          ]
+        },
+        {
+          "id": "EVO-073",
+          "title": "Phasenweisen Rollout fuer Evolution-Provider dokumentieren",
+          "description": "Einen klaren Rollout-Plan fuer disabled, analyze-only, controlled-review und spaeter validate/apply vorbereiten, damit die Integration betrieblich sauber eingefuehrt werden kann.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Safe-Adoption, Operational-Clarity",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "docs/",
+            "agent/config.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "EVO-023",
+            "EVO-060",
+            "EVO-072"
+          ],
+          "acceptance": [
+            "Die Doku beschreibt einen mehrstufigen sicheren Rollout.",
+            "Analyze-only ist als empfohlene erste Produktionsstufe klar benannt.",
+            "Spaetere Erweiterungen sind vorgesehen, aber sauber von der Erstintegration getrennt."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 20,
+    "total_items": 32,
     "by_status": {
-      "completed": 20,
+      "completed": 32,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Dieser Todo-Stand fokussiert nicht auf allgemeines RAG, sondern gezielt auf Anantas Kernziel: grosse Projekte ueber kleine, selektive Subtasks und klar budgetierte Kontext-Bundles bearbeitbar machen.",
-      "Der groesste Hebel liegt aktuell nicht in weiterer Extraktion, sondern in tasksensitivem Ranking, mehrstufiger Selektion, Bundle-Budgetierung und Rueckverdichtung.",
-      "32k soll als bewusster Standardarbeitsmodus fuer Worker-Tasks etabliert werden; staerkere Hardware wie die RTX3080 beschleunigt denselben Modus, statt ihn durch unnoetig groessere Kontexte zu ersetzen."
+      "Diese Todo-Struktur priorisiert zuerst einen sauberen, generischen Evolution-SPI und erst danach die konkrete Evolver-Integration.",
+      "Die wichtigste Schutzmassnahme fuer spaetere Austauschbarkeit ist, provider-spezifische Begriffe und Payloads nicht ins Core-Domain-Modell zu zementieren.",
+      "Die erste sinnvolle Produktivstufe ist analyze-only mit persistierten Proposals, Audit und Review-Pflicht statt sofortigem automatischem Apply."
     ],
     "recommended_order": [
-      "RAG-001",
-      "RAG-002",
-      "CTX-010",
-      "ORCH-030",
-      "RAG-003",
-      "RAG-004",
-      "CTX-011",
-      "CTX-012",
-      "RHELP-020",
-      "RHELP-021",
-      "RHELP-022",
-      "RHELP-023",
-      "CTX-013",
-      "ORCH-031",
-      "ORCH-032",
-      "ORCH-033",
-      "OBS-040",
-      "OBS-041",
-      "OBS-042",
-      "OBS-043"
+      "EVO-001",
+      "EVO-002",
+      "EVO-003",
+      "EVO-004",
+      "EVO-010",
+      "EVO-011",
+      "EVO-012",
+      "EVO-013",
+      "EVO-020",
+      "EVO-021",
+      "EVO-022",
+      "EVO-023",
+      "EVO-030",
+      "EVO-031",
+      "EVO-032",
+      "EVO-033",
+      "EVO-040",
+      "EVO-041",
+      "EVO-043",
+      "EVO-050",
+      "EVO-051",
+      "EVO-052",
+      "EVO-053",
+      "EVO-060",
+      "EVO-061",
+      "EVO-063",
+      "EVO-070",
+      "EVO-071",
+      "EVO-072",
+      "EVO-073",
+      "EVO-042",
+      "EVO-062"
     ]
   }
 }
