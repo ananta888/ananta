@@ -238,3 +238,9 @@ def rotate_token():
 
     logging.info("Agent Secret/Token wurde rotiert.")
     return new_secret
+
+
+def hash_password(password: str) -> str:
+    """Einfacher Hash für Tests/Entwicklung (SHA-256)."""
+    import hashlib
+    return hashlib.sha256(password.encode()).hexdigest()

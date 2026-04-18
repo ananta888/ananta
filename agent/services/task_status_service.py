@@ -1,21 +1,27 @@
 from __future__ import annotations
 
+from agent.models import TaskStatus
+
 _STATUS_ALIASES = {
-    "to-do": "todo",
-    "backlog": "todo",
-    "in-progress": "in_progress",
-    "in progress": "in_progress",
-    "done": "completed",
-    "complete": "completed",
-    "canceled": "cancelled",
+    "to-do": TaskStatus.TODO.value,
+    "backlog": TaskStatus.TODO.value,
+    "in-progress": TaskStatus.IN_PROGRESS.value,
+    "in progress": TaskStatus.IN_PROGRESS.value,
+    "done": TaskStatus.COMPLETED.value,
+    "complete": TaskStatus.COMPLETED.value,
+    "canceled": TaskStatus.CANCELLED.value,
+    "blocked": TaskStatus.BLOCKED_BY_DEPENDENCY.value,
 }
 
 _CANONICAL_QUERY_VALUES = {
-    "todo": ["todo", "to-do", "backlog"],
-    "in_progress": ["in_progress", "in-progress", "in progress"],
-    "completed": ["completed", "done", "complete"],
-    "cancelled": ["cancelled", "canceled"],
-    "paused": ["paused"],
+    TaskStatus.TODO.value: ["todo", "to-do", "backlog"],
+    TaskStatus.IN_PROGRESS.value: ["in_progress", "in-progress", "in progress"],
+    TaskStatus.COMPLETED.value: ["completed", "done", "complete"],
+    TaskStatus.CANCELLED.value: ["cancelled", "canceled"],
+    TaskStatus.PAUSED.value: ["paused"],
+    TaskStatus.BLOCKED_BY_DEPENDENCY.value: ["blocked_by_dependency", "blocked"],
+    TaskStatus.WAITING_FOR_REVIEW.value: ["waiting_for_review"],
+    TaskStatus.VERIFICATION_FAILED.value: ["verification_failed"],
 }
 
 

@@ -9,6 +9,7 @@ from flask import current_app, has_app_context
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.config import settings
+from agent.models import TaskStatus
 from agent.research_backend import resolve_research_backend_config
 from agent.routes.tasks.orchestration_policy import (
     derive_required_capabilities,
@@ -574,7 +575,7 @@ class TaskOrchestrationService:
 
         gate = payload.get("gate_results") or {}
         all_passed = bool(gate.get("passed", False))
-        final_status = "completed" if all_passed else "failed"
+        final_status = TaskStatus.COMPLETED.value if all_passed else TaskStatus.VERIFICATION_FAILED.value
         record = verification_service.create_or_update_record(
             task_id,
             trace_id=payload.get("trace_id"),

@@ -9,6 +9,7 @@ from agent.common.gateways.worker_gateway import get_worker_gateway
 from agent.db_models import TaskDB
 from agent.repository import task_repo
 from agent.services.hub_event_service import build_task_history_event
+from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
 
@@ -69,13 +70,24 @@ def update_local_task_status(
     event_type: str | None = None,
     event_actor: str = "system",
     event_details: dict | None = None,
+    force: bool = False,
     **kwargs,
 ) -> None:
     task = task_repo.get_by_id(tid)
     if not task:
-        task = TaskDB(id=tid, created_at=time.time())
+        task = TaskDB(id=tid, created_at=time.time(), status="todo")
 
+    old_status = task.status
     normalized_status = normalize_task_status(status)
+
+    if not force and old_status:
+        ok, reason = can_transition_to(old_status, normalized_status)
+        if not ok:
+            logging.warning("Blockierter Statuswechsel fuer Task %s: %s (force=False)", tid, reason)
+            # Wir blockieren hier aktiv, wenn es kein force-Request ist
+            if old_status != normalized_status:
+                 return
+
     task.status = normalized_status
     task.updated_at = time.time()
 
