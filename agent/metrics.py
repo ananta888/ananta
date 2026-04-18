@@ -139,5 +139,20 @@ CONTEXT_EFFICIENCY_BUDGET_UTILIZATION = Histogram(
 
 # Ressourcen Metriken
 APP_STARTUP_DURATION = Gauge("app_startup_duration_seconds", "Duration of the app startup process")
+APP_STARTUP_PHASE_DURATION = Histogram(
+    "app_startup_phase_duration_seconds",
+    "Duration of individual app startup phases",
+    ["phase", "status"],
+)
+APP_STARTUP_PHASE_TOTAL = Counter(
+    "app_startup_phase_total",
+    "Total startup phase executions grouped by phase and status",
+    ["phase", "status"],
+)
+APP_STARTUP_FAILURES_TOTAL = Counter(
+    "app_startup_failures_total",
+    "Total startup phase failures grouped by phase and error type",
+    ["phase", "error_type"],
+)
 CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")
 RAM_USAGE = Gauge("process_ram_usage_bytes", "RAM usage of the agent process")
