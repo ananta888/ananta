@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.5.0",
   "created": "2026-04-18",
-  "updated": "2026-04-18T00:00:00Z",
+  "updated": "2026-04-18T18:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -198,11 +198,12 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Observability, Explainability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/tasks/",
             "agent/services/",
+            "agent/repositories/governance.py",
             "agent/repository.py",
             "frontend-angular/src/app/components/",
             "tests/"
@@ -220,7 +221,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Debuggability, Determinism",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -244,7 +245,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Least-Exposure, Role-Appropriate-Visibility",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -790,9 +791,9 @@
   "meta": {
     "total_items": 31,
     "by_status": {
-      "completed": 7,
+      "completed": 10,
       "partial": 0,
-      "open": 24
+      "open": 21
     },
     "notes": [
       "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",

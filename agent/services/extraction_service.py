@@ -26,7 +26,10 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     Presentation = None
 
-from lxml import html
+try:
+    from lxml import html
+except ImportError:  # pragma: no cover - optional dependency
+    html = None
 
 
 class ExtractionService:
@@ -56,6 +59,8 @@ class ExtractionService:
         return path.read_text(encoding="utf-8", errors="ignore")
 
     def _html_text(self, path: Path) -> str:
+        if html is None:
+            return "lxml_unavailable"
         raw = self._read_text(path)
         document = html.fromstring(raw or "<html></html>")
         for node in document.xpath("//script|//style"):

@@ -6,6 +6,7 @@ from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.routes.tasks.status import normalize_task_status
+from agent.services.governance_read_model_service import get_governance_read_model_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import rate_limit, validate_request
@@ -58,6 +59,24 @@ def _parse_bool_query(value: str | None, *, default: bool) -> bool:
     if normalized in {"0", "false", "no", "n", "off"}:
         return False
     return default
+
+
+@management_bp.route("/goals/<gid>/governance", methods=["GET"])
+@check_auth
+def goal_governance(gid: str):
+    """
+    Zentrales Governance-Read-Model fuer ein Goal (GRM-020).
+    Zuschnitt fuer Nicht-Admins (GRM-022).
+    """
+    user = getattr(g, "user", {}) or {}
+    role = user.get("role", "user")
+    is_admin = role == "admin"
+
+    summary = get_governance_read_model_service().get_summary(gid, include_details=is_admin)
+    if not summary:
+        return api_response(status="error", message="not_found", code=404)
+
+    return api_response(data=summary)
 
 
 @management_bp.route("/tasks", methods=["GET"])
