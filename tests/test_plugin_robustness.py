@@ -7,6 +7,7 @@ from agent.config import settings
 from agent.plugin_loader import load_plugins
 from agent.services.evolution import get_evolution_provider_registry
 
+
 def test_load_plugins_handles_crashy_plugin(tmp_path: Path, caplog):
     """
     Sicherstellen, dass ein abstuerzendes Plugin nicht den gesamten Ladevorgang stoppt (PLG-072).
