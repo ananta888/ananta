@@ -124,6 +124,10 @@ python devtools/export_route_inventory.py --include-methods
 - Zugriff ist standardmaessig fail-closed. `terminal_policy.enabled=true` ist erforderlich.
 - `terminal_policy.allow_read` und `terminal_policy.allow_interactive` sind getrennte Freigaben; read-only schaltet keine interaktive Shell frei.
 - `terminal_policy.require_admin=true` verlangt eine Admin-Rolle im Token bzw. den Agent-Token.
+- `terminal_policy.max_session_seconds` und `terminal_policy.idle_timeout_seconds` begrenzen laufende Sessions.
+- `terminal_policy.input_preview_max_chars` begrenzt auditierte Input-Previews.
+- `terminal_policy.allowed_roles` und `terminal_policy.allowed_cidrs` koennen Terminal-Zugriff zusaetzlich auf Operator-Rollen oder interne Netze einschraenken.
+- Fehlerhafte oder nicht passende Rollen-/Netzbedingungen blockieren den Zugriff fail-closed.
 - Nachrichtenformat:
   - Server -> Client: JSON Events `{ "type": "ready|output|error", "data": ... }`
   - Client -> Server (interactive): `{ "type": "input", "data": "<text>" }`

@@ -143,6 +143,11 @@ def build_default_agent_config() -> dict:
             "allow_interactive": False,
             "require_admin": True,
             "emit_audit_events": True,
+            "max_session_seconds": 1800,
+            "idle_timeout_seconds": 300,
+            "input_preview_max_chars": 120,
+            "allowed_roles": [],
+            "allowed_cidrs": [],
         },
         "evolution": {
             "enabled": True,

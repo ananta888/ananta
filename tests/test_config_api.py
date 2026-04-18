@@ -668,6 +668,10 @@ def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_to
     assert invalid_terminal.status_code == 400
     assert invalid_terminal.json["message"] == "invalid_terminal_policy"
 
+    invalid_roles = client.post("/config", json={"terminal_policy": {"allowed_roles": "admin"}}, headers=headers)
+    assert invalid_roles.status_code == 400
+    assert invalid_roles.json["message"] == "invalid_terminal_allowed_roles"
+
     invalid_remote_hubs = client.post(
         "/config",
         json={"exposure_policy": {"remote_hubs": {"max_hops": 0}}},
@@ -685,6 +689,11 @@ def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_to
                 "allow_read": True,
                 "allow_interactive": False,
                 "require_admin": True,
+                "max_session_seconds": 120,
+                "idle_timeout_seconds": 30,
+                "input_preview_max_chars": 64,
+                "allowed_roles": ["operator"],
+                "allowed_cidrs": ["127.0.0.1/32"],
             },
         },
         headers=headers,
@@ -696,6 +705,10 @@ def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_to
     assert data["platform_mode"] == "admin-only"
     assert data["terminal_policy"]["enabled"] is True
     assert data["terminal_policy"]["allow_read"] is True
+    assert data["terminal_policy"]["max_session_seconds"] == 120
+    assert data["terminal_policy"]["idle_timeout_seconds"] == 30
+    assert data["terminal_policy"]["input_preview_max_chars"] == 64
+    assert data["terminal_policy"]["allowed_roles"] == ["operator"]
 
 
 def test_set_config_validates_exposure_policy_shape(client, admin_token):

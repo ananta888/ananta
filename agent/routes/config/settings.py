@@ -119,13 +119,11 @@ def set_config():
         terminal_cfg = new_cfg.get("terminal_policy")
         if not isinstance(terminal_cfg, dict):
             return api_response(status="error", message="invalid_terminal_policy", code=400)
-        new_cfg["terminal_policy"] = {
-            "enabled": bool(terminal_cfg.get("enabled", False)),
-            "allow_read": bool(terminal_cfg.get("allow_read", False)),
-            "allow_interactive": bool(terminal_cfg.get("allow_interactive", False)),
-            "require_admin": bool(terminal_cfg.get("require_admin", True)),
-            "emit_audit_events": bool(terminal_cfg.get("emit_audit_events", True)),
-        }
+        if "allowed_roles" in terminal_cfg and not isinstance(terminal_cfg.get("allowed_roles"), list):
+            return api_response(status="error", message="invalid_terminal_allowed_roles", code=400)
+        if "allowed_cidrs" in terminal_cfg and not isinstance(terminal_cfg.get("allowed_cidrs"), list):
+            return api_response(status="error", message="invalid_terminal_allowed_cidrs", code=400)
+        new_cfg["terminal_policy"] = get_platform_governance_service().normalize_terminal_policy(terminal_cfg)
     if "cli_session_mode" in new_cfg:
         mode_cfg = new_cfg.get("cli_session_mode")
         if not isinstance(mode_cfg, dict):

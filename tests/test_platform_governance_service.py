@@ -36,6 +36,48 @@ def test_platform_governance_merges_explicit_terminal_admin_policy():
     assert user_read.reason == "terminal_admin_required"
 
 
+def test_platform_governance_enforces_terminal_role_and_network_restrictions():
+    service = get_platform_governance_service()
+    cfg = {
+        "platform_mode": "admin-only",
+        "terminal_policy": {
+            "enabled": True,
+            "allow_read": True,
+            "require_admin": True,
+            "allowed_roles": ["operator"],
+            "allowed_cidrs": ["10.20.0.0/16"],
+        },
+    }
+
+    allowed = service.evaluate_terminal_access(
+        cfg=cfg,
+        terminal_mode="read",
+        is_admin=True,
+        roles=["admin", "operator"],
+        remote_addr="10.20.30.40",
+    )
+    wrong_role = service.evaluate_terminal_access(
+        cfg=cfg,
+        terminal_mode="read",
+        is_admin=True,
+        roles=["admin"],
+        remote_addr="10.20.30.40",
+    )
+    wrong_network = service.evaluate_terminal_access(
+        cfg=cfg,
+        terminal_mode="read",
+        is_admin=True,
+        roles=["operator"],
+        remote_addr="192.168.1.20",
+    )
+
+    assert allowed.allowed is True
+    assert wrong_role.allowed is False
+    assert wrong_role.reason == "terminal_role_not_allowed"
+    assert wrong_network.allowed is False
+    assert wrong_network.reason == "terminal_network_not_allowed"
+
+
 def test_platform_governance_semi_public_limits_external_exposure():
     service = get_platform_governance_service()
 
