@@ -1,0 +1,66 @@
+import logging
+
+from flask import Flask
+
+from agent.routes.artifacts import artifacts_bp
+from agent.routes.auth import auth_bp
+from agent.routes.config import register_config_blueprints
+from agent.routes.evolution import evolution_bp
+from agent.routes.hub_benchmark import hub_benchmark_bp
+from agent.routes.knowledge import knowledge_bp
+from agent.routes.mcp import mcp_bp
+from agent.routes.ollama_benchmark import ollama_benchmark_bp
+from agent.routes.openai_compat import openai_compat_bp
+from agent.routes.sgpt import sgpt_bp
+from agent.routes.system import system_bp
+from agent.routes.tasks import register_tasks_blueprints, tasks_bp
+from agent.routes.teams import teams_bp
+from agent.ws_terminal import register_ws_terminal
+
+
+def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(system_bp, url_prefix="/api/system")
+    register_config_blueprints(app)
+    app.register_blueprint(hub_benchmark_bp, url_prefix="/api")
+    app.register_blueprint(ollama_benchmark_bp, url_prefix="/api")
+    app.register_blueprint(tasks_bp)
+    register_tasks_blueprints(app)
+    app.register_blueprint(artifacts_bp)
+    app.register_blueprint(knowledge_bp)
+    app.register_blueprint(openai_compat_bp)
+    app.register_blueprint(mcp_bp)
+    app.register_blueprint(evolution_bp)
+    app.register_blueprint(teams_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
+    register_ws_terminal(app)
+
+
+def register_alias_routes(app: Flask) -> None:
+    try:
+        from agent.routes.system import (
+            analyze_audit_logs,
+            get_audit_logs,
+            get_stats_history,
+            health,
+            list_agents,
+            metrics,
+            readiness_check,
+            register_agent,
+            stream_system_events,
+            system_stats,
+        )
+
+        app.add_url_rule("/health", view_func=health)
+        app.add_url_rule("/ready", view_func=readiness_check)
+        app.add_url_rule("/metrics", view_func=metrics)
+        app.add_url_rule("/stats", view_func=system_stats)
+        app.add_url_rule("/stats/history", view_func=get_stats_history)
+        app.add_url_rule("/events", view_func=stream_system_events)
+        app.add_url_rule("/agents", view_func=list_agents)
+        app.add_url_rule("/audit-logs", view_func=get_audit_logs)
+        app.add_url_rule("/audit/analyze", view_func=analyze_audit_logs, methods=["POST"])
+        app.add_url_rule("/register", view_func=register_agent, methods=["POST"])
+    except Exception as e:
+        logging.warning(f"Konnte Alias-Routen nicht registrieren: {e}")
+
