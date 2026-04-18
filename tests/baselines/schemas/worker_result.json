@@ -1,0 +1,52 @@
+{
+  "properties": {
+    "output": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output"
+    },
+    "result_metadata": {
+      "additionalProperties": true,
+      "title": "Result Metadata",
+      "type": "object"
+    },
+    "status": {
+      "default": "received",
+      "title": "Status",
+      "type": "string"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "worker_job_id": {
+      "title": "Worker Job Id",
+      "type": "string"
+    },
+    "worker_url": {
+      "title": "Worker Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "worker_job_id",
+    "worker_url"
+  ],
+  "title": "WorkerResultContract",
+  "type": "object"
+}

@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 from agent.models import (
+    OpenAIModelContract,
+    OpenAIChatCompletionContract,
+    OpenAIResponseContract,
+    OpenAIFileContract,
+    GovernancePolicyReadModelContract,
+    ProviderDescriptorContract,
+    ApiErrorResponseContract,
     AgentRegisterRequest,
     AgentDirectoryEntryContract,
     AgentLivenessContract,
@@ -101,6 +108,13 @@ class SystemContractService:
             "auto_planner_configure_request": AutoPlannerConfigureRequest.model_json_schema(),
             "auto_planner_plan_request": AutoPlannerPlanRequest.model_json_schema(),
             "auto_planner_analyze_request": AutoPlannerAnalyzeRequest.model_json_schema(),
+            "openai_model": OpenAIModelContract.model_json_schema(),
+            "openai_chat_completion": OpenAIChatCompletionContract.model_json_schema(),
+            "openai_response": OpenAIResponseContract.model_json_schema(),
+            "openai_file": OpenAIFileContract.model_json_schema(),
+            "governance_policy": GovernancePolicyReadModelContract.model_json_schema(),
+            "provider_descriptor": ProviderDescriptorContract.model_json_schema(),
+            "api_error": ApiErrorResponseContract.model_json_schema(),
         }
         return {
             "version": "v1",

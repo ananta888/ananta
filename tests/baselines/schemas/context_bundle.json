@@ -1,0 +1,65 @@
+{
+  "properties": {
+    "bundle_metadata": {
+      "additionalProperties": true,
+      "title": "Bundle Metadata",
+      "type": "object"
+    },
+    "bundle_type": {
+      "default": "worker_execution_context",
+      "title": "Bundle Type",
+      "type": "string"
+    },
+    "chunks": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Chunks",
+      "type": "array"
+    },
+    "context_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Text"
+    },
+    "retrieval_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Run Id"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "token_estimate": {
+      "default": 0,
+      "title": "Token Estimate",
+      "type": "integer"
+    }
+  },
+  "title": "ContextBundleContract",
+  "type": "object"
+}

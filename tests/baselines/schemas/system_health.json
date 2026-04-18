@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "agent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agent"
+    },
+    "checks": {
+      "additionalProperties": true,
+      "title": "Checks",
+      "type": "object"
+    },
+    "role": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Role"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "uptime_seconds": {
+      "default": 0,
+      "title": "Uptime Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "title": "SystemHealthReadModel",
+  "type": "object"
+}

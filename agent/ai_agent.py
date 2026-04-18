@@ -50,6 +50,7 @@ from agent.services.service_registry import initialize_core_services
 from agent.utils import _archive_old_tasks, _archive_terminal_logs, _cleanup_old_backups, read_json, register_with_hub
 from agent.ws_terminal import register_ws_terminal
 from agent.common.error_handler import register_error_handler
+from agent.metrics import APP_STARTUP_DURATION
 
 
 def _is_truthy_env(value: str | None) -> bool:
@@ -232,6 +233,7 @@ def _start_background_services(app: Flask) -> None:
 
 def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App fuer den Agenten (API-Server)."""
+    _start_perf = time.perf_counter()
     setup_logging(level=settings.log_level, json_format=settings.log_json)
     setup_signal_handlers()
     _log_runtime_hints()
@@ -251,6 +253,11 @@ def create_app(agent: str = "default") -> Flask:
     initialize_repository_registry(app)
     initialize_core_services(app)
     _start_background_services(app)
+
+    elapsed = time.perf_counter() - _start_perf
+    APP_STARTUP_DURATION.set(elapsed)
+    logging.info(f"Ananta Agent '{agent}' (role={settings.role}) started in {elapsed:.4f}s")
+
     return app
 
 

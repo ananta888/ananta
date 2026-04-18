@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "available_for_routing": {
+      "default": true,
+      "title": "Available For Routing",
+      "type": "boolean"
+    },
+    "last_seen": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Seen"
+    },
+    "offline_timeout_seconds": {
+      "default": 0,
+      "title": "Offline Timeout Seconds",
+      "type": "integer"
+    },
+    "stale_seconds": {
+      "default": 0,
+      "title": "Stale Seconds",
+      "type": "integer"
+    },
+    "status": {
+      "default": "online",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "title": "AgentLivenessContract",
+  "type": "object"
+}

@@ -1,0 +1,21 @@
+{
+  "properties": {
+    "max_parallel_tasks": {
+      "default": 1,
+      "title": "Max Parallel Tasks",
+      "type": "integer"
+    },
+    "max_runtime_seconds": {
+      "default": 900,
+      "title": "Max Runtime Seconds",
+      "type": "integer"
+    },
+    "max_workspace_mb": {
+      "default": 1024,
+      "title": "Max Workspace Mb",
+      "type": "integer"
+    }
+  },
+  "title": "WorkerExecutionLimitsContract",
+  "type": "object"
+}

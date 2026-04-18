@@ -1,0 +1,39 @@
+{
+  "properties": {
+    "active_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Active Values",
+      "type": "array"
+    },
+    "aliases": {
+      "additionalProperties": true,
+      "title": "Aliases",
+      "type": "object"
+    },
+    "autopilot_dispatch_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Autopilot Dispatch Values",
+      "type": "array"
+    },
+    "canonical_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Canonical Values",
+      "type": "array"
+    },
+    "terminal_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Terminal Values",
+      "type": "array"
+    }
+  },
+  "title": "TaskStatusContract",
+  "type": "object"
+}

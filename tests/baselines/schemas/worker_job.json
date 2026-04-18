@@ -1,0 +1,71 @@
+{
+  "properties": {
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "context_bundle_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Bundle Id"
+    },
+    "expected_output_schema": {
+      "additionalProperties": true,
+      "title": "Expected Output Schema",
+      "type": "object"
+    },
+    "job_metadata": {
+      "additionalProperties": true,
+      "title": "Job Metadata",
+      "type": "object"
+    },
+    "parent_task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Task Id"
+    },
+    "status": {
+      "default": "created",
+      "title": "Status",
+      "type": "string"
+    },
+    "subtask_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Subtask Id"
+    },
+    "worker_url": {
+      "title": "Worker Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "worker_url"
+  ],
+  "title": "WorkerJobContract",
+  "type": "object"
+}

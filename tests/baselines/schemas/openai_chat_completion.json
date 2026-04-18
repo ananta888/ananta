@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "OpenAIChatCompletionChoice": {
+      "properties": {
+        "finish_reason": {
+          "default": "stop",
+          "title": "Finish Reason",
+          "type": "string"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "message": {
+          "additionalProperties": true,
+          "title": "Message",
+          "type": "object"
+        }
+      },
+      "required": [
+        "index",
+        "message"
+      ],
+      "title": "OpenAIChatCompletionChoice",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "choices": {
+      "items": {
+        "$ref": "#/$defs/OpenAIChatCompletionChoice"
+      },
+      "title": "Choices",
+      "type": "array"
+    },
+    "conversation": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conversation"
+    },
+    "created": {
+      "title": "Created",
+      "type": "integer"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "object": {
+      "default": "chat.completion",
+      "title": "Object",
+      "type": "string"
+    },
+    "trace_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trace Id"
+    },
+    "usage": {
+      "additionalProperties": true,
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "created",
+    "model",
+    "choices",
+    "usage"
+  ],
+  "title": "OpenAIChatCompletionContract",
+  "type": "object"
+}

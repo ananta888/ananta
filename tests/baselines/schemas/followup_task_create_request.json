@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "FollowupTaskItem": {
+      "properties": {
+        "agent_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Token"
+        },
+        "agent_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Url"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "Medium",
+          "title": "Priority"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "FollowupTaskItem",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/FollowupTaskItem"
+      },
+      "title": "Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "FollowupTaskCreateRequest",
+  "type": "object"
+}

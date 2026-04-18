@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "ExposurePolicyContract": {
+      "properties": {
+        "mcp": {
+          "$ref": "#/$defs/ExposurePolicyGroupContract"
+        },
+        "openai_compat": {
+          "$ref": "#/$defs/ExposurePolicyGroupContract"
+        },
+        "remote_hubs": {
+          "$ref": "#/$defs/ExposurePolicyGroupContract"
+        }
+      },
+      "required": [
+        "openai_compat",
+        "mcp",
+        "remote_hubs"
+      ],
+      "title": "ExposurePolicyContract",
+      "type": "object"
+    },
+    "ExposurePolicyGroupContract": {
+      "properties": {
+        "allow_agent_auth": {
+          "default": false,
+          "title": "Allow Agent Auth",
+          "type": "boolean"
+        },
+        "allow_files_api": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allow Files Api"
+        },
+        "allow_user_auth": {
+          "default": false,
+          "title": "Allow User Auth",
+          "type": "boolean"
+        },
+        "emit_audit_events": {
+          "default": true,
+          "title": "Emit Audit Events",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "instance_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instance Id"
+        },
+        "max_hops": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3,
+          "title": "Max Hops"
+        },
+        "require_admin_for_user_auth": {
+          "default": true,
+          "title": "Require Admin For User Auth",
+          "type": "boolean"
+        }
+      },
+      "title": "ExposurePolicyGroupContract",
+      "type": "object"
+    },
+    "TerminalPolicyContract": {
+      "properties": {
+        "allow_interactive": {
+          "default": false,
+          "title": "Allow Interactive",
+          "type": "boolean"
+        },
+        "allow_read": {
+          "default": false,
+          "title": "Allow Read",
+          "type": "boolean"
+        },
+        "allowed_cidrs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Cidrs",
+          "type": "array"
+        },
+        "allowed_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Roles",
+          "type": "array"
+        },
+        "emit_audit_events": {
+          "default": true,
+          "title": "Emit Audit Events",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "idle_timeout_seconds": {
+          "default": 300,
+          "title": "Idle Timeout Seconds",
+          "type": "integer"
+        },
+        "input_preview_max_chars": {
+          "default": 120,
+          "title": "Input Preview Max Chars",
+          "type": "integer"
+        },
+        "max_session_seconds": {
+          "default": 1800,
+          "title": "Max Session Seconds",
+          "type": "integer"
+        },
+        "require_admin": {
+          "default": true,
+          "title": "Require Admin",
+          "type": "boolean"
+        }
+      },
+      "title": "TerminalPolicyContract",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "exposure_policy": {
+      "$ref": "#/$defs/ExposurePolicyContract"
+    },
+    "is_custom": {
+      "default": false,
+      "title": "Is Custom",
+      "type": "boolean"
+    },
+    "platform_mode": {
+      "title": "Platform Mode",
+      "type": "string"
+    },
+    "terminal_policy": {
+      "$ref": "#/$defs/TerminalPolicyContract"
+    }
+  },
+  "required": [
+    "exposure_policy",
+    "terminal_policy",
+    "platform_mode"
+  ],
+  "title": "GovernancePolicyReadModelContract",
+  "type": "object"
+}

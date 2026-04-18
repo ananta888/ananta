@@ -138,5 +138,6 @@ CONTEXT_EFFICIENCY_BUDGET_UTILIZATION = Histogram(
 )
 
 # Ressourcen Metriken
+APP_STARTUP_DURATION = Gauge("app_startup_duration_seconds", "Duration of the app startup process")
 CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")
 RAM_USAGE = Gauge("process_ram_usage_bytes", "RAM usage of the agent process")

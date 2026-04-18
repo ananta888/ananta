@@ -1,0 +1,84 @@
+{
+  "properties": {
+    "bytes": {
+      "title": "Bytes",
+      "type": "integer"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "integer"
+    },
+    "extracted_document_count": {
+      "default": 0,
+      "title": "Extracted Document Count",
+      "type": "integer"
+    },
+    "filename": {
+      "title": "Filename",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "media_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Media Type"
+    },
+    "object": {
+      "default": "file",
+      "title": "Object",
+      "type": "string"
+    },
+    "purpose": {
+      "default": "assistants",
+      "title": "Purpose",
+      "type": "string"
+    },
+    "sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sha256"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "version_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Version Id"
+    }
+  },
+  "required": [
+    "id",
+    "bytes",
+    "created_at",
+    "filename",
+    "status"
+  ],
+  "title": "OpenAIFileContract",
+  "type": "object"
+}

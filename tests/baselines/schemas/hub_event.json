@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "HubEventContextContract": {
+      "properties": {
+        "goal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Goal Id"
+        },
+        "plan_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "trace_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trace Id"
+        },
+        "verification_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verification Record Id"
+        }
+      },
+      "title": "HubEventContextContract",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "actor": {
+      "default": "system",
+      "title": "Actor",
+      "type": "string"
+    },
+    "channel": {
+      "default": "task_history",
+      "title": "Channel",
+      "type": "string"
+    },
+    "context": {
+      "$ref": "#/$defs/HubEventContextContract"
+    },
+    "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+    },
+    "event_type": {
+      "title": "Event Type",
+      "type": "string"
+    },
+    "kind": {
+      "default": "hub_event",
+      "title": "Kind",
+      "type": "string"
+    },
+    "timestamp": {
+      "title": "Timestamp",
+      "type": "number"
+    },
+    "version": {
+      "default": "v1",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_type",
+    "timestamp"
+  ],
+  "title": "HubEventContract",
+  "type": "object"
+}

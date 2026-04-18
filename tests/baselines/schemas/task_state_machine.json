@@ -1,0 +1,45 @@
+{
+  "$defs": {
+    "TaskStateTransitionRule": {
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "from_statuses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "From Statuses",
+          "type": "array"
+        },
+        "to_status": {
+          "title": "To Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "to_status"
+      ],
+      "title": "TaskStateTransitionRule",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "notes": {
+      "additionalProperties": true,
+      "title": "Notes",
+      "type": "object"
+    },
+    "transitions": {
+      "items": {
+        "$ref": "#/$defs/TaskStateTransitionRule"
+      },
+      "title": "Transitions",
+      "type": "array"
+    }
+  },
+  "title": "TaskStateMachineContract",
+  "type": "object"
+}

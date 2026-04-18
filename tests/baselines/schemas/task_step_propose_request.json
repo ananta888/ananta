@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "ResearchContextInputContract": {
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "include_extracted_text": {
+          "default": true,
+          "title": "Include Extracted Text",
+          "type": "boolean"
+        },
+        "include_knowledge_chunks": {
+          "default": true,
+          "title": "Include Knowledge Chunks",
+          "type": "boolean"
+        },
+        "knowledge_collection_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Knowledge Collection Ids",
+          "type": "array"
+        },
+        "max_context_chars": {
+          "default": 12000,
+          "title": "Max Context Chars",
+          "type": "integer"
+        },
+        "repo_scope_refs": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Repo Scope Refs",
+          "type": "array"
+        },
+        "top_k": {
+          "default": 5,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "title": "ResearchContextInputContract",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "prompt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prompt"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "providers": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Providers"
+    },
+    "research_context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResearchContextInputContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "temperature": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Temperature"
+    }
+  },
+  "title": "TaskStepProposeRequest",
+  "type": "object"
+}
