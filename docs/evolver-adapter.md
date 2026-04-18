@@ -29,6 +29,7 @@ The built-in defaults keep Evolver disabled:
         "provider_name": "evolver",
         "base_url": null,
         "analyze_path": "/evolution/analyze",
+        "health_path": null,
         "timeout_seconds": 30,
         "default": false,
         "replace": true,
@@ -45,6 +46,7 @@ For Compose deployments, enable it with environment variables on the hub:
 EVOLVER_ENABLED=1
 EVOLVER_BASE_URL=http://evolver:8080
 EVOLVER_ANALYZE_PATH=/evolution/analyze
+EVOLVER_HEALTH_PATH=/health
 EVOLVER_TIMEOUT_SECONDS=30
 EVOLVER_DEFAULT=1
 ```
@@ -78,6 +80,29 @@ If the Evolver plugin is disabled or misconfigured, the hub starts normally and
 the provider is not registered. If the provider is registered but unavailable,
 the registry health endpoint reports degraded/unavailable state and analysis
 requests fail through the normal Evolution service error path.
+
+API error responses for Evolution operations include a stable `data.error_code`
+for client handling. External provider failures use codes such as
+`provider_timeout`, `provider_connection_error`, `provider_http_error` and
+`provider_invalid_response`. Analyze-only Evolver Validate/Apply calls return
+`provider_operation_not_supported`.
+
+## Response Contract
+
+The adapter accepts one proposal source field per response: `proposals`,
+`improvements`, `candidates` or `events`. Supplying more than one source is
+treated as an ambiguous provider contract and fails before mapping.
+
+Proposal type, risk and status values are normalized in the adapter:
+
+- `gene` maps to generic `improvement`.
+- `capsule` and `repair` map to generic `repair`.
+- `gep_prompt` and `prompt` map to generic `prompt`.
+- risk values such as `minimal` and `moderate` normalize to `low` and `medium`.
+- status values such as `success`, `ok` and `done` normalize to `completed`.
+
+The original Evolver kind and source field remain available as bounded
+`provider_metadata`; the generic core model stays provider-neutral.
 
 See `docs/evolution-rollout.md` for the phased rollout from disabled to
 analyze-only, controlled review and future apply staging.

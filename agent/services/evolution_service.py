@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any, Callable
 
@@ -524,7 +525,7 @@ class EvolutionService:
     def _bounded_payload(self, payload: Any, *, policy: EvolutionPolicy) -> Any:
         if payload is None:
             return None
-        sanitized = _sanitize_details(payload) if isinstance(payload, dict) else payload
+        sanitized = self._sanitize_persisted_payload(payload)
         try:
             encoded = json.dumps(sanitized, ensure_ascii=True, sort_keys=True, default=str)
         except TypeError:
@@ -538,6 +539,57 @@ class EvolutionService:
             "max_raw_payload_bytes": policy.max_raw_payload_bytes,
             "preview": preview,
         }
+
+    @classmethod
+    def _sanitize_persisted_payload(cls, payload: Any) -> Any:
+        sanitized = _sanitize_details(payload) if isinstance(payload, dict) else payload
+        return cls._redact_persisted_value(sanitized)
+
+    @classmethod
+    def _redact_persisted_value(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            redacted: dict[str, Any] = {}
+            for key, item in value.items():
+                key_text = str(key)
+                if cls._is_sensitive_persisted_key(key_text):
+                    redacted[key] = "***REDACTED***"
+                else:
+                    redacted[key] = cls._redact_persisted_value(item)
+            return redacted
+        if isinstance(value, list):
+            return [cls._redact_persisted_value(item) for item in value]
+        if isinstance(value, str):
+            return cls._redact_persisted_text(value)
+        return value
+
+    @staticmethod
+    def _is_sensitive_persisted_key(key: str) -> bool:
+        normalized = key.strip().lower().replace("-", "_")
+        sensitive_fragments = ("token", "secret", "password", "api_key", "apikey", "credential", "authorization")
+        if any(fragment in normalized for fragment in sensitive_fragments):
+            return True
+        return normalized in {"headers", "request_headers", "response_headers", "auth"}
+
+    @staticmethod
+    def _redact_persisted_text(value: str) -> str:
+        redacted = value
+        redacted = re.sub(
+            r"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|host\.docker\.internal)(?::\d+)?[^\s,\]\)\"]*",
+            "***REDACTED_LOCAL_URL***",
+            redacted,
+            flags=re.IGNORECASE,
+        )
+        redacted = re.sub(
+            r"(?<![\w.:-])(?:/[A-Za-z0-9._ -]+){2,}",
+            "***REDACTED_PATH***",
+            redacted,
+        )
+        redacted = re.sub(
+            r"(?<![\w.-])[A-Za-z]:\\(?:[^\\/:*?\"<>|\r\n]+\\?){2,}",
+            "***REDACTED_PATH***",
+            redacted,
+        )
+        return redacted
 
     def _run_read_model(self, run: EvolutionRunDB) -> dict[str, Any]:
         return {

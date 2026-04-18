@@ -24,8 +24,18 @@ class ProposalEngine(EvolutionEngine):
             provider_name=self.provider_name,
             status="completed",
             summary=f"Proposal summary for {context.task_id}",
-            provider_metadata={"provider_score": 0.91, "token": "secret-token"},
-            raw_payload={"raw": "retained", "password": "secret-password", "large": "x" * 2000},
+            provider_metadata={
+                "provider_score": 0.91,
+                "token": "secret-token",
+                "headers": {"Authorization": "Bearer hidden"},
+                "endpoint": "http://localhost:8080/evolution/analyze",
+            },
+            raw_payload={
+                "raw": "retained",
+                "password": "secret-password",
+                "local_path": "/mnt/c/Users/pst/IdeaProjects/ananta/secret.txt",
+                "large": "x" * 2000,
+            },
             proposals=[
                 EvolutionProposal(
                     title="Add queue visibility",
@@ -36,8 +46,8 @@ class ProposalEngine(EvolutionEngine):
                     risk_level="medium",
                     confidence=0.8,
                     requires_review=True,
-                    provider_metadata={"vendor_hint": "queue"},
-                    raw_payload={"vendor_payload": "kept", "api_key": "secret-key"},
+                    provider_metadata={"vendor_hint": "queue", "bearer_token": "secret-token"},
+                    raw_payload={"vendor_payload": "kept", "api_key": "secret-key", "url": "http://127.0.0.1:5000/private"},
                 )
             ],
         )
@@ -84,8 +94,14 @@ def test_analyze_task_persists_run_proposals_and_audit_events():
     assert saved_run.trigger_type == "verification_failure"
     assert saved_run.trigger_source == "verification_service"
     assert saved_run.result_metadata["proposal_count"] == 1
-    assert saved_run.provider_metadata == {"provider_score": 0.91, "token": "***REDACTED***"}
+    assert saved_run.provider_metadata == {
+        "provider_score": 0.91,
+        "token": "***REDACTED***",
+        "headers": "***REDACTED***",
+        "endpoint": "***REDACTED_LOCAL_URL***",
+    }
     assert saved_run.raw_payload["password"] == "***REDACTED***"
+    assert saved_run.raw_payload["local_path"] == "***REDACTED_PATH***"
     assert saved_run.raw_payload["large"] == "x" * 2000
 
     proposals = evolution_proposal_repo.get_by_run_id(saved_run.id)
@@ -95,8 +111,12 @@ def test_analyze_task_persists_run_proposals_and_audit_events():
     assert proposals[0].risk_level == "medium"
     assert proposals[0].confidence == 0.8
     assert proposals[0].requires_review is True
-    assert proposals[0].provider_metadata == {"vendor_hint": "queue"}
-    assert proposals[0].raw_payload == {"vendor_payload": "kept", "api_key": "***REDACTED***"}
+    assert proposals[0].provider_metadata == {"vendor_hint": "queue", "bearer_token": "***REDACTED***"}
+    assert proposals[0].raw_payload == {
+        "vendor_payload": "kept",
+        "api_key": "***REDACTED***",
+        "url": "***REDACTED_LOCAL_URL***",
+    }
 
     actions = {entry.action: entry for entry in audit_repo.get_all(limit=20)}
     assert "evolution_analysis_requested" in actions

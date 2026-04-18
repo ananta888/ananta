@@ -9,8 +9,12 @@ from agent.services.evolution import (
     EvolutionCapability,
     EvolutionContext,
     EvolutionEngine,
+    EvolutionProposal,
     EvolutionProviderDescriptor,
     EvolutionResult,
+    UnsupportedEvolutionOperation,
+    ApplyResult,
+    ValidationResult,
 )
 
 from .mapper import map_evolver_result
@@ -233,6 +237,57 @@ class EvolverAdapter(EvolutionEngine):
         )
 
     def analyze(self, context: EvolutionContext) -> EvolutionResult:
-        payload = {"context": context.model_dump(mode="json")}
+        payload = {"context": self._external_context_payload(context)}
         raw_result = self._transport.analyze(payload)
         return map_evolver_result(raw_result, provider_name=self.provider_name)
+
+    def validate(self, context: EvolutionContext, proposal: EvolutionProposal) -> ValidationResult:
+        raise UnsupportedEvolutionOperation(self.provider_name, EvolutionCapability.VALIDATE.value)
+
+    def apply(self, context: EvolutionContext, proposal: EvolutionProposal) -> ApplyResult:
+        raise UnsupportedEvolutionOperation(self.provider_name, EvolutionCapability.APPLY.value)
+
+    @staticmethod
+    def _external_context_payload(context: EvolutionContext) -> dict[str, Any]:
+        raw = context.model_dump(mode="json")
+        signals = raw.get("signals") if isinstance(raw.get("signals"), dict) else {}
+        task = signals.get("task") if isinstance(signals.get("task"), dict) else {}
+        verification = signals.get("verification") if isinstance(signals.get("verification"), dict) else {}
+        audit = signals.get("audit") if isinstance(signals.get("audit"), dict) else {}
+        artifacts = signals.get("artifacts") if isinstance(signals.get("artifacts"), list) else []
+        constraints = raw.get("constraints") if isinstance(raw.get("constraints"), dict) else {}
+        return {
+            "objective": raw.get("objective"),
+            "task": {
+                "title": task.get("title"),
+                "description": task.get("description"),
+                "status": task.get("status"),
+                "priority": task.get("priority"),
+                "task_kind": task.get("task_kind"),
+                "last_exit_code": task.get("last_exit_code"),
+                "last_output_present": bool(task.get("last_output_present")),
+            },
+            "verification": {
+                "latest_status": verification.get("latest_status"),
+                "record_count": verification.get("record_count"),
+            },
+            "audit": {
+                "event_count": audit.get("event_count"),
+            },
+            "artifacts": {
+                "count": len(artifacts),
+                "media_types": sorted(
+                    {
+                        str(item.get("media_type"))
+                        for item in artifacts
+                        if isinstance(item, dict) and item.get("media_type")
+                    }
+                ),
+            },
+            "constraints": {
+                "required_capabilities": constraints.get("required_capabilities")
+                if isinstance(constraints.get("required_capabilities"), list)
+                else [],
+                "review_required": bool(constraints.get("review_required")),
+            },
+        }
