@@ -39,6 +39,20 @@ Please try to keep contributions:
 - security-aware
 - compatible with existing architecture where possible
 
+## Architecture Guardrails & PR Best Practices
+
+To maintain code quality and architectural integrity, please follow these guardrails:
+
+- **Thematic Focus:** Every Pull Request should address exactly one topic or issue. Avoid "kitchen sink" PRs that mix refactorings, bugfixes, and new features.
+- **PR Size:** Keep PRs small and reviewable. Aim for less than 400 lines of code changes. Larger changes should be split into multiple incremental PRs.
+- **Boundary Enforcement:** Do not bypass established layer boundaries. For example:
+    - Routes should use Services, not Repositories directly.
+    - Workers should not orchestrate other workers.
+    - All work must flow through the Hub task system.
+- **Dependency Discipline:** Be careful with adding new dependencies. Check if existing libraries can fulfill the need.
+- **Automated Checks:** Ensure all local checks pass before pushing. We use a central check pipeline (`make check`).
+- **Contract Stability:** Changes to central API schemas (Task, Goal, Provider) must be backward compatible or explicitly justified.
+
 ## Tests and checks
 
 Run relevant checks before submitting changes, for example:

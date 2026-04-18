@@ -157,7 +157,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Stable-Seams, Replaceability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -362,7 +362,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Operator-Confidence, End-to-End-Coverage",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -412,7 +412,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Fast-Failure, Deployability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/",
@@ -436,7 +436,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Environment-Consistency, Supply-Chain-Hygiene",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "requirements*.txt",
@@ -559,7 +559,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Extensibility, Safer-Plugin-Ecosystem",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/",
@@ -582,7 +582,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Robustness, Multi-Plugin-Readiness",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/plugin_loader.py",
@@ -626,7 +626,7 @@
           "priority": "low",
           "type": "documentation",
           "principle": "Reviewability, Healthy-Change-Size",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "CONTRIBUTING.md",
@@ -646,7 +646,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Transparency, Continuous-Improvement",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/",
@@ -666,9 +666,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 21,
+      "completed": 27,
       "partial": 0,
-      "open": 6
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei vergleicht Ananta nicht funktional mit OpenClaw, sondern technisch auf Ebene von Repo-Haertung, Boundary-Enforcement, Testtopologie und Build-/Release-Reife.",
