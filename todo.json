@@ -1,837 +1,715 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.5.0",
+  "version": "5.6.0",
   "created": "2026-04-18",
-  "updated": "2026-04-18T18:00:00Z",
+  "updated": "2026-04-18T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Die Control Plane, Governance, Sicherheit, Observability und Skalierbarkeit von Ananta in den zentralen Plattformbereichen weiter haerten und klarer modellieren.",
+    "review_goal": "Die technische Codequalitaet, Repo-Disziplin, Boundary-Haertung, Testtiefe und Build-/Release-Mechanik von Ananta auf ein staerker industrialisiertes Niveau anheben, wie es bei grossen produktionsnahen Open-Source-Agentensystemen sichtbar ist.",
     "notes": [
-      "Ananta ist bereits stark bei Hub-Worker-Orchestrierung, Goal-basierter Ausrichtung, Explainability, Traceability und provider-neutraler Runtime-Integration.",
-      "Der groesste naechste Hebel liegt weniger in noch mehr Feature-Breite als in haerterer Governance, klareren Zustandsmodellen, besserer Betriebsdiagnostik und konsequenterer Kontextdisziplin.",
-      "Wichtige Architekturprinzipien bleiben: zentrale Task-Control-Plane, serverseitig validierte Delegation, fail-closed Exposition, nachvollziehbare trace_id-Ketten und klare Trennung zwischen Hub, Worker und optionalen externen Capabilities."
+      "Ananta ist architektonisch stark in Control Plane, Governance, Verification und Hub-Worker-Denke, aber mechanische Repo-Haertung und automatisierte Boundary-Kontrolle sind noch weniger ausgebaut.",
+      "OpenClaw wirkt technisch vor allem durch seine starke Tooling-Schicht, Boundary-Checks, Contract-Tests, Build-/Release-Skripte und fein aufgeteilte Testmodi reifer.",
+      "Diese Todo-Datei zielt nicht auf blinden Feature-Nachbau, sondern auf technische Reifegrade wie Importgrenzen, Dead-Code-Kontrolle, Contract-Stabilitaet, Performance-Messbarkeit und belastbarere CI-Schutzmechanismen."
     ]
   },
   "categories": [
     {
-      "name": "policy-mode-matrix",
-      "label": "Policy und Betriebsmodi",
+      "name": "repo-governance-and-quality-gates",
+      "label": "Repo Governance und Quality Gates",
       "items": [
         {
-          "id": "GOV-001",
-          "title": "Explizite Plattform-Betriebsmodi fuer Exposition und Ausfuehrung einfuehren",
-          "description": "Eine klare Modus-Matrix fuer local-dev, trusted-internal, admin-only und semi-public einfuehren, damit OpenAI-Compat, MCP, Terminal, Files API und Remote-Hubs nicht nur ueber verteilte Einzel-Flags, sondern ueber konsistente Betriebsprofile gesteuert werden.",
+          "id": "QGT-001",
+          "title": "Zentrale Check-Pipeline fuer Format, Lint, Type-Checks und Architekturregeln vereinheitlichen",
+          "description": "Eine klar definierte Haupt-Check-Pipeline aufbauen, die Formatierung, statische Analyse, Type-Checks, Architekturgrenzen und schnelle Tests in konsistenter Reihenfolge ausfuehrt, damit lokale Entwicklung und CI dieselben Schutzbarrieren verwenden.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "Fail-Closed, Operational-Clarity",
-          "status": "completed",
-          "effort": "large",
+          "principle": "Consistency, Mechanical-Discipline",
+          "status": "open",
+          "effort": "medium",
           "files": [
-            "agent/config.py",
-            "agent/routes/config.py",
-            "docs/backend.md",
+            "Makefile",
+            "pyproject.toml",
+            "scripts/",
+            ".github/workflows/",
             "tests/"
           ],
           "acceptance": [
-            "Es existieren klar definierte Plattformmodi mit dokumentierten Sicherheits- und Freigaberegeln.",
-            "OpenAI-Compat, MCP, Terminal und Files API koennen aus einem Modusprofil abgeleitet werden statt nur aus verstreuten Einzelwerten.",
-            "Ein unsicherer Mischbetrieb durch widerspruechliche Flags wird reduziert oder explizit blockiert."
+            "Es existiert ein klarer Standard-Check-Einstiegspunkt fuer lokale Entwicklung und CI.",
+            "Lint, Type-Checks, Format und definierte Repo-Regeln laufen reproduzierbar in derselben Pipeline.",
+            "Fehlerbilder sind fuer Entwickler klar genug, um Grenzverletzungen schnell zu verstehen."
           ]
         },
         {
-          "id": "GOV-002",
-          "title": "Expositionsregeln fuer OpenAI-Compat, MCP und Remote-Hubs vereinheitlichen",
-          "description": "Die bisher getrennt wirkenden exposure_policy-Regeln zu einem einheitlichen Regelmodell zusammenziehen, damit Authentication, Admin-Pflicht, Agent-Zugriff, Hop-Grenzen und Files-Exposition konsistent ueber alle Expositionspfade hinweg bewertet werden.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Consistency, Security",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/config.py",
-            "agent/routes/",
-            "agent/services/integration_registry_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "GOV-001"
-          ],
-          "acceptance": [
-            "OpenAI-Compat-, MCP- und Remote-Hub-Pfade verwenden dieselben oder bewusst kompatible Governance-Grundbegriffe.",
-            "User-, Agent- und Admin-Zugriffsregeln sind pro Expositionspfad nachvollziehbar und nicht widerspruechlich.",
-            "Die Doku beschreibt den Zusammenhang der Expositionspfade aus einer gemeinsamen Governance-Sicht."
-          ]
-        },
-        {
-          "id": "GOV-003",
-          "title": "Policy-Entscheidungen als eigenes maschinenlesbares Read-Model bereitstellen",
-          "description": "Ein Governance-Read-Model aufbauen, das fuer Requests und Task-Operationen nachvollziehbar macht, welche Policy-Regel was erlaubt, geblockt oder eingeschraenkt hat.",
+          "id": "QGT-002",
+          "title": "Pre-Push- und CI-Gates fuer kritische Architekturregeln verbindlich machen",
+          "description": "Die wichtigsten Grenzen wie keine zyklischen Modulbeziehungen, keine verbotenen Imports und keine unsicheren Direktpfade vor Merge oder Push automatisch pruefen, statt sich auf manuelle Disziplin zu verlassen.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Explainability, Auditability",
-          "status": "completed",
+          "principle": "Preventive-Quality, Shift-Left",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/",
-            "agent/services/",
-            "agent/repository.py",
+            ".github/workflows/",
+            "git-hooks/",
+            "scripts/",
             "tests/"
           ],
           "dependencies": [
-            "GOV-001",
-            "GOV-002"
+            "QGT-001"
           ],
           "acceptance": [
-            "Policy-Blockierungen und Freigaben werden in strukturierter Form sichtbar.",
-            "Admins koennen nachvollziehen, welche Regel zu welcher Entscheidung gefuehrt hat.",
-            "Governance-Daten lassen sich spaeter im Dashboard oder Read-Model anzeigen."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "terminal-and-high-risk-access",
-      "label": "Terminal und Hochrisiko-Zugriffe",
-      "items": [
-        {
-          "id": "TRM-010",
-          "title": "Terminal-Zugriff standardmaessig fail-closed und separat policy-gesteuert machen",
-          "description": "Den WebSocket-Terminalpfad als eigenen Hochrisiko-Kanal behandeln und standardmaessig deaktiviert halten, statt ihn nur als normalen authentifizierten Nebenpfad zu behandeln.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Least-Privilege, High-Risk-Isolation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/config.py",
-            "docs/backend.md",
-            "tests/"
-          ],
-          "acceptance": [
-            "Terminal-Zugriff ist standardmaessig deaktiviert oder klar admin-only.",
-            "Eigene Policy-Flags fuer Terminal existieren getrennt von allgemeiner API-Auth.",
-            "Nicht freigegebene Terminal-Zugriffe werden sauber geblockt und auditierbar protokolliert."
+            "Kritische Architekturregeln werden automatisch vor oder spaetestens in CI geprüft.",
+            "Verstoesse blockieren den Merge-Pfad statt nur nachtraeglich sichtbar zu werden.",
+            "Die Regelbasis ist dokumentiert und wartbar."
           ]
         },
         {
-          "id": "TRM-011",
-          "title": "Interactive- und Read-Only-Terminal-Modus sicherheitlich strikt trennen",
-          "description": "Den read-only Follow/Tail-Modus klar vom interaktiven Shell-Modus trennen, damit Beobachtung und aktive Shell-Eingriffe nicht ueber denselben Vertrauenspfad laufen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Mode-Separation, Risk-Reduction",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/config.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "TRM-010"
-          ],
-          "acceptance": [
-            "Read-Only und Interactive haben getrennte Policy- und Berechtigungsregeln.",
-            "Read-Only-Zugriffe koennen erlaubt sein, ohne automatisch Interactive freizuschalten.",
-            "UI und API machen die Modusunterschiede klar sichtbar."
-          ]
-        },
-        {
-          "id": "TRM-012",
-          "title": "Terminal-Sessions mit Idle-, Laufzeit- und Audit-Grenzen haerten",
-          "description": "Fuer Terminal-Sessions explizite maximale Lebensdauer, Inaktivitaets-Timeouts, Input-Previews und strengere Audit-Metadaten einfuehren, um Missbrauch und lange offene Sitzungen zu reduzieren.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Session-Control, Auditability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/common/",
-            "agent/config.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "TRM-010"
-          ],
-          "acceptance": [
-            "Terminal-Sessions laufen nicht unbegrenzt weiter.",
-            "Session-Beginn, Session-Ende und relevante Input-Metadaten sind sauber auditierbar.",
-            "Timeout- und Abbruchverhalten ist reproduzierbar getestet."
-          ]
-        },
-        {
-          "id": "TRM-013",
-          "title": "Optionale Netzwerk- und Rollenrestriktionen fuer Terminal einfuehren",
-          "description": "Zusatzgrenzen wie Admin-only, bestimmte Rollen, interne Netze oder explizite Operator-Gruppen als zusaetzliche Terminal-Schutzschicht einbauen.",
+          "id": "QGT-003",
+          "title": "Projektweite Check-Klassen in schnell, standard und tief staffeln",
+          "description": "Die Qualitätssicherung in klar benannte Stufen wie fast, standard und deep aufteilen, damit Entwickler schnell arbeiten koennen ohne die harten Vollpruefungen aus dem Blick zu verlieren.",
           "priority": "medium",
           "type": "improvement",
-          "principle": "Defense-in-Depth, Operational-Safety",
-          "status": "completed",
+          "principle": "Developer-Flow, Scalable-QA",
+          "status": "open",
           "effort": "small",
           "files": [
-            "agent/config.py",
-            "agent/routes/",
+            "scripts/",
+            ".github/workflows/",
+            "README.md",
             "tests/"
           ],
           "dependencies": [
-            "TRM-010"
+            "QGT-001"
           ],
           "acceptance": [
-            "Terminal kann zusaetzlich durch Rollen- oder Netzwerkbedingungen eingeschraenkt werden.",
-            "Diese Einschraenkungen sind explizit konfigurierbar und dokumentiert.",
-            "Fehlkonfigurationen fuehren fail-closed statt implizit zu offenerem Zugriff."
+            "Es gibt klar benannte QA-Stufen mit dokumentiertem Umfang.",
+            "Schnelle lokale Checks und tiefere CI-Checks greifen ineinander statt nebeneinander zu stehen.",
+            "Entwickler verstehen, wann welche Check-Stufe sinnvoll ist."
           ]
         }
       ]
     },
     {
-      "name": "governance-read-model",
-      "label": "Governance Read Model",
+      "name": "architecture-boundaries-and-import-discipline",
+      "label": "Architekturgrenzen und Importdisziplin",
       "items": [
         {
-          "id": "GRM-020",
-          "title": "Zentrales Governance-Read-Model fuer Routing-, Policy- und Verification-Entscheidungen einführen",
-          "description": "Ein einheitliches Read-Model schaffen, das fuer Goals, Plans und Tasks sichtbar macht, welche Routing-, Policy- und Verification-Entscheidungen auf dem Weg zur Ausfuehrung getroffen wurden.",
+          "id": "BND-010",
+          "title": "Explizite Modulgrenzen zwischen Core, Routes, Services, Plugins und Integrationen maschinenpruefbar machen",
+          "description": "Die Architekturgrenzen zwischen Core-Domain, Service-Schicht, Routen, Plugins und externen Integrationen als technische Regeln modellieren, damit Schichtverletzungen nicht schleichend in den Code einziehen.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "Observability, Explainability",
-          "status": "completed",
+          "principle": "Layering, Boundary-Enforcement",
+          "status": "open",
           "effort": "large",
           "files": [
-            "agent/routes/tasks/",
-            "agent/services/",
-            "agent/repositories/governance.py",
-            "agent/repository.py",
-            "frontend-angular/src/app/components/",
+            "agent/",
+            "plugins/",
+            "scripts/",
             "tests/"
           ],
           "acceptance": [
-            "Routing-, Policy- und Verification-Informationen sind ueber ein gemeinsames Read-Model abrufbar.",
-            "Trace-Ketten zwischen Goal, Plan, Task, Verification und Artifact bleiben erhalten.",
-            "Nicht-admin Views koennen weiterhin auf Summary-Level begrenzt werden."
+            "Zentrale Schichtgrenzen sind formal beschrieben und automatisiert pruefbar.",
+            "Routes greifen nicht beliebig an allen Schichten vorbei direkt in tiefe technische Details.",
+            "Plugins und Integrationen umgehen nicht stillschweigend die vorgesehenen Provider- oder Servicegrenzen."
           ]
         },
         {
-          "id": "GRM-021",
-          "title": "Escalation- und Blockierungsgruende strukturiert modellieren",
-          "description": "Statt reine Statuswechsel oder freie Fehltexte zu verwenden sollen Escalations und Blockierungen ueber klar benannte reason codes und strukturierte Zusatzdaten sichtbar werden.",
+          "id": "BND-011",
+          "title": "Verbotene Importmuster und Monolith-Entry-Imports automatisiert erkennen",
+          "description": "Skripte oder Lint-Regeln einfuehren, die zu breite Imports, Schichtspruenge oder den rueckwaertigen Zugriff auf interne Module automatisch erkennen und blockieren.",
           "priority": "high",
-          "type": "improvement",
-          "principle": "Debuggability, Determinism",
-          "status": "completed",
+          "type": "bugfix",
+          "principle": "Boundary-Safety, Encapsulation",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/db_models.py",
-            "agent/services/",
-            "agent/routes/tasks/",
+            "scripts/",
+            "agent/",
+            "plugins/",
             "tests/"
           ],
           "dependencies": [
-            "GRM-020"
+            "BND-010"
           ],
           "acceptance": [
-            "Escalations und Blockierungen tragen strukturierte reason codes statt nur freie Texte.",
-            "Diese Gruende sind im Read-Model und spaeter im Dashboard sichtbar.",
-            "Regressionstests pruefen mehrere typische Fehler- und Escalation-Klassen."
+            "Verbotene Importpfade werden maschinell erkannt.",
+            "Breite oder instabile interne Imports werden auf definierte Schnittstellen zurueckgedraengt.",
+            "Tests oder Check-Skripte zeigen echte Verstosse reproduzierbar an."
           ]
         },
         {
-          "id": "GRM-022",
-          "title": "Summary-Level Governance-Daten fuer Nicht-Admins explizit zuschneiden",
-          "description": "Die bereits angedachte Trennung zwischen summary-level governance data und privilegierten Detaildaten konsequenter modellieren, damit Beobachtbarkeit nicht in zu breite Einsicht ausartet.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Least-Exposure, Role-Appropriate-Visibility",
-          "status": "completed",
+          "id": "BND-012",
+          "title": "Architekturdrift fuer Plugin- und Provider-Schnittstellen mit Contract-Boundaries absichern",
+          "description": "Fuer Plugin-, Provider- und Runtime-Schnittstellen explizite Vertragsgrenzen schaffen, damit interne Refactorings nicht unbemerkt die externen oder halbexternen Extension-Pfade brechen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Stable-Seams, Replaceability",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/",
             "agent/services/",
-            "frontend-angular/src/app/components/",
-            "tests/"
+            "plugins/",
+            "tests/",
+            "docs/extensions.md"
           ],
           "dependencies": [
-            "GRM-020"
+            "BND-010"
           ],
           "acceptance": [
-            "Nicht-Admins sehen nur geeignete Summary-Governance-Daten.",
-            "Detailinformationen bleiben klar privilegiert.",
-            "Tests decken Sichtbarkeitsunterschiede zwischen Rollen ab."
+            "Wichtige Plugin- und Provider-Seams sind als Contracts testbar beschrieben.",
+            "Interne Refactorings koennen gegen diese Grenzen validiert werden.",
+            "Drittanbieter-Integrationen haben stabilere und klarere Anschlussstellen."
           ]
         }
       ]
     },
     {
-      "name": "task-lifecycle-state-machine",
-      "label": "Task Lifecycle und State Machine",
+      "name": "import-cycles-duplication-and-dead-code",
+      "label": "Importzyklen, Duplikate und Dead Code",
       "items": [
         {
-          "id": "TSM-030",
-          "title": "Formale State-Machine fuer Tasks, Verification und Escalation einfuehren",
-          "description": "Die Task-Lebenszyklen von ingest bis completion oder escalation ueber explizit erlaubte Zustandsuebergaenge modellieren, statt sich auf lose Statuskonventionen und implizite Pfade zu verlassen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Determinism, Workflow-Clarity",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/models.py",
-            "agent/services/task_orchestration_service.py",
-            "agent/routes/tasks/",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Es existiert eine explizite Zustandsmaschine fuer Tasks und verwandte Uebergaenge.",
-            "Ungueltige Statuswechsel werden serverseitig geblockt.",
-            "Die erlaubten Uebergaenge sind dokumentiert und testabgedeckt."
-          ]
-        },
-        {
-          "id": "TSM-031",
-          "title": "Zwischenzustaende wie waiting_for_review, verification_failed und blocked_by_dependency first-class machen",
-          "description": "Wichtige Zwischen- und Governance-Zustaende als echte first-class Stati modellieren, statt sie nur indirekt ueber Freitext oder Nebenflags auszudruecken.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Expressiveness, Operational-Precision",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/models.py",
-            "agent/db_models.py",
-            "agent/routes/tasks/",
-            "tests/"
-          ],
-          "dependencies": [
-            "TSM-030"
-          ],
-          "acceptance": [
-            "Review-, Verification- und Dependency-bezogene Zwischenzustaende sind explizit sichtbar.",
-            "UI und API koennen diese Zustaende gezielt darstellen.",
-            "Task-Historien werden dadurch semantisch klarer und besser auswertbar."
-          ]
-        },
-        {
-          "id": "TSM-032",
-          "title": "Task-, Verification- und Artifact-Zustaende konsistent koppeln",
-          "description": "Definieren, wie Task-Status, Verification-Status und Artefaktstatus zusammenhaengen, damit keine semantischen Widersprueche wie completed bei fehlgeschlagener Verification entstehen.",
+          "id": "CLN-020",
+          "title": "Importzyklen repo-weit automatisch erkennen und abbauen",
+          "description": "Ein systematisches Cycle-Audit fuer Python-Module und relevante Frontend-Bereiche einfuehren, damit verdeckte zyklische Abhaengigkeiten frueh sichtbar werden und nicht erst bei Refactorings oder Runtime-Nebenwirkungen auffallen.",
           "priority": "high",
           "type": "refactor",
-          "principle": "Consistency, Integrity",
-          "status": "completed",
+          "principle": "Acyclic-Architecture, Maintainability",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/services/",
-            "agent/db_models.py",
-            "agent/routes/tasks/",
+            "agent/",
+            "frontend-angular/",
+            "scripts/",
             "tests/"
           ],
-          "dependencies": [
-            "TSM-030"
+          "acceptance": [
+            "Importzyklen werden automatisiert berichtet.",
+            "Kritische oder hochfrequente Zyklen sind priorisiert und abgebaut.",
+            "Neue Zyklen koennen in CI blockiert oder zumindest klar als Regression markiert werden."
+          ]
+        },
+        {
+          "id": "CLN-021",
+          "title": "Duplikatpruefung fuer Services, Routen und Utility-Logik einführen",
+          "description": "Code-Duplikate in Service-, Route- und Hilfsmodulen systematisch erkennen, damit wiederkehrende Muster wie Auth-, Mapping-, Error-Handling- oder Read-Model-Logik nicht weiter unkontrolliert kopiert werden.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "DRY, Long-Term-Maintainability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "scripts/",
+            "tests/"
           ],
           "acceptance": [
-            "Widerspruechliche Statuskombinationen werden verhindert oder klar markiert.",
-            "Verification und Artifact-Entstehung passen semantisch zum Task-Lebenszyklus.",
-            "Integritaets-Tests decken ungueltige Kombinationen ab."
+            "Relevante Duplikate werden maschinell sichtbar.",
+            "Haeufige Copy-Paste-Muster in Kernmodulen sind identifiziert und priorisiert.",
+            "Die Check-Konfiguration ist so eingestellt, dass sie echte Probleme hervorhebt statt nur Rauschen zu produzieren."
+          ]
+        },
+        {
+          "id": "CLN-022",
+          "title": "Dead-Code- und ungenutzte Exportanalyse in den normalen QA-Pfad aufnehmen",
+          "description": "Unbenutzte Funktionen, Routen, Hilfsmodule und veraltete Exporte regelmaessig erfassen, damit die Codebasis nicht langsam mit halbtoten Konzepten, Legacy-Pfaden und Experimentresten volllaeuft.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Code-Hygiene, Surface-Reduction",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "scripts/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Dead-Code-Berichte existieren als wiederholbarer Check.",
+            "Legacy- oder ungenutzte Exporte sind sichtbar und koennen schrittweise abgebaut werden.",
+            "Das Team hat einen definierten Umgang mit false positives und absichtlich gehaltenen API-Punkten."
           ]
         }
       ]
     },
     {
-      "name": "provider-runtime-routing",
-      "label": "Provider, Runtime und Routing",
+      "name": "contract-tests-and-schema-stability",
+      "label": "Contract Tests und Schema-Stabilitaet",
       "items": [
         {
-          "id": "RTR-040",
-          "title": "Routing-Entscheidungen zwischen Task-Typ, Provider, Modell und Backend explizit zerlegen",
-          "description": "Die bestehende Modell- und Backend-Auswahl in eine staerker getrennte Entscheidungskette aufteilen, damit fachlicher Task-Typ, Provider-Typ, Modellwahl und konkretes Execution-Backend sauber voneinander unterschieden werden.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Separation-of-Concerns, Explainable-Routing",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/integration_registry_service.py",
-            "agent/services/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Task-Typ, Provider-Wahl, Modell-Wahl und konkretes Backend sind als getrennte Entscheidungsschritte erkennbar.",
-            "Routing ist weniger implizit und dadurch besser debugbar.",
-            "Die bestehenden Katalog- und Routing-Endpunkte koennen die Entscheidungskette nachvollziehbar ausgeben."
-          ]
-        },
-        {
-          "id": "RTR-041",
-          "title": "Routing-Explainability im Read-Model und API ausbauen",
-          "description": "Zu jeder Routing-Entscheidung eine knappe maschinenlesbare Begruendung liefern, warum ein bestimmter Provider, ein bestimmtes Modell oder eine bestimmte Session-Strategie gewaehlt wurde.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Explainability, Operability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/services/",
-            "frontend-angular/src/app/components/",
-            "tests/"
-          ],
-          "dependencies": [
-            "RTR-040"
-          ],
-          "acceptance": [
-            "API und Read-Model koennen die Kernbegruendung fuer Routing-Entscheidungen anzeigen.",
-            "Routing-Explainability bleibt kompakt und verraet keine unnoetigen sensitiven Details.",
-            "Tests decken typische Routing-Szenarien mit unterschiedlichen Backends ab."
-          ]
-        },
-        {
-          "id": "RTR-042",
-          "title": "Fallback-Strategien fuer lokale und Remote-Backends explizit definieren",
-          "description": "Statt impliziter Laufzeitwahl klare Fallback-Regeln formulieren, wann lokale Backends, Remote-Ananta, stateful CLI oder stateless Generierung eingesetzt oder uebersprungen werden duerfen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Predictability, Resilience",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/config.py",
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "RTR-040"
-          ],
-          "acceptance": [
-            "Fallback-Regeln sind explizit dokumentiert und testbar.",
-            "Systemverhalten bei nicht verfuegbaren Backends bleibt reproduzierbar.",
-            "Implizite und schwer nachvollziehbare Routing-Spruenge werden reduziert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "blueprints-templates-and-versioning",
-      "label": "Blueprints, Templates und Versionierung",
-      "items": [
-        {
-          "id": "BTV-050",
-          "title": "Versionierung fuer Blueprints und Templates einfuehren",
-          "description": "Seed- und benutzerdefinierte Blueprints sowie Templates versionieren, damit spaetere Aenderungen nachvollziehbar sind und Teaminstanzen nicht stillschweigend semantisch driften.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Traceability, Controlled-Evolution",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/db_models.py",
-            "agent/repository.py",
-            "agent/routes/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Blueprints und Templates besitzen nachvollziehbare Versionen oder Revisionsstaende.",
-            "Aenderungen an Vorlagen ueberschreiben nicht stillschweigend bestehende Instanzen.",
-            "Die Herkunft einer Teaminstanz oder Vorlage ist spaeter eindeutig rekonstruierbar."
-          ]
-        },
-        {
-          "id": "BTV-051",
-          "title": "Diff- und Migrationssicht zwischen Blueprint-Ursprung und Teaminstanz ergaenzen",
-          "description": "Eine Sicht einbauen, die zeigt, worin sich eine konkrete Teaminstanz vom zugrunde liegenden Blueprint oder von einer neueren Blueprint-Version unterscheidet.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Maintainability, Drift-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/services/",
-            "frontend-angular/src/app/components/",
-            "tests/"
-          ],
-          "dependencies": [
-            "BTV-050"
-          ],
-          "acceptance": [
-            "Abweichungen zwischen Blueprint und Teaminstanz sind sichtbar.",
-            "Admins koennen erkennen, ob eine Instanz bewusst angepasst oder veraltet ist.",
-            "Die Sicht ist maschinenlesbar genug fuer spaetere Migrationshilfen."
-          ]
-        },
-        {
-          "id": "BTV-052",
-          "title": "Seed-, org-spezifische und live angepasste Teamdefinitionen strenger trennen",
-          "description": "Die semantische Trennung zwischen Seed-Blueprints, organisationsspezifischen Ableitungen und live modifizierten Teaminstanzen konsequenter im Datenmodell und in der API sichtbar machen.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Semantic-Clarity, Governance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/db_models.py",
-            "agent/routes/",
-            "docs/",
-            "tests/"
-          ],
-          "dependencies": [
-            "BTV-050"
-          ],
-          "acceptance": [
-            "Seed-, abgeleitete und live angepasste Definitionen sind sauber unterscheidbar.",
-            "UI und API machen diese Unterschiede sichtbar.",
-            "Unerwuenschte Vermischung oder Verwechslung zwischen Typen wird reduziert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "result-compaction-and-task-neighborhood",
-      "label": "Rueckverdichtung und Task-Nachbarschaft",
-      "items": [
-        {
-          "id": "RCN-060",
-          "title": "Kompakte Folgeartefakte fuer abgeschlossene Tasks als Standard etablieren",
-          "description": "Abgeschlossene Tasks sollen standardmaessig nicht nur Rohhistorie hinterlassen, sondern ein strukturiertes, retrieval-faehiges Folgeartefakt erzeugen, das fuer spaetere Tasks wiederverwendbar bleibt.",
+          "id": "CNT-030",
+          "title": "Contract-Tests fuer zentrale API-, Plugin- und Provider-Schnittstellen ausbauen",
+          "description": "Die wichtigsten JSON-, HTTP- und internen Adapter-Vertraege als eigene Contract-Tests modellieren, damit Refactorings nicht stillschweigend Clients, Plugins oder Provider brechen.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "Memory-Compression, Scalability",
-          "status": "completed",
+          "principle": "Contract-Stability, Refactor-Safety",
+          "status": "open",
           "effort": "large",
           "files": [
-            "agent/services/result_memory_service.py",
-            "agent/services/worker_job_service.py",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "acceptance": [
-            "Abgeschlossene Tasks erzeugen kompakte strukturierte Summary-Artefakte.",
-            "Spaetere Tasks koennen diese Artefakte retrieval-seitig gezielt nutzen.",
-            "Rohe Historien bleiben drilldown-faehig, sind aber nicht mehr der Normalpfad."
-          ]
-        },
-        {
-          "id": "RCN-061",
-          "title": "Task-Nachbarschaft ueber Datei-, Symbol- und Abhaengigkeitsnaehe first-class machen",
-          "description": "Neben hierarchischer Subtask-Struktur soll ein explizites Nachbarschaftsmodell eingefuehrt werden, das datei-, symbol- oder dependency-nahe Tasks fuer Retrieval, Routing und Folgearbeit sichtbar macht.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Locality, Context-Reuse",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/result_memory_service.py",
-            "agent/db_models.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RCN-060"
-          ],
-          "acceptance": [
-            "Task-Nachbarschaften sind nicht nur implizit, sondern explizit modelliert.",
-            "Retrieval und Folgeplanung koennen task-nahe Ergebnisse bevorzugen.",
-            "Das Read-Model kann relevante Nachbar-Tasks sichtbar machen."
-          ]
-        },
-        {
-          "id": "RCN-062",
-          "title": "Historienwachstum ueber Budget- und Verdichtungsregeln begrenzen",
-          "description": "Regeln einfuehren, wann Rohhistorien, Zwischenlogs und Folgekontexte verdichtet, archiviert oder nur noch referenziert statt voll weitergereicht werden.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Bounded-Context, Hardware-Fit",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
+            "agent/routes/",
             "agent/services/",
-            "agent/config.py",
-            "agent/db_models.py",
+            "plugins/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Kritische Schnittstellen haben explizite Contract-Tests.",
+            "Aenderungen an Antwortformaten oder Eingabemodellen werden frueh erkannt.",
+            "Contracts decken nicht nur happy path, sondern auch Fehler- und Blockierungsfaelle ab."
+          ]
+        },
+        {
+          "id": "CNT-031",
+          "title": "Schema-Baselines fuer zentrale Read-Models und Expositionspfade einfuehren",
+          "description": "Maschinenlesbare Baselines oder Snapshots fuer Kernschemas wie Governance-Read-Model, Task-Read-Model, Provider-Descriptor oder OpenAI-Compat-Responses einfuehren.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Change-Visibility, Stable-Interfaces",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "tests/",
+            "docs/"
+          ],
+          "dependencies": [
+            "CNT-030"
+          ],
+          "acceptance": [
+            "Kernschemas sind als Baselines pruefbar.",
+            "Unbeabsichtigte Strukturveraenderungen werden sichtbar.",
+            "Bewusste Vertragsaenderungen lassen sich sauber dokumentieren und versionieren."
+          ]
+        },
+        {
+          "id": "CNT-032",
+          "title": "Fehlervertrags-Tests fuer Policy-Blockierungen, Auth und Provider-Ausfaelle ergänzen",
+          "description": "Nicht nur Erfolgsantworten, sondern auch Fehlervertragsformen fuer Auth, Policy, Verification und Providerfehler als stabile Schnittstellen behandeln.",
+          "priority": "high",
+          "type": "bugfix",
+          "principle": "Predictable-Errors, Client-Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
             "tests/"
           ],
           "dependencies": [
-            "RCN-060"
+            "CNT-030"
           ],
           "acceptance": [
-            "Kontext- und Historienwachstum bleibt ueber Regeln und Budgets kontrolliert.",
-            "Worker erhalten standardmaessig verdichtete statt ausufernde Altkontexte.",
-            "Tests oder Benchmarks zeigen kontrollierteres Wachstum bei laengeren Task-Ketten."
+            "Wichtige Fehlerpfade haben stabile Fehlerschluessel und Struktur.",
+            "Clients koennen Blockierungen und technische Fehler klar unterscheiden.",
+            "Regressionsfaelle fuer Fehlerformate werden von Contract-Tests abgedeckt."
           ]
         }
       ]
     },
     {
-      "name": "central-redaction-and-sensitive-data-control",
-      "label": "Zentrale Redaction und Sensitive Data Control",
+      "name": "test-topology-and-live-e2e",
+      "label": "Test Topologie und Live E2E",
       "items": [
         {
-          "id": "RDX-070",
-          "title": "Eine zentrale Redaction-Schicht fuer Audit, Bundles, Provider-Metadata und Logs schaffen",
-          "description": "Statt mehrere einzelne Sanitization-Pfade nebeneinander zu pflegen eine gemeinsame Schutzschicht schaffen, die fuer Prompt-Bundles, Audit-Details, Provider-Daten, Terminal-Logs und Explainability-Ausgaben gilt.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Security, Consistency",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/common/",
-            "agent/services/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Die wichtigsten Ausgabepfade nutzen dieselbe oder kompatible Redaction-Logik.",
-            "Secrets, Tokens, interne Pfade und andere sensible Muster werden zentral behandelt.",
-            "Regressionstests pruefen mehrere Schutzpfade gegen bekannte Leak-Muster."
-          ]
-        },
-        {
-          "id": "RDX-071",
-          "title": "Sensitive-Data-Klassen und Sichtbarkeitsstufen explizit modellieren",
-          "description": "Statt nur Muster zu maskieren sensible Datenklassen wie token, secret, credential, path, internal_url oder private_prompt in Sichtbarkeitsstufen und Behandlungsregeln ueberfuehren.",
-          "priority": "medium",
+          "id": "TST-040",
+          "title": "Testlandschaft in klar abgegrenzte Modi fuer unit, integration, contract, compose-live und frontend-e2e staffeln",
+          "description": "Die bestehenden Tests in besser erkennbare, getrennte Testmodi gliedern, damit Testauswahl, Laufzeitkosten und Diagnose klarer werden.",
+          "priority": "high",
           "type": "improvement",
-          "principle": "Semantic-Security, Governance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/common/",
-            "agent/config.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RDX-070"
-          ],
-          "acceptance": [
-            "Sensitive Datenklassen sind benannt und mit Behandlungsregeln verknuepft.",
-            "Unterschiedliche Ausgabepfade koennen je nach Zielrolle oder Zielkanal unterschiedlich strikt reagieren.",
-            "Die Doku erklaert die Schutzlogik nachvollziehbar."
-          ]
-        },
-        {
-          "id": "RDX-072",
-          "title": "Redaction-Checks in E2E- und Integrationspfade aufnehmen",
-          "description": "Sicherheitsrelevante Redaction-Regeln nicht nur unit-testen, sondern gezielt in die wichtigsten End-to-End- und Integrationspfade aufnehmen, damit spaetere Features keine stillen Leckagepfade einfuehren.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Regression-Safety, Defense-in-Depth",
-          "status": "completed",
+          "principle": "Test-Clarity, Scalability",
+          "status": "open",
           "effort": "medium",
           "files": [
             "tests/",
-            "agent/services/",
+            "scripts/",
+            "docker-compose*.yml",
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Testmodi sind sauber benannt und dokumentiert.",
+            "Entwickler koennen gezielt schnelle oder tiefe Testlaeufe waehlen.",
+            "CI nutzt die Testmodi nachvollziehbar statt als uneinheitlichen Mix."
+          ]
+        },
+        {
+          "id": "TST-041",
+          "title": "Mehr echte Compose-Live-Tests fuer Provider, Remote-Hubs und kritische Integrationen aufbauen",
+          "description": "Neben Unit- und Service-Tests mehr echte systemnahe Compose-Tests aufbauen, die reale Container, Konfigurationen und Cross-Service-Pfade pruefen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "System-Confidence, Realistic-Validation",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "docker-compose*.yml",
+            "tests/",
+            "scripts/",
+            ".github/workflows/"
+          ],
+          "dependencies": [
+            "TST-040"
+          ],
+          "acceptance": [
+            "Kritische Integrationspfade haben echte Compose-Live-Tests.",
+            "Provider- und Remote-Pfade werden nicht nur mit Mocks getestet.",
+            "Fehlerbilder aus realen Netzwerk- oder Startreihenfolgeproblemen werden frueher sichtbar."
+          ]
+        },
+        {
+          "id": "TST-042",
+          "title": "Frontend-E2E mit Governance-, Routing- und High-Risk-Pfaden erweitern",
+          "description": "Die UI-E2E-Tests staerker auf Governance-Read-Models, Review-Zustaende, Terminal-Schutz, Routing-Erklaerungen und Fehlerdarstellungen ausrichten.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Operator-Confidence, End-to-End-Coverage",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "tests/",
             "agent/routes/"
           ],
           "dependencies": [
-            "RDX-070"
+            "TST-040"
           ],
           "acceptance": [
-            "Wichtige API-, Bundle-, Audit- und Log-Pfade sind auf Leckage-Regressionsfaelle getestet.",
-            "Neue Features koennen nicht so leicht unbemerkt an der zentralen Redaction vorbeigehen.",
-            "Sicherheitsregressionen sind frueh sichtbar."
+            "Operator-relevante UI-Pfade sind end-to-end getestet.",
+            "Governance- und High-Risk-Ansichten werden nicht nur technisch, sondern auch im UI-Verhalten validiert.",
+            "Wichtige Zustandswechsel und Fehlermeldungen sind regressionssicherer."
           ]
         }
       ]
     },
     {
-      "name": "remote-ananta-and-federation",
-      "label": "Remote Ananta und Foederation",
+      "name": "build-release-and-runtime-hardening",
+      "label": "Build, Release und Runtime Haertung",
       "items": [
         {
-          "id": "FED-080",
-          "title": "Trust-Level und Rollenmodell fuer Remote-Ananta-Backends einfuehren",
-          "description": "Remote-Hubs nicht nur als technische Provider behandeln, sondern ueber explizite Trust-Level und erlaubte Rollen oder Capabilities modellieren, damit Foederation nicht stillschweigend wie lokaler Vollvertrauensbetrieb behandelt wird.",
+          "id": "BLD-050",
+          "title": "Build-, Package- und Release-Pfade reproduzierbarer und pruefbarer machen",
+          "description": "Den Weg von lokalem Build ueber Compose-Build bis zu Release-Artefakten staerker standardisieren und gegen fehlende Dateien, unstabile Inputs oder unvollstaendige Paketinhalte absichern.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Reproducibility, Release-Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "Dockerfile*",
+            "docker-compose*.yml",
+            "scripts/",
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Build- und Releasepfade sind dokumentiert und weitgehend reproduzierbar.",
+            "Wichtige Artefakte werden vor Release oder Image-Bau validiert.",
+            "Fehlende Runtime-Dateien oder unstimmige Build-Zustaende werden frueh erkannt."
+          ]
+        },
+        {
+          "id": "BLD-051",
+          "title": "Startup-Smoke-Checks fuer unterschiedliche Deployment-Profile automatisieren",
+          "description": "Schnelle Starttests fuer hub, worker, compose-safe, test und plugin-lastige Profile aufbauen, damit Konfigurations- oder Migrationsfehler nicht erst spaet im Lauf entdeckt werden.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Fast-Failure, Deployability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "tests/",
+            "docker-compose*.yml",
+            ".github/workflows/"
+          ],
+          "dependencies": [
+            "BLD-050"
+          ],
+          "acceptance": [
+            "Mehrere typische Startprofile werden automatisch smoke-getestet.",
+            "Migrationen, Konfig-Ladepfade und Plugin-Loading sind darin einbezogen.",
+            "Startregressionen fallen frueher auf als heute."
+          ]
+        },
+        {
+          "id": "BLD-052",
+          "title": "Dependency- und Runtime-Oberflaeche regelmaessig auditieren",
+          "description": "Abhaengigkeiten, optionale Runtime-Pfade und externe Binary- oder CLI-Annahmen regelmaessig pruefen, damit Compose-, local- und CI-Umgebungen nicht unbemerkt auseinanderlaufen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Environment-Consistency, Supply-Chain-Hygiene",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "requirements*.txt",
+            "pyproject.toml",
+            "Dockerfile*",
+            "scripts/"
+          ],
+          "acceptance": [
+            "Kritische Abhaengigkeiten und optionale Laufzeitannahmen sind sichtbar dokumentiert.",
+            "Environment-Drift zwischen lokal, Compose und CI wird reduziert.",
+            "Die Runtime-Oberflaeche wird regelmaessig auf Ueberraschungen geprueft."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "performance-import-cost-and-startup",
+      "label": "Performance, Importkosten und Startup",
+      "items": [
+        {
+          "id": "PRF-060",
+          "title": "Startup-Zeit und Kaltstartkosten fuer Hub und Worker messbar machen",
+          "description": "Metriken und Tests einbauen, die Startzeit, Importdauer und Initialisierungskosten fuer Hub- und Worker-Profile nachvollziehbar machen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Performance-Visibility, Regression-Detection",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "agent/",
+            "tests/",
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Hub- und Worker-Kaltstartzeiten sind messbar und vergleichbar.",
+            "Groessere Startup-Regressionen werden sichtbar.",
+            "Die Daten koennen fuer spaetere Optimierungen genutzt werden."
+          ]
+        },
+        {
+          "id": "PRF-061",
+          "title": "Schwere Importpfade und Lazy-Load-Potenziale analysieren",
+          "description": "Analysieren, welche Module beim Start oder in oft genutzten Codepfaden unnoetig frueh geladen werden, und gezielt Lazy-Load- oder Entkopplungsmoeglichkeiten schaffen.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Load-Shedding, Faster-Startup",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "plugins/",
+            "scripts/",
+            "tests/"
+          ],
+          "dependencies": [
+            "PRF-060"
+          ],
+          "acceptance": [
+            "Schwere Importpfade sind identifiziert.",
+            "Nicht immer benoetigte Pfade koennen spaeter oder bedarfsorientiert geladen werden.",
+            "Messungen zeigen Verbesserungen oder zumindest fundierte Transparenz."
+          ]
+        },
+        {
+          "id": "PRF-062",
+          "title": "Performance-Budgets fuer kritische Pfade definieren und pruefen",
+          "description": "Fuer Startzeit, wichtige API-Read-Models und ausgewählte Compose-Testpfade grobe Performance-Budgets festlegen, damit sich der Code nicht schleichend verlangsamt.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "Budget-Guardrails, Sustainable-Speed",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "scripts/",
+            "tests/",
+            ".github/workflows/"
+          ],
+          "dependencies": [
+            "PRF-060"
+          ],
+          "acceptance": [
+            "Fuer einige kritische Pfade existieren einfache Performance-Budgets.",
+            "Groessere Regressionen werden sichtbar statt nur gefuehlt.",
+            "Budgets sind realistisch und erzeugen nicht nur flakige CI-Probleme."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "plugin-sdk-and-extension-maturity",
+      "label": "Plugin SDK und Extension Reife",
+      "items": [
+        {
+          "id": "PLG-070",
+          "title": "Extension- und Plugin-Vertragsflaeche als halbformales SDK konsolidieren",
+          "description": "Die vorhandenen Plugin- und Provider-Seams zu einer klareren, dokumentierten und testbaren SDK-aehnlichen Schicht konsolidieren, damit Erweiterungen nicht zu sehr an impliziten internen Details haengen.",
           "priority": "high",
           "type": "architecture",
-          "principle": "Trust-Boundaries, Least-Privilege",
-          "status": "completed",
+          "principle": "Stable-Extensions, Reduced-Internal-Coupling",
+          "status": "open",
           "effort": "large",
           "files": [
-            "agent/config.py",
-            "agent/services/integration_registry_service.py",
-            "agent/routes/",
+            "plugins/",
+            "agent/plugin_loader.py",
+            "agent/services/",
+            "docs/extensions.md",
             "tests/"
           ],
           "acceptance": [
-            "Remote-Hubs haben explizite Trust-Level oder Sicherheitsprofile.",
-            "Erlaubte Operationen koennen pro Remote-Ziel eingeschraenkt werden.",
-            "Lokale und entfernte Hubs werden nicht stillschweigend gleich behandelt."
+            "Es existiert eine klarer definierte Extension-Vertragsflaeche.",
+            "Plugin-Autoren muessen weniger auf interne Moduldetails zugreifen.",
+            "SDK-aehnliche Kernpfade lassen sich contract-testen und dokumentieren."
           ]
         },
         {
-          "id": "FED-081",
-          "title": "Hop-, Loop- und Provenance-Schutz fuer foederierte Antworten ausbauen",
-          "description": "Die vorhandenen Hop- und Self-Loop-Guards um staerkere Provenance-Informationen und remote-spezifische Grenzen erweitern, damit Antwortketten zwischen mehreren Hubs nachvollziehbar und begrenzt bleiben.",
-          "priority": "high",
+          "id": "PLG-071",
+          "title": "Plugin-Beispiele, Baselines und Boundary-Tests fuer Drittanbieter-Erweiterungen verbessern",
+          "description": "Beispielplugins, Testdoubles und Boundary-Checks fuer Erweiterungen bereitstellen, damit externe Integrationen nicht nur funktionieren, sondern sauber innerhalb der vorgesehenen Grenzen bleiben.",
+          "priority": "medium",
           "type": "improvement",
-          "principle": "Traceability, Anti-Loop-Safety",
-          "status": "completed",
+          "principle": "Extensibility, Safer-Plugin-Ecosystem",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/",
-            "agent/services/",
-            "agent/config.py",
+            "plugins/",
+            "docs/extensions.md",
             "tests/"
           ],
           "dependencies": [
-            "FED-080"
+            "PLG-070"
           ],
           "acceptance": [
-            "Foederierte Antworten tragen klarere Provenance-Informationen.",
-            "Hop- und Loop-Grenzen koennen pro Remote-Kontext oder global kontrolliert werden.",
-            "Tests decken verschachtelte oder selbstreferenzielle Hub-Pfade ab."
+            "Es gibt gepflegte Beispiel- oder Canary-Plugins fuer die Kernpfade.",
+            "Plugin-Grenzen werden nicht nur dokumentiert, sondern auch getestet.",
+            "Drittanbieter koennen Erweiterungen mit weniger Ratearbeit bauen."
           ]
         },
         {
-          "id": "FED-082",
-          "title": "Remote-Artefakt- und Dateizugriffe restriktiver und expliziter modellieren",
-          "description": "Datei- und Artefaktzugriffe ueber Remote-Hubs nur ueber klar definierte Regeln, whitelists oder explizite Capabilities erlauben, damit Foederation nicht zu einem stillen Datenabflusskanal wird.",
-          "priority": "high",
-          "type": "bugfix",
-          "principle": "Least-Exposure, Data-Boundary-Control",
-          "status": "completed",
+          "id": "PLG-072",
+          "title": "Plugin-Loading, Versioning und Konfliktverhalten uebergreifend haerter testen",
+          "description": "Registrierung, Reihenfolge, Versionierung, Konfliktverhalten und defekte Plugins in mehr Szenarien automatisiert pruefen, damit das System auch mit wachsender Plugin-Zahl stabil bleibt.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Robustness, Multi-Plugin-Readiness",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/",
-            "agent/config.py",
-            "agent/services/",
+            "agent/plugin_loader.py",
+            "plugins/",
             "tests/"
           ],
           "dependencies": [
-            "FED-080"
+            "PLG-070"
           ],
           "acceptance": [
-            "Remote-Datei- oder Artefaktzugriffe sind explizit erlaubnispflichtig.",
-            "Unnoetige oder zu breite Freigaben sind standardmaessig blockiert.",
-            "Audit und Read-Model koennen solche Grenzueberschreitungen sichtbar machen."
+            "Plugin-Ladeverhalten ist in Konflikt- und Fehlerfaellen reproduzierbar getestet.",
+            "Versionierungs- und Prioritaetsregeln sind nachvollziehbar.",
+            "Defekte oder doppelte Plugins bringen das restliche System nicht unkontrolliert aus dem Tritt."
           ]
         }
       ]
     },
     {
-      "name": "operations-dashboard-and-runtime-observability",
-      "label": "Operations Dashboard und Runtime Observability",
+      "name": "developer-experience-and-docs-for-engineering",
+      "label": "Developer Experience und Engineering Doku",
       "items": [
         {
-          "id": "OBS-090",
-          "title": "Dashboard von Statussicht auf Ursachen- und Fehlerursachenanalyse erweitern",
-          "description": "Das Dashboard soll nicht nur aktuelle Stati anzeigen, sondern die haeufigsten Verification-Fails, Routing-Fehlentscheidungen, Escalation-Gruende und Provider-Ausfaelle verdichtet sichtbar machen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Root-Cause-Visibility, Operability",
-          "status": "completed",
+          "id": "DEV-080",
+          "title": "Engineering-Runbooks fuer Build, Testmodi, Boundary-Regeln und Release pflegen",
+          "description": "Technische Runbooks schaffen, die nicht nur Nutzer-Features, sondern speziell Repo-Regeln, Testklassen, Releasepfade, Plugin-Grenzen und typische Entwicklungsablaeufe klar erklaeren.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Contributor-Productivity, Shared-Mental-Model",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "frontend-angular/src/app/components/",
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
+            "README.md",
+            "docs/",
+            "CONTRIBUTING.md",
+            "scripts/"
           ],
           "acceptance": [
-            "Das Dashboard zeigt verdichtete Top-Ursachen statt nur Rohstatus.",
-            "Verification-, Routing- und Escalation-Probleme sind schnell erkennbar.",
-            "Die Anzeige basiert auf strukturierten Daten statt nur auf Freitext-Logs."
+            "Entwickler finden schnell heraus, wie Qualitaetschecks und Testmodi gedacht sind.",
+            "Boundary- und Repo-Regeln sind nicht nur im Code versteckt, sondern erklart.",
+            "Neue Mitwirkende brauchen weniger Reverse Engineering des Build- und Testsystems."
           ]
         },
         {
-          "id": "OBS-091",
-          "title": "Metriken fuer Task-Typ, Routing-Entscheidung, Verification und Folgeerfolg verknuepfen",
-          "description": "Metriken einbauen oder erweitern, die sichtbar machen, welche Task-Typen mit welchen Routing- und Verification-Pfaden gut oder schlecht funktionieren.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Measurability, Runtime-Learning",
-          "status": "completed",
-          "effort": "medium",
+          "id": "DEV-081",
+          "title": "Begruendete Architekturguardrails fuer PR-Groesse und Themenfokus formulieren",
+          "description": "Aehnlich wie reifere Projekte klare Guardrails fuer Themenfokus, PR-Groesse und Architekturgrenzen formulieren, damit die Codequalitaet nicht unter unkontrollierter Aenderungsbreite leidet.",
+          "priority": "low",
+          "type": "documentation",
+          "principle": "Reviewability, Healthy-Change-Size",
+          "status": "open",
+          "effort": "small",
           "files": [
-            "agent/metrics.py",
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "GRM-020",
-            "RTR-040"
+            "CONTRIBUTING.md",
+            "README.md",
+            "docs/"
           ],
           "acceptance": [
-            "Task-Typ, Routing und Ergebnisqualitaet koennen gemeinsam ausgewertet werden.",
-            "Schwache Kombinationen aus Task-Typ und Backend werden datenbasiert sichtbar.",
-            "Metriken sind fuer spaetere Dashboards und Tuning nutzbar."
+            "Die Doku setzt klare Erwartungen fuer Aenderungsumfang und Themenfokus.",
+            "Reviewkosten und Architekturdrift werden dadurch reduziert.",
+            "Regeln sind praxisnah und nicht nur formale Huerden."
           ]
         },
         {
-          "id": "OBS-092",
-          "title": "Kontextbudget, Kontextquelle und Task-Erfolg zusammenfuehren",
-          "description": "Die vorhandene starke Retrieval- und Bundle-Logik um eine Sicht erweitern, die Budgetauslastung, Quellmischung und tatsaechlichen Task-Erfolg zueinander in Beziehung setzt.",
-          "priority": "medium",
+          "id": "DEV-082",
+          "title": "Codequalitaets-Status und technische Schulden regelmaessig als Artefakte ausgeben",
+          "description": "Dead-Code-Berichte, Cycle-Reports, Perf-Snapshots und Contract-Abweichungen als nachvollziehbare Artefakte ausgeben, damit technische Schulden sichtbar und priorisierbar bleiben.",
+          "priority": "low",
           "type": "improvement",
-          "principle": "Context-Efficiency, Evidence-Based-Tuning",
-          "status": "completed",
-          "effort": "medium",
+          "principle": "Transparency, Continuous-Improvement",
+          "status": "open",
+          "effort": "small",
           "files": [
-            "agent/services/context_bundle_service.py",
-            "agent/services/retrieval_service.py",
-            "agent/metrics.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "RCN-060"
+            "scripts/",
+            ".github/workflows/",
+            ".artifacts/",
+            "docs/"
           ],
           "acceptance": [
-            "Kontextbudget und Task-Erfolg lassen sich gemeinsam beobachten.",
-            "Zu grosse, zu kleine oder schlecht gemischte Bundles werden datenbasiert sichtbar.",
-            "Die Daten helfen bei Routing- und Bundle-Tuning fuer reale Workflows."
+            "Wichtige technische Schulden und Qualitaetssignale werden als Artefakte erzeugt.",
+            "Die Ergebnisse koennen fuer priorisierte Verbesserungsrunden genutzt werden.",
+            "Die Reports bleiben knapp genug, um im Alltag nutzbar zu sein."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 31,
+    "total_items": 27,
     "by_status": {
-      "completed": 31,
+      "completed": 0,
       "partial": 0,
-      "open": 0
+      "open": 27
     },
     "notes": [
-      "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",
-      "Der rote Faden ist nicht mehr Feature-Breite, sondern haertere Kontrollierbarkeit, klarere Semantik und bessere Betriebsfaehigkeit unter realen Mehragenten- und Langlaufbedingungen.",
-      "Die priorisierten Architekturthemen sollen Ananta als steuerbare, auditierbare und sicherer betreibbare Control Plane schaerfen, nicht in Richtung lockerer Agentenautonomie aufweichen."
+      "Diese Todo-Datei vergleicht Ananta nicht funktional mit OpenClaw, sondern technisch auf Ebene von Repo-Haertung, Boundary-Enforcement, Testtopologie und Build-/Release-Reife.",
+      "Der groesste Hebel liegt weniger in neuer Fachlogik als in mechanischer Qualitaetssicherung: Regeln, die Architekturabsichten automatisch schuetzen statt nur in Doku zu behaupten.",
+      "Ananta muss OpenClaw nicht in Integrationsbreite kopieren; die wertvollere Annäherung liegt in derselben technischen Disziplin bei Checks, Contracts, Buildpfaden und Testhärte."
     ],
     "recommended_order": [
-      "GOV-001",
-      "TRM-010",
-      "TSM-030",
-      "GRM-020",
-      "RDX-070",
-      "RTR-040",
-      "RCN-060",
-      "FED-080",
-      "OBS-090",
-      "GOV-002",
-      "TRM-011",
-      "TRM-012",
-      "GRM-021",
-      "TSM-031",
-      "TSM-032",
-      "RTR-041",
-      "RTR-042",
-      "BTV-050",
-      "RCN-061",
-      "RCN-062",
-      "RDX-071",
-      "RDX-072",
-      "FED-081",
-      "FED-082",
-      "OBS-091",
-      "OBS-092",
-      "GOV-003",
-      "GRM-022",
-      "BTV-051",
-      "BTV-052",
-      "TRM-013"
+      "QGT-001",
+      "BND-010",
+      "CNT-030",
+      "TST-040",
+      "QGT-002",
+      "BND-011",
+      "CLN-020",
+      "BLD-050",
+      "PLG-070",
+      "CNT-031",
+      "CNT-032",
+      "TST-041",
+      "CLN-021",
+      "CLN-022",
+      "PRF-060",
+      "PRF-061",
+      "BND-012",
+      "PLG-072",
+      "PLG-071",
+      "BLD-051",
+      "BLD-052",
+      "TST-042",
+      "QGT-003",
+      "DEV-080",
+      "DEV-082",
+      "PRF-062",
+      "DEV-081"
     ]
   }
 }

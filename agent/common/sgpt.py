@@ -546,7 +546,8 @@ def run_opencode_command(
             timeout=timeout,
             model=model,
         )
-    if session and str(session_meta.get("opencode_execution_mode") or "").strip().lower() in {"live_terminal", "interactive_terminal"}:
+    opencode_execution_mode = str(session_meta.get("opencode_execution_mode") or "").strip().lower()
+    if session and opencode_execution_mode == "live_terminal":
         from agent.services.live_terminal_session_service import get_live_terminal_session_service
 
         return get_live_terminal_session_service().run_opencode_turn(
@@ -556,6 +557,26 @@ def run_opencode_command(
             model=model,
             workdir=workdir,
         )
+    if session and opencode_execution_mode == "interactive_terminal":
+        from agent.services.live_terminal_session_service import get_live_terminal_session_service
+
+        terminal_service = get_live_terminal_session_service()
+        session_info = terminal_service.ensure_session_for_cli(session, workdir=workdir) or {}
+        rc, out, err, command_label = _run_opencode_subprocess(
+            prompt=prompt,
+            model=model,
+            timeout=timeout,
+            workdir=workdir,
+            output_format=None,
+        )
+        terminal_session_id = str(session_info.get("terminal_session_id") or session.get("id") or "").strip()
+        if terminal_session_id:
+            terminal_service.append_output(terminal_session_id, f"$ {command_label}\n")
+            if out:
+                terminal_service.append_output(terminal_session_id, f"{out}\n")
+            if err:
+                terminal_service.append_output(terminal_session_id, f"{err}\n")
+        return rc, out, err
     rc, out, err, _ = _run_opencode_subprocess(
         prompt=prompt,
         model=model,
@@ -938,7 +959,11 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         target_provider_type = "local_openai_compatible"
         target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
         if target_model and base_url:
-            target_model = resolve_ollama_model(target_model, base_url, timeout=min(getattr(settings, "http_timeout", 120), 10))
+            try:
+                resolve_timeout = float(getattr(settings, "http_timeout", 120) or 120)
+            except (TypeError, ValueError):
+                resolve_timeout = 120.0
+            target_model = resolve_ollama_model(target_model, base_url, timeout=min(resolve_timeout, 10.0))
     elif target_provider == "lmstudio":
         base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or getattr(settings, "lmstudio_url", None))
         base_url_source = "lmstudio_url"
