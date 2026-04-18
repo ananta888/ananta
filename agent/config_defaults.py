@@ -126,6 +126,23 @@ def build_default_agent_config() -> dict:
             ],
             "unavailable_action": "mark_unavailable",
         },
+        "result_memory_policy": {
+            "enabled": True,
+            "create_followup_artifact": True,
+            "retrieval_document_max_chars": 2200,
+            "raw_history_max_chars": 12000,
+            "archive_raw_output": False,
+            "neighbor_file_terms_enabled": True,
+        },
+        "remote_federation_policy": {
+            "enabled": True,
+            "default_trust_level": "partner",
+            "allowed_operations": ["models", "chat"],
+            "allow_artifact_access": False,
+            "allow_file_access": False,
+            "require_provenance": True,
+            "max_hops": 3,
+        },
         "exposure_policy": {
             "openai_compat": {
                 "enabled": True,

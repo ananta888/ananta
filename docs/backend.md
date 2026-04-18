@@ -113,6 +113,22 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `unavailable_action`
 - Remote-Hubs werden nur als verfuegbar fuer Routing markiert, wenn sowohl die Exposure-Governance als auch `routing_fallback_policy.allow_remote_hubs` dies erlauben.
 
+## Result-Memory und Task-Nachbarschaft
+
+- Abgeschlossene Worker-/Task-Ergebnisse werden als kompakte `memory_entries` im Hub gespeichert.
+- `result_memory_policy` steuert, ob Folgeartefakt-Metadaten erzeugt werden, wie lang Retrieval-Dokumente sein duerfen und ob Rohhistorie archiviert wird.
+- Result-Memory-Eintraege enthalten `followup_artifact`, `structured_summary`, `retrieval_document`, `compaction_policy` und extrahierte geaenderte Dateien.
+- Task-Nachbarschaften werden aus Goal-/Plan-Naehe, deklarierter Dependency, Parent/Child-Beziehung und Datei-/Symbolueberschneidung abgeleitet.
+- Retrieval nutzt Task-Nachbarschaft als bevorzugten Kontextpfad, bevor lange Rohhistorien weitergereicht werden.
+
+## Remote-Ananta-Federation
+
+- `remote_federation_policy` modelliert Trust-Level, erlaubte Operationen, Provenance-Pflicht, Hop-Grenzen sowie Datei-/Artefaktfreigaben fuer Remote-Hubs.
+- Remote-Backend-Eintraege koennen `trust_level`, `allowed_operations`, `allowed_roles`, `allowed_capabilities`, `allow_artifact_access` und `allow_file_access` explizit setzen.
+- Provider-Kataloge zeigen die effektive `federation_policy`, damit Remote-Hubs nicht wie lokale Vollvertrauens-Backends erscheinen.
+- Artifact-Endpunkte blockieren Remote-Hub-Zugriffe mit `X-Ananta-Instance-ID` standardmaessig, solange `allow_artifact_access` nicht explizit freigegeben ist.
+- Federation-Provenance nutzt `X-Ananta-Hop-Count`, `X-Ananta-Instance-ID` und `X-Ananta-Trace-ID`.
+
 ## Route-Inventory / Contract-Check
 Zum schnellen Abgleich von Dokumentation und implementierten Routen:
 

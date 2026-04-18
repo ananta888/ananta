@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from flask import Blueprint, g, request
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
 from agent.services.repository_registry import get_repository_registry
+from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 from agent.services.service_registry import get_core_services
 
 artifacts_bp = Blueprint("artifacts", __name__)
@@ -82,6 +83,33 @@ def _serialize_artifact_detail(artifact_id: str) -> dict | None:
     }
 
 
+def _enforce_remote_artifact_access(operation: str):
+    caller_instance_id = str(request.headers.get("X-Ananta-Instance-ID") or "").strip()
+    if not caller_instance_id:
+        return None
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    policy = get_remote_federation_policy_service().normalize_backend(
+        {
+            "allowed_operations": ["models", "chat", operation],
+        },
+        cfg=cfg,
+    )
+    decision = get_remote_federation_policy_service().evaluate(
+        backend_policy=policy,
+        operation=operation,
+        hop_count=request.headers.get("X-Ananta-Hop-Count", type=int),
+        provenance={"caller_instance_id": caller_instance_id},
+    )
+    if not decision.allowed:
+        return api_response(
+            status="error",
+            message="forbidden",
+            data={"details": decision.reason, "caller_instance_id": caller_instance_id},
+            code=403,
+        )
+    return None
+
+
 def _model_status(item) -> str:
     direct = getattr(item, "status", None)
     if isinstance(direct, str) and direct.strip():
@@ -127,12 +155,18 @@ def upload_artifact():
 @artifacts_bp.route("/artifacts", methods=["GET"])
 @check_auth
 def list_artifacts():
+    blocked = _enforce_remote_artifact_access("artifact")
+    if blocked:
+        return blocked
     return api_response(data=[item.model_dump() for item in _artifact_repo().get_all()])
 
 
 @artifacts_bp.route("/artifacts/<artifact_id>", methods=["GET"])
 @check_auth
 def get_artifact(artifact_id: str):
+    blocked = _enforce_remote_artifact_access("artifact")
+    if blocked:
+        return blocked
     payload = _serialize_artifact_detail(artifact_id)
     if payload is None:
         raise NotFoundError()

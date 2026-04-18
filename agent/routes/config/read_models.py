@@ -9,6 +9,8 @@ from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.cli_session_service import get_cli_session_service
+from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
+from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
@@ -52,6 +54,8 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "benchmark_retention", "path": "config.benchmark_retention", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "benchmark_identity_precedence", "path": "config.benchmark_identity_precedence", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "routing_fallback_policy", "path": "config.routing_fallback_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "result_memory_policy", "path": "config.result_memory_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "remote_federation_policy", "path": "config.remote_federation_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "http_timeout", "path": "config.http_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},
         {"key": "command_timeout", "path": "config.command_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},
         {"key": "agent_offline_timeout", "path": "config.agent_offline_timeout", "type": "integer", "editable": True, "min": 10, "endpoint": "POST /config"},
@@ -165,6 +169,8 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "exposure_policy": exposure_policy,
             "platform_governance": platform_governance,
             "routing_fallback_policy": get_routing_decision_service().resolve_fallback_policy(cfg),
+            "result_memory_policy": normalize_result_memory_policy(cfg.get("result_memory_policy") if isinstance(cfg.get("result_memory_policy"), dict) else {}),
+            "remote_federation_policy": get_remote_federation_policy_service().resolve_policy(cfg),
         },
         "counts": {"teams": len(teams), "templates": len(templates)},
     }
