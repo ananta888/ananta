@@ -1,5 +1,6 @@
 import time
 import uuid
+from typing import Any
 
 from flask import Blueprint, g, request
 from sqlmodel import Session, select
@@ -1179,6 +1180,103 @@ def _serialize_blueprint(
     return enrich_blueprint_payload(blueprint_dict, blueprint, blueprint_roles, blueprint_artifacts)
 
 
+def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
+    name = str(blueprint.name or "").strip().lower()
+    team_type = str(blueprint.base_team_type_name or "").strip().lower()
+    if "repair" in name:
+        return ["code_fix", "docker_compose_repair", "runtime_repair", "sys_diag"]
+    if "research" in name:
+        return ["repo_analysis", "doc_summary", "doc_gen"]
+    if "security" in name:
+        return ["code_review", "repo_analysis", "sys_diag"]
+    if "release" in name:
+        return ["sys_diag", "doc_gen", "code_review"]
+    if "scrum-opencode" in name or "opencode" in name:
+        return ["code_fix", "code_review", "doc_gen", "docker_compose_repair"]
+    if team_type == "kanban":
+        return ["code_fix", "repo_analysis", "doc_gen"]
+    return ["code_fix", "repo_analysis", "doc_gen", "sys_diag"]
+
+
+def _suggest_playbooks_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
+    name = str(blueprint.name or "").strip().lower()
+    if "repair" in name:
+        return ["incident", "bugfix"]
+    if "security" in name:
+        return ["architecture_review", "refactoring"]
+    if "release" in name:
+        return ["incident", "architecture_review"]
+    if "research" in name:
+        return ["architecture_review"]
+    return ["bugfix", "refactoring", "incident", "architecture_review"]
+
+
+def _build_blueprint_work_profile(
+    blueprint: TeamBlueprintDB,
+    roles: list[BlueprintRoleDB],
+    artifacts: list[BlueprintArtifactDB],
+) -> dict[str, Any]:
+    capability_defaults: set[str] = set()
+    execution_modes: set[str] = set()
+    preferred_backends: set[str] = set()
+    fallback_backends: set[str] = set()
+    risk_profiles: set[str] = set()
+
+    for role in roles:
+        role_config = dict(role.config or {})
+        for capability in role_config.get("capability_defaults") or []:
+            normalized = str(capability).strip()
+            if normalized:
+                capability_defaults.add(normalized)
+        execution_mode = str(role_config.get("execution_mode") or "").strip()
+        if execution_mode:
+            execution_modes.add(execution_mode)
+        preferred_backend = str(role_config.get("preferred_backend") or "").strip()
+        if preferred_backend:
+            preferred_backends.add(preferred_backend)
+        for backend in role_config.get("fallback_backends") or []:
+            normalized_backend = str(backend).strip()
+            if normalized_backend:
+                fallback_backends.add(normalized_backend)
+        risk_profile = str(role_config.get("risk_profile") or "").strip().lower()
+        if risk_profile:
+            risk_profiles.add(risk_profile)
+
+    policy_artifacts = [
+        {
+            "title": artifact.title,
+            "sort_order": artifact.sort_order,
+            "payload": dict(artifact.payload or {}),
+        }
+        for artifact in artifacts
+        if str(artifact.kind or "").strip().lower() == "policy"
+    ]
+    starter_artifacts = [
+        {
+            "kind": artifact.kind,
+            "title": artifact.title,
+            "description": artifact.description,
+            "sort_order": artifact.sort_order,
+            "payload": dict(artifact.payload or {}),
+        }
+        for artifact in sorted(artifacts, key=lambda item: (item.sort_order, item.title))
+    ]
+    return {
+        "blueprint_id": blueprint.id,
+        "blueprint_name": blueprint.name,
+        "base_team_type_name": blueprint.base_team_type_name,
+        "goal_modes": _suggest_goal_modes_for_blueprint(blueprint),
+        "playbooks": _suggest_playbooks_for_blueprint(blueprint),
+        "recommended_action_pack_capabilities": sorted(capability_defaults),
+        "execution_modes": sorted(execution_modes),
+        "preferred_backends": sorted(preferred_backends),
+        "fallback_backends": sorted(fallback_backends),
+        "risk_profiles": sorted(risk_profiles),
+        "policy_profiles": policy_artifacts,
+        "starter_artifacts": starter_artifacts,
+    }
+
+
 ALLOWED_BLUEPRINT_ARTIFACT_KINDS = {"task", "policy"}
 
 
@@ -1348,6 +1446,18 @@ def get_team_blueprint(blueprint_id):
     if not blueprint:
         return _team_error("not_found", 404)
     return api_response(data=_serialize_blueprint(blueprint))
+
+
+@teams_bp.route("/teams/blueprints/<blueprint_id>/work-profile", methods=["GET"])
+@check_auth
+def get_team_blueprint_work_profile(blueprint_id):
+    ensure_seed_blueprints()
+    blueprint = _repos().team_blueprint_repo.get_by_id(blueprint_id)
+    if not blueprint:
+        return _team_error("not_found", 404)
+    roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id)
+    artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+    return api_response(data=_build_blueprint_work_profile(blueprint, roles, artifacts))
 
 
 @teams_bp.route("/teams/blueprints", methods=["POST"])

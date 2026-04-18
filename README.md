@@ -10,6 +10,14 @@ Das System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Ar
 - Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`
 - Frontend Entwicklung und E2E: `frontend-angular/README.md`
 - Setup/Runtime: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
+- Direkter Goal-/Diagnose-/Artifact-Zugang per CLI: `python -m agent.cli_goals --help`
+
+## Kanal- und Erweiterungsstrategie (Core First)
+
+- Kernzugang zuerst: Web UI, CLI und API/Webhook sind die priorisierten Nutzflaechen.
+- Externe Messaging-/Kanaladapter werden erst nach stabilem Kernzugang erweitert.
+- Erweiterungen bleiben capability-gebunden und muessen Governance, Policy und Audit respektieren.
+- Oekosystem-/Marktplatz-Ideen sind bewusst nachgelagert und setzen reife Kern-Contracts voraus.
 
 ## Architektur
 - Angular Frontend fuer Visualisierung und Steuerung

@@ -25,6 +25,33 @@ class TestGoalsAPI:
         assert data["defaults"]["planning"]["engine"] == "auto_planner"
         assert "happy_path_ready" in data
 
+    def test_goal_modes_include_docker_and_runtime_repair(self, client, admin_auth_header):
+        res = client.get("/goals/modes", headers=admin_auth_header)
+        assert res.status_code == 200
+        mode_ids = {item["id"] for item in res.get_json()["data"]}
+        assert {"docker_compose_repair", "runtime_repair"}.issubset(mode_ids)
+
+    def test_create_goal_from_docker_compose_mode(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "docker_compose_repair",
+                "mode_data": {
+                    "issue_symptom": "Container restart loop on boot",
+                    "compose_file": "docker-compose.yml",
+                    "service": "hub",
+                },
+            },
+        )
+        assert res.status_code == 201
+        goal_payload = res.get_json()["data"]["goal"]
+        assert "Docker-/Compose-Problem" in goal_payload["goal"]
+        assert "Container restart loop on boot" in goal_payload["goal"]
+        assert "docker-compose.yml" in goal_payload["goal"]
+        assert "Fokus-Service: hub" in goal_payload["goal"]
+
     def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Implement login feature"})

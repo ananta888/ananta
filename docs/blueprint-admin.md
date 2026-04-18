@@ -73,6 +73,16 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 - Blueprint-Rollen werden fuer die Team-Struktur auf bestehende Rollen gemappt oder kontrolliert erzeugt.
 - Seed-Reconcile und Instanziierung sind gemeinsam durch Backend-Integrationstests abgesichert.
 
+## Blueprint als direktes Arbeitsprofil
+
+- `GET /teams/blueprints/<id>/work-profile` liefert ein direkt verwendbares Profil fuer den Blueprint.
+- Das Profil kombiniert:
+  - empfohlene Goal-Modi (z. B. `code_fix`, `docker_compose_repair`)
+  - Playbook-Empfehlungen
+  - role-basierte Capability-Hinweise aus den Blueprint-Rollen
+  - enthaltene Policy-Artefakte als Default-Governance-Profil
+- Damit sind Blueprints nicht nur Verwaltungsobjekte, sondern ein greifbarer Startpunkt fuer konkrete Arbeitsmodi.
+
 ## Passende Referenzen
 
 - API: `api-spec.md`

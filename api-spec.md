@@ -772,6 +772,26 @@ Blueprint-first ist jetzt der bevorzugte Team-Workflow. Seed-Blueprints fuer `Sc
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
 
+### Blueprint Work-Profile lesen
+- **URL:** `/teams/blueprints/<blueprint_id>/work-profile`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Liefert ein direkt nutzbares Arbeitsprofil fuer den Blueprint inklusive empfohlener Goal-Modi, Playbooks, Policy-Profilen und role-basierten Capability-Hinweisen.
+- **Rueckgabe (Auszug):**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "blueprint_id": "...",
+      "blueprint_name": "Scrum-OpenCode",
+      "goal_modes": ["code_fix", "docker_compose_repair", "code_review"],
+      "playbooks": ["bugfix", "refactoring", "incident"],
+      "recommended_action_pack_capabilities": ["file_read", "shell_exec"],
+      "policy_profiles": [{"title": "OpenCode Scrum Default Policy", "payload": {"security_level": "balanced"}}]
+    }
+  }
+  ```
+
 ### Blueprint erstellen
 - **URL:** `/teams/blueprints`
 - **Methode:** `POST`

@@ -52,6 +52,9 @@ To maintain code quality and architectural integrity, please follow these guardr
 - **Dependency Discipline:** Be careful with adding new dependencies. Check if existing libraries can fulfill the need.
 - **Automated Checks:** Ensure all local checks pass before pushing. We use a central check pipeline (`make check`).
 - **Contract Stability:** Changes to central API schemas (Task, Goal, Provider) must be backward compatible or explicitly justified.
+- **Core-First Surface:** Prioritize Web UI, CLI, and API/Webhook quality before adding new external channel adapters.
+- **Extension Discipline:** Third-party extensions must remain capability-bound and must not bypass governance, policy, or audit controls.
+- **Ecosystem Maturity Gate:** Marketplace/ecosystem proposals require stable hardened core contracts first.
 
 ## Tests and checks
 
