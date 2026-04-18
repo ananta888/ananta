@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-CLI Tool for submitting goals to the Ananta Auto-Planner.
+CLI for goals, diagnostics and artifacts in Ananta.
 
 Usage:
     python -m agent.cli_goals "Implement user authentication"
     python -m agent.cli_goals --goal "Add API endpoint" --context "Using Flask" --team dev
-    python -m agent.cli_goals --list
+    python -m agent.cli_goals --goals
     python -m agent.cli_goals --status
 """
 
 import argparse
+import json
 import os
 import sys
 
@@ -21,6 +22,9 @@ from agent.config import settings
 
 
 def get_base_url():
+    configured = os.environ.get("ANANTA_BASE_URL")
+    if configured:
+        return configured.rstrip("/")
     return f"http://localhost:{settings.port}"
 
 
@@ -38,67 +42,119 @@ def get_auth_token(base_url: str) -> str:
     return data.get("access_token", "")
 
 
-def submit_goal(goal: str, context: str = None, team_id: str = None, create_tasks: bool = True):
+def _request(
+    method: str,
+    path: str,
+    *,
+    body: dict | None = None,
+    params: dict | None = None,
+    timeout: int = 30,
+):
     base_url = get_base_url()
     token = get_auth_token(base_url)
-
     headers = {"Authorization": f"Bearer {token}"}
+    return requests.request(
+        method=method,
+        url=f"{base_url}{path}",
+        headers=headers,
+        json=body,
+        params=params,
+        timeout=timeout,
+    )
 
+
+def _read_json(response: requests.Response) -> dict:
+    try:
+        return response.json()
+    except ValueError:
+        return {}
+
+
+def _api_data(response: requests.Response):
+    payload = _read_json(response)
+    if isinstance(payload, dict):
+        return payload.get("data", payload)
+    return {}
+
+
+def _print_error(response: requests.Response):
+    payload = _read_json(response)
+    message = payload.get("message") if isinstance(payload, dict) else None
+    if message:
+        print(f"Error: {response.status_code} - {message}")
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+
+
+def submit_goal(
+    goal: str,
+    context: str | None = None,
+    team_id: str | None = None,
+    create_tasks: bool = True,
+    mode: str | None = None,
+    mode_data: dict | None = None,
+):
     payload = {"goal": goal, "create_tasks": create_tasks}
     if context:
         payload["context"] = context
     if team_id:
         payload["team_id"] = team_id
+    if mode:
+        payload["mode"] = mode
+    if mode_data:
+        payload["mode_data"] = mode_data
 
-    response = requests.post(f"{base_url}/tasks/auto-planner/plan", json=payload, headers=headers, timeout=60)
-
-    if response.status_code in (200, 201):
-        data = response.json().get("data", {})
-        print(f"Goal submitted: {goal}")
-        print(f"Tasks created: {len(data.get('created_task_ids', []))}")
-        for task_id in data.get("created_task_ids", []):
+    response = _request("POST", "/goals", body=payload, timeout=60)
+    if response.status_code == 201:
+        data = _api_data(response)
+        goal_payload = data.get("goal", {})
+        created_task_ids = data.get("created_task_ids", [])
+        print(f"Goal submitted: {goal_payload.get('goal', goal)}")
+        print(f"Goal ID: {goal_payload.get('id', 'N/A')}")
+        print(f"Status: {goal_payload.get('status', 'N/A')}")
+        print(f"Tasks created: {len(created_task_ids)}")
+        for task_id in created_task_ids:
             print(f"  - {task_id}")
-        return data.get("created_task_ids", [])
+        return created_task_ids
+    _print_error(response)
+    return []
+
+
+def show_status():
+    readiness_res = _request("GET", "/goals/readiness", timeout=10)
+    if readiness_res.status_code == 200:
+        readiness = _api_data(readiness_res)
+        print("Goal Readiness:")
+        print(f"  Happy path ready: {readiness.get('happy_path_ready', False)}")
+        print(f"  Planning available: {readiness.get('planning_available', False)}")
+        print(f"  Worker available: {readiness.get('worker_available', False)}")
+        print(f"  Active team: {readiness.get('active_team_id') or '-'}")
     else:
-        print(f"Error: {response.status_code} - {response.text}")
-        return []
+        _print_error(readiness_res)
 
-
-def list_goals():
-    base_url = get_base_url()
-    token = get_auth_token(base_url)
-
-    headers = {"Authorization": f"Bearer {token}"}
-
-    response = requests.get(f"{base_url}/tasks/auto-planner/status", headers=headers, timeout=10)
-
-    if response.status_code == 200:
-        data = response.json().get("data", {})
+    planner_res = _request("GET", "/tasks/auto-planner/status", timeout=10)
+    if planner_res.status_code == 200:
+        data = _api_data(planner_res)
         stats = data.get("stats", {})
-        print("Auto-Planner Status:")
+        print("\nAuto-Planner Status:")
         print(f"  Enabled: {data.get('enabled', False)}")
-        print(f"  Goals Processed: {stats.get('goals_processed', 0)}")
-        print(f"  Tasks Created: {stats.get('tasks_created', 0)}")
-        print(f"  Follow-ups Created: {stats.get('followups_created', 0)}")
+        print(f"  Goals processed: {stats.get('goals_processed', 0)}")
+        print(f"  Tasks created: {stats.get('tasks_created', 0)}")
+        print(f"  Follow-ups created: {stats.get('followups_created', 0)}")
         print(f"  Errors: {stats.get('errors', 0)}")
     else:
-        print(f"Error: {response.status_code}")
+        _print_error(planner_res)
 
 
 def list_tasks(status: str = None, limit: int = 20):
-    base_url = get_base_url()
-    token = get_auth_token(base_url)
-
-    headers = {"Authorization": f"Bearer {token}"}
-
     params = {"limit": limit}
     if status:
         params["status"] = status
 
-    response = requests.get(f"{base_url}/tasks", headers=headers, params=params, timeout=10)
+    response = _request("GET", "/tasks", params=params, timeout=10)
 
     if response.status_code == 200:
-        tasks = response.json()
+        tasks = _read_json(response)
         if isinstance(tasks, dict):
             tasks = tasks.get("data", [])
 
@@ -109,23 +165,131 @@ def list_tasks(status: str = None, limit: int = 20):
             task_status = task.get("status", "N/A")
             print(f"  [{task_status:12}] {task_id}: {title}")
     else:
-        print(f"Error: {response.status_code}")
+        _print_error(response)
+
+
+def list_goals(limit: int = 20):
+    response = _request("GET", "/goals", timeout=15)
+    if response.status_code != 200:
+        _print_error(response)
+        return
+    goals = _api_data(response)
+    if not isinstance(goals, list):
+        goals = []
+    print(f"Goals ({min(limit, len(goals))}/{len(goals)}):")
+    for goal in goals[:limit]:
+        print(
+            f"  [{goal.get('status', 'N/A'):10}] {goal.get('id', 'N/A')} "
+            f"(team={goal.get('team_id') or '-'}) {str(goal.get('goal', ''))[:90]}"
+        )
+
+
+def show_goal_detail(goal_id: str):
+    response = _request("GET", f"/goals/{goal_id}/detail", timeout=20)
+    if response.status_code != 200:
+        _print_error(response)
+        return
+    data = _api_data(response)
+    goal = data.get("goal", {})
+    trace = data.get("trace", {})
+    artifacts = data.get("artifacts", {})
+    summary = artifacts.get("result_summary", {})
+    print(f"Goal: {goal.get('id', goal_id)}")
+    print(f"  Status: {goal.get('status', 'N/A')}")
+    print(f"  Team: {goal.get('team_id') or '-'}")
+    print(f"  Trace: {trace.get('trace_id') or '-'}")
+    print(f"  Tasks: total={summary.get('task_count', 0)} completed={summary.get('completed_tasks', 0)} failed={summary.get('failed_tasks', 0)}")
+    headline = artifacts.get("headline_artifact") or {}
+    if headline.get("preview"):
+        print(f"  Headline artifact: {headline.get('preview')[:120]}")
+
+
+def list_modes():
+    response = _request("GET", "/goals/modes", timeout=10)
+    if response.status_code != 200:
+        _print_error(response)
+        return
+    modes = _api_data(response)
+    if not isinstance(modes, list):
+        modes = []
+    print(f"Goal modes ({len(modes)}):")
+    for mode in modes:
+        print(f"  - {mode.get('id')}: {mode.get('title')}")
+
+
+def list_artifacts(limit: int = 20):
+    response = _request("GET", "/artifacts", timeout=10)
+    if response.status_code != 200:
+        _print_error(response)
+        return
+    artifacts = _api_data(response)
+    if not isinstance(artifacts, list):
+        artifacts = []
+    print(f"Artifacts ({min(limit, len(artifacts))}/{len(artifacts)}):")
+    for artifact in artifacts[:limit]:
+        print(
+            f"  - {artifact.get('id', 'N/A')} "
+            f"[{artifact.get('status', 'N/A')}] "
+            f"{artifact.get('latest_filename') or artifact.get('latest_media_type') or '-'}"
+        )
+
+
+def analyze_task_followups(task_id: str, output: str | None = None):
+    payload = {}
+    if output:
+        payload["output"] = output
+    response = _request("POST", f"/tasks/auto-planner/analyze/{task_id}", body=payload, timeout=45)
+    if response.status_code != 200:
+        _print_error(response)
+        return
+    data = _api_data(response)
+    followups = data.get("followups_created") or []
+    print(f"Follow-up analysis completed for task {task_id}")
+    print(f"  Follow-ups created: {len(followups)}")
+    for followup in followups:
+        print(f"  - {followup.get('id', 'N/A')}: {followup.get('title', '')[:80]}")
+
+
+def _parse_mode_data(raw: str | None) -> dict:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        print(f"Error: Invalid JSON for --mode-data ({exc})")
+        sys.exit(2)
+    if not isinstance(parsed, dict):
+        print("Error: --mode-data must be a JSON object")
+        sys.exit(2)
+    return parsed
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CLI Tool for Ananta Auto-Planner",
+        description="CLI for Ananta Goals, Tasks, Artifacts and Diagnostics",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   Submit a goal:
     python -m agent.cli_goals "Implement user login"
 
-  With context and team:
-    python -m agent.cli_goals --goal "Add API" --context "Flask" --team backend
+  Submit guided mode:
+    python -m agent.cli_goals --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
 
   List tasks:
     python -m agent.cli_goals --tasks
+
+  List goals:
+    python -m agent.cli_goals --goals
+
+  Goal detail:
+    python -m agent.cli_goals --goal-detail <goal_id>
+
+  List guided modes:
+    python -m agent.cli_goals --modes
+
+  Analyze follow-ups for a task:
+    python -m agent.cli_goals --analyze-task <task_id>
 
   Check status:
     python -m agent.cli_goals --status
@@ -136,22 +300,47 @@ Examples:
     parser.add_argument("--goal", "-g", dest="goal_flag", help="Goal description (alternative)")
     parser.add_argument("--context", "-c", help="Additional context for the goal")
     parser.add_argument("--team", "-t", help="Team ID to assign tasks to")
+    parser.add_argument("--mode", help="Guided goal mode ID (e.g. code_fix, docker_compose_repair)")
+    parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
-    parser.add_argument("--status", "-s", action="store_true", help="Show Auto-Planner status")
+    parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
+    parser.add_argument("--goals", action="store_true", help="List goals")
+    parser.add_argument("--goal-detail", help="Show detail for a goal ID")
+    parser.add_argument("--modes", action="store_true", help="List guided goal modes")
     parser.add_argument("--tasks", action="store_true", help="List recent tasks")
     parser.add_argument("--task-status", help="Filter tasks by status")
+    parser.add_argument("--artifacts", action="store_true", help="List recent artifacts")
+    parser.add_argument("--analyze-task", help="Analyze a completed task for follow-up work")
+    parser.add_argument("--output", help="Optional output text for --analyze-task")
     parser.add_argument("--limit", "-l", type=int, default=20, help="Limit number of results")
 
     args = parser.parse_args()
 
     if args.status:
-        list_goals()
+        show_status()
+    elif args.goals:
+        list_goals(limit=args.limit)
+    elif args.goal_detail:
+        show_goal_detail(args.goal_detail)
+    elif args.modes:
+        list_modes()
     elif args.tasks:
         list_tasks(status=args.task_status, limit=args.limit)
+    elif args.artifacts:
+        list_artifacts(limit=args.limit)
+    elif args.analyze_task:
+        analyze_task_followups(args.analyze_task, output=args.output)
     elif args.goal or args.goal_flag:
         goal_text = args.goal or args.goal_flag
         create_tasks = not args.no_create
-        submit_goal(goal=goal_text, context=args.context, team_id=args.team, create_tasks=create_tasks)
+        submit_goal(
+            goal=goal_text,
+            context=args.context,
+            team_id=args.team,
+            create_tasks=create_tasks,
+            mode=args.mode,
+            mode_data=_parse_mode_data(args.mode_data),
+        )
     else:
         parser.print_help()
 

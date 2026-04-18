@@ -1,5 +1,5 @@
 import copy
-from typing import Any
+from typing import Any, List
 
 from flask import current_app
 
@@ -331,6 +331,30 @@ class GoalService:
                 "recommended_capabilities": ["shell_exec"]
             },
             {
+                "id": "docker_compose_repair",
+                "title": "Docker-/Compose-Reparatur",
+                "description": "Diagnostiziert Container-/Compose-Probleme und erstellt einen kontrollierten Repair-Plan.",
+                "icon": "build",
+                "fields": [
+                    {"name": "issue_symptom", "label": "Symptom", "type": "textarea", "required": True},
+                    {"name": "compose_file", "label": "Compose-Datei (optional)", "type": "text", "required": False},
+                    {"name": "service", "label": "Service-Name (optional)", "type": "text", "required": False},
+                ],
+                "recommended_capabilities": ["shell_exec", "file_read", "file_patch"]
+            },
+            {
+                "id": "runtime_repair",
+                "title": "Laufzeit-Reparatur",
+                "description": "Analysiert Runtime-Ausfaelle und erstellt reproduzierbare, reviewbare Reparaturschritte.",
+                "icon": "medical_services",
+                "fields": [
+                    {"name": "runtime_target", "label": "Runtime-Ziel", "type": "text", "required": True},
+                    {"name": "error_signal", "label": "Fehlersignal", "type": "textarea", "required": True},
+                    {"name": "log_paths", "label": "Log-Pfade (optional)", "type": "text", "required": False},
+                ],
+                "recommended_capabilities": ["shell_exec", "file_read", "file_patch"]
+            },
+            {
                 "id": "doc_gen",
                 "title": "Dokumentation erstellen",
                 "description": "Erzeugt technische Dokumentation, READMEs oder Architekturuebersichten.",
@@ -371,6 +395,30 @@ class GoalService:
         if mode == "sys_diag":
             target = mode_data.get("target", "")
             return f"Fuehre eine Systemdiagnose für {target} durch und identifiziere Probleme."
+        if mode == "docker_compose_repair":
+            symptom = str(mode_data.get("issue_symptom", "")).strip()
+            compose_file = str(mode_data.get("compose_file", "")).strip()
+            service = str(mode_data.get("service", "")).strip()
+            goal = (
+                f"Diagnostiziere und repariere kontrolliert ein Docker-/Compose-Problem: {symptom}. "
+                "Erstelle reproduzierbare Analyse-Schritte, konkrete Repair-Vorschlaege und klare Verifikationskriterien."
+            )
+            if compose_file:
+                goal += f" Nutze bevorzugt die Compose-Datei: {compose_file}."
+            if service:
+                goal += f" Fokus-Service: {service}."
+            return goal
+        if mode == "runtime_repair":
+            runtime_target = str(mode_data.get("runtime_target", "")).strip()
+            error_signal = str(mode_data.get("error_signal", "")).strip()
+            log_paths = str(mode_data.get("log_paths", "")).strip()
+            goal = (
+                f"Untersuche eine Laufzeitstoerung fuer {runtime_target}: {error_signal}. "
+                "Leite daraus reviewbare Reparaturschritte und Folge-Tasks mit Risikohinweisen ab."
+            )
+            if log_paths:
+                goal += f" Beruecksichtige explizit diese Logs: {log_paths}."
+            return goal
         if mode == "doc_gen":
             topic = mode_data.get("topic", "")
             fmt = mode_data.get("format", "Markdown")

@@ -156,6 +156,26 @@ def test_blueprint_crud_and_instantiate(client):
     assert any(task.title == "Blueprint Team Alpha: Scrum Backlog" for task in persisted_tasks)
 
 
+def test_blueprint_work_profile_exposes_operational_modes(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    assert blueprints_response.status_code == 200
+    opencode_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum-OpenCode")
+
+    response = client.get(f"/teams/blueprints/{opencode_blueprint['id']}/work-profile", headers=auth_header)
+    assert response.status_code == 200
+    profile = response.json["data"]
+    assert profile["blueprint_id"] == opencode_blueprint["id"]
+    assert "code_fix" in profile["goal_modes"]
+    assert "docker_compose_repair" in profile["goal_modes"]
+    assert "incident" in profile["playbooks"]
+    assert "opencode" in profile["preferred_backends"] or "sgpt" in profile["preferred_backends"]
+    assert profile["policy_profiles"]
+    assert any(item["title"] == "OpenCode Scrum Default Policy" for item in profile["policy_profiles"])
+
+
 def test_team_blueprint_diff_reports_snapshot_drift(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}

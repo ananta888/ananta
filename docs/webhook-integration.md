@@ -4,6 +4,12 @@
 
 Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Quellen via Webhooks.
 
+## Produktgrenze: API/Webhook zuerst, Kanalvielfalt spaeter
+
+- Der stabile Aussenrand fuer Fremdsysteme ist **API + Webhook**.
+- Spezialisierte Messaging-Kanaele werden nicht reflexhaft erweitert.
+- Auth, Audit und Policy bleiben fuer alle Webhook-Quellen identisch ueber denselben Hub-Pfad (`/triggers/*`).
+
 ## Unterstützte Quellen
 
 | Source | Beschreibung | Payload-Format |

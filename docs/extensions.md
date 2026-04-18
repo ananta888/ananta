@@ -42,6 +42,32 @@ def ping():
 - Alternativ koennen Plugin-Modulnamen direkt in `AGENT_PLUGINS` angegeben werden.
 - Plugin-Kontrakt identisch zu Extensions: `init_app(app)` oder `bp`/`blueprint`.
 
+## Strenges Extension-Modell (Core-Guardrails)
+
+- Erweiterungen sind capability-gebunden und duerfen den Hub-Governance-Kern nicht umgehen.
+- Extension-Seams bleiben bewusst klein:
+  - Blueprint/Route-Registrierung ueber `init_app(app)` oder Blueprint-Objekt
+  - Evolution-Erweiterung ueber `EvolutionEngine` und SDK-Registrierung
+- Erweiterungen duerfen keine direkte Worker-zu-Worker-Orchestrierung einfuehren.
+- Fehler in einzelnen Plugins duerfen den Hub-Start nicht global blockieren.
+
+## Contracts fuer Action Packs und Skills
+
+- Erweiterungen sollen neue Faehigkeiten als klaren Contract exponieren (statt direkter Core-Mutationen).
+- Capability-Grenzen muessen mechanisch pruefbar bleiben (z. B. ueber Tests wie `test_plugin_contract_boundaries.py`).
+- Action-Pack- oder Skill-nahe Erweiterungen muessen mit bestehenden Policy-/Audit-Pfaden kompatibel bleiben.
+
+## Externe Adapter: pilotiert und begrenzt
+
+- Externe Adapter werden erst nach stabilem Kernzugang (Web UI, CLI, API/Webhook) erweitert.
+- Der erste externe Adapter bleibt ein bewusst kleiner Pilot mit harter Policy-Grenze.
+- In diesem Projekt ist der optionale Evolver-Provider der referenzierte Pilotpfad fuer externe Capability-Integration.
+
+## Oekosystem/Marktplatz nur nach reifen Kern-Contracts
+
+- Marktplatz- oder breitere Oekosystem-Ideen sind explizit nachgelagert.
+- Voraussetzung sind stabile, gehaertete Kern-Contracts und bewiesene Governance-/Audit-Reife.
+
 ## Evolution-Provider als Plugin
 
 Evolution-Provider werden ueber das normale Plugin-System geladen und in die

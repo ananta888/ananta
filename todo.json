@@ -310,7 +310,7 @@
           "priority": "medium",
           "type": "integration",
           "principle": "Operational-Helpfulness, Safe-Repair",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -382,7 +382,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Direct-Use, Automation-Friendly",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/",
@@ -403,7 +403,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Extensibility, Clean-External-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -473,7 +473,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Usable-Configuration, Role-Based-Capabilities",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -503,7 +503,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Focus, Controlled-Surface-Growth",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -523,7 +523,7 @@
           "priority": "low",
           "type": "integration",
           "principle": "Measured-Expansion, Learn-Before-Scale",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -553,7 +553,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Extensibility-with-Guardrails, Secure-Ecosystem",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "docs/extensions.md",
@@ -574,7 +574,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Stable-Seams, Safe-Pluggability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -599,7 +599,7 @@
           "priority": "low",
           "type": "documentation",
           "principle": "Do-Not-Scale-Chaos, Core-First-Maturity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -620,11 +620,11 @@
     }
   ],
   "meta": {
-    "total_items": 22,
+    "total_items": 25,
     "by_status": {
-      "completed": 16,
+      "completed": 25,
       "partial": 0,
-      "open": 6
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei uebersetzt den Wunsch nach mehr direkter Nutzbarkeit in einen governance-first Ausbaupfad statt in einen capability-first Assistentenklon.",
