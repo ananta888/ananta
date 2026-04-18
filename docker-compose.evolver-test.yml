@@ -1,0 +1,74 @@
+# Live Evolver bridge compose overlay.
+# Usage:
+# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml -f docker-compose.evolver-test.yml up -d --build
+# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml -f docker-compose.evolver-test.yml run --rm backend-evolver-live-test
+
+services:
+  evolver-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile.evolver-bridge
+    working_dir: /opt/evolver-bridge
+    environment:
+      PORT: "8080"
+      EVOLVER_WORKDIR: "/workspace/evolver"
+      EVOLVER_TIMEOUT_MS: "${EVOLVER_TIMEOUT_MS:-120000}"
+    volumes:
+      - ./tmp/evolver-workdir:/workspace/evolver
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  ai-agent-hub:
+    environment:
+      EVOLVER_ENABLED: "true"
+      EVOLVER_BASE_URL: "http://evolver-bridge:8080"
+      EVOLVER_ANALYZE_PATH: "/evolution/analyze"
+      EVOLVER_HEALTH_PATH: "/health"
+      EVOLVER_TIMEOUT_SECONDS: "${EVOLVER_TIMEOUT_SECONDS:-30}"
+      EVOLVER_CONNECT_TIMEOUT_SECONDS: "${EVOLVER_CONNECT_TIMEOUT_SECONDS:-10}"
+      EVOLVER_READ_TIMEOUT_SECONDS: "${EVOLVER_READ_TIMEOUT_SECONDS:-30}"
+      EVOLVER_MAX_RESPONSE_BYTES: "${EVOLVER_MAX_RESPONSE_BYTES:-1048576}"
+      EVOLVER_RETRY_COUNT: "${EVOLVER_RETRY_COUNT:-1}"
+      EVOLVER_RETRY_BACKOFF_SECONDS: "${EVOLVER_RETRY_BACKOFF_SECONDS:-0.5}"
+      EVOLVER_ALLOWED_HOSTS: "evolver-bridge"
+      EVOLVER_FORCE_ANALYZE_ONLY: "true"
+      EVOLVER_DEFAULT: "true"
+      EVOLVER_VERSION: "compose-test"
+    depends_on:
+      evolver-bridge:
+        condition: service_healthy
+
+  backend-evolver-live-test:
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.compose-test
+    environment:
+      PYTHONPATH: "/app"
+      EVOLVER_ENABLED: "true"
+      EVOLVER_BASE_URL: "http://evolver-bridge:8080"
+      EVOLVER_ANALYZE_PATH: "/evolution/analyze"
+      EVOLVER_HEALTH_PATH: "/health"
+      EVOLVER_TIMEOUT_SECONDS: "${EVOLVER_TIMEOUT_SECONDS:-30}"
+      EVOLVER_CONNECT_TIMEOUT_SECONDS: "${EVOLVER_CONNECT_TIMEOUT_SECONDS:-10}"
+      EVOLVER_READ_TIMEOUT_SECONDS: "${EVOLVER_READ_TIMEOUT_SECONDS:-30}"
+      EVOLVER_MAX_RESPONSE_BYTES: "${EVOLVER_MAX_RESPONSE_BYTES:-1048576}"
+      EVOLVER_RETRY_COUNT: "${EVOLVER_RETRY_COUNT:-1}"
+      EVOLVER_RETRY_BACKOFF_SECONDS: "${EVOLVER_RETRY_BACKOFF_SECONDS:-0.5}"
+      EVOLVER_ALLOWED_HOSTS: "evolver-bridge"
+      EVOLVER_FORCE_ANALYZE_ONLY: "true"
+      EVOLVER_DEFAULT: "true"
+      EVOLVER_VERSION: "compose-test"
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      evolver-bridge:
+        condition: service_healthy
+    command: pytest -q tests/test_evolver_live_compose.py -rs
