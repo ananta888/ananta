@@ -52,6 +52,9 @@ def _provider_name(provider: Any) -> str:
 
 
 def _register_declared_evolution_providers(app: Flask, module: Any, *, allow_existing: bool = False) -> int:
+    from agent.sdk import get_sdk
+
+    sdk = get_sdk(app)
     provider_source = None
     if hasattr(module, "get_evolution_providers"):
         provider_source = module.get_evolution_providers(app)
@@ -64,7 +67,7 @@ def _register_declared_evolution_providers(app: Flask, module: Any, *, allow_exi
     if not providers:
         return 0
 
-    from agent.services.evolution import get_evolution_provider_registry, register_evolution_provider
+    from agent.services.evolution import get_evolution_provider_registry
 
     default = bool(getattr(module, "evolution_provider_default", False))
     replace = bool(getattr(module, "evolution_provider_replace", False))
@@ -81,7 +84,7 @@ def _register_declared_evolution_providers(app: Flask, module: Any, *, allow_exi
                 logging.warning("Deklarativer Evolution-Provider %s bereits durch init_app registriert", name)
                 continue
             raise ValueError(f"declared_evolution_provider_conflict:{name}")
-        register_evolution_provider(provider, app=app, default=default and index == 0, replace=replace)
+        sdk.register_evolution_provider(provider, default=default and index == 0, replace=replace)
         app_provider_names.add(name)
         registered_count += 1
     return registered_count

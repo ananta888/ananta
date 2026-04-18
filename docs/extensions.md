@@ -48,19 +48,26 @@ Evolution-Provider werden ueber das normale Plugin-System geladen und in die
 hub-seitige Evolution-Registry eingetragen. Der Hub bleibt dabei die Control
 Plane; Provider fuehren nur die delegierten SPI-Operationen aus.
 
-Empfohlen ist die explizite Registrierung in `init_app(app)`:
+Empfohlen ist die Nutzung des **Ananta SDKs** in `init_app(app)`:
 
 ```python
-from agent.services.evolution import EvolutionEngine, register_evolution_provider
-
+from agent.sdk import get_sdk, EvolutionEngine
 
 class MyEvolutionProvider(EvolutionEngine):
-    ...
-
+    provider_name = "my_provider"
+    # ... Implementierung ...
 
 def init_app(app):
-    register_evolution_provider(MyEvolutionProvider(), app=app, default=True)
+    sdk = get_sdk(app)
+    sdk.register_evolution_provider(MyEvolutionProvider(), default=True)
 ```
+
+Das SDK bietet eine stabile Schnittstelle und schirmt Plugins vor internen Refactorings ab.
+Folgende Methoden stehen im `AnantaSDK` zur Verfügung:
+
+- `register_evolution_provider(engine, default=False, replace=False)`
+- `register_blueprint(blueprint)`
+- `get_config(section=None)` -> gibt die Agenten-Konfiguration zurück
 
 Alternativ kann ein Plugin deklarativ `evolution_provider`,
 `evolution_providers` oder `get_evolution_providers(app)` bereitstellen. Mit
