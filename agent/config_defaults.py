@@ -111,6 +111,21 @@ def build_default_agent_config() -> dict:
             "escalate_on_fallback_block": True,
             "fallback_block_status": "blocked",
         },
+        "routing_fallback_policy": {
+            "enabled": True,
+            "allow_static_providers": True,
+            "allow_local_backends": True,
+            "allow_remote_hubs": True,
+            "allow_stateful_cli": True,
+            "allow_stateless_generation": True,
+            "fallback_order": [
+                "request_override",
+                "task_benchmark",
+                "configured_default",
+                "local_runtime_probe",
+            ],
+            "unavailable_action": "mark_unavailable",
+        },
         "exposure_policy": {
             "openai_compat": {
                 "enabled": True,

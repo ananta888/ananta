@@ -4,6 +4,7 @@ from flask import Blueprint, current_app, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
+from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
 
 from . import shared
@@ -38,6 +39,14 @@ def _catalog_entry(pid: str, url: str | None, available: bool, models: list[dict
         "capabilities": capabilities or {},
         "recommended_model": recommended_model,
     }
+
+
+def _routing_decision_for_catalog_entry(*, app_cfg: dict, provider_entry: dict, task_kind: str) -> dict:
+    return get_routing_decision_service().provider_catalog_decision(
+        cfg=app_cfg,
+        provider=provider_entry,
+        task_kind=task_kind,
+    )
 
 
 def _provider_specs(*, app_cfg: dict, urls: dict, default_provider: str, default_model: str) -> list[dict]:
@@ -168,27 +177,31 @@ def list_provider_catalog():
                     benchmark_index,
                 )
             )
-        catalog["providers"].append(
-            _catalog_entry(
-                backend["provider"],
-                backend.get("base_url"),
-                bool(backend.get("available")) and bool(local_models or list(backend.get("models") or [])),
-                local_models,
-                capabilities={
-                    "dynamic_models": True,
-                    "supports_chat": True,
-                    "openai_compatible": True,
-                    "transport_provider": backend.get("transport_provider"),
-                    "supports_tool_calls": bool(backend.get("supports_tool_calls")),
-                    "provider_type": backend.get("provider_type") or "local_openai_compatible",
-                    "remote_hub": bool(backend.get("remote_hub")),
-                    "instance_id": backend.get("instance_id"),
-                    "max_hops": backend.get("max_hops"),
-                    "remote_hub_policy": (backend.get("capabilities") or {}).get("remote_hub_policy"),
-                },
-                task_kind=task_kind,
-            )
+        provider_entry = _catalog_entry(
+            backend["provider"],
+            backend.get("base_url"),
+            bool(backend.get("available")) and bool(local_models or list(backend.get("models") or [])),
+            local_models,
+            capabilities={
+                "dynamic_models": True,
+                "supports_chat": True,
+                "openai_compatible": True,
+                "transport_provider": backend.get("transport_provider"),
+                "supports_tool_calls": bool(backend.get("supports_tool_calls")),
+                "provider_type": backend.get("provider_type") or "local_openai_compatible",
+                "remote_hub": bool(backend.get("remote_hub")),
+                "instance_id": backend.get("instance_id"),
+                "max_hops": backend.get("max_hops"),
+                "remote_hub_policy": (backend.get("capabilities") or {}).get("remote_hub_policy"),
+            },
+            task_kind=task_kind,
         )
+        provider_entry["routing_decision"] = _routing_decision_for_catalog_entry(
+            app_cfg=app_cfg,
+            provider_entry={**provider_entry, **backend},
+            task_kind=task_kind,
+        )
+        catalog["providers"].append(provider_entry)
 
     static_providers = [item for item in provider_specs if not bool((item.get("capabilities") or {}).get("dynamic_models"))]
     for provider in static_providers:
@@ -209,16 +222,20 @@ def list_provider_catalog():
                     benchmark_index,
                 )
             )
-        catalog["providers"].append(
-            _catalog_entry(
-                provider["provider"],
-                provider["base_url"],
-                provider["available"],
-                models,
-                capabilities=provider["capabilities"],
-                task_kind=task_kind,
-            )
+        provider_entry = _catalog_entry(
+            provider["provider"],
+            provider["base_url"],
+            provider["available"],
+            models,
+            capabilities=provider["capabilities"],
+            task_kind=task_kind,
         )
+        provider_entry["routing_decision"] = _routing_decision_for_catalog_entry(
+            app_cfg=app_cfg,
+            provider_entry={**provider_entry, **provider},
+            task_kind=task_kind,
+        )
+        catalog["providers"].append(provider_entry)
 
     if task_kind:
         recommended_items = [
@@ -241,5 +258,6 @@ def list_provider_catalog():
                 "id": selected.get("id"),
                 "selection_source": "benchmarks_available_top_ranked",
             }
+    catalog["routing_fallback_policy"] = get_routing_decision_service().resolve_fallback_policy(app_cfg)
 
     return api_response(data=catalog)

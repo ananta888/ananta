@@ -10,6 +10,7 @@ from agent.services.cli_session_service import get_cli_session_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.integration_registry_service import get_integration_registry_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
 
 
@@ -207,6 +208,8 @@ class ConfigReadModelService:
         }
         recommended_runtime = benchmark_recommendation.get("recommended") if isinstance(benchmark_recommendation, dict) else None
         codex_runtime = resolve_codex_runtime_config()
+        routing_decision_service = get_routing_decision_service()
+        routing_fallback_policy = routing_decision_service.resolve_fallback_policy(cfg)
         effective_runtime = {
             "provider": (recommended_runtime or {}).get("provider") or configured_runtime["provider"],
             "model": (recommended_runtime or {}).get("model") or configured_runtime["model"],
@@ -225,6 +228,28 @@ class ConfigReadModelService:
             ),
             "configured": configured_runtime,
         }
+        execution_default_backend = str(cfg.get("sgpt_execution_backend") or "sgpt").strip().lower()
+        routing_decision_chain = routing_decision_service.build_decision_chain(
+            cfg=cfg,
+            task_kind=valid_task_kind,
+            requested={},
+            effective={
+                "provider": effective_runtime.get("provider"),
+                "model": effective_runtime.get("model"),
+                "execution_backend": execution_default_backend,
+                "codex_target_provider": codex_runtime.get("target_provider"),
+                "codex_target_kind": codex_runtime.get("target_kind"),
+            },
+            sources={
+                "provider_source": effective_runtime.get("selection_source"),
+                "model_source": effective_runtime.get("selection_source"),
+            },
+            recommendation=recommended_runtime,
+            execution_backend={
+                "backend": execution_default_backend,
+                "reason": "agent_config.sgpt_execution_backend_or_default",
+            },
+        )
         research_backend_cfg = resolve_research_backend_config(agent_cfg=cfg)
         research_backend_review = review_policy(cfg, research_backend_cfg.get("provider"), "research")
         exposure_policy = get_exposure_policy_service().normalize_exposure_policy((cfg or {}).get("exposure_policy"))
@@ -345,7 +370,7 @@ class ConfigReadModelService:
                         "default_model": effective_default_model,
                     },
                     "execution": {
-                        "default_backend": str(cfg.get("sgpt_execution_backend") or "sgpt").strip().lower(),
+                        "default_backend": execution_default_backend,
                         "codex_target_provider": codex_runtime.get("target_provider"),
                         "codex_target_kind": codex_runtime.get("target_kind"),
                         "codex_target_provider_type": codex_runtime.get("target_provider_type"),
@@ -355,6 +380,8 @@ class ConfigReadModelService:
                         "codex_max_hops": codex_runtime.get("max_hops"),
                         "codex_diagnostics": list(codex_runtime.get("diagnostics") or []),
                     },
+                    "decision_chain": routing_decision_chain,
+                    "fallback_policy": routing_fallback_policy,
                 },
                 "runtime_telemetry": {
                     "providers": dict(runtime_preflight.get("providers") or {}),

@@ -5,6 +5,19 @@ from flask import Response, g, jsonify
 from agent.common.redaction import VisibilityLevel, redact
 
 
+def _restore_auth_response_tokens(original: Any, redacted: Any) -> Any:
+    if not isinstance(original, dict) or not isinstance(redacted, dict):
+        return redacted
+    token_keys = {"access_token", "refresh_token"}
+    if not token_keys.intersection(original):
+        return redacted
+    restored = dict(redacted)
+    for key in token_keys:
+        if key in original:
+            restored[key] = original[key]
+    return restored
+
+
 def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int = 200) -> Response:
     """
     Erzeugt eine standardisierte API-Antwort.
@@ -24,7 +37,7 @@ def api_response(data: Any = None, status: str = "success", message: Optional[st
             # Außerhalb eines Request-Kontexts
             pass
 
-        response_body["data"] = redact(data, visibility=visibility)
+        response_body["data"] = _restore_auth_response_tokens(data, redact(data, visibility=visibility))
     if message is not None:
         response_body["message"] = message
 
