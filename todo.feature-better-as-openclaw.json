@@ -1,0 +1,662 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": "5.5.0",
+  "created": "2026-04-18",
+  "updated": "2026-04-18T00:00:00Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Ananta schrittweise um direkt nutzbare, alltagsrelevante Faehigkeiten erweitern, ohne das governance-first, task-first und verification-first Architekturmodell zugunsten eines capability-first Assistentensystems aufzuweichen.",
+    "notes": [
+      "Ananta soll nicht zu einem unscharfen OpenClaw-Klon werden, sondern zu einer kontrollierten, direkt nutzbaren Arbeitsplattform mit sicheren Faehigkeiten und guten Einstiegspunkten.",
+      "Direkt nutzbare Faehigkeiten sollen immer ueber Goals, Plans, Tasks, Verification, Policies, Audit und klar begrenzte Capability-Sets eingebunden werden.",
+      "Die Reihenfolge ist wichtig: zuerst sichere lokale Nutzenstifter, dann einfache Interaktionsadapter, spaeter externe Kanaele und zuletzt ein strengeres Drittanbieter-Plugin-Modell."
+    ]
+  },
+  "categories": [
+    {
+      "name": "safe-action-packs",
+      "label": "Sichere Action Packs",
+      "items": [
+        {
+          "id": "SAP-001",
+          "title": "Action-Pack-Modell fuer kontrollierte direkt nutzbare Faehigkeiten einfuehren",
+          "description": "Ein klares Modell fuer Action Packs einfuehren, damit direkt nutzbare Faehigkeiten wie Dateiarbeit, Git, Shell, Browser oder Dokument-Operationen nicht als lose Toolwiese, sondern als kontrollierte, policy-faehige Capability-Buendel eingebunden werden.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Capability-Bounding, Governance-First",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/",
+            "agent/config.py",
+            "agent/db_models.py",
+            "docs/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Action Packs sind als explizite Capability-Buendel modelliert.",
+            "Jedes Pack kann getrennt aktiviert, deaktiviert und policy-gesteuert werden.",
+            "Action Packs verhalten sich als first-class Governance-Objekte und nicht als lose Tool-Sammlung."
+          ]
+        },
+        {
+          "id": "SAP-002",
+          "title": "Datei-Action-Pack fuer sichere Lese-, Schreib- und Patch-Operationen aufbauen",
+          "description": "Ein direkt nuetzliches Datei-Action-Pack bereitstellen, das Datei-Lesen, gezielte Schreibvorgaenge, Patch-Vorschlaege und kontrollierte Dateianlagen sicher und auditierbar unterstuetzt.",
+          "priority": "critical",
+          "type": "integration",
+          "principle": "High-Utility, Controlled-Execution",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Dateioperationen koennen gezielt und policy-konform ausgefuehrt werden.",
+            "Schreiboperationen lassen sich auf erlaubte Pfade oder Workspaces begrenzen.",
+            "Audit und Verification koennen nachvollziehen, welche Dateien betroffen waren."
+          ]
+        },
+        {
+          "id": "SAP-003",
+          "title": "Git-Action-Pack fuer Diff-, Status-, Commit- und Review-nahe Aufgaben ergänzen",
+          "description": "Ein Git-orientiertes Action-Pack schaffen, das fuer Entwicklungsarbeit direkt nutzbar ist, ohne unkontrollierte Repo-Manipulation zuzulassen.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Developer-Usefulness, Safe-Change-Surface",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Git-Status, Diffs, Branch-Infos und kontrollierte Commit-nahe Workflows sind nutzbar.",
+            "Riskantere Operationen wie Push oder Reset sind explizit policy-gesteuert oder standardmaessig geblockt.",
+            "Die Ergebnisse sind fuer Task-, Review- und Artifact-Pfade verwertbar."
+          ]
+        },
+        {
+          "id": "SAP-004",
+          "title": "Shell-Action-Pack mit hartem Guardrail-Modell einführen",
+          "description": "Shell-Ausfuehrung als streng begrenztes Hochrisiko-Action-Pack modellieren, statt freien Kommandozugriff als Normalfall zu behandeln.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Least-Privilege, High-Risk-Containment",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/",
+            "agent/config.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Shell-Ausfuehrung ist standardmaessig stark eingeschraenkt oder deaktiviert.",
+            "Allowlist-, Workspace-, Timeout- und Review-Regeln sind vorhanden.",
+            "Shell-Pfade sind klar als Hochrisiko-Capability erkennbar und auditierbar."
+          ]
+        },
+        {
+          "id": "SAP-005",
+          "title": "Browser- und Web-Action-Pack fuer kontrollierte Recherche und Abrufe ergänzen",
+          "description": "Ein sicheres Web-Action-Pack bereitstellen, das Recherche, Seitenabruf, Extraktion und spaeter browsernahe Interaktion kontrolliert unterstuetzt.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Practical-Utility, Boundary-Control",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Web-Recherche und Seitenabruf sind ueber kontrollierte Capability-Pfade verfuegbar.",
+            "Domain-, Netzwerk- oder Datenmengen-Grenzen sind modellierbar.",
+            "Resultate sind als Artefakte oder strukturierte Zusammenfassungen weiterverwendbar."
+          ]
+        },
+        {
+          "id": "SAP-006",
+          "title": "Dokumenten- und Office-Action-Pack fuer direkt nutzbare Arbeitsaufgaben aufbauen",
+          "description": "Direkt nuetzliche Dokument-Faehigkeiten fuer Zusammenfassung, Extraktion, Umwandlung, Strukturierung und kontrolliertes Erzeugen von Ausgaben bereitstellen.",
+          "priority": "medium",
+          "type": "integration",
+          "principle": "General-Utility, Reusable-Workflows",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-001"
+          ],
+          "acceptance": [
+            "Ananta kann haeufige Dokumentaufgaben als direkte Nutzfaehigkeiten anbieten.",
+            "Dokumentpfade sind mit dem Goal-, Task- und Artifact-Modell verbunden.",
+            "Die Funktionen bleiben kontrolliert und auditierbar statt in offene Dateitools auszuarten."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "guided-entry-points-and-goal-modes",
+      "label": "Einstiegspunkte und Goal Modi",
+      "items": [
+        {
+          "id": "GEM-010",
+          "title": "Gefuehrte Goal-Einstiegspunkte fuer haeufige Nutzungsarten einfuehren",
+          "description": "Statt nur generisches Goal-Textfeld sollen gefuehrte Einstiegspunkte fuer typische Aufgaben wie Codeproblem loesen, Projekt analysieren, Datei zusammenfassen oder Systemdiagnose bereitgestellt werden.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Approachability, Guided-Usefulness",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Nutzer koennen haeufige Zieltypen ueber gefuehrte Modi statt nur ueber Freitext starten.",
+            "Die Modi erzeugen strukturiertere Goals und bessere Startkontexte.",
+            "Die UX senkt die Einstiegshuerde ohne die Architektur zu vereinfachen."
+          ]
+        },
+        {
+          "id": "GEM-011",
+          "title": "Goal-Typen in strukturierte Startschemas ueberfuehren",
+          "description": "Hauefige Goal-Arten sollen ueber strukturierte Startschemas mit Feldern, Defaults und optionalen Sicherheitsgrenzen modelliert werden.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Structured-Inputs, Better-Planning",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/db_models.py",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "GEM-010"
+          ],
+          "acceptance": [
+            "Goal-Modi koennen strukturierte Startdaten statt nur Freitext aufnehmen.",
+            "Planung und Routing profitieren von besserer Eingangsspezifikation.",
+            "Die Startschemas bleiben erweiterbar und versionierbar."
+          ]
+        },
+        {
+          "id": "GEM-012",
+          "title": "Default-Playbooks fuer die wichtigsten Goal-Modi hinterlegen",
+          "description": "Zu den gefuehrten Einstiegspunkten passende Standard-Playbooks oder Task-Skizzen bereitstellen, damit Ananta direkt nuetzlich reagiert und nicht jedes Mal bei null beginnt.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Fast-Time-to-Value, Reusable-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "GEM-010",
+            "GEM-011"
+          ],
+          "acceptance": [
+            "Goal-Modi koennen auf passende Standard-Playbooks zugreifen.",
+            "Nutzer erhalten schneller brauchbare Erstresultate.",
+            "Die Playbooks bleiben explizit, nachvollziehbar und reviewbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "local-assistant-capabilities",
+      "label": "Lokale direkte Assistenz Faehigkeiten",
+      "items": [
+        {
+          "id": "LAC-020",
+          "title": "Repo-Analyse als first-class direkt nutzbare Faehigkeit einführen",
+          "description": "Ein direkter Modus fuer Projekt- oder Repo-Analyse bereitstellen, der Struktur, Probleme, Risiken und Verbesserungspotenziale gezielt zusammenfasst.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Immediate-Utility, Controlled-Insight",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Ein Nutzer kann ein Projekt oder Repo direkt analysieren lassen.",
+            "Die Ergebnisse erscheinen als strukturierte Artefakte und nicht nur als freier Chattext.",
+            "Analysepfade nutzen vorhandene Governance- und Kontextmechanismen."
+          ]
+        },
+        {
+          "id": "LAC-021",
+          "title": "Issue-zu-Plan-zu-Patch-Vorschlag Workflow direkt nutzbar machen",
+          "description": "Einen alltagsnahen Entwicklungsworkflow bereitstellen, in dem aus einem Problem oder Issue ein Plan und ein kontrollierter Patch-Vorschlag erzeugt wird.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Developer-Workflow, Verification-Friendly",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-002",
+            "SAP-003"
+          ],
+          "acceptance": [
+            "Aus einem Problemtext oder Issue laesst sich direkt ein sinnvoller Umsetzungsworkflow starten.",
+            "Der Patch entsteht als kontrollierter Vorschlag mit Review- und Verification-Bezug.",
+            "Die Pipeline passt in Goals, Tasks, Verification und Artifacts."
+          ]
+        },
+        {
+          "id": "LAC-022",
+          "title": "Build-, Test- und Log-Diagnose als direkte Servicefaehigkeit bündeln",
+          "description": "Build-Fehler, Testfehler und Log-Auffaelligkeiten sollen als direkt nutzbarer Diagnosemodus verfuegbar sein, statt nur indirekt als Nebenergebnis anderer Flows aufzutreten.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Fast-Debugging, Practical-Operations",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-004"
+          ],
+          "acceptance": [
+            "Build-, Test- und Log-Diagnosen sind als eigene Startmodi verfuegbar.",
+            "Ergebnisse werden strukturiert als Problemsignale, Ursachen und Folgeempfehlungen ausgegeben.",
+            "Shell- oder Laufzeitnutzung bleibt innerhalb der Policy-Grenzen."
+          ]
+        },
+        {
+          "id": "LAC-023",
+          "title": "Compose-, Docker- und Laufzeit-Reparaturflows direkt nutzbar machen",
+          "description": "Fuer typische DevOps- und lokale Laufzeitprobleme sollen gefuehrte Diagnose- und Reparaturflows bereitgestellt werden.",
+          "priority": "medium",
+          "type": "integration",
+          "principle": "Operational-Helpfulness, Safe-Repair",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-004",
+            "GEM-012"
+          ],
+          "acceptance": [
+            "Nutzer koennen typische Container- oder Compose-Probleme direkt analysieren lassen.",
+            "Vorschlaege bleiben kontrolliert und reviewbar.",
+            "Die Resultate koennen als Folge-Tasks oder Repair-Artefakte weiterverarbeitet werden."
+          ]
+        },
+        {
+          "id": "LAC-024",
+          "title": "Dokumentations- und Review-Assistenten als direkte Standardfaehigkeiten ergänzen",
+          "description": "Praktische Alltagsfaehigkeiten wie Diff-Zusammenfassung, Review-Notizen, Architekturzusammenfassung oder Doku-Entwurf als direkte Nutzmodi einbauen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Broad-Usefulness, Low-Risk-Value",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SAP-006"
+          ],
+          "acceptance": [
+            "Review- und Doku-nahe Aufgaben sind als erste Standardfaehigkeiten direkt benutzbar.",
+            "Die Ergebnisse lassen sich als Artefakte speichern und weiterverwenden.",
+            "Die Modi schaffen breiten Nutzen ohne offene Hochrisiko-Capabilities."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "simple-interaction-adapters",
+      "label": "Einfache Interaktionsadapter",
+      "items": [
+        {
+          "id": "SIA-030",
+          "title": "Web-UI Chat und Goal-Interaktion enger mit Tasks und Artifacts verzahnen",
+          "description": "Die bestehende UI soll staerker von einer reinen Verwaltungsoberflaeche zu einer direkt nutzbaren Arbeitsoberflaeche weiterentwickelt werden, in der Goal-Eingabe, Verlauf, Artefakte und Folgeaktionen eng zusammenliegen.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Usability, Unified-Work-Surface",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Nutzer koennen Goals, Ergebnisse, Folgefragen und Artefakte in einer konsistenten UI erleben.",
+            "Die UI fuehlt sich fuer direkte Nutzung weniger nach Admin-Panel und mehr nach Arbeitsoberflaeche an.",
+            "Governance- und Artifact-Modelle bleiben sichtbar und gehen nicht hinter Chat weg."
+          ]
+        },
+        {
+          "id": "SIA-031",
+          "title": "CLI als first-class direkter Arbeitszugang ausbauen",
+          "description": "Eine einfache, schnelle CLI fuer Goals, Diagnosemodi, Artefaktabruf und Folgeaktionen bereitstellen, damit Ananta auch ohne umfangreiche UI direkt nuetzlich ist.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Direct-Use, Automation-Friendly",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "agent/",
+            "docs/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die CLI deckt haeufige direkte Anwendungsfaelle sinnvoll ab.",
+            "Sie ist nicht nur Admin-Werkzeug, sondern echte Nutzoberflaeche.",
+            "Goals, Status und Resultate koennen ueber die CLI sinnvoll bearbeitet werden."
+          ]
+        },
+        {
+          "id": "SIA-032",
+          "title": "Webhook- und API-basierte Fremdintegration als stabilen Aussenrand stärken",
+          "description": "Statt frueh viele Messenger einzubauen soll der API- und Webhook-Aussenrand so gut werden, dass andere Systeme Ananta einfach und kontrolliert nutzen koennen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Extensibility, Clean-External-Surface",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "api-spec.md",
+            "tests/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Externe Systeme koennen Goals und Folgeaktionen sauber ueber APIs oder Webhooks anstossen.",
+            "Der Aussenrand ist stabiler und sinnvoller als frueh viele spezialisierte Kanaele einzubauen.",
+            "Auth, Audit und Policy bleiben konsistent."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "skills-playbooks-and-blueprints",
+      "label": "Skills Playbooks und Blueprints",
+      "items": [
+        {
+          "id": "SPB-040",
+          "title": "Bibliothek direkt nutzbarer Skills und Playbooks aufbauen",
+          "description": "Eine kuratierte Bibliothek aus direkt nutzbaren Skills und Playbooks schaffen, die typische Arbeitsaufgaben kontrolliert und wiederverwendbar abbildet.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Reusability, Fast-Time-to-Value",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "docs/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Es gibt eine erkennbare Sammlung wiederverwendbarer Skills oder Playbooks.",
+            "Die Bibliothek ist nicht nur interne Technik, sondern klar fuer reale Anwendungsfaelle nutzbar.",
+            "Skills bleiben in Goals, Tasks, Verification und Artifacts eingebettet."
+          ]
+        },
+        {
+          "id": "SPB-041",
+          "title": "Standard-Playbooks fuer Bugfix, Refactoring, Incident und Architekturreview bereitstellen",
+          "description": "Fuer haeufige professionelle Arbeitsfaelle konkrete Standard-Playbooks mit sinnvollen Taskfolgen und Verifikationspunkten bereitstellen.",
+          "priority": "high",
+          "type": "integration",
+          "principle": "Practical-Workflow-Design, Repeatability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SPB-040"
+          ],
+          "acceptance": [
+            "Wichtige Kernanwendungsfaelle sind durch konkrete Standard-Playbooks abgedeckt.",
+            "Playbooks lassen sich direkt starten oder als Vorlage verwenden.",
+            "Verification und Escalation sind in den Playbooks bewusst vorgesehen."
+          ]
+        },
+        {
+          "id": "SPB-042",
+          "title": "Blueprints und Teams enger mit direkt nutzbaren Arbeitsmodi verbinden",
+          "description": "Blueprints und Teamdefinitionen sollen nicht nur Verwaltungsobjekte sein, sondern direkt nutzbare vordefinierte Arbeitsmodi und Faehigkeitsprofile repraesentieren.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Usable-Configuration, Role-Based-Capabilities",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SPB-040"
+          ],
+          "acceptance": [
+            "Teams und Blueprints koennen als nutzbare Arbeitsprofile gestartet werden.",
+            "Action Packs, Goal-Modi und Playbooks lassen sich mit Blueprints sinnvoll verknuepfen.",
+            "Die Nutzerperspektive auf Blueprints wird greifbarer und direkter."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "selected-external-adapters",
+      "label": "Ausgewählte externe Adapter",
+      "items": [
+        {
+          "id": "SEA-050",
+          "title": "Externe Adapter erst nach stabilem Web UI CLI und API Kern ergänzen",
+          "description": "Eine klare Produktregel verankern, dass externe Kanäle wie Slack, Matrix oder andere Messaging-Wege erst nach stabilem Kernzugang ueber Web-UI, CLI und API priorisiert werden.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Focus, Controlled-Surface-Growth",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/",
+            "CONTRIBUTING.md"
+          ],
+          "acceptance": [
+            "Die Prioritaet des Kernprodukts vor Kanaelvielfalt ist dokumentiert.",
+            "Neue Aussenadapter muessen begruendet und nicht reflexhaft eingebaut werden.",
+            "Das Projekt bewahrt Fokus auf kontrollierten Kernnutzen."
+          ]
+        },
+        {
+          "id": "SEA-051",
+          "title": "Einen ersten leichten externen Adapter mit harter Policy-Grenze pilotieren",
+          "description": "Nach stabilem Kern genau einen leichten externen Adapter pilotieren, um die Integrationsfaehigkeit zu pruefen ohne sofort in Kanalchaos zu geraten.",
+          "priority": "low",
+          "type": "integration",
+          "principle": "Measured-Expansion, Learn-Before-Scale",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "docs/extensions.md",
+            "tests/"
+          ],
+          "dependencies": [
+            "SIA-032",
+            "SEA-050"
+          ],
+          "acceptance": [
+            "Genau ein externer Adapter kann als Pilot sicher betrieben werden.",
+            "Die Policy- und Audit-Grenzen bleiben auch ueber den Adapter erhalten.",
+            "Die Pilotintegration liefert Erkenntnisse fuer spaetere Ausweitung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "strict-extension-model",
+      "label": "Strenges Extension Modell",
+      "items": [
+        {
+          "id": "SEM-060",
+          "title": "Ein strenges Drittanbieter-Extension-Modell fuer direkt nutzbare Faehigkeiten definieren",
+          "description": "Wenn Ananta spaeter breiter nutzbar wird, muss ein strenges Extension-Modell definieren, welche Zusatzfaehigkeiten als externe Erweiterungen eingebunden werden duerfen und unter welchen Grenzen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Extensibility-with-Guardrails, Secure-Ecosystem",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "docs/extensions.md",
+            "agent/plugin_loader.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Es gibt klare Regeln fuer Erweiterungen direkt nutzbarer Faehigkeiten.",
+            "Extension-Autoren muessen definierte Sicherheits- und Capability-Grenzen respektieren.",
+            "Das Modell verhindert, dass Ananta in unkontrollierte Toolvielfalt abgleitet."
+          ]
+        },
+        {
+          "id": "SEM-061",
+          "title": "Action Packs und Skills fuer Erweiterungen als capability-gebundene Contracts modellieren",
+          "description": "Externe Erweiterungen sollen nicht frei in den Core greifen, sondern nur ueber klar definierte capability-gebundene Contracts fuer Action Packs und Skills andocken.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Stable-Seams, Safe-Pluggability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "plugins/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SEM-060",
+            "SAP-001",
+            "SPB-040"
+          ],
+          "acceptance": [
+            "Action Packs und Skills haben stabile Erweiterungsschnittstellen.",
+            "Externe Erweiterungen umgehen den Governance-Kern nicht.",
+            "Plugin- und Capability-Grenzen bleiben mechanisch pruefbar."
+          ]
+        },
+        {
+          "id": "SEM-062",
+          "title": "Marktplatz oder Oekosystem-Ideen erst nach stabilen Kern-Contracts zulassen",
+          "description": "Etwaige spaetere Oekosystem- oder Marktplatzideen sollen explizit an die Bedingung eines stabilen, gehärteten Kernmodells gebunden werden.",
+          "priority": "low",
+          "type": "documentation",
+          "principle": "Do-Not-Scale-Chaos, Core-First-Maturity",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/",
+            "CONTRIBUTING.md"
+          ],
+          "dependencies": [
+            "SEM-060",
+            "SEM-061"
+          ],
+          "acceptance": [
+            "Das Projekt priorisiert reife Kernvertraege vor Erweiterungsoekosystemen.",
+            "Feature-Wachstum bleibt an Sicherheits- und Governance-Reife gekoppelt.",
+            "Die Projektlinie bleibt fokusiert und nachvollziehbar."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 22,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 22
+    },
+    "notes": [
+      "Diese Todo-Datei uebersetzt den Wunsch nach mehr direkter Nutzbarkeit in einen governance-first Ausbaupfad statt in einen capability-first Assistentenklon.",
+      "Der rote Faden ist: sichere Action Packs, gefuehrte Goal-Modi, praktische lokale Arbeitsfaehigkeiten, wenige starke Einstiegspunkte und erst spaeter ausgewaehlte Aussenadapter.",
+      "Ananta soll breiter nutzbar werden, ohne seinen eigentlichen Mehrwert zu verlieren: kontrollierte Planung, Verification, Policies, Audit und klare Verantwortungsgrenzen."
+    ],
+    "recommended_order": [
+      "SAP-001",
+      "GEM-010",
+      "GEM-011",
+      "SIA-030",
+      "SAP-002",
+      "SAP-003",
+      "SAP-004",
+      "LAC-020",
+      "LAC-022",
+      "SPB-040",
+      "GEM-012",
+      "SPB-041",
+      "LAC-021",
+      "SAP-005",
+      "SAP-006",
+      "LAC-024",
+      "SIA-031",
+      "SIA-032",
+      "SPB-042",
+      "LAC-023",
+      "SEM-060",
+      "SEM-061",
+      "SEA-050",
+      "SEA-051",
+      "SEM-062"
+    ]
+  }
+}
