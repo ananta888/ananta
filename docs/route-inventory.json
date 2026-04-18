@@ -5,827 +5,1788 @@
       "endpoint": "list_agents",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/agents"
+    },
+    {
+      "path": "/api/hub/benchmark/auto-trigger-status",
+      "endpoint": "hub_benchmark.get_auto_trigger_status",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/config",
+      "endpoint": "hub_benchmark.get_hub_benchmark_config",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/jobs/<job_id>",
+      "endpoint": "hub_benchmark.get_hub_benchmark_job",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/model-for-task",
+      "endpoint": "hub_benchmark.get_hub_model_for_task",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/recommend",
+      "endpoint": "hub_benchmark.get_hub_benchmark_recommendation",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/results",
+      "endpoint": "hub_benchmark.get_hub_benchmark_results",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/run",
+      "endpoint": "hub_benchmark.run_hub_benchmark",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/single",
+      "endpoint": "hub_benchmark.run_single_hub_benchmark",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/hub/benchmark/task-kinds",
+      "endpoint": "hub_benchmark.get_task_kinds",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/comparison",
+      "endpoint": "ollama_benchmark.get_model_comparison",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/config",
+      "endpoint": "ollama_benchmark.get_ollama_benchmark_config",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/config",
+      "endpoint": "ollama_benchmark.update_ollama_benchmark_config",
+      "methods": [
+        "PATCH",
+        "PUT"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/jobs/<job_id>",
+      "endpoint": "ollama_benchmark.get_ollama_benchmark_job",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/models/discover",
+      "endpoint": "ollama_benchmark.discover_ollama_models",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/parameters",
+      "endpoint": "ollama_benchmark.run_parameter_variation",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/recommend",
+      "endpoint": "ollama_benchmark.get_ollama_recommendation",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/results",
+      "endpoint": "ollama_benchmark.get_ollama_benchmark_results",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/role",
+      "endpoint": "ollama_benchmark.run_role_benchmark",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/roles",
+      "endpoint": "ollama_benchmark.get_role_templates",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/run",
+      "endpoint": "ollama_benchmark.run_ollama_benchmark",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/single",
+      "endpoint": "ollama_benchmark.run_single_benchmark",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/ollama/benchmark/task-kinds",
+      "endpoint": "ollama_benchmark.get_task_kinds",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/sgpt/backends",
       "endpoint": "sgpt.list_cli_backends",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/sgpt/capability-matrix",
       "endpoint": "sgpt.capability_matrix",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/sgpt/context",
       "endpoint": "sgpt.get_context",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/sgpt/execute",
       "endpoint": "sgpt.execute_sgpt",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/sgpt/sessions",
+      "endpoint": "sgpt.create_cli_session",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/sgpt/sessions",
+      "endpoint": "sgpt.list_cli_sessions",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/sgpt/sessions/<session_id>",
+      "endpoint": "sgpt.get_cli_session",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/sgpt/sessions/<session_id>",
+      "endpoint": "sgpt.close_cli_session",
+      "methods": [
+        "DELETE"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/sgpt/sessions/<session_id>/turn",
+      "endpoint": "sgpt.run_cli_session_turn",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/sgpt/source",
       "endpoint": "sgpt.get_source_preview",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/agents",
       "endpoint": "system.list_agents",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/audit-logs",
       "endpoint": "system.get_audit_logs",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/audit/analyze",
       "endpoint": "system.analyze_audit_logs",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/system/contracts",
+      "endpoint": "system.contract_catalog",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/csp-report",
       "endpoint": "system.csp_report",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/events",
       "endpoint": "system.stream_system_events",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/health",
       "endpoint": "system.health",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/metrics",
       "endpoint": "system.metrics",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/system/openapi.json",
+      "endpoint": "system.openapi_document",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/ready",
       "endpoint": "system.readiness_check",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/register",
       "endpoint": "system.register_agent",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/system/restart-process",
+      "endpoint": "system.restart_process",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/rotate-token",
       "endpoint": "system.do_rotate_token",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/stats",
       "endpoint": "system.system_stats",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/api/system/stats/history",
       "endpoint": "system.get_stats_history",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/api/system/terminal/restart-session",
+      "endpoint": "system.restart_terminal_session",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/apidocs/",
       "endpoint": "flasgger.apidocs",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/apidocs/index.html",
       "endpoint": "flasgger.<lambda>",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/apispec_1.json",
       "endpoint": "flasgger.apispec_1",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts",
+      "endpoint": "artifacts.list_artifacts",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/<artifact_id>",
+      "endpoint": "artifacts.get_artifact",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/<artifact_id>/extract",
+      "endpoint": "artifacts.extract_artifact",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/<artifact_id>/rag-index",
+      "endpoint": "artifacts.index_artifact_for_rag",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/<artifact_id>/rag-jobs/<job_id>",
+      "endpoint": "artifacts.get_artifact_rag_job",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/<artifact_id>/rag-preview",
+      "endpoint": "artifacts.get_artifact_rag_preview",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/<artifact_id>/rag-status",
+      "endpoint": "artifacts.get_artifact_rag_status",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/artifacts/upload",
+      "endpoint": "artifacts.upload_artifact",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/assistant/read-model",
-      "endpoint": "config.assistant_read_model",
+      "endpoint": "config_read_models.assistant_read_model",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/audit-logs",
       "endpoint": "get_audit_logs",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/audit-logs"
     },
     {
       "path": "/audit/analyze",
       "endpoint": "analyze_audit_logs",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/audit/analyze"
     },
     {
       "path": "/change-password",
       "endpoint": "auth.change_password",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/config",
-      "endpoint": "config.get_config",
+      "endpoint": "config_settings.get_config",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/config",
-      "endpoint": "config.set_config",
+      "endpoint": "config_settings.set_config",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/dashboard/read-model",
-      "endpoint": "config.dashboard_read_model",
+      "endpoint": "config_read_models.dashboard_read_model",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/events",
       "endpoint": "stream_system_events",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/events"
+    },
+    {
+      "path": "/evolution/providers",
+      "endpoint": "evolution.list_evolution_providers",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/evolution/providers/<provider_name>",
+      "endpoint": "evolution.get_evolution_provider",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/flasgger_static/<path:filename>",
       "endpoint": "flasgger.static",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals",
+      "endpoint": "tasks_goals.list_goals",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals",
+      "endpoint": "tasks_goals.create_goal",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/<gid>/governance",
+      "endpoint": "tasks_management.goal_governance",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/<goal_id>",
+      "endpoint": "tasks_goals.get_goal",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/<goal_id>/detail",
+      "endpoint": "tasks_goals.get_goal_detail",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/<goal_id>/governance-summary",
+      "endpoint": "tasks_goals.goal_governance_summary",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/<goal_id>/plan",
+      "endpoint": "tasks_goals.get_goal_plan",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/<goal_id>/plan/nodes/<node_id>",
+      "endpoint": "tasks_goals.patch_goal_plan_node",
+      "methods": [
+        "PATCH"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/modes",
+      "endpoint": "tasks_goals.list_goal_modes",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/readiness",
+      "endpoint": "tasks_goals.goals_readiness",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/goals/test/provision",
+      "endpoint": "tasks_goals.test_provision_goal",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/governance/policy",
+      "endpoint": "config_read_models.governance_policy_read_model",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/health",
       "endpoint": "health",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/health"
+    },
+    {
+      "path": "/knowledge/collections",
+      "endpoint": "knowledge.list_knowledge_collections",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/knowledge/collections",
+      "endpoint": "knowledge.create_knowledge_collection",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/knowledge/collections/<collection_id>",
+      "endpoint": "knowledge.get_knowledge_collection",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/knowledge/collections/<collection_id>/index",
+      "endpoint": "knowledge.index_knowledge_collection",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/knowledge/collections/<collection_id>/search",
+      "endpoint": "knowledge.search_knowledge_collection",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/knowledge/index-jobs/<job_id>",
+      "endpoint": "knowledge.get_knowledge_index_job",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/knowledge/index-profiles",
+      "endpoint": "knowledge.list_knowledge_index_profiles",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/llm/benchmarks",
-      "endpoint": "config.get_llm_benchmarks",
+      "endpoint": "config_benchmarks.get_llm_benchmarks",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/llm/benchmarks/config",
-      "endpoint": "config.get_llm_benchmarks_config",
+      "endpoint": "config_benchmarks.get_llm_benchmarks_config",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/llm/benchmarks/record",
-      "endpoint": "config.record_llm_benchmark",
+      "endpoint": "config_benchmarks.record_llm_benchmark",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/llm/benchmarks/timeseries",
-      "endpoint": "config.get_llm_benchmarks_timeseries",
+      "endpoint": "config_benchmarks.get_llm_benchmarks_timeseries",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/llm/generate",
-      "endpoint": "config.llm_generate",
+      "endpoint": "config_llm_generate.llm_generate",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/llm/history",
-      "endpoint": "config.get_llm_history",
+      "endpoint": "config_benchmarks.get_llm_history",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/login",
       "endpoint": "auth.login",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/logs",
       "endpoint": "tasks_logging.get_logs",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/me",
       "endpoint": "auth.get_me",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/metrics",
       "endpoint": "metrics",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/metrics"
     },
     {
       "path": "/mfa/disable",
       "endpoint": "auth.mfa_disable",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/mfa/setup",
       "endpoint": "auth.mfa_setup",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/mfa/verify",
       "endpoint": "auth.mfa_verify",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/oauth2-redirect.html",
       "endpoint": "flasgger.oauth_redirect",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/providers",
-      "endpoint": "config.list_providers",
+      "endpoint": "config_providers.list_providers",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/providers/catalog",
-      "endpoint": "config.list_provider_catalog",
+      "endpoint": "config_providers.list_provider_catalog",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/ready",
       "endpoint": "readiness_check",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/ready"
     },
     {
       "path": "/refresh-token",
       "endpoint": "auth.refresh",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/register",
       "endpoint": "register_agent",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/register"
     },
     {
       "path": "/schedule",
       "endpoint": "tasks_scheduling.schedule_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/schedule",
       "endpoint": "tasks_scheduling.list_scheduled_tasks",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/schedule/<task_id>",
       "endpoint": "tasks_scheduling.remove_scheduled_task",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/stats",
       "endpoint": "system_stats",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/stats"
     },
     {
       "path": "/stats/history",
       "endpoint": "get_stats_history",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "alias",
+      "canonical_path": "/api/system/stats/history"
     },
     {
       "path": "/step/execute",
       "endpoint": "tasks_execution.execute_step",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/step/propose",
       "endpoint": "tasks_execution.propose_step",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks",
       "endpoint": "tasks_management.list_tasks",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks",
       "endpoint": "tasks_management.create_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<task_id>/evolution",
+      "endpoint": "evolution.task_evolution_read_model",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<task_id>/evolution/analyze",
+      "endpoint": "evolution.analyze_task_evolution",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<task_id>/evolution/proposals/<proposal_id>/apply",
+      "endpoint": "evolution.apply_task_evolution_proposal",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<task_id>/evolution/proposals/<proposal_id>/validate",
+      "endpoint": "evolution.validate_task_evolution_proposal",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>",
       "endpoint": "tasks_management.get_task",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>",
       "endpoint": "tasks_management.patch_task",
       "methods": [
         "PATCH"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/archive",
       "endpoint": "tasks_management.archive_task_route",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/assign",
       "endpoint": "tasks_management.assign_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/assign/auto",
+      "endpoint": "tasks_management.auto_assign_task",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/cancel",
+      "endpoint": "tasks_management.cancel_task",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/delegate",
-      "endpoint": "tasks_management.delegate_task",
+      "endpoint": "tasks_orchestration.delegate_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/followups",
       "endpoint": "tasks_management.create_followups",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/logs",
       "endpoint": "tasks_logging.task_logs",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/pause",
+      "endpoint": "tasks_management.pause_task",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/resume",
+      "endpoint": "tasks_management.resume_task",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/retry",
+      "endpoint": "tasks_management.retry_task",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/review",
+      "endpoint": "tasks_management.review_task_proposal",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/step/execute",
       "endpoint": "tasks_execution.task_execute",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/step/propose",
       "endpoint": "tasks_execution.task_propose",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/stream-logs",
       "endpoint": "tasks_logging.stream_task_logs",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/subtask-callback",
       "endpoint": "tasks_management.subtask_callback",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/tree",
+      "endpoint": "tasks_management.task_tree_route",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/<tid>/unassign",
       "endpoint": "tasks_management.unassign_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/verification",
+      "endpoint": "tasks_verification.task_verification",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/<tid>/workspace/files",
+      "endpoint": "tasks_management.task_workspace_files_route",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/archive/batch",
+      "endpoint": "tasks_management.archive_tasks_batch_route",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/archive/retention/apply",
+      "endpoint": "tasks_management.archive_retention_apply_route",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/archived",
       "endpoint": "tasks_management.list_archived_tasks",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/archived/<tid>",
+      "endpoint": "tasks_management.delete_archived_task_route",
+      "methods": [
+        "DELETE"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/archived/<tid>/restore",
       "endpoint": "tasks_management.restore_task_route",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/archived/cleanup",
+      "endpoint": "tasks_management.cleanup_archived_tasks_route",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/archived/restore/batch",
+      "endpoint": "tasks_management.restore_tasks_batch_route",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/auto-planner/analyze/<task_id>",
       "endpoint": "tasks_auto_planner.analyze_task_for_followups",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/auto-planner/configure",
       "endpoint": "tasks_auto_planner.auto_planner_configure",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/auto-planner/plan",
       "endpoint": "tasks_auto_planner.plan_goal_endpoint",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/auto-planner/status",
       "endpoint": "tasks_auto_planner.auto_planner_status",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/autopilot/circuits",
       "endpoint": "tasks_autopilot.autopilot_circuits_status",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/autopilot/circuits/reset",
       "endpoint": "tasks_autopilot.autopilot_circuits_reset",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/autopilot/start",
       "endpoint": "tasks_autopilot.autopilot_start",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/autopilot/status",
       "endpoint": "tasks_autopilot.autopilot_status",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/autopilot/stop",
       "endpoint": "tasks_autopilot.autopilot_stop",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/autopilot/tick",
       "endpoint": "tasks_autopilot.autopilot_tick",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/cleanup",
+      "endpoint": "tasks_management.cleanup_tasks_route",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/derivation/backfill",
+      "endpoint": "tasks_management.task_derivation_backfill_route",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/tasks/hierarchy/view/<tid>",
+      "endpoint": "tasks_management.task_hierarchy_view",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/orchestration/claim",
-      "endpoint": "tasks_management.claim_task",
+      "endpoint": "tasks_orchestration.claim_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/orchestration/complete",
-      "endpoint": "tasks_management.complete_task",
+      "endpoint": "tasks_orchestration.complete_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/orchestration/ingest",
-      "endpoint": "tasks_management.ingest_task",
+      "endpoint": "tasks_orchestration.ingest_task",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/orchestration/read-model",
-      "endpoint": "tasks_management.orchestration_read_model",
+      "endpoint": "tasks_orchestration.orchestration_read_model",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/tasks/timeline",
       "endpoint": "tasks_management.tasks_timeline",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams",
       "endpoint": "teams.list_teams",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams",
       "endpoint": "teams.create_team",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/<team_id>",
       "endpoint": "teams.update_team",
       "methods": [
         "PATCH"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/<team_id>",
       "endpoint": "teams.delete_team",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/<team_id>/activate",
       "endpoint": "teams.activate_team",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/<team_id>/blueprint-diff",
+      "endpoint": "teams.get_team_blueprint_diff",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints",
+      "endpoint": "teams.list_team_blueprints",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints",
+      "endpoint": "teams.create_team_blueprint",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/<blueprint_id>",
+      "endpoint": "teams.get_team_blueprint",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/<blueprint_id>",
+      "endpoint": "teams.update_team_blueprint",
+      "methods": [
+        "PATCH"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/<blueprint_id>",
+      "endpoint": "teams.delete_team_blueprint",
+      "methods": [
+        "DELETE"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/<blueprint_id>/bundle",
+      "endpoint": "teams.export_team_blueprint_bundle",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/<blueprint_id>/instantiate",
+      "endpoint": "teams.instantiate_team_blueprint",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/<blueprint_id>/work-profile",
+      "endpoint": "teams.get_team_blueprint_work_profile",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/teams/blueprints/import",
+      "endpoint": "teams.import_team_blueprint_bundle",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/roles",
       "endpoint": "teams.get_team_roles",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/roles",
       "endpoint": "teams.create_role",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/roles/<role_id>",
       "endpoint": "teams.delete_role",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/setup-scrum",
       "endpoint": "teams.setup_scrum",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types",
       "endpoint": "teams.list_team_types",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types",
       "endpoint": "teams.create_team_type",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types/<type_id>",
       "endpoint": "teams.delete_team_type",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types/<type_id>/roles",
       "endpoint": "teams.link_role_to_type",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types/<type_id>/roles",
       "endpoint": "teams.list_roles_for_type",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types/<type_id>/roles/<role_id>",
       "endpoint": "teams.update_role_template_mapping",
       "methods": [
         "PATCH"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/teams/types/<type_id>/roles/<role_id>",
       "endpoint": "teams.unlink_role_from_type",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/templates",
-      "endpoint": "config.list_templates",
+      "endpoint": "config_templates.list_templates",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/templates",
-      "endpoint": "config.create_template",
+      "endpoint": "config_templates.create_template",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/templates/<tpl_id>",
-      "endpoint": "config.update_template",
+      "endpoint": "config_templates.update_template",
       "methods": [
         "PATCH",
         "PUT"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/templates/<tpl_id>",
-      "endpoint": "config.delete_template",
+      "endpoint": "config_templates.delete_template",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/test/provision-user",
+      "endpoint": "auth.test_provision_user",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/test/reset-login-attempts",
       "endpoint": "auth.test_reset_login_attempts",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/test/reset-user-auth-state",
+      "endpoint": "auth.test_reset_user_auth_state",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/test/users/<username>",
+      "endpoint": "auth.test_delete_user",
+      "methods": [
+        "DELETE"
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/triggers/configure",
       "endpoint": "triggers.triggers_configure",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/triggers/status",
       "endpoint": "triggers.triggers_status",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/triggers/test",
       "endpoint": "triggers.test_trigger",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/triggers/webhook/<source>",
       "endpoint": "triggers.webhook_endpoint",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/users",
       "endpoint": "auth.get_users",
       "methods": [
         "GET"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/users",
       "endpoint": "auth.create_user",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/users/<username>",
       "endpoint": "auth.delete_user",
       "methods": [
         "DELETE"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/users/<username>/reset-password",
       "endpoint": "auth.reset_password",
       "methods": [
         "POST"
-      ]
+      ],
+      "route_kind": "canonical"
     },
     {
       "path": "/users/<username>/role",
       "endpoint": "auth.update_user_role",
       "methods": [
         "PUT"
-      ]
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/ananta/capabilities",
+      "endpoint": "openai_compat.capabilities",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/chat/completions",
+      "endpoint": "openai_compat.chat_completions",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/files",
+      "endpoint": "openai_compat.upload_file",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/files",
+      "endpoint": "openai_compat.list_files",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/files/<file_id>",
+      "endpoint": "openai_compat.get_file",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/mcp",
+      "endpoint": "mcp.mcp_jsonrpc",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/mcp/capabilities",
+      "endpoint": "mcp.mcp_capabilities",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/models",
+      "endpoint": "openai_compat.list_models",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/v1/responses",
+      "endpoint": "openai_compat.responses",
+      "methods": [
+        "POST"
+      ],
+      "route_kind": "canonical"
+    },
+    {
+      "path": "/ws/terminal",
+      "endpoint": "ws_terminal",
+      "methods": [
+        "GET"
+      ],
+      "route_kind": "canonical"
     }
   ]
 }

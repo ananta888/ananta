@@ -150,6 +150,12 @@ python devtools/export_route_inventory.py --include-methods --include-route-kind
 
 `route_kind=canonical` beschreibt die eigentliche API-Route. `route_kind=alias` beschreibt bewusst registrierte Kompatibilitaets- oder Operator-Kurzpfade und enthaelt `canonical_path`.
 
+Policy- und Capability-Inventories werden als separates Artefakt erzeugt:
+
+```bash
+python devtools/export_contract_inventories.py
+```
+
 ## Flask Startup
 
 `agent.ai_agent.create_app()` bleibt der zentrale Startup-Orchestrator. Konkrete Bootstrap-Verantwortlichkeiten liegen in `agent/bootstrap/`:
