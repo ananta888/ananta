@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import socket
+from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib import error, request
 
@@ -18,6 +19,17 @@ from agent.services.evolution import (
 )
 
 from .mapper import map_evolver_result
+
+
+def _headers_from_config(config: dict[str, Any]) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    configured = config.get("headers")
+    if isinstance(configured, dict):
+        headers.update({str(key): str(value) for key, value in configured.items() if str(key).strip()})
+    bearer_token = str(config.get("bearer_token") or "").strip()
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+    return headers
 
 
 class EvolverTransportError(RuntimeError):
@@ -60,6 +72,31 @@ class EvolverInvalidResponseError(EvolverTransportError):
         super().__init__(message, code="invalid_response", transient=False)
 
 
+class EvolverPayloadLimitError(EvolverTransportError):
+    def __init__(self, max_response_bytes: int):
+        self.max_response_bytes = max_response_bytes
+        super().__init__("evolver_response_too_large", code="payload_too_large", transient=False)
+
+
+@dataclass(frozen=True)
+class EvolverHttpLimits:
+    connect_timeout_seconds: float = 30.0
+    read_timeout_seconds: float = 30.0
+    max_response_bytes: int = 1024 * 1024
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "EvolverHttpLimits":
+        timeout = float(config.get("timeout_seconds") or 30.0)
+        connect_timeout = float(config.get("connect_timeout_seconds") or timeout)
+        read_timeout = float(config.get("read_timeout_seconds") or timeout)
+        max_response_bytes = int(config.get("max_response_bytes") or 1024 * 1024)
+        return cls(
+            connect_timeout_seconds=max(0.1, connect_timeout),
+            read_timeout_seconds=max(0.1, read_timeout),
+            max_response_bytes=max(1024, min(max_response_bytes, 16 * 1024 * 1024)),
+        )
+
+
 class EvolverTransport(Protocol):
     def analyze(self, payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
@@ -73,11 +110,15 @@ class HttpEvolverTransport:
         analyze_path: str = "/evolution/analyze",
         timeout_seconds: float = 30.0,
         health_path: str | None = None,
+        headers: dict[str, str] | None = None,
+        limits: EvolverHttpLimits | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.analyze_path = analyze_path if analyze_path.startswith("/") else f"/{analyze_path}"
-        self.timeout_seconds = timeout_seconds
+        self.limits = limits or EvolverHttpLimits.from_config({"timeout_seconds": timeout_seconds})
+        self.timeout_seconds = self.limits.connect_timeout_seconds
         self.health_path = self._normalize_path(health_path) if health_path else None
+        self.headers = dict(headers or {})
 
     @property
     def endpoint(self) -> str:
@@ -92,7 +133,7 @@ class HttpEvolverTransport:
         req = request.Request(
             self.endpoint,
             data=body,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers=self._headers({"Content-Type": "application/json", "Accept": "application/json"}),
             method="POST",
         )
         raw = self._open(req)
@@ -102,9 +143,11 @@ class HttpEvolverTransport:
         return decoded
 
     def health(self) -> dict[str, Any]:
+        if not self.health_path:
+            return {"status": "unknown", "checked": False, "fallback": "health_endpoint_not_configured"}
         req = request.Request(
             self.health_endpoint,
-            headers={"Accept": "application/json"},
+            headers=self._headers({"Accept": "application/json"}),
             method="GET",
         )
         raw = self._open(req)
@@ -120,13 +163,19 @@ class HttpEvolverTransport:
         value = str(path or "").strip()
         return value if value.startswith("/") else f"/{value}"
 
+    def _headers(self, base: dict[str, str]) -> dict[str, str]:
+        headers = dict(base)
+        headers.update(self.headers)
+        return headers
+
     def _open(self, req: request.Request) -> str:
         try:
-            with request.urlopen(req, timeout=self.timeout_seconds) as response:
+            with request.urlopen(req, timeout=self.limits.connect_timeout_seconds) as response:
                 status_code = int(getattr(response, "status", 200) or 200)
                 if status_code < 200 or status_code >= 300:
                     raise EvolverHttpError(status_code)
-                return response.read().decode("utf-8")
+                self._apply_read_timeout(response)
+                return self._read_limited(response)
         except EvolverTransportError:
             raise
         except error.HTTPError as exc:
@@ -148,6 +197,30 @@ class HttpEvolverTransport:
         except json.JSONDecodeError as exc:
             raise EvolverInvalidResponseError("evolver_response_invalid_json") from exc
 
+    def _read_limited(self, response) -> str:
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            try:
+                chunk = response.read(min(65536, self.limits.max_response_bytes + 1 - total))
+            except TimeoutError as exc:
+                raise EvolverTimeoutError("evolver_transport_read_timeout") from exc
+            except socket.timeout as exc:
+                raise EvolverTimeoutError("evolver_transport_read_timeout") from exc
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > self.limits.max_response_bytes:
+                raise EvolverPayloadLimitError(self.limits.max_response_bytes)
+            chunks.append(chunk)
+        return b"".join(chunks).decode("utf-8")
+
+    def _apply_read_timeout(self, response) -> None:
+        try:
+            response.fp.raw._sock.settimeout(self.limits.read_timeout_seconds)
+        except Exception:
+            return
+
 
 class EvolverAdapter(EvolutionEngine):
     def __init__(
@@ -168,12 +241,15 @@ class EvolverAdapter(EvolutionEngine):
         base_url = str(config.get("base_url") or "").strip()
         if not base_url:
             raise ValueError("evolver_base_url_required")
-        timeout_seconds = float(config.get("timeout_seconds") or 30.0)
+        limits = EvolverHttpLimits.from_config(config)
+        headers = _headers_from_config(config)
         transport = HttpEvolverTransport(
             base_url=base_url,
             analyze_path=str(config.get("analyze_path") or "/evolution/analyze"),
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=limits.connect_timeout_seconds,
             health_path=config.get("health_path"),
+            headers=headers,
+            limits=limits,
         )
         return cls(
             transport=transport,
@@ -184,7 +260,10 @@ class EvolverAdapter(EvolutionEngine):
                 "base_url": base_url,
                 "analyze_path": transport.analyze_path,
                 "health_path": transport.health_path,
-                "timeout_seconds": timeout_seconds,
+                "connect_timeout_seconds": limits.connect_timeout_seconds,
+                "read_timeout_seconds": limits.read_timeout_seconds,
+                "max_response_bytes": limits.max_response_bytes,
+                "configured_header_names": sorted(headers.keys()),
             },
         )
 
@@ -212,7 +291,9 @@ class EvolverAdapter(EvolutionEngine):
             try:
                 health = health_fn()
                 status = str(health.get("status") or status)
-                metadata["health_checked"] = True
+                metadata["health_checked"] = bool(health.get("checked", True))
+                if health.get("fallback"):
+                    metadata["health_fallback"] = health.get("fallback")
             except EvolverTransportError as exc:
                 status = "degraded" if exc.transient else "unavailable"
                 metadata["health_checked"] = True

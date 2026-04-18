@@ -31,6 +31,11 @@ The built-in defaults keep Evolver disabled:
         "analyze_path": "/evolution/analyze",
         "health_path": null,
         "timeout_seconds": 30,
+        "connect_timeout_seconds": 10,
+        "read_timeout_seconds": 30,
+        "max_response_bytes": 1048576,
+        "allowed_hosts": ["evolver"],
+        "force_analyze_only": true,
         "default": false,
         "replace": true,
         "version": "unknown"
@@ -48,7 +53,19 @@ EVOLVER_BASE_URL=http://evolver:8080
 EVOLVER_ANALYZE_PATH=/evolution/analyze
 EVOLVER_HEALTH_PATH=/health
 EVOLVER_TIMEOUT_SECONDS=30
+EVOLVER_CONNECT_TIMEOUT_SECONDS=10
+EVOLVER_READ_TIMEOUT_SECONDS=30
+EVOLVER_MAX_RESPONSE_BYTES=1048576
+EVOLVER_ALLOWED_HOSTS=evolver
 EVOLVER_DEFAULT=1
+```
+
+Optional authentication can be configured without exposing values in provider
+metadata:
+
+```env
+EVOLVER_BEARER_TOKEN=...
+EVOLVER_HEADERS={"X-Evolver-Tenant":"team-a"}
 ```
 
 Start the optional Evolver service profile when an Evolver image is available:
@@ -67,6 +84,12 @@ Set `EVOLVER_IMAGE` if the runtime image is hosted under a different name.
   environments.
 - Use short HTTP timeouts. Provider outages must degrade discovery/analysis
   instead of blocking unrelated hub flows.
+- Keep `force_analyze_only=true` for Evolver until Validate/Apply behavior is
+  implemented and reviewed in the provider.
+- Use `allowed_hosts`/`EVOLVER_ALLOWED_HOSTS` so an external provider URL must
+  match an explicitly approved hostname before registration.
+- Set separate connect/read timeouts and a bounded `max_response_bytes` limit
+  for remote Evolver services.
 - Do not mount the Ananta workspace into the Evolver container unless a later
   reviewed Apply mode explicitly requires it.
 - Avoid sharing secrets with Evolver. If provider authentication becomes

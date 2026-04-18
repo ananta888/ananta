@@ -113,6 +113,31 @@ def test_evolution_service_keeps_unsupported_validation_fail_closed():
     assert [item[0] for item in audits] == ["evolution_validation_requested", "evolution_validation_failed"]
 
 
+def test_evolution_service_provider_analyze_only_policy_blocks_validate_before_provider_call():
+    class CountingValidatingEngine(ValidatingEngine):
+        def __init__(self, provider_name: str):
+            super().__init__(provider_name)
+            self.validate_calls = 0
+
+        def validate(self, context: EvolutionContext, proposal: EvolutionProposal) -> ValidationResult:
+            self.validate_calls += 1
+            return super().validate(context, proposal)
+
+    engine = CountingValidatingEngine("external")
+    registry = EvolutionProviderRegistry()
+    registry.register(engine, default=True)
+    service = EvolutionService(registry=registry, audit_fn=lambda *_args: None)
+
+    with pytest.raises(PermissionError, match="evolution_provider_analyze_only"):
+        service.validate(
+            EvolutionContext(objective="Validate"),
+            EvolutionProposal(title="Proposal", description="Description"),
+            config={"evolution": {"provider_overrides": {"external": {"force_analyze_only": True}}}},
+        )
+
+    assert engine.validate_calls == 0
+
+
 def test_evolution_service_apply_policy_fails_closed():
     registry = EvolutionProviderRegistry()
     registry.register(SimpleEngine("alpha"))

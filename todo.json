@@ -45,7 +45,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Security, Deployment-Flexibility",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -92,7 +92,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Resource-Bounding, Operational-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -141,7 +141,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Compatibility, Graceful-Degradation",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "plugins/evolver_adapter/adapter.py",
@@ -307,7 +307,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Clarity, Extensibility",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/extensions.md",
@@ -330,7 +330,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Regression-Safety, Multi-Provider-Readiness",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "tests/test_plugin_loader.py",
@@ -402,7 +402,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Boundary-Control, Deployment-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/config.py",
@@ -630,7 +630,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Safe-Adoption, Operational-Clarity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -678,9 +678,9 @@
   "meta": {
     "total_items": 27,
     "by_status": {
-      "completed": 13,
+      "completed": 20,
       "partial": 0,
-      "open": 14
+      "open": 7
     },
     "notes": [
       "Diese Todo-Datei setzt bewusst nicht mehr bei der Grundintegration an, sondern bei der Haertung und Betriebsreife der bereits vorhandenen Evolver-Einbindung.",

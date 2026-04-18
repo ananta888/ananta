@@ -229,3 +229,51 @@ def test_load_plugins_rejects_declarative_provider_name_conflict(tmp_path: Path)
         settings.plugin_dirs = old_dirs
         settings.plugins = old_plugins
         registry.clear()
+
+
+def test_load_plugins_allows_explicit_declarative_provider_replace(tmp_path: Path):
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    provider_source = [
+        "from agent.services.evolution import (",
+        "    EvolutionCapability,",
+        "    EvolutionContext,",
+        "    EvolutionEngine,",
+        "    EvolutionResult,",
+        ")",
+        "",
+        "class DemoEvolutionProvider(EvolutionEngine):",
+        "    @property",
+        "    def provider_name(self):",
+        "        return 'replace-evolution'",
+        "",
+        "    @property",
+        "    def capabilities(self):",
+        "        return [EvolutionCapability.ANALYZE]",
+        "",
+        "    def analyze(self, context: EvolutionContext) -> EvolutionResult:",
+        "        return EvolutionResult(provider_name=self.provider_name, summary=context.objective)",
+        "",
+        "evolution_provider = DemoEvolutionProvider()",
+    ]
+    (plugin_dir / "demo_replace_a.py").write_text("\n".join(provider_source), encoding="utf-8")
+    (plugin_dir / "demo_replace_b.py").write_text(
+        "\n".join([*provider_source, "evolution_provider_replace = True"]),
+        encoding="utf-8",
+    )
+
+    old_dirs = settings.plugin_dirs
+    old_plugins = settings.plugins
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    try:
+        settings.plugin_dirs = str(plugin_dir)
+        settings.plugins = ""
+        app = Flask(__name__)
+        loaded = load_plugins(app)
+        assert loaded == ["demo_replace_a", "demo_replace_b"]
+        assert registry.resolve("replace-evolution").provider_name == "replace-evolution"
+    finally:
+        settings.plugin_dirs = old_dirs
+        settings.plugins = old_plugins
+        registry.clear()

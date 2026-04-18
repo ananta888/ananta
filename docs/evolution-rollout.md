@@ -33,12 +33,38 @@ Operators can call REST or MCP analysis tools. Runs and proposals are persisted,
 audited and exposed through the task Evolution read model. Provider raw payloads
 and Evolution context signals are redacted before storage or provider handoff.
 
+For Evolver, keep the provider override restricted during this phase:
+
+```json
+{
+  "evolution": {
+    "provider_overrides": {
+      "evolver": {
+        "enabled": true,
+        "base_url": "http://evolver:8080",
+        "health_path": "/health",
+        "allowed_hosts": ["evolver"],
+        "force_analyze_only": true,
+        "connect_timeout_seconds": 10,
+        "read_timeout_seconds": 30,
+        "max_response_bytes": 1048576
+      }
+    }
+  }
+}
+```
+
+In this mode Validate and Apply calls for Evolver remain blocked even when
+global Evolution policy later permits those operations for other providers.
+
 ## Phase 2: Controlled Review
 
 - Keep `apply_allowed=false`.
 - Enable `auto_triggers_enabled=true` only after the failed-task E2E path is
   verified in the target environment.
 - Use `validate_allowed=true` for provider or policy preflight checks.
+- Keep Evolver `force_analyze_only=true`; only providers that explicitly expose
+  and implement Validate should receive validation calls.
 - Monitor `evolution_analyses_total`, `evolution_proposals_total` and
   `evolution_validations_total` for spikes and provider-specific failures.
 
