@@ -16,6 +16,9 @@ from pydantic_settings import (
 
 
 class Settings(BaseSettings):
+    # Version
+    version: str = Field(default="0.7.0", validation_alias="ANANTA_VERSION")
+
     # Agent basic config
     agent_name: str = Field(default="default", validation_alias="AGENT_NAME")
     agent_token: Optional[str] = Field(default=None, validation_alias="AGENT_TOKEN")

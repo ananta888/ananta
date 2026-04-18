@@ -304,5 +304,13 @@ def _load_extensions(app: Flask) -> None:
 
 
 if __name__ == "__main__":
+    import sys
+
+    if "--version" in sys.argv:
+        from agent.config import settings
+
+        print(f"Ananta Agent v{settings.version}")
+        sys.exit(0)
+
     app = create_app()
     app.run(host="0.0.0.0", port=settings.port)

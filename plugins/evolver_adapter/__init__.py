@@ -3,23 +3,23 @@ from __future__ import annotations
 from flask import Flask
 from urllib.parse import urlparse
 
-from agent.services.evolution import register_evolution_provider
+from agent.sdk import get_sdk
 
 from .adapter import EvolverAdapter
 
 
 def init_app(app: Flask) -> None:
-    cfg = app.config.get("AGENT_CONFIG") or {}
-    evolution_cfg = cfg.get("evolution") or {}
+    sdk = get_sdk(app)
+    evolution_cfg = sdk.get_config("evolution")
     provider_cfg = dict((evolution_cfg.get("provider_overrides") or {}).get("evolver") or {})
+
     enabled = bool(provider_cfg.get("enabled", False))
     if not enabled:
         return
     _validate_provider_policy(provider_cfg)
 
-    register_evolution_provider(
+    sdk.register_evolution_provider(
         EvolverAdapter.from_config(provider_cfg),
-        app=app,
         default=bool(provider_cfg.get("default", False)),
         replace=bool(provider_cfg.get("replace", True)),
     )
