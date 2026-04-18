@@ -1,662 +1,948 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.7.0",
+  "version": "5.8.0",
   "created": "2026-04-18",
   "updated": "2026-04-18T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Ananta schrittweise um direkt nutzbare, alltagsrelevante Faehigkeiten erweitern, ohne das governance-first, task-first und verification-first Architekturmodell zugunsten eines capability-first Assistentensystems aufzuweichen.",
+    "review_goal": "Die bestehende starke Ananta-Architektur auf Codeebene weiter haerten, Hotspots aufspalten, Backend- und Frontend-Komplexitaet reduzieren und die langfristige Wartbarkeit gegen Systembreite absichern.",
     "notes": [
-      "Ananta soll nicht zu einem unscharfen OpenClaw-Klon werden, sondern zu einer kontrollierten, direkt nutzbaren Arbeitsplattform mit sicheren Faehigkeiten und guten Einstiegspunkten.",
-      "Direkt nutzbare Faehigkeiten sollen immer ueber Goals, Plans, Tasks, Verification, Policies, Audit und klar begrenzte Capability-Sets eingebunden werden.",
-      "Die Reihenfolge ist wichtig: zuerst sichere lokale Nutzenstifter, dann einfache Interaktionsadapter, spaeter externe Kanaele und zuletzt ein strengeres Drittanbieter-Plugin-Modell."
+      "Der Code ist insgesamt nicht das Problem; das Hauptrisiko ist die Menge guter Logik, die sich in einigen grossen Hotspots verdichtet.",
+      "Backend-seitig sind die groessten Hebel die Entflechtung des Bootstrap-Layers, die Reduktion impliziter globaler Service-Abhaengigkeiten, die Aufteilung orchestration-lastiger Grossservices und haertere Plugin-/Contract-Grenzen.",
+      "Frontend-seitig sind die groessten Hebel die Zerlegung grosser Komponenten, staerkere ViewModel-/Facade-Schichten, deutlich bessere DTO-Typisierung und eine klarere Trennung zwischen UI-State, Polling/Eventstreams und HTTP-Clients."
     ]
   },
   "categories": [
     {
-      "name": "safe-action-packs",
-      "label": "Sichere Action Packs",
+      "name": "backend-bootstrap-and-app-startup",
+      "label": "Backend Bootstrap und App Startup",
       "items": [
         {
-          "id": "SAP-001",
-          "title": "Action-Pack-Modell fuer kontrollierte direkt nutzbare Faehigkeiten einfuehren",
-          "description": "Ein klares Modell fuer Action Packs einfuehren, damit direkt nutzbare Faehigkeiten wie Dateiarbeit, Git, Shell, Browser oder Dokument-Operationen nicht als lose Toolwiese, sondern als kontrollierte, policy-faehige Capability-Buendel eingebunden werden.",
+          "id": "BBS-001",
+          "title": "Flask Bootstrap aus ai_agent.py in klar getrennte Startup-Module aufteilen",
+          "description": "Den derzeit stark verdichteten Einstiegspunkt in eigenstaendige Bootstrap-Module fuer Security, Blueprints, Extensions, Background Services und Runtime-Hints zerlegen, damit create_app nur noch die Reihenfolge orchestriert.",
+          "priority": "critical",
+          "type": "refactor",
+          "principle": "Separation-of-Concerns, Bootstrap-Clarity",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/ai_agent.py",
+            "agent/bootstrap/",
+            "tests/"
+          ],
+          "acceptance": [
+            "create_app bleibt lesbar und orchestriert nur noch klar benannte Bootstrap-Schritte.",
+            "Security-Headers, Request-Hooks, Blueprint-Registrierung, Extension-Loading und Background-Service-Start liegen in separaten Modulen.",
+            "Die Startreihenfolge bleibt testbar und dokumentiert."
+          ]
+        },
+        {
+          "id": "BBS-002",
+          "title": "Alias-Routen und kanonische Routenregistrierung explizit trennen",
+          "description": "Die Mischung aus kanonischen API-Endpunkten und zuschaltbaren Alias-Routen klarer modellieren, damit Dokumentation, Route-Inventory und Implementierung nicht still auseinanderlaufen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Route-Clarity, Contract-Stability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/ai_agent.py",
+            "agent/routes/",
+            "devtools/export_route_inventory.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "BBS-001"
+          ],
+          "acceptance": [
+            "Alias- und Kanonikrouten sind technisch und dokumentarisch sauber unterscheidbar.",
+            "Route-Inventory und API-Doku koennen beide Routenklassen korrekt ausgeben.",
+            "Alias-Pfade sind bewusst und nicht nur historisch mitgeschleppt."
+          ]
+        },
+        {
+          "id": "BBS-003",
+          "title": "Startup-Phasen mit strukturiertem Telemetrie- und Fehlerbild instrumentieren",
+          "description": "Die App-Initialisierung in klar erkennbare Phasen mit Dauer, Fehlerursache und Abbruchpunkt unterteilen, damit Startprobleme in Compose-, Test- und Plugin-Szenarien schneller lokalisiert werden koennen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Operability, Faster-Diagnosis",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/ai_agent.py",
+            "agent/metrics.py",
+            "agent/common/logging.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "BBS-001"
+          ],
+          "acceptance": [
+            "Der Startup-Pfad liefert strukturierte Phaseninformationen statt nur einen Gesamtwert.",
+            "Plugin-, DB-, Registry- und Background-Failures sind klarer unterscheidbar.",
+            "Compose- und lokale Startfehler koennen schneller eingegrenzt werden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backend-service-registry-and-dependencies",
+      "label": "Service Registry und Abhaengigkeiten",
+      "items": [
+        {
+          "id": "SRG-010",
+          "title": "CoreServiceRegistry in fachliche Teil-Registries zerlegen",
+          "description": "Die sehr breite CoreServiceRegistry in kleinere fachliche Aggregate wie TaskServices, GovernanceServices, IntegrationServices, KnowledgeServices und RuntimeServices aufspalten, um Komplexitaet und Kopplungsdruck zu reduzieren.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "Capability-Bounding, Governance-First",
-          "status": "completed",
+          "principle": "Modularity, Reduced-Cognitive-Load",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/service_registry.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die zentrale Registry ist in klar benannte Teil-Registries gegliedert.",
+            "Einzelne Routen und Services greifen nur auf relevante fachliche Aggregate zu.",
+            "Die Lesbarkeit und Navigierbarkeit des Service-Layers steigt spuerbar."
+          ]
+        },
+        {
+          "id": "SRG-011",
+          "title": "Globale get_service Patterns in Hotspots auf explizitere Abhaengigkeitsuebergabe umstellen",
+          "description": "Die starke Nutzung impliziter globaler Service-Zugriffe in besonders zentralen Hotspots schrittweise auf explizitere Konstruktor- oder Funktionsabhaengigkeiten umstellen.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Testability, Explicit-Dependencies",
+          "status": "open",
           "effort": "large",
           "files": [
             "agent/services/",
-            "agent/config.py",
-            "agent/db_models.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SRG-010"
+          ],
+          "acceptance": [
+            "Wichtige Hotspot-Services nutzen weniger implizite globale Service-Aufloesung.",
+            "Unit-Tests koennen Kernservices einfacher isoliert instanzieren.",
+            "Abhaengigkeiten sind im Code sichtbarer und nachvollziehbarer."
+          ]
+        },
+        {
+          "id": "SRG-012",
+          "title": "Service-Grenzen gegen cross-domain Aufrufe haerter absichern",
+          "description": "Neben Import-Grenzen auch fachliche Service-Grenzen pruefen, damit nicht beliebige Services quer ueber viele Domänen hinweg direkt zusammengerufen werden.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Domain-Boundaries, Architectural-Discipline",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "scripts/",
+            "tests/"
+          ],
+          "dependencies": [
+            "SRG-010"
+          ],
+          "acceptance": [
+            "Cross-domain Serviceaufrufe sind benannt, begrenzt oder ueber Fassaden kanalisiert.",
+            "Neue Grenzverletzungen koennen mechanisch erkannt werden.",
+            "Service-Layer bleibt trotz Systembreite beherrschbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backend-orchestration-hotspots",
+      "label": "Backend Orchestration Hotspots",
+      "items": [
+        {
+          "id": "ORC-020",
+          "title": "TaskOrchestrationService in kleinere fachliche Services zerlegen",
+          "description": "Den sehr dichten TaskOrchestrationService in kleinere Services fuer Routing-Hints, Context-Policy, Workspace-Scoping, Delegation, Completion und Evolution-Trigger aufteilen.",
+          "priority": "critical",
+          "type": "refactor",
+          "principle": "Hotspot-Reduction, Single-Responsibility",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/task_orchestration_service.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "TaskOrchestrationService bleibt als schlanke Fassade oder Orchestrator erhalten.",
+            "Routing, Context-Policy, Completion und Evolution-Trigger liegen in separaten fachlichen Einheiten.",
+            "Die neuen Einheiten sind isoliert testbar."
+          ]
+        },
+        {
+          "id": "ORC-021",
+          "title": "Routing-Hint und Copilot-Advisor Logik in eigenen Entscheidungsdienst auslagern",
+          "description": "Prompt-Bau, Copilot-Routing-Hinweise und deren Validierung in einen eigenen Advisor-Service verschieben, damit Orchestrierung und beratende Modelllogik nicht in einer Klasse vermischt bleiben.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Decision-Isolation, Better-Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_orchestration_service.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "ORC-020"
+          ],
+          "acceptance": [
+            "Copilot-Routing-Hints werden ausserhalb des Orchestrators aufgebaut und validiert.",
+            "Das Verhalten bleibt fuer fehlende oder invalide Modellantworten robust.",
+            "Policy-Entscheidungen und Advisor-Hinweise bleiben klar getrennt."
+          ]
+        },
+        {
+          "id": "ORC-022",
+          "title": "Task Neighborhood und Retrieval-Hints in dedizierten Kontextdienst verschieben",
+          "description": "Task-Nachbarschaft, Retrieval-Intent und Context-Policy-Ableitung in einen eigenen Kontextableitungsdienst verschieben, damit diese Logik nicht weiter im Delegationspfad aufgeht.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Context-Modularity, Reuse",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_orchestration_service.py",
+            "agent/services/context_bundle_service.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "ORC-020"
+          ],
+          "acceptance": [
+            "Task-Nachbarschaft und Retrieval-Hints werden zentral und wiederverwendbar abgeleitet.",
+            "Andere Pfade koennen dieselbe Kontextlogik nutzen.",
+            "Delegationscode wird merklich kuerzer und klarer."
+          ]
+        },
+        {
+          "id": "ORC-023",
+          "title": "Workspace Scope und Worker Execution Context auf eigene Builder abstrahieren",
+          "description": "Die Ableitung von Workspace-Scope, Session-Scope und Worker-Execution-Context in dedizierte Builder-Komponenten ueberfuehren, damit der Delegationspfad weniger Objektzusammenbau enthaelt.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Builder-Clarity, Reduced-Inline-Complexity",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_orchestration_service.py",
+            "agent/services/worker_contract_service.py",
+            "agent/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "ORC-020"
+          ],
+          "acceptance": [
+            "Workspace- und Execution-Context-Bau ist aus dem Hauptfluss ausgelagert.",
+            "Die Builder sind einzeln testbar.",
+            "Der Orchestrator beschreibt eher den Ablauf als die komplette Datenkonstruktion."
+          ]
+        },
+        {
+          "id": "ORC-024",
+          "title": "Complete Task Pfad gegen semantische Ueberladung aufspalten",
+          "description": "Verification-Record, Worker-Result, Result-Memory, Statusupdate und Evolution-Trigger im Complete-Task-Pfad expliziter in getrennte Teilschritte zerlegen.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Completion-Clarity, Safer-State-Transitions",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_orchestration_service.py",
+            "agent/services/verification_service.py",
+            "agent/services/result_memory_service.py",
+            "tests/"
+          ],
+          "dependencies": [
+            "ORC-020"
+          ],
+          "acceptance": [
+            "Complete-Task-Logik ist in klar benannte Teilschritte zerlegt.",
+            "Fehler im Completion-Pfad lassen sich besser zuordnen.",
+            "Status- und Seiteneffekt-Reihenfolgen sind nachvollziehbarer."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backend-plugins-and-extension-runtime",
+      "label": "Plugins und Extension Runtime",
+      "items": [
+        {
+          "id": "PLX-030",
+          "title": "Plugin-Manifest fuer deklarative Plugin-Metadaten einführen",
+          "description": "Neben Python-Attributen ein explizites Plugin-Manifest fuer Name, Typ, Provider, Replace-Regeln, Default-Rollen und Kompatibilitaetsinformationen einfuehren.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Explicit-Metadata, Safer-Loading",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/plugin_loader.py",
+            "plugins/",
+            "docs/extensions.md",
+            "tests/"
+          ],
+          "acceptance": [
+            "Plugins koennen ueber ein Manifest ihre Kernmetadaten deklarieren.",
+            "Loader-Entscheidungen basieren weniger auf verstreuten Modulattributen.",
+            "Konflikte und Fehlkonfigurationen sind klarer diagnostizierbar."
+          ]
+        },
+        {
+          "id": "PLX-031",
+          "title": "Startup-Plugin-Report mit Konflikten und effektiven Registrierungen erzeugen",
+          "description": "Beim Start einen strukturierten Report erzeugen, der geladene Plugins, registrierte Provider, Default-Uebernahmen, Replace-Konflikte und Fehlerfaelle sichtbar macht.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Observability, Plugin-Debuggability",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/plugin_loader.py",
+            "agent/routes/",
+            "tests/"
+          ],
+          "dependencies": [
+            "PLX-030"
+          ],
+          "acceptance": [
+            "Es existiert ein strukturierter Report ueber geladene Plugins und Provider.",
+            "Konflikte, Replace-Faelle und Ignorierungen sind nachvollziehbar sichtbar.",
+            "Admins koennen Plugin-Zustaende ohne Code-Lesen verstehen."
+          ]
+        },
+        {
+          "id": "PLX-032",
+          "title": "Plugin-Failure-Containment verbessern",
+          "description": "Fehlerhafte Plugins noch strikter isolieren, damit defekte optionale Erweiterungen nicht unnoetig den Rest des Systems beim Start oder Reload destabilisieren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Failure-Isolation, Safer-Extensibility",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/plugin_loader.py",
+            "tests/",
+            "docs/extensions.md"
+          ],
+          "dependencies": [
+            "PLX-030"
+          ],
+          "acceptance": [
+            "Defekte Plugins koennen kontrolliert deaktiviert oder isoliert werden.",
+            "Die restliche Plattform startet weiter, soweit fachlich moeglich.",
+            "Fehlertexte und Reports sind fuer Betreiber brauchbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backend-contracts-and-runtime-safety",
+      "label": "Contracts und Runtime Safety",
+      "items": [
+        {
+          "id": "CTS-040",
+          "title": "Policy-, Capability- und Route-Inventories als feste Build-Artefakte erzeugen",
+          "description": "Die starke Governance- und Expositionslogik ueber automatisch erzeugte Artefakte fuer Policies, Capabilities und Routen staerker gegen Doku- und Implementierungsdrift absichern.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Drift-Control, Mechanical-Documentation",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "devtools/",
+            "agent/routes/",
             "docs/",
             "tests/"
           ],
           "acceptance": [
-            "Action Packs sind als explizite Capability-Buendel modelliert.",
-            "Jedes Pack kann getrennt aktiviert, deaktiviert und policy-gesteuert werden.",
-            "Action Packs verhalten sich als first-class Governance-Objekte und nicht als lose Tool-Sammlung."
+            "Route-, Policy- und Capability-Inventories werden automatisch erzeugt.",
+            "Drift zwischen Doku und Implementierung wird frueher sichtbar.",
+            "Die Artefakte sind fuer CI und Review nutzbar."
           ]
         },
         {
-          "id": "SAP-002",
-          "title": "Datei-Action-Pack fuer sichere Lese-, Schreib- und Patch-Operationen aufbauen",
-          "description": "Ein direkt nuetzliches Datei-Action-Pack bereitstellen, das Datei-Lesen, gezielte Schreibvorgaenge, Patch-Vorschlaege und kontrollierte Dateianlagen sicher und auditierbar unterstuetzt.",
-          "priority": "critical",
-          "type": "integration",
-          "principle": "High-Utility, Controlled-Execution",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-001"
-          ],
-          "acceptance": [
-            "Dateioperationen koennen gezielt und policy-konform ausgefuehrt werden.",
-            "Schreiboperationen lassen sich auf erlaubte Pfade oder Workspaces begrenzen.",
-            "Audit und Verification koennen nachvollziehen, welche Dateien betroffen waren."
-          ]
-        },
-        {
-          "id": "SAP-003",
-          "title": "Git-Action-Pack fuer Diff-, Status-, Commit- und Review-nahe Aufgaben ergänzen",
-          "description": "Ein Git-orientiertes Action-Pack schaffen, das fuer Entwicklungsarbeit direkt nutzbar ist, ohne unkontrollierte Repo-Manipulation zuzulassen.",
+          "id": "CTS-041",
+          "title": "Read-Model-Vertraege fuer Governance, Dashboard und Assistant haerter snapshotten",
+          "description": "Die bestehenden Read-Models ueber explizite Snapshot- oder Contract-Baselines staerker absichern, damit UI und externe Integrationen weniger still brechen.",
           "priority": "high",
-          "type": "integration",
-          "principle": "Developer-Usefulness, Safe-Change-Surface",
-          "status": "completed",
+          "type": "improvement",
+          "principle": "Stable-Read-Models, Safer-Refactors",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/services/",
             "agent/routes/",
-            "tests/"
+            "tests/",
+            "frontend-angular/"
           ],
           "dependencies": [
-            "SAP-001"
+            "CTS-040"
           ],
           "acceptance": [
-            "Git-Status, Diffs, Branch-Infos und kontrollierte Commit-nahe Workflows sind nutzbar.",
-            "Riskantere Operationen wie Push oder Reset sind explizit policy-gesteuert oder standardmaessig geblockt.",
-            "Die Ergebnisse sind fuer Task-, Review- und Artifact-Pfade verwertbar."
+            "Zentrale Read-Models haben Baselines oder Vertrags-Snapshots.",
+            "Bewusste Strukturveraenderungen werden explizit reviewt.",
+            "Frontend- und API-Regressionen werden frueher sichtbar."
           ]
         },
         {
-          "id": "SAP-004",
-          "title": "Shell-Action-Pack mit hartem Guardrail-Modell einführen",
-          "description": "Shell-Ausfuehrung als streng begrenztes Hochrisiko-Action-Pack modellieren, statt freien Kommandozugriff als Normalfall zu behandeln.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Least-Privilege, High-Risk-Containment",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/",
-            "agent/config.py",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-001"
-          ],
-          "acceptance": [
-            "Shell-Ausfuehrung ist standardmaessig stark eingeschraenkt oder deaktiviert.",
-            "Allowlist-, Workspace-, Timeout- und Review-Regeln sind vorhanden.",
-            "Shell-Pfade sind klar als Hochrisiko-Capability erkennbar und auditierbar."
-          ]
-        },
-        {
-          "id": "SAP-005",
-          "title": "Browser- und Web-Action-Pack fuer kontrollierte Recherche und Abrufe ergänzen",
-          "description": "Ein sicheres Web-Action-Pack bereitstellen, das Recherche, Seitenabruf, Extraktion und spaeter browsernahe Interaktion kontrolliert unterstuetzt.",
-          "priority": "high",
-          "type": "integration",
-          "principle": "Practical-Utility, Boundary-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-001"
-          ],
-          "acceptance": [
-            "Web-Recherche und Seitenabruf sind ueber kontrollierte Capability-Pfade verfuegbar.",
-            "Domain-, Netzwerk- oder Datenmengen-Grenzen sind modellierbar.",
-            "Resultate sind als Artefakte oder strukturierte Zusammenfassungen weiterverwendbar."
-          ]
-        },
-        {
-          "id": "SAP-006",
-          "title": "Dokumenten- und Office-Action-Pack fuer direkt nutzbare Arbeitsaufgaben aufbauen",
-          "description": "Direkt nuetzliche Dokument-Faehigkeiten fuer Zusammenfassung, Extraktion, Umwandlung, Strukturierung und kontrolliertes Erzeugen von Ausgaben bereitstellen.",
+          "id": "CTS-042",
+          "title": "Background-Service-Lifecycle und Shutdown-Semantik gezielter testen",
+          "description": "Die Lifecycle- und Shutdown-Mechanik des Systems gegen Race Conditions und halbe Start-/Stopp-Zustaende haerter absichern, insbesondere bei Background-Services und Eventstreams.",
           "priority": "medium",
-          "type": "integration",
-          "principle": "General-Utility, Reusable-Workflows",
-          "status": "completed",
+          "type": "improvement",
+          "principle": "Lifecycle-Safety, Robustness",
+          "status": "open",
           "effort": "medium",
           "files": [
+            "agent/ai_agent.py",
+            "agent/lifecycle.py",
             "agent/services/",
             "tests/"
           ],
-          "dependencies": [
-            "SAP-001"
-          ],
           "acceptance": [
-            "Ananta kann haeufige Dokumentaufgaben als direkte Nutzfaehigkeiten anbieten.",
-            "Dokumentpfade sind mit dem Goal-, Task- und Artifact-Modell verbunden.",
-            "Die Funktionen bleiben kontrolliert und auditierbar statt in offene Dateitools auszuarten."
+            "Start-, Stop- und Shutdown-Pfade sind gezielt getestet.",
+            "Background Services hinterlassen keine unklaren Zwischenzustaende.",
+            "Graceful Shutdown bleibt auch unter Last oder bei Fehlern nachvollziehbar."
           ]
         }
       ]
     },
     {
-      "name": "guided-entry-points-and-goal-modes",
-      "label": "Einstiegspunkte und Goal Modi",
+      "name": "frontend-shell-and-routing",
+      "label": "Frontend Shell und Routing",
       "items": [
         {
-          "id": "GEM-010",
-          "title": "Gefuehrte Goal-Einstiegspunkte fuer haeufige Nutzungsarten einfuehren",
-          "description": "Statt nur generisches Goal-Textfeld sollen gefuehrte Einstiegspunkte fuer typische Aufgaben wie Codeproblem loesen, Projekt analysieren, Datei zusammenfassen oder Systemdiagnose bereitgestellt werden.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Approachability, Guided-Usefulness",
-          "status": "completed",
+          "id": "FRT-050",
+          "title": "AppComponent weiter zu einer duennen Shell reduzieren",
+          "description": "Theme-Steuerung, Mobile-Nav-State, Bereichszuordnung und Eventstream-Trigger weiter aus der Root-Komponente in dedizierte UI- und Runtime-Services verschieben.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Thin-Shell, Cleaner-Root-Component",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "agent/services/",
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/services/",
             "tests/"
           ],
           "acceptance": [
-            "Nutzer koennen haeufige Zieltypen ueber gefuehrte Modi statt nur ueber Freitext starten.",
-            "Die Modi erzeugen strukturiertere Goals und bessere Startkontexte.",
-            "Die UX senkt die Einstiegshuerde ohne die Architektur zu vereinfachen."
+            "AppComponent bleibt primaer Shell und Layout-Komponente.",
+            "Theme, Mobile Nav und Route-Area-Logik liegen in dedizierten Services oder Konfigurationen.",
+            "Root-seitige Businesslogik nimmt sichtbar ab."
           ]
         },
         {
-          "id": "GEM-011",
-          "title": "Goal-Typen in strukturierte Startschemas ueberfuehren",
-          "description": "Hauefige Goal-Arten sollen ueber strukturierte Startschemas mit Feldern, Defaults und optionalen Sicherheitsgrenzen modelliert werden.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Structured-Inputs, Better-Planning",
-          "status": "completed",
-          "effort": "medium",
+          "id": "FRT-051",
+          "title": "Route-Metadaten fuer Bereichszuordnung und Navigation deklarativ modellieren",
+          "description": "Bereichszuordnung, Breadcrumb- oder Navigationskontext nicht mehr ueber String-Checks in Komponenten ableiten, sondern deklarativ an den Routen hinterlegen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Declarative-Routing, Less-UI-Logic",
+          "status": "open",
+          "effort": "small",
           "files": [
-            "agent/db_models.py",
-            "agent/routes/",
-            "agent/services/",
+            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/features/**",
             "tests/"
           ],
           "dependencies": [
-            "GEM-010"
+            "FRT-050"
           ],
           "acceptance": [
-            "Goal-Modi koennen strukturierte Startdaten statt nur Freitext aufnehmen.",
-            "Planung und Routing profitieren von besserer Eingangsspezifikation.",
-            "Die Startschemas bleiben erweiterbar und versionierbar."
+            "Bereichszuordnung basiert auf Route-Metadaten statt auf String-Pruefungen.",
+            "Navigation und Breadcrumbs koennen dieselbe deklarative Quelle nutzen.",
+            "UI-Logik in Root-Komponenten wird einfacher."
           ]
         },
         {
-          "id": "GEM-012",
-          "title": "Default-Playbooks fuer die wichtigsten Goal-Modi hinterlegen",
-          "description": "Zu den gefuehrten Einstiegspunkten passende Standard-Playbooks oder Task-Skizzen bereitstellen, damit Ananta direkt nuetzlich reagiert und nicht jedes Mal bei null beginnt.",
-          "priority": "high",
+          "id": "FRT-052",
+          "title": "Feature-Routen konsequenter lazy laden",
+          "description": "Schwere Bereiche wie Dashboard-nahe Uebersichten, Admin, Operations oder Autopilot staerker ueber lazy geladene Routen und Komponenten isolieren.",
+          "priority": "medium",
           "type": "improvement",
-          "principle": "Fast-Time-to-Value, Reusable-Orchestration",
-          "status": "completed",
+          "principle": "Faster-Startup, Better-Feature-Isolation",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/services/",
+            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/features/**",
+            "tests/"
+          ],
+          "acceptance": [
+            "Schwere Features werden lazy geladen.",
+            "Der initiale Frontend-Start profitiert davon.",
+            "Routing-Struktur bleibt klar und nachvollziehbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend-dashboard-and-large-components",
+      "label": "Dashboard und grosse Komponenten",
+      "items": [
+        {
+          "id": "FDC-060",
+          "title": "DashboardComponent in fachliche Unterkomponenten zerlegen",
+          "description": "Die sehr grosse DashboardComponent in getrennte Panels fuer Goal Entry, Runtime/Benchmarks, Governance Summary, Timeline, Agent Summary und Autopilot aufteilen.",
+          "priority": "critical",
+          "type": "refactor",
+          "principle": "Component-Splitting, UI-Maintainability",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/features/control-plane/",
+            "tests/"
+          ],
+          "acceptance": [
+            "DashboardComponent wird deutlich kleiner und fokussierter.",
+            "Jeder grosse Bereich ist in einer eigenen Unterkomponente gekapselt.",
+            "Teilbereiche sind isoliert testbar und leichter aenderbar."
+          ]
+        },
+        {
+          "id": "FDC-061",
+          "title": "Dashboard ViewModel Service oder Facade einfuehren",
+          "description": "Die Datenaggregation, Refresh-Semantik, Polling-Koordination und ViewState-Bildung des Dashboards in einen dedizierten ViewModel-Service oder eine Dashboard-Facade verschieben.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "ViewModel-First, Reduced-Component-Logic",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/features/control-plane/",
+            "tests/"
+          ],
+          "dependencies": [
+            "FDC-060"
+          ],
+          "acceptance": [
+            "DashboardComponent konsumiert primär ViewModel-Daten statt selbst viele Requests zu orchestrieren.",
+            "Refresh-, Loading- und Error-Logik liegt ausserhalb der Template-Komponente.",
+            "Das Dashboard wird besser testbar und robuster gegen Race Conditions."
+          ]
+        },
+        {
+          "id": "FDC-062",
+          "title": "Polling, Eventstream und Refresh-Safety-Logik aus grossen Komponenten auslagern",
+          "description": "Intervalle, Refresh-Timer, Eventstream-Trigger und Sicherheitslogik fuer Wiederladezyklen in State- oder Runtime-Services verschieben.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Reactive-State, Fewer-Component-Side-Effects",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "FDC-061"
+          ],
+          "acceptance": [
+            "Komponenten setzen keine komplexen Polling- und Safety-Timer mehr selbst auf.",
+            "Eventstream- und Polling-Management ist zentralisiert.",
+            "Race- und Doppel-Refresh-Risiken nehmen ab."
+          ]
+        },
+        {
+          "id": "FDC-063",
+          "title": "Weitere grosse Smart Components identifizieren und nach Dashboard-Muster zerlegen",
+          "description": "Nach der Dashboard-Zerlegung weitere grosse Komponenten systematisch gegen denselben Hotspot-Typ pruefen und bei Bedarf ebenfalls in Shell plus Unterkomponenten aufteilen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Preventive-UI-Hotspot-Control",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/features/**",
+            "tests/"
+          ],
+          "dependencies": [
+            "FDC-060"
+          ],
+          "acceptance": [
+            "Die groessten verbleibenden UI-Hotspots sind identifiziert.",
+            "Mindestens die kritischsten Folgekomponenten sind zerlegt oder priorisiert.",
+            "Das Problem wird nicht nur bei Dashboard geloest."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend-api-clients-and-typing",
+      "label": "API Clients und Typisierung",
+      "items": [
+        {
+          "id": "API-070",
+          "title": "AgentApiService in fachliche API-Clients aufspalten",
+          "description": "Den stark endpoint-lastigen AgentApiService in kleinere fachliche Clients wie SystemApiClient, TaskApiClient, LlmApiClient, WorkspaceApiClient und SgptApiClient zerlegen.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Client-Modularity, Clearer-API-Surface",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/services/agent-api.service.ts",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "HTTP-Clients sind nach Fachbereich getrennt statt in einer Grossdatei gesammelt.",
+            "Facades nutzen klarere und kleinere API-Clients.",
+            "Die Pflege neuer Endpunkte wird einfacher."
+          ]
+        },
+        {
+          "id": "API-071",
+          "title": "DTO- und Read-Model-Typen fuer Dashboard, Goal und Governance einfuehren",
+          "description": "Fuer die wichtigsten Backend-Responses im Frontend echte DTO- oder Read-Model-Typen aufbauen, um any-lastige Verarbeitung deutlich zu reduzieren.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Type-Safety, Safer-Refactors",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/models/",
+            "frontend-angular/src/app/services/",
+            "frontend-angular/src/app/features/**",
+            "tests/"
+          ],
+          "acceptance": [
+            "Dashboard-, Goal-, Governance-, Timeline- und Benchmark-Responses sind typisiert.",
+            "Zentrale Facades und Komponenten verwenden deutlich weniger any.",
+            "Backend-Aenderungen werden frueher im Frontend sichtbar."
+          ]
+        },
+        {
+          "id": "API-072",
+          "title": "Generisches API-Envelope-Unwrapping typisiert und zentralisieren",
+          "description": "Das Unwrapping der Backend-Antworten generisch und typsicher gestalten, statt lose any-basierte Objekterkennung in API-Services zu wiederholen.",
+          "priority": "medium",
+          "type": "refactor",
+          "principle": "Type-Aware-Transport-Layer, Less-Repetition",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/services/agent-api.service.ts",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "API-071"
+          ],
+          "acceptance": [
+            "Envelope-Unwrapping ist zentralisiert und typisiert.",
+            "API-Clients muessen weniger Response-Shape-Raten betreiben.",
+            "Die Transport-Schicht wird konsistenter."
+          ]
+        },
+        {
+          "id": "API-073",
+          "title": "Frontend-Modelle enger an Backend-Contract-Tests koppeln",
+          "description": "Die neue DTO-Schicht mit Backend-Contract-Tests und Read-Model-Baselines enger abgleichen, damit beide Seiten nicht still auseinanderlaufen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "End-to-End-Contract-Alignment",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/models/",
+            "tests/",
+            "agent/routes/"
+          ],
+          "dependencies": [
+            "API-071"
+          ],
+          "acceptance": [
+            "Wichtige Frontend-Modelle orientieren sich an den echten Backend-Vertraegen.",
+            "Contract-Drift wird schneller sichtbar.",
+            "Backend- und Frontend-Refactors bleiben besser synchron."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend-facades-and-state",
+      "label": "Facades und State",
+      "items": [
+        {
+          "id": "FAS-080",
+          "title": "Duenne Weiterreich-Facades in echte ViewModel- oder Aggregationsfacades ueberfuehren",
+          "description": "Facades wie SystemFacade oder TaskManagementFacade darauf pruefen, ob sie echten Mehrwert liefern oder nur Methoden weiterreichen, und sie entsprechend konsolidieren oder aufwerten.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Meaningful-Abstractions, Less-Layer-Noise",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/features/**",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Facades kapseln entweder echte State-/ViewModel-Logik oder werden reduziert.",
+            "Unnoetige Durchreiche-Ebenen verschwinden.",
+            "Die verbleibenden Facades haben einen klaren Nutzen."
+          ]
+        },
+        {
+          "id": "FAS-081",
+          "title": "Signal-/State-Services konsistenter als UI-Datenquelle etablieren",
+          "description": "Task-Sammlungen, Agent-Status, Systemevents und vergleichbare Daten moeglichst konsequent ueber dedizierte State-Services konsumieren, statt ad hoc in Komponenten nachzuladen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Single-UI-Source-of-Truth, Reactive-Consistency",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/features/**",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "FAS-080"
+          ],
+          "acceptance": [
+            "Wiederkehrende UI-Daten stammen aus konsistenten State-Services.",
+            "Ad-hoc Nachladen in Komponenten nimmt ab.",
+            "Die UI wird berechenbarer und reaktiver."
+          ]
+        },
+        {
+          "id": "FAS-082",
+          "title": "UI-Async-State Muster vereinheitlichen",
+          "description": "Loading-, Error-, Empty- und Refresh-Zustaende ueber ein konsistentes Muster oder Hilfsmodell vereinheitlichen, statt sie pro grosser Komponente neu zu erfinden.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Consistent-UX-State, Lower-Boilerplate",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/models/",
+            "frontend-angular/src/app/features/**",
+            "tests/"
+          ],
+          "acceptance": [
+            "Async-States folgen einem konsistenten UI-Muster.",
+            "Komponenten enthalten weniger eigene Lade-/Fehler-Bastelei.",
+            "UX und Testbarkeit profitieren von dem einheitlichen Modell."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend-auth-and-security-transport",
+      "label": "Auth und Security Transport",
+      "items": [
+        {
+          "id": "AUS-090",
+          "title": "AuthInterceptor Auth-Entscheidungen in klares Zieltyp-Modell ueberfuehren",
+          "description": "Die aktuell pragmatische, aber komplexe Auth-Entscheidungslogik in ein klares Modell fuer Hub-User-Auth, Worker-Agent-JWT und andere Zieltypen ueberfuehren.",
+          "priority": "high",
+          "type": "refactor",
+          "principle": "Security-Clarity, Predictable-Auth",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/services/auth.interceptor.ts",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Auth-Pfade sind explizit nach Zieltyp statt nach verstreuten If-Faellen modelliert.",
+            "Hub- und Worker-Zugriffe verhalten sich nachvollziehbarer.",
+            "Sicherheitsrelevante Fallbacks sind reduziert oder klar dokumentiert."
+          ]
+        },
+        {
+          "id": "AUS-091",
+          "title": "URL-basierte Agent-Erkennung im Frontend haerter kapseln",
+          "description": "Die Erkennung, welcher Request zu welchem Agent-Typ gehoert, in einen dedizierten Resolver oder eine Registry verschieben statt in mehreren Services auf URL-Prefix-Matching zu verlassen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transport-Safety, Centralized-Resolution",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/services/auth.interceptor.ts",
+            "frontend-angular/src/app/services/agent-api.service.ts",
+            "frontend-angular/src/app/services/",
+            "tests/"
+          ],
+          "dependencies": [
+            "AUS-090"
+          ],
+          "acceptance": [
+            "Agent- und Zielauflösung ist zentralisiert.",
+            "URL-Prefix-Heuristiken sind nicht mehr in mehreren Klassen verteilt.",
+            "Fehlzuordnungen oder Sonderfaelle sind leichter testbar."
+          ]
+        },
+        {
+          "id": "AUS-092",
+          "title": "401 Refresh und Agent-JWT Pfade gezielt gegeneinander absichern",
+          "description": "Die Wechselwirkung zwischen User-Token-Refresh, Hub-Requests und per Shared Secret erzeugten Agent-JWTs gezielt testen und semantisch sauber trennen.",
+          "priority": "medium",
+          "type": "bugfix",
+          "principle": "Auth-Robustness, Reduced-Ambiguity",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/services/auth.interceptor.ts",
+            "frontend-angular/src/app/services/user-auth.service.ts",
+            "tests/"
+          ],
+          "dependencies": [
+            "AUS-090"
+          ],
+          "acceptance": [
+            "Refresh- und Agent-JWT-Pfade beeinflussen sich nicht unklar gegenseitig.",
+            "Mehrere 401-Szenarien sind gezielt getestet.",
+            "Logout- und Retry-Verhalten bleiben nachvollziehbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cross-cutting-testing-and-reviews",
+      "label": "Cross-Cutting Tests und Reviews",
+      "items": [
+        {
+          "id": "TQA-100",
+          "title": "Hotspot-spezifische Review- und Testmatrix fuer Backend und Frontend pflegen",
+          "description": "Fuer die identifizierten Hotspots wie ai_agent, TaskOrchestrationService, DashboardComponent und AuthInterceptor eine feste Review- und Testmatrix pflegen.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Focused-Reviewing, Hotspot-Discipline",
+          "status": "open",
+          "effort": "small",
+          "files": [
             "docs/",
-            "tests/"
-          ],
-          "dependencies": [
-            "GEM-010",
-            "GEM-011"
-          ],
-          "acceptance": [
-            "Goal-Modi koennen auf passende Standard-Playbooks zugreifen.",
-            "Nutzer erhalten schneller brauchbare Erstresultate.",
-            "Die Playbooks bleiben explizit, nachvollziehbar und reviewbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "local-assistant-capabilities",
-      "label": "Lokale direkte Assistenz Faehigkeiten",
-      "items": [
-        {
-          "id": "LAC-020",
-          "title": "Repo-Analyse als first-class direkt nutzbare Faehigkeit einführen",
-          "description": "Ein direkter Modus fuer Projekt- oder Repo-Analyse bereitstellen, der Struktur, Probleme, Risiken und Verbesserungspotenziale gezielt zusammenfasst.",
-          "priority": "high",
-          "type": "integration",
-          "principle": "Immediate-Utility, Controlled-Insight",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "frontend-angular/",
+            "CONTRIBUTING.md",
             "tests/"
           ],
           "acceptance": [
-            "Ein Nutzer kann ein Projekt oder Repo direkt analysieren lassen.",
-            "Die Ergebnisse erscheinen als strukturierte Artefakte und nicht nur als freier Chattext.",
-            "Analysepfade nutzen vorhandene Governance- und Kontextmechanismen."
+            "Kritische Hotspots sind als solche benannt.",
+            "Review und Testtiefe fuer diese Dateien ist explizit hoeher.",
+            "Die Hotspot-Liste bleibt aktuell und wird nicht nur einmalig erstellt."
           ]
         },
         {
-          "id": "LAC-021",
-          "title": "Issue-zu-Plan-zu-Patch-Vorschlag Workflow direkt nutzbar machen",
-          "description": "Einen alltagsnahen Entwicklungsworkflow bereitstellen, in dem aus einem Problem oder Issue ein Plan und ein kontrollierter Patch-Vorschlag erzeugt wird.",
-          "priority": "high",
-          "type": "integration",
-          "principle": "Developer-Workflow, Verification-Friendly",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-002",
-            "SAP-003"
-          ],
-          "acceptance": [
-            "Aus einem Problemtext oder Issue laesst sich direkt ein sinnvoller Umsetzungsworkflow starten.",
-            "Der Patch entsteht als kontrollierter Vorschlag mit Review- und Verification-Bezug.",
-            "Die Pipeline passt in Goals, Tasks, Verification und Artifacts."
-          ]
-        },
-        {
-          "id": "LAC-022",
-          "title": "Build-, Test- und Log-Diagnose als direkte Servicefaehigkeit bündeln",
-          "description": "Build-Fehler, Testfehler und Log-Auffaelligkeiten sollen als direkt nutzbarer Diagnosemodus verfuegbar sein, statt nur indirekt als Nebenergebnis anderer Flows aufzutreten.",
-          "priority": "high",
-          "type": "integration",
-          "principle": "Fast-Debugging, Practical-Operations",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "frontend-angular/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-004"
-          ],
-          "acceptance": [
-            "Build-, Test- und Log-Diagnosen sind als eigene Startmodi verfuegbar.",
-            "Ergebnisse werden strukturiert als Problemsignale, Ursachen und Folgeempfehlungen ausgegeben.",
-            "Shell- oder Laufzeitnutzung bleibt innerhalb der Policy-Grenzen."
-          ]
-        },
-        {
-          "id": "LAC-023",
-          "title": "Compose-, Docker- und Laufzeit-Reparaturflows direkt nutzbar machen",
-          "description": "Fuer typische DevOps- und lokale Laufzeitprobleme sollen gefuehrte Diagnose- und Reparaturflows bereitgestellt werden.",
-          "priority": "medium",
-          "type": "integration",
-          "principle": "Operational-Helpfulness, Safe-Repair",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-004",
-            "GEM-012"
-          ],
-          "acceptance": [
-            "Nutzer koennen typische Container- oder Compose-Probleme direkt analysieren lassen.",
-            "Vorschlaege bleiben kontrolliert und reviewbar.",
-            "Die Resultate koennen als Folge-Tasks oder Repair-Artefakte weiterverarbeitet werden."
-          ]
-        },
-        {
-          "id": "LAC-024",
-          "title": "Dokumentations- und Review-Assistenten als direkte Standardfaehigkeiten ergänzen",
-          "description": "Praktische Alltagsfaehigkeiten wie Diff-Zusammenfassung, Review-Notizen, Architekturzusammenfassung oder Doku-Entwurf als direkte Nutzmodi einbauen.",
-          "priority": "medium",
+          "id": "TQA-101",
+          "title": "Komponenten- und Servicegroesse ueber weiche Guardrails beobachten",
+          "description": "Dateigroessen, Methodenanzahl oder Template-Komplexitaet fuer bekannte Hotspot-Typen beobachten, damit neue Dashboard- oder Orchestrator-Monolithen frueher sichtbar werden.",
+          "priority": "low",
           "type": "improvement",
-          "principle": "Broad-Usefulness, Low-Risk-Value",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "frontend-angular/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SAP-006"
-          ],
-          "acceptance": [
-            "Review- und Doku-nahe Aufgaben sind als erste Standardfaehigkeiten direkt benutzbar.",
-            "Die Ergebnisse lassen sich als Artefakte speichern und weiterverwenden.",
-            "Die Modi schaffen breiten Nutzen ohne offene Hochrisiko-Capabilities."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "simple-interaction-adapters",
-      "label": "Einfache Interaktionsadapter",
-      "items": [
-        {
-          "id": "SIA-030",
-          "title": "Web-UI Chat und Goal-Interaktion enger mit Tasks und Artifacts verzahnen",
-          "description": "Die bestehende UI soll staerker von einer reinen Verwaltungsoberflaeche zu einer direkt nutzbaren Arbeitsoberflaeche weiterentwickelt werden, in der Goal-Eingabe, Verlauf, Artefakte und Folgeaktionen eng zusammenliegen.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Usability, Unified-Work-Surface",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Nutzer koennen Goals, Ergebnisse, Folgefragen und Artefakte in einer konsistenten UI erleben.",
-            "Die UI fuehlt sich fuer direkte Nutzung weniger nach Admin-Panel und mehr nach Arbeitsoberflaeche an.",
-            "Governance- und Artifact-Modelle bleiben sichtbar und gehen nicht hinter Chat weg."
-          ]
-        },
-        {
-          "id": "SIA-031",
-          "title": "CLI als first-class direkter Arbeitszugang ausbauen",
-          "description": "Eine einfache, schnelle CLI fuer Goals, Diagnosemodi, Artefaktabruf und Folgeaktionen bereitstellen, damit Ananta auch ohne umfangreiche UI direkt nuetzlich ist.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Direct-Use, Automation-Friendly",
-          "status": "completed",
-          "effort": "medium",
+          "principle": "Preventive-Maintainability, Early-Warning",
+          "status": "open",
+          "effort": "small",
           "files": [
             "scripts/",
-            "agent/",
-            "docs/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Die CLI deckt haeufige direkte Anwendungsfaelle sinnvoll ab.",
-            "Sie ist nicht nur Admin-Werkzeug, sondern echte Nutzoberflaeche.",
-            "Goals, Status und Resultate koennen ueber die CLI sinnvoll bearbeitet werden."
-          ]
-        },
-        {
-          "id": "SIA-032",
-          "title": "Webhook- und API-basierte Fremdintegration als stabilen Aussenrand stärken",
-          "description": "Statt frueh viele Messenger einzubauen soll der API- und Webhook-Aussenrand so gut werden, dass andere Systeme Ananta einfach und kontrolliert nutzen koennen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Extensibility, Clean-External-Surface",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "api-spec.md",
-            "tests/",
-            "docs/"
-          ],
-          "acceptance": [
-            "Externe Systeme koennen Goals und Folgeaktionen sauber ueber APIs oder Webhooks anstossen.",
-            "Der Aussenrand ist stabiler und sinnvoller als frueh viele spezialisierte Kanaele einzubauen.",
-            "Auth, Audit und Policy bleiben konsistent."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "skills-playbooks-and-blueprints",
-      "label": "Skills Playbooks und Blueprints",
-      "items": [
-        {
-          "id": "SPB-040",
-          "title": "Bibliothek direkt nutzbarer Skills und Playbooks aufbauen",
-          "description": "Eine kuratierte Bibliothek aus direkt nutzbaren Skills und Playbooks schaffen, die typische Arbeitsaufgaben kontrolliert und wiederverwendbar abbildet.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Reusability, Fast-Time-to-Value",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "docs/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Es gibt eine erkennbare Sammlung wiederverwendbarer Skills oder Playbooks.",
-            "Die Bibliothek ist nicht nur interne Technik, sondern klar fuer reale Anwendungsfaelle nutzbar.",
-            "Skills bleiben in Goals, Tasks, Verification und Artifacts eingebettet."
-          ]
-        },
-        {
-          "id": "SPB-041",
-          "title": "Standard-Playbooks fuer Bugfix, Refactoring, Incident und Architekturreview bereitstellen",
-          "description": "Fuer haeufige professionelle Arbeitsfaelle konkrete Standard-Playbooks mit sinnvollen Taskfolgen und Verifikationspunkten bereitstellen.",
-          "priority": "high",
-          "type": "integration",
-          "principle": "Practical-Workflow-Design, Repeatability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "docs/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SPB-040"
-          ],
-          "acceptance": [
-            "Wichtige Kernanwendungsfaelle sind durch konkrete Standard-Playbooks abgedeckt.",
-            "Playbooks lassen sich direkt starten oder als Vorlage verwenden.",
-            "Verification und Escalation sind in den Playbooks bewusst vorgesehen."
-          ]
-        },
-        {
-          "id": "SPB-042",
-          "title": "Blueprints und Teams enger mit direkt nutzbaren Arbeitsmodi verbinden",
-          "description": "Blueprints und Teamdefinitionen sollen nicht nur Verwaltungsobjekte sein, sondern direkt nutzbare vordefinierte Arbeitsmodi und Faehigkeitsprofile repraesentieren.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Usable-Configuration, Role-Based-Capabilities",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/services/",
             "frontend-angular/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SPB-040"
-          ],
-          "acceptance": [
-            "Teams und Blueprints koennen als nutzbare Arbeitsprofile gestartet werden.",
-            "Action Packs, Goal-Modi und Playbooks lassen sich mit Blueprints sinnvoll verknuepfen.",
-            "Die Nutzerperspektive auf Blueprints wird greifbarer und direkter."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "selected-external-adapters",
-      "label": "Ausgewählte externe Adapter",
-      "items": [
-        {
-          "id": "SEA-050",
-          "title": "Externe Adapter erst nach stabilem Web UI CLI und API Kern ergänzen",
-          "description": "Eine klare Produktregel verankern, dass externe Kanäle wie Slack, Matrix oder andere Messaging-Wege erst nach stabilem Kernzugang ueber Web-UI, CLI und API priorisiert werden.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Focus, Controlled-Surface-Growth",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "README.md",
-            "docs/",
-            "CONTRIBUTING.md"
-          ],
-          "acceptance": [
-            "Die Prioritaet des Kernprodukts vor Kanaelvielfalt ist dokumentiert.",
-            "Neue Aussenadapter muessen begruendet und nicht reflexhaft eingebaut werden.",
-            "Das Projekt bewahrt Fokus auf kontrollierten Kernnutzen."
-          ]
-        },
-        {
-          "id": "SEA-051",
-          "title": "Einen ersten leichten externen Adapter mit harter Policy-Grenze pilotieren",
-          "description": "Nach stabilem Kern genau einen leichten externen Adapter pilotieren, um die Integrationsfaehigkeit zu pruefen ohne sofort in Kanalchaos zu geraten.",
-          "priority": "low",
-          "type": "integration",
-          "principle": "Measured-Expansion, Learn-Before-Scale",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "docs/extensions.md",
-            "tests/"
-          ],
-          "dependencies": [
-            "SIA-032",
-            "SEA-050"
-          ],
-          "acceptance": [
-            "Genau ein externer Adapter kann als Pilot sicher betrieben werden.",
-            "Die Policy- und Audit-Grenzen bleiben auch ueber den Adapter erhalten.",
-            "Die Pilotintegration liefert Erkenntnisse fuer spaetere Ausweitung."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "strict-extension-model",
-      "label": "Strenges Extension Modell",
-      "items": [
-        {
-          "id": "SEM-060",
-          "title": "Ein strenges Drittanbieter-Extension-Modell fuer direkt nutzbare Faehigkeiten definieren",
-          "description": "Wenn Ananta spaeter breiter nutzbar wird, muss ein strenges Extension-Modell definieren, welche Zusatzfaehigkeiten als externe Erweiterungen eingebunden werden duerfen und unter welchen Grenzen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Extensibility-with-Guardrails, Secure-Ecosystem",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "docs/extensions.md",
-            "agent/plugin_loader.py",
             "agent/services/",
             "tests/"
           ],
           "acceptance": [
-            "Es gibt klare Regeln fuer Erweiterungen direkt nutzbarer Faehigkeiten.",
-            "Extension-Autoren muessen definierte Sicherheits- und Capability-Grenzen respektieren.",
-            "Das Modell verhindert, dass Ananta in unkontrollierte Toolvielfalt abgleitet."
+            "Hotspot-Indikatoren werden sichtbar gemacht.",
+            "Neue Grossdateien oder Komplexitaetsspruenge bleiben nicht unbemerkt.",
+            "Die Regeln bleiben pragmatisch und nicht ueberbuerokratisch."
           ]
         },
         {
-          "id": "SEM-061",
-          "title": "Action Packs und Skills fuer Erweiterungen als capability-gebundene Contracts modellieren",
-          "description": "Externe Erweiterungen sollen nicht frei in den Core greifen, sondern nur ueber klar definierte capability-gebundene Contracts fuer Action Packs und Skills andocken.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Stable-Seams, Safe-Pluggability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "plugins/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SEM-060",
-            "SAP-001",
-            "SPB-040"
-          ],
-          "acceptance": [
-            "Action Packs und Skills haben stabile Erweiterungsschnittstellen.",
-            "Externe Erweiterungen umgehen den Governance-Kern nicht.",
-            "Plugin- und Capability-Grenzen bleiben mechanisch pruefbar."
-          ]
-        },
-        {
-          "id": "SEM-062",
-          "title": "Marktplatz oder Oekosystem-Ideen erst nach stabilen Kern-Contracts zulassen",
-          "description": "Etwaige spaetere Oekosystem- oder Marktplatzideen sollen explizit an die Bedingung eines stabilen, gehärteten Kernmodells gebunden werden.",
+          "id": "TQA-102",
+          "title": "Refactoring-Reihenfolge auf Hotspot-Risiko statt nur auf Feature-Wunsch priorisieren",
+          "description": "Die naechsten grossen Refactorings explizit nach Hotspot-Risiko, Aenderungshaeufigkeit und Systemzentralitaet priorisieren, statt nur nach neuer Feature-Aktivitaet.",
           "priority": "low",
           "type": "documentation",
-          "principle": "Do-Not-Scale-Chaos, Core-First-Maturity",
-          "status": "completed",
+          "principle": "Risk-Based-Refactoring, Long-Term-Health",
+          "status": "open",
           "effort": "small",
           "files": [
-            "README.md",
+            "todo.json",
             "docs/",
             "CONTRIBUTING.md"
           ],
-          "dependencies": [
-            "SEM-060",
-            "SEM-061"
-          ],
           "acceptance": [
-            "Das Projekt priorisiert reife Kernvertraege vor Erweiterungsoekosystemen.",
-            "Feature-Wachstum bleibt an Sicherheits- und Governance-Reife gekoppelt.",
-            "Die Projektlinie bleibt fokusiert und nachvollziehbar."
+            "Refactoring-Prioritaeten sind begruendet und nachvollziehbar.",
+            "Zentrale Hotspots werden nicht weiter aufgeschoben, nur weil neue Features locken.",
+            "Die Projektentwicklung bleibt auch strukturell gesund."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 25,
+    "total_items": 31,
     "by_status": {
-      "completed": 25,
+      "completed": 0,
       "partial": 0,
-      "open": 0
+      "open": 31
     },
     "notes": [
-      "Diese Todo-Datei uebersetzt den Wunsch nach mehr direkter Nutzbarkeit in einen governance-first Ausbaupfad statt in einen capability-first Assistentenklon.",
-      "Der rote Faden ist: sichere Action Packs, gefuehrte Goal-Modi, praktische lokale Arbeitsfaehigkeiten, wenige starke Einstiegspunkte und erst spaeter ausgewaehlte Aussenadapter.",
-      "Ananta soll breiter nutzbar werden, ohne seinen eigentlichen Mehrwert zu verlieren: kontrollierte Planung, Verification, Policies, Audit und klare Verantwortungsgrenzen."
+      "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",
+      "Der Fokus liegt nicht auf neuen Endnutzerfeatures, sondern auf der Entschaerfung technischer Hotspots, der Aufteilung grosser Komponenten und Services sowie auf staerkerer Typ- und Contract-Sicherheit.",
+      "Das Leitmotiv ist: Die vorhandene starke Architektur muss jetzt gegen ihre eigene Systembreite abgesichert werden."
     ],
     "recommended_order": [
-      "SAP-001",
-      "GEM-010",
-      "GEM-011",
-      "SIA-030",
-      "SAP-002",
-      "SAP-003",
-      "SAP-004",
-      "LAC-020",
-      "LAC-022",
-      "SPB-040",
-      "GEM-012",
-      "SPB-041",
-      "LAC-021",
-      "SAP-005",
-      "SAP-006",
-      "LAC-024",
-      "SIA-031",
-      "SIA-032",
-      "SPB-042",
-      "LAC-023",
-      "SEM-060",
-      "SEM-061",
-      "SEA-050",
-      "SEA-051",
-      "SEM-062"
+      "BBS-001",
+      "SRG-010",
+      "ORC-020",
+      "FDC-060",
+      "FDC-061",
+      "API-071",
+      "AUS-090",
+      "API-070",
+      "SRG-011",
+      "ORC-021",
+      "ORC-022",
+      "ORC-023",
+      "ORC-024",
+      "FDC-062",
+      "FRT-050",
+      "FRT-051",
+      "CTS-040",
+      "CTS-041",
+      "PLX-030",
+      "PLX-031",
+      "PLX-032",
+      "CTS-042",
+      "FAS-080",
+      "FAS-081",
+      "FAS-082",
+      "AUS-091",
+      "AUS-092",
+      "FRT-052",
+      "BBS-002",
+      "BBS-003",
+      "SRG-012",
+      "API-072",
+      "API-073",
+      "FDC-063",
+      "TQA-100",
+      "TQA-101",
+      "TQA-102"
     ]
   }
 }
