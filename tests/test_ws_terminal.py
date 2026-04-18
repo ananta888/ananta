@@ -64,6 +64,30 @@ def test_auth_payload_is_admin_accepts_role_and_roles():
     assert ws_mod._auth_payload_is_admin(None) is False
 
 
+def test_auth_payload_roles_collects_single_role_and_roles():
+    assert ws_mod._auth_payload_roles({"role": "admin", "roles": ["operator"]}) == ["admin", "operator"]
+    assert ws_mod._auth_payload_roles(None) == []
+
+
+def test_terminal_limit_reason_detects_max_duration_and_idle_timeout():
+    policy = {"max_session_seconds": 60, "idle_timeout_seconds": 10}
+
+    assert (
+        ws_mod._terminal_limit_reason(policy=policy, started_at=0, last_activity_at=55, now=60)
+        == "terminal_max_session_seconds_exceeded"
+    )
+    assert (
+        ws_mod._terminal_limit_reason(policy=policy, started_at=0, last_activity_at=15, now=25)
+        == "terminal_idle_timeout_seconds_exceeded"
+    )
+    assert ws_mod._terminal_limit_reason(policy=policy, started_at=0, last_activity_at=20, now=25) is None
+
+
+def test_terminal_preview_limit_uses_policy_value():
+    assert ws_mod._terminal_preview_limit({"input_preview_max_chars": 42}) == 42
+    assert ws_mod._terminal_preview_limit({"input_preview_max_chars": "bad"}) == 120
+
+
 def test_websocket_input_pump_forwards_messages_and_closes_on_disconnect(monkeypatch):
     ws = object()
     seen: list[str] = []

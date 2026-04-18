@@ -145,7 +145,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Session-Control, Auditability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -169,7 +169,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Defense-in-Depth, Operational-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/config.py",
@@ -790,9 +790,9 @@
   "meta": {
     "total_items": 31,
     "by_status": {
-      "completed": 5,
+      "completed": 7,
       "partial": 0,
-      "open": 26
+      "open": 24
     },
     "notes": [
       "Diese Todo-Datei konzentriert sich auf die grossen Plattformhebel jenseits einzelner Features: Governance, Exposition, State-Machines, Foederation, Sicherheitsgrenzen und Laufzeitbeobachtbarkeit.",

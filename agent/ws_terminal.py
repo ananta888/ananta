@@ -81,6 +81,44 @@ def _auth_payload_is_admin(auth_payload: dict[str, Any] | None) -> bool:
     return role == "admin" or "admin" in {str(item or "").strip().lower() for item in roles}
 
 
+def _auth_payload_roles(auth_payload: dict[str, Any] | None) -> list[str]:
+    payload = auth_payload if isinstance(auth_payload, dict) else {}
+    roles = []
+    role = str(payload.get("role") or "").strip()
+    if role:
+        roles.append(role)
+    raw_roles = payload.get("roles") if isinstance(payload.get("roles"), list) else []
+    for item in raw_roles:
+        candidate = str(item or "").strip()
+        if candidate:
+            roles.append(candidate)
+    return roles
+
+
+def _terminal_limit_reason(
+    *,
+    policy: dict[str, Any],
+    started_at: float,
+    last_activity_at: float,
+    now: float | None = None,
+) -> str | None:
+    current = time.monotonic() if now is None else now
+    max_session_seconds = int(policy.get("max_session_seconds") or 0)
+    idle_timeout_seconds = int(policy.get("idle_timeout_seconds") or 0)
+    if max_session_seconds > 0 and current - started_at >= max_session_seconds:
+        return "terminal_max_session_seconds_exceeded"
+    if idle_timeout_seconds > 0 and current - last_activity_at >= idle_timeout_seconds:
+        return "terminal_idle_timeout_seconds_exceeded"
+    return None
+
+
+def _terminal_preview_limit(policy: dict[str, Any]) -> int:
+    try:
+        return max(0, int(policy.get("input_preview_max_chars", 120)))
+    except (TypeError, ValueError):
+        return 120
+
+
 def _extract_ws_context(ws: Any) -> tuple[dict[str, Any], str | None, str, str | None]:
     environ = getattr(ws, "environ", {}) or {}
     query = parse_qs(environ.get("QUERY_STRING", ""))
@@ -250,6 +288,8 @@ def register_ws_terminal(app: Any) -> None:
             cfg=app.config.get("AGENT_CONFIG", {}) or {},
             terminal_mode=mode,
             is_admin=_auth_payload_is_admin(auth_payload),
+            roles=_auth_payload_roles(auth_payload),
+            remote_addr=remote_addr,
         )
         if not terminal_decision.allowed:
             _send_event(
@@ -278,6 +318,24 @@ def register_ws_terminal(app: Any) -> None:
                     },
                 )
             return
+        terminal_policy = terminal_decision.policy
+        session_started_monotonic = time.monotonic()
+        last_activity_monotonic = session_started_monotonic
+
+        def _touch_terminal_activity() -> None:
+            nonlocal last_activity_monotonic
+            last_activity_monotonic = time.monotonic()
+
+        def _send_terminal_limit_if_needed() -> str | None:
+            reason = _terminal_limit_reason(
+                policy=terminal_policy,
+                started_at=session_started_monotonic,
+                last_activity_at=last_activity_monotonic,
+            )
+            if reason:
+                _send_event(ws, "error", {"message": "terminal_session_closed", "details": reason})
+            return reason
+
         _append_terminal_log(
             data_dir,
             {
@@ -312,6 +370,8 @@ def register_ws_terminal(app: Any) -> None:
             while True:
                 try:
                     _ = _recv_message(ws, timeout_seconds=0.5)
+                    if _ is not None:
+                        _touch_terminal_activity()
                 except Exception as exc:
                     if _is_timeout_error(exc):
                         pass
@@ -319,6 +379,8 @@ def register_ws_terminal(app: Any) -> None:
                         break
 
                 if not log_path.exists():
+                    if _send_terminal_limit_if_needed():
+                        break
                     continue
 
                 try:
@@ -327,9 +389,12 @@ def register_ws_terminal(app: Any) -> None:
                         fresh = fh.read()
                         file_pos = fh.tell()
                     if fresh:
+                        _touch_terminal_activity()
                         _send_event(ws, "output", {"chunk": fresh})
                 except Exception:
                     continue
+                if _send_terminal_limit_if_needed():
+                    break
 
             _append_terminal_log(
                 data_dir,
@@ -340,6 +405,11 @@ def register_ws_terminal(app: Any) -> None:
                     "event": "session_close",
                     "mode": mode,
                     "principal": principal,
+                    "reason": _terminal_limit_reason(
+                        policy=terminal_policy,
+                        started_at=session_started_monotonic,
+                        last_activity_at=last_activity_monotonic,
+                    ),
                 },
             )
             return
@@ -370,10 +440,12 @@ def register_ws_terminal(app: Any) -> None:
             def _handle_forwarded_input(incoming: Any) -> None:
                 resize = _extract_terminal_resize(incoming)
                 if resize is not None:
+                    _touch_terminal_activity()
                     get_live_terminal_session_service().resize(forward_param, resize[0], resize[1])
                     return
                 text = _extract_terminal_input(incoming)
                 if isinstance(text, str) and text:
+                    _touch_terminal_activity()
                     get_live_terminal_session_service().write(forward_param, text)
 
             pump = _WebSocketInputPump(ws, _handle_forwarded_input)
@@ -388,8 +460,11 @@ def register_ws_terminal(app: Any) -> None:
                     if changed:
                         fresh, offset = get_live_terminal_session_service().read_from(forward_param, offset)
                         if fresh:
+                            _touch_terminal_activity()
                             _send_event(ws, "output", {"chunk": "".join(fresh)})
                     if pump.closed:
+                        break
+                    if _send_terminal_limit_if_needed():
                         break
             finally:
                 pump.close()
@@ -403,6 +478,11 @@ def register_ws_terminal(app: Any) -> None:
                         "mode": mode,
                         "principal": principal,
                         "forward_param": forward_param,
+                        "reason": _terminal_limit_reason(
+                            policy=terminal_policy,
+                            started_at=session_started_monotonic,
+                            last_activity_at=last_activity_monotonic,
+                        ),
                     },
                 )
             return
@@ -435,9 +515,9 @@ def register_ws_terminal(app: Any) -> None:
                 if not candidate:
                     return
                 try:
-                    preview = " ".join(shlex.split(candidate))[:120]
+                    preview = " ".join(shlex.split(candidate))[: _terminal_preview_limit(terminal_policy)]
                 except ValueError:
-                    preview = candidate.replace("\n", " ").replace("\r", " ")[:120]
+                    preview = candidate.replace("\n", " ").replace("\r", " ")[: _terminal_preview_limit(terminal_policy)]
                 payload = {
                     "timestamp": time.time(),
                     "timestamp_iso": _utc_now_iso(),
@@ -471,6 +551,7 @@ def register_ws_terminal(app: Any) -> None:
                 nonlocal input_preview_buffer
                 resize = _extract_terminal_resize(incoming)
                 if resize is not None:
+                    _touch_terminal_activity()
                     resize_fn = getattr(bridge, "resize", None)
                     if callable(resize_fn):
                         resize_fn(resize[0], resize[1])
@@ -481,6 +562,7 @@ def register_ws_terminal(app: Any) -> None:
                     return
 
                 bridge.write(text)
+                _touch_terminal_activity()
                 input_preview_buffer += text
                 _flush_input_preview(force=False)
 
@@ -495,9 +577,12 @@ def register_ws_terminal(app: Any) -> None:
 
                 chunks = bridge.drain()
                 if chunks:
+                    _touch_terminal_activity()
                     _send_event(ws, "output", {"chunk": "".join(chunks)})
 
                 if pump.closed:
+                    break
+                if _send_terminal_limit_if_needed():
                     break
         except Exception as exc:
             LOGGER.exception("Terminal websocket session %s aborted: %s", session_id, exc)
@@ -515,5 +600,10 @@ def register_ws_terminal(app: Any) -> None:
                     "event": "session_close",
                     "mode": mode,
                     "principal": principal,
+                    "reason": _terminal_limit_reason(
+                        policy=terminal_policy,
+                        started_at=session_started_monotonic,
+                        last_activity_at=last_activity_monotonic,
+                    ),
                 },
             )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -52,6 +53,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
             "allow_interactive": False,
             "require_admin": True,
             "emit_audit_events": True,
+            "max_session_seconds": 1800,
+            "idle_timeout_seconds": 300,
+            "input_preview_max_chars": 120,
+            "allowed_roles": [],
+            "allowed_cidrs": [],
         },
     },
     "trusted-internal": {
@@ -77,6 +83,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
             "allow_interactive": False,
             "require_admin": True,
             "emit_audit_events": True,
+            "max_session_seconds": 1800,
+            "idle_timeout_seconds": 300,
+            "input_preview_max_chars": 120,
+            "allowed_roles": [],
+            "allowed_cidrs": [],
         },
     },
     "admin-only": {
@@ -105,6 +116,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
             "allow_interactive": True,
             "require_admin": True,
             "emit_audit_events": True,
+            "max_session_seconds": 1800,
+            "idle_timeout_seconds": 300,
+            "input_preview_max_chars": 120,
+            "allowed_roles": [],
+            "allowed_cidrs": [],
         },
     },
     "semi-public": {
@@ -135,6 +151,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
             "allow_interactive": False,
             "require_admin": True,
             "emit_audit_events": True,
+            "max_session_seconds": 600,
+            "idle_timeout_seconds": 120,
+            "input_preview_max_chars": 80,
+            "allowed_roles": [],
+            "allowed_cidrs": [],
         },
     },
 }
@@ -166,6 +187,41 @@ def _is_legacy_base_exposure_policy(raw: dict[str, Any]) -> bool:
         return False
     normalized = _merge_dict(_BASE_EXPOSURE_POLICY, raw)
     return normalized == _BASE_EXPOSURE_POLICY
+
+
+def _positive_int(raw: Any, default: int, *, minimum: int = 1, maximum: int | None = None) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    value = max(minimum, value)
+    if maximum is not None:
+        value = min(maximum, value)
+    return value
+
+
+def _normalize_string_list(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [str(item or "").strip() for item in raw if str(item or "").strip()]
+
+
+def _remote_addr_matches_cidrs(remote_addr: str | None, cidrs: list[str]) -> bool:
+    if not cidrs:
+        return True
+    if not remote_addr:
+        return False
+    try:
+        address = ipaddress.ip_address(str(remote_addr).strip())
+    except ValueError:
+        return False
+    for raw_cidr in cidrs:
+        try:
+            if address in ipaddress.ip_network(raw_cidr, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 class PlatformGovernanceService:
@@ -200,7 +256,23 @@ class PlatformGovernanceService:
         cfg = cfg if isinstance(cfg, dict) else {}
         mode = self.resolve_platform_mode(cfg)
         mode_policy = _MODE_POLICIES[mode]["terminal_policy"]
-        return _merge_dict(mode_policy, cfg.get("terminal_policy") if isinstance(cfg.get("terminal_policy"), dict) else {})
+        raw_policy = _merge_dict(mode_policy, cfg.get("terminal_policy") if isinstance(cfg.get("terminal_policy"), dict) else {})
+        return self.normalize_terminal_policy(raw_policy)
+
+    def normalize_terminal_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
+        raw = raw if isinstance(raw, dict) else {}
+        return {
+            "enabled": bool(raw.get("enabled", False)),
+            "allow_read": bool(raw.get("allow_read", False)),
+            "allow_interactive": bool(raw.get("allow_interactive", False)),
+            "require_admin": bool(raw.get("require_admin", True)),
+            "emit_audit_events": bool(raw.get("emit_audit_events", True)),
+            "max_session_seconds": _positive_int(raw.get("max_session_seconds"), 1800, minimum=30, maximum=86400),
+            "idle_timeout_seconds": _positive_int(raw.get("idle_timeout_seconds"), 300, minimum=10, maximum=86400),
+            "input_preview_max_chars": _positive_int(raw.get("input_preview_max_chars"), 120, minimum=0, maximum=1000),
+            "allowed_roles": _normalize_string_list(raw.get("allowed_roles")),
+            "allowed_cidrs": _normalize_string_list(raw.get("allowed_cidrs")),
+        }
 
     def evaluate_terminal_access(
         self,
@@ -208,6 +280,8 @@ class PlatformGovernanceService:
         cfg: dict[str, Any] | None,
         terminal_mode: str,
         is_admin: bool,
+        roles: list[str] | None = None,
+        remote_addr: str | None = None,
     ) -> TerminalAccessDecision:
         platform_mode = self.resolve_platform_mode(cfg)
         policy = self.resolve_terminal_policy(cfg)
@@ -216,6 +290,14 @@ class PlatformGovernanceService:
             return TerminalAccessDecision(False, "terminal_disabled", mode, platform_mode, policy)
         if bool(policy.get("require_admin", True)) and not is_admin:
             return TerminalAccessDecision(False, "terminal_admin_required", mode, platform_mode, policy)
+        allowed_roles = {str(item or "").strip().lower() for item in policy.get("allowed_roles", []) if str(item or "").strip()}
+        if allowed_roles:
+            actual_roles = {str(item or "").strip().lower() for item in (roles or []) if str(item or "").strip()}
+            if actual_roles.isdisjoint(allowed_roles):
+                return TerminalAccessDecision(False, "terminal_role_not_allowed", mode, platform_mode, policy)
+        allowed_cidrs = [str(item or "").strip() for item in policy.get("allowed_cidrs", []) if str(item or "").strip()]
+        if not _remote_addr_matches_cidrs(remote_addr, allowed_cidrs):
+            return TerminalAccessDecision(False, "terminal_network_not_allowed", mode, platform_mode, policy)
         if mode == "read" and not bool(policy.get("allow_read", False)):
             return TerminalAccessDecision(False, "terminal_read_disabled", mode, platform_mode, policy)
         if mode == "interactive" and not bool(policy.get("allow_interactive", False)):
