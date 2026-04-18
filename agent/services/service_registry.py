@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Any
 
 from flask import Flask, current_app
@@ -50,14 +50,9 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class CoreServiceRegistry:
-    goal_service: Any
-    goal_lifecycle_service: Any
-    planning_service: Any
-    auto_planner_runtime_service: Any
-    scheduler_runtime_service: Any
-    config_read_model_service: Any
-    evolution_service: Any
+class TaskServices:
+    """Task-Lifecycle: Queue, Claim, Execution, Query, Management, Orchestration."""
+
     task_handler_registry: Any
     task_queue_service: Any
     task_runtime_service: Any
@@ -69,30 +64,92 @@ class CoreServiceRegistry:
     task_management_service: Any
     task_orchestration_service: Any
     task_admin_service: Any
+
+
+@dataclass(frozen=True)
+class GovernanceServices:
+    """Goals, Planung, Verification, Contracts, Evolution."""
+
+    goal_service: Any
+    goal_lifecycle_service: Any
+    planning_service: Any
+    auto_planner_runtime_service: Any
+    verification_service: Any
+    worker_contract_service: Any
+    system_contract_service: Any
+    evolution_service: Any
+
+
+@dataclass(frozen=True)
+class KnowledgeServices:
+    """RAG, Ingestion, Knowledge-Index, Result-Memory."""
+
+    rag_service: Any
+    rag_helper_index_service: Any
+    ingestion_service: Any
+    knowledge_index_job_service: Any
+    knowledge_index_retrieval_service: Any
+    result_memory_service: Any
+
+
+@dataclass(frozen=True)
+class IntegrationServices:
+    """LLM/MCP/OpenAI-Bridge, Worker-Jobs, Agent-Registry."""
+
+    mcp_registry_service: Any
+    integration_registry_service: Any
+    openai_compat_service: Any
+    worker_job_service: Any
+    agent_registry_service: Any
+    agent_health_monitor_service: Any
+
+
+@dataclass(frozen=True)
+class RuntimeServices:
+    """Autopilot, Trigger, Scheduler, Config, Stats, Logs, Cost, Rate-Limit."""
+
     autopilot_runtime_service: Any
     autopilot_decision_service: Any
     autopilot_support_service: Any
     trigger_runtime_service: Any
+    scheduler_runtime_service: Any
     automation_snapshot_service: Any
-    verification_service: Any
-    worker_job_service: Any
-    result_memory_service: Any
-    agent_registry_service: Any
-    agent_health_monitor_service: Any
-    system_contract_service: Any
+    config_read_model_service: Any
+    cost_aggregation_service: Any
     system_stats_service: Any
     log_service: Any
-    cost_aggregation_service: Any
-    worker_contract_service: Any
-    rag_service: Any
     rate_limit_service: Any
-    ingestion_service: Any
-    knowledge_index_job_service: Any
-    knowledge_index_retrieval_service: Any
-    rag_helper_index_service: Any
-    openai_compat_service: Any
-    mcp_registry_service: Any
-    integration_registry_service: Any
+
+
+_SUB_REGISTRY_FIELDS = ("tasks", "governance", "knowledge", "integrations", "runtime")
+
+
+@dataclass(frozen=True)
+class CoreServiceRegistry:
+    """Aggregiert die fachlichen Teil-Registries.
+
+    Flacher Zugriff (``registry.goal_service``) bleibt aus Kompatibilitätsgründen
+    über ``__getattr__`` an die passende Teil-Registry delegiert.
+    """
+
+    tasks: TaskServices
+    governance: GovernanceServices
+    knowledge: KnowledgeServices
+    integrations: IntegrationServices
+    runtime: RuntimeServices
+
+    def __getattr__(self, name: str) -> Any:
+        for sub_name in _SUB_REGISTRY_FIELDS:
+            try:
+                sub = object.__getattribute__(self, sub_name)
+            except AttributeError:
+                continue
+            sub_fields = getattr(type(sub), "__dataclass_fields__", {})
+            if name in sub_fields:
+                return getattr(sub, name)
+        raise AttributeError(
+            f"CoreServiceRegistry has no attribute {name!r}"
+        )
 
 
 def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry:
@@ -139,14 +196,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.worker_contract_service import get_worker_contract_service
     from agent.services.worker_job_service import get_worker_job_service
 
-    return CoreServiceRegistry(
-        goal_service=get_goal_service(),
-        goal_lifecycle_service=get_goal_lifecycle_service(),
-        planning_service=get_planning_service(),
-        auto_planner_runtime_service=get_auto_planner_runtime_service(),
-        scheduler_runtime_service=get_scheduler_runtime_service(),
-        config_read_model_service=get_config_read_model_service(),
-        evolution_service=get_evolution_service(),
+    tasks = TaskServices(
         task_handler_registry=get_task_handler_registry(app),
         task_queue_service=get_task_queue_service(),
         task_runtime_service=get_task_runtime_service(),
@@ -158,30 +208,53 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         task_management_service=get_task_management_service(),
         task_orchestration_service=get_task_orchestration_service(),
         task_admin_service=get_task_admin_service(),
+    )
+    governance = GovernanceServices(
+        goal_service=get_goal_service(),
+        goal_lifecycle_service=get_goal_lifecycle_service(),
+        planning_service=get_planning_service(),
+        auto_planner_runtime_service=get_auto_planner_runtime_service(),
+        verification_service=get_verification_service(),
+        worker_contract_service=get_worker_contract_service(),
+        system_contract_service=get_system_contract_service(),
+        evolution_service=get_evolution_service(),
+    )
+    knowledge = KnowledgeServices(
+        rag_service=get_rag_service(),
+        rag_helper_index_service=get_rag_helper_index_service(),
+        ingestion_service=get_ingestion_service(),
+        knowledge_index_job_service=get_knowledge_index_job_service(),
+        knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
+        result_memory_service=get_result_memory_service(),
+    )
+    integrations = IntegrationServices(
+        mcp_registry_service=get_mcp_registry_service(),
+        integration_registry_service=get_integration_registry_service(),
+        openai_compat_service=get_openai_compat_service(),
+        worker_job_service=get_worker_job_service(),
+        agent_registry_service=get_agent_registry_service(),
+        agent_health_monitor_service=get_agent_health_monitor_service(),
+    )
+    runtime = RuntimeServices(
         autopilot_runtime_service=get_autopilot_runtime_service(),
         autopilot_decision_service=get_autopilot_decision_service(),
         autopilot_support_service=get_autopilot_support_service(),
         trigger_runtime_service=get_trigger_runtime_service(),
+        scheduler_runtime_service=get_scheduler_runtime_service(),
         automation_snapshot_service=get_automation_snapshot_service(),
-        verification_service=get_verification_service(),
-        worker_job_service=get_worker_job_service(),
-        result_memory_service=get_result_memory_service(),
-        agent_registry_service=get_agent_registry_service(),
-        agent_health_monitor_service=get_agent_health_monitor_service(),
-        system_contract_service=get_system_contract_service(),
+        config_read_model_service=get_config_read_model_service(),
+        cost_aggregation_service=get_cost_aggregation_service(),
         system_stats_service=get_system_stats_service(),
         log_service=get_log_service(),
-        cost_aggregation_service=get_cost_aggregation_service(),
-        worker_contract_service=get_worker_contract_service(),
-        rag_service=get_rag_service(),
         rate_limit_service=get_rate_limit_service(),
-        ingestion_service=get_ingestion_service(),
-        knowledge_index_job_service=get_knowledge_index_job_service(),
-        knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
-        rag_helper_index_service=get_rag_helper_index_service(),
-        openai_compat_service=get_openai_compat_service(),
-        mcp_registry_service=get_mcp_registry_service(),
-        integration_registry_service=get_integration_registry_service(),
+    )
+
+    return CoreServiceRegistry(
+        tasks=tasks,
+        governance=governance,
+        knowledge=knowledge,
+        integrations=integrations,
+        runtime=runtime,
     )
 
 
@@ -197,3 +270,46 @@ def get_core_services(app: Flask | None = None) -> CoreServiceRegistry:
     if registry is None:
         registry = initialize_core_services(target_app)
     return registry
+
+
+def get_task_services(app: Flask | None = None) -> TaskServices:
+    return get_core_services(app).tasks
+
+
+def get_governance_services(app: Flask | None = None) -> GovernanceServices:
+    return get_core_services(app).governance
+
+
+def get_knowledge_services(app: Flask | None = None) -> KnowledgeServices:
+    return get_core_services(app).knowledge
+
+
+def get_integration_services(app: Flask | None = None) -> IntegrationServices:
+    return get_core_services(app).integrations
+
+
+def get_runtime_services(app: Flask | None = None) -> RuntimeServices:
+    return get_core_services(app).runtime
+
+
+def _assert_unique_flat_field_names() -> None:
+    """Guard: Feldnamen dürfen sich zwischen Teil-Registries nicht überlappen."""
+
+    seen: dict[str, str] = {}
+    for sub_name, sub_cls in (
+        ("tasks", TaskServices),
+        ("governance", GovernanceServices),
+        ("knowledge", KnowledgeServices),
+        ("integrations", IntegrationServices),
+        ("runtime", RuntimeServices),
+    ):
+        for f in fields(sub_cls):
+            if f.name in seen:
+                raise RuntimeError(
+                    "CoreServiceRegistry field collision: "
+                    f"{f.name!r} lebt sowohl in {seen[f.name]!r} als auch in {sub_name!r}"
+                )
+            seen[f.name] = sub_name
+
+
+_assert_unique_flat_field_names()

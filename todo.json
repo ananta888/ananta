@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.8.0",
+  "version": "5.8.1",
   "created": "2026-04-18",
-  "updated": "2026-04-18T00:00:00Z",
+  "updated": "2026-04-19T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -99,7 +99,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Modularity, Reduced-Cognitive-Load",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/service_registry.py",
@@ -171,7 +171,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Hotspot-Reduction, Single-Responsibility",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 8,
+      "completed": 10,
       "partial": 0,
-      "open": 29
+      "open": 27
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",
