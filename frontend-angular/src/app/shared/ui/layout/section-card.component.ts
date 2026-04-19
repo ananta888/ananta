@@ -1,12 +1,22 @@
 import { Component, Input } from '@angular/core';
 import { SectionHeaderComponent } from './section-header.component';
 
+export type CardVariant = 'default' | 'primary' | 'success' | 'warning' | 'error' | 'technical';
+
 @Component({
   standalone: true,
   selector: 'app-section-card',
   imports: [SectionHeaderComponent],
   template: `
-    <section class="card shared-section-card" [class.card-primary]="variant === 'primary'" [attr.aria-label]="ariaLabel || title">
+    <section
+      class="card shared-section-card"
+      [class.card-primary]="variant === 'primary'"
+      [class.card-success-variant]="variant === 'success'"
+      [class.card-warning-variant]="variant === 'warning'"
+      [class.card-error-variant]="variant === 'error'"
+      [class.card-technical]="variant === 'technical'"
+      [attr.aria-label]="ariaLabel || title"
+    >
       @if (title || subtitle) {
         <app-section-header [eyebrow]="eyebrow" [title]="title" [subtitle]="subtitle">
           <div section-actions>
@@ -25,5 +35,5 @@ export class SectionCardComponent {
   @Input() subtitle = '';
   @Input() eyebrow = '';
   @Input() ariaLabel = '';
-  @Input() variant: 'default' | 'primary' = 'default';
+  @Input() variant: CardVariant = 'default';
 }

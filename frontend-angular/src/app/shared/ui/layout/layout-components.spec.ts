@@ -1,5 +1,6 @@
 import { ActionCardComponent } from './action-card.component';
 import { PageIntroComponent } from './page-intro.component';
+import { SectionCardComponent } from './section-card.component';
 import { SectionHeaderComponent } from './section-header.component';
 
 describe('shared layout components', () => {
@@ -21,6 +22,13 @@ describe('shared layout components', () => {
 
     expect(cmp.title).toBe('Aktivitaet');
     expect(cmp.subtitle).toContain('Projektion');
+  });
+
+  it('keeps card variants semantic and finite', () => {
+    const cmp = new SectionCardComponent();
+    cmp.variant = 'technical';
+
+    expect(cmp.variant).toBe('technical');
   });
 
   it('emits button action cards without coupling to router navigation', () => {

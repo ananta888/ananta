@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 
-export type NoticeTone = 'info' | 'success' | 'warning' | 'error';
+export type NoticeTone = 'info' | 'success' | 'warning' | 'error' | 'technical';
 
 @Component({
   standalone: true,

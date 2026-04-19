@@ -55,6 +55,9 @@ To maintain code quality and architectural integrity, please follow these guardr
 - **Core-First Surface:** Prioritize Web UI, CLI, and API/Webhook quality before adding new external channel adapters.
 - **Extension Discipline:** Third-party extensions must remain capability-bound and must not bypass governance, policy, or audit controls.
 - **Ecosystem Maturity Gate:** Marketplace/ecosystem proposals require stable hardened core contracts first.
+- **Frontend Reuse Check:** For Angular UI changes, check whether an existing `frontend-angular/src/app/shared/ui/` primitive already covers the pattern before adding new markup or a new component.
+- **No Fake Generics:** Do not move a component into global shared UI if its API or behavior depends on Goal, Task, Worker, Artifact, Team, Policy, Runtime or another feature concept. Extract locally first.
+- **Semantic Variants:** Prefer shared card, notice, status and metric variants over ad hoc colors or one-off visual classes.
 
 ## Tests and checks
 
