@@ -44,6 +44,9 @@ import { AppShellStateService } from './services/app-shell-state.service';
             <span class="nav-group-label">{{ group.label }}</span>
             @for (item of group.items; track item.path) {
               <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
+              @if (shell.mode() === 'advanced' && item.expertOnly) {
+                <span class="nav-expert-label">Experte</span>
+              }
             }
           }
         </nav>
@@ -85,6 +88,12 @@ import { AppShellStateService } from './services/app-shell-state.service';
       opacity: 0.8;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+    }
+    .nav-expert-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: -8px;
+      margin-right: 4px;
     }
     .route-context {
       padding: 6px 16px;

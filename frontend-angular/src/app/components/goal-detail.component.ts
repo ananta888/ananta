@@ -41,6 +41,53 @@ import { interval, Subscription } from 'rxjs';
           </div>
         </div>
 
+        <section class="card mt-md result-summary">
+          <div class="row space-between align-start">
+            <div>
+              <div class="muted font-sm mb-xs">Abschluss & naechste Schritte</div>
+              <h3 class="no-margin">{{ resultHeadline() }}</h3>
+              <p class="muted mt-sm">{{ resultDescription() }}</p>
+            </div>
+            <div class="row gap-sm">
+              <button class="secondary btn-small" [routerLink]="['/board']">Aufgaben oeffnen</button>
+              <button class="secondary btn-small" [routerLink]="['/artifacts']">Ergebnisse oeffnen</button>
+            </div>
+          </div>
+          <div class="grid cols-4 gap-sm mt-md">
+            <div class="card card-light">
+              <div class="muted font-sm">Fortschritt</div>
+              <strong>{{ completedTasks() }}/{{ tasks.length }}</strong>
+              <div class="muted font-sm">Tasks abgeschlossen</div>
+            </div>
+            <div class="card card-light">
+              <div class="muted font-sm">Offen</div>
+              <strong>{{ openTasks() }}</strong>
+              <div class="muted font-sm">naechste Tasks</div>
+            </div>
+            <div class="card card-light">
+              <div class="muted font-sm">Artefakte</div>
+              <strong>{{ artifacts.length }}</strong>
+              <div class="muted font-sm">sichtbare Ergebnisse</div>
+            </div>
+            <div class="card card-light">
+              <div class="muted font-sm">Pruefung</div>
+              <strong>{{ verificationLabel() }}</strong>
+              <div class="muted font-sm">Verification</div>
+            </div>
+          </div>
+          @if (headlineArtifact()) {
+            <div class="state-banner mt-md">
+              <strong>{{ headlineArtifact()?.title || 'Wichtigstes Ergebnis' }}</strong>
+              <p class="muted no-margin mt-sm">{{ headlineArtifact()?.preview }}</p>
+            </div>
+          } @else if (!artifacts.length) {
+            <div class="state-banner warning mt-md">
+              <strong>Noch kein Ergebnisartefakt vorhanden.</strong>
+              <p class="muted no-margin mt-sm">Pruefe die offenen Tasks oder starte die Ausfuehrung, damit ein sichtbares Ergebnis entsteht.</p>
+            </div>
+          }
+        </section>
+
         <div class="grid cols-3 gap-md mt-md">
           <!-- Linke Spalte: Plan & Status -->
           <div class="col-span-2">
@@ -181,6 +228,9 @@ import { interval, Subscription } from 'rxjs';
       .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       .artifact-item { padding: 10px; border-radius: 4px; }
       .artifact-item:hover { background: rgba(255,255,255,0.05); }
+      .result-summary h3 {
+        max-width: 70ch;
+      }
     </style>
   `
 })
@@ -195,6 +245,7 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
   goal: any;
   tasks: any[] = [];
   artifacts: any[] = [];
+  artifactSummary: any;
   governance: any;
   costSummary: any;
   loading = false;
@@ -225,6 +276,7 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
         this.goal = res.goal;
         this.tasks = res.tasks || [];
         this.artifacts = res.artifacts?.artifacts || [];
+        this.artifactSummary = res.artifacts || null;
         this.governance = res.governance;
         this.costSummary = res.cost_summary;
         this.loading = false;
@@ -236,5 +288,54 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  completedTasks(): number {
+    return this.tasks.filter(task => task?.status === 'completed').length;
+  }
+
+  failedTasks(): number {
+    return this.tasks.filter(task => task?.status === 'failed').length;
+  }
+
+  openTasks(): number {
+    return Math.max(0, this.tasks.length - this.completedTasks() - this.failedTasks());
+  }
+
+  headlineArtifact(): any | null {
+    return this.artifactSummary?.headline_artifact || this.artifacts[0] || null;
+  }
+
+  verificationLabel(): string {
+    const passed = Number(this.governance?.verification?.passed || 0);
+    const total = Number(this.governance?.verification?.total || 0);
+    if (!total) return 'offen';
+    return `${passed}/${total}`;
+  }
+
+  resultHeadline(): string {
+    if (this.goal?.status === 'completed' || (this.tasks.length > 0 && this.completedTasks() === this.tasks.length)) {
+      return 'Goal abgeschlossen';
+    }
+    if (this.failedTasks() > 0) {
+      return 'Goal braucht Aufmerksamkeit';
+    }
+    if (this.openTasks() > 0) {
+      return 'Goal ist in Arbeit';
+    }
+    return 'Goal ist vorbereitet';
+  }
+
+  resultDescription(): string {
+    if (this.failedTasks() > 0) {
+      return 'Einige Tasks sind fehlgeschlagen. Oeffne die betroffenen Aufgaben, pruefe Logs und starte gezielt nach.';
+    }
+    if (this.openTasks() > 0) {
+      return 'Die naechsten Schritte sind im Task-Plan sichtbar. Oeffne das Board, um Fortschritt und Blocker zu pruefen.';
+    }
+    if (this.artifacts.length > 0 || this.headlineArtifact()) {
+      return 'Die wichtigsten Ergebnisse sind unten zusammengefasst und als Artefakte erreichbar.';
+    }
+    return 'Noch fehlen sichtbare Ergebnisse. Starte oder pruefe die erzeugten Tasks, um ein Abschlussartefakt zu erhalten.';
   }
 }

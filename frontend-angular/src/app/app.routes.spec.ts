@@ -26,9 +26,10 @@ describe('app routes', () => {
       'templates',
       'teams',
       'artifacts',
+      'help',
     ].includes(route.path));
 
-    expect(featureRoutes.length).toBe(16);
+    expect(featureRoutes.length).toBe(17);
     expect(featureRoutes.every((route: any) => typeof route.loadComponent === 'function')).toBe(true);
     expect(featureRoutes.every((route: any) => !route.component)).toBe(true);
     expect(featureRoutes.every((route: any) => route.data?.breadcrumb && route.data?.area)).toBe(true);
