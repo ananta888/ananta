@@ -58,7 +58,16 @@ describe('TaskManagementFacade', () => {
       lastLoadedAt: vi.fn(() => 123),
       error: vi.fn(() => null),
       childrenOf: vi.fn(() => [{ id: 'T-2', parent_task_id: 'T-1' }]),
-      snapshot: vi.fn(() => ({ tasks: [{ id: 'T-1' }], loading: false, lastLoadedAt: 123, error: null, counts: { todo: 1 } })),
+      snapshot: vi.fn(() => ({
+        tasks: [{ id: 'T-1' }],
+        loading: false,
+        refreshing: false,
+        empty: false,
+        lastLoadedAt: 123,
+        error: null,
+        asyncState: { data: [{ id: 'T-1' }], loading: false, refreshing: false, empty: false, error: null, lastLoadedAt: 123 },
+        counts: { todo: 1 },
+      })),
     };
     liveState = {
       ensureSystemEvents: vi.fn(),
@@ -66,7 +75,16 @@ describe('TaskManagementFacade', () => {
       systemStreamConnected: vi.fn(() => true),
       lastSystemEvent: vi.fn(() => ({ type: 'token_rotated' })),
       watchTaskLogs: vi.fn(),
-      taskLogState: vi.fn(() => ({ logs: [], loading: false, connected: true, lastEvent: null })),
+      taskLogState: vi.fn(() => ({
+        logs: [],
+        loading: false,
+        refreshing: false,
+        empty: true,
+        connected: true,
+        lastEvent: null,
+        error: null,
+        asyncState: { data: [], loading: false, refreshing: false, empty: true, error: null, lastLoadedAt: null },
+      })),
       stopTaskLogs: vi.fn(),
       shouldRefreshTask: vi.fn(() => true),
       snapshot: vi.fn(() => ({ systemStreamConnected: true, lastSystemEvent: { type: 'token_rotated' }, activeTaskLogStreams: 1 })),
@@ -111,6 +129,7 @@ describe('TaskManagementFacade', () => {
     expect(facade.tasksLastLoadedAt()).toBe(123);
     expect(facade.childrenOf('T-1')).toEqual([{ id: 'T-2', parent_task_id: 'T-1' }]);
     expect(facade.taskCollectionSnapshot().counts).toEqual({ todo: 1 });
+    expect(facade.taskCollectionSnapshot().asyncState.empty).toBe(false);
   });
 
   it('delegates task live state and task operations', () => {

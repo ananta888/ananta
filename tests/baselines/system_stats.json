@@ -1,0 +1,25 @@
+{
+  "agent_name": "str",
+  "agents": {
+    "offline": "int",
+    "online": "int",
+    "total": "int"
+  },
+  "resources": {
+    "cpu_percent": "float",
+    "ram_bytes": "int"
+  },
+  "shell_pool": {
+    "busy": "int",
+    "free": "int",
+    "total": "int"
+  },
+  "tasks": {
+    "completed": "int",
+    "failed": "int",
+    "in_progress": "int",
+    "todo": "int",
+    "total": "int"
+  },
+  "timestamp": "float"
+}

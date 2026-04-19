@@ -1,0 +1,11 @@
+{
+  "name": "evolver_adapter",
+  "type": "evolution-provider",
+  "provider": "evolver",
+  "enabled": true,
+  "replace": true,
+  "default_roles": ["evolver"],
+  "compatibility": {
+    "ananta": ">=0.7.0"
+  }
+}

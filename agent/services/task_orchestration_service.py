@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -20,19 +22,43 @@ from agent.services.copilot_routing_advisor import (
     extract_copilot_routing_hint,
     get_copilot_routing_advisor,
 )
+from agent.services.repository_registry import get_repository_registry
 from agent.services.task_context_policy_service import get_task_context_policy_service
 from agent.services.task_execution_policy_service import normalize_allowed_tools
-from agent.services.repository_registry import get_repository_registry
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
 
 __all__ = [
+    "TaskOrchestrationDependencies",
     "TaskOrchestrationService",
     "get_task_orchestration_service",
     "build_copilot_routing_prompt",
     "extract_copilot_routing_hint",
 ]
+
+
+@dataclass(frozen=True)
+class TaskOrchestrationDependencies:
+    get_task_status: Callable[[str], dict[str, Any] | None]
+    update_task_status: Callable[..., Any]
+    forward_task_to_worker: Callable[..., Any]
+    repository_registry: Callable[[], Any]
+    routing_advisor: Callable[[], Any]
+    context_policy_service: Callable[[], Any]
+    execution_tracking_service: Callable[[], Any]
+
+
+def _default_dependencies() -> TaskOrchestrationDependencies:
+    return TaskOrchestrationDependencies(
+        get_task_status=get_local_task_status,
+        update_task_status=update_local_task_status,
+        forward_task_to_worker=forward_to_worker,
+        repository_registry=get_repository_registry,
+        routing_advisor=get_copilot_routing_advisor,
+        context_policy_service=get_task_context_policy_service,
+        execution_tracking_service=get_task_execution_tracking_service,
+    )
 
 
 class TaskOrchestrationService:
@@ -46,6 +72,9 @@ class TaskOrchestrationService:
     * :mod:`agent.services.workspace_scope_builder` – Workspace-Scope-Ableitung und Worker-Workspace.
     """
 
+    def __init__(self, dependencies: TaskOrchestrationDependencies | None = None) -> None:
+        self.dependencies = dependencies or _default_dependencies()
+
     def delegate_task(
         self,
         *,
@@ -57,7 +86,7 @@ class TaskOrchestrationService:
         result_memory_service,
         verification_service,
     ) -> dict[str, Any]:
-        parent_task = get_local_task_status(task_id)
+        parent_task = self.dependencies.get_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
 
@@ -80,12 +109,12 @@ class TaskOrchestrationService:
             else None
         )
         if not agent_url:
-            repos = get_repository_registry()
+            repos = self.dependencies.repository_registry()
             available_workers = [
                 agent_registry_service.build_directory_entry(agent=worker, timeout=300)
                 for worker in repos.agent_repo.get_all()
             ]
-            routing_hint = get_copilot_routing_advisor().resolve_routing_hint(
+            routing_hint = self.dependencies.routing_advisor().resolve_routing_hint(
                 task=parent_task,
                 workers=available_workers,
                 task_kind=effective_task_kind,
@@ -123,7 +152,7 @@ class TaskOrchestrationService:
             if item
         )
         context_policy, retrieval_hints, task_neighborhood = (
-            get_task_context_policy_service().build_context_policy(
+            self.dependencies.context_policy_service().build_context_policy(
                 parent_task=parent_task,
                 data=data,
                 effective_task_kind=effective_task_kind,
@@ -236,7 +265,12 @@ class TaskOrchestrationService:
                     worker_url=agent_url,
                 )
             response = unwrap_api_envelope(
-                forward_to_worker(agent_url, "/tasks", delegation_payload, token=data.agent_token or "")
+                self.dependencies.forward_task_to_worker(
+                    agent_url,
+                    "/tasks",
+                    delegation_payload,
+                    token=data.agent_token or "",
+                )
             )
         except Exception as exc:
             return {"error": "delegation_failed", "code": 502, "data": {"details": str(exc)}}
@@ -250,7 +284,7 @@ class TaskOrchestrationService:
                 "status": "created",
             }
         )
-        update_local_task_status(
+        self.dependencies.update_task_status(
             task_id,
             parent_task.get("status", "in_progress"),
             context_bundle_id=context_bundle.id,
@@ -310,7 +344,7 @@ class TaskOrchestrationService:
         Seiteneffekt-Reihenfolge nachvollziehbar ist.
         """
 
-        task = get_local_task_status(task_id)
+        task = self.dependencies.get_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
 
@@ -484,8 +518,8 @@ class TaskOrchestrationService:
             "memory_entry_id": memory_entry.id if memory_entry else None,
         }
 
-    @staticmethod
     def _apply_completion_status_update(
+        self,
         *,
         task_id: str,
         final_status: str,
@@ -497,7 +531,7 @@ class TaskOrchestrationService:
         trace_id: Any,
         worker_job_id: str | None,
     ) -> None:
-        update_local_task_status(
+        self.dependencies.update_task_status(
             task_id,
             final_status,
             last_output=output,
@@ -518,7 +552,7 @@ class TaskOrchestrationService:
         task_id: str,
         evolution_service,
     ) -> dict[str, Any]:
-        updated = get_local_task_status(task_id) or {}
+        updated = self.dependencies.get_task_status(task_id) or {}
         return self._maybe_trigger_evolution_analysis(
             task=dict(updated or {}),
             config=current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {},
@@ -557,10 +591,12 @@ class TaskOrchestrationService:
             return {"status": "failed", "reason": str(exc)}
 
     def orchestration_read_model(self) -> dict[str, Any]:
-        repos = get_repository_registry()
+        repos = self.dependencies.repository_registry()
         model = build_orchestration_read_model([task.model_dump() for task in repos.task_repo.get_all()])
         model["recent_policy_decisions"] = [item.model_dump() for item in repos.policy_decision_repo.get_all(limit=50)]
-        model["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
+        model["worker_execution_reconciliation"] = (
+            self.dependencies.execution_tracking_service().build_execution_reconciliation_snapshot()
+        )
         return model
 
 

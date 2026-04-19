@@ -1,0 +1,97 @@
+{
+  "action_packs": [
+    {
+      "capabilities": [
+        "str"
+      ],
+      "description": "str",
+      "enabled": "bool",
+      "name": "str",
+      "source": "str"
+    }
+  ],
+  "available_modes": [
+    "str"
+  ],
+  "decisions": {
+    "action_pack_browser": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "action_pack_document": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "action_pack_file": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "action_pack_git": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "action_pack_shell": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "mcp": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "openai_compat": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "remote_hubs": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "terminal_interactive": {
+      "allowed": "bool",
+      "reason": "str"
+    },
+    "terminal_read": {
+      "allowed": "bool",
+      "reason": "str"
+    }
+  },
+  "exposure_policy": {
+    "mcp": {
+      "allow_agent_auth": "bool",
+      "allow_user_auth": "bool",
+      "emit_audit_events": "bool",
+      "enabled": "bool",
+      "require_admin_for_user_auth": "bool"
+    },
+    "openai_compat": {
+      "allow_agent_auth": "bool",
+      "allow_files_api": "bool",
+      "allow_user_auth": "bool",
+      "emit_audit_events": "bool",
+      "enabled": "bool",
+      "instance_id": "NoneType",
+      "max_hops": "int",
+      "require_admin_for_user_auth": "bool"
+    },
+    "remote_hubs": {
+      "emit_audit_events": "bool",
+      "enabled": "bool",
+      "max_hops": "int",
+      "require_admin_for_user_auth": "bool"
+    }
+  },
+  "platform_mode": "str",
+  "policy_version": "str",
+  "terminal_policy": {
+    "allow_interactive": "bool",
+    "allow_read": "bool",
+    "allowed_cidrs": [],
+    "allowed_roles": [],
+    "emit_audit_events": "bool",
+    "enabled": "bool",
+    "idle_timeout_seconds": "int",
+    "input_preview_max_chars": "int",
+    "max_session_seconds": "int",
+    "require_admin": "bool"
+  }
+}

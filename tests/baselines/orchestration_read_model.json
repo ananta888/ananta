@@ -1,0 +1,57 @@
+{
+  "active_leases": [],
+  "artifact_flow": {
+    "config": {
+      "enabled": "bool",
+      "max_tasks": "int",
+      "max_worker_jobs_per_task": "int",
+      "rag_enabled": "bool",
+      "rag_include_content": "bool",
+      "rag_top_k": "int"
+    },
+    "counts": {
+      "memory_entries": "int",
+      "tasks": "int",
+      "worker_jobs": "int",
+      "worker_results": "int"
+    },
+    "enabled": "bool",
+    "groups": {
+      "by_assignment": [],
+      "by_worker": []
+    },
+    "items": []
+  },
+  "by_agent": {},
+  "by_source": {
+    "agent": "int",
+    "system": "int",
+    "ui": "int",
+    "unknown": "int"
+  },
+  "dispatch_queue": [],
+  "queue": {
+    "assigned": "int",
+    "blocked": "int",
+    "completed": "int",
+    "failed": "int",
+    "in_progress": "int",
+    "todo": "int"
+  },
+  "queue_depth": "int",
+  "recent_policy_decisions": [],
+  "recent_tasks": [],
+  "ts": "float",
+  "worker_execution_reconciliation": {
+    "affected_count": "int",
+    "affected_tasks": [],
+    "issue_counts": {
+      "missing_worker_job": "int",
+      "stuck_execution": "int",
+      "task_status_lags_worker_job": "int",
+      "terminal_job_mismatch": "int"
+    },
+    "stale_after_seconds": "int",
+    "status": "str"
+  }
+}

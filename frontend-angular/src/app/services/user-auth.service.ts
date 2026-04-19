@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, map, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
+import { ApiResponse, unwrapApiResponse } from './api-envelope';
 
 @Injectable({ providedIn: 'root' })
 export class UserAuthService {
@@ -16,15 +17,8 @@ export class UserAuthService {
   private _user = new BehaviorSubject<any>(this.decodeTokenPayload(this.token));
   user$ = this._user.asObservable();
 
-  private unwrapResponse<T>(obs: Observable<any>): Observable<T> {
-    return obs.pipe(
-      map((response: any) => {
-        if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
-          return response.data as T;
-        }
-        return response as T;
-      })
-    );
+  private unwrapResponse<T>(obs: Observable<ApiResponse<T>>): Observable<T> {
+    return unwrapApiResponse<T>(obs);
   }
 
   get token() { return this._token.value; }

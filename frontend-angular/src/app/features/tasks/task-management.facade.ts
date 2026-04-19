@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 
+import { UiAsyncState } from '../../models/ui-async-state';
 import { HubApiService } from '../../services/hub-api.service';
 import { HubLiveStateService, TaskLogStreamState } from '../../services/hub-live-state.service';
 import { HubTaskCollectionStateService } from '../../services/hub-task-collection-state.service';
@@ -41,8 +42,11 @@ export class TaskManagementFacade {
   taskCollectionSnapshot(): {
     tasks: any[];
     loading: boolean;
+    refreshing: boolean;
+    empty: boolean;
     lastLoadedAt: number | null;
     error: string | null;
+    asyncState: UiAsyncState<any[]>;
     counts: Record<string, number>;
   } {
     return this.taskCollection.snapshot();

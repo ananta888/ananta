@@ -58,6 +58,9 @@ describe('HubLiveStateService', () => {
 
     const state = service.taskLogState('T-1');
     expect(state.logs).toHaveLength(2);
+    expect(state.empty).toBe(false);
+    expect(state.error).toBeNull();
+    expect(state.asyncState.data).toHaveLength(2);
     expect(state.connected).toBe(true);
     expect(service.snapshot().activeTaskLogStreams).toBe(1);
     expect(service.shouldRefreshTask({ event_type: 'execution_result' })).toBe(true);
@@ -71,5 +74,6 @@ describe('HubLiveStateService', () => {
 
     expect(service.taskLogState('T-2').connected).toBe(false);
     expect(service.taskLogState('T-2').loading).toBe(false);
+    expect(service.taskLogState('T-2').error).toBe('Task-Logs konnten nicht geladen werden');
   });
 });

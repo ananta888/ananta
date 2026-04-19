@@ -1,0 +1,10 @@
+{
+  "name": "canary_plugin",
+  "type": "evolution-provider",
+  "provider": "canary",
+  "enabled": true,
+  "default_roles": ["canary"],
+  "compatibility": {
+    "ananta": ">=0.7.0"
+  }
+}

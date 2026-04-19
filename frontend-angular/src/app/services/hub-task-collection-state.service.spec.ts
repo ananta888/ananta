@@ -29,6 +29,13 @@ describe('HubTaskCollectionStateService', () => {
     expect(service.tasks()).toHaveLength(2);
     expect(service.childrenOf('T-1')).toHaveLength(1);
     expect(service.snapshot().counts).toEqual({ todo: 1, in_progress: 1 });
+    expect(service.snapshot().asyncState).toEqual(expect.objectContaining({
+      data: service.tasks(),
+      empty: false,
+      error: null,
+      loading: false,
+      refreshing: false,
+    }));
     expect(service.lastLoadedAt()).not.toBeNull();
     expect(service.loading()).toBe(false);
   });

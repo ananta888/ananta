@@ -119,7 +119,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Testability, Explicit-Dependencies",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/",
@@ -642,7 +642,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Type-Aware-Transport-Layer, Less-Repetition",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/agent-api.service.ts",
@@ -737,7 +737,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Consistent-UX-State, Lower-Boilerplate",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/models/",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 24,
+      "completed": 27,
       "partial": 0,
-      "open": 13
+      "open": 10
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",

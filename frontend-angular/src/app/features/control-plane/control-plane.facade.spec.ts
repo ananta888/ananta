@@ -75,7 +75,7 @@ describe('ControlPlaneFacade', () => {
       undefined,
     );
     expect(hubApi.getTaskOrchestrationReadModel).toHaveBeenCalledWith('http://hub:5000', undefined);
-    expect(hubApi.createGoal).toHaveBeenCalledWith('http://hub:5000', { goal: 'Improve control plane' }, undefined);
+    expect(hubApi.createGoal).toHaveBeenCalledWith('http://hub:5000', { goal: 'Improve control plane' }, undefined, undefined);
     expect(hubApi.getGoalGovernanceSummary).toHaveBeenCalledWith('http://hub:5000', 'G-1', undefined);
   });
 });
