@@ -31,6 +31,9 @@ import { AppShellStateService } from './services/app-shell-state.service';
             <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Darstellung umschalten">
               {{ shell.darkMode() ? 'Hell' : 'Dunkel' }}
             </button>
+            <button (click)="toggleMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Navigationstiefe umschalten">
+              {{ shell.mode() === 'simple' ? 'Experte' : 'Einfach' }}
+            </button>
             <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;" aria-label="Logout">Abmelden</button>
           </div>
         }
@@ -50,7 +53,7 @@ import { AppShellStateService } from './services/app-shell-state.service';
       <app-breadcrumb />
     }
     <div class="route-context muted">
-      Bereich: {{ shell.area() }} | Route: {{ shell.routeUrl() }}
+      Bereich: {{ shell.area() }} | Modus: {{ shell.mode() === 'simple' ? 'Einfach' : 'Experte' }} | Route: {{ shell.routeUrl() }}
       @if (mobile.isNative) { | Mobile: native }
       @if ((mobile.online$ | async) === false) { | Offline-Modus aktiv }
     </div>
@@ -145,6 +148,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   toggleDarkMode() {
     this.shell.toggleDarkMode();
+  }
+
+  toggleMode() {
+    this.shell.toggleMode();
+    this.shell.closeMobileNav();
   }
 
   onLogout() {

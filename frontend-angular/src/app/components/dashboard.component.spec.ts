@@ -251,6 +251,24 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.loadDemoPreview).toHaveBeenCalled();
   });
 
+  it('applies goal presets to the quick goal form', () => {
+    const cmp = createComponent();
+    cmp.focusQuickGoal = vi.fn();
+
+    cmp.applyGoalPreset({
+      id: 'bugfix-plan',
+      title: 'Bugfix planen',
+      goal: 'Plane einen Bugfix',
+      outcome: 'Plan',
+      tasks: ['Reproduzieren'],
+      starter_context: 'Kontext',
+    });
+
+    expect(cmp.quickGoalText).toBe('Plane einen Bugfix');
+    expect(cmp.quickGoalContext).toBe('Kontext');
+    expect(cmp.focusQuickGoal).toHaveBeenCalled();
+  });
+
   it('derives active inference runtime tile data from telemetry', () => {
     const cmp = createComponent();
     cmp.llmEffectiveRuntime = { provider: 'ollama', model: 'glm-4.7', temperature: 0.35 };

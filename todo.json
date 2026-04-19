@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.0",
   "created": "2026-04-18",
-  "updated": "2026-04-19T10:10:04Z",
+  "updated": "2026-04-19T10:15:41Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -140,7 +140,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Preset-Driven-Usability, Faster-First-Success",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -170,7 +170,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Progressive-Complexity, Expert-Depth-Without-Overload",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/",
@@ -395,7 +395,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "No-Dead-End-Setup, Guided-Continuation",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "setup.ps1",
@@ -613,9 +613,9 @@
   "meta": {
     "total_items": 26,
     "by_status": {
-      "completed": 8,
+      "completed": 11,
       "partial": 0,
-      "open": 18
+      "open": 15
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschliesslich auf Zugänglichkeit im Sinn von Onboarding, Verstaendlichkeit, einfacherem Einstieg und klarerer UX.",

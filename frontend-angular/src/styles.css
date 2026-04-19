@@ -497,6 +497,14 @@ body.dark-mode .progress-bar {
   color: var(--muted);
   line-height: 1.35;
 }
+.preset-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.preset-chip {
+  font-size: 13px;
+}
 
 /* Badge */
 .badge {

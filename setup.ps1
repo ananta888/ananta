@@ -144,17 +144,23 @@ Write-Host ""
 Write-Host "=== Setup abgeschlossen! ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "Nächste Schritte:" -ForegroundColor Cyan
-Write-Host "  1. Starten Sie Ollama oder LMStudio auf Ihrem Host" -ForegroundColor White
-Write-Host "  2. (Optional) Führen Sie setup_host_services.ps1 als Administrator aus" -ForegroundColor White
-Write-Host "     für Windows-Host-Konfiguration (Firewall, Portproxy)" -ForegroundColor Gray
-Write-Host "  3. Starten Sie die Services:" -ForegroundColor White
+Write-Host "  1. Starten Sie die Services:" -ForegroundColor White
 Write-Host "     docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d" -ForegroundColor Cyan
 Write-Host "     WSL2 + Vulkan fuer Compose-Ollama:" -ForegroundColor Gray
 Write-Host "     docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build" -ForegroundColor Cyan
-Write-Host "  4. Öffnen Sie http://localhost:4200 im Browser" -ForegroundColor White
-Write-Host "  5. Login mit:" -ForegroundColor White
+Write-Host "  2. Öffnen Sie http://localhost:4200 im Browser" -ForegroundColor White
+Write-Host "  3. Login mit:" -ForegroundColor White
 Write-Host "     Username: admin" -ForegroundColor Cyan
 Write-Host "     Password: (siehe oben)" -ForegroundColor Cyan
+Write-Host "  4. Im Dashboard waehlen:" -ForegroundColor White
+Write-Host "     - Demo ansehen, um Beispielablaeufe zu pruefen" -ForegroundColor Cyan
+Write-Host "     - Eigenes Ziel planen, um direkt Tasks erzeugen zu lassen" -ForegroundColor Cyan
+Write-Host "     Beispielziel: Analysiere dieses Repository und schlage die naechsten Schritte vor" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Optional:" -ForegroundColor Cyan
+Write-Host "  - Starten Sie Ollama oder LMStudio fuer lokale LLM-Ausfuehrung" -ForegroundColor White
+Write-Host "  - Führen Sie setup_host_services.ps1 als Administrator aus" -ForegroundColor White
+Write-Host "    fuer Windows-Host-Konfiguration (Firewall, Portproxy)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Weitere Informationen finden Sie in README.md" -ForegroundColor Gray
 Write-Host ""

@@ -184,6 +184,14 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
         <h3 class="no-margin">Ziel planen</h3>
         <p class="muted font-sm mt-sm">Starte einfach mit einem Ziel. Gefuehrte Modi bleiben fuer strukturierte Faelle verfuegbar.</p>
 
+        <div class="preset-strip mt-sm" aria-label="Goal-Vorlagen">
+          @for (preset of goalPresets(); track preset.id) {
+            <button class="secondary preset-chip" type="button" (click)="applyGoalPreset(preset)" [attr.aria-label]="'Vorlage einsetzen: ' + preset.title">
+              {{ preset.title }}
+            </button>
+          }
+        </div>
+
         <div class="row gap-sm mt-sm flex-end">
           <div class="flex-1">
             <label class="label-no-margin">
@@ -226,7 +234,7 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
 
         <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
 
-        <h3 class="no-margin">Gefuehrte Vorlagen</h3>
+        <h3 class="no-margin">Gefuehrte Modi</h3>
         <p class="muted font-sm mt-sm">Waehle einen Modus, wenn du mehr Fuehrung brauchst.</p>
 
         @if (!selectedGoalMode) {
@@ -747,6 +755,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   timelineStatus = '';
   timelineErrorOnly = false;
   quickGoalText = '';
+  quickGoalContext = '';
   quickGoalBusy = false;
   quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
   demoPreview: { examples?: DemoPreviewExample[] } | null = null;
@@ -934,6 +943,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.demoError = err?.error?.message || err?.message || 'Demo-Vorschau ist gerade nicht erreichbar.';
       }
     });
+  }
+
+  goalPresets(): DemoPreviewExample[] {
+    return this.demoPreview?.examples?.length ? this.demoPreview.examples : DEFAULT_GOAL_PRESETS;
+  }
+
+  applyGoalPreset(preset: DemoPreviewExample): void {
+    this.quickGoalText = preset.goal;
+    this.quickGoalContext = preset.starter_context || `Vorlage: ${preset.title}`;
+    this.focusQuickGoal();
   }
 
   chooseFirstStart(choice: 'demo' | 'goal'): void {
@@ -1297,6 +1316,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.hubApi.planGoal(this.hub.url, {
       goal: this.quickGoalText.trim(),
+      context: this.quickGoalContext || undefined,
       create_tasks: true
     }).subscribe({
       next: (result: any) => {
@@ -1309,6 +1329,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         };
         this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
         this.quickGoalText = '';
+        this.quickGoalContext = '';
         this.refresh();
       },
       error: () => {
@@ -1335,3 +1356,30 @@ interface DemoPreviewExample {
   tasks: string[];
   starter_context?: string;
 }
+
+const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [
+  {
+    id: 'repo-analysis',
+    title: 'Repository verstehen',
+    goal: 'Analysiere dieses Repository und schlage die wichtigsten naechsten Schritte vor.',
+    outcome: 'Hotspots, Risiken und ein kurzer Arbeitsplan.',
+    tasks: ['Projektstruktur lesen', 'Architekturgrenzen pruefen', 'Review-Plan erstellen'],
+    starter_context: 'Fokus: Einstieg fuer neue Maintainer, Risiken benennen, keine Code-Aenderungen.',
+  },
+  {
+    id: 'bugfix-plan',
+    title: 'Bugfix planen',
+    goal: 'Untersuche einen Fehlerbericht und plane eine kleine, testbare Korrektur.',
+    outcome: 'Reproduktionspfad, Ursache und Regressionstest.',
+    tasks: ['Fehler reproduzieren', 'Betroffene Pfade finden', 'Fix und Regressionstest vorschlagen'],
+    starter_context: 'Fokus: kleine, testbare Korrektur planen und Regressionen vermeiden.',
+  },
+  {
+    id: 'compose-diagnosis',
+    title: 'Start reparieren',
+    goal: 'Pruefe Docker- und Compose-Probleme und leite eine robuste lokale Startsequenz ab.',
+    outcome: 'Konkrete Startbefehle und naechste Diagnose.',
+    tasks: ['Compose-Profile pruefen', 'Ports und Health-Checks auswerten', 'Startpfad dokumentieren'],
+    starter_context: 'Fokus: lokaler Start, Compose-Profile, Health-Checks und klare naechste Diagnose.',
+  },
+];
