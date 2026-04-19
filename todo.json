@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.0.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T13:42:00Z",
+  "updated": "2026-04-19T14:28:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -89,7 +89,7 @@
           "priority": "critical",
           "type": "dependency-lock",
           "principle": "Deterministic-Backend-Builds",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "requirements.lock",
@@ -192,7 +192,7 @@
           "priority": "critical",
           "type": "container-build",
           "principle": "Release-Input-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "Dockerfile",
@@ -256,7 +256,7 @@
           "priority": "critical",
           "type": "tool-pinning",
           "principle": "No-Floating-Toolchain",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "Dockerfile",
@@ -322,7 +322,7 @@
           "priority": "high",
           "type": "ci-hardening",
           "principle": "CI-Matches-Release",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -420,9 +420,9 @@
   "meta": {
     "total_items": 12,
     "by_status": {
-      "completed": 3,
+      "completed": 7,
       "partial": 0,
-      "open": 9
+      "open": 5
     },
     "notes": [
       "P0-nahe Arbeit beginnt mit Frontend npm ci und der Python-Lockstrategie, weil diese Aenderungen die spaeteren Docker- und CI-Pfade bestimmen.",
@@ -476,5 +476,9 @@
         "REL-012"
       ]
     }
+  },
+  "statistics": {
+    "completed_this_session": 0,
+    "remaining_tasks": 0
   }
 }

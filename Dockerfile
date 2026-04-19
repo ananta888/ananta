@@ -3,7 +3,8 @@ FROM python:3.11-slim
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
-    NPM_CONFIG_FUND=false
+    NPM_CONFIG_FUND=false \
+    OPENCODE_AI_VERSION=1.14.18
 
 # Installiere System-Abhängigkeiten einmalig beim Build
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -16,13 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install OpenCode CLI once in the image so opencode backend is available after restarts.
-RUN npm i -g opencode-ai && npm cache clean --force
+RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
+    && opencode --version | grep -F "${OPENCODE_AI_VERSION}" \
+    && npm cache clean --force
 
 WORKDIR /app
 
-# Kopiere Anforderungen und installiere Python-Pakete (Caching nutzen)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Kopiere Release-Lockdatei und installiere Python-Runtime-Pakete (Caching nutzen)
+COPY requirements.lock .
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Den Rest des Codes kopieren
 COPY . .
