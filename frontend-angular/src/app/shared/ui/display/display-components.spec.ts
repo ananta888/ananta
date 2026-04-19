@@ -3,6 +3,9 @@ import { TableShellComponent } from './table-shell.component';
 import { ExplanationNoticeComponent } from './explanation-notice.component';
 import { NextStepsComponent } from './next-steps.component';
 import { SafetyNoticeComponent } from './safety-notice.component';
+import { MetricCardComponent } from './metric-card.component';
+import { KeyValueGridComponent } from './key-value-grid.component';
+import { DecisionExplanationComponent } from './decision-explanation.component';
 
 describe('shared display components', () => {
   it('keeps summary panel metrics domain-neutral', () => {
@@ -57,5 +60,38 @@ describe('shared display components', () => {
 
     expect(explanation.toneClass()).toBe('notice-technical');
     expect(safety.message).toContain('Review');
+  });
+
+  it('keeps metric and key-value display inputs reusable across domains', () => {
+    const metric = new MetricCardComponent();
+    metric.label = 'Offene Arbeit';
+    metric.value = 3;
+    metric.hint = 'Noch nicht abgeschlossen.';
+    metric.tone = 'warning';
+
+    const grid = new KeyValueGridComponent();
+    grid.items = [
+      { label: 'Status', value: 'ok' },
+      { label: 'Stand', value: 'heute' },
+    ];
+    grid.columns = 2;
+
+    expect(metric.toneClass()).toBe('metric-warning');
+    expect(grid.items.map(item => item.label)).toEqual(['Status', 'Stand']);
+    expect(grid.columns).toBe(2);
+  });
+
+  it('provides reusable decision explanations with overridable copy', () => {
+    const cmp = new DecisionExplanationComponent();
+    cmp.kind = 'routing';
+
+    expect(cmp.titleText()).toBe('Warum Zuweisung?');
+    expect(cmp.messageText()).toContain('weist Arbeit gezielt zu');
+
+    cmp.title = 'Warum wird gestoppt?';
+    cmp.message = 'Eigene Grenze.';
+
+    expect(cmp.titleText()).toBe('Warum wird gestoppt?');
+    expect(cmp.messageText()).toBe('Eigene Grenze.');
   });
 });

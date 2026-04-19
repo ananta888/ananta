@@ -42,4 +42,22 @@ describe('shared layout components', () => {
 
     expect(events).toEqual(['action']);
   });
+
+  it('keeps action cards stable for links, router links and badges', () => {
+    const cmp = new ActionCardComponent();
+    cmp.title = 'Ergebnisse';
+    cmp.description = 'Resultate oeffnen.';
+    cmp.routerLink = ['/artifacts'];
+    cmp.badge = 'neu';
+    cmp.ariaLabel = 'Ergebnisse ansehen';
+
+    expect(cmp.routerLink).toEqual(['/artifacts']);
+    expect(cmp.badge).toBe('neu');
+    expect(cmp.ariaLabel).toBe('Ergebnisse ansehen');
+
+    cmp.routerLink = null;
+    cmp.href = '#quick-goal';
+
+    expect(cmp.href).toBe('#quick-goal');
+  });
 });
