@@ -76,6 +76,27 @@ export class HubTaskCollectionStateService implements OnDestroy {
     return this.tasks().filter((task: any) => task?.parent_task_id === taskId);
   }
 
+  snapshot(): {
+    tasks: any[];
+    loading: boolean;
+    lastLoadedAt: number | null;
+    error: string | null;
+    counts: Record<string, number>;
+  } {
+    const tasks = this.tasks();
+    return {
+      tasks,
+      loading: this.loading(),
+      lastLoadedAt: this.lastLoadedAt(),
+      error: this.error(),
+      counts: tasks.reduce((acc: Record<string, number>, task: any) => {
+        const status = String(task?.status || 'unknown');
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {}),
+    };
+  }
+
   private startPolling(pollMs: number): void {
     if (this.pollSub) return;
     this.pollSub = interval(Math.max(3000, pollMs || 10000)).subscribe(() => this.reload());

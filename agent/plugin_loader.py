@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 import sys
 import time
@@ -17,7 +18,9 @@ class PluginReportEntry:
     status: str
     registration_mode: str | None = None
     evolution_provider_count: int = 0
+    manifest: dict[str, Any] | None = None
     error: str | None = None
+    contained: bool = False
     duration_seconds: float = 0.0
 
 
@@ -40,7 +43,9 @@ class PluginStartupReport:
                     "status": entry.status,
                     "registration_mode": entry.registration_mode,
                     "evolution_provider_count": entry.evolution_provider_count,
+                    "manifest": entry.manifest,
                     "error": entry.error,
+                    "contained": entry.contained,
                     "duration_seconds": round(entry.duration_seconds, 6),
                 }
                 for entry in self.entries
@@ -86,6 +91,36 @@ def _discover_plugins_in_dirs(paths: Iterable[Path]) -> list[str]:
     return sorted(set(discovered))
 
 
+def _manifest_path_for_plugin(mod_name: str) -> Path | None:
+    for plugin_dir in _iter_plugin_dirs():
+        package_manifest = plugin_dir / mod_name / "ananta-plugin.json"
+        if package_manifest.exists():
+            return package_manifest
+        module_manifest = plugin_dir / f"{mod_name}.plugin.json"
+        if module_manifest.exists():
+            return module_manifest
+    return None
+
+
+def _read_plugin_manifest(mod_name: str) -> dict[str, Any]:
+    manifest_path = _manifest_path_for_plugin(mod_name)
+    if not manifest_path:
+        return {}
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("plugin_manifest_must_be_object")
+    declared_name = str(raw.get("name") or mod_name).strip()
+    if declared_name and declared_name != mod_name:
+        raise ValueError(f"plugin_manifest_name_mismatch:{declared_name}")
+    return raw
+
+
+def _manifest_enabled(manifest: dict[str, Any]) -> bool:
+    if not manifest:
+        return True
+    return bool(manifest.get("enabled", True))
+
+
 def _coerce_provider_list(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -127,7 +162,7 @@ def _register_declared_evolution_providers(app: Flask, module: Any, *, allow_exi
             raise ValueError("declared_evolution_provider_name_required")
         already_registered = name in app_provider_names or registry.contains(name)
         if already_registered and not replace:
-            if allow_existing and name in app_provider_names:
+            if allow_existing:
                 logging.warning("Deklarativer Evolution-Provider %s bereits durch init_app registriert", name)
                 continue
             raise ValueError(f"declared_evolution_provider_conflict:{name}")
@@ -143,7 +178,22 @@ def load_plugins(app: Flask) -> list[str]:
     names.update(_discover_plugins_in_dirs(_iter_plugin_dirs()))
     for mod_name in sorted(names):
         started = time.perf_counter()
+        manifest: dict[str, Any] = {}
         try:
+            manifest = _read_plugin_manifest(mod_name)
+            if not _manifest_enabled(manifest):
+                report.add(
+                    PluginReportEntry(
+                        name=mod_name,
+                        status="disabled",
+                        registration_mode="manifest",
+                        manifest=manifest,
+                        contained=True,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                )
+                logging.info("Plugin deaktiviert durch Manifest: %s", mod_name)
+                continue
             module = importlib.import_module(mod_name)
             evolution_provider_count = 0
             if hasattr(module, "init_app"):
@@ -155,6 +205,7 @@ def load_plugins(app: Flask) -> list[str]:
                         status="loaded",
                         registration_mode="init_app",
                         evolution_provider_count=evolution_provider_count,
+                        manifest=manifest or None,
                         duration_seconds=time.perf_counter() - started,
                     )
                 )
@@ -169,6 +220,7 @@ def load_plugins(app: Flask) -> list[str]:
                         status="loaded",
                         registration_mode="bp",
                         evolution_provider_count=evolution_provider_count,
+                        manifest=manifest or None,
                         duration_seconds=time.perf_counter() - started,
                     )
                 )
@@ -183,6 +235,7 @@ def load_plugins(app: Flask) -> list[str]:
                         status="loaded",
                         registration_mode="blueprint",
                         evolution_provider_count=evolution_provider_count,
+                        manifest=manifest or None,
                         duration_seconds=time.perf_counter() - started,
                     )
                 )
@@ -196,6 +249,7 @@ def load_plugins(app: Flask) -> list[str]:
                         status="loaded",
                         registration_mode="evolution_provider",
                         evolution_provider_count=evolution_provider_count,
+                        manifest=manifest or None,
                         duration_seconds=time.perf_counter() - started,
                     )
                 )
@@ -206,6 +260,7 @@ def load_plugins(app: Flask) -> list[str]:
                     name=mod_name,
                     status="ignored",
                     registration_mode="none",
+                    manifest=manifest or None,
                     duration_seconds=time.perf_counter() - started,
                 )
             )
@@ -215,7 +270,9 @@ def load_plugins(app: Flask) -> list[str]:
                 PluginReportEntry(
                     name=mod_name,
                     status="failed",
+                    manifest=manifest or None,
                     error=str(e),
+                    contained=True,
                     duration_seconds=time.perf_counter() - started,
                 )
             )

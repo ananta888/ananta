@@ -142,6 +142,14 @@ export class HubLiveStateService implements OnDestroy {
     return TASK_REFRESH_EVENT_TYPES.has(eventType);
   }
 
+  snapshot(): { systemStreamConnected: boolean; lastSystemEvent: any | null; activeTaskLogStreams: number } {
+    return {
+      systemStreamConnected: this.systemStreamConnected(),
+      lastSystemEvent: this.lastSystemEvent(),
+      activeTaskLogStreams: this.taskSubs.size,
+    };
+  }
+
   private stopAllTaskLogs(): void {
     for (const taskId of this.taskSubs.keys()) {
       this.stopTaskLogs(taskId);

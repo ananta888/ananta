@@ -40,6 +40,7 @@ describe('ControlPlaneFacade', () => {
       disconnectSystemEvents: vi.fn(),
       systemStreamConnected: vi.fn(() => true),
       lastSystemEvent: vi.fn(() => ({ type: 'token_rotated' })),
+      snapshot: vi.fn(() => ({ systemStreamConnected: true, lastSystemEvent: { type: 'token_rotated' }, activeTaskLogStreams: 0 })),
     };
 
     TestBed.configureTestingModule({
@@ -58,6 +59,7 @@ describe('ControlPlaneFacade', () => {
     expect(liveState.ensureSystemEvents).toHaveBeenCalledWith('http://hub:5000');
     expect(facade.systemStreamConnected()).toBe(true);
     expect(facade.lastSystemEvent()).toEqual({ type: 'token_rotated' });
+    expect(facade.liveSnapshot().activeTaskLogStreams).toBe(0);
   });
 
   it('delegates dashboard, orchestration and goal operations', () => {

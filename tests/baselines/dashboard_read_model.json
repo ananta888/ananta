@@ -90,15 +90,7 @@
       },
       "has_explicit_override": "bool",
       "is_recommendation_active": "bool",
-      "recommended": {
-        "model": "str",
-        "provider": "str",
-        "replaces": {
-          "model": "str",
-          "provider": "str"
-        },
-        "selection_source": "str"
-      }
+      "recommended": "NoneType"
     },
     "task_kind": "str",
     "updated_at": "int"
@@ -707,7 +699,7 @@
     },
     "research_backend": {
       "binary_available": "bool",
-      "binary_path": "str",
+      "binary_path": "NoneType",
       "command": "str",
       "configured": "bool",
       "display_name": "str",
@@ -745,7 +737,7 @@
         },
         "deerflow": {
           "binary_available": "bool",
-          "binary_path": "str",
+          "binary_path": "NoneType",
           "command": "str",
           "configured": "bool",
           "display_name": "str",
@@ -818,13 +810,8 @@
           {
             "decision": "str",
             "details": {
-              "model": "str",
-              "provider": "str",
-              "replaces": {
-                "model": "str",
-                "provider": "str"
-              },
-              "selection_source": "str"
+              "model_source": "str",
+              "provider_source": "str"
             },
             "reason": "str",
             "step": "str"
@@ -935,14 +922,14 @@
         },
         "codex": {
           "binary_available": "bool",
-          "binary_path": "NoneType",
+          "binary_path": "str",
           "command": "str",
           "install_hint": "str",
           "verify_command": "str"
         },
         "deerflow": {
           "binary_available": "bool",
-          "binary_path": "str",
+          "binary_path": "NoneType",
           "command": "str",
           "install_hint": "str",
           "verify_command": "str"
@@ -1005,12 +992,7 @@
         "lmstudio": {
           "base_url": "str",
           "candidate_count": "int",
-          "candidates": [
-            {
-              "context_length": "NoneType",
-              "id": "str"
-            }
-          ],
+          "candidates": [],
           "configured": "bool",
           "host_kind": "str",
           "is_local": "bool",
@@ -1086,7 +1068,7 @@
         },
         "deerflow": {
           "binary_available": "bool",
-          "binary_path": "str",
+          "binary_path": "NoneType",
           "command": "str",
           "configured": "bool",
           "display_name": "str",
@@ -1182,7 +1164,6 @@
         "thread_alive": "bool"
       },
       "shell": {
-        "message": "str",
         "status": "str"
       },
       "worker_execution_reconciliation": {

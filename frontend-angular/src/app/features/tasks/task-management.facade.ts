@@ -38,6 +38,16 @@ export class TaskManagementFacade {
     return this.taskCollection.error();
   }
 
+  taskCollectionSnapshot(): {
+    tasks: any[];
+    loading: boolean;
+    lastLoadedAt: number | null;
+    error: string | null;
+    counts: Record<string, number>;
+  } {
+    return this.taskCollection.snapshot();
+  }
+
   childrenOf(taskId: string): any[] {
     return this.taskCollection.childrenOf(taskId);
   }
@@ -56,6 +66,10 @@ export class TaskManagementFacade {
 
   lastSystemEvent(): any | null {
     return this.liveState.lastSystemEvent();
+  }
+
+  liveSnapshot(): { systemStreamConnected: boolean; lastSystemEvent: any | null; activeTaskLogStreams: number } {
+    return this.liveState.snapshot();
   }
 
   watchTaskLogs(

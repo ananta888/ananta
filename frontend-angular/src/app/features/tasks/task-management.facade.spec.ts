@@ -17,6 +17,7 @@ describe('TaskManagementFacade', () => {
     lastLoadedAt: ReturnType<typeof vi.fn>;
     error: ReturnType<typeof vi.fn>;
     childrenOf: ReturnType<typeof vi.fn>;
+    snapshot: ReturnType<typeof vi.fn>;
   };
   let liveState: {
     ensureSystemEvents: ReturnType<typeof vi.fn>;
@@ -27,6 +28,7 @@ describe('TaskManagementFacade', () => {
     taskLogState: ReturnType<typeof vi.fn>;
     stopTaskLogs: ReturnType<typeof vi.fn>;
     shouldRefreshTask: ReturnType<typeof vi.fn>;
+    snapshot: ReturnType<typeof vi.fn>;
   };
   let hubApi: {
     getTask: ReturnType<typeof vi.fn>;
@@ -56,6 +58,7 @@ describe('TaskManagementFacade', () => {
       lastLoadedAt: vi.fn(() => 123),
       error: vi.fn(() => null),
       childrenOf: vi.fn(() => [{ id: 'T-2', parent_task_id: 'T-1' }]),
+      snapshot: vi.fn(() => ({ tasks: [{ id: 'T-1' }], loading: false, lastLoadedAt: 123, error: null, counts: { todo: 1 } })),
     };
     liveState = {
       ensureSystemEvents: vi.fn(),
@@ -66,6 +69,7 @@ describe('TaskManagementFacade', () => {
       taskLogState: vi.fn(() => ({ logs: [], loading: false, connected: true, lastEvent: null })),
       stopTaskLogs: vi.fn(),
       shouldRefreshTask: vi.fn(() => true),
+      snapshot: vi.fn(() => ({ systemStreamConnected: true, lastSystemEvent: { type: 'token_rotated' }, activeTaskLogStreams: 1 })),
     };
     hubApi = {
       getTask: vi.fn(() => of({ id: 'T-1' })),
@@ -106,6 +110,7 @@ describe('TaskManagementFacade', () => {
     expect(facade.tasksLoading()).toBe(false);
     expect(facade.tasksLastLoadedAt()).toBe(123);
     expect(facade.childrenOf('T-1')).toEqual([{ id: 'T-2', parent_task_id: 'T-1' }]);
+    expect(facade.taskCollectionSnapshot().counts).toEqual({ todo: 1 });
   });
 
   it('delegates task live state and task operations', () => {
@@ -118,6 +123,7 @@ describe('TaskManagementFacade', () => {
     expect(liveState.watchTaskLogs).toHaveBeenCalledWith('http://hub:5000', 'T-1', { reset: true });
     expect(facade.systemStreamConnected()).toBe(true);
     expect(facade.lastSystemEvent()).toEqual({ type: 'token_rotated' });
+    expect(facade.liveSnapshot().activeTaskLogStreams).toBe(1);
     expect(hubApi.createTask).toHaveBeenCalledWith('http://hub:5000', { title: 'New task' }, undefined);
     expect(hubApi.archiveTask).toHaveBeenCalledWith('http://hub:5000', 'T-1', undefined);
   });
