@@ -45,7 +45,8 @@ import { DashboardFacade } from './dashboard.facade';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent, StatusBadgeComponent } from '../shared/ui/state';
 import { KeyValueGridComponent, MetricCardComponent } from '../shared/ui/display';
-import { SectionCardComponent } from '../shared/ui/layout';
+import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
+import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '../shared/ui/forms';
 
 @Component({
   standalone: true,
@@ -66,20 +67,21 @@ import { SectionCardComponent } from '../shared/ui/layout';
     MetricCardComponent,
     KeyValueGridComponent,
     SectionCardComponent,
+    PageIntroComponent,
+    ActionCardComponent,
+    ModeCardPickerComponent,
+    WizardShellComponent,
   ],
   template: `
-    <section class="start-hero">
-      <div>
-        <h2>Ananta starten</h2>
-        <p class="muted">
-          Beschreibe ein Ziel, pruefe ein Beispiel oder gehe direkt zu Aufgaben und Ergebnissen.
-        </p>
-      </div>
-      <div class="row gap-sm">
+    <app-page-intro
+      title="Ananta starten"
+      subtitle="Beschreibe ein Ziel, pruefe ein Beispiel oder gehe direkt zu Aufgaben und Ergebnissen."
+    >
+      <div intro-actions class="row gap-sm">
         <button class="primary" (click)="focusQuickGoal()">Ziel eingeben</button>
         <button class="secondary" (click)="loadDemoPreview()">Demo ansehen</button>
       </div>
-    </section>
+    </app-page-intro>
 
     @if (showFirstStartWizard) {
       <section class="card first-start mb-md" aria-label="Erststart">
@@ -90,20 +92,13 @@ import { SectionCardComponent } from '../shared/ui/layout';
           </div>
           <button class="secondary btn-small" (click)="completeFirstStartWizard()">Ausblenden</button>
         </div>
-        <div class="grid cols-3 mt-sm">
-          <button class="card-light wizard-choice" type="button" (click)="chooseFirstStart('demo')">
-            <strong>Demo ansehen</strong>
-            <span>Beispiele lesen und bei Bedarf als echte Goals starten.</span>
-          </button>
-          <button class="card-light wizard-choice" type="button" (click)="chooseFirstStart('goal')">
-            <strong>Eigenes Ziel planen</strong>
-            <span>Mit einem Satz starten und Tasks erzeugen lassen.</span>
-          </button>
-          <a class="card-light wizard-choice" [routerLink]="['/board']" (click)="completeFirstStartWizard()">
-            <strong>Leer starten</strong>
-            <span>Direkt ins Board und Aufgaben manuell anlegen.</span>
-          </a>
-        </div>
+        <app-mode-card-picker
+          class="block mt-sm"
+          [options]="firstStartOptions"
+          [columns]="3"
+          ariaLabel="Erststart-Auswahl"
+          (selectOption)="chooseFirstStart($event.id)"
+        ></app-mode-card-picker>
       </section>
     }
 
@@ -186,22 +181,10 @@ import { SectionCardComponent } from '../shared/ui/layout';
       }
 
       <div class="start-actions mb-md">
-        <a class="card start-action" href="#quick-goal">
-          <strong>Ziel planen</strong>
-          <span>Ein Satz reicht fuer den ersten Plan.</span>
-        </a>
-        <button class="card start-action start-action-button" type="button" (click)="loadDemoPreview()">
-          <strong>Demo ansehen</strong>
-          <span>Beispiele ohne echte Datenmutation.</span>
-        </button>
-        <a class="card start-action" [routerLink]="['/board']">
-          <strong>Aufgaben verfolgen</strong>
-          <span>Board, Status und naechste Schritte.</span>
-        </a>
-        <a class="card start-action" [routerLink]="['/artifacts']">
-          <strong>Ergebnisse ansehen</strong>
-          <span>Artefakte und Resultate pruefen.</span>
-        </a>
+        <app-action-card title="Ziel planen" description="Ein Satz reicht fuer den ersten Plan." href="#quick-goal"></app-action-card>
+        <app-action-card title="Demo ansehen" description="Beispiele ohne echte Datenmutation." (action)="loadDemoPreview()"></app-action-card>
+        <app-action-card title="Aufgaben verfolgen" description="Board, Status und naechste Schritte." [routerLink]="['/board']"></app-action-card>
+        <app-action-card title="Ergebnisse ansehen" description="Artefakte und Resultate pruefen." [routerLink]="['/artifacts']"></app-action-card>
       </div>
 
       @if (demoPreview || demoLoading || demoError) {
@@ -310,42 +293,30 @@ import { SectionCardComponent } from '../shared/ui/layout';
         <p class="muted font-sm mt-sm">Der Assistent fragt nur die Angaben ab, die dem Hub beim Planen, Zuweisen und Pruefen helfen.</p>
 
         @if (!selectedGoalMode) {
-          <div class="grid cols-4 gap-sm mt-sm">
-            @for (mode of goalModes; track mode.id) {
-              <div class="card card-light clickable text-center" (click)="setGoalMode(mode)" style="min-height: 100px; display: flex; flex-direction: column; justify-content: center;">
-                <div class="mb-xs"><strong>{{ mode.title }}</strong></div>
-                <div class="muted font-sm mt-xs">{{ mode.description }}</div>
-              </div>
-            }
-          </div>
+          <app-mode-card-picker
+            class="block mt-sm"
+            [options]="goalModes"
+            [columns]="4"
+            ariaLabel="Goal-Modus auswaehlen"
+            (selectOption)="setGoalMode($event)"
+          ></app-mode-card-picker>
         } @else {
-          <div class="card card-light mt-sm guided-goal-card">
-            <div class="row space-between">
-              <div>
-                <strong>{{ selectedGoalMode.title }}</strong>
-                <p class="muted font-sm no-margin mt-5">{{ activeGoalWizardStep().helper }}</p>
-              </div>
-              <button class="secondary btn-small" (click)="setGoalMode(null)">Zurueck</button>
-            </div>
-            <div class="guided-stepper mt-md" aria-label="Schritte der gefuehrten Zielerstellung">
-              @for (step of goalWizardSteps; track step.id; let i = $index) {
-                <button
-                  type="button"
-                  class="guided-step"
-                  [class.active]="i === goalWizardStepIndex"
-                  [class.done]="i < goalWizardStepIndex"
-                  (click)="goToGoalWizardStep(i)"
-                  (keydown.enter)="goToGoalWizardStep(i)"
-                  (keydown.space)="goToGoalWizardStep(i); $event.preventDefault()"
-                  [attr.aria-current]="i === goalWizardStepIndex ? 'step' : null"
-                >
-                  <span>{{ i + 1 }}</span>
-                  {{ step.title }}
-                </button>
-              }
-            </div>
-
-            <div class="mt-md">
+          <app-wizard-shell
+            class="block mt-sm guided-goal-card"
+            [title]="selectedGoalMode.title"
+            [steps]="goalWizardSteps"
+            [activeIndex]="goalWizardStepIndex"
+            [canContinue]="canContinueGoalWizard()"
+            [busy]="quickGoalBusy"
+            submitLabel="Goal planen"
+            busyLabel="Plane..."
+            ariaLabel="Gefuehrte Zielerstellung"
+            (stepSelect)="goToGoalWizardStep($event)"
+            (previous)="previousGoalWizardStep()"
+            (next)="nextGoalWizardStep()"
+            (submit)="submitGuidedGoal()"
+          >
+            <button wizard-actions class="secondary btn-small" (click)="setGoalMode(null)">Zurueck</button>
               @if (activeGoalWizardStep().id === 'goal') {
                 <div class="grid gap-sm">
                   @for (field of requiredGoalFields(); track field.name) {
@@ -408,18 +379,7 @@ import { SectionCardComponent } from '../shared/ui/layout';
                   </div>
                 </div>
               }
-            </div>
-            <div class="row mt-md space-between">
-              <button class="secondary" type="button" (click)="previousGoalWizardStep()" [disabled]="goalWizardStepIndex === 0">Zurueck</button>
-              @if (!isLastGoalWizardStep()) {
-                <button type="button" (click)="nextGoalWizardStep()" [disabled]="!canContinueGoalWizard()">Weiter</button>
-              } @else {
-                <button (click)="submitGuidedGoal()" [disabled]="quickGoalBusy || !canContinueGoalWizard()">
-                  {{ quickGoalBusy ? 'Plane...' : 'Goal planen' }}
-                </button>
-              }
-            </div>
-          </div>
+          </app-wizard-shell>
         }
       </section>
     }
@@ -886,6 +846,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { value: 'balanced', label: 'Ausgewogen', description: 'Normale Freigaben und sichtbare Pruefpunkte.' },
     { value: 'fast', label: 'Schneller', description: 'Weniger Reibung fuer harmlose lokale Aufgaben.' },
   ];
+  firstStartOptions: ModeCardOption[] = [
+    { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und bei Bedarf als echte Goals starten.' },
+    { id: 'goal', title: 'Eigenes Ziel planen', description: 'Mit einem Satz starten und Tasks erzeugen lassen.' },
+    { id: 'board', title: 'Leer starten', description: 'Direkt ins Board und Aufgaben manuell anlegen.' },
+  ];
   timelineTeamId = '';
   timelineAgent = '';
   timelineStatus = '';
@@ -1164,10 +1129,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.focusQuickGoal();
   }
 
-  chooseFirstStart(choice: 'demo' | 'goal'): void {
+  chooseFirstStart(choice: string): void {
     this.completeFirstStartWizard();
     if (choice === 'demo') {
       this.loadDemoPreview();
+      return;
+    }
+    if (choice === 'board') {
+      this.router.navigate(['/board']);
       return;
     }
     this.focusQuickGoal();

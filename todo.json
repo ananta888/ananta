@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.5",
   "created": "2026-04-19",
-  "updated": "2026-04-19T11:18:00Z",
+  "updated": "2026-04-19T11:32:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -206,7 +206,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Clear-Entry, Repeated-Pattern-Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/components/",
@@ -226,7 +226,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Task-First-Entry, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -249,7 +249,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Toolbar-Consistency, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -366,7 +366,7 @@
           "priority": "critical",
           "type": "component",
           "principle": "Guided-Flow-Reuse, Progressive-Disclosure",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -387,7 +387,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Choice-Pattern-Reuse, Better-Entry-UX",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -690,9 +690,9 @@
   "meta": {
     "total_items": 29,
     "by_status": {
-      "completed": 10,
+      "completed": 15,
       "partial": 0,
-      "open": 19
+      "open": 14
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",
