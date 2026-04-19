@@ -17,6 +17,8 @@ Before creating or publishing a release tag:
 9. Confirm security-sensitive changes have human review.
 10. Create the tag only after the above evidence is available.
 
+The GitHub release workflow publishes the official release asset bundle and `SHA256SUMS`. Build outputs not listed in `docs/release-process.md` are not official release artifacts.
+
 ## Standard Gate
 
 Run the fast release gate first:

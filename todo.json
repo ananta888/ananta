@@ -125,7 +125,7 @@
           "priority": "critical",
           "type": "ci-cd",
           "principle": "Explicit-Release-Pipeline, No-Adhoc-Releases",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -145,7 +145,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Efficient-CI-Usage, Fewer-Wasted-Minutes",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/*.yml"
@@ -187,7 +187,7 @@
           "priority": "high",
           "type": "release-prep",
           "principle": "Explicit-Release-Outputs, Better-Consumer-Trust",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -207,7 +207,7 @@
           "priority": "medium",
           "type": "release-prep",
           "principle": "Artifact-Integrity, Verifiable-Downloads",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -226,7 +226,7 @@
           "priority": "medium",
           "type": "release-prep",
           "principle": "Transparent-Releases, Auditable-Verification",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/quality-and-docs.yml",
@@ -316,7 +316,7 @@
           "priority": "critical",
           "type": "security",
           "principle": "Least-Privilege-GHA, Safer-Automation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/*.yml"
@@ -734,9 +734,9 @@
   "meta": {
     "total_items": 34,
     "by_status": {
-      "completed": 5,
+      "completed": 11,
       "partial": 0,
-      "open": 29
+      "open": 23
     },
     "notes": [
       "Diese Todo-Datei baut nicht weitere Produktfeatures, sondern die GitHub-, Release- und Betriebsreife des Projekts aus.",
