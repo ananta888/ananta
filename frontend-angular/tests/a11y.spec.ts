@@ -17,7 +17,7 @@ test.describe('Accessibility Smoke Tests', () => {
     test.setTimeout(120_000);
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await expect(page.locator('app-root')).toBeVisible();
     
     const accessibilityScanResults = await new AxeBuilder({ page })

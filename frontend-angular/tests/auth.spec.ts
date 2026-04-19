@@ -26,7 +26,7 @@ test.describe('Auth', () => {
     await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.evaluate(() => {
       localStorage.removeItem('ananta.user.token');
       localStorage.removeItem('ananta.user.refresh_token');
@@ -42,9 +42,9 @@ test.describe('Auth', () => {
     await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
   });
 
   test('accessing protected route without login redirects to login', async ({ page }) => {

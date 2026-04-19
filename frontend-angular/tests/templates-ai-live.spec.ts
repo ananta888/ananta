@@ -90,7 +90,7 @@ test.describe('Templates AI (Live LLM)', () => {
     const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     if (!(await ensureAssistantExpanded(page))) test.skip(true, 'Assistant dock could not be expanded on dashboard route.');
 

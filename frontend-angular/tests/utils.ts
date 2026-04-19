@@ -254,7 +254,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   // Try to normalize admin auth state in shared compose-lite runs.
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
-  const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
+  const dashboard = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
 
   // Prefer API login to reduce UI bootstrap flakes on slow startup.
   const apiLogin = await loginViaApi(username, password);
@@ -377,7 +377,7 @@ export async function loginFast(
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 
-  const dashboardHeading = page.getByRole('heading', { name: /System Dashboard/i });
+  const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const appNav = page.locator('.app-nav');
   const loginForm = page.locator('input[name="username"]');
 
