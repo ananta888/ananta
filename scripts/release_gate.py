@@ -50,6 +50,11 @@ RELEASE_IMAGE_FILES = [
 
 RELEASE_CI_FILE = ".github/workflows/quality-and-docs.yml"
 
+LOCAL_IMAGE_PREFIXES = (
+    "ananta-",
+    "ollama-wsl-amd:",
+)
+
 FLOATING_TAG_PATTERNS = [
     re.compile(r"\blatest\b"),
     re.compile(r"^alpine$"),
@@ -220,6 +225,16 @@ def is_floating_tag(tag: str | None) -> bool:
     return any(pattern.search(tag) for pattern in FLOATING_TAG_PATTERNS)
 
 
+def requires_digest(ref: str) -> bool:
+    if "${" in ref:
+        return False
+    if any(ref.startswith(prefix) for prefix in LOCAL_IMAGE_PREFIXES):
+        return False
+    if ref.endswith(":local"):
+        return False
+    return True
+
+
 def check_image_pinning() -> CheckResult:
     problems = []
     for path in RELEASE_IMAGE_FILES:
@@ -227,10 +242,12 @@ def check_image_pinning() -> CheckResult:
             tag = image_tag(ref)
             if is_floating_tag(tag):
                 problems.append(f"{path}:{line} {kind} uses floating image ref {ref}")
+            if requires_digest(ref) and "@sha256:" not in ref:
+                problems.append(f"{path}:{line} {kind} public image ref is not digest-pinned: {ref}")
     return CheckResult(
         "image-pinning",
         not problems,
-        "release Dockerfiles and Compose files use explicit image tags" if not problems else "; ".join(problems),
+        "release Dockerfiles and Compose files use explicit tags plus digests" if not problems else "; ".join(problems),
     )
 
 
