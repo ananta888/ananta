@@ -15,6 +15,7 @@ describe('DashboardComponent (benchmarks)', () => {
     listGoals: vi.fn(() => of([])),
     getGoalDetail: vi.fn(() => of(null)),
     getGoalGovernanceSummary: vi.fn(() => of(null)),
+    getDemoPreview: vi.fn(() => of({ isolated: true, examples: [] })),
     tasks: vi.fn(() => []),
     tasksLoading: vi.fn(() => false),
     tasksLastLoadedAt: vi.fn(() => 1739790000),
@@ -196,6 +197,21 @@ describe('DashboardComponent (benchmarks)', () => {
 
     expect(cmp.benchmarkData).toEqual([]);
     expect(cmp.benchmarkUpdatedAt).toBe(1);
+  });
+
+  it('loads isolated demo preview through the control-plane facade', () => {
+    hubApiMock.getDemoPreview.mockReturnValue(of({
+      isolated: true,
+      examples: [{ id: 'repo-analysis', title: 'Repository verstehen', goal: 'Analyse', outcome: 'Plan', tasks: ['Lesen'] }],
+    }));
+
+    const cmp = createComponent();
+    cmp.loadDemoPreview();
+
+    expect(hubApiMock.getDemoPreview).toHaveBeenCalledWith('http://hub:5000');
+    expect(cmp.demoPreview?.examples?.[0].id).toBe('repo-analysis');
+    expect(cmp.demoLoading).toBe(false);
+    expect(cmp.demoError).toBe('');
   });
 
   it('derives active inference runtime tile data from telemetry', () => {

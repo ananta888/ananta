@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.0",
   "created": "2026-04-18",
-  "updated": "2026-04-18T00:00:00Z",
+  "updated": "2026-04-19T09:57:37Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Instant-Value, No-Empty-State-First-Impression",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/",
@@ -99,7 +99,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Task-First-UX, Reduced-Complexity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -331,7 +331,7 @@
           "priority": "high",
           "type": "documentation",
           "principle": "Clear-First-Impression, Faster-Onboarding",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -376,7 +376,7 @@
           "priority": "critical",
           "type": "documentation",
           "principle": "Shortest-Path-to-First-Success",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -576,7 +576,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Calm-UX, Better-Recovery",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -611,11 +611,11 @@
     }
   ],
   "meta": {
-    "total_items": 24,
+    "total_items": 26,
     "by_status": {
-      "completed": 0,
+      "completed": 5,
       "partial": 0,
-      "open": 24
+      "open": 21
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschliesslich auf Zugänglichkeit im Sinn von Onboarding, Verstaendlichkeit, einfacherem Einstieg und klarerer UX.",

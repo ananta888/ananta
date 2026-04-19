@@ -33,7 +33,6 @@ import {
   TimelineEvent,
 } from '../models/dashboard.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
-import { TooltipDirective } from '../directives/tooltip.directive';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { UiSkeletonComponent } from './ui-skeleton.component';
@@ -51,36 +50,155 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
     FormsModule,
     RouterLink,
     OnboardingChecklistComponent,
-    TooltipDirective,
     UiSkeletonComponent,
     DashboardAutopilotPanelComponent,
     DashboardTimelinePanelComponent,
     DashboardBenchmarkPanelComponent,
   ],
   template: `
-    <h2>System Dashboard</h2>
-    <p class="muted">Zentrale Uebersicht ueber Agenten und Tasks.</p>
+    <section class="start-hero">
+      <div>
+        <h2>Ananta starten</h2>
+        <p class="muted">
+          Beschreibe ein Ziel, pruefe ein Beispiel oder gehe direkt zu Aufgaben und Ergebnissen.
+        </p>
+      </div>
+      <div class="row gap-sm">
+        <button class="primary" (click)="focusQuickGoal()">Ziel eingeben</button>
+        <button class="secondary" (click)="loadDemoPreview()">Demo ansehen</button>
+      </div>
+    </section>
+
     @if (viewState.loading) {
       <app-ui-skeleton [count]="1" [lineCount]="1" lineClass="skeleton block"></app-ui-skeleton>
     }
     @if (viewState.error) {
-      <div class="card danger">{{ viewState.error }}</div>
+      <div class="state-banner error">
+        <strong>Dashboard konnte nicht geladen werden.</strong>
+        <p class="muted no-margin mt-sm">{{ viewState.error }}</p>
+        <button class="secondary btn-small mt-sm" (click)="refresh()">Erneut versuchen</button>
+      </div>
     }
     @if (!viewState.loading && viewState.empty) {
       <div class="card empty-state">
-        <h3>Noch keine Tasks vorhanden</h3>
+        <h3>Noch keine Arbeit sichtbar</h3>
         <p class="muted">
-          Erstellen Sie Ihren ersten Task, um mit der Arbeit zu beginnen.<br>
-          Nutzen Sie das Quick Action Goal oben oder navigieren Sie zum Board.
+          Starte mit einem Ziel oder oeffne die Demo-Beispiele, um typische Ablaeufe kennenzulernen.
         </p>
-        <button class="primary" [routerLink]="['/board']">Zum Board</button>
+        <div class="row gap-sm flex-center">
+          <button class="primary" (click)="focusQuickGoal()">Ziel eingeben</button>
+          <button class="secondary" (click)="loadDemoPreview()">Demo ansehen</button>
+          <button class="secondary" [routerLink]="['/board']">Zum Board</button>
+        </div>
       </div>
     }
 
     @if (hub) {
-      <div class="card card-primary mb-md">
-        <h3 class="no-margin">Geführte Goals</h3>
-        <p class="muted font-sm mt-sm">Waehle einen Modus fuer strukturierte Aufgaben.</p>
+      <div class="start-actions mb-md">
+        <a class="card start-action" href="#quick-goal">
+          <strong>Ziel planen</strong>
+          <span>Ein Satz reicht fuer den ersten Plan.</span>
+        </a>
+        <button class="card start-action start-action-button" type="button" (click)="loadDemoPreview()">
+          <strong>Demo ansehen</strong>
+          <span>Beispiele ohne echte Datenmutation.</span>
+        </button>
+        <a class="card start-action" [routerLink]="['/board']">
+          <strong>Aufgaben verfolgen</strong>
+          <span>Board, Status und naechste Schritte.</span>
+        </a>
+        <a class="card start-action" [routerLink]="['/artifacts']">
+          <strong>Ergebnisse ansehen</strong>
+          <span>Artefakte und Resultate pruefen.</span>
+        </a>
+      </div>
+
+      @if (demoPreview || demoLoading || demoError) {
+        <section class="card mb-md">
+          <div class="row space-between">
+            <div>
+              <h3 class="no-margin">Demo-Vorschau</h3>
+              <p class="muted font-sm mt-sm no-margin">
+                Beispiele sind read-only und bleiben vom echten Arbeitsmodus getrennt.
+              </p>
+            </div>
+            <button class="secondary btn-small" (click)="demoPreview = null; demoError = ''">Schliessen</button>
+          </div>
+          @if (demoLoading) {
+            <app-ui-skeleton [count]="3" [columns]="3" [lineCount]="3" lineClass="skeleton line"></app-ui-skeleton>
+          } @else if (demoError) {
+            <div class="state-banner error mt-sm">
+              <strong>Demo konnte nicht geladen werden.</strong>
+              <p class="muted no-margin mt-sm">{{ demoError }}</p>
+              <button class="secondary btn-small mt-sm" (click)="loadDemoPreview()">Erneut versuchen</button>
+            </div>
+          } @else if (demoPreview?.examples?.length) {
+            <div class="grid cols-3 mt-sm">
+              @for (example of demoPreview.examples; track example.id) {
+                <article class="card-light demo-example">
+                  <h4>{{ example.title }}</h4>
+                  <p class="muted">{{ example.goal }}</p>
+                  <strong>{{ example.outcome }}</strong>
+                  <ul>
+                    @for (task of example.tasks; track task) {
+                      <li>{{ task }}</li>
+                    }
+                  </ul>
+                </article>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      <section class="card card-primary mb-md" id="quick-goal">
+        <h3 class="no-margin">Ziel planen</h3>
+        <p class="muted font-sm mt-sm">Starte einfach mit einem Ziel. Gefuehrte Modi bleiben fuer strukturierte Faelle verfuegbar.</p>
+
+        <div class="row gap-sm mt-sm flex-end">
+          <div class="flex-1">
+            <label class="label-no-margin">
+              <input
+                [(ngModel)]="quickGoalText"
+                placeholder="z.B. Analysiere dieses Repository und schlage die naechsten Schritte vor"
+                class="w-full"
+                aria-label="Quick Goal Beschreibung eingeben"
+                #quickGoalInput
+              />
+            </label>
+          </div>
+          <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()" aria-label="Goal planen und Tasks generieren">
+            @if (quickGoalBusy) {
+              Generiere...
+            } @else {
+              Goal planen
+            }
+          </button>
+          <button class="secondary" [routerLink]="['/auto-planner']" aria-label="Zur Auto-Planner Konfiguration navigieren">Mehr Optionen</button>
+        </div>
+        @if (quickGoalResult) {
+          <div class="card-success mt-sm">
+            <div class="row space-between">
+              <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
+              <div class="row gap-sm">
+                @if (quickGoalResult.goal_id) {
+                  <button class="secondary btn-small" (click)="goToGoal(quickGoalResult.goal_id)">Zum Goal Detail</button>
+                }
+                <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
+              </div>
+            </div>
+            @if (quickGoalResult.task_ids?.length) {
+              <div class="muted status-text-sm">
+                Task IDs: {{ quickGoalResult.task_ids.slice(0, 3).join(', ') }}{{ quickGoalResult.task_ids.length > 3 ? '...' : '' }}
+              </div>
+            }
+          </div>
+        }
+
+        <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+        <h3 class="no-margin">Gefuehrte Vorlagen</h3>
+        <p class="muted font-sm mt-sm">Waehle einen Modus, wenn du mehr Fuehrung brauchst.</p>
 
         @if (!selectedGoalMode) {
           <div class="grid cols-4 gap-sm mt-sm">
@@ -120,50 +238,7 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
             </div>
           </div>
         }
-
-        <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
-
-        <h3 class="no-margin">Quick Action: Neues Goal</h3>
-        <p class="muted font-sm mt-sm">Beschreibe ein Ziel und lasse automatisch Tasks generieren.</p>
-        <div class="row gap-sm mt-sm flex-end">
-          <div class="flex-1">
-            <label class="label-no-margin">
-              <input
-                [(ngModel)]="quickGoalText"
-                placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"
-                class="w-full"
-                aria-label="Quick Goal Beschreibung eingeben"
-              />
-            </label>
-          </div>
-          <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()" aria-label="Goal planen und Tasks generieren">
-            @if (quickGoalBusy) {
-              Generiere...
-            } @else {
-              Goal planen
-            }
-          </button>
-          <button class="secondary" [routerLink]="['/auto-planner']" aria-label="Zur Auto-Planner Konfiguration navigieren">Zur Auto-Planner Konfiguration</button>
-        </div>
-        @if (quickGoalResult) {
-          <div class="card-success mt-sm">
-            <div class="row space-between">
-              <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
-              <div class="row gap-sm">
-                @if (quickGoalResult.goal_id) {
-                  <button class="secondary btn-small" (click)="goToGoal(quickGoalResult.goal_id)">Zum Goal Detail</button>
-                }
-                <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
-              </div>
-            </div>
-            @if (quickGoalResult.task_ids?.length) {
-              <div class="muted status-text-sm">
-                Task IDs: {{ quickGoalResult.task_ids.slice(0, 3).join(', ') }}{{ quickGoalResult.task_ids.length > 3 ? '...' : '' }}
-              </div>
-            }
-          </div>
-        }
-      </div>
+      </section>
     }
 
     @if (stats) {
@@ -545,8 +620,11 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
     }
 
     @if (!hub) {
-      <div class="card danger">
-        <p>Kein Hub-Agent konfiguriert. Bitte fuegen Sie einen Agenten mit der Rolle "hub" hinzu.</p>
+      <div class="state-banner error">
+        <strong>Kein Hub-Agent konfiguriert.</strong>
+        <p class="muted mt-sm">
+          Ananta braucht einen Hub als zentrale Steuerung. Fuege einen Agenten mit Rolle "hub" hinzu oder pruefe den lokalen Start.
+        </p>
         <button [routerLink]="['/agents']">Agenten verwalten</button>
       </div>
     }
@@ -634,6 +712,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalText = '';
   quickGoalBusy = false;
   quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
+  demoPreview: { examples?: Array<{ id: string; title: string; goal: string; outcome: string; tasks: string[] }> } | null = null;
+  demoLoading = false;
+  demoError = '';
   private connectedTaskCollectionHubUrl: string | null = null;
 
   ngOnInit() {
@@ -789,6 +870,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   refreshBenchmarks() {
     if (!this.hub) return;
     this.facade.refreshBenchmarks(this.hub.url, this.benchmarkTaskKind);
+  }
+
+  focusQuickGoal() {
+    document.getElementById('quick-goal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>('#quick-goal input');
+      input?.focus();
+    }, 150);
+  }
+
+  loadDemoPreview() {
+    if (!this.hub) return;
+    this.demoLoading = true;
+    this.demoError = '';
+    this.hubApi.getDemoPreview(this.hub.url).subscribe({
+      next: preview => {
+        this.demoPreview = preview;
+        this.demoLoading = false;
+      },
+      error: err => {
+        this.demoLoading = false;
+        this.demoPreview = null;
+        this.demoError = err?.error?.message || err?.message || 'Demo-Vorschau ist gerade nicht erreichbar.';
+      }
+    });
   }
 
   tasksLastLoadedAt(): number | null {

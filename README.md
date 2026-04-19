@@ -1,16 +1,46 @@
 # Ananta
 
-Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Architektur.
+Ananta hilft dabei, groessere Entwicklungsziele in planbare Aufgaben, Ausfuehrungsschritte, Pruefung und Ergebnisse zu uebersetzen. Du beschreibst ein Ziel; der Hub plant und steuert die Arbeit, Worker fuehren delegierte Aufgaben aus.
 
-## Goal-basierter Produktansatz
-Das System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Artifact-Workflow. Für einfache Erstbenutzung ist nur ein Goal notwendig; Persistenz und erweiterte Optionen sind konfigurierbar. Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
+## Schnellstart in 5 Minuten
 
-## Einstiegspunkte
+1. Umgebung vorbereiten:
+   ```powershell
+   .\setup.ps1
+   ```
+   Das Script prueft Docker, Python und Node, legt eine `.env` an und installiert lokale Abhaengigkeiten.
+
+2. Lite-Stack starten:
+   ```bash
+   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+   ```
+
+3. Im Browser oeffnen:
+   - Frontend: `http://localhost:4200`
+   - Hub API: `http://localhost:5000`
+
+4. Einloggen:
+   - Benutzer: `admin`
+   - Passwort: Wert aus `INITIAL_ADMIN_PASSWORD` in `.env`
+
+5. Erstes Ziel starten:
+   - Im Dashboard ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
+   - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
+
+Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und die Logs des Hub- und Frontend-Containers.
+
+## Was Ananta macht
+
+Ananta folgt einem Goal -> Plan -> Task -> Execution -> Verification -> Artifact Ablauf. Fuer den Einstieg reicht ein Ziel; Teams, Policies, Benchmarks und Expertenoptionen koennen spaeter genutzt werden.
+
+Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
+
+## Wichtige Einstiegspunkte
+- Erster Start und Betrieb: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
 - Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`
-- Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`
-- Frontend Entwicklung und E2E: `frontend-angular/README.md`
-- Setup/Runtime: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
-- Direkter Goal-/Diagnose-/Artifact-Zugang per CLI: `python -m agent.cli_goals --help`
+- Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
+- Frontend Entwicklung: `frontend-angular/README.md`
+- CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`
 
 ## Kanal- und Erweiterungsstrategie (Core First)
 
@@ -31,11 +61,13 @@ Das System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Ar
 Details: `docs/backend.md` und `architektur/README.md`.
 
 ## Quickstart (Docker)
-1. Automatisches Setup (empfohlen):
+Der kuerzeste Pfad ist der Lite-Stack aus dem Schnellstart oben. Die folgenden Varianten sind fuer Entwicklung, lokale LLM-Runtimes oder verteilte Worker gedacht.
+
+1. Automatisches Setup:
 ```powershell
 .\setup.ps1
 ```
-Dieses Script prüft Dependencies (Python, Node.js, Docker), generiert .env mit sicheren Passwörtern und installiert alle Dependencies automatisch.
+Dieses Script prueft Dependencies, generiert `.env` mit sicheren Passwoertern und installiert alle Dependencies automatisch.
 
 Alternativ manuell:
 ```bash
@@ -44,7 +76,7 @@ cp .env.example .env
 ```
 `.env.example` deckt die Lite-/Compose-Defaults bereits weitgehend ab; `.env.template` ist die kompaktere Vorlage, wenn Werte bewusst neu gesetzt werden sollen. Fuer die Distributed-Variante sollten zusaetzlich `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` und `DELTA_PORT` gesetzt werden.
 
-2. Start:
+2. Standard-Start:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
 ```

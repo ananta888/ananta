@@ -36,6 +36,10 @@ export class ControlPlaneFacade {
     return this.hubApi.getStatsHistory(baseUrl, token);
   }
 
+  getDemoPreview(baseUrl: string, token?: string) {
+    return this.hubApi.getDemoPreview(baseUrl, token);
+  }
+
   listTeams(baseUrl: string, token?: string) {
     return this.hubApi.listTeams(baseUrl, token);
   }
