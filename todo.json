@@ -1,6 +1,6 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.8.2",
+  "version": "5.8.3",
   "created": "2026-04-18",
   "updated": "2026-04-19T00:00:00Z",
   "project": "ananta",
@@ -191,7 +191,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Decision-Isolation, Better-Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -214,7 +214,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Context-Modularity, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -238,7 +238,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Builder-Clarity, Reduced-Inline-Complexity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -262,7 +262,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Completion-Clarity, Safer-State-Transitions",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -601,7 +601,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Client-Modularity, Clearer-API-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/agent-api.service.ts",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 14,
+      "completed": 19,
       "partial": 0,
-      "open": 23
+      "open": 18
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",
