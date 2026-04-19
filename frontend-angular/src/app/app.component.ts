@@ -17,6 +17,7 @@ import { AppShellStateService } from './services/app-shell-state.service';
   standalone: true,
   imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent],
   template: `
+    <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
     <app-notifications />
     <app-toast />
     <header class="app-header">
@@ -25,7 +26,7 @@ import { AppShellStateService } from './services/app-shell-state.service';
         @if (auth.user$ | async; as user) {
           <div class="row app-header-user">
             <span class="muted" style="font-size: 14px;">{{ user.sub }} ({{ user.role }})</span>
-            <button class="secondary mobile-nav-toggle" (click)="shell.toggleMobileNav()" aria-label="Navigation umschalten">
+            <button class="secondary mobile-nav-toggle" (click)="shell.toggleMobileNav()" [attr.aria-expanded]="shell.mobileNavOpen()" aria-controls="primary-navigation" aria-label="Navigation umschalten">
               {{ shell.mobileNavOpen() ? 'Menue schliessen' : 'Menue' }}
             </button>
             <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Darstellung umschalten">
@@ -39,7 +40,7 @@ import { AppShellStateService } from './services/app-shell-state.service';
         }
       </div>
       @if (auth.user$ | async; as user) {
-        <nav class="row app-nav" [class.nav-open]="shell.mobileNavOpen()">
+        <nav id="primary-navigation" class="row app-nav" [class.nav-open]="shell.mobileNavOpen()" aria-label="Hauptnavigation">
           @for (group of navGroups(user.role); track group.label) {
             <span class="nav-group-label">{{ group.label }}</span>
             @for (item of group.items; track item.path) {
@@ -60,7 +61,7 @@ import { AppShellStateService } from './services/app-shell-state.service';
       @if (mobile.isNative) { | Mobile: native }
       @if ((mobile.online$ | async) === false) { | Offline-Modus aktiv }
     </div>
-    <main>
+    <main id="main-content" tabindex="-1">
       <router-outlet />
     </main>
     @if (auth.user$ | async) {
@@ -68,6 +69,20 @@ import { AppShellStateService } from './services/app-shell-state.service';
     }
   `,
   styles: [`
+    .skip-link {
+      position: fixed;
+      left: 12px;
+      top: 8px;
+      transform: translateY(-160%);
+      z-index: 1000;
+      background: var(--fg);
+      color: var(--bg);
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+    .skip-link:focus {
+      transform: translateY(0);
+    }
     .app-header-top {
       justify-content: space-between;
       align-items: center;

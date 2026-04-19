@@ -37,10 +37,15 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
 
     @if (hub && view === 'board') {
       <div>
-        <div class="state-banner mb-md">
-          <strong>Wie das Board entscheidet</strong>
-          <p class="muted no-margin mt-sm">{{ decisionExplanation('routing') }} Blockierte Aufgaben bleiben sichtbar, weil Ananta dort bewusst auf Klaerung wartet.</p>
-        </div>
+        @if (isHintVisible('board-routing')) {
+          <div class="state-banner mb-md inline-help">
+            <div>
+              <strong>Wie das Board entscheidet</strong>
+              <p class="muted no-margin mt-sm">{{ decisionExplanation('routing') }} Blockierte Aufgaben bleiben sichtbar, weil Ananta dort bewusst auf Klaerung wartet.</p>
+            </div>
+            <button class="secondary btn-small" type="button" (click)="dismissHint('board-routing')">Ausblenden</button>
+          </div>
+        }
         <div class="card row gap-sm flex-end">
           <label for="new-task-input">Neuer Task
             <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task-Titel" aria-required="true" />
@@ -165,6 +170,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   searchText = localStorage.getItem('ananta.board.search') || '';
   err = '';
   view: 'board' | 'scrum' = (localStorage.getItem('ananta.board.view') as 'board' | 'scrum') || 'board';
+  hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
   boardColumns = [
     { id: 'todo', label: 'To-Do' },
     { id: 'in_progress', label: 'In-Progress' },
@@ -270,5 +276,14 @@ export class BoardComponent implements OnInit, OnDestroy {
     if (normalized === 'completed') return 'Noch keine Aufgaben abgeschlossen.';
     if (normalized === 'in_progress') return 'Gerade keine aktive Bearbeitung.';
     return 'Keine offenen Aufgaben.';
+  }
+
+  isHintVisible(key: string): boolean {
+    return !this.hiddenHints.has(key);
+  }
+
+  dismissHint(key: string): void {
+    this.hiddenHints.add(key);
+    localStorage.setItem('ananta.hidden-hints', Array.from(this.hiddenHints).join(','));
   }
 }

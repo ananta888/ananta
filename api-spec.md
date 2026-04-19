@@ -13,6 +13,54 @@ Der Token muss im `Authorization` Header gesendet werden:
 
 ---
 
+## Minimalbeispiele fuer den Einstieg
+
+Diese Beispiele decken die haeufigsten Integrationsfaelle ab, ohne die ganze API kennen zu muessen.
+
+### 1. Login und Token holen
+
+```bash
+TOKEN=$(curl -s http://localhost:5000/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<password>"}' | jq -r '.data.access_token')
+```
+
+### 2. Ziel planen und Tasks erzeugen
+
+```bash
+curl -s http://localhost:5000/goals \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"goal":"Analysiere dieses Repository und schlage naechste Schritte vor","create_tasks":true}'
+```
+
+### 3. Board/Tasks lesen
+
+```bash
+curl -s http://localhost:5000/tasks \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 4. Ergebnisartefakte lesen
+
+```bash
+curl -s http://localhost:5000/artifacts \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 5. Einfacher Webhook fuer externe Tools
+
+```bash
+curl -s http://localhost:5000/triggers/webhook/generic \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Build fehlgeschlagen","description":"Frontend build failed in CI","priority":"high"}'
+```
+
+Der Hub bleibt dabei die Steuerungsebene: Externe Systeme liefern Ziele oder Ereignisse, die Ausfuehrung laeuft weiter ueber Tasks und Worker.
+
+---
+
 ## System Endpunkte
 
 ### Health Check

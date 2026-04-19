@@ -64,6 +64,11 @@ button, input, select, textarea {
 button { cursor: pointer; }
 button:disabled { opacity: 0.65; cursor: not-allowed; }
 
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 70%, white);
+  outline-offset: 2px;
+}
+
 /* Button Variants */
 button.primary, .btn-primary {
   background: #0369a1;
@@ -184,6 +189,24 @@ button.btn-large, .btn-large {
 .state-banner.warning {
   border-color: #f59e0b;
   background: var(--warning-bg);
+}
+
+.inline-help {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.personal-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.compact {
+  padding: 12px;
 }
 
 .status-dot {

@@ -80,6 +80,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.toast = { success: vi.fn(), error: vi.fn() } as any;
     cmp.showFirstStartWizard = true;
     cmp.showAdvancedDashboard = false;
+    cmp.hiddenHints = new Set();
     cmp.goalWizardStepIndex = 0;
     cmp.goalWizardSteps = [
       { id: 'goal', title: 'Ziel', helper: 'Beschreibe, was am Ende anders oder besser sein soll.' },
@@ -103,6 +104,7 @@ describe('DashboardComponent (benchmarks)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   it('loads benchmark recommendations and updated timestamp', () => {
@@ -343,6 +345,34 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.quickGoalResult?.goal_id).toBe('G-42');
     expect(cmp.selectedGoalMode).toBeNull();
     expect(cmp.goalWizardStepIndex).toBe(0);
+  });
+
+  it('summarizes personal home progress from goals and tasks', () => {
+    const cmp = createComponent();
+    cmp.showFirstStartWizard = false;
+    cmp.goalsList = [
+      { id: 'G-1', goal: 'Open', status: 'running' } as any,
+      { id: 'G-2', goal: 'Done', status: 'completed' } as any,
+    ];
+    hubApiMock.tasks.mockReturnValueOnce([
+      { id: 'T-1', status: 'todo' },
+      { id: 'T-2', status: 'completed' },
+    ]);
+
+    expect(cmp.recentGoals().map(goal => goal.id)).toEqual(['G-1', 'G-2']);
+    expect(cmp.activeGoalCount()).toBe(1);
+    expect(cmp.nextTaskCount()).toBe(1);
+    expect(cmp.starterProgress().done).toBeGreaterThanOrEqual(2);
+  });
+
+  it('persists dismissed inline hints', () => {
+    const cmp = createComponent();
+
+    expect(cmp.isHintVisible('quick-goal')).toBe(true);
+    cmp.dismissHint('quick-goal');
+
+    expect(cmp.isHintVisible('quick-goal')).toBe(false);
+    expect(localStorage.getItem('ananta.hidden-hints')).toContain('quick-goal');
   });
 
   it('derives active inference runtime tile data from telemetry', () => {

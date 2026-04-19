@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.0",
   "created": "2026-04-18",
-  "updated": "2026-04-19T10:49:52Z",
+  "updated": "2026-04-19T10:58:40Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -445,7 +445,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "User-Centricity, Less-Control-Center-Feeling",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -465,7 +465,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Inline-Learning, No-Manual-First",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -484,7 +484,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Progress-Visibility, Confidence-Building",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/",
@@ -510,7 +510,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Low-Friction-CLI, Human-Oriented-Commands",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/cli_goals.py",
@@ -531,7 +531,7 @@
           "priority": "medium",
           "type": "documentation",
           "principle": "Example-Driven-Adoption, Lower-Integration-Friction",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "api-spec.md",
@@ -557,7 +557,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Usability, Accessibility-Basics",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -613,9 +613,9 @@
   "meta": {
     "total_items": 26,
     "by_status": {
-      "completed": 20,
+      "completed": 26,
       "partial": 0,
-      "open": 6
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschliesslich auf Zugänglichkeit im Sinn von Onboarding, Verstaendlichkeit, einfacherem Einstieg und klarerer UX.",

@@ -20,6 +20,29 @@ import requests
 
 from agent.config import settings
 
+SHORTCUT_GOALS = {
+    "analyze": {
+        "mode": "repo_analysis",
+        "prefix": "Analysiere und fasse die wichtigsten Befunde zusammen:",
+        "context": "Kurzkommando: Analyse. Fokus auf Verstaendnis, Risiken und naechste Schritte.",
+    },
+    "review": {
+        "mode": "code_review",
+        "prefix": "Fuehre ein Review durch und priorisiere konkrete Risiken:",
+        "context": "Kurzkommando: Review. Fokus auf Bugs, Regressionen, Tests und klare Findings.",
+    },
+    "diagnose": {
+        "mode": "docker_compose_repair",
+        "prefix": "Diagnostiziere das Problem und schlage eine robuste Start- oder Reparatursequenz vor:",
+        "context": "Kurzkommando: Diagnose. Fokus auf Logs, Compose, Ports, Health-Checks und naechste Pruefung.",
+    },
+    "patch": {
+        "mode": "code_fix",
+        "prefix": "Plane einen kleinen, testbaren Patch fuer:",
+        "context": "Kurzkommando: Patch. Fokus auf kleine Aenderung, Regressionstest und minimale Nebenwirkungen.",
+    },
+}
+
 
 def get_base_url():
     configured = os.environ.get("ANANTA_BASE_URL")
@@ -118,6 +141,21 @@ def submit_goal(
         return created_task_ids
     _print_error(response)
     return []
+
+
+def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True):
+    shortcut = SHORTCUT_GOALS.get(kind)
+    if not shortcut:
+        print(f"Error: Unknown shortcut '{kind}'. Available: {', '.join(sorted(SHORTCUT_GOALS))}")
+        return []
+    return submit_goal(
+        goal=f"{shortcut['prefix']} {text.strip()}",
+        context=shortcut["context"],
+        team_id=team_id,
+        create_tasks=create_tasks,
+        mode=shortcut["mode"],
+        mode_data={"shortcut": kind},
+    )
 
 
 def show_status():
@@ -273,6 +311,12 @@ Examples:
   Submit a goal:
     python -m agent.cli_goals "Implement user login"
 
+  Short human-friendly commands:
+    python -m agent.cli_goals analyze "Find the riskiest frontend areas"
+    python -m agent.cli_goals review "Review the auth changes"
+    python -m agent.cli_goals diagnose "Docker frontend cannot reach hub"
+    python -m agent.cli_goals patch "Fix failing login validation"
+
   Submit guided mode:
     python -m agent.cli_goals --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
 
@@ -296,7 +340,8 @@ Examples:
 """,
     )
 
-    parser.add_argument("goal", nargs="?", help="Goal description to submit")
+    parser.add_argument("goal", nargs="?", help="Goal description to submit, or shortcut: analyze/review/diagnose/patch")
+    parser.add_argument("extra", nargs="*", help="Additional words for shortcut goals")
     parser.add_argument("--goal", "-g", dest="goal_flag", help="Goal description (alternative)")
     parser.add_argument("--context", "-c", help="Additional context for the goal")
     parser.add_argument("--team", "-t", help="Team ID to assign tasks to")
@@ -330,8 +375,16 @@ Examples:
         list_artifacts(limit=args.limit)
     elif args.analyze_task:
         analyze_task_followups(args.analyze_task, output=args.output)
+    elif args.goal in SHORTCUT_GOALS:
+        shortcut_text = " ".join(args.extra).strip()
+        if not shortcut_text:
+            print(f"Error: '{args.goal}' needs a short description")
+            sys.exit(2)
+        submit_shortcut(args.goal, shortcut_text, team_id=args.team, create_tasks=not args.no_create)
     elif args.goal or args.goal_flag:
         goal_text = args.goal or args.goal_flag
+        if args.extra:
+            goal_text = " ".join([goal_text, *args.extra])
         create_tasks = not args.no_create
         submit_goal(
             goal=goal_text,

@@ -258,6 +258,12 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
 
     @if (activeTab === 'context' && task) {
       <div class="grid">
+        @if (isHintVisible('task-review')) {
+          <div class="state-banner inline-help">
+            <p class="muted no-margin">Dieser Bereich erklaert, warum ein Worker, Tool oder Review-Schritt genutzt wurde. Technische Details bleiben fuer Admins einklappbar.</p>
+            <button class="secondary btn-small" type="button" (click)="dismissHint('task-review')">Ausblenden</button>
+          </div>
+        }
         <div class="card">
           <div class="row space-between">
             <div>
@@ -589,6 +595,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   activeTab = 'details';
   loadingTask = false;
   loadingLogs = false;
+  hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
   availableProviders: any[] = [];
   isAdmin = false;
   showAdminDrilldown = false;
@@ -1150,5 +1157,14 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       return { title: 'Pruefung hat angehalten', body: this.qualityGateReason() };
     }
     return null;
+  }
+
+  isHintVisible(key: string): boolean {
+    return !this.hiddenHints.has(key);
+  }
+
+  dismissHint(key: string): void {
+    this.hiddenHints.add(key);
+    localStorage.setItem('ananta.hidden-hints', Array.from(this.hiddenHints).join(','));
   }
 }

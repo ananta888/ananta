@@ -86,6 +86,12 @@ import { interval, Subscription } from 'rxjs';
               <p class="muted no-margin mt-sm">{{ resultSafetyExplanation() }}</p>
             </div>
           </div>
+          @if (isHintVisible('goal-result')) {
+            <div class="state-banner mt-md inline-help">
+              <p class="muted no-margin">Nutze diese Seite als Abschlussblick: erst offene Punkte pruefen, dann Ergebnis oeffnen oder Folgeaufgabe starten.</p>
+              <button class="secondary btn-small" type="button" (click)="dismissHint('goal-result')">Ausblenden</button>
+            </div>
+          }
           @if (headlineArtifact()) {
             <div class="state-banner mt-md">
               <strong>{{ headlineArtifact()?.title || 'Wichtigstes Ergebnis' }}</strong>
@@ -262,6 +268,7 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
   governance: any;
   costSummary: any;
   loading = false;
+  hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
   private sub?: Subscription;
 
   get hub() {
@@ -357,6 +364,15 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
     if (this.openTasks() > 0) return 'Noch sind nicht alle Aufgaben fertig. Ergebnisse koennen sich aendern, bis offene Tasks abgeschlossen oder bewusst verworfen sind.';
     if (this.verificationLabel() === 'offen') return safetyBoundaryExplanation('verification');
     return 'Die sichtbaren Ergebnisse haben die bekannten Pruefschritte durchlaufen oder enthalten keine offenen Warnungen.';
+  }
+
+  isHintVisible(key: string): boolean {
+    return !this.hiddenHints.has(key);
+  }
+
+  dismissHint(key: string): void {
+    this.hiddenHints.add(key);
+    localStorage.setItem('ananta.hidden-hints', Array.from(this.hiddenHints).join(','));
   }
 
   term = userFacingTerm;
