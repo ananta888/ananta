@@ -87,6 +87,7 @@ python scripts/release_gate.py --strict --compose-config --report release-verifi
 Release-relevant GitHub Actions are pinned to commit SHAs, not floating major tags. CI uses Python `3.11.15`, Node `20.19.5`, Python lockfiles and `npm ci`.
 
 The `release-gate` CI job uploads `release-verification-report.json`. A failed release gate blocks the release.
+In GitHub Actions, the report is published as `ananta-release-verification-report` according to `docs/ci-artifacts.md`.
 
 ## GitHub Release Assets
 
@@ -95,6 +96,7 @@ Official GitHub Releases are published by `.github/workflows/release.yml` for ta
 The release workflow runs the strict release gate, prepares a `release-assets/` bundle and publishes those files to the GitHub Release. The asset bundle is intentionally small and audit-focused:
 
 - `release-verification-report.json`
+- `release-sbom.json`
 - `SHA256SUMS`
 - `README.md` and `LICENSE`
 - release, environment and dependency-locking documentation
@@ -109,6 +111,8 @@ bash scripts/prepare_release_assets.sh
 ```
 
 The release tag remains the source of truth for source code. Release assets are supporting evidence and operator-facing material, not an alternate distribution channel for untracked build outputs.
+
+SBOM and provenance policy are documented in `docs/release-provenance.md`. Dependency update visibility is documented in `docs/supply-chain-checks.md`.
 
 ## Release Notes And Changelog
 

@@ -290,7 +290,7 @@
           "priority": "high",
           "type": "security",
           "principle": "Least-Privilege-for-Automation, Reduced-Blast-Radius",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "GitHub repository settings",
@@ -334,7 +334,7 @@
           "priority": "high",
           "type": "security",
           "principle": "Supply-Chain-Visibility, Earlier-Risk-Signals",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/",
@@ -355,7 +355,7 @@
           "priority": "medium",
           "type": "release-prep",
           "principle": "Component-Transparency, Better-Auditability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -375,7 +375,7 @@
           "priority": "medium",
           "type": "release-prep",
           "principle": "Trustworthy-Artifacts, Stronger-Provenance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -651,7 +651,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Actionable-CI-Failures, Faster-Debugging",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/quality-and-docs.yml",
@@ -671,7 +671,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Flaky-Visibility, More-Honest-CI",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -734,9 +734,9 @@
   "meta": {
     "total_items": 34,
     "by_status": {
-      "completed": 17,
+      "completed": 23,
       "partial": 0,
-      "open": 17
+      "open": 11
     },
     "notes": [
       "Diese Todo-Datei baut nicht weitere Produktfeatures, sondern die GitHub-, Release- und Betriebsreife des Projekts aus.",
@@ -753,6 +753,10 @@
         "GIT-020",
         "GIT-021",
         "GIT-022",
+        "GIT-032",
+        "GIT-041",
+        "GIT-042",
+        "GIT-043",
         "GIT-040",
         "GIT-050",
         "GIT-051",
@@ -773,15 +777,11 @@
         "GIT-002",
         "GIT-003",
         "GIT-030",
-        "GIT-032",
         "GIT-062",
         "GIT-080"
       ],
       "requires_release_strategy_decision": [
         "GIT-013",
-        "GIT-041",
-        "GIT-042",
-        "GIT-043",
         "GIT-100"
       ]
     },

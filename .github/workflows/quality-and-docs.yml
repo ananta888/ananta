@@ -76,10 +76,17 @@ jobs:
       AGENT_TOKEN_DELTA: delta-token
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Prepare compose artifact directory
+        run: mkdir -p ci-artifacts/compose
       - name: Validate lite compose config
-        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml config >/tmp/compose-lite.out
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml config > ci-artifacts/compose/compose-lite.yml
       - name: Validate distributed compose config
-        run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config >/tmp/compose-distributed.out
+        run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config > ci-artifacts/compose/compose-distributed.yml
+      - name: Upload compose config artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-compose-configs
+          path: ci-artifacts/compose/*.yml
 
   release-gate:
     runs-on: ubuntu-latest
@@ -102,7 +109,7 @@ jobs:
         run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: release-verification-report
+          name: ananta-release-verification-report
           path: release-verification-report.json
 
   e2e-compose:
@@ -132,11 +139,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: e2e-compose-results
+          name: ananta-e2e-compose-results
           path: |
-            frontend-angular/test-results/junit-results.xml
-            frontend-angular/test-results/results.json
-            frontend-angular/test-results/failure-summary.md
+            frontend-angular/test-results/**
       - name: Stop compose stack
         if: always()
         run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
@@ -181,5 +186,5 @@ jobs:
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: architecture-diagrams
+          name: ananta-architecture-diagrams
           path: architektur/rendered/*.png

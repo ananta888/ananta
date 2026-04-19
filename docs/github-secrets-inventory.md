@@ -29,6 +29,7 @@ The current CI and release workflows use deterministic test-only environment val
 - Keep token scopes narrow: read-only for validation, package write only for image publishing, release write only for GitHub Release creation.
 - Remove unused secrets during release retrospectives.
 - Record new required secrets here in the same PR that introduces the workflow dependency.
+- Follow `docs/secrets-rotation.md` for rotation triggers, cadence and incident response.
 
 ## Review Checklist
 

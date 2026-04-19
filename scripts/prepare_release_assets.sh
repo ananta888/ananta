@@ -19,6 +19,7 @@ copy_if_present() {
 }
 
 copy_if_present "release-verification-report.json" "$OUT_DIR/release-verification-report.json"
+copy_if_present "release-sbom.json" "$OUT_DIR/release-sbom.json"
 copy_if_present "README.md" "$OUT_DIR/README.md"
 copy_if_present "LICENSE" "$OUT_DIR/LICENSE"
 
@@ -26,6 +27,8 @@ copy_if_present "docs/release-checklist.md" "$OUT_DIR/docs/release-checklist.md"
 copy_if_present "docs/release-process.md" "$OUT_DIR/docs/release-process.md"
 copy_if_present "docs/release-environment.md" "$OUT_DIR/docs/release-environment.md"
 copy_if_present "docs/release-dependency-locking.md" "$OUT_DIR/docs/release-dependency-locking.md"
+copy_if_present "docs/release-provenance.md" "$OUT_DIR/docs/release-provenance.md"
+copy_if_present "docs/supply-chain-checks.md" "$OUT_DIR/docs/supply-chain-checks.md"
 copy_if_present "docs/governance-security-model.md" "$OUT_DIR/docs/governance-security-model.md"
 copy_if_present "docs/security_baseline.md" "$OUT_DIR/docs/security_baseline.md"
 
