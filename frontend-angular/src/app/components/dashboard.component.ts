@@ -69,6 +69,32 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
       </div>
     </section>
 
+    @if (showFirstStartWizard) {
+      <section class="card first-start mb-md" aria-label="Erststart">
+        <div class="row space-between">
+          <div>
+            <h3 class="no-margin">Wie moechtest du starten?</h3>
+            <p class="muted mt-sm no-margin">Waehle einen einfachen Einstieg. Du kannst spaeter jederzeit in die tieferen Ansichten wechseln.</p>
+          </div>
+          <button class="secondary btn-small" (click)="completeFirstStartWizard()">Ausblenden</button>
+        </div>
+        <div class="grid cols-3 mt-sm">
+          <button class="card-light wizard-choice" type="button" (click)="chooseFirstStart('demo')">
+            <strong>Demo ansehen</strong>
+            <span>Beispiele lesen und bei Bedarf als echte Goals starten.</span>
+          </button>
+          <button class="card-light wizard-choice" type="button" (click)="chooseFirstStart('goal')">
+            <strong>Eigenes Ziel planen</strong>
+            <span>Mit einem Satz starten und Tasks erzeugen lassen.</span>
+          </button>
+          <a class="card-light wizard-choice" [routerLink]="['/board']" (click)="completeFirstStartWizard()">
+            <strong>Leer starten</strong>
+            <span>Direkt ins Board und Aufgaben manuell anlegen.</span>
+          </a>
+        </div>
+      </section>
+    }
+
     @if (viewState.loading) {
       <app-ui-skeleton [count]="1" [lineCount]="1" lineClass="skeleton block"></app-ui-skeleton>
     }
@@ -144,6 +170,9 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
                       <li>{{ task }}</li>
                     }
                   </ul>
+                  <button class="primary btn-small mt-sm" (click)="startDemoExample(example)" [disabled]="quickGoalBusy">
+                    Als Goal starten
+                  </button>
                 </article>
               }
             </div>
@@ -243,7 +272,7 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
 
     @if (stats) {
       <app-onboarding-checklist />
-      <div class="grid cols-5">
+      <div class="grid cols-3">
         <div class="card">
           <h3>Agenten</h3>
           <div class="row space-between">
@@ -278,37 +307,6 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
             <strong>{{stats.tasks?.in_progress || 0}}</strong>
           </div>
         </div>
-        <div class="card">
-          <h3>Shell Pool</h3>
-          <div class="row space-between">
-            <span>Gesamt:</span>
-            <strong>{{stats.shell_pool?.total || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>Frei:</span>
-            <strong class="success">{{stats.shell_pool?.free || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>Belegt:</span>
-            <strong [class.danger]="stats.shell_pool?.busy > 0">{{stats.shell_pool?.busy || 0}}</strong>
-          </div>
-        </div>
-        @if (stats?.resources) {
-          <div class="card">
-            <h3>Ressourcen</h3>
-            <div class="row space-between">
-              <span>CPU:</span>
-              <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
-            </div>
-            <div class="row space-between">
-              <span>RAM:</span>
-              <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
-            </div>
-            <div class="progress-bar mt-sm" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
-              <div class="progress-bar-fill" [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80"></div>
-            </div>
-          </div>
-        }
         <div class="card">
           <h3>System Status</h3>
           <div class="row gap-sm">
@@ -393,9 +391,48 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
           </div>
         </div>
       </div>
+      <div class="row mt-sm">
+        <button class="secondary btn-small" (click)="toggleAdvancedDashboard()">
+          {{ showAdvancedDashboard ? 'Technische Details ausblenden' : 'Technische Details anzeigen' }}
+        </button>
+      </div>
     }
 
-    @if (hub) {
+    @if (hub && showAdvancedDashboard) {
+      <div class="grid cols-2 mb-md">
+        <div class="card">
+          <h3>Shell Pool</h3>
+          <div class="row space-between">
+            <span>Gesamt:</span>
+            <strong>{{stats?.shell_pool?.total || 0}}</strong>
+          </div>
+          <div class="row space-between">
+            <span>Frei:</span>
+            <strong class="success">{{stats?.shell_pool?.free || 0}}</strong>
+          </div>
+          <div class="row space-between">
+            <span>Belegt:</span>
+            <strong [class.danger]="(stats?.shell_pool?.busy || 0) > 0">{{stats?.shell_pool?.busy || 0}}</strong>
+          </div>
+        </div>
+        @if (stats?.resources) {
+          <div class="card">
+            <h3>Ressourcen</h3>
+            <div class="row space-between">
+              <span>CPU:</span>
+              <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
+            </div>
+            <div class="row space-between">
+              <span>RAM:</span>
+              <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
+            </div>
+            <div class="progress-bar mt-sm" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
+              <div class="progress-bar-fill" [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80"></div>
+            </div>
+          </div>
+        }
+      </div>
+
       <app-dashboard-benchmark-panel
         [data]="benchmarkData"
         [updatedAt]="benchmarkUpdatedAt"
@@ -544,7 +581,7 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
       ></app-dashboard-timeline-panel>
     }
 
-    @if (history.length > 1) {
+    @if (history.length > 1 && showAdvancedDashboard) {
       <div class="grid cols-2">
         <div class="card">
           <h3>Task-Erfolgsrate</h3>
@@ -575,7 +612,7 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
       </div>
     }
 
-    @if (agentsList.length > 0) {
+    @if (agentsList.length > 0 && showAdvancedDashboard) {
       <div class="card">
         <h3>Agenten Status</h3>
         <div class="grid cols-4">
@@ -712,9 +749,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalText = '';
   quickGoalBusy = false;
   quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
-  demoPreview: { examples?: Array<{ id: string; title: string; goal: string; outcome: string; tasks: string[] }> } | null = null;
+  demoPreview: { examples?: DemoPreviewExample[] } | null = null;
   demoLoading = false;
   demoError = '';
+  showFirstStartWizard = localStorage.getItem('ananta.first-start.completed') !== 'true';
+  showAdvancedDashboard = localStorage.getItem('ananta.dashboard.advanced') === 'true';
   private connectedTaskCollectionHubUrl: string | null = null;
 
   ngOnInit() {
@@ -893,6 +932,52 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.demoLoading = false;
         this.demoPreview = null;
         this.demoError = err?.error?.message || err?.message || 'Demo-Vorschau ist gerade nicht erreichbar.';
+      }
+    });
+  }
+
+  chooseFirstStart(choice: 'demo' | 'goal'): void {
+    this.completeFirstStartWizard();
+    if (choice === 'demo') {
+      this.loadDemoPreview();
+      return;
+    }
+    this.focusQuickGoal();
+  }
+
+  completeFirstStartWizard(): void {
+    localStorage.setItem('ananta.first-start.completed', 'true');
+    this.showFirstStartWizard = false;
+  }
+
+  toggleAdvancedDashboard(): void {
+    this.showAdvancedDashboard = !this.showAdvancedDashboard;
+    localStorage.setItem('ananta.dashboard.advanced', String(this.showAdvancedDashboard));
+  }
+
+  startDemoExample(example: DemoPreviewExample): void {
+    if (!this.hub || !example?.goal) return;
+    this.quickGoalBusy = true;
+    this.quickGoalResult = null;
+    this.completeFirstStartWizard();
+    this.hubApi.planGoal(this.hub.url, {
+      goal: example.goal,
+      context: example.starter_context || `Demo-Beispiel: ${example.title}`,
+      create_tasks: true
+    }).subscribe({
+      next: (result: any) => {
+        this.quickGoalBusy = false;
+        this.quickGoalResult = {
+          tasks_created: result?.created_task_ids?.length || 0,
+          task_ids: result?.created_task_ids || [],
+          goal_id: result?.goal_id
+        };
+        this.toast.success(`Demo-Goal gestartet: ${this.quickGoalResult.tasks_created} Tasks erstellt`);
+        this.refresh();
+      },
+      error: () => {
+        this.quickGoalBusy = false;
+        this.toast.error('Demo-Goal konnte nicht gestartet werden');
       }
     });
   }
@@ -1215,6 +1300,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       create_tasks: true
     }).subscribe({
       next: (result: any) => {
+        this.completeFirstStartWizard();
         this.quickGoalBusy = false;
         this.quickGoalResult = {
           tasks_created: result?.created_task_ids?.length || 0,
@@ -1239,4 +1325,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   goToGoal(id: string) {
     this.router.navigate(['/goal', id]);
   }
+}
+
+interface DemoPreviewExample {
+  id: string;
+  title: string;
+  goal: string;
+  outcome: string;
+  tasks: string[];
+  starter_context?: string;
 }

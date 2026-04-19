@@ -481,6 +481,22 @@ body.dark-mode .progress-bar {
   margin: 10px 0 0;
   padding-left: 18px;
 }
+.first-start {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.wizard-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 112px;
+  padding: 14px;
+  text-align: left;
+  color: var(--fg);
+}
+.wizard-choice span {
+  color: var(--muted);
+  line-height: 1.35;
+}
 
 /* Badge */
 .badge {

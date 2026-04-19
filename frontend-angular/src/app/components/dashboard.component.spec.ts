@@ -16,6 +16,7 @@ describe('DashboardComponent (benchmarks)', () => {
     getGoalDetail: vi.fn(() => of(null)),
     getGoalGovernanceSummary: vi.fn(() => of(null)),
     getDemoPreview: vi.fn(() => of({ isolated: true, examples: [] })),
+    planGoal: vi.fn(() => of({ created_task_ids: [], goal_id: null })),
     tasks: vi.fn(() => []),
     tasksLoading: vi.fn(() => false),
     tasksLastLoadedAt: vi.fn(() => 1739790000),
@@ -29,6 +30,7 @@ describe('DashboardComponent (benchmarks)', () => {
       hubApi: any;
       taskFacade: any;
       ns: any;
+      toast: any;
     };
     facade.viewState = { loading: true, error: null, empty: false };
     facade.stats = null;
@@ -74,6 +76,9 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.liveState = { ensureSystemEvents: vi.fn(), systemStreamConnected: () => false, lastSystemEvent: () => null };
     cmp.taskFacade = hubApiMock;
     cmp.ns = { error: vi.fn() } as any;
+    cmp.toast = { success: vi.fn(), error: vi.fn() } as any;
+    cmp.showFirstStartWizard = true;
+    cmp.showAdvancedDashboard = false;
     return cmp;
   }
 
@@ -212,6 +217,38 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.demoPreview?.examples?.[0].id).toBe('repo-analysis');
     expect(cmp.demoLoading).toBe(false);
     expect(cmp.demoError).toBe('');
+  });
+
+  it('starts demo examples through the normal hub goal planning path', () => {
+    hubApiMock.planGoal = vi.fn(() => of({ created_task_ids: ['T-1', 'T-2'], goal_id: 'G-1' }));
+    const cmp = createComponent();
+
+    cmp.startDemoExample({
+      id: 'repo-analysis',
+      title: 'Repository verstehen',
+      goal: 'Analysiere ein Repository',
+      outcome: 'Plan',
+      tasks: ['Lesen'],
+      starter_context: 'Demo-Kontext',
+    });
+
+    expect(hubApiMock.planGoal).toHaveBeenCalledWith('http://hub:5000', {
+      goal: 'Analysiere ein Repository',
+      context: 'Demo-Kontext',
+      create_tasks: true,
+    });
+    expect(cmp.quickGoalResult?.tasks_created).toBe(2);
+    expect(cmp.showFirstStartWizard).toBe(false);
+  });
+
+  it('marks first-start wizard as complete before opening demo preview', () => {
+    const cmp = createComponent();
+    cmp.loadDemoPreview = vi.fn();
+
+    cmp.chooseFirstStart('demo');
+
+    expect(cmp.showFirstStartWizard).toBe(false);
+    expect(cmp.loadDemoPreview).toHaveBeenCalled();
   });
 
   it('derives active inference runtime tile data from telemetry', () => {

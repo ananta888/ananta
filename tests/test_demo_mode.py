@@ -13,6 +13,7 @@ def test_demo_mode_preview_is_read_only_and_use_case_oriented():
         "compose-diagnosis",
     }
     assert all(example["goal"] and example["tasks"] for example in preview["examples"])
+    assert all(example["starter_context"] for example in preview["examples"])
 
 
 def test_demo_preview_route_requires_auth_and_returns_isolated_preview(client, auth_header):
