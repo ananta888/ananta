@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.0.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T13:38:00Z",
+  "updated": "2026-04-19T13:42:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -27,7 +27,7 @@
           "priority": "critical",
           "type": "release-strategy",
           "principle": "Reproducibility, Single-Source-of-Truth",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "pyproject.toml",
@@ -58,7 +58,7 @@
           "priority": "high",
           "type": "dependency-hygiene",
           "principle": "Least-Privilege, Smaller-Runtime-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "pyproject.toml",
@@ -125,7 +125,7 @@
           "priority": "critical",
           "type": "frontend-locking",
           "principle": "Deterministic-Frontend-Builds",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/package.json",
@@ -420,9 +420,9 @@
   "meta": {
     "total_items": 12,
     "by_status": {
-      "completed": 0,
+      "completed": 3,
       "partial": 0,
-      "open": 12
+      "open": 9
     },
     "notes": [
       "P0-nahe Arbeit beginnt mit Frontend npm ci und der Python-Lockstrategie, weil diese Aenderungen die spaeteren Docker- und CI-Pfade bestimmen.",

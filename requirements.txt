@@ -1,5 +1,6 @@
-# Single Source of Truth for dependencies is pyproject.toml
-# This file is maintained for compatibility and Docker builds.
+# Runtime dependencies for local compatibility and container builds.
+# pyproject.toml remains the developer metadata source.
+# Release builds must use the locked release artifact once requirements.lock exists.
 
 flask
 requests
@@ -40,11 +41,3 @@ pypdf
 python-docx
 openpyxl
 python-pptx
-
-# Dev dependencies (mirrors pyproject.toml [project.optional-dependencies] dev)
-pytest
-pytest-cov
-httpx
-flake8
-mypy
-ruff

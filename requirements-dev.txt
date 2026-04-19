@@ -1,0 +1,9 @@
+# Dev and CI dependencies.
+# Mirrors pyproject.toml [project.optional-dependencies] dev.
+
+pytest
+pytest-cov
+httpx
+flake8
+mypy
+ruff
