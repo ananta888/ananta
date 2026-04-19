@@ -167,3 +167,32 @@ def test_evolution_service_auto_trigger_decision_is_policy_gated():
     assert disabled.reasons == ["auto_triggers_disabled"]
     assert allowed.allowed is True
     assert allowed.trigger.trigger_type == EvolutionTriggerType.VERIFICATION_FAILURE
+
+
+def test_evolution_auto_trigger_handles_missing_status_as_no_match():
+    service = EvolutionService(registry=EvolutionProviderRegistry(), audit_fn=lambda *_args: None)
+
+    decision = service.evaluate_auto_trigger({}, config={"evolution": {"auto_triggers_enabled": True}})
+
+    assert decision.allowed is False
+    assert decision.reasons == ["no_matching_trigger_condition"]
+    assert decision.details == {"task_status": "", "verification_status": None}
+
+
+def test_evolution_service_propagates_provider_failures_with_failed_audit():
+    class FailingEngine(SimpleEngine):
+        def analyze(self, context: EvolutionContext) -> EvolutionResult:
+            raise RuntimeError("provider down")
+
+    registry = EvolutionProviderRegistry()
+    registry.register(FailingEngine("unstable"), default=True)
+    audits: list[tuple[str, dict]] = []
+    service = EvolutionService(registry=registry, audit_fn=lambda action, details: audits.append((action, details)))
+
+    with pytest.raises(RuntimeError, match="provider down"):
+        service.analyze(EvolutionContext(objective="Improve failure handling", task_id="T-fail"))
+
+    assert [item[0] for item in audits] == ["evolution_analysis_requested", "evolution_analysis_failed"]
+    assert audits[-1][1]["provider_name"] == "unstable"
+    assert audits[-1][1]["task_id"] == "T-fail"
+    assert audits[-1][1]["error_type"] == "RuntimeError"

@@ -121,7 +121,7 @@
           "priority": "medium",
           "type": "test-unit",
           "principle": "Durable-State-Transitions, Safer-Progress-Tracking",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -146,7 +146,7 @@
           "priority": "critical",
           "type": "test-integration",
           "principle": "Core-Flow-Confidence, Realistic-Backend-Wiring",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/",
@@ -166,7 +166,7 @@
           "priority": "critical",
           "type": "test-integration",
           "principle": "Failure-Path-Confidence, Safer-Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -186,7 +186,7 @@
           "priority": "critical",
           "type": "test-integration",
           "principle": "Real-Enforcement-Validation, No-Policy-Illusions",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -205,7 +205,7 @@
           "priority": "high",
           "type": "test-integration",
           "principle": "Stable-Contracts, Frontend-Safe-Backend-Changes",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -224,7 +224,7 @@
           "priority": "medium",
           "type": "test-integration",
           "principle": "Distributed-Flow-Confidence, Safer-Routing",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -830,9 +830,9 @@
   "meta": {
     "total_items": 38,
     "by_status": {
-      "completed": 32,
+      "completed": 38,
       "partial": 0,
-      "open": 6
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",

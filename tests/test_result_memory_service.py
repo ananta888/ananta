@@ -1,5 +1,7 @@
-from agent.repository import memory_entry_repo, task_repo, worker_job_repo
+from agent.repository import memory_entry_repo, task_repo, verification_record_repo, worker_job_repo
 from agent.db_models import TaskDB, WorkerJobDB
+from agent.services.result_memory_service import ResultMemoryService, normalize_result_memory_policy
+from agent.services.verification_service import get_verification_service
 
 
 def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
@@ -50,7 +52,7 @@ def test_complete_task_persists_result_memory_entry(client, admin_auth_header):
     assert "completed" in entry.retrieval_tags
     assert entry.artifact_refs[0]["kind"] == "task_output"
     assert (entry.memory_metadata or {}).get("compacted_summary") is not None
-    assert (entry.memory_metadata or {}).get("memory_format") == "worker_result_compact_v2"
+    assert (entry.memory_metadata or {}).get("memory_format") == "worker_result_compact_v3"
     assert isinstance(((entry.memory_metadata or {}).get("structured_summary") or {}).get("focus_terms"), list)
     assert isinstance((entry.memory_metadata or {}).get("retrieval_document"), str)
     assert isinstance((entry.memory_metadata or {}).get("bullet_points"), list)
@@ -85,3 +87,69 @@ def test_goal_detail_exposes_memory_entries(client, admin_auth_header, monkeypat
     assert payload["artifacts"]["memory_entries"]
     assert payload["memory"]
     assert payload["memory"][0]["summary"].startswith("Release notes ready")
+
+
+def test_result_memory_policy_clamps_invalid_values_and_can_disable_followup_artifact():
+    policy = normalize_result_memory_policy(
+        {
+            "enabled": True,
+            "create_followup_artifact": False,
+            "retrieval_document_max_chars": 1,
+            "raw_history_max_chars": 9999999,
+        }
+    )
+
+    assert policy["create_followup_artifact"] is False
+    assert policy["retrieval_document_max_chars"] == 400
+    assert policy["raw_history_max_chars"] == 100000
+
+
+def test_result_memory_handles_missing_optional_fields_without_silent_inconsistency():
+    entry = ResultMemoryService().record_worker_result_memory(
+        task_id=None,
+        goal_id=None,
+        trace_id=None,
+        worker_job_id=None,
+        title=None,
+        output="",
+        artifact_refs=None,
+        retrieval_tags=None,
+        metadata=None,
+        policy={"create_followup_artifact": False},
+    )
+
+    saved = memory_entry_repo.get_by_id(entry.id)
+    assert saved is not None
+    assert saved.task_id is None
+    assert saved.summary is None
+    assert saved.artifact_refs == []
+    assert saved.retrieval_tags == []
+    assert (saved.memory_metadata or {}).get("followup_artifact") is None
+    assert (saved.memory_metadata or {}).get("memory_format") == "worker_result_compact_v3"
+
+
+def test_verification_missing_task_returns_none_and_duplicate_failures_update_single_record():
+    service = get_verification_service()
+    assert service.create_or_update_record("missing-task", trace_id="trace-missing", output="", exit_code=0) is None
+
+    task_repo.save(TaskDB(id="memory-verify-dup", title="Verify duplicate", status="assigned", task_kind="coding"))
+    first = service.create_or_update_record(
+        "memory-verify-dup",
+        trace_id="trace-dup",
+        output="no evidence",
+        exit_code=1,
+        gate_results={"passed": False},
+    )
+    second = service.create_or_update_record(
+        "memory-verify-dup",
+        trace_id="trace-dup",
+        output="still no evidence",
+        exit_code=1,
+        gate_results={"passed": False},
+    )
+
+    stored = verification_record_repo.get_by_task_id("memory-verify-dup")
+    assert first is not None and second is not None
+    assert first.id == second.id
+    assert len(stored) == 1
+    assert stored[0].retry_count == 2
