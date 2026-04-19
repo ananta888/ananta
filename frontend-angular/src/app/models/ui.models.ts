@@ -4,12 +4,5 @@ export interface UiAsyncState {
   empty: boolean;
 }
 
-export interface DashboardReadModel {
-  teams?: { count?: number; items?: any[] };
-  roles?: { count?: number; items?: any[] };
-  templates?: { count?: number; items?: any[] };
-  agents?: { count?: number; items?: any[] };
-  tasks?: { counts?: Record<string, number>; recent?: any[] };
-  benchmarks?: { task_kind?: string | null; updated_at?: number | null; items?: any[] };
-  context_timestamp?: number;
-}
+// Re-export: DashboardReadModel lebt jetzt vollständig in dashboard.models.ts.
+export type { DashboardReadModel } from './dashboard.models';

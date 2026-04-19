@@ -1,6 +1,7 @@
 import { of, throwError } from 'rxjs';
 
 import { DashboardComponent } from './dashboard.component.ts';
+import { DashboardFacade } from './dashboard.facade.ts';
 
 describe('DashboardComponent (benchmarks)', () => {
   const hubApiMock = {
@@ -22,26 +23,52 @@ describe('DashboardComponent (benchmarks)', () => {
     disconnectTaskCollection: vi.fn(),
   };
 
+  function createFacade(): DashboardFacade {
+    const facade = Object.create(DashboardFacade.prototype) as DashboardFacade & {
+      hubApi: any;
+      taskFacade: any;
+      ns: any;
+    };
+    facade.viewState = { loading: true, error: null, empty: false };
+    facade.stats = null;
+    facade.systemHealth = null;
+    facade.contracts = null;
+    facade.history = [];
+    facade.agents = [];
+    facade.teams = [];
+    facade.activeTeam = null;
+    facade.roles = [];
+    facade.benchmarkData = [];
+    facade.benchmarkUpdatedAt = null;
+    facade.benchmarkRecommendation = null;
+    facade.llmDefaults = null;
+    facade.llmExplicitOverride = null;
+    facade.llmEffectiveRuntime = null;
+    facade.hubCopilotStatus = null;
+    facade.contextPolicyStatus = null;
+    facade.artifactFlowStatus = null;
+    facade.researchBackendStatus = null;
+    facade.runtimeTelemetry = null;
+    facade.taskTimeline = [];
+    facade.benchmarkTaskKind = 'analysis';
+    (facade as any).readModelInFlight = false;
+    facade.hubApi = hubApiMock;
+    facade.taskFacade = hubApiMock;
+    facade.ns = { error: vi.fn() };
+    return facade;
+  }
+
   function createComponent(): DashboardComponent {
-    const cmp = Object.create(DashboardComponent.prototype) as DashboardComponent & { hubApi: any; liveState: any };
+    const cmp = Object.create(DashboardComponent.prototype) as DashboardComponent & {
+      hubApi: any;
+      liveState: any;
+      facade: DashboardFacade;
+      taskFacade: any;
+      ns: any;
+    };
+    cmp.facade = createFacade();
     cmp.hub = { name: 'hub', url: 'http://hub:5000', role: 'hub' } as any;
     cmp.benchmarkTaskKind = 'analysis';
-    cmp.benchmarkData = [];
-    cmp.benchmarkUpdatedAt = null;
-    cmp.benchmarkRecommendation = null;
-    cmp.llmDefaults = null;
-    cmp.llmExplicitOverride = null;
-    cmp.llmEffectiveRuntime = null;
-    cmp.hubCopilotStatus = null;
-    cmp.contextPolicyStatus = null;
-    cmp.artifactFlowStatus = null;
-    cmp.researchBackendStatus = null;
-    cmp.runtimeTelemetry = null;
-    cmp.goalsList = [];
-    cmp.selectedGoalId = '';
-    cmp.goalDetail = null;
-    cmp.goalGovernance = null;
-    cmp.goalReportingLoading = false;
     cmp.hubApi = hubApiMock;
     cmp.liveState = { ensureSystemEvents: vi.fn(), systemStreamConnected: () => false, lastSystemEvent: () => null };
     cmp.taskFacade = hubApiMock;
@@ -142,7 +169,7 @@ describe('DashboardComponent (benchmarks)', () => {
       { id: 'T-1', status: 'todo', updated_at: 1739790000 },
     ]);
     cmp.benchmarkTaskKind = 'coding';
-    cmp.refresh();
+    cmp.facade.refresh('http://hub:5000', 'coding');
 
     expect(hubApiMock.getDashboardReadModel).toHaveBeenCalledWith('http://hub:5000', { benchmarkTaskKind: 'coding' });
     expect(cmp.benchmarkTaskKind).toBe('coding');

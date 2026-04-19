@@ -4,6 +4,7 @@ import { Observable, from, throwError, BehaviorSubject } from 'rxjs';
 import { switchMap, catchError, filter, take } from 'rxjs/operators';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
+import { AuthTarget, resolveAuthTarget } from './auth-target.resolver';
 import { generateJWT } from '../utils/jwt';
 
 @Injectable()
@@ -12,64 +13,70 @@ export class AuthInterceptor implements HttpInterceptor {
   private userAuth = inject(UserAuthService);
 
   private isRefreshing = false;
-  private refreshTokenSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
+  private refreshTokenSubject: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
 
-  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    // Falls bereits ein Authorization Header gesetzt ist, nichts tun
+  intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     if (req.headers.has('Authorization')) {
       return next.handle(req);
     }
 
-    const agents = this.dir.list();
-    // Finde den Agenten, dessen URL der Anfang der Request-URL ist
-    const agent = agents.find(a => req.url.startsWith(a.url));
+    const target = resolveAuthTarget({
+      agents: this.dir.list(),
+      userToken: this.userAuth.token || null,
+      requestUrl: req.url,
+    });
 
-    let request = req;
+    return this.dispatchByTarget(req, next, target);
+  }
 
-    if (agent) {
-      // Priorität 1: User-JWT für den Hub
-      if (agent.role === 'hub' && this.userAuth.token) {
-        request = req.clone({
-          setHeaders: {
-            Authorization: `Bearer ${this.userAuth.token}`
-          }
-        });
+  private dispatchByTarget(
+    req: HttpRequest<unknown>,
+    next: HttpHandler,
+    target: AuthTarget,
+  ): Observable<HttpEvent<unknown>> {
+    switch (target.kind) {
+      case 'hub_user_bearer':
+      case 'user_bearer_fallback_on_worker': {
+        const authReq = this.addTokenHeader(req, target.userToken!);
+        return this.withRefreshOn401(authReq, next);
       }
-      // Priorität 2: Agent-JWT (Shared Secret) für Worker oder Hub (falls kein User-JWT)
-      else if (agent.token) {
-        return from(generateJWT({ sub: 'frontend', iat: Math.floor(Date.now()/1000) }, agent.token)).pipe(
-          switchMap(jwt => {
-            const authReq = req.clone({
-              setHeaders: {
-                Authorization: `Bearer ${jwt}`
-              }
-            });
-            return next.handle(authReq);
-          })
+      case 'agent_jwt_shared_secret': {
+        return from(
+          generateJWT(
+            { sub: 'frontend', iat: Math.floor(Date.now() / 1000) },
+            target.agentSharedSecret!,
+          ),
+        ).pipe(
+          switchMap(jwt => next.handle(this.addTokenHeader(req, jwt))),
         );
       }
-      // Priorität 3: Fallback auf User-JWT, wenn fuer Worker kein Agent-Token hinterlegt ist.
-      // Vermeidet 401->refresh->retry bei read-only Worker-Requests (z.B. /config).
-      else if (this.userAuth.token) {
-        request = req.clone({
-          setHeaders: {
-            Authorization: `Bearer ${this.userAuth.token}`
-          }
-        });
-      }
+      case 'passthrough_unknown_target':
+      case 'passthrough_no_credentials':
+      default:
+        return this.withRefreshOn401(req, next);
     }
+  }
 
+  private withRefreshOn401(
+    request: HttpRequest<unknown>,
+    next: HttpHandler,
+  ): Observable<HttpEvent<unknown>> {
     return next.handle(request).pipe(
       catchError(error => {
-        if (error instanceof HttpErrorResponse && error.status === 401 && !req.url.includes('/auth/refresh-token') && !req.url.includes('/login')) {
+        if (
+          error instanceof HttpErrorResponse &&
+          error.status === 401 &&
+          !request.url.includes('/auth/refresh-token') &&
+          !request.url.includes('/login')
+        ) {
           return this.handle401Error(request, next);
         }
         return throwError(() => error);
-      })
+      }),
     );
   }
 
-  private handle401Error(request: HttpRequest<any>, next: HttpHandler) {
+  private handle401Error(request: HttpRequest<unknown>, next: HttpHandler) {
     if (!this.isRefreshing) {
       this.isRefreshing = true;
       this.refreshTokenSubject.next(null);
@@ -84,22 +91,22 @@ export class AuthInterceptor implements HttpInterceptor {
           this.isRefreshing = false;
           this.userAuth.logout();
           return throwError(() => err);
-        })
+        }),
       );
     }
 
     return this.refreshTokenSubject.pipe(
-      filter(token => token !== null),
+      filter((token): token is string => token !== null),
       take(1),
-      switchMap((token) => next.handle(this.addTokenHeader(request, token)))
+      switchMap(token => next.handle(this.addTokenHeader(request, token))),
     );
   }
 
-  private addTokenHeader(request: HttpRequest<any>, token: string) {
+  private addTokenHeader(request: HttpRequest<unknown>, token: string): HttpRequest<unknown> {
     return request.clone({
       setHeaders: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
   }
 }
