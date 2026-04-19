@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.5",
   "created": "2026-04-19",
-  "updated": "2026-04-19T11:42:00Z",
+  "updated": "2026-04-19T13:20:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -456,7 +456,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Actionable-Results, Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -476,7 +476,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Human-Readable-System-Decisions, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -496,7 +496,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Safety-UX, Semantic-Notices",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -526,7 +526,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Prove-the-Baukasten, Practical-Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -553,7 +553,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Granular-Reuse, Anti-Duplication",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard-*.component.ts",
@@ -690,9 +690,9 @@
   "meta": {
     "total_items": 29,
     "by_status": {
-      "completed": 19,
+      "completed": 24,
       "partial": 0,
-      "open": 10
+      "open": 5
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",

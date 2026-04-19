@@ -6,14 +6,14 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { LoadingStateComponent, StatusBadgeComponent, StatusTone } from '../shared/ui/state';
-import { MetricCardComponent } from '../shared/ui/display';
+import { ExplanationNoticeComponent, MetricCardComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
 import { SectionCardComponent } from '../shared/ui/layout';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
   selector: 'app-goal-detail',
-  imports: [CommonModule, RouterLink, LoadingStateComponent, StatusBadgeComponent, MetricCardComponent, SectionCardComponent],
+  imports: [CommonModule, RouterLink, LoadingStateComponent, StatusBadgeComponent, MetricCardComponent, SectionCardComponent, ExplanationNoticeComponent, NextStepsComponent, SafetyNoticeComponent],
   template: `
     <div class="container pb-lg">
       @if (loading && !goal) {
@@ -48,14 +48,8 @@ import { interval, Subscription } from 'rxjs';
             <app-metric-card [label]="term('verification').label" [value]="verificationLabel()" [hint]="term('verification').technicalLabel"></app-metric-card>
           </div>
           <div class="grid cols-2 gap-sm mt-md">
-            <div class="state-banner">
-              <strong>Warum wird geprueft?</strong>
-              <p class="muted no-margin mt-sm">{{ decisionExplanation('verification') }}</p>
-            </div>
-            <div class="state-banner" [class.warning]="failedTasks() > 0 || openTasks() > 0">
-              <strong>Sicherheitsgrenze</strong>
-              <p class="muted no-margin mt-sm">{{ resultSafetyExplanation() }}</p>
-            </div>
+            <app-explanation-notice title="Warum wird geprueft?" [message]="decisionExplanation('verification')"></app-explanation-notice>
+            <app-safety-notice [message]="resultSafetyExplanation()" [tone]="failedTasks() > 0 || openTasks() > 0 ? 'warning' : 'success'"></app-safety-notice>
           </div>
           @if (isHintVisible('goal-result')) {
             <div class="state-banner mt-md inline-help">
@@ -64,16 +58,11 @@ import { interval, Subscription } from 'rxjs';
             </div>
           }
           @if (headlineArtifact()) {
-            <div class="state-banner mt-md">
-              <strong>{{ headlineArtifact()?.title || 'Wichtigstes Ergebnis' }}</strong>
-              <p class="muted no-margin mt-sm">{{ headlineArtifact()?.preview }}</p>
-            </div>
+            <app-explanation-notice class="block mt-md" [title]="headlineArtifact()?.title || 'Wichtigstes Ergebnis'" [message]="headlineArtifact()?.preview || ''" tone="success"></app-explanation-notice>
           } @else if (!artifacts.length) {
-            <div class="state-banner warning mt-md">
-              <strong>Noch kein Ergebnisartefakt vorhanden.</strong>
-              <p class="muted no-margin mt-sm">Pruefe die offenen Tasks oder starte die Ausfuehrung, damit ein sichtbares Ergebnis entsteht.</p>
-            </div>
+            <app-safety-notice class="block mt-md" title="Noch kein Ergebnisartefakt vorhanden." message="Pruefe die offenen Tasks oder starte die Ausfuehrung, damit ein sichtbares Ergebnis entsteht."></app-safety-notice>
           }
+          <app-next-steps class="block mt-md" [steps]="goalNextSteps()" (selectStep)="handleGoalNextStep($event)"></app-next-steps>
         </app-section-card>
 
         <div class="grid cols-3 gap-md mt-md">
@@ -335,6 +324,32 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
     if (this.openTasks() > 0) return 'Noch sind nicht alle Aufgaben fertig. Ergebnisse koennen sich aendern, bis offene Tasks abgeschlossen oder bewusst verworfen sind.';
     if (this.verificationLabel() === 'offen') return safetyBoundaryExplanation('verification');
     return 'Die sichtbaren Ergebnisse haben die bekannten Pruefschritte durchlaufen oder enthalten keine offenen Warnungen.';
+  }
+
+  goalNextSteps(): NextStepAction[] {
+    return [
+      {
+        id: 'board',
+        label: this.openTasks() > 0 ? 'Offene Aufgaben pruefen' : 'Board oeffnen',
+        description: 'Status, Blocker und naechste Ausfuehrungsschritte ansehen.',
+        routerLink: ['/board'],
+      },
+      {
+        id: 'artifacts',
+        label: this.artifacts.length ? 'Ergebnisse ansehen' : 'Ergebnisablage oeffnen',
+        description: 'Artefakte, Dokumente und Wissenslinks pruefen.',
+        routerLink: ['/artifacts'],
+      },
+      {
+        id: 'refresh',
+        label: 'Goal aktualisieren',
+        description: 'Aktuelle Governance-, Task- und Ergebnisdaten neu laden.',
+      },
+    ];
+  }
+
+  handleGoalNextStep(step: NextStepAction): void {
+    if (step.id === 'refresh') this.refresh();
   }
 
   goalStatusTone(): StatusTone {

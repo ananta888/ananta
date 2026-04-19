@@ -766,6 +766,66 @@ body.dark-mode .progress-bar {
   justify-content: flex-end;
 }
 
+.shared-next-steps {
+  display: grid;
+  gap: 12px;
+}
+
+.shared-next-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.shared-next-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--fg);
+  text-align: left;
+}
+
+.shared-next-step span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shared-next-step.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.shared-notice {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--card-bg);
+}
+
+.shared-notice.notice-success {
+  border-color: #34d399;
+  background: #f0fdf4;
+}
+
+.shared-notice.notice-warning {
+  border-color: #f59e0b;
+  background: var(--warning-bg);
+}
+
+.shared-notice.notice-error {
+  border-color: #ef4444;
+  background: var(--danger-bg);
+}
+
+.shared-notice.notice-info {
+  border-color: var(--accent);
+}
+
 .shared-metric-card {
   display: grid;
   gap: 4px;

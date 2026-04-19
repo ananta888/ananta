@@ -32,7 +32,7 @@ import {
   TeamEntry,
   TimelineEvent,
 } from '../models/dashboard.models';
-import { KeyValueItem } from '../shared/ui/display';
+import { KeyValueItem, NextStepAction } from '../shared/ui/display';
 import { StatusTone } from '../shared/ui/state';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
@@ -44,7 +44,7 @@ import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.co
 import { DashboardFacade } from './dashboard.facade';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent, StatusBadgeComponent } from '../shared/ui/state';
-import { KeyValueGridComponent, MetricCardComponent } from '../shared/ui/display';
+import { ExplanationNoticeComponent, KeyValueGridComponent, MetricCardComponent, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
 import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOption, PresetPickerComponent, WizardShellComponent } from '../shared/ui/forms';
 
@@ -66,6 +66,9 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
     StatusBadgeComponent,
     MetricCardComponent,
     KeyValueGridComponent,
+    ExplanationNoticeComponent,
+    NextStepsComponent,
+    SafetyNoticeComponent,
     SectionCardComponent,
     PageIntroComponent,
     ActionCardComponent,
@@ -173,13 +176,9 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
       </app-section-card>
 
       @if (isHintVisible('dashboard-start')) {
-        <div class="state-banner mb-md inline-help">
-          <div>
-            <strong>Kurzer Tipp</strong>
-            <p class="muted no-margin mt-sm">Beginne mit einem Ziel. Details wie Team, Worker oder Policies kannst du spaeter verfeinern.</p>
-          </div>
+        <app-explanation-notice class="block mb-md inline-help" title="Kurzer Tipp" message="Beginne mit einem Ziel. Details wie Team, Worker oder Policies kannst du spaeter verfeinern.">
           <button class="secondary btn-small" type="button" (click)="dismissHint('dashboard-start')">Ausblenden</button>
-        </div>
+        </app-explanation-notice>
       }
 
       <div class="start-actions mb-md">
@@ -235,10 +234,9 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
         <h3 class="no-margin">Ziel planen</h3>
         <p class="muted font-sm mt-sm">Starte einfach mit einem Ziel. Gefuehrte Modi bleiben fuer strukturierte Faelle verfuegbar.</p>
         @if (isHintVisible('quick-goal')) {
-          <div class="state-banner mt-sm inline-help">
-            <p class="muted no-margin">Ein gutes Ziel beschreibt Ergebnis und Grenze, zum Beispiel: "Analysiere nur das Frontend und schlage drei naechste Schritte vor."</p>
+          <app-explanation-notice class="block mt-sm inline-help" message='Ein gutes Ziel beschreibt Ergebnis und Grenze, zum Beispiel: "Analysiere nur das Frontend und schlage drei naechste Schritte vor."'>
             <button class="secondary btn-small" type="button" (click)="dismissHint('quick-goal')">Ausblenden</button>
-          </div>
+          </app-explanation-notice>
         }
 
         <app-preset-picker
@@ -270,6 +268,7 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
           <button class="secondary" [routerLink]="['/auto-planner']" aria-label="Zur Auto-Planner Konfiguration navigieren">Mehr Optionen</button>
         </div>
         @if (quickGoalResult) {
+          <app-safety-notice class="block mt-sm" title="Goal wurde geplant" [message]="quickGoalResult.tasks_created + ' Tasks erstellt.'" tone="success"></app-safety-notice>
           <div class="card-success mt-sm">
             <div class="row space-between">
               <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
@@ -286,6 +285,7 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
               </div>
             }
           </div>
+          <app-next-steps class="block mt-sm" [steps]="quickGoalNextSteps()" (selectStep)="handleQuickGoalNextStep($event)"></app-next-steps>
         }
 
         <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
@@ -359,12 +359,7 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
                   }
                 </div>
               } @else {
-                <div class="state-banner">
-                  <strong>Bereit zum Planen</strong>
-                  <p class="muted no-margin mt-sm">
-                    Der Hub erstellt daraus planbare Tasks. Worker fuehren die delegierten Schritte aus; Pruefungen und Freigaben bleiben sichtbar.
-                  </p>
-                </div>
+                <app-explanation-notice title="Bereit zum Planen" message="Der Hub erstellt daraus planbare Tasks. Worker fuehren die delegierten Schritte aus; Pruefungen und Freigaben bleiben sichtbar."></app-explanation-notice>
                 <div class="grid cols-2 gap-sm mt-sm">
                   <div class="card card-light">
                     <div class="muted font-sm">Ausfuehrung</div>
@@ -1137,6 +1132,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   applyGoalPresetById(id: string): void {
     const preset = this.goalPresets().find(item => item.id === id);
     if (preset) this.applyGoalPreset(preset);
+  }
+
+  quickGoalNextSteps(): NextStepAction[] {
+    return [
+      {
+        id: 'goal',
+        label: 'Goal Detail oeffnen',
+        description: 'Plan, Governance und Ergebnisstatus pruefen.',
+        disabled: !this.quickGoalResult?.goal_id,
+      },
+      {
+        id: 'board',
+        label: 'Board oeffnen',
+        description: 'Erzeugte Tasks verfolgen und naechste Arbeit starten.',
+        routerLink: ['/board'],
+      },
+      {
+        id: 'artifacts',
+        label: 'Ergebnisse ansehen',
+        description: 'Artefakte und spaetere Resultate pruefen.',
+        routerLink: ['/artifacts'],
+      },
+    ];
+  }
+
+  handleQuickGoalNextStep(step: NextStepAction): void {
+    if (step.id === 'goal' && this.quickGoalResult?.goal_id) this.goToGoal(this.quickGoalResult.goal_id);
   }
 
   chooseFirstStart(choice: string): void {

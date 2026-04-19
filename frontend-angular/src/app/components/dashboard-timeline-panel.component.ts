@@ -3,35 +3,34 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AgentEntry, TeamEntry, TimelineEvent } from '../models/dashboard.models';
+import { SafetyNoticeComponent } from '../shared/ui/display';
+import { FormFieldComponent } from '../shared/ui/forms';
+import { SectionCardComponent } from '../shared/ui/layout';
 
 @Component({
   standalone: true,
   selector: 'app-dashboard-timeline-panel',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, FormFieldComponent, SafetyNoticeComponent, SectionCardComponent],
   template: `
-    <div class="card card-light mt-md">
-      <h3 class="no-margin">Live Decision Timeline</h3>
+    <app-section-card class="block mt-md" title="Live Decision Timeline">
       <div class="grid cols-4 mt-sm">
-        <label>
-          Team
+        <app-form-field label="Team">
           <select [ngModel]="teamId" (ngModelChange)="teamIdChange.emit($event); refresh.emit()" aria-label="Timeline Team-Filter">
             <option value="">Alle</option>
             @for (t of teams; track t) {
               <option [value]="t.id">{{ t.name }}</option>
             }
           </select>
-        </label>
-        <label>
-          Agent
+        </app-form-field>
+        <app-form-field label="Agent">
           <select [ngModel]="agent" (ngModelChange)="agentChange.emit($event); refresh.emit()" aria-label="Timeline Agent-Filter">
             <option value="">Alle</option>
             @for (a of agents; track a) {
               <option [value]="a.url">{{ a.name }}</option>
             }
           </select>
-        </label>
-        <label>
-          Status
+        </app-form-field>
+        <app-form-field label="Status">
           <select [ngModel]="status" (ngModelChange)="statusChange.emit($event); refresh.emit()" aria-label="Timeline Status-Filter">
             <option value="">Alle</option>
             <option value="todo">todo</option>
@@ -40,11 +39,11 @@ import { AgentEntry, TeamEntry, TimelineEvent } from '../models/dashboard.models
             <option value="failed">failed</option>
             <option value="blocked">blocked</option>
           </select>
-        </label>
-        <label class="row gap-sm flex-end">
+        </app-form-field>
+        <app-form-field label="Filter" [inline]="true">
           <input type="checkbox" [ngModel]="errorOnly" (ngModelChange)="errorOnlyChange.emit($event); refresh.emit()" aria-label="Timeline nur Fehler anzeigen" />
           Nur Fehler
-        </label>
+        </app-form-field>
       </div>
       <div class="muted font-sm mt-sm">Eintraege: {{ items.length }}</div>
       <div class="timeline-container mt-sm">
@@ -68,9 +67,7 @@ import { AgentEntry, TeamEntry, TimelineEvent } from '../models/dashboard.models
               <div class="font-sm mt-sm">Grund: {{ ev.details.reason }}</div>
             }
             @if (isGuardrailEvent(ev)) {
-              <div class="font-sm mt-sm">
-                Blockierte Tools: {{ guardrailBlockedToolsCount(ev) }}
-              </div>
+              <app-safety-notice class="block mt-sm" title="Guardrail Block" [message]="'Blockierte Tools: ' + guardrailBlockedToolsCount(ev)"></app-safety-notice>
             }
             @if (isGuardrailEvent(ev) && guardrailReasonsText(ev)) {
               <div class="muted font-sm mt-sm">
@@ -86,7 +83,7 @@ import { AgentEntry, TeamEntry, TimelineEvent } from '../models/dashboard.models
           <div class="list-item muted">Keine Timeline-Eintraege fuer aktuellen Filter.</div>
         }
       </div>
-    </div>
+    </app-section-card>
   `,
 })
 export class DashboardTimelinePanelComponent {
