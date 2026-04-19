@@ -457,6 +457,7 @@ def check_image_builds() -> CheckResult:
     commands = [
         ["docker", "build", "-t", "ananta-backend:release-gate", "."],
         ["docker", "build", "-t", "ananta-frontend:release-gate", "frontend-angular"],
+        ["docker", "build", "-f", "Dockerfile.ollama-wsl-amd", "-t", "ollama-wsl-amd:release-gate", "."],
     ]
     failures = []
     for command in commands:
@@ -474,7 +475,7 @@ def check_image_builds() -> CheckResult:
     return CheckResult(
         "image-builds",
         not failures,
-        "backend and frontend release images build successfully" if not failures else "; ".join(failures),
+        "backend, frontend and WSL/Ollama release images build successfully" if not failures else "; ".join(failures),
     )
 
 
