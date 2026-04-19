@@ -1,19 +1,22 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
+import { AssistantReadModel, DashboardReadModel } from '../models/dashboard.models';
 
 @Injectable({ providedIn: 'root' })
 export class HubConfigApiClient {
   private core = inject(HubApiCoreService);
   getConfig(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/config`, baseUrl, token, true); }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/config`, cfg, baseUrl, token); }
-  getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/assistant/read-model`, baseUrl, token, true); }
+  getAssistantReadModel(baseUrl: string, token?: string): Observable<AssistantReadModel> {
+    return this.core.get<AssistantReadModel>(`${baseUrl}/assistant/read-model`, baseUrl, token, true);
+  }
   getDashboardReadModel(
     baseUrl: string,
     optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number; includeTaskSnapshot?: boolean } | string,
     tokenOrTtlMs?: string | number,
     legacyTtlMs?: number,
-  ): Observable<any> {
+  ): Observable<DashboardReadModel> {
     const options = typeof optionsOrToken === 'string' || optionsOrToken == null ? undefined : optionsOrToken;
     const token = typeof optionsOrToken === 'string' ? optionsOrToken : typeof tokenOrTtlMs === 'string' ? tokenOrTtlMs : undefined;
     const ttlMs = typeof tokenOrTtlMs === 'number' ? tokenOrTtlMs : options?.ttlMs ?? legacyTtlMs ?? 4000;
@@ -26,7 +29,7 @@ export class HubConfigApiClient {
     const url = `${baseUrl}/dashboard/read-model?${q.toString()}`;
     const cached = this.core.cacheGet(baseUrl, cacheKey, ttlMs);
     if (cached) return new Observable((observer) => { observer.next(cached); observer.complete(); });
-    return this.core.get<any>(url, baseUrl, token, true).pipe(
+    return this.core.get<DashboardReadModel>(url, baseUrl, token, true).pipe(
       map((data) => {
         this.core.cacheSet(baseUrl, cacheKey, data);
         return data;

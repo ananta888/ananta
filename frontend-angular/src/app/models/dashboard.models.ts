@@ -235,6 +235,82 @@ export interface DashboardReadModel {
   context_timestamp?: number;
 }
 
+export interface AssistantReadModel {
+  agents?: { count?: number; items?: AgentEntry[] };
+  assistant_capabilities?: {
+    allowed_tools?: string[];
+    is_admin?: boolean;
+    tools?: unknown[];
+  };
+  automation?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+  context_timestamp?: number;
+  roles?: { count?: number; items?: RoleEntry[] };
+  settings?: Record<string, unknown>;
+  teams?: { count?: number; items?: TeamEntry[] };
+  templates?: { count?: number; items?: unknown[] };
+}
+
+export interface TaskOrchestrationReadModel {
+  active_leases?: unknown[];
+  artifact_flow?: {
+    config?: Record<string, unknown>;
+    counts?: Record<string, number>;
+    enabled?: boolean;
+    groups?: { by_assignment?: unknown[]; by_worker?: unknown[] };
+    items?: unknown[];
+  };
+  by_agent?: Record<string, number>;
+  by_source?: Record<string, number>;
+  dispatch_queue?: unknown[];
+  queue?: Record<string, number>;
+  queue_depth?: number;
+  recent_policy_decisions?: unknown[];
+  recent_tasks?: unknown[];
+  ts?: number;
+  worker_execution_reconciliation?: Record<string, unknown>;
+}
+
+export const DASHBOARD_READ_MODEL_CONTRACT_KEYS = [
+  'agents',
+  'benchmarks',
+  'config',
+  'context_timestamp',
+  'contracts',
+  'llm_configuration',
+  'roles',
+  'system_health',
+  'tasks',
+  'teams',
+  'templates',
+] as const satisfies readonly (keyof DashboardReadModel)[];
+
+export const ASSISTANT_READ_MODEL_CONTRACT_KEYS = [
+  'agents',
+  'assistant_capabilities',
+  'automation',
+  'config',
+  'context_timestamp',
+  'roles',
+  'settings',
+  'teams',
+  'templates',
+] as const satisfies readonly (keyof AssistantReadModel)[];
+
+export const TASK_ORCHESTRATION_READ_MODEL_CONTRACT_KEYS = [
+  'active_leases',
+  'artifact_flow',
+  'by_agent',
+  'by_source',
+  'dispatch_queue',
+  'queue',
+  'queue_depth',
+  'recent_policy_decisions',
+  'recent_tasks',
+  'ts',
+  'worker_execution_reconciliation',
+] as const satisfies readonly (keyof TaskOrchestrationReadModel)[];
+
 export interface GoalDetailGoal {
   id: string;
   summary?: string;

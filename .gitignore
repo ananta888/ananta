@@ -125,3 +125,4 @@ __pycache__/
 /test-reports/
 /data/hub/
 /.artifacts/
+/frontend-angular/.nvmrc

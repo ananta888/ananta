@@ -1,11 +1,7 @@
 import { Routes } from '@angular/router';
 
-import { ArtifactsComponent } from '../../components/artifacts.component';
-import { TeamsComponent } from '../../components/teams.component';
-import { TemplatesComponent } from '../../components/templates.component';
-
 export const adminRoutes: Routes = [
-  { path: 'templates', component: TemplatesComponent },
-  { path: 'teams', component: TeamsComponent },
-  { path: 'artifacts', component: ArtifactsComponent },
+  { path: 'templates', loadComponent: () => import('../../components/templates.component').then(m => m.TemplatesComponent) },
+  { path: 'teams', loadComponent: () => import('../../components/teams.component').then(m => m.TeamsComponent) },
+  { path: 'artifacts', loadComponent: () => import('../../components/artifacts.component').then(m => m.ArtifactsComponent) },
 ];

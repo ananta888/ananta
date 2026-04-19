@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
+import { GoalGovernanceSummary, TaskOrchestrationReadModel } from '../models/dashboard.models';
 
 @Injectable({ providedIn: 'root' })
 export class HubTasksApiClient {
@@ -26,7 +27,9 @@ export class HubTasksApiClient {
     return this.core.get(`${baseUrl}/tasks/timeline${query ? `?${query}` : ''}`, baseUrl, token, true);
   }
 
-  getTaskOrchestrationReadModel(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/tasks/orchestration/read-model`, baseUrl, token, true); }
+  getTaskOrchestrationReadModel(baseUrl: string, token?: string): Observable<TaskOrchestrationReadModel> {
+    return this.core.get<TaskOrchestrationReadModel>(`${baseUrl}/tasks/orchestration/read-model`, baseUrl, token, true);
+  }
   ingestOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/ingest`, body, baseUrl, token); }
   claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/claim`, body, baseUrl, token); }
   completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/complete`, body, baseUrl, token); }
@@ -38,8 +41,8 @@ export class HubTasksApiClient {
   patchGoalPlanNode(baseUrl: string, goalId: string, nodeId: string, patch: any, token?: string): Observable<any> {
     return this.core.patch<any>(`${baseUrl}/goals/${goalId}/plan/nodes/${nodeId}`, patch, baseUrl, token);
   }
-  getGoalGovernanceSummary(baseUrl: string, goalId: string, token?: string): Observable<any> {
-    return this.core.get<any>(`${baseUrl}/goals/${goalId}/governance-summary`, baseUrl, token, true);
+  getGoalGovernanceSummary(baseUrl: string, goalId: string, token?: string): Observable<GoalGovernanceSummary> {
+    return this.core.get<GoalGovernanceSummary>(`${baseUrl}/goals/${goalId}/governance-summary`, baseUrl, token, true);
   }
   createGoal(baseUrl: string, body: any, token?: string, timeoutMs = 180000): Observable<any> {
     return this.core.post<any>(`${baseUrl}/goals`, body, baseUrl, token, false, timeoutMs);
