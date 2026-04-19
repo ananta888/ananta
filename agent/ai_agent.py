@@ -35,6 +35,12 @@ _register_request_hooks = register_request_hooks
 _start_background_services = start_background_services
 
 
+def _should_skip_threads_for_reloader() -> bool:
+    from agent.lifecycle import BackgroundServiceManager
+
+    return BackgroundServiceManager(object())._should_skip_for_reloader()
+
+
 def _check_token_rotation(app: Flask) -> None:
     """Backward-compatible token-rotation check used by legacy tests."""
     token_path = str((app.config or {}).get("TOKEN_PATH") or settings.token_path or "").strip()

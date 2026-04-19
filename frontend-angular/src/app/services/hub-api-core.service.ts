@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, map, retry, timeout, timer } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
+import { resolveAgentForUrl } from './auth-target.resolver';
 import { generateJWT } from '../utils/jwt';
 
 @Injectable({ providedIn: 'root' })
@@ -26,7 +27,8 @@ export class HubApiCoreService {
 
   getHeaders(baseUrl: string, token?: string) {
     let headers = new HttpHeaders();
-    const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
+    const agents = this.dir.list();
+    const agent = resolveAgentForUrl(agents, baseUrl);
 
     // Never forward raw per-agent shared secret as bearer token.
     // AuthInterceptor signs worker requests with short-lived JWTs.
@@ -35,8 +37,8 @@ export class HubApiCoreService {
     }
 
     if (!token) {
-      const hub = this.dir.list().find(a => a.role === 'hub');
-      if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
+      const hub = agents.find(a => a.role === 'hub');
+      if (hub && resolveAgentForUrl([hub], baseUrl) && this.userAuth.token) {
         token = this.userAuth.token;
       }
     }
@@ -92,7 +94,7 @@ export class HubApiCoreService {
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> {
     return new Observable(observer => {
       let urlStr = `${baseUrl}/tasks/${id}/stream-logs`;
-      if (!token) token = this.dir.list().find(a => urlStr.startsWith(a.url))?.token;
+      if (!token) token = resolveAgentForUrl(this.dir.list(), urlStr)?.token;
       if (token) urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
       const eventSource = new EventSource(urlStr);
       eventSource.onmessage = (event) => {
@@ -114,12 +116,13 @@ export class HubApiCoreService {
 
       (async () => {
         let resolvedToken = token;
-        const hub = this.dir.list().find(a => a.role === 'hub');
-        const isHubEvents = !!hub && urlStr.startsWith(hub.url);
+        const agents = this.dir.list();
+        const hub = agents.find(a => a.role === 'hub');
+        const isHubEvents = !!hub && !!resolveAgentForUrl([hub], urlStr);
         if (!resolvedToken) {
           if (isHubEvents) resolvedToken = this.userAuth.token || undefined;
           else {
-            const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
+            const agent = resolveAgentForUrl(agents, urlStr);
             if (agent?.token) resolvedToken = await generateJWT({ sub: 'frontend', iat: Math.floor(Date.now() / 1000) }, agent.token);
           }
         }

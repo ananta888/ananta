@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
 import { AgentDirectoryService } from './agent-directory.service';
+import { resolveAgentForUrl } from './auth-target.resolver';
 import { UserAuthService } from './user-auth.service';
 
 /**
@@ -24,7 +25,8 @@ export class AgentApiTransport {
 
   getHeaders(baseUrl: string, token?: string): { headers: HttpHeaders } {
     let headers = new HttpHeaders();
-    const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
+    const agents = this.dir.list();
+    const agent = resolveAgentForUrl(agents, baseUrl);
 
     // Raw Agent-Shared-Secrets werden nie als Bearer-Token gesendet;
     // der AuthInterceptor baut daraus kurzlebige JWTs.
@@ -33,8 +35,8 @@ export class AgentApiTransport {
     }
 
     if (!token) {
-      const hub = this.dir.list().find(a => a.role === 'hub');
-      if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
+      const hub = agents.find(a => a.role === 'hub');
+      if (hub && resolveAgentForUrl([hub], baseUrl) && this.userAuth.token) {
         token = this.userAuth.token;
       }
     }

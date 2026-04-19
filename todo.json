@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.8.3",
   "created": "2026-04-18",
-  "updated": "2026-04-19T00:00:00Z",
+  "updated": "2026-04-19T09:43:19Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -142,7 +142,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Domain-Boundaries, Architectural-Discipline",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -409,7 +409,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Lifecycle-Safety, Robustness",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/ai_agent.py",
@@ -783,7 +783,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transport-Safety, Centralized-Resolution",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/services/auth.interceptor.ts",
@@ -807,7 +807,7 @@
           "priority": "medium",
           "type": "bugfix",
           "principle": "Auth-Robustness, Reduced-Ambiguity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/auth.interceptor.ts",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 33,
+      "completed": 37,
       "partial": 0,
-      "open": 4
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",

@@ -38,7 +38,7 @@ export class AuthInterceptor implements HttpInterceptor {
       case 'hub_user_bearer':
       case 'user_bearer_fallback_on_worker': {
         const authReq = this.addTokenHeader(req, target.userToken!);
-        return this.withRefreshOn401(authReq, next);
+        return this.withRefreshPolicy(authReq, next, target);
       }
       case 'agent_jwt_shared_secret': {
         return from(
@@ -53,17 +53,19 @@ export class AuthInterceptor implements HttpInterceptor {
       case 'passthrough_unknown_target':
       case 'passthrough_no_credentials':
       default:
-        return this.withRefreshOn401(req, next);
+        return this.withRefreshPolicy(req, next, target);
     }
   }
 
-  private withRefreshOn401(
+  private withRefreshPolicy(
     request: HttpRequest<unknown>,
     next: HttpHandler,
+    target: AuthTarget,
   ): Observable<HttpEvent<unknown>> {
     return next.handle(request).pipe(
       catchError(error => {
         if (
+          target.refreshOnUnauthorized &&
           error instanceof HttpErrorResponse &&
           error.status === 401 &&
           !request.url.includes('/auth/refresh-token') &&
