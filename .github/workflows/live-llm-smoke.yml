@@ -41,7 +41,7 @@ jobs:
       LIVE_LLM_RETRY_ATTEMPTS: "1"
       LIVE_LLM_MAX_OUTPUT_TOKENS: "16"
       LIVE_LLM_ALLOW_PROVIDER_SKIP: "1"
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAIANANTA }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
