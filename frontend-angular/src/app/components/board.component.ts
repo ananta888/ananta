@@ -47,10 +47,14 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
         </div>
         @if (!loading && tasks.length === 0) {
           <div class="card empty-state mb-lg">
-            <h3 class="no-margin">Noch keine Tasks vorhanden</h3>
+            <h3 class="no-margin">Noch keine Aufgaben im Board</h3>
             <p class="muted no-margin">
-              Erstellen Sie Ihren ersten Task mit dem Formular oben.
+              Lege oben eine einzelne Aufgabe an oder starte auf dem Dashboard mit einem Ziel, damit Ananta daraus passende Tasks ableitet.
             </p>
+            <div class="row gap-sm flex-center mt-sm">
+              <button class="primary" [routerLink]="['/dashboard']">Ziel planen</button>
+              <button class="secondary" (click)="newTitle = 'Repository analysieren und naechste Schritte vorschlagen'">Beispiel einsetzen</button>
+            </div>
           </div>
         }
         @if (loading) {
@@ -129,7 +133,10 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
               </div>
             }
             @if (getRoadmapTasks().length === 0) {
-              <div class="muted">Keine Roadmap-Tasks gefunden.</div>
+              <div class="empty-state compact">
+                <strong>Keine Roadmap-Aufgaben gefunden.</strong>
+                <p class="muted no-margin mt-sm">Sobald Tasks mit To-Do-Status oder Roadmap-Bezug vorhanden sind, erscheinen sie hier.</p>
+              </div>
             }
           </div>
         </div>

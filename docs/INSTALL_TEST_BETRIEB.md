@@ -2,21 +2,40 @@
 
 Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Betrieb des Ananta Multi-Agent-Systems.
 
-## 1. Installation
+## 1. Schnellstart
+
+Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
 
 ### Voraussetzungen
-- **Docker & Docker Compose**: Empfohlen für den schnellsten Start (inkl. Postgres).
-- **Postgres 16**: Wird für die zentrale Datenspeicherung im Hub-Modus verwendet.
-- **Python 3.11+**: Für die manuelle Installation des Agents.
-- **Node.js 18+ & npm**: Für die manuelle Installation des Frontends.
+- **Docker & Docker Compose**: Empfohlen fuer den schnellsten Start.
+- **Python 3.11+**: Fuer lokale Tools, Tests und manuelle Agent-Starts.
+- **Node.js 20.19+ & npm**: Fuer die manuelle Frontend-Entwicklung.
+- **Postgres 16**: Nur noetig, wenn nicht der Compose-Stack genutzt wird.
 
 ### A. Schnellstart mit Docker (Empfohlen)
-1. Repository klonen oder Dateien kopieren.
-2. Kopieren Sie die `.env.example` nach `.env` und passen Sie diese an (insbesondere für Windows/Git Bash).
-3. Im Hauptverzeichnis ausführen:
-   ```bash
-   docker-compose up -d
+1. Automatisches Setup ausfuehren:
+   ```powershell
+   .\setup.ps1
    ```
+   Alternativ `.env.example` nach `.env` kopieren und `INITIAL_ADMIN_PASSWORD` setzen.
+
+2. Lite-Stack starten:
+   ```bash
+   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+   ```
+
+3. Browser oeffnen:
+   - Frontend: `http://localhost:4200`
+   - Hub-Agent: `http://localhost:5000`
+
+4. Einloggen:
+   - Benutzer: `admin`
+   - Passwort: Wert aus `INITIAL_ADMIN_PASSWORD` in `.env`
+
+5. Im Dashboard ein erstes Ziel eingeben oder die Demo-Vorschau oeffnen.
+
+### B. Weitere Compose-Varianten
+
    Unter WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service nutzen Sie stattdessen das additive Overlay:
    ```bash
    docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
@@ -26,18 +45,7 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    powershell -ExecutionPolicy Bypass -File devtools/compose-lite.ps1 -Action up -Build
    ```
 
-3. Das System ist nun unter folgenden Adressen erreichbar:
-   - Frontend: `http://localhost:4200`
-   - Hub-Agent: `http://localhost:5000`
-   - Worker-Agenten: `http://localhost:5001`, `http://localhost:5002`
-
-4. **Initialer Login:**
-   - **Benutzer:** `admin`
-   - **Passwort:** (Wird in der `.env` über `INITIAL_ADMIN_PASSWORD` definiert)
-   - *WICHTIG: Falls kein Passwort definiert wurde, generiert der Agent ein zufälliges Token beim ersten Start, das im Log sichtbar ist. Setzen Sie für einen reibungslosen Start unbedingt ein Passwort in Ihrer `.env`.*
-   - *Aktion: Ändern Sie das Passwort sofort nach der Anmeldung über die Dashboard-Einstellungen.*
-
-### B. Manuelle Installation (Entwicklung)
+### C. Manuelle Installation (Entwicklung)
 
 #### AI-Agent (Hub oder Worker)
 1. In das Verzeichnis `agent/` wechseln.

@@ -6,6 +6,7 @@ from agent.bootstrap.route_aliases import register_route_aliases
 from agent.routes.artifacts import artifacts_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
+from agent.routes.demo import demo_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.knowledge import knowledge_bp
@@ -21,6 +22,7 @@ from agent.ws_terminal import register_ws_terminal
 
 def register_blueprints(app: Flask) -> None:
     app.register_blueprint(system_bp, url_prefix="/api/system")
+    app.register_blueprint(demo_bp)
     register_config_blueprints(app)
     app.register_blueprint(hub_benchmark_bp, url_prefix="/api")
     app.register_blueprint(ollama_benchmark_bp, url_prefix="/api")

@@ -7,6 +7,7 @@ export class HubSystemApiClient {
   private core = inject(HubApiCoreService);
   getHealth(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/health`, baseUrl, token, false, 10000); }
   getContracts(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/api/system/contracts`, baseUrl, token, false); }
+  getDemoPreview(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/api/demo/preview`, baseUrl, token, false); }
   listAgents(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/api/system/agents`, baseUrl, token, false); }
   restartTerminalSession(baseUrl: string, forwardParam: string, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/api/system/terminal/restart-session`, { forward_param: forwardParam }, baseUrl, token, false, 30000); }
   restartProcess(baseUrl: string, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/api/system/restart-process`, {}, baseUrl, token, false, 10000); }
