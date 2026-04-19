@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.5",
   "created": "2026-04-19",
-  "updated": "2026-04-19T13:20:00Z",
+  "updated": "2026-04-19T13:26:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -582,7 +582,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Visual-System, Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/styles.*",
@@ -602,7 +602,7 @@
           "priority": "low",
           "type": "improvement",
           "principle": "Semantic-Visual-Language",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/styles.*",
@@ -630,7 +630,7 @@
           "priority": "medium",
           "type": "test",
           "principle": "Confidence-in-Reuse, Stability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -650,7 +650,7 @@
           "priority": "low",
           "type": "documentation",
           "principle": "Reuse-by-Review, Preventive-Discipline",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -669,7 +669,7 @@
           "priority": "low",
           "type": "documentation",
           "principle": "Avoid-Fake-Generics, Pragmatism",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -690,9 +690,9 @@
   "meta": {
     "total_items": 29,
     "by_status": {
-      "completed": 24,
+      "completed": 29,
       "partial": 0,
-      "open": 5
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",

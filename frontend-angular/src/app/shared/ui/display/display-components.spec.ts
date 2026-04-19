@@ -49,13 +49,13 @@ describe('shared display components', () => {
 
   it('keeps explanation and safety notices semantic', () => {
     const explanation = new ExplanationNoticeComponent();
-    explanation.tone = 'info';
+    explanation.tone = 'technical';
 
     const safety = new SafetyNoticeComponent();
     safety.message = 'Review erforderlich.';
     safety.tone = 'warning';
 
-    expect(explanation.toneClass()).toBe('notice-info');
+    expect(explanation.toneClass()).toBe('notice-technical');
     expect(safety.message).toContain('Review');
   });
 });
