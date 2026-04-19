@@ -80,6 +80,8 @@ jobs:
         run: mkdir -p ci-artifacts/compose
       - name: Validate lite compose config
         run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml config > ci-artifacts/compose/compose-lite.yml
+      - name: Validate GitHub CI compose config without Ollama
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.github-ci.yml config > ci-artifacts/compose/compose-github-ci.yml
       - name: Validate distributed compose config
         run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config > ci-artifacts/compose/compose-distributed.yml
       - name: Upload compose config artifacts
@@ -126,7 +128,7 @@ jobs:
         run: npm ci
         working-directory: frontend-angular
       - name: Start compose stack
-        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.github-ci.yml up -d --build
       - name: Run E2E against compose
         id: e2e
         continue-on-error: true
@@ -145,7 +147,7 @@ jobs:
             frontend-angular/test-results/**
       - name: Stop compose stack
         if: always()
-        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.github-ci.yml down -v --remove-orphans
       - name: Fail workflow on E2E failure
         if: steps.e2e.outcome == 'failure'
         run: exit 1

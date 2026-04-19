@@ -41,6 +41,7 @@ class OpenAIStrategy(LLMStrategy):
         timeout: int,
         temperature: Optional[float] = None,
         max_context_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
@@ -55,6 +56,8 @@ class OpenAIStrategy(LLMStrategy):
         }
         if temperature is not None:
             payload["temperature"] = float(temperature)
+        if max_output_tokens is not None:
+            payload["max_tokens"] = int(max_output_tokens)
         if tools:
             payload["tools"] = tools
             if tool_choice:
@@ -89,6 +92,7 @@ class AnthropicStrategy(LLMStrategy):
         timeout: int,
         temperature: Optional[float] = None,
         max_context_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
@@ -130,7 +134,7 @@ class AnthropicStrategy(LLMStrategy):
 
         payload = {
             "model": model or "claude-3-5-sonnet-20240620",
-            "max_tokens": 4096,
+            "max_tokens": int(max_output_tokens or 4096),
             "messages": messages,
             "system": system_prompt,
         }
@@ -171,14 +175,17 @@ class OllamaStrategy(LLMStrategy):
         timeout: int,
         temperature: Optional[float] = None,
         max_context_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
+        if max_output_tokens is not None:
+            payload["options"] = {"num_predict": int(max_output_tokens)}
         if temperature is not None:
-            payload["temperature"] = float(temperature)
+            payload.setdefault("options", {})["temperature"] = float(temperature)
         if tools:
             # Validierung und Bereinigung der Tools für Ollama
             valid_tools = []

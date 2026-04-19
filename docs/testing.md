@@ -117,6 +117,14 @@ ANANTA_LIVE_CODE_MOUNT=1 scripts/compose-test-stack.sh up-live
 
 Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Frontend und `ollama` als lokalem LLM-Service.
 
+Hinweis fuer GitHub Actions:
+- Der normale GitHub-CI-Pfad nutzt kein echtes LLM.
+- Compose-E2E in GitHub Actions verwendet `docker-compose.github-ci.yml`, setzt den Provider auf `mock` und startet keine Ollama-Abhaengigkeit.
+- Echte hosted Live-LLM-Validierung laeuft getrennt ueber `.github/workflows/live-llm-smoke.yml` mit `LIVE_LLM_PROVIDER=openai`.
+- Dieser hosted Smoke fuehrt nur `tests/test_openai_live_smoke.py` aus und ist auf eine kleine Antwort (`LIVE_LLM_MAX_OUTPUT_TOKENS=16`) sowie einen einzelnen Retry-Versuch begrenzt.
+- Der hosted Smoke laeuft auf `main`, nachts, manuell oder bei internen PRs mit Label `live-llm` oder `full-ci`; Fork-PRs erhalten keine Secret-basierte Live-Ausfuehrung.
+- Ohne `OPENAI_API_KEY` wird der hosted Live-Smoke kontrolliert uebersprungen.
+
 Start:
 ```bash
 scripts/compose-test-stack.sh up
@@ -146,6 +154,7 @@ Standard fuer `backend-live-llm-test`:
 - Modell: `ananta-smoke`
 - Timeout fuer Live-Planer: `60s`
 - Uebersteuerbar per `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `LIVE_LLM_RETRY_ATTEMPTS`, `LIVE_LLM_RETRY_BACKOFF_SEC`
+- Dieser Pfad ist fuer lokale oder schwere manuelle Validierung gedacht, nicht fuer den normalen GitHub-CI-Default.
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
@@ -168,6 +177,15 @@ Wichtige Live-Flags:
 - `RUN_LIVE_AGENT_CHAIN_E2E=1` aktiviert den echten Agent-Chain-Test.
 - `LIVE_LLM_PROVIDER=ollama` ist der Standard fuer den Test.
 - `E2E_OLLAMA_URL` kann explizit gesetzt werden, falls `ollama` nicht unter dem Docker-DNS-Namen erreichbar ist.
+- Fuer GitHub Actions wird stattdessen der kleine hosted OpenAI-Smoke verwendet:
+```bash
+env RUN_LIVE_LLM_TESTS=1 \
+  LIVE_LLM_PROVIDER=openai \
+  LIVE_LLM_MODEL="${LIVE_LLM_MODEL:-gpt-4o-mini}" \
+  LIVE_LLM_MAX_OUTPUT_TOKENS=16 \
+  OPENAI_API_KEY="$OPENAI_API_KEY" \
+  .venv/bin/pytest -q tests/test_openai_live_smoke.py -rs
+```
 
 URL-Reihenfolge fuer Ollama im Live-Agent-Chain-Test:
 - `OLLAMA_URL`

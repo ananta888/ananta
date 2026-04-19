@@ -65,3 +65,16 @@ def test_idempotency_key_sent_to_provider(mock_post):
     headers = mock_post.call_args[1]["headers"]
     assert "Idempotency-Key" in headers
     assert len(headers["Idempotency-Key"]) > 0
+
+
+def test_openai_max_output_tokens_are_sent_to_provider(mock_post):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"choices": [{"message": {"content": "bounded"}}]}
+    mock_post.return_value = mock_response
+
+    result = generate_text("Test", provider="openai", max_output_tokens=7)
+
+    assert result == "bounded"
+    payload = mock_post.call_args[1]["json"]
+    assert payload["max_tokens"] == 7

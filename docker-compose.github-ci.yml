@@ -1,0 +1,29 @@
+# GitHub Actions overlay for deterministic CI.
+# It keeps compose-backed E2E from starting or depending on Ollama in GitHub CI.
+services:
+  ollama:
+    profiles: ["local-llm"]
+
+  autoimport:
+    profiles: ["local-llm"]
+
+  ai-agent-hub:
+    environment:
+      DEFAULT_PROVIDER: "mock"
+      DEFAULT_MODEL: "mock"
+      OLLAMA_URL: ""
+    depends_on: !reset []
+
+  ai-agent-alpha:
+    environment:
+      DEFAULT_PROVIDER: "mock"
+      DEFAULT_MODEL: "mock"
+      OLLAMA_URL: ""
+    depends_on: !reset []
+
+  ai-agent-beta:
+    environment:
+      DEFAULT_PROVIDER: "mock"
+      DEFAULT_MODEL: "mock"
+      OLLAMA_URL: ""
+    depends_on: !reset []
