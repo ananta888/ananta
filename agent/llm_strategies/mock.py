@@ -19,8 +19,12 @@ class MockStrategy(LLMStrategy):
         api_key: Optional[str],
         history: Optional[list],
         timeout: int,
+        temperature: Optional[float] = None,
+        max_context_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
+        idempotency_key: Optional[str] = None,
     ) -> Any:
         logging.info(f"Mock-LLM aufgerufen mit Prompt: {prompt[:50]}...")
 

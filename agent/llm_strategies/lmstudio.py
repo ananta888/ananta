@@ -17,6 +17,7 @@ class LMStudioStrategy(LLMStrategy):
         timeout: int,
         temperature: Optional[float] = None,
         max_context_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
@@ -76,6 +77,7 @@ class LMStudioStrategy(LLMStrategy):
                     timeout,
                     temperature,
                     max_context_tokens,
+                    max_output_tokens,
                     tools,
                     tool_choice,
                     idempotency_key,
@@ -101,6 +103,7 @@ class LMStudioStrategy(LLMStrategy):
             timeout,
             temperature,
             max_context_tokens,
+            max_output_tokens,
             tools,
             tool_choice,
             idempotency_key,
@@ -126,11 +129,12 @@ class LMStudioStrategy(LLMStrategy):
         timeout,
         temperature=None,
         max_context_tokens=None,
+        max_output_tokens=None,
         tools=None,
         tool_choice=None,
         idempotency_key=None,
     ):
-        max_tokens = 1024
+        max_tokens = int(max_output_tokens or 1024)
         temp = 0.2 if temperature is None else float(temperature)
         context_limit = max_context_tokens or model_context or settings.lmstudio_max_context_tokens
 

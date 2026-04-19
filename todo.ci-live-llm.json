@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "ci-cd",
           "principle": "Layered-Validation, Cheap-Default-Confidence",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -44,7 +44,7 @@
           "priority": "critical",
           "type": "ci-cd",
           "principle": "Deterministic-Default, Minimal-Cost-Mainline",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/quality-and-docs.yml",
@@ -63,7 +63,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Intentional-Live-Validation, Cost-Controlled-Execution",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -92,7 +92,7 @@
           "priority": "critical",
           "type": "ci-cd",
           "principle": "Pragmatic-Hosted-Live-Validation, Lower-CI-Friction",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -116,7 +116,7 @@
           "priority": "critical",
           "type": "ci-cd",
           "principle": "Cheap-Real-Model, Swappable-Fast-Smoke-Signal",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -140,7 +140,7 @@
           "priority": "critical",
           "type": "security",
           "principle": "Secret-Backed-Live-Validation, Safe-Optional-Execution",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -163,7 +163,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Centralized-Live-LLM-Config, Less-Workflow-Drift",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -193,7 +193,7 @@
           "priority": "critical",
           "type": "test-live-llm",
           "principle": "Minimal-Real-LLM-Surface, High-Signal-Low-Cost",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -217,7 +217,7 @@
           "priority": "critical",
           "type": "test-live-llm",
           "principle": "Robust-Smoke-Assertions, Less-Model-Variance-Pain",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/"
@@ -238,7 +238,7 @@
           "priority": "high",
           "type": "test-live-llm",
           "principle": "Bounded-Live-Calls, Predictable-CI-Cost",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "tests/",
@@ -262,7 +262,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Fail-Fast-Live-CI, Controlled-Retry-Behavior",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -292,7 +292,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Explicit-Compose-Scope, No-Accidental-Heavy-Default",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/testing.md",
@@ -336,7 +336,7 @@
           "priority": "critical",
           "type": "ci-cd",
           "principle": "Hosted-Live-Middle-Layer, Faster-Than-Full-Stack",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -370,7 +370,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Visible-Live-Validation-Lane, Cleaner-CI-Structure",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/"
@@ -393,7 +393,7 @@
           "priority": "critical",
           "type": "security",
           "principle": "Safe-Secret-Aware-Skips, No-Leaky-CI-Behavior",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/"
@@ -415,7 +415,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Graceful-Live-Provider-Failure-Handling, Better-Diagnosis",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -494,7 +494,7 @@
           "priority": "low",
           "type": "ci-cd",
           "principle": "Swappable-Hosted-Live-Model, Lower-Future-Migration-Pain",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -516,9 +516,9 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 0,
-      "partial": 0,
-      "open": 20
+      "completed": 16,
+      "partial": 1,
+      "open": 3
     },
     "notes": [
       "Diese Todo-Datei ist bewusst klein und pragmatisch gehalten: Ziel ist nicht eine zweite schwere Testwelt, sondern ein gangbarer echter Live-LLM-Pfad in GitHub Actions.",
