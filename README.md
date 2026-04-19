@@ -194,7 +194,7 @@ scripts/compose-test-stack.sh up-live
 scripts/start-firefox-vnc.sh start
 ```
 - `up-live` aktiviert automatisch `docker-compose.live-code.yml`.
-- Python-Hub/Worker nutzen dann den lokalen Quellcode per Bind-Mount (`./:/app`) und laufen mit `FLASK_DEBUG=1`.
+- Python-Hub/Worker nutzen dann den lokalen Quellcode per Bind-Mount von `.` nach `/app` und laufen mit `FLASK_DEBUG=1`.
 - Das Angular-Frontend laeuft weiter mit `ng serve --poll 2000` und sieht Aenderungen in `./frontend-angular` direkt.
 - noVNC: `http://localhost:7900` (Passwort im Selenium-Container: `secret`)
 - Im Firefox-Container oeffnen: `http://angular-frontend:4200`
@@ -259,7 +259,7 @@ Zentrale API-Schnittstellen werden durch Contract-Tests (`tests/test_api_contrac
 - Echten Agent-Chain-Live-Test ohne Mock starten:
   `env RUN_LIVE_LLM_TESTS=1 RUN_LIVE_AGENT_CHAIN_E2E=1 .venv/bin/pytest -q tests/test_live_agent_chain_e2e.py -rs`
 - Falls `ollama` aus der Shell nicht per Docker-DNS aufloesbar ist, nutzt der Live-Agent-Chain-Test nacheinander `OLLAMA_URL`, `E2E_OLLAMA_URL`, `http://ollama:11434`, `http://localhost:11434`, `http://127.0.0.1:11434` und `http://host.docker.internal:11434`.
-- Die konsolidierte Matrix fuer Compose-/Host-/WSL-Erreichbarkeit steht in [docs/container-networking-matrix.md](/mnt/c/Users/pst/IdeaProjects/ananta/docs/container-networking-matrix.md).
+- Die konsolidierte Matrix fuer Compose-/Host-/WSL-Erreichbarkeit steht in [docs/container-networking-matrix.md](docs/container-networking-matrix.md).
 
 Wichtige Runtime-Checks:
 - `GET /providers/catalog` fuer verfuegbare Provider/Modelle inklusive `local_openai_backends`

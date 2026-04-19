@@ -21,7 +21,7 @@ python -m agent.ai_agent
 
 ## Persistenz
 - SQLModel-Datenbank (PostgreSQL/SQLite)
-- Laufzeit-Logs unter `data/terminal_log.jsonl`
+- Laufzeit-Logs im Agent-Datenverzeichnis (`terminal_log.jsonl`)
 
 ## Dokumentation
 - Backend-Details: `docs/backend.md`
