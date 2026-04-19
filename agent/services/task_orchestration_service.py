@@ -15,6 +15,7 @@ from agent.services.copilot_routing_advisor import (
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_delegation_services import (
+    DelegationRequest,
     TaskDelegationPlan,
     TaskDelegationPlanner,
     TaskDelegationResultWriter,
@@ -42,6 +43,17 @@ class TaskOrchestrationDependencies:
     routing_advisor: Callable[[], Any]
     context_policy_service: Callable[[], Any]
     execution_tracking_service: Callable[[], Any]
+
+
+@dataclass(frozen=True)
+class CompletionOutcome:
+    gate_results: dict[str, Any]
+    gates_passed: bool
+    final_status: str
+
+    @property
+    def exit_code(self) -> int:
+        return 0 if self.gates_passed else 1
 
 
 def _default_dependencies() -> TaskOrchestrationDependencies:
@@ -88,27 +100,26 @@ class TaskOrchestrationService:
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
 
-        plan = self.delegation_planner.plan(
-            task_id=task_id,
+        delegation_request = DelegationRequest(
             parent_task=parent_task,
+            task_id=task_id,
             data=data,
+        )
+        plan = self.delegation_planner.plan(
+            request=delegation_request,
             agent_registry_service=agent_registry_service,
         )
         if not isinstance(plan, TaskDelegationPlan):
             return plan
 
         bundle = self.execution_context_factory.build(
-            task_id=task_id,
-            parent_task=parent_task,
-            data=data,
+            request=delegation_request,
             plan=plan,
             worker_job_service=worker_job_service,
             worker_contract_service=worker_contract_service,
         )
         return self.delegation_result_writer.forward_and_write(
-            task_id=task_id,
-            parent_task=parent_task,
-            data=data,
+            request=delegation_request,
             plan=plan,
             bundle=bundle,
         )
@@ -133,7 +144,7 @@ class TaskOrchestrationService:
         if not task:
             return {"error": "not_found", "code": 404}
 
-        gate, all_passed, final_status = self._derive_completion_outcome(payload)
+        outcome = self._derive_completion_outcome(payload)
         output = str(payload.get("output") or "")
         actor = str(payload.get("actor") or "system")
         worker_job_id = self._resolve_worker_job_id(task, payload)
@@ -144,17 +155,16 @@ class TaskOrchestrationService:
             task_id=task_id,
             trace_id=payload.get("trace_id"),
             output=output,
-            all_passed=all_passed,
-            gate=gate,
+            outcome=outcome,
         )
         self._record_worker_result_if_present(
             worker_job_service=worker_job_service,
             worker_job_id=worker_job_id,
             task_id=task_id,
             actor=actor,
-            final_status=final_status,
+            final_status=outcome.final_status,
             output=output,
-            gate=gate,
+            gate=outcome.gate_results,
             trace_id=payload.get("trace_id"),
         )
         memory_entry = self._record_worker_result_memory(
@@ -164,24 +174,24 @@ class TaskOrchestrationService:
             trace_id=trace_id,
             worker_job_id=worker_job_id,
             output=output,
-            final_status=final_status,
-            gate=gate,
+            final_status=outcome.final_status,
+            gate=outcome.gate_results,
             actor=actor,
             payload_artifacts=payload.get("artifacts") if isinstance(payload.get("artifacts"), list) else None,
         )
         verification_status = self._build_verification_status(
             record=record,
-            all_passed=all_passed,
+            all_passed=outcome.gates_passed,
             memory_entry=memory_entry,
         )
         self._apply_completion_status_update(
             task_id=task_id,
-            final_status=final_status,
+            final_status=outcome.final_status,
             output=output,
-            all_passed=all_passed,
+            all_passed=outcome.gates_passed,
             verification_status=verification_status,
             actor=actor,
-            gate=gate,
+            gate=outcome.gate_results,
             trace_id=payload.get("trace_id"),
             worker_job_id=worker_job_id,
         )
@@ -192,19 +202,19 @@ class TaskOrchestrationService:
         return {
             "data": {
                 "task_id": task_id,
-                "status": final_status,
-                "gates_passed": all_passed,
+                "status": outcome.final_status,
+                "gates_passed": outcome.gates_passed,
                 "verification_status": verification_status,
                 "evolution_trigger": evolution_trigger,
             }
         }
 
     @staticmethod
-    def _derive_completion_outcome(payload: dict[str, Any]) -> tuple[dict[str, Any], bool, str]:
+    def _derive_completion_outcome(payload: dict[str, Any]) -> CompletionOutcome:
         gate = payload.get("gate_results") or {}
         all_passed = bool(gate.get("passed", False))
         final_status = TaskStatus.COMPLETED.value if all_passed else TaskStatus.VERIFICATION_FAILED.value
-        return gate, all_passed, final_status
+        return CompletionOutcome(gate_results=dict(gate), gates_passed=all_passed, final_status=final_status)
 
     @staticmethod
     def _resolve_worker_job_id(task: dict[str, Any], payload: dict[str, Any]) -> str | None:
@@ -220,15 +230,14 @@ class TaskOrchestrationService:
         task_id: str,
         trace_id: Any,
         output: str,
-        all_passed: bool,
-        gate: dict[str, Any],
+        outcome: CompletionOutcome,
     ):
         return verification_service.create_or_update_record(
             task_id,
             trace_id=trace_id,
             output=output,
-            exit_code=0 if all_passed else 1,
-            gate_results=gate,
+            exit_code=outcome.exit_code,
+            gate_results=outcome.gate_results,
         )
 
     @staticmethod
