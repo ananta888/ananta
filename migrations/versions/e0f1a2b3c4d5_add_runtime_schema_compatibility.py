@@ -54,6 +54,8 @@ def upgrade() -> None:
         _add_column_if_missing(table_name, sa.Column("retrieval_intent", sa.String(), nullable=True))
         _add_column_if_missing(table_name, sa.Column("required_context_scope", sa.String(), nullable=True))
         _add_column_if_missing(table_name, sa.Column("preferred_bundle_mode", sa.String(), nullable=True))
+        _add_column_if_missing(table_name, sa.Column("status_reason_code", sa.String(), nullable=True))
+        _add_column_if_missing(table_name, sa.Column("status_reason_details", sa.JSON(), nullable=True))
 
     if _table_exists("goals"):
         mode_missing = "mode" not in _existing_columns("goals")
