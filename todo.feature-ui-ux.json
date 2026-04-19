@@ -35,7 +35,8 @@
           "acceptance": [
             "Es gibt drei bis fuenf klar benannte Kern-Use-Cases.",
             "Jeder Use-Case hat einen klaren Nutzen, Scope und Einstieg.",
-            "Die Projektkommunikation wirkt weniger diffus und generisch."
+            "Die Projektkommunikation wirkt weniger diffus und generisch.",
+            "Die Use-Cases sind als referenzierbare Produktbasis fuer Schnellstart, Golden Paths, Demo-Flows, Benchmarks und Produktprofile nutzbar."
           ]
         },
         {
@@ -120,7 +121,8 @@
           "acceptance": [
             "Es gibt einen klar bevorzugten Einstieg.",
             "Alternative Startvarianten sind nachgeordnet und kontextualisiert.",
-            "Neue Nutzer muessen nicht zwischen vielen Wegen raten."
+            "Neue Nutzer muessen nicht zwischen vielen Wegen raten.",
+            "Der Schnellstart benennt genau einen Default-Stack, einen ersten UI-Weg und ein klares Erfolgssignal."
           ]
         },
         {
@@ -140,7 +142,8 @@
           "acceptance": [
             "Ein neuer Nutzer kann sehr schnell ein erstes sinnvolles Ergebnis sehen.",
             "Der Einstieg fuehlt sich weniger technisch und weniger schwer an.",
-            "Die Zeit bis zum ersten Nutzen sinkt deutlich."
+            "Die Zeit bis zum ersten Nutzen sinkt deutlich.",
+            "Der Zielwert unter einer Minute ist mit einem konkret beschriebenen Messpfad pruefbar."
           ]
         },
         {
@@ -224,7 +227,8 @@
           "acceptance": [
             "Der bevorzugte UI-Weg ist explizit benannt.",
             "Doku und Demo sprechen denselben Standardweg.",
-            "Alternative Pfade sind nicht gleichberechtigt chaotisch."
+            "Alternative Pfade sind nicht gleichberechtigt chaotisch.",
+            "Der UI-Golden-Path beschreibt Startpunkt, primaere Aktion, erwarteten Zwischenzustand und sichtbares Ergebnis."
           ]
         },
         {
@@ -391,7 +395,8 @@
           "acceptance": [
             "Blockierungen und Review-Pflichten werden ueberall erklaerbar dargestellt.",
             "Erklaerungen wirken konsistent statt zufaellig.",
-            "Nutzer verstehen Kontrolle besser."
+            "Nutzer verstehen Kontrolle besser.",
+            "Fuer Blockierung, Review und Sicherheitsgrenze existiert je ein wiederverwendbares Erklaermuster mit naechster sinnvoller Aktion."
           ]
         },
         {
@@ -473,7 +478,8 @@
           "acceptance": [
             "Es gibt klar benannte Governance-Modi.",
             "Der Nutzer kann Kontrollniveau bewusst verstehen und waehlen.",
-            "Governance wird als staerke sichtbar statt nur als innere Technik."
+            "Governance wird als staerke sichtbar statt nur als innere Technik.",
+            "Die Modi beschreiben Unterschiede bei Tool-Grenzen, Review-Pflichten, Ausfuehrungsfreiheit und Auditierbarkeit."
           ]
         },
         {
@@ -722,7 +728,8 @@
           "acceptance": [
             "Es gibt klar benannte Produkt- oder Betriebsprofile.",
             "Profile unterscheiden sich nachvollziehbar.",
-            "Ananta wirkt weniger wie ein einziger ueberladener Modus."
+            "Ananta wirkt weniger wie ein einziger ueberladener Modus.",
+            "Jedes Profil benennt Zielgruppe, Default-Einstieg, Governance-Modus, empfohlene Laufzeit und Nicht-Ziele."
           ]
         },
         {
@@ -769,11 +776,11 @@
     }
   ],
   "meta": {
-    "total_items": 35,
+    "total_items": 36,
     "by_status": {
       "completed": 0,
       "partial": 0,
-      "open": 35
+      "open": 36
     },
     "notes": [
       "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
@@ -784,12 +791,12 @@
       "PRD-001",
       "PRD-010",
       "PRD-020",
+      "PRD-011",
       "UX-040",
       "GOV-050",
       "PRF-080",
       "PRD-002",
       "PRD-003",
-      "PRD-011",
       "PRD-012",
       "UX-042",
       "PRD-013",
@@ -817,6 +824,138 @@
       "PRD-021",
       "PRD-022",
       "PRD-023"
+    ],
+    "foundation_slice": {
+      "name": "product-foundation-slice",
+      "goal": "Zuerst die gemeinsame Produktbasis klaeren, bevor UI, CLI, Demos, Observability und Benchmarks breiter umgesetzt werden.",
+      "items": [
+        "PRD-001",
+        "PRD-010",
+        "PRD-020",
+        "PRD-011",
+        "UX-040",
+        "GOV-050",
+        "PRF-080"
+      ],
+      "done_when": [
+        "Drei bis fuenf Kern-Use-Cases sind benannt und als Grundlage fuer Demo, Doku, Benchmark und Profile verwendbar.",
+        "Ein einziger offizieller Schnellstart und ein offizieller UI-Golden-Path sind festgelegt.",
+        "Der First-Run-Zielwert unter einer Minute ist als pruefbarer Messpfad beschrieben.",
+        "Governance-Modi und Produktprofile sind so definiert, dass spaetere UI-, CLI- und Config-Arbeiten nicht widerspruechlich laufen.",
+        "Explainability-Grundmuster fuer Blockierung, Review und Sicherheitsgrenzen sind definiert."
+      ],
+      "architecture_guardrails": [
+        "Der Hub bleibt zentrale Kontroll- und Orchestrierungsebene.",
+        "Worker-Profile und Tool-Contracts duerfen Faehigkeiten beschreiben, aber keine Worker-zu-Worker-Orchestrierung einfuehren.",
+        "Produktprofile duerfen Defaults und Einstiegspfade setzen, aber keine implizite gemeinsame Runtime oder globalen Zustand voraussetzen.",
+        "Governance-Modi muessen als explizite Policy-/Profilentscheidung modellierbar bleiben, nicht als verstreute Spezialfaelle."
+      ],
+      "solid_guardrails": [
+        "SRP: Use-Cases, Governance-Modi, Produktprofile, Observability und Benchmarks bleiben getrennte Verantwortungsbereiche.",
+        "OCP: Neue Profile oder Modi sollen ergaenzbar sein, ohne zentrale Flows wiederholt umzuschreiben.",
+        "ISP: Capability- und Tool-Contracts bleiben klein und auf konkrete Verbraucher zugeschnitten.",
+        "DIP: UI, CLI und API sollen gegen explizite Profile und Policies arbeiten, nicht gegen konkrete interne Implementierungsdetails."
+      ]
+    },
+    "milestones": [
+      {
+        "id": "M1",
+        "name": "Produktfundament und offizieller Einstieg",
+        "intent": "Klaert, wofuer Ananta zuerst steht und wie neue Nutzer zum ersten sichtbaren Ergebnis kommen.",
+        "items": [
+          "PRD-001",
+          "PRD-010",
+          "PRD-020",
+          "PRD-011",
+          "UX-040",
+          "GOV-050",
+          "PRF-080"
+        ],
+        "exit_criteria": [
+          "Kern-Use-Cases, Schnellstart, UI-Golden-Path, First-Run-Messpfad, Governance-Modi und Produktprofile widersprechen sich nicht.",
+          "Die Foundation-Entscheidungen sind konkret genug, um UI-, CLI-, Demo- und Doku-Arbeiten daran auszurichten."
+        ]
+      },
+      {
+        "id": "M2",
+        "name": "Reproduzierbare Demo- und Onboarding-Pfade",
+        "intent": "Macht die Produktbasis fuer Erstnutzer, Reviewer und Demos praktisch nachvollziehbar.",
+        "items": [
+          "PRD-002",
+          "PRD-003",
+          "PRD-012",
+          "UX-042",
+          "PRD-013",
+          "PRD-014",
+          "PRD-021",
+          "PRD-023"
+        ],
+        "exit_criteria": [
+          "UI-, CLI- und Demo-Einstiege fuehren auf dieselben Kern-Use-Cases zurueck.",
+          "Fehler, Blockierungen, Review-Zustaende und Erfolge haben klare naechste Schritte."
+        ]
+      },
+      {
+        "id": "M3",
+        "name": "Operative Sichtbarkeit und Governance-Produktisierung",
+        "intent": "Macht reale Nutzung, Friktion und effektive Kontrollregeln sichtbar und steuerbar.",
+        "items": [
+          "OPS-030",
+          "OPS-031",
+          "UX-041",
+          "UX-043",
+          "GOV-051",
+          "GOV-052",
+          "GOV-053",
+          "OPS-032",
+          "OPS-033"
+        ],
+        "exit_criteria": [
+          "Produktnahe Ereignisse trennen technische Logs von Nutzungs- und Friktionssignalen.",
+          "Governance ist in UI, CLI und Profilen als verstaendliche Produktfunktion sichtbar."
+        ]
+      },
+      {
+        "id": "M4",
+        "name": "Contracts, Profile und kontrollierte Erweiterbarkeit",
+        "intent": "Stabilisiert die Erweiterungspunkte, ohne die Hub-Worker-Verantwortlichkeiten aufzuweichen.",
+        "items": [
+          "ARC-060",
+          "ARC-061",
+          "PRF-081",
+          "PRF-082",
+          "PRD-004",
+          "ARC-062",
+          "ARC-063"
+        ],
+        "exit_criteria": [
+          "Tool-, Worker- und Provider-Contracts sind dokumentiert und an Governance-/Profilentscheidungen anschliessbar.",
+          "Produktprofile haben konkrete Defaults, ohne hart an einzelne Implementierungen gekoppelt zu sein."
+        ]
+      },
+      {
+        "id": "M5",
+        "name": "Benchmarking und Release-Nachweis",
+        "intent": "Macht Fortschritt und Positionierung ueber reproduzierbare Aufgaben bewertbar.",
+        "items": [
+          "BMK-070",
+          "BMK-071",
+          "BMK-072",
+          "BMK-073",
+          "PRD-022"
+        ],
+        "exit_criteria": [
+          "Benchmark-Aufgaben und Bewertungskriterien sind stabil genug fuer Release-Retrospektiven.",
+          "Release- und Freigabepfade nutzen die Benchmark- und Governance-Signale nachvollziehbar."
+        ]
+      }
+    ],
+    "review_checks": [
+      "Zaehlt die Datei weiterhin exakt so viele Items, wie meta.total_items angibt?",
+      "Sind alle offenen Items in recommended_order und genau einem Milestone enthalten?",
+      "Hat jedes Foundation-Item mindestens ein pruefbares Acceptance-Kriterium statt nur Wirkungssprache?",
+      "Bleiben Hub-Orchestrierung, Worker-Ausfuehrung und Container-Grenzen explizit gewahrt?",
+      "Entstehen durch neue Profile, Modi oder Contracts keine SRP-, OCP-, ISP- oder DIP-Konflikte?"
     ]
   }
 }
