@@ -29,6 +29,12 @@ copy_if_present "docs/release-environment.md" "$OUT_DIR/docs/release-environment
 copy_if_present "docs/release-dependency-locking.md" "$OUT_DIR/docs/release-dependency-locking.md"
 copy_if_present "docs/release-provenance.md" "$OUT_DIR/docs/release-provenance.md"
 copy_if_present "docs/supply-chain-checks.md" "$OUT_DIR/docs/supply-chain-checks.md"
+copy_if_present "docs/secrets-rotation.md" "$OUT_DIR/docs/secrets-rotation.md"
+copy_if_present "docs/github-secrets-inventory.md" "$OUT_DIR/docs/github-secrets-inventory.md"
+copy_if_present "docs/github-admin-setup.md" "$OUT_DIR/docs/github-admin-setup.md"
+copy_if_present "docs/github-environments.md" "$OUT_DIR/docs/github-environments.md"
+copy_if_present "docs/ci-test-depth-strategy.md" "$OUT_DIR/docs/ci-test-depth-strategy.md"
+copy_if_present "docs/container-release-strategy.md" "$OUT_DIR/docs/container-release-strategy.md"
 copy_if_present "docs/governance-security-model.md" "$OUT_DIR/docs/governance-security-model.md"
 copy_if_present "docs/security_baseline.md" "$OUT_DIR/docs/security_baseline.md"
 

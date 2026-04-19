@@ -43,3 +43,14 @@ For AI-assisted changes in high-risk areas:
 - AI output does not justify bypassing tests, release gates or required reviews.
 - Generated code must remain maintainable, small enough to review and consistent with SOLID principles.
 - Any uncertainty about security, secrets or release impact must be surfaced in the PR.
+
+## Repository AI Tooling
+
+GitHub Copilot or similar repository-integrated AI tooling may be enabled for drafting and review assistance, but it must not be configured to bypass branch protection, CODEOWNERS, release environment approvals or required checks.
+
+For repository settings, keep AI-generated pull requests subject to the same rules as human-authored pull requests:
+
+- branch protection remains mandatory
+- CODEOWNERS review still applies
+- release and security labels remain reviewer-visible
+- generated changes in high-risk areas require explicit human design review

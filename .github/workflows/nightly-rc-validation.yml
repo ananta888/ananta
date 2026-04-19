@@ -1,0 +1,78 @@
+name: Nightly And RC Validation
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+    inputs:
+      validation_depth:
+        description: "Validation depth to run"
+        required: true
+        default: "nightly"
+        type: choice
+        options:
+          - nightly
+          - release-candidate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-rc-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-adjacent-validation:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: test-postgres-password
+      INITIAL_ADMIN_PASSWORD: test-admin-password
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      AGENT_TOKEN_HUB: hub-token
+      AGENT_TOKEN_ALPHA: alpha-token
+      AGENT_TOKEN_BETA: beta-token
+      AGENT_TOKEN_GAMMA: gamma-token
+      AGENT_TOKEN_DELTA: delta-token
+      GRAFANA_PASSWORD: test-grafana-password
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.5"
+          cache: "npm"
+          cache-dependency-path: frontend-angular/package-lock.json
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend-angular
+      - name: Run standard quality pipeline
+        run: python scripts/check_pipeline.py --mode standard
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend-angular
+      - name: Run strict release gate
+        run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
+      - name: Run release-candidate image gate
+        if: inputs.validation_depth == 'release-candidate'
+        run: python scripts/release_gate.py --strict --compose-config --build-images --report release-candidate-verification-report.json
+      - name: Generate release SBOM
+        run: python scripts/generate_release_sbom.py
+      - name: Prepare release assets
+        run: bash scripts/prepare_release_assets.sh
+      - name: Upload validation artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-nightly-rc-validation
+          if-no-files-found: warn
+          path: |
+            release-verification-report.json
+            release-candidate-verification-report.json
+            release-sbom.json
+            release-assets/**

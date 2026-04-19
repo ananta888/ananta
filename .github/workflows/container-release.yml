@@ -1,0 +1,49 @@
+name: Container Release Build
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to build, for example v1.0.0-rc.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-release-${{ github.workflow }}-${{ github.ref_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build-release-images:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Resolve image tag
+        id: image-tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          tag="${INPUT_TAG:-$REF_NAME}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+      - name: Build backend image
+        run: docker build -t "ananta-backend:${{ steps.image-tag.outputs.tag }}" .
+      - name: Build frontend image
+        run: docker build -t "ananta-frontend:${{ steps.image-tag.outputs.tag }}" frontend-angular
+      - name: Collect image metadata
+        run: |
+          mkdir -p container-release-metadata
+          docker image inspect "ananta-backend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/backend-image.json
+          docker image inspect "ananta-frontend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/frontend-image.json
+          printf '%s\n' "ananta-backend:${{ steps.image-tag.outputs.tag }}" "ananta-frontend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/image-tags.txt
+      - name: Upload image metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-container-release-metadata
+          path: container-release-metadata/**

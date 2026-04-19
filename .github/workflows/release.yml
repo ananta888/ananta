@@ -21,6 +21,7 @@ concurrency:
 jobs:
   github-release:
     runs-on: ubuntu-latest
+    environment: release
     env:
       POSTGRES_PASSWORD: test-postgres-password
       INITIAL_ADMIN_PASSWORD: test-admin-password
