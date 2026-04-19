@@ -1,0 +1,822 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": "6.5.0",
+  "created": "2026-04-19",
+  "updated": "2026-04-19T00:00:00Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Nach weitgehend abgeschlossener Test-, Security-, GitHub- und Release-Reife die naechste Entwicklungsstufe definieren: von einer sehr starken kontrollierten Agentenplattform zu einem klarer nutzbaren, besser positionierten, benchmarkbaren und produktfoermigeren System.",
+    "notes": [
+      "Die technische und sicherheitsbezogene Reife ist bereits hoch; der groesste Hebel liegt nun weniger im Kernumbau als in produktklaren Nutzpfaden, Betriebsprofilen, sichtbarerer Governance, besserer Explainability und vergleichbarer Leistung.",
+      "Diese Todo-Datei setzt bewusst nicht bei weiteren generischen Features an, sondern bei den Punkten, die Ananta zugänglicher, schaerfer positioniert und im Betrieb besser steuerbar machen.",
+      "Die Datei deckt die priorisierten Post-Release-Verbesserungsfelder 2 bis 9 ab: Use-Cases, Onboarding, Golden Paths, Observability, Explainability, Governance-Produktisierung, Integrations-Contracts, Benchmarking und Produktprofile."
+    ]
+  },
+  "categories": [
+    {
+      "name": "real-user-paths-and-use-cases",
+      "label": "Reale Nutzerpfade und Kern Use Cases",
+      "items": [
+        {
+          "id": "PRD-001",
+          "title": "Drei bis fuenf offizielle Kern-Use-Cases fuer Ananta definieren",
+          "description": "Eine kleine feste Menge offizieller, reproduzierbarer Kernanwendungsfaelle definieren, die Ananta nach aussen und intern repraesentieren, statt alles gleichzeitig sein zu wollen.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Focused-Value, Clear-Use-Case-Identity",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "README.md",
+            "docs/",
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Es gibt drei bis fuenf klar benannte Kern-Use-Cases.",
+            "Jeder Use-Case hat einen klaren Nutzen, Scope und Einstieg.",
+            "Die Projektkommunikation wirkt weniger diffus und generisch."
+          ]
+        },
+        {
+          "id": "PRD-002",
+          "title": "Jeden Kern-Use-Case als reproduzierbaren Demo-Flow dokumentieren",
+          "description": "Fuer jeden offiziellen Use-Case einen klaren Ablauf mit Beispielgoal, erwarteten Ergebnissen, UI-Weg, CLI-Weg und API-Weg dokumentieren.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Demonstrable-Value, Reproducible-Showcase",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "README.md",
+            "docs/",
+            "agent/cli_goals.py"
+          ],
+          "acceptance": [
+            "Jeder Kern-Use-Case ist reproduzierbar vorfuehrbar.",
+            "UI-, CLI- und ggf. API-Einstieg sind nachvollziehbar beschrieben.",
+            "Demopfad und Realpfad sind klarer voneinander getrennt."
+          ]
+        },
+        {
+          "id": "PRD-003",
+          "title": "Demo-Daten und Beispielziele systematisch an Kern-Use-Cases ausrichten",
+          "description": "Vorhandene Demo-Beispiele, Goal-Presets und Einstiegsszenarien so umbauen, dass sie die offiziellen Kern-Use-Cases repraesentieren statt lose Einzelideen zu sein.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Coherent-Showcase, Product-Story-Consistency",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Demo-Inhalte stuetzen die definierten Kernfaelle.",
+            "Presets wirken wie Produktpfade und nicht wie zufaellige Beispiele.",
+            "Die Demo erklaert den Mehrwert von Ananta besser."
+          ]
+        },
+        {
+          "id": "PRD-004",
+          "title": "Pro Kern-Use-Case ein Erwartungsmodell fuer Eingabe und Ergebnis einfuehren",
+          "description": "Beschreiben und spaeter auch im UI andeuten, was ein guter Input fuer den jeweiligen Use-Case ist und welche Art Ergebnis der Nutzer erwarten darf.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Expectation-Setting, Better-User-Success",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Nutzer sehen leichter, wie sie sinnvolle Goals formulieren.",
+            "Ergebnisformen sind besser antizipierbar.",
+            "Weniger Friktion durch unklare Erwartungen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "onboarding-and-first-run-simplification",
+      "label": "Onboarding und First Run Vereinfachung",
+      "items": [
+        {
+          "id": "PRD-010",
+          "title": "Einen einzigen offiziell empfohlenen Schnellstartpfad festlegen",
+          "description": "Einen klaren, dominanten Default-Pfad fuer neue Nutzer definieren, damit nicht mehrere gleichwertige Startvarianten miteinander konkurrieren.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "One-Obvious-Way-In, Reduced-Choice-Overload",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Es gibt einen klar bevorzugten Einstieg.",
+            "Alternative Startvarianten sind nachgeordnet und kontextualisiert.",
+            "Neue Nutzer muessen nicht zwischen vielen Wegen raten."
+          ]
+        },
+        {
+          "id": "PRD-011",
+          "title": "First Run bis zum ersten sichtbaren Ergebnis auf unter eine Minute trimmen",
+          "description": "Den ersten Produktkontakt so zuspitzen, dass ein neuer Nutzer schnell in einen sichtbaren Goal->Result-Pfad kommt, statt erst Architektur und Modi verstehen zu muessen.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Fast-First-Value, Lower-Entry-Friction",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Ein neuer Nutzer kann sehr schnell ein erstes sinnvolles Ergebnis sehen.",
+            "Der Einstieg fuehlt sich weniger technisch und weniger schwer an.",
+            "Die Zeit bis zum ersten Nutzen sinkt deutlich."
+          ]
+        },
+        {
+          "id": "PRD-012",
+          "title": "Ersten Start im UI mit gefuehrtem Mini-Onboarding ausbauen",
+          "description": "Den UI-Einstieg mit einem knappen, produktorientierten Mini-Onboarding ausbauen, das Modus, Sicherheitscharakter und erste Aktion erklaert, ohne zu ueberfrachten.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Guided-First-Run, Gentle-Orientation",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Erstnutzer werden knapp aber sinnvoll orientiert.",
+            "Das Onboarding wirkt hilfreich statt langatmig.",
+            "Sicherheits- und Governance-Charakter werden frueh klar."
+          ]
+        },
+        {
+          "id": "PRD-013",
+          "title": "CLI-Ersteinstieg mit klaren Einstiegskommandos und Erfolgssignalen zuspitzen",
+          "description": "Fuer die CLI einen klaren ersten Arbeitsweg definieren, inklusive Beispielkommandos, Erfolgssignalen und Fehlerhilfe fuer den ersten Kontakt.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Low-Friction-CLI-Onboarding, Immediate-Confidence",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/cli_goals.py",
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "CLI-Nutzer verstehen sofort den ersten sinnvollen Befehl.",
+            "Typische Ersteinstiegsfehler sind besser abgefangen oder erklaert.",
+            "CLI fuehlt sich wie offizieller Produktzugang an."
+          ]
+        },
+        {
+          "id": "PRD-014",
+          "title": "Fehlertexte und Abbruchzustände im ersten Run deutlich menschlicher machen",
+          "description": "Gerade in den ersten Schritten klare, untechnische Fehlermeldungen und naechste Schritte zeigen, statt Nutzer mit interner Sprache und Statusmodellen allein zu lassen.",
+          "priority": "high",
+          "type": "ux",
+          "principle": "Recoverable-First-Run, Humane-Failure-Messaging",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/cli_goals.py",
+            "agent/routes/"
+          ],
+          "acceptance": [
+            "Fehler im Ersteinstieg sind fuer Nicht-Insider besser verständlich.",
+            "Naechste Schritte werden aktiv vorgeschlagen.",
+            "Abbrueche wirken weniger wie technische Sackgassen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "golden-paths-and-official-flows",
+      "label": "Golden Paths und offizielle Arbeitswege",
+      "items": [
+        {
+          "id": "PRD-020",
+          "title": "Offiziellen Golden Path fuer UI-Nutzung definieren",
+          "description": "Den bevorzugten Standardarbeitsweg im Web-UI festlegen und in Doku, Demo und Produktfuehrung sichtbar als den offiziellen Weg behandeln.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Official-UI-Path, Reduced-Ambiguity",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/",
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Der bevorzugte UI-Weg ist explizit benannt.",
+            "Doku und Demo sprechen denselben Standardweg.",
+            "Alternative Pfade sind nicht gleichberechtigt chaotisch."
+          ]
+        },
+        {
+          "id": "PRD-021",
+          "title": "Offiziellen Golden Path fuer CLI-Nutzung definieren",
+          "description": "Den bevorzugten Standardarbeitsweg fuer die CLI festlegen und ihn von Nebenpfaden, Diagnosekommandos oder Expertenoptionen klar abgrenzen.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Official-CLI-Path, Better-Command-Discipline",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/cli_goals.py",
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "CLI-Nutzer erkennen den offiziellen Arbeitsweg sofort.",
+            "Nebenzweige und Spezialkommandos sind klar als solche markiert.",
+            "CLI-Doku wirkt fokussierter."
+          ]
+        },
+        {
+          "id": "PRD-022",
+          "title": "Offiziellen Golden Path fuer Release und Betriebsfreigabe definieren",
+          "description": "Einen glasklaren Standardweg fuer Release-Kandidaten, finale Freigabe und Betriebskommunikation dokumentieren und operationalisieren.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Official-Release-Flow, No-Improvised-Ship-Path",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "docs/",
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Release-, RC- und finale Freigabe sind klar getrennt.",
+            "Das Team oder spaetere Mitwirkende koennen dem Standardprozess folgen.",
+            "Release-Entscheidungen werden weniger improvisiert."
+          ]
+        },
+        {
+          "id": "PRD-023",
+          "title": "Golden Paths im UI mit visuellen Hauptaktionen und Step-Hinweisen sichtbar machen",
+          "description": "Die offiziellen Hauptpfade im UI nicht nur dokumentieren, sondern direkt mit Handlungshinweisen, CTA-Reihenfolge und Statusfuehrung sichtbar bevorzugen.",
+          "priority": "medium",
+          "type": "ux",
+          "principle": "Visible-Preferred-Flow, Product-Led-Guidance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Bevorzugte Pfade sind im UI klarer sichtbar.",
+            "Hauptaktionen konkurrieren weniger miteinander.",
+            "Nutzer werden eher auf den stabilen Weg gefuehrt."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "operational-observability-and-real-usage-insight",
+      "label": "Operative Observability und reale Nutzungsdaten",
+      "items": [
+        {
+          "id": "OPS-030",
+          "title": "Produktnahe Nutzungsereignisse fuer Kernflows definieren",
+          "description": "Nicht nur technische Logs, sondern produktnahe Ereignisse fuer Start, Goal-Erstellung, Blockierung, Review-Bedarf, Erfolg und Abbruch definieren.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Product-Event-Visibility, Real-Usage-Insight",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Wichtige Produktaktionen sind als Ereignisse modelliert.",
+            "Es ist klar messbar, welche Flows wirklich genutzt werden.",
+            "Technische Logs und Produktsicht sind besser getrennt."
+          ]
+        },
+        {
+          "id": "OPS-031",
+          "title": "Goal-Abbruch-, Blockierungs- und Review-Raten sichtbar machen",
+          "description": "Im operativen Blick systematisch sichtbar machen, wie oft Goals blockiert werden, wann Review benoetigt wird und an welchen Stellen Nutzer haengen bleiben.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Friction-Visibility, Better-Improvement-Signals",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Blockierungs- und Review-Muster werden sichtbar.",
+            "Produktverbesserung kann sich auf echte Friktion stuetzen.",
+            "Nicht nur erfolgreiche Faelle werden gemessen."
+          ]
+        },
+        {
+          "id": "OPS-032",
+          "title": "Nutzung von UI, CLI und API als getrennte Perspektiven auswertbar machen",
+          "description": "Sichtbar machen, welche Zugangsschicht wie genutzt wird und welche Probleme pro Kanal dominieren, statt alles in eine undifferenzierte Gesamtsicht zu werfen.",
+          "priority": "medium",
+          "type": "operations",
+          "principle": "Channel-Aware-Insight, Smarter-Prioritization",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "UI-, CLI- und API-Nutzung lassen sich getrennt bewerten.",
+            "Kanal-spezifische Schwächen werden sichtbar.",
+            "Verbesserungen koennen gezielter priorisiert werden."
+          ]
+        },
+        {
+          "id": "OPS-033",
+          "title": "Produktmetriken fuer Demo, Trial und produktive Nutzung unterscheiden",
+          "description": "Demo-, Evaluations- und echte produktive Nutzung in Metriken unterscheiden, damit Beobachtungen nicht durch Showcase-Traffic verfälscht werden.",
+          "priority": "medium",
+          "type": "operations",
+          "principle": "Meaningful-Metrics, Better-Signal-Quality",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Demo- und Produktnutzung sind analytisch trennbar.",
+            "Metriken sind aussagekraeftiger.",
+            "Produktentscheidungen beruhen weniger auf verrauschten Daten."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "explainability-and-user-facing-language",
+      "label": "Explainability und Endnutzer Sprache",
+      "items": [
+        {
+          "id": "UX-040",
+          "title": "Warum-blockiert-Warum-review-Warum-sicher Hinweise im gesamten UI systematisieren",
+          "description": "Erklaerungen fuer Blockierungen, Review-Pflichten und Sicherheitsgrenzen als wiederkehrendes, konsistentes UX-Muster ueber Hauptansichten hinweg etablieren.",
+          "priority": "critical",
+          "type": "ux",
+          "principle": "Systematic-Explainability, Trust-Through-Reasoning-Visible",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Blockierungen und Review-Pflichten werden ueberall erklaerbar dargestellt.",
+            "Erklaerungen wirken konsistent statt zufaellig.",
+            "Nutzer verstehen Kontrolle besser."
+          ]
+        },
+        {
+          "id": "UX-041",
+          "title": "Technische Systemsprache in Standardansichten weiter reduzieren",
+          "description": "Interne Begriffe, Statusmodelle und Architekturvokabular in Standardansichten weiter in klare, alltagstaugliche Produktsprache uebersetzen.",
+          "priority": "high",
+          "type": "ux",
+          "principle": "Human-Language-First, Less-Internal-Jargon",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Standardansichten wirken weniger nach internem Architekturmodell.",
+            "Neue Nutzer verstehen Inhalte schneller.",
+            "Fachsprache bleibt auf Expertenkontexte begrenzt."
+          ]
+        },
+        {
+          "id": "UX-042",
+          "title": "Naechste sinnvolle Schritte konsequent als Handlungshilfe einblenden",
+          "description": "Nach Blockierung, Fehler, Erfolg oder Review nicht nur Zustand anzeigen, sondern den naechsten sinnvollen Schritt sichtbar und klickbar vorschlagen.",
+          "priority": "high",
+          "type": "ux",
+          "principle": "Actionable-States, Less-Dead-End-UX",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Wichtige Zustände fuehren zu erkennbaren naechsten Aktionen.",
+            "Weniger Sackgassen in UI und ggf. CLI.",
+            "Nutzer muessen weniger selbst interpretieren."
+          ]
+        },
+        {
+          "id": "UX-043",
+          "title": "Ergebnisdarstellung staerker auf Wert statt auf internen Ablauf fokussieren",
+          "description": "Resultate zuerst nach Nutzen, Ergebnisqualitaet und naechstem Schritt strukturieren und den internen Prozess darunter oder getrennt darstellen.",
+          "priority": "medium",
+          "type": "ux",
+          "principle": "Value-First-Results, Better-End-User-Orientation",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Ergebnisansichten kommunizieren erst Nutzen, dann Mechanik.",
+            "Endnutzer sehen schneller, was sie gewonnen haben.",
+            "Interne Prozesssicht bleibt verfuegbar, aber nicht dominant."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "governance-as-product-feature",
+      "label": "Governance als Produktfeature",
+      "items": [
+        {
+          "id": "GOV-050",
+          "title": "Explizite Governance Modi wie safe, balanced und strict definieren",
+          "description": "Governance nicht nur als implizite Konfiguration, sondern als klar benannte, nutzbare Produktmodi mit unterschiedlichem Kontrollniveau anbieten.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Visible-Control-Profiles, Productized-Governance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Es gibt klar benannte Governance-Modi.",
+            "Der Nutzer kann Kontrollniveau bewusst verstehen und waehlen.",
+            "Governance wird als staerke sichtbar statt nur als innere Technik."
+          ]
+        },
+        {
+          "id": "GOV-051",
+          "title": "Governance Modi im UI und CLI erklaerbar auswählbar machen",
+          "description": "Die gewaehlten Modi nicht nur intern verwenden, sondern im UI und in der CLI klar erklaeren und kontrollierbar machen.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Selectable-Control, Explainable-Safety-Posture",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/cli_goals.py",
+            "docs/"
+          ],
+          "acceptance": [
+            "Governance-Modi sind in Produktoberflaechen sichtbar waehlbar.",
+            "Ihre Unterschiede werden nicht nur intern verstanden.",
+            "Nutzer koennen Verhalten besser auf ihren Kontext abstimmen."
+          ]
+        },
+        {
+          "id": "GOV-052",
+          "title": "Governance-Entscheidungen als lesbares Policy-Profil exportierbar machen",
+          "description": "Die effektiven Kontrollregeln, Tool-Grenzen und Review-Bedingungen als zusammenhaengendes lesbares Profil sichtbar oder exportierbar machen.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Readable-Effective-Policy, Auditable-Controls",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Effektive Governance kann als Profil eingesehen werden.",
+            "Nutzer oder Admins muessen nicht viele Einzelstellen lesen.",
+            "Kontrolllogik wird transparenter."
+          ]
+        },
+        {
+          "id": "GOV-053",
+          "title": "Review-first und local-first Betriebsmodi als klar erkennbare Profile ausarbeiten",
+          "description": "Praktisch relevante Sicherheits- und Betriebsprofile wie review-first oder local-first als echte Produktmodi mit passender Sprache und Standardkonfiguration ausarbeiten.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Meaningful-Operational-Profiles, Safer-Default-Choices",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Wichtige Sicherheits- und Betriebsprofile sind konkret nutzbar.",
+            "Die Profile kommunizieren echten Mehrwert statt nur Namen.",
+            "Betriebsszenarien lassen sich sinnvoller abbilden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "plugin-tool-worker-contracts",
+      "label": "Plugin Tool und Worker Contracts",
+      "items": [
+        {
+          "id": "ARC-060",
+          "title": "Stabile Tool-Contract-Spezifikation fuer externe oder spaetere Integrationen definieren",
+          "description": "Ein formales, nachvollziehbares Contract-Modell fuer Tools definieren, damit Erweiterungen und Integrationen nicht auf impliziten Annahmen beruhen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Stable-Extension-Contracts, Less-Implicit-Coupling",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "docs/",
+            "agent/"
+          ],
+          "acceptance": [
+            "Tools folgen einem klaren Contract-Modell.",
+            "Erweiterungen sind besser validierbar.",
+            "Integrationen werden weniger fragil."
+          ]
+        },
+        {
+          "id": "ARC-061",
+          "title": "Worker-Capability-Profile formal definieren und dokumentieren",
+          "description": "Worker-Faehigkeiten als explizite Profile mit erlaubten Scopes, Toolklassen, Rollen und Grenzen modellieren, statt sie nur aus verstreuten Konfigurationen abzuleiten.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Explicit-Worker-Boundaries, Scalable-Governed-Delegation",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Worker-Profile sind formal beschrieben.",
+            "Capabilities und Grenzen sind besser vergleichbar.",
+            "Skalierung und Austauschbarkeit werden realistischer."
+          ]
+        },
+        {
+          "id": "ARC-062",
+          "title": "Remote und local backend/provider Contracts vereinheitlichen",
+          "description": "Die Schnittstellen fuer lokale und entfernte Backends weiter harmonisieren, damit Austauschbarkeit und Routinglogik weniger Spezialfaelle enthalten.",
+          "priority": "medium",
+          "type": "architecture",
+          "principle": "Backend-Interchangeability, Lower-Integration-Friction",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Lokale und entfernte Provider wirken konsistenter.",
+            "Routing und Governance haben weniger Sonderfaelle.",
+            "Integrationen werden austauschbarer."
+          ]
+        },
+        {
+          "id": "ARC-063",
+          "title": "Integrationsrichtlinien fuer Dritttools und Worker-Adapter schreiben",
+          "description": "Fuer spaetere externe Integrationen klare Richtlinien definieren: welche Sicherheits-, Audit-, Contract- und Testing-Anforderungen ein Adapter oder Tool erfuellen muss.",
+          "priority": "medium",
+          "type": "architecture",
+          "principle": "Governed-Extensibility, No-Random-Plugin-Surface",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docs/"
+          ],
+          "acceptance": [
+            "Drittintegrationen haben definierte Mindestanforderungen.",
+            "Erweiterbarkeit unterlaeuft nicht die Sicherheitsidee.",
+            "Externe Mitwirkende bekommen klare Leitplanken."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "benchmarking-and-competitive-evaluation",
+      "label": "Benchmarking und Vergleichsbewertung",
+      "items": [
+        {
+          "id": "BMK-070",
+          "title": "Kleine feste Benchmark-Suite aus realistischen Aufgaben definieren",
+          "description": "Eine kleine, aber ernstzunehmende Suite aus realistischen Aufgaben definieren, mit der Ananta gegen sich selbst und spaeter gegen Vergleichsprojekte bewertet werden kann.",
+          "priority": "high",
+          "type": "benchmark",
+          "principle": "Comparable-Progress, Reality-Based-Evaluation",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "tests/",
+            "agent/"
+          ],
+          "acceptance": [
+            "Es gibt eine feste Benchmark-Aufgabenliste.",
+            "Die Aufgaben repräsentieren echte Ananta-Staerken.",
+            "Fortschritt kann spaeter vergleichbar gemessen werden."
+          ]
+        },
+        {
+          "id": "BMK-071",
+          "title": "Bewertungskriterien fuer Benchmarking formal definieren",
+          "description": "Nicht nur Erfolg oder Fehler messen, sondern Zeit, Nachvollziehbarkeit, Blockierungsqualitaet, Review-Bedarf, Sicherheit und Ergebniswert formal bewerten.",
+          "priority": "high",
+          "type": "benchmark",
+          "principle": "Multi-Dimensional-Evaluation, Fairer-Comparison",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docs/"
+          ],
+          "acceptance": [
+            "Benchmarking bewertet mehr als nur ob etwas lief.",
+            "Governance- und Sicherheitsstaerken werden mitgemessen.",
+            "Vergleiche werden aussagekraeftiger."
+          ]
+        },
+        {
+          "id": "BMK-072",
+          "title": "Ananta gegen OpenHands, OpenDevin und OpenClaw-artige Flows in ausgewählten Aufgaben vergleichen",
+          "description": "Fuer einige repräsentative Aufgaben dokumentiert vergleichen, wie Ananta gegen relevante Vergleichssysteme oder deren typische Arbeitslogik abschneidet.",
+          "priority": "medium",
+          "type": "benchmark",
+          "principle": "Contextual-Competitive-Understanding, Sharper-Positioning",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "docs/"
+          ],
+          "acceptance": [
+            "Es gibt dokumentierte Vergleichsfaelle gegen relevante Projektklassen.",
+            "Anantas Staerken und Schwächen werden belastbarer greifbar.",
+            "Positionierung kann spaeter auf Fakten statt Gefuehl beruhen."
+          ]
+        },
+        {
+          "id": "BMK-073",
+          "title": "Benchmark-Ergebnisse fuer Produktkommunikation und Release-Retros nutzen",
+          "description": "Die Benchmarkdaten nicht nur intern sammeln, sondern auch fuer Release-Retrospektiven und spaetere oeffentliche Positionierung verwertbar strukturieren.",
+          "priority": "medium",
+          "type": "benchmark",
+          "principle": "Reusable-Evidence, Better-Product-Narrative",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "CHANGELOG.md"
+          ],
+          "acceptance": [
+            "Benchmark-Ergebnisse koennen intern und extern sinnvoll genutzt werden.",
+            "Releases lassen sich sachlicher bewerten.",
+            "Produktkommunikation wird glaubwuerdiger."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "product-profiles-and-operating-modes",
+      "label": "Produktprofile und Betriebsmodi",
+      "items": [
+        {
+          "id": "PRF-080",
+          "title": "Klare Produktprofile wie demo, developer local, team controlled und secure enterprise definieren",
+          "description": "Ananta in einige klare Betriebs- oder Produktprofile schneiden, damit nicht alles fuer alle gleichzeitig optimiert werden muss.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Segmented-Product-Clarity, Better-Fit-by-Context",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "README.md",
+            "frontend-angular/",
+            "agent/"
+          ],
+          "acceptance": [
+            "Es gibt klar benannte Produkt- oder Betriebsprofile.",
+            "Profile unterscheiden sich nachvollziehbar.",
+            "Ananta wirkt weniger wie ein einziger ueberladener Modus."
+          ]
+        },
+        {
+          "id": "PRF-081",
+          "title": "Profile auf konkrete Defaults, Konfigurationen und Einstiegspfade abbilden",
+          "description": "Die definierten Produktprofile nicht nur benennen, sondern mit sinnvollen Default-Einstellungen, Demo-Pfaden, Governance-Modi und Dokumentationswegen unterlegen.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Actionable-Profiles, Config-Backed-Product-Modes",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Produktprofile haben echte technische und UX-seitige Wirkung.",
+            "Defaults passen zum jeweiligen Zielprofil.",
+            "Profile sind mehr als nur Marketingnamen."
+          ]
+        },
+        {
+          "id": "PRF-082",
+          "title": "README, Schnellstart und Release-Kommunikation an Produktprofile anpassen",
+          "description": "Die oeffentliche Kommunikation so ordnen, dass unterschiedliche Nutzer sofort erkennen, welcher Modus oder welches Profil fuer sie gedacht ist.",
+          "priority": "medium",
+          "type": "presentation",
+          "principle": "Audience-Fit-Communication, Less-Misleading-Entry",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "README.md",
+            "docs/",
+            "CHANGELOG.md"
+          ],
+          "acceptance": [
+            "Kommunikation passt besser zu unterschiedlichen Nutzergruppen.",
+            "Neue Nutzer finden schneller den fuer sie passenden Pfad.",
+            "Das Projekt wirkt zielgerichteter."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 35,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 35
+    },
+    "notes": [
+      "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
+      "Der Fokus liegt auf dem Ausbau von Ananta als klar verstehbare kontrollierte Agentenplattform mit besserem Einstieg, staerkerer Explainability, sichtbarer Governance und besserer Positionierung.",
+      "Ein Teil der Punkte wird UI-, CLI-, Doku- und Config-seitige Aenderungen kombinieren muessen; reine Einzelmassnahmen werden den groessten Effekt nicht erreichen."
+    ],
+    "recommended_order": [
+      "PRD-001",
+      "PRD-010",
+      "PRD-020",
+      "UX-040",
+      "GOV-050",
+      "PRF-080",
+      "PRD-002",
+      "PRD-003",
+      "PRD-011",
+      "PRD-012",
+      "UX-042",
+      "PRD-013",
+      "PRD-014",
+      "OPS-030",
+      "OPS-031",
+      "UX-041",
+      "UX-043",
+      "GOV-051",
+      "GOV-052",
+      "GOV-053",
+      "ARC-060",
+      "ARC-061",
+      "PRF-081",
+      "PRF-082",
+      "OPS-032",
+      "OPS-033",
+      "PRD-004",
+      "ARC-062",
+      "ARC-063",
+      "BMK-070",
+      "BMK-071",
+      "BMK-072",
+      "BMK-073",
+      "PRD-021",
+      "PRD-022",
+      "PRD-023"
+    ]
+  }
+}
