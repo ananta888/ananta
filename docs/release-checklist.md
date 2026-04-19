@@ -40,8 +40,8 @@ If Docker cannot pull images because of a local credential-store or registry iss
 On this WSL/Rancher Desktop setup, Docker pulls can fail when the Windows/Rancher `docker-credential-secretservice` helper is found on `PATH` without a running Freedesktop secret service. Use a clean Docker invocation for release verification:
 
 ```bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-DOCKER_CONFIG=/tmp/ananta-docker-config \
+ANANTA_DOCKER_CLEAN_PATH=1 \
+ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
 python scripts/release_gate.py \
   --compose-config \
   --frontend-build \

@@ -1,0 +1,61 @@
+{
+  "release_target": "v1.0.0",
+  "ok": false,
+  "checks": [
+    {
+      "name": "required-files",
+      "ok": true,
+      "detail": "all required release files exist"
+    },
+    {
+      "name": "python-dependency-sources",
+      "ok": true,
+      "detail": "runtime and dev dependency sources match pyproject"
+    },
+    {
+      "name": "python-locks",
+      "ok": true,
+      "detail": "python lockfiles contain pinned package entries"
+    },
+    {
+      "name": "frontend-manifest",
+      "ok": true,
+      "detail": "frontend package manifest uses exact top-level versions matching package-lock"
+    },
+    {
+      "name": "image-pinning",
+      "ok": true,
+      "detail": "release Dockerfiles and Compose files use explicit tags plus digests"
+    },
+    {
+      "name": "tool-pinning",
+      "ok": true,
+      "detail": "global release tools are pinned and version-checked"
+    },
+    {
+      "name": "ci-release-paths",
+      "ok": true,
+      "detail": "CI uses locked Python deps, npm ci, pinned Node, and release gate"
+    },
+    {
+      "name": "todo-status",
+      "ok": true,
+      "detail": "todo status counters are synchronized and REL-012 is completed"
+    },
+    {
+      "name": "compose-config",
+      "ok": true,
+      "detail": "release compose configurations render successfully"
+    },
+    {
+      "name": "frontend-build",
+      "ok": false,
+      "detail": "npm run build failed: \n> ananta-angular@0.7.0 build\n> ng build\n\nNode.js version v18.19.1 detected.\nThe Angular CLI requires a minimum Node.js version of v20.19 or v22.12.\n\nPlease update your Node.js version or visit https://nodejs.org/ for additional instructions.\n\n"
+    },
+    {
+      "name": "image-builds",
+      "ok": true,
+      "detail": "backend and frontend release images build successfully"
+    }
+  ]
+}
