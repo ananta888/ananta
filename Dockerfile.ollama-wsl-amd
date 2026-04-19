@@ -26,6 +26,51 @@ RUN printf '%s\n' \
         vulkan-tools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
+# Ubuntu Noble's mesa-vulkan-drivers package does not currently ship the
+# WSL2/D3D12 Dozen ICD needed for Vulkan-backed Ollama on this stack. Pin the
+# tested Kisak Mesa package version that provides dzn_icd.json/libvulkan_dzn.so.
+RUN printf '%s\n' \
+        'Types: deb' \
+        'URIs: https://ppa.launchpadcontent.net/kisak/turtle/ubuntu/' \
+        'Suites: noble' \
+        'Components: main' \
+        'Signed-By:' \
+        ' -----BEGIN PGP PUBLIC KEY BLOCK-----' \
+        ' .' \
+        ' mQINBFogVUUBEACrIr+VTDE3uQ3RcihpRKnfr+n62r+a9jQJhvzvcR5SfgQyTx75' \
+        ' 5sw8aRhUzN5JnKohiOzCefxXjtHxHIRSnWona5g9qkY37fiB13Z3JOP0KaSW+K5O' \
+        ' NdBkJyp0sxNZx3ANrUIdgctm/bLZXizMfuOwr1nbIWiU0Lq7/jRtS3izjQxaqLhF' \
+        ' ZuPeFlBTZ+WTRS9n6y70LVGkwnrZVDVA4+V63pQnh0528uJAK9pG509KZMa1tZk4' \
+        ' fE74V9cg6zLXyqkQm2wwu32tK66PZg3eayg1u7dkbycnvMfJUxFjkSnrIU7P3Ivy' \
+        ' 3WxNZ1mnXtN/88YFYovhz+K2RtNktyjUDyeda/dZoKaibrI9WDQNwx0JD9gEcxUt' \
+        ' ODBxmzzMWJ8I69FyOtZhRJIEI5s84EeMiEs6Ur0yfhx/gg36MOb7xjVL+kKyzVeY' \
+        ' LYG5MD1WkFsdxVbXU/5vloGhbfelMIuzvhi5YPkxjLLsVeBb4RaUujUe/WzeOMY4' \
+        ' wMtLsh3JsGkpSkG311LXXvslcOaoHkXOyD8WTnDRD53N4RJ/KkhRXit0Q0Jx1Pug' \
+        ' gOIjbrGKqqcyzYBFoVkSqCMIMQ/0vgimqzR3xrsiUfPsYHdMxulUIJayOSvPvKJQ' \
+        ' JJ3pgZ6lgdHZSPughcQSZR7tThl8WwjmSsL/j1diWPEXuSnLq9QtFYyzqwARAQAB' \
+        ' tBdMYXVuY2hwYWQgUFBBIGZvciBraXNha4kCOAQTAQIAIgUCWiBVRQIbAwYLCQgH' \
+        ' AwIGFQgCCQoLBBYCAwECHgECF4AACgkQ9j8PK5CTVDm1Jw/+KpfyKnrzaBF42lXA' \
+        ' pUdTE8kHUmyAVhAmkDyT8ceitnsIBmjy5aW5kAupMOC0rgnYL9RoungtKbausjK2' \
+        ' 3DRSQCT00BjTKU1fkw2GLS3JohrNRYCQNhYIWc+UI1Vy8sIvfIOZ9P/1q9BFEz0P' \
+        ' 1v9rDcNJPb6bvsBu2A5X16nSoA9V1z4yyMlYNuvME/Kh/QoTZFtFIg8hII9guWpc' \
+        ' OAlYZnAhybLVbYq0zzyUKNBJB5NDeHnW+pa9qNBHiM34RfUgmz1E3QwE1Sv8f41y' \
+        ' uYLTn08guVqjq86gjMkQGle8DOrhBSx2qRl7Na0qSgJRydyPCg4R2Ge2Ce3JsOw9' \
+        ' PBx5z5xZtDcmyY31Hkrtnl/ZqHWuv8WF60XzQpwqcoWppeZz3tDdzhr9B5tfqIja' \
+        ' bBgcO3H6So6RtVDXfn0BNJ52JD0VqjRARncFCDbzVqoUD1bMClc3FI9vZEn2qVOy' \
+        ' Gb4WEiDarf16JMjnd8R1gc9chnpRc2DD0bMXTRMmr3j+wBVV/a9jCwNJcHwMCO86' \
+        ' xOFkdstNMBLLld7/DgOzbTQGJiRfG3SYhkC9Kkf4icKiTjoZKYTQOZaya3LA2GfE' \
+        ' A7ep/y36Y6Bc40ebsVsLgbD0NEN/zmR0rTLYJYYOwhGlU/XDwK7zjRASsdblHKuC' \
+        ' H6zoaQceKWBFgk33SF8cF+SC7OA=' \
+        ' =iteZ' \
+        ' -----END PGP PUBLIC KEY BLOCK-----' \
+        > /etc/apt/sources.list.d/kisak-turtle.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        mesa-vulkan-drivers=25.3.6~kisak1~n \
+    && test -f /usr/share/vulkan/icd.d/dzn_icd.json \
+    && test -f /usr/lib/x86_64-linux-gnu/libvulkan_dzn.so \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
 ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
 ENV OLLAMA_VULKAN=1
 ENV VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/dzn_icd.json
