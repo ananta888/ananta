@@ -22,8 +22,10 @@ RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
 WORKDIR /app
 
 COPY requirements.txt ./
+COPY requirements-dev.lock ./
 COPY rag-helper/requirements.txt ./rag-helper/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt -r rag-helper/requirements.txt
+RUN pip install --no-cache-dir -r requirements-dev.lock
 
 COPY . .
 
