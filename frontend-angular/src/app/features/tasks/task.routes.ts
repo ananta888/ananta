@@ -1,15 +1,9 @@
 import { Routes } from '@angular/router';
 
-import { ArchivedTasksComponent } from '../../components/archived-tasks.component';
-import { BoardComponent } from '../../components/board.component';
-import { GoalDetailComponent } from '../../components/goal-detail.component';
-import { TaskDetailComponent } from '../../components/task-detail.component';
-import { TaskGraphComponent } from '../../components/task-graph.component';
-
 export const taskRoutes: Routes = [
-  { path: 'board', component: BoardComponent },
-  { path: 'archived', component: ArchivedTasksComponent },
-  { path: 'graph', component: TaskGraphComponent },
-  { path: 'task/:id', component: TaskDetailComponent },
-  { path: 'goal/:id', component: GoalDetailComponent },
+  { path: 'board', loadComponent: () => import('../../components/board.component').then(m => m.BoardComponent) },
+  { path: 'archived', loadComponent: () => import('../../components/archived-tasks.component').then(m => m.ArchivedTasksComponent) },
+  { path: 'graph', loadComponent: () => import('../../components/task-graph.component').then(m => m.TaskGraphComponent) },
+  { path: 'task/:id', loadComponent: () => import('../../components/task-detail.component').then(m => m.TaskDetailComponent) },
+  { path: 'goal/:id', loadComponent: () => import('../../components/goal-detail.component').then(m => m.GoalDetailComponent) },
 ];
