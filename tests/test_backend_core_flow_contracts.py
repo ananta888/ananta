@@ -90,7 +90,7 @@ def test_policy_and_exposure_boundaries_are_enforced_through_real_api_paths(clie
 
     blocked = client.get("/v1/ananta/capabilities", headers=admin_auth_header)
     assert blocked.status_code == 403
-    assert blocked.get_json()["data"]["details"] == "openai_compat_disabled"
+    assert blocked.get_json()["data"]["details"] == "openai_compat_exposure_disabled"
 
     invalid = client.post(
         "/config",
@@ -124,7 +124,10 @@ def test_read_model_contracts_expose_stable_backend_shapes(client, admin_auth_he
     orchestration_data = orchestration.get_json()["data"]
     assert {"config", "settings", "assistant_capabilities"}.issubset(assistant_data)
     assert "governance" in ((assistant_data.get("settings") or {}).get("summary") or {})
-    assert {"runtime_profile", "operations", "task_snapshot"}.issubset(dashboard_data)
+    assert {"system_health", "tasks", "llm_configuration", "contracts"}.issubset(dashboard_data)
+    assert "runtime_profile" in (dashboard_data.get("llm_configuration") or {})
+    assert "operations" in (((dashboard_data.get("llm_configuration") or {}).get("runtime_telemetry") or {}))
+    assert (dashboard_data.get("tasks") or {}).get("included") is True
     assert {"queue", "recent_tasks", "artifact_flow", "worker_execution_reconciliation"}.issubset(orchestration_data)
     assert any(item.get("id") == "contract-task-1" for item in orchestration_data["recent_tasks"])
 
