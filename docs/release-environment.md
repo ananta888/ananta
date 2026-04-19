@@ -29,6 +29,8 @@ Release-relevant Ananta containers use explicit tags plus registry digests:
 
 The local WSL/Vulkan Ollama image is tagged as `ollama-wsl-amd:0.20.7-vulkan` and is built from `Dockerfile.ollama-wsl-amd`.
 
+The optional evolution profile defaults to the local placeholder `ananta-evolver:local`. Production evolution deployments must set `EVOLVER_IMAGE` to a separately released digest-pinned image. Anonymous digest resolution for the previous GHCR default was not available during verification.
+
 The Taiga example stack under `docs/taiga/` is not part of the Ananta v1.0.0 release runtime. It is pinned separately with image digests so it does not reintroduce floating `latest` pulls.
 
 ## Tooling
