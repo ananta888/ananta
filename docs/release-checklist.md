@@ -36,7 +36,7 @@ python scripts/release_gate.py \
   --report release-verification-report.json
 ```
 
-This additionally runs `npm ci`, `npm run build`, and backend/frontend Docker image builds.
+This additionally runs `npm ci`, `npm run build`, and backend/frontend/WSL-Ollama Docker image builds.
 
 If Docker cannot pull images because of a local credential-store or registry issue, fix that environment issue before treating the release candidate as verified. Do not replace image tags with floating tags to work around registry failures.
 
