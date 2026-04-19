@@ -353,7 +353,7 @@
           "priority": "high",
           "type": "test-integration",
           "principle": "Composite-UI-Stability, End-User-Visible-Confidence",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -399,7 +399,7 @@
           "priority": "critical",
           "type": "test-e2e",
           "principle": "True-User-Path-Coverage, Release-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/",
@@ -419,7 +419,7 @@
           "priority": "high",
           "type": "test-e2e",
           "principle": "Governance-UX-Validation, No-Only-Happy-Paths",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -464,7 +464,7 @@
           "priority": "high",
           "type": "test-live-click",
           "principle": "Real-Browser-Confidence, Human-Like-Validation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/",
@@ -484,7 +484,7 @@
           "priority": "medium",
           "type": "test-live-click",
           "principle": "Visible-Safety-Validation, Real-Recovery-Confidence",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/",
@@ -830,9 +830,9 @@
   "meta": {
     "total_items": 38,
     "by_status": {
-      "completed": 12,
+      "completed": 17,
       "partial": 0,
-      "open": 26
+      "open": 21
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",
