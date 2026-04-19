@@ -59,11 +59,16 @@ def check_fast_tests():
 def main():
     parser = argparse.ArgumentParser(description="Unified Check Pipeline for Ananta")
     parser.add_argument("--mode", choices=["fast", "standard", "deep"], default="standard", help="Check mode")
+    parser.add_argument(
+        "--skip-style",
+        action="store_true",
+        help="Skip repository-wide Ruff format/lint gates while preserving type, architecture, and test gates.",
+    )
     args = parser.parse_args()
 
     success = True
 
-    if args.mode in ["fast", "standard", "deep"]:
+    if args.mode in ["fast", "standard", "deep"] and not args.skip_style:
         if not check_format(): success = False
         if not check_lint(): success = False
 
