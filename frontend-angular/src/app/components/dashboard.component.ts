@@ -120,6 +120,75 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
     }
 
     @if (hub) {
+      <section class="card personal-home mb-md" aria-labelledby="personal-home-title">
+        <div class="row space-between align-start">
+          <div>
+            <div class="muted font-sm mb-xs">Mein Arbeitsbereich</div>
+            <h3 id="personal-home-title" class="no-margin">Willkommen zurueck</h3>
+            <p class="muted mt-sm no-margin">Hier findest du deine letzten Ziele, naechsten Aufgaben und passende Startvorlagen.</p>
+          </div>
+          <button class="secondary btn-small" type="button" (click)="focusQuickGoal()">Neues Ziel</button>
+        </div>
+        <div class="grid cols-3 mt-md">
+          <div class="card card-light">
+            <div class="muted font-sm">Laufende Goals</div>
+            <strong>{{ activeGoalCount() }}</strong>
+            <p class="muted no-margin mt-sm">Noch nicht abgeschlossene Ziele.</p>
+          </div>
+          <div class="card card-light">
+            <div class="muted font-sm">Naechste Aufgaben</div>
+            <strong>{{ nextTaskCount() }}</strong>
+            <p class="muted no-margin mt-sm">Offen, blockiert oder in Arbeit.</p>
+          </div>
+          <div class="card card-light">
+            <div class="muted font-sm">Erster Fortschritt</div>
+            <strong>{{ starterProgress().done }}/{{ starterProgress().total }}</strong>
+            <p class="muted no-margin mt-sm">{{ starterProgress().label }}</p>
+          </div>
+        </div>
+        <div class="grid cols-2 mt-md">
+          <div>
+            <h4 class="no-margin">Zuletzt bearbeitet</h4>
+            @if (recentGoals().length) {
+              <div class="grid gap-sm mt-sm">
+                @for (goal of recentGoals(); track goal.id) {
+                  <button class="card card-light text-left personal-list-item" type="button" (click)="goToGoal(goal.id)">
+                    <strong>{{ goal.summary || goal.goal || goal.id }}</strong>
+                    <span class="muted font-sm">{{ goal.status || 'unbekannt' }}</span>
+                  </button>
+                }
+              </div>
+            } @else {
+              <div class="empty-state compact mt-sm">
+                <strong>Noch kein eigenes Ziel sichtbar.</strong>
+                <p class="muted no-margin mt-sm">Starte oben mit einem Ziel oder oeffne eine Vorlage.</p>
+              </div>
+            }
+          </div>
+          <div>
+            <h4 class="no-margin">Vorlagen fuer den Start</h4>
+            <div class="grid gap-sm mt-sm">
+              @for (preset of goalPresets().slice(0, 3); track preset.id) {
+                <button class="card card-light text-left personal-list-item" type="button" (click)="applyGoalPreset(preset)">
+                  <strong>{{ preset.title }}</strong>
+                  <span class="muted font-sm">{{ preset.outcome }}</span>
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
+      @if (isHintVisible('dashboard-start')) {
+        <div class="state-banner mb-md inline-help">
+          <div>
+            <strong>Kurzer Tipp</strong>
+            <p class="muted no-margin mt-sm">Beginne mit einem Ziel. Details wie Team, Worker oder Policies kannst du spaeter verfeinern.</p>
+          </div>
+          <button class="secondary btn-small" type="button" (click)="dismissHint('dashboard-start')">Ausblenden</button>
+        </div>
+      }
+
       <div class="start-actions mb-md">
         <a class="card start-action" href="#quick-goal">
           <strong>Ziel planen</strong>
@@ -183,6 +252,12 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
       <section class="card card-primary mb-md" id="quick-goal">
         <h3 class="no-margin">Ziel planen</h3>
         <p class="muted font-sm mt-sm">Starte einfach mit einem Ziel. Gefuehrte Modi bleiben fuer strukturierte Faelle verfuegbar.</p>
+        @if (isHintVisible('quick-goal')) {
+          <div class="state-banner mt-sm inline-help">
+            <p class="muted no-margin">Ein gutes Ziel beschreibt Ergebnis und Grenze, zum Beispiel: "Analysiere nur das Frontend und schlage drei naechste Schritte vor."</p>
+            <button class="secondary btn-small" type="button" (click)="dismissHint('quick-goal')">Ausblenden</button>
+          </div>
+        }
 
         <div class="preset-strip mt-sm" aria-label="Goal-Vorlagen">
           @for (preset of goalPresets(); track preset.id) {
@@ -263,6 +338,8 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
                   [class.active]="i === goalWizardStepIndex"
                   [class.done]="i < goalWizardStepIndex"
                   (click)="goToGoalWizardStep(i)"
+                  (keydown.enter)="goToGoalWizardStep(i)"
+                  (keydown.space)="goToGoalWizardStep(i); $event.preventDefault()"
                   [attr.aria-current]="i === goalWizardStepIndex ? 'step' : null"
                 >
                   <span>{{ i + 1 }}</span>
@@ -853,6 +930,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   demoError = '';
   showFirstStartWizard = localStorage.getItem('ananta.first-start.completed') !== 'true';
   showAdvancedDashboard = localStorage.getItem('ananta.dashboard.advanced') === 'true';
+  hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
   private connectedTaskCollectionHubUrl: string | null = null;
 
   ngOnInit() {
@@ -966,6 +1044,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedSafetyLevelLabel(): string {
     const selected = this.safetyLevelOptions.find(option => option.value === this.goalModeData['safety_level']);
     return selected?.label || 'Ausgewogen';
+  }
+
+  isHintVisible(key: string): boolean {
+    return !this.hiddenHints.has(key);
+  }
+
+  dismissHint(key: string): void {
+    this.hiddenHints.add(key);
+    localStorage.setItem('ananta.hidden-hints', Array.from(this.hiddenHints).join(','));
   }
 
   submitGuidedGoal() {
@@ -1164,6 +1251,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   taskCollectionError(): string | null {
     return this.taskFacade.taskCollectionError();
+  }
+
+  recentGoals(): GoalListEntry[] {
+    return this.goalsList.slice(0, 3);
+  }
+
+  activeGoalCount(): number {
+    return this.goalsList.filter((goal: any) => !['completed', 'failed', 'cancelled'].includes(String(goal?.status || '').toLowerCase())).length;
+  }
+
+  nextTaskCount(): number {
+    const tasks = typeof this.taskFacade.tasks === 'function' ? this.taskFacade.tasks() : [];
+    return Array.isArray(tasks)
+      ? tasks.filter((task: any) => !['completed', 'done'].includes(String(task?.status || '').toLowerCase())).length
+      : 0;
+  }
+
+  starterProgress(): { done: number; total: number; label: string } {
+    const checks = [
+      this.showFirstStartWizard === false,
+      this.goalsList.length > 0 || Boolean(this.quickGoalResult),
+      this.nextTaskCount() > 0 || Boolean(this.quickGoalResult?.tasks_created),
+    ];
+    const done = checks.filter(Boolean).length;
+    const label = done >= checks.length ? 'Erste Nutzung ist vorbereitet.' : 'Naechster Schritt bleibt sichtbar.';
+    return { done, total: checks.length, label };
   }
 
   private ensureTaskCollection(): void {

@@ -42,6 +42,26 @@ Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 - Frontend Entwicklung: `frontend-angular/README.md`
 - CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`
 
+## Einfache CLI- und API-Beispiele
+
+CLI-Kurzbefehle fuer typische Einstiege:
+
+```bash
+python -m agent.cli_goals analyze "Analysiere dieses Repository"
+python -m agent.cli_goals review "Pruefe die Login-Aenderungen"
+python -m agent.cli_goals diagnose "Frontend erreicht den Hub nicht"
+python -m agent.cli_goals patch "Plane einen kleinen Fix fuer die Validierung"
+```
+
+Minimaler API-Start:
+
+```bash
+TOKEN=$(curl -s http://localhost:5000/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"<password>"}' | jq -r '.data.access_token')
+curl -s http://localhost:5000/goals -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"goal":"Analysiere dieses Repository","create_tasks":true}'
+```
+
+Weitere Beispiele stehen in `api-spec.md`.
+
 ## Welche Startvariante passt?
 
 | Ziel | Empfohlen | Befehl |

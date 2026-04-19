@@ -73,3 +73,31 @@ def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
     assert calls[0]["url"] == "http://localhost:5000/goals"
     assert request_payload["mode"] == "docker_compose_repair"
     assert request_payload["mode_data"] == {"service": "hub"}
+
+
+def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
+    calls: list[dict] = []
+
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+
+    def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
+        calls.append({"method": method, "url": url, "json": json})
+        return _FakeResponse(
+            201,
+            {
+                "data": {
+                    "goal": {"id": "goal-review", "goal": json["goal"], "status": "planned"},
+                    "created_task_ids": ["task-review"],
+                }
+            },
+        )
+
+    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    created = cli_goals.submit_shortcut("review", "Pruefe die Login-Aenderungen")
+
+    assert created == ["task-review"]
+    payload = calls[0]["json"]
+    assert payload["mode"] == "code_review"
+    assert payload["mode_data"] == {"shortcut": "review"}
+    assert "Pruefe die Login-Aenderungen" in payload["goal"]
