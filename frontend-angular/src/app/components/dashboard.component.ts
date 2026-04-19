@@ -2,7 +2,6 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { interval, Subscription } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
@@ -42,6 +41,7 @@ import { DashboardAutopilotPanelComponent } from './dashboard-autopilot-panel.co
 import { DashboardTimelinePanelComponent } from './dashboard-timeline-panel.component';
 import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.component';
 import { DashboardFacade } from './dashboard.facade';
+import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
 
 @Component({
   standalone: true,
@@ -557,6 +557,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected ns = inject(NotificationService);
   private toast = inject(ToastService);
   private router = inject(Router);
+  private refreshRuntime = inject(DashboardRefreshRuntimeService);
   protected hubApi = inject(ControlPlaneFacade);
   protected taskFacade = inject(TaskManagementFacade);
   private facade = inject(DashboardFacade);
@@ -633,18 +634,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalText = '';
   quickGoalBusy = false;
   quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
-  private sub?: Subscription;
   private connectedTaskCollectionHubUrl: string | null = null;
 
   ngOnInit() {
     if (this.hub?.url) this.ensureTaskCollection();
-    this.refresh();
     this.refreshGoalModes();
-    this.sub = interval(10000).subscribe(() => this.refresh());
+    this.refreshRuntime.start(() => this.refresh(), 10000);
   }
 
   ngOnDestroy() {
-    this.sub?.unsubscribe();
+    this.refreshRuntime.stop();
     this.taskFacade.disconnectTaskCollection(this.hub?.url);
     this.connectedTaskCollectionHubUrl = null;
     this.facade.dispose();

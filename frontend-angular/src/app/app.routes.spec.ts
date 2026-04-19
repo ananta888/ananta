@@ -31,5 +31,6 @@ describe('app routes', () => {
     expect(featureRoutes.length).toBe(16);
     expect(featureRoutes.every((route: any) => typeof route.loadComponent === 'function')).toBe(true);
     expect(featureRoutes.every((route: any) => !route.component)).toBe(true);
+    expect(featureRoutes.every((route: any) => route.data?.breadcrumb && route.data?.area)).toBe(true);
   });
 });

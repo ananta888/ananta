@@ -436,7 +436,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Thin-Shell, Cleaner-Root-Component",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/app.component.ts",
@@ -456,7 +456,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Declarative-Routing, Less-UI-Logic",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/app.routes.ts",
@@ -549,7 +549,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Reactive-State, Fewer-Component-Side-Effects",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -572,7 +572,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Preventive-UI-Hotspot-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 29,
+      "completed": 33,
       "partial": 0,
-      "open": 8
+      "open": 4
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",

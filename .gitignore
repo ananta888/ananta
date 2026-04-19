@@ -126,3 +126,4 @@ __pycache__/
 /data/hub/
 /.artifacts/
 /frontend-angular/.nvmrc
+/frontend-angular/.node-version
