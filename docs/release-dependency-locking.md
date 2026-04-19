@@ -36,10 +36,10 @@ The backend image pins `opencode-ai` via the `OPENCODE_AI_VERSION` build environ
 
 CI diagram rendering pins `@mermaid-js/mermaid-cli@11.12.0`.
 
-Digest pinning is preferred for final release artifacts. If digest lookup is not available during development, use exact tags first and document the remaining drift in the release checklist.
+Release images must use explicit tags plus registry digests where the registry is public and the digest can be resolved. Local images such as `ananta-backend-compose-test:local` and `ollama-wsl-amd:0.20.7-vulkan` are build outputs and are not registry-digest pinned.
 
 ## Apt Drift
 
 Backend images are pinned to `python:3.11.15-slim-bookworm`, which fixes both the Python patch line and Debian suite for the application runtime. The remaining `apt-get` installs still resolve against the current Debian Bookworm package index at build time.
 
-The current v1.0.0 release track treats that as documented residual drift. A stricter future step should move these system dependencies into an internally built base image or a Debian snapshot-backed build path before introducing digest-pinned production artifacts.
+The current v1.0.0 release track treats that as documented residual drift. A stricter future step should move these system dependencies into an internally built base image or a Debian snapshot-backed build path.

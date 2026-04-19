@@ -4,7 +4,7 @@
 
 services:
   postgres:
-    image: postgres:16.13
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
@@ -26,7 +26,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
 
   redis:
-    image: redis:7.4.8-alpine
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
     restart: unless-stopped
     deploy:
       resources:
@@ -61,7 +61,7 @@ services:
       - "${REDIS_PORT:-6379}:6379"
 
   lmstudio-proxy:
-    image: alpine:3.23.4
+    image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
     restart: unless-stopped
     profiles: ["llm"]
     ports:
