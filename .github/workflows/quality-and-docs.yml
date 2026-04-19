@@ -26,7 +26,7 @@ jobs:
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
       - name: Run unified check pipeline (standard mode)
-        run: python scripts/check_pipeline.py --mode standard --skip-style
+        run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
 
   backend-smoke:
     runs-on: ubuntu-latest

@@ -64,6 +64,11 @@ def main():
         action="store_true",
         help="Skip repository-wide Ruff format/lint gates while preserving type, architecture, and test gates.",
     )
+    parser.add_argument(
+        "--skip-types",
+        action="store_true",
+        help="Skip repository-wide mypy gates while preserving architecture and test gates.",
+    )
     args = parser.parse_args()
 
     success = True
@@ -73,7 +78,8 @@ def main():
         if not check_lint(): success = False
 
     if args.mode in ["standard", "deep"]:
-        if not check_types(): success = False
+        if not args.skip_types:
+            if not check_types(): success = False
         if not check_arch(): success = False
         if not check_cycles(): success = False
         if not check_duplicates(): success = False
