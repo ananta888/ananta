@@ -42,6 +42,18 @@ Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 - Frontend Entwicklung: `frontend-angular/README.md`
 - CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`
 
+## Welche Startvariante passt?
+
+| Ziel | Empfohlen | Befehl |
+| --- | --- | --- |
+| Schnell ausprobieren oder Demo ansehen | Lite-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
+| Alltagliche lokale Nutzung | Lite-Stack mit `.env` aus `setup.ps1` | `.\setup.ps1`, dann Lite-Stack starten |
+| Frontend/Backend live entwickeln | Live-Code-Stack | `scripts/compose-test-stack.sh up-live` |
+| Lokale LLM-Runtime mit WSL2/Vulkan nutzen | Lite + Ollama-WSL Overlay | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build` |
+| Mehrere Worker-Nodes testen | Distributed Stack | `docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build` |
+
+Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer konkrete Entwicklungs- oder Betriebsziele gedacht.
+
 ## Kanal- und Erweiterungsstrategie (Core First)
 
 - Kernzugang zuerst: Web UI, CLI und API/Webhook sind die priorisierten Nutzflaechen.

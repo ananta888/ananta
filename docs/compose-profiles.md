@@ -1,5 +1,20 @@
 # Compose Profiles
 
+Diese Seite ordnet die Compose-Varianten zuerst nach Nutzerziel. Die Dateinamen sind wichtig, aber die Auswahl sollte ueber den Zweck erfolgen.
+
+## Auswahl nach Ziel
+
+| Ziel | Variante | Wann nutzen |
+| --- | --- | --- |
+| Demo oder erster lokaler Lauf | Lite-Stack | Schnellster Einstieg, wenig Infrastrukturwissen noetig. |
+| Alltagliche lokale Entwicklung | Lite-Stack plus `setup.ps1` | Standard fuer lokale Arbeit mit reproduzierbarer `.env`. |
+| Live-Code und Browser-Test | Live-Code-Stack | Wenn Python/Angular-Aenderungen sofort im Container sichtbar sein sollen. |
+| Lokale LLM-Runtime unter WSL2/Vulkan | Lite + Ollama-WSL Overlay | Wenn Ollama im Compose-Stack GPU-nah laufen soll. |
+| Mehrere Worker oder verteiltes Setup | Distributed Stack | Wenn Routing und Worker-Verteilung getestet werden sollen. |
+| Isolierte E2E/CI-Laeufe | Test-Stack | Wenn Playwright oder CI ohne Host-Port-Konflikte laufen soll. |
+
+## Basis-Schichten
+
 This project uses two compose layers for local operation:
 
 1. `docker-compose.base.yml`: common services and defaults.
@@ -34,6 +49,8 @@ Validation:
 - `POST /config` rejects unknown `runtime_profile` values with `invalid_runtime_profile`.
 
 ## Recommended Lite Dev/Test Start
+
+Nutze diesen Pfad fuer Demo, Standard lokal und die meisten schnellen Tests:
 
 ```bash
 scripts/compose-test-stack.sh down
@@ -71,6 +88,8 @@ This mode enables:
 - concise failure summary from `test-results/results.json`
 
 ## Distributed Variant
+
+Nutze diese Variante erst, wenn du mehrere Worker-Nodes oder Routing-Verhalten pruefen willst.
 
 Fuer mehr Worker-Nodes:
 

@@ -119,6 +119,45 @@ button.btn-large, .btn-large {
   background: var(--card-bg);
 }
 
+.guided-stepper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.guided-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  min-height: 42px;
+  text-align: left;
+}
+
+.guided-step span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--fg);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.guided-step.active,
+.wizard-choice.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.guided-step.done span {
+  background: #34d399;
+  color: #06281c;
+}
+
 .grid { display: grid; gap: 12px; }
 .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
