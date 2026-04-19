@@ -1,654 +1,734 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.9.0",
-  "created": "2026-04-18",
-  "updated": "2026-04-19T10:58:40Z",
+  "version": "5.9.5",
+  "created": "2026-04-19",
+  "updated": "2026-04-19T13:26:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Ananta fuer neue und nicht tief eingearbeitete Nutzer deutlich zugaenglicher machen, ohne das governance-first und verification-first Kernmodell aufzugeben.",
+    "review_goal": "Die Angular-UI von feature-spezifisch ausgelagerten Komponenten zu einem echten wiederverwendbaren UI-Baukasten weiterentwickeln, ohne die bestehende fachliche Struktur zu verwischen.",
     "notes": [
-      "Aktuell ist Ananta technisch stark, aber die erste Begegnung bleibt fuer viele Nutzer noch zu systemisch, zu leer oder zu administrativ.",
-      "Die wichtigste Huerde ist nicht fehlende Funktion, sondern fehlende Fuehrung beim Einstieg: zu viele Begriffe, zu viele Flaechen, zu wenig sofort sichtbarer Nutzen.",
-      "Zugaenglichkeit soll hier nicht als reine Barrierefreiheit verstanden werden, sondern als niedrigere Einstiegshuerde, klarere UX, bessere Orientierung, einfachere Sprache und schnellere erste Erfolgserlebnisse."
+      "Aktuell existieren bereits einzelne wiederverwendbare Bausteine und erste ausgelagerte Panels, aber viele Komponenten sind noch vor allem fachlich zugeschnittene Feature-Komponenten statt generischer Shared-UI-Primitives.",
+      "Das Ziel ist nicht abstraktes Overengineering, sondern ein praktischer Mittelweg: wiederkehrende UI-Muster klar erkennen, stabilisieren und als Shared Components nutzbar machen.",
+      "Neue UI-Funktionen sollen kuenftig bevorzugt aus einem kleinen, klaren Baukasten zusammengesetzt werden statt erneut grosse Inline-Templates zu erzeugen."
     ]
   },
   "categories": [
     {
-      "name": "demo-first-onboarding",
-      "label": "Demo First Onboarding",
+      "name": "ui-architecture-and-folder-structure",
+      "label": "UI Architektur und Struktur",
       "items": [
         {
-          "id": "ACC-001",
-          "title": "Echten Demo Mode mit sofort sichtbaren Beispieldaten einführen",
-          "description": "Beim ersten Start einen Demo-Modus bereitstellen, der vorkonfigurierte Goals, Tasks, Artefakte, Teams und Ergebnisse enthält, damit das System nicht leer und abstrakt wirkt.",
+          "id": "UI-001",
+          "title": "Ein klares Shared-UI-Verzeichnis fuer generische Komponenten einfuehren",
+          "description": "Eine saubere Struktur fuer generische UI-Bausteine aufbauen, z. B. nach ui, state, forms, display und layout, damit wiederverwendbare Komponenten nicht zwischen Feature-Komponenten untergehen.",
           "priority": "critical",
-          "type": "improvement",
-          "principle": "Instant-Value, No-Empty-State-First-Impression",
+          "type": "architecture",
+          "principle": "Discoverability, Reuse-by-Default",
           "status": "completed",
-          "effort": "large",
+          "effort": "medium",
           "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "agent/services/",
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/features/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Es gibt eine klar erkennbare Shared-UI-Struktur.",
+            "Generische Komponenten liegen nicht mehr verstreut zwischen Feature-Dateien.",
+            "Neue UI-Bausteine haben einen offensichtlichen Zielort."
+          ]
+        },
+        {
+          "id": "UI-002",
+          "title": "Namensregeln fuer generische gegen fachliche Komponenten festlegen",
+          "description": "Klare Regeln definieren, wann eine Komponente generisch ist und wann sie fachlich zu einem Feature gehoert, um halb-generische Mischformen zu reduzieren.",
+          "priority": "high",
+          "type": "documentation",
+          "principle": "Clarity, Boundary-Discipline",
+          "status": "completed",
+          "effort": "small",
+          "files": [
             "docs/",
-            "tests/"
+            "frontend-angular/"
+          ],
+          "dependencies": [
+            "UI-001"
           ],
           "acceptance": [
-            "Neue Nutzer koennen das System sofort mit Beispielinhalten erleben.",
-            "Demo-Daten zeigen typische Arbeitsfaelle statt nur technische Platzhalter.",
-            "Der Demo-Modus ist klar als solcher erkennbar und sicher getrennt vom echten Arbeitsmodus."
+            "Es gibt eine kurze Namens- und Platzierungsregel fuer UI-Komponenten.",
+            "Komponenten werden bewusster als shared oder feature-spezifisch eingeordnet.",
+            "Neue Review-Diskussionen ueber Platzierung nehmen ab."
           ]
         },
         {
-          "id": "ACC-002",
-          "title": "Gefuehrten Erststart-Wizard fuer Demo oder echte Nutzung einbauen",
-          "description": "Einen ersten Startdialog anbieten, der zwischen Demo-Modus, leerem produktivem Start und optionalem Import vorhandener Konfigurationen unterscheidet.",
+          "id": "UI-003",
+          "title": "Feature-Komponenten systematisch auf Reuse-Potenzial prüfen",
+          "description": "Bestehende groessere Komponenten und Panels darauf untersuchen, welche Teile echte wiederkehrende UI-Muster darstellen und in Shared Components ueberfuehrt werden koennen.",
           "priority": "high",
-          "type": "improvement",
-          "principle": "Guided-Start, Reduced-Decision-Fatigue",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "ACC-001"
-          ],
-          "acceptance": [
-            "Der Erststart fuehrt Nutzer aktiv zu einem sinnvollen ersten Modus.",
-            "Demo- und Produktivstart werden klar getrennt erklaert.",
-            "Der Nutzer muss nicht erst Doku lesen, um sinnvoll loszulegen."
-          ]
-        },
-        {
-          "id": "ACC-003",
-          "title": "In-App Beispielaufgaben als direkt klickbare Starter integrieren",
-          "description": "Mehrere typische Startbeispiele wie Repo-Analyse, Bugfix-Planung, Log-Diagnose oder Compose-Reparatur direkt im UI als anklickbare Starter bereitstellen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Learning-by-Doing, Lower-Entry-Barrier",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "ACC-001"
-          ],
-          "acceptance": [
-            "Beispielaufgaben lassen sich ohne Vorwissen starten.",
-            "Die Beispiele fuehren zu realistisch wirkenden Ergebnissen.",
-            "Die Nutzer verstehen schneller, wofuer Ananta praktisch gut ist."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "simplified-entry-and-task-selection",
-      "label": "Vereinfachter Einstieg und Aufgabenwahl",
-      "items": [
-        {
-          "id": "ACC-010",
-          "title": "Startseite auf drei bis fuenf konkrete Hauptaktionen reduzieren",
-          "description": "Die erste echte Nutzflaeche fuer neue Nutzer nicht als Plattformuebersicht, sondern als aufgabenorientierte Startseite mit wenigen grossen Hauptaktionen gestalten.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Task-First-UX, Reduced-Complexity",
+          "type": "analysis",
+          "principle": "Pattern-Extraction, Pragmatic-Refactoring",
           "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
             "frontend-angular/src/app/features/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Die Startseite zeigt wenige klar erkennbare Hauptanwendungsfaelle.",
-            "Neue Nutzer muessen nicht zuerst Teams, Agenten, Graphen oder Policies verstehen.",
-            "Die Startseite fuehrt direkt in sinnvolle Arbeitsmodi."
-          ]
-        },
-        {
-          "id": "ACC-011",
-          "title": "Gefuehrte Goal-Erstellung als echten mehrstufigen Wizard ausbauen",
-          "description": "Die vorhandenen Goal-Modi zu einem mehrstufigen Assistenten weiterentwickeln, der Kontext, Ziel, Eingabedaten, Ausfuehrungstiefe und Sicherheitsniveau erklaerend abfragt.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Progressive-Disclosure, Better-Input-Quality",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Goal-Erstellung fuehlt sich fuer neue Nutzer wie ein gefuehrter Ablauf an.",
-            "Die Eingaben sind strukturierter als im reinen Freitextmodus.",
-            "Die Schritte erklaeren, warum bestimmte Angaben sinnvoll sind."
-          ]
-        },
-        {
-          "id": "ACC-012",
-          "title": "Vorlagen fuer haeufige Goal-Typen als klickbare Presets anbieten",
-          "description": "Hauefige Arbeitsfaelle als direkt waehlbare Presets mit vorausgefuellten Feldern, kurzer Erklaerung und typischer Folgelogik anbieten.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Preset-Driven-Usability, Faster-First-Success",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/services/",
-            "docs/",
-            "tests/"
+            "docs/"
           ],
           "dependencies": [
-            "ACC-011"
+            "UI-001"
           ],
           "acceptance": [
-            "Neue Nutzer koennen aus typischen Arbeitsfaellen direkt starten.",
-            "Presets sparen Formulierungs- und Planungsaufwand.",
-            "Die Presets sind nicht nur Marketingtexte, sondern echte nutzbare Startpunkte."
+            "Es gibt eine Liste wiederkehrender UI-Muster aus dem Ist-Zustand.",
+            "Kandidaten fuer Shared Components sind priorisiert.",
+            "Nicht jeder extrahierte Block wird automatisch generisch gemacht."
           ]
         }
       ]
     },
     {
-      "name": "simple-mode-vs-advanced-mode",
-      "label": "Simple Mode versus Advanced Mode",
+      "name": "state-feedback-and-empty-patterns",
+      "label": "State Feedback und Empty Patterns",
       "items": [
         {
-          "id": "ACC-020",
-          "title": "Einfachen Nutzermodus und erweiterten Expertenmodus einführen",
-          "description": "Die UI in einen einfachen Modus fuer alltaegliche Nutzung und einen erweiterten Modus fuer Governance, Teams, Policies, Routing und Admin-Details aufteilen.",
+          "id": "UI-010",
+          "title": "Generische Empty-State-Komponente einführen",
+          "description": "Eine wiederverwendbare Empty-State-Komponente mit Titel, Beschreibung, optionalem Icon, Primär- und Sekundäraktionen bereitstellen.",
           "priority": "critical",
-          "type": "architecture",
-          "principle": "Progressive-Complexity, Expert-Depth-Without-Overload",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Normale Nutzer sehen zunaechst nur die wichtigsten Arbeitsflaechen.",
-            "Experten koennen weiterhin tiefere Systemflaechen nutzen.",
-            "Die Umschaltung ist konsistent und nicht nur kosmetisch."
-          ]
-        },
-        {
-          "id": "ACC-021",
-          "title": "Navigation im Simple Mode auf wenige Hauptbereiche reduzieren",
-          "description": "Im einfachen Modus nur wenige zentrale Bereiche wie Start, meine Aufgaben, Ergebnisse, Vorlagen und Hilfe anzeigen, statt die gesamte Plattformnavigation freizuschalten.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Lower-Noise, Guided-Navigation",
+          "type": "component",
+          "principle": "Consistency, Low-Friction-UX",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "frontend-angular/src/app/app.component.ts",
-            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Mehrere bestehende leere Zustaende koennen auf denselben Baustein umgestellt werden.",
+            "Empty States bleiben inhaltlich flexibel, aber optisch konsistent.",
+            "Leere Zustaende fuehlen sich nicht mehr wie Einzelfall-Markup an."
+          ]
+        },
+        {
+          "id": "UI-011",
+          "title": "Generische Error-State-Komponente einführen",
+          "description": "Eine wiederverwendbare Error-State-Komponente mit Fehlertext, optionalen Details und klaren Wiederherstellungsaktionen bereitstellen.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Recoverability, UX-Consistency",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "UI-010"
+          ],
+          "acceptance": [
+            "Mehrere Fehlerbanner oder Fehlerkarten koennen vereinheitlicht werden.",
+            "Fehlerzustände bieten konsistente Retry- oder Navigationsaktionen.",
+            "Die Komponente ist schlicht genug fuer verschiedene Features."
+          ]
+        },
+        {
+          "id": "UI-012",
+          "title": "Loading-State-Muster neben UiSkeletonComponent vereinheitlichen",
+          "description": "Das bereits vorhandene Skeleton-Muster um standardisierte Ladezustaende fuer Sektionen, Tabellen und Karten erweitern statt pro Screen neue Lade-Wrapper zu bauen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Loading-Consistency, Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/ui-skeleton.component.ts",
+            "frontend-angular/src/app/shared/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Skeleton und andere Ladezustaende folgen einem konsistenten Muster.",
+            "Sektionen, Tabellen und Karten koennen standardisiert im Ladezustand angezeigt werden.",
+            "Feature-Komponenten enthalten weniger eigenes Loading-Markup."
+          ]
+        },
+        {
+          "id": "UI-013",
+          "title": "Generische Status-Badge- und Status-Text-Komponenten aufbauen",
+          "description": "Statusdarstellung fuer success, warning, error, info, active, paused oder unknown als einheitliche kleine Bausteine kapseln.",
+          "priority": "medium",
+          "type": "component",
+          "principle": "Visual-Consistency, Semantic-Status",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Wiederkehrende Statusanzeigen nutzen dieselbe visuelle Sprache.",
+            "Statuspunkte, Statusbadges und Statustexte lassen sich konsistent wiederverwenden.",
+            "Inline-CSS- und Einzelklassen-Chaos wird reduziert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "layout-cards-and-section-shells",
+      "label": "Layout Cards und Section Shells",
+      "items": [
+        {
+          "id": "UI-020",
+          "title": "Generische Section-Card-Komponente mit Header Slot und Actions aufbauen",
+          "description": "Ein wiederverwendbares Karten- oder Sektionen-Pattern mit Titel, optionalem Untertitel, Action-Bereich und Content-Slot bereitstellen.",
+          "priority": "critical",
+          "type": "component",
+          "principle": "Composition, Consistent-Structure",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Mehrere Sektionen mit gleicher Grundstruktur koennen auf denselben Baustein umgestellt werden.",
+            "Titel, Untertitel und Aktionen bleiben flexibel.",
+            "Die UI gewinnt an Gleichmaessigkeit ohne zu starr zu werden."
+          ]
+        },
+        {
+          "id": "UI-021",
+          "title": "Page-Hero und Intro-Bereich als generische Komponente extrahieren",
+          "description": "Die aktuell mehrfach aehnliche Hero-/Intro-Logik fuer Start oder Hauptansichten als wiederverwendbaren Baustein anbieten.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Clear-Entry, Repeated-Pattern-Reuse",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/shared/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Start-Hero oder Intro-Bloecke koennen standardisiert aufgebaut werden.",
+            "Texte und Aktionen bleiben konfigurierbar.",
+            "Neue Hauptseiten muessen diesen Bereich nicht jedes Mal selbst definieren."
+          ]
+        },
+        {
+          "id": "UI-022",
+          "title": "Action-Card und Quick-Action-Muster generisch machen",
+          "description": "Die wiederkehrenden Startkarten, Preset-Karten und Schnellaktionen als kleine wiederverwendbare Kartenkomponenten zusammenfassen.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Task-First-Entry, Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/shared/",
+            "tests/"
+          ],
+          "dependencies": [
+            "UI-020"
+          ],
+          "acceptance": [
+            "Quick-Action-Karten werden nicht pro Screen neu gebaut.",
+            "Klickbare Karten mit Titel, Beschreibung und optionalem Status lassen sich standardisiert einsetzen.",
+            "Start- und Onboarding-Bereiche profitieren direkt davon."
+          ]
+        },
+        {
+          "id": "UI-023",
+          "title": "Section-Header mit Titel, Beschreibung und Toolbar standardisieren",
+          "description": "Wiederkehrende Kopfbereiche mit Titel, Kurzbeschreibung, Filter oder Refresh-Button als generische Section-Header-Komponente aufbauen.",
+          "priority": "medium",
+          "type": "component",
+          "principle": "Toolbar-Consistency, Reuse",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Sektionen nutzen ein einheitlicheres Kopf- und Aktionsmuster.",
+            "Refresh-, Filter- und Kontextaktionen sind besser standardisiert.",
+            "Template-Dopplungen in Panel-Komponenten sinken."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "metrics-summary-and-data-display",
+      "label": "Metriken Summary und Datenanzeige",
+      "items": [
+        {
+          "id": "UI-030",
+          "title": "Generische Metric-Card-Komponente für Kennzahlen einführen",
+          "description": "Kleine Kennzahlenkarten mit Label, Wert, Zusatztext und optionalem Status oder Trend als wiederverwendbaren Baustein aufbauen.",
+          "priority": "critical",
+          "type": "component",
+          "principle": "Data-Display-Consistency, Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Viele der existierenden Kennzahlenkarten koennen auf denselben Baustein wechseln.",
+            "Wert, Label, Hilfstext und Status bleiben flexibel.",
+            "Metrikdarstellung wird ueber Features konsistenter."
+          ]
+        },
+        {
+          "id": "UI-031",
+          "title": "Key-Value-Grid fuer kompakte Detailanzeigen aufbauen",
+          "description": "Ein generisches Key-Value-Grid oder Summary-Grid bereitstellen, um kleine technische oder fachliche Detailsets standardisiert anzuzeigen.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Compact-Details, Reuse",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Kleine Detailzusammenfassungen koennen ohne individuelles Tabellen- oder Div-Markup gebaut werden.",
+            "Labels und Werte bleiben frei kombinierbar.",
+            "Technische Summary-Bloecke werden lesbarer und konsistenter."
+          ]
+        },
+        {
+          "id": "UI-032",
+          "title": "Generische Summary-Panel-Komponente fuer Ergebniszusammenfassungen aufbauen",
+          "description": "Ergebnis- oder Objektzusammenfassungen mit Titel, Kernaussage, wichtigen Kennzahlen und optionalen Next Steps als wiederverwendbares Panel kapseln.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Result-Clarity, Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Resultate oder Zusammenfassungen muessen nicht pro Feature neu gebaut werden.",
+            "Die Komponente ist fuer Goal-, Diagnose- und Review-Ergebnisse nutzbar.",
+            "Die Ergebnisdarstellung wird einheitlicher."
+          ]
+        },
+        {
+          "id": "UI-033",
+          "title": "Standardisierte Tabellen-Shell mit Toolbar, Empty- und Loading-Zustand aufbauen",
+          "description": "Eine generische Tabellenhuelle fuer typische Verwaltungs- oder Analyseansichten bereitstellen, inklusive Kopf, Toolbar, Ladezustand, Empty State und Scroll-Rahmen.",
+          "priority": "medium",
+          "type": "component",
+          "principle": "Structured-Data-Reuse, Lower-Boilerplate",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "UI-010",
+            "UI-012",
+            "UI-023"
+          ],
+          "acceptance": [
+            "Wiederkehrende Tabellenansichten koennen auf dieselbe Shell wechseln.",
+            "Loading, Empty und Toolbar muessen nicht immer neu verkabelt werden.",
+            "Feature-spezifisch bleibt nur noch der eigentliche Tabelleninhalt."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forms-wizards-and-input-reuse",
+      "label": "Forms Wizards und Input Reuse",
+      "items": [
+        {
+          "id": "UI-040",
+          "title": "Generische Wizard-Shell fuer mehrstufige Abläufe einführen",
+          "description": "Eine Wizard-Shell mit Step-Navigation, Titel, Hilfetext, Back/Next/Submit und optionaler Progress-Anzeige aufbauen.",
+          "priority": "critical",
+          "type": "component",
+          "principle": "Guided-Flow-Reuse, Progressive-Disclosure",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
             "frontend-angular/src/app/features/",
             "tests/"
           ],
-          "dependencies": [
-            "ACC-020"
-          ],
           "acceptance": [
-            "Simple Mode zeigt deutlich weniger Navigationspunkte.",
-            "Die sichtbaren Bereiche passen zu typischen Alltagsaufgaben.",
-            "Expertenflaechen bleiben erreichbar, aber nicht aufgedraengt."
+            "Gefuehrte Abläufe muessen nicht mehr als individueller Komplettscreen gebaut werden.",
+            "Step-Navigation, Aktionen und Rahmenlogik sind standardisiert.",
+            "Goal-Wizard und spaetere andere Wizards koennen dieselbe Shell nutzen."
           ]
         },
         {
-          "id": "ACC-022",
-          "title": "Advanced-Bereiche bewusst als Expertenflaechen kennzeichnen",
-          "description": "Komplexe Bereiche wie Operations, Graph, Routing, Policies oder tiefe Governance-Ansichten klar als erweiterte Expertenflaechen kennzeichnen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Expectation-Management, Less-Intimidation",
+          "id": "UI-041",
+          "title": "Mode-Card-Picker fuer geführte Moduswahl generisch machen",
+          "description": "Die wiederkehrende Auswahl zwischen Modi, Vorlagen oder Startoptionen als generischen Card-Picker-Baustein abbilden.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Choice-Pattern-Reuse, Better-Entry-UX",
           "status": "completed",
           "effort": "small",
           "files": [
-            "frontend-angular/",
-            "docs/",
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Auswahlkarten fuer Modi oder Startarten muessen nicht immer neu modelliert werden.",
+            "Titel, Beschreibung, Status und Klickverhalten bleiben konfigurierbar.",
+            "Der Baustein ist fuer Erststart, Goal-Modi und Presets wiederverwendbar."
+          ]
+        },
+        {
+          "id": "UI-042",
+          "title": "Preset-Strip oder Preset-Picker generisch machen",
+          "description": "Vorgefertigte Vorlagen oder Schnellauswahlen als generische horizontal oder grid-faehige Preset-Komponente bereitstellen.",
+          "priority": "medium",
+          "type": "component",
+          "principle": "Preset-Reuse, Faster-Interaction",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
             "tests/"
           ],
           "dependencies": [
-            "ACC-020"
+            "UI-041"
           ],
           "acceptance": [
-            "Komplexe Flaechen wirken nicht wie Pflichtwissen fuer den Einstieg.",
-            "Nutzer koennen besser unterscheiden, was Kernnutzung und was Expertentool ist.",
-            "Die Kennzeichnung ist konsistent in Navigation und Ueberschriften."
+            "Vorlagen- oder Preset-Auswahl ist standardisiert nutzbar.",
+            "Einzelne Features muessen nicht ihre eigene Preset-UI bauen.",
+            "Interaktionsmuster fuer Presets werden konsistenter."
+          ]
+        },
+        {
+          "id": "UI-043",
+          "title": "Form-Field-Gruppen und Hilfetexte standardisieren",
+          "description": "Wiederkehrende Feldgruppen mit Label, Beschreibung, Fehler, Hint und optionaler Validierungsanzeige als kleine Form-Bausteine zusammenfassen.",
+          "priority": "medium",
+          "type": "component",
+          "principle": "Form-Consistency, Better-Micro-UX",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/features/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Formulare sehen weniger zusammengesetzt und mehr aus einem Guss aus.",
+            "Labels, Hints und Validierung sind konsistenter.",
+            "Gerade Guided- und Setup-Formulare profitieren davon."
           ]
         }
       ]
     },
     {
-      "name": "result-presentation-and-guidance",
-      "label": "Ergebnisdarstellung und Fuehrung",
+      "name": "results-next-steps-and-explainability",
+      "label": "Resultate Next Steps und Erklärschicht",
       "items": [
         {
-          "id": "ACC-030",
-          "title": "Ergebnisse als klare Abschlussseite mit naechsten Schritten darstellen",
-          "description": "Nach einem Goal oder Diagnoseablauf eine Ergebnisansicht anbieten, die Zusammenfassung, Fundstellen, Unsicherheiten, geaenderte Artefakte und direkt moegliche Folgeaktionen klar trennt.",
+          "id": "UI-050",
+          "title": "Generische Next-Steps-Komponente fuer Folgeaktionen aufbauen",
+          "description": "Eine Komponente bereitstellen, die nach Resultaten oder States moegliche Folgeaktionen klar und konsistent darstellt.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Actionable-Results, Consistency",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Resultatseiten muessen ihre Folgeaktionen nicht jedes Mal selbst bauen.",
+            "Next Steps bleiben kompakt und konsistent.",
+            "Die Komponente funktioniert fuer Analyse-, Fehler- und Erfolgsfaelle."
+          ]
+        },
+        {
+          "id": "UI-051",
+          "title": "Explainability-Hinweise als kleine wiederverwendbare UI-Bausteine modellieren",
+          "description": "Kurze Warum-Hinweise fuer Routing, Blockierungen, Verification oder Sicherheitsgrenzen als wiederverwendbare Anzeigeelemente kapseln.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Human-Readable-System-Decisions, Reuse",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Erklärhinweise sind nicht als lose Sondertexte verteilt.",
+            "Das gleiche Anzeigeprinzip kann in mehreren Features genutzt werden.",
+            "Systementscheidungen werden für Nutzer verständlicher."
+          ]
+        },
+        {
+          "id": "UI-052",
+          "title": "Unsicherheit Review und Sicherheitsgrenzen als wiederverwendbare Notice-Komponenten darstellen",
+          "description": "Hinweise wie Review erforderlich, Verification fehlgeschlagen, automatische Fortsetzung blockiert oder Unsicherheit vorhanden als standardisierte Notice-Komponenten aufbauen.",
+          "priority": "high",
+          "type": "component",
+          "principle": "Safety-UX, Semantic-Notices",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
+            "tests/"
+          ],
+          "dependencies": [
+            "UI-013",
+            "UI-051"
+          ],
+          "acceptance": [
+            "Sicherheits- und Review-Hinweise sehen nicht mehr wie ad hoc Fehlertexte aus.",
+            "Die Notices koennen systemweit wiederverwendet werden.",
+            "Nutzer verstehen eher, was der Hinweis praktisch bedeutet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dashboard-decomposition-into-reusable-primitives",
+      "label": "Dashboard Zerlegung Richtung Reuse",
+      "items": [
+        {
+          "id": "UI-060",
+          "title": "Dashboard-Sektionen auf generische Shared-Bausteine umstellen",
+          "description": "Die bestehenden Dashboard-Panels und Sektionen schrittweise auf die neu eingeführten Shared Components umstellen, statt nur weitere fachliche Unterkomponenten zu bilden.",
           "priority": "critical",
-          "type": "improvement",
-          "principle": "Show-the-Outcome, Actionable-Next-Steps",
+          "type": "refactor",
+          "principle": "Prove-the-Baukasten, Practical-Reuse",
           "status": "completed",
           "effort": "large",
           "files": [
-            "frontend-angular/",
-            "agent/routes/",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/dashboard-*.component.ts",
+            "frontend-angular/src/app/shared/",
             "tests/"
-          ],
-          "acceptance": [
-            "Nutzer sehen auf einen Blick, was herauskam.",
-            "Unsicherheiten und offene Punkte werden explizit getrennt gezeigt.",
-            "Es gibt direkte Folgeaktionen wie Review, Artefakt oeffnen oder Folgeaufgabe starten."
-          ]
-        },
-        {
-          "id": "ACC-031",
-          "title": "Systementscheidungen mit kurzen Erklaerungen fuer normale Nutzer versehen",
-          "description": "Fuer Routing, Blockierungen, Verification und Tool-Freigaben kurze, nicht zu technische Warum-Hinweise anbieten, damit Nutzer die Plattformentscheidungen besser verstehen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Explainability-for-Humans, Trust-Building",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Wichtige Entscheidungen sind nicht nur maschinenlesbar, sondern auch kurz menschenlesbar erklaert.",
-            "Die Hinweise helfen echten Nutzern statt nur Admins.",
-            "Erklaerungen bleiben knapp und werden nicht selbst zur Reibung."
-          ]
-        },
-        {
-          "id": "ACC-032",
-          "title": "Unsicherheiten und Sicherheitsgrenzen sichtbar aber verstaendlich darstellen",
-          "description": "Unsicherheit, Verification-Bedarf, Blockierungen oder Review-Pflichten so darstellen, dass sie nicht wie kryptische Fehlermeldungen wirken, sondern wie erklaerte Sicherheitsmechanismen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Safety-with-Usability, Reduced-Friction",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Verification oder Blockierungen wirken nachvollziehbar statt willkuerlich.",
-            "Nutzer verstehen, was fehlt oder warum etwas nicht automatisch weiterging.",
-            "Die Darstellung foerdert Vertrauen statt Verwirrung."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "language-and-terminology-simplification",
-      "label": "Sprache und Begriffsvereinfachung",
-      "items": [
-        {
-          "id": "ACC-040",
-          "title": "Schwierige Plattformbegriffe in der UI durch alltagstaugliche Labels ergaenzen",
-          "description": "Technische Begriffe wie Artifact, Blueprint, Verification, Exposure Policy oder Federation in der UI durch verstaendlichere Nutzlabels oder Hilfetexte uebersetzen.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "User-Language, Reduced-Jargon",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "docs/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Technische Kernbegriffe werden durch zugaenglichere Labels oder Erklaerungen begleitet.",
-            "Neue Nutzer muessen weniger Architekturvokabular lernen.",
-            "Interne Praezision bleibt erhalten, ohne die UI unnoetig technisch wirken zu lassen."
-          ]
-        },
-        {
-          "id": "ACC-041",
-          "title": "README Einstieg sprachlich fuer neue Nutzer vereinfachen",
-          "description": "Den obersten README-Einstieg weniger architektonisch und staerker auf erste Nutzbarkeit, drei Hauptanwendungsfaelle und schnellste Startpfade ausrichten.",
-          "priority": "high",
-          "type": "documentation",
-          "principle": "Clear-First-Impression, Faster-Onboarding",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "README.md",
-            "docs/"
-          ],
-          "acceptance": [
-            "Die ersten README-Abschnitte sind auch fuer neue Nutzer schnell verstaendlich.",
-            "Die ersten Schritte fokussieren Nutzen statt Architekturbreite.",
-            "Die tieferen technischen Details bleiben verfuegbar, aber nicht am Anfang dominierend."
-          ]
-        },
-        {
-          "id": "ACC-042",
-          "title": "Mikrotexte, Hilfetexte und Leerseitenhinweise konsistent ueberarbeiten",
-          "description": "Leerseiten, Formulare, Buttons, Platzhalter und Statushinweise sprachlich auf eine einfachere, freundlichere und weniger systemlastige Form bringen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Microcopy-Matters, Lower-Intimidation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "docs/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Leerseiten helfen dem Nutzer weiter statt nur Leerstand anzuzeigen.",
-            "Mikrotexte fuehlen sich weniger wie Admin- oder Debug-UI an.",
-            "Sprache und Tonfall bleiben konsistent ueber die Hauptflaechen."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "quickstart-and-installation-simplification",
-      "label": "Quickstart und Installationsvereinfachung",
-      "items": [
-        {
-          "id": "ACC-050",
-          "title": "Ultra-kurzen Schnellstartpfad fuer erste lokale Nutzung an den README-Anfang stellen",
-          "description": "Ganz oben im README einen minimalen Schnellstart mit Setup, Start und erstem Aufruf platzieren, bevor die verschiedenen Compose- und Overlay-Varianten folgen.",
-          "priority": "critical",
-          "type": "documentation",
-          "principle": "Shortest-Path-to-First-Success",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "README.md",
-            "docs/INSTALL_TEST_BETRIEB.md"
-          ],
-          "acceptance": [
-            "Der schnellste erste Start ist sofort sichtbar.",
-            "Neue Nutzer muessen nicht zuerst mehrere Compose-Varianten vergleichen.",
-            "Die vertiefenden Startoptionen bleiben vorhanden, aber nachgelagert."
-          ]
-        },
-        {
-          "id": "ACC-051",
-          "title": "Setup-Script nach erfolgreichem Start direkt in den ersten Demo- oder Startmodus ueberleiten",
-          "description": "Nach erfolgreichem Setup dem Nutzer nicht nur Ports nennen, sondern den naechsten konkreten Schritt anbieten, etwa Demo starten oder erstes Goal anlegen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "No-Dead-End-Setup, Guided-Continuation",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "setup.ps1",
-            "scripts/",
-            "docs/"
           ],
           "dependencies": [
-            "ACC-001",
-            "ACC-050"
+            "UI-020",
+            "UI-030",
+            "UI-031",
+            "UI-050"
           ],
           "acceptance": [
-            "Das Setup endet nicht nur mit technischen Hinweisen, sondern mit echtem naechstem Schritt.",
-            "Nutzer werden in Demo oder erste Nutzung weitergefuehrt.",
-            "Die Abschlussausgabe bleibt knapp und hilfreich."
+            "Dashboard nutzt sichtbar mehr generische statt rein fachliche UI-Bausteine.",
+            "Wiederkehrende Muster verschwinden aus dem Inline-Template.",
+            "Das Dashboard wird zugleich konsistenter und wartbarer."
           ]
         },
         {
-          "id": "ACC-052",
-          "title": "Compose-Profile und Startvarianten aus Nutzersicht ordnen",
-          "description": "Die verschiedenen Compose-Varianten staerker nach typischen Zielen wie Demo, Standard lokal, Live-Entwicklung oder verteiltes Setup ordnen statt nur technisch nach Dateien zu listen.",
+          "id": "UI-061",
+          "title": "Dashboard-spezifische Panels auf intern wiederverwendbare Unterbausteine prüfen",
+          "description": "Auch innerhalb fachlicher Dashboard-Panels prüfen, welche Teildarstellungen mehrfach vorkommen und in kleine interne Shared Pieces überführt werden können.",
           "priority": "medium",
-          "type": "documentation",
-          "principle": "User-Oriented-Setup-Choice, Less-Configuration-Anxiety",
+          "type": "refactor",
+          "principle": "Granular-Reuse, Anti-Duplication",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
-            "README.md",
-            "docs/compose-profiles.md",
-            "docs/INSTALL_TEST_BETRIEB.md"
+            "frontend-angular/src/app/components/dashboard-*.component.ts",
+            "frontend-angular/src/app/shared/",
+            "tests/"
+          ],
+          "dependencies": [
+            "UI-060"
           ],
           "acceptance": [
-            "Die Setup-Optionen lassen sich aus Nutzerperspektive leichter unterscheiden.",
-            "Neue Nutzer sehen schneller, welche Variante fuer sie passend ist.",
-            "Die Zahl der technischen Fehlentscheidungen beim Einstieg sinkt."
+            "Dashboard-Panels duplizieren weniger Tabellen-, Metrik- und Summary-Muster.",
+            "Nicht alles wird global shared, aber klar intern stabilisiert.",
+            "Panel-Komponenten werden kleiner und klarer."
           ]
         }
       ]
     },
     {
-      "name": "personalized-workspace-and-orientation",
-      "label": "Persoenlicher Arbeitsbereich und Orientierung",
+      "name": "styling-tokens-and-visual-consistency",
+      "label": "Styling Tokens und visuelle Konsistenz",
       "items": [
         {
-          "id": "ACC-060",
-          "title": "Persoenlichen Home-Bereich mit meinen Goals, Ergebnissen und Vorlagen aufbauen",
-          "description": "Eine persoenlichere Standardansicht einfuehren, die fuer normale Nutzer eher die eigene Arbeit als die gesamte Plattform in den Mittelpunkt stellt.",
+          "id": "UI-070",
+          "title": "UI-Bausteine auf gemeinsame Design-Tokens und Utility-Konventionen stützen",
+          "description": "Abstände, Statusfarben, Kartenrahmen, Typografie und Zustandsdarstellungen stärker über gemeinsame Konventionen oder Tokens absichern.",
           "priority": "medium",
           "type": "improvement",
-          "principle": "User-Centricity, Less-Control-Center-Feeling",
+          "principle": "Visual-System, Consistency",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "tests/"
+            "frontend-angular/src/styles.*",
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/"
           ],
           "acceptance": [
-            "Die Standardansicht wirkt persoenlicher und weniger wie ein zentrales Admin-Panel.",
-            "Nutzer finden schneller ihre eigenen laufenden und letzten Arbeiten.",
-            "Persoenliche Vorlagen oder Favoriten koennen sichtbar werden."
+            "Shared Components greifen auf konsistente Stilkonventionen zu.",
+            "Visuelle Wiederverwendung ist nicht nur strukturell, sondern auch gestalterisch erkennbar.",
+            "Inline-Styling und Einzel-Fall-CSS nehmen ab."
           ]
         },
         {
-          "id": "ACC-061",
-          "title": "Kontextuelle Hilfe und inline Onboarding-Hinweise in wichtigen Hauptflaechen einbauen",
-          "description": "In zentralen Arbeitsflaechen wie Goal-Erstellung, Ergebnisansicht, Board oder Review kurze kontextbezogene Hilfen und Erklaerungen direkt einbauen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Inline-Learning, No-Manual-First",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Nutzer muessen weniger zwischen UI und Doku springen.",
-            "Hilfetexte erscheinen dort, wo sie wirklich gebraucht werden.",
-            "Die Hinweise sind knapp und lassen sich bei Bedarf ausblenden."
-          ]
-        },
-        {
-          "id": "ACC-062",
-          "title": "Ersten Erfolgsfortschritt sichtbar machen",
-          "description": "Fuer neue Nutzer sichtbar machen, was sie schon erfolgreich erledigt oder ausprobiert haben, um erste Orientierung und Motivation aufzubauen.",
+          "id": "UI-071",
+          "title": "Card Variants und Notice Variants definieren",
+          "description": "Häufige visuelle Varianten wie neutral, primary, success, warning, error oder technical explizit für Karten und Notices definieren.",
           "priority": "low",
           "type": "improvement",
-          "principle": "Progress-Visibility, Confidence-Building",
+          "principle": "Semantic-Visual-Language",
           "status": "completed",
           "effort": "small",
           "files": [
-            "frontend-angular/",
-            "agent/routes/",
-            "tests/"
+            "frontend-angular/src/styles.*",
+            "frontend-angular/src/app/shared/"
+          ],
+          "dependencies": [
+            "UI-070"
           ],
           "acceptance": [
-            "Das System zeigt erste sinnvolle Fortschritte oder erledigte Starter an.",
-            "Neue Nutzer sehen, dass sie bereits erfolgreich durch die ersten Schritte gekommen sind.",
-            "Der Fortschritt bleibt hilfreich und nicht gamifiziert um der Gamification willen."
+            "Karten und Hinweise nutzen eine kleine, bewusst definierte Variantensprache.",
+            "Features erfinden weniger eigene Statusoptiken.",
+            "Die UI wirkt aus einem Guss."
           ]
         }
       ]
     },
     {
-      "name": "cli-and-api-accessibility",
-      "label": "CLI und API Zugaenglichkeit",
+      "name": "tests-and-adoption-guardrails",
+      "label": "Tests und Reuse Guardrails",
       "items": [
         {
-          "id": "ACC-070",
-          "title": "CLI um sehr einfache menschennahe Kurzbefehle erweitern",
-          "description": "Neben der bestehenden tieferen CLI sehr einfache Kurzbefehle fuer haeufige Aufgaben wie Analyse, Review, Diagnose oder Patch-Vorschlag anbieten.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Low-Friction-CLI, Human-Oriented-Commands",
+          "id": "UI-080",
+          "title": "Shared Components mit einfachen Harness- oder Host-Tests absichern",
+          "description": "Für zentrale generische UI-Bausteine kleine Tests einführen, damit deren Verhalten stabil bleibt und sie mit mehr Vertrauen mehrfach eingesetzt werden können.",
+          "priority": "medium",
+          "type": "test",
+          "principle": "Confidence-in-Reuse, Stability",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/cli_goals.py",
-            "scripts/",
-            "docs/",
+            "frontend-angular/src/app/shared/",
+            "frontend-angular/src/app/components/",
             "tests/"
           ],
           "acceptance": [
-            "Die CLI bietet kurze, merkbare Befehle fuer Hauptanwendungsfaelle.",
-            "Nutzer muessen fuer einfache Faelle keine tiefe Architektur der CLI verstehen.",
-            "Die Kurzbefehle bleiben konsistent mit dem Goal-Modell."
+            "Wichtige Shared Components haben einfache Verhaltens- oder Render-Tests.",
+            "Refactorings am Baukasten sind sicherer.",
+            "Wiederverwendung wird weniger riskant."
           ]
         },
         {
-          "id": "ACC-071",
-          "title": "API und Webhook Beispiele fuer typische Einstiegsfaelle vereinfachen",
-          "description": "Statt primär voller API-Breite konkrete Minimalbeispiele fuer drei bis fuenf Standardfaelle in Doku und gegebenenfalls UI verankern.",
-          "priority": "medium",
+          "id": "UI-081",
+          "title": "Review-Checkliste fuer neue Komponenten um Reuse-Frage ergänzen",
+          "description": "Bei neuen UI-Komponenten im Review bewusst prüfen, ob bereits ein Shared-Baustein existiert oder ob sich ein wiederkehrendes Pattern abzeichnet.",
+          "priority": "low",
           "type": "documentation",
-          "principle": "Example-Driven-Adoption, Lower-Integration-Friction",
+          "principle": "Reuse-by-Review, Preventive-Discipline",
           "status": "completed",
           "effort": "small",
           "files": [
-            "api-spec.md",
-            "README.md",
-            "docs/"
+            "docs/",
+            "CONTRIBUTING.md"
           ],
           "acceptance": [
-            "Externe Integratoren finden schnell einfache Startbeispiele.",
-            "Typische Einstiegsfaelle sind konkreter als die reine API-Beschreibung.",
-            "Die Beispiele sind realistisch und aktuell."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "accessibility-and-ui-quality",
-      "label": "Zugaenglichkeit und UI Qualitaet",
-      "items": [
-        {
-          "id": "ACC-080",
-          "title": "Tastaturfuehrung, Fokusverhalten und visuelle Orientierung in Hauptflaechen verbessern",
-          "description": "Die Hauptflaechen insbesondere Wizard, Ergebnisansicht, Navigation und modale Dialoge auf bessere Tastaturbedienbarkeit, Fokusfuehrung und Orientierung pruefen und verbessern.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Usability, Accessibility-Basics",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Wichtige Hauptflaechen lassen sich sauber per Tastatur bedienen.",
-            "Fokus springt nachvollziehbar und nicht verwirrend.",
-            "Bedienbarkeit verbessert sich auch fuer normale Nutzer ohne Mausfokus."
+            "Neue UI-Komponenten werden bewusster gegen vorhandene Shared Components geprüft.",
+            "Doppelte Muster werden früher erkannt.",
+            "Der Baukasten wächst kontrollierter."
           ]
         },
         {
-          "id": "ACC-081",
-          "title": "Leere, Fehler- und Wartezustaende in Hauptflaechen gestalterisch und inhaltlich verbessern",
-          "description": "Leere Zustände, Ladebilder und Fehlerkarten so ueberarbeiten, dass sie orientieren, beruhigen und konkrete naechste Schritte anbieten statt nur technischen Zustand zu melden.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Calm-UX, Better-Recovery",
+          "id": "UI-082",
+          "title": "Nicht jede Extraktion automatisch global shared machen",
+          "description": "Explizit dokumentieren und im Review beachten, dass nicht jede ausgelagerte Fachkomponente sofort in den globalen Baukasten gehört.",
+          "priority": "low",
+          "type": "documentation",
+          "principle": "Avoid-Fake-Generics, Pragmatism",
           "status": "completed",
-          "effort": "medium",
+          "effort": "small",
           "files": [
-            "frontend-angular/",
-            "tests/"
+            "docs/",
+            "frontend-angular/"
+          ],
+          "dependencies": [
+            "UI-002"
           ],
           "acceptance": [
-            "Leere oder fehlerhafte Zustände fuehlen sich weniger wie Sackgassen an.",
-            "Die Nutzer erhalten konkrete Optionen zur Fortsetzung.",
-            "Die Gestaltung passt zur restlichen UX und bleibt ruhig."
-          ]
-        },
-        {
-          "id": "ACC-082",
-          "title": "Lese- und Informationsdichte im Dashboard und in Hauptansichten reduzieren",
-          "description": "Dichte Karten, Metrik- und Detailbloecke in zentralen Ansichten so staffeln, dass normale Nutzer nicht mit zu vielen Informationen gleichzeitig konfrontiert werden.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Information-Hierarchy, Reduced-Cognitive-Load",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Die Hauptansichten bekommen eine klarere Informationshierarchie.",
-            "Neue Nutzer sehen zuerst Kerninformationen und nicht sofort alle Tiefendetails.",
-            "Experten koennen weiterhin auf die tieferen Informationen zugreifen."
+            "Es gibt eine dokumentierte Zwischenstufe zwischen Inline-Block und globaler Shared Component.",
+            "Overengineering durch zu frühe Verallgemeinerung wird reduziert.",
+            "Der Baukasten bleibt schlank und sinnvoll."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 26,
+    "total_items": 29,
     "by_status": {
-      "completed": 26,
+      "completed": 29,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Diese Todo-Datei fokussiert ausschliesslich auf Zugänglichkeit im Sinn von Onboarding, Verstaendlichkeit, einfacherem Einstieg und klarerer UX.",
-      "Der groesste Hebel liegt nicht in mehr Features, sondern in besserer Fuehrung, weniger Einstiegshaerte, einfacherer Sprache und klareren ersten Erfolgserlebnissen.",
-      "Ananta soll dabei nicht zu einem simplifizierten Spielzeug werden, sondern fuer Neueinsteiger und Alltagsnutzung zugänglicher, waehrend die Experten- und Governance-Tiefe erhalten bleibt."
+      "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",
+      "Das Ziel ist nicht maximale Abstraktion, sondern ein kleiner Satz stabiler wiederkehrender UI-Bausteine für States, Layout, Summary, Resultate, Wizard-Flows und Datenanzeige.",
+      "Der wichtigste Hebel ist: bestehende Screens erst auf wiederkehrende Muster analysieren und dann gezielt Shared Components daraus bauen."
     ],
     "recommended_order": [
-      "ACC-001",
-      "ACC-010",
-      "ACC-020",
-      "ACC-011",
-      "ACC-030",
-      "ACC-050",
-      "ACC-021",
-      "ACC-003",
-      "ACC-012",
-      "ACC-031",
-      "ACC-032",
-      "ACC-040",
-      "ACC-041",
-      "ACC-081",
-      "ACC-082",
-      "ACC-002",
-      "ACC-051",
-      "ACC-052",
-      "ACC-060",
-      "ACC-061",
-      "ACC-070",
-      "ACC-071",
-      "ACC-080",
-      "ACC-042",
-      "ACC-022",
-      "ACC-062"
+      "UI-001",
+      "UI-002",
+      "UI-003",
+      "UI-010",
+      "UI-011",
+      "UI-012",
+      "UI-013",
+      "UI-020",
+      "UI-030",
+      "UI-031",
+      "UI-032",
+      "UI-033",
+      "UI-023",
+      "UI-021",
+      "UI-022",
+      "UI-040",
+      "UI-041",
+      "UI-042",
+      "UI-043",
+      "UI-050",
+      "UI-051",
+      "UI-052",
+      "UI-060",
+      "UI-061",
+      "UI-070",
+      "UI-071",
+      "UI-080",
+      "UI-081",
+      "UI-082"
     ]
   }
 }
