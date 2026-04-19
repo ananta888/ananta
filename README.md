@@ -35,6 +35,18 @@ Ananta folgt einem Goal -> Plan -> Task -> Execution -> Verification -> Artifact
 
 Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 
+## Manifest fuer verantwortliche Agentenentwicklung
+
+Ananta versteht Agentensysteme nicht als harmlose Blackboxes, sondern als wirkungsmaechtige Systeme, die Kontrolle, Nachvollziehbarkeit, Begrenzung und ehrliche Kommunikation brauchen.
+
+Das Projektmanifest dazu steht hier:
+- `docs/responsible-agent-development-manifesto.md`
+
+Kernaussage:
+- keine Macht ohne Begrenzung
+- keine Automatisierung ohne sichtbare Pruefung
+- keine ernsthaften Agentensysteme ohne Verantwortung fuer reale Wirkung
+
 ## Wichtige Einstiegspunkte
 - Erster Start und Betrieb: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
 - Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`
@@ -268,3 +280,4 @@ Linting:
 - `docs/smart-dumb-components-guide.md`
 - `docs/blueprint-admin.md`
 - `docs/blueprint-migration-rollout.md`
+- `docs/responsible-agent-development-manifesto.md`
