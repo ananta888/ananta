@@ -53,6 +53,10 @@
             "docs/",
             "agent/cli_goals.py"
           ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-020"
+          ],
           "acceptance": [
             "Jeder Kern-Use-Case ist reproduzierbar vorfuehrbar.",
             "UI-, CLI- und ggf. API-Einstieg sind nachvollziehbar beschrieben.",
@@ -73,6 +77,10 @@
             "agent/",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-002"
+          ],
           "acceptance": [
             "Demo-Inhalte stuetzen die definierten Kernfaelle.",
             "Presets wirken wie Produktpfade und nicht wie zufaellige Beispiele.",
@@ -92,6 +100,10 @@
             "frontend-angular/",
             "README.md",
             "docs/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-002"
           ],
           "acceptance": [
             "Nutzer sehen leichter, wie sie sinnvolle Goals formulieren.",
@@ -139,6 +151,10 @@
             "README.md",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-010",
+            "PRD-020"
+          ],
           "acceptance": [
             "Ein neuer Nutzer kann sehr schnell ein erstes sinnvolles Ergebnis sehen.",
             "Der Einstieg fuehlt sich weniger technisch und weniger schwer an.",
@@ -157,6 +173,11 @@
           "effort": "medium",
           "files": [
             "frontend-angular/"
+          ],
+          "dependencies": [
+            "PRD-010",
+            "PRD-011",
+            "PRD-020"
           ],
           "acceptance": [
             "Erstnutzer werden knapp aber sinnvoll orientiert.",
@@ -178,6 +199,10 @@
             "README.md",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-010",
+            "PRD-021"
+          ],
           "acceptance": [
             "CLI-Nutzer verstehen sofort den ersten sinnvollen Befehl.",
             "Typische Ersteinstiegsfehler sind besser abgefangen oder erklaert.",
@@ -197,6 +222,11 @@
             "frontend-angular/",
             "agent/cli_goals.py",
             "agent/routes/"
+          ],
+          "dependencies": [
+            "PRD-011",
+            "UX-040",
+            "UX-042"
           ],
           "acceptance": [
             "Fehler im Ersteinstieg sind fuer Nicht-Insider besser verständlich.",
@@ -245,6 +275,10 @@
             "README.md",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-010"
+          ],
           "acceptance": [
             "CLI-Nutzer erkennen den offiziellen Arbeitsweg sofort.",
             "Nebenzweige und Spezialkommandos sind klar als solche markiert.",
@@ -264,6 +298,11 @@
             "docs/",
             ".github/workflows/"
           ],
+          "dependencies": [
+            "GOV-050",
+            "BMK-070",
+            "BMK-071"
+          ],
           "acceptance": [
             "Release-, RC- und finale Freigabe sind klar getrennt.",
             "Das Team oder spaetere Mitwirkende koennen dem Standardprozess folgen.",
@@ -281,6 +320,11 @@
           "effort": "medium",
           "files": [
             "frontend-angular/"
+          ],
+          "dependencies": [
+            "PRD-020",
+            "PRD-012",
+            "UX-042"
           ],
           "acceptance": [
             "Bevorzugte Pfade sind im UI klarer sichtbar.",
@@ -308,6 +352,11 @@
             "frontend-angular/",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-020",
+            "PRD-021"
+          ],
           "acceptance": [
             "Wichtige Produktaktionen sind als Ereignisse modelliert.",
             "Es ist klar messbar, welche Flows wirklich genutzt werden.",
@@ -327,6 +376,10 @@
             "agent/",
             "frontend-angular/",
             "docs/"
+          ],
+          "dependencies": [
+            "OPS-030",
+            "UX-040"
           ],
           "acceptance": [
             "Blockierungs- und Review-Muster werden sichtbar.",
@@ -348,6 +401,9 @@
             "frontend-angular/",
             "docs/"
           ],
+          "dependencies": [
+            "OPS-030"
+          ],
           "acceptance": [
             "UI-, CLI- und API-Nutzung lassen sich getrennt bewerten.",
             "Kanal-spezifische Schwächen werden sichtbar.",
@@ -367,6 +423,10 @@
             "agent/",
             "frontend-angular/",
             "docs/"
+          ],
+          "dependencies": [
+            "OPS-030",
+            "PRF-080"
           ],
           "acceptance": [
             "Demo- und Produktnutzung sind analytisch trennbar.",
@@ -413,6 +473,10 @@
             "README.md",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-001",
+            "UX-040"
+          ],
           "acceptance": [
             "Standardansichten wirken weniger nach internem Architekturmodell.",
             "Neue Nutzer verstehen Inhalte schneller.",
@@ -431,6 +495,9 @@
           "files": [
             "frontend-angular/"
           ],
+          "dependencies": [
+            "UX-040"
+          ],
           "acceptance": [
             "Wichtige Zustände fuehren zu erkennbaren naechsten Aktionen.",
             "Weniger Sackgassen in UI und ggf. CLI.",
@@ -448,6 +515,10 @@
           "effort": "medium",
           "files": [
             "frontend-angular/"
+          ],
+          "dependencies": [
+            "PRD-002",
+            "UX-040"
           ],
           "acceptance": [
             "Ergebnisansichten kommunizieren erst Nutzen, dann Mechanik.",
@@ -475,6 +546,9 @@
             "frontend-angular/",
             "docs/"
           ],
+          "dependencies": [
+            "PRD-001"
+          ],
           "acceptance": [
             "Es gibt klar benannte Governance-Modi.",
             "Der Nutzer kann Kontrollniveau bewusst verstehen und waehlen.",
@@ -496,6 +570,11 @@
             "agent/cli_goals.py",
             "docs/"
           ],
+          "dependencies": [
+            "GOV-050",
+            "PRD-020",
+            "PRD-021"
+          ],
           "acceptance": [
             "Governance-Modi sind in Produktoberflaechen sichtbar waehlbar.",
             "Ihre Unterschiede werden nicht nur intern verstanden.",
@@ -516,6 +595,10 @@
             "frontend-angular/",
             "docs/"
           ],
+          "dependencies": [
+            "GOV-050",
+            "GOV-051"
+          ],
           "acceptance": [
             "Effektive Governance kann als Profil eingesehen werden.",
             "Nutzer oder Admins muessen nicht viele Einzelstellen lesen.",
@@ -535,6 +618,10 @@
             "agent/",
             "frontend-angular/",
             "docs/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "PRF-080"
           ],
           "acceptance": [
             "Wichtige Sicherheits- und Betriebsprofile sind konkret nutzbar.",
@@ -561,6 +648,9 @@
             "docs/",
             "agent/"
           ],
+          "dependencies": [
+            "GOV-050"
+          ],
           "acceptance": [
             "Tools folgen einem klaren Contract-Modell.",
             "Erweiterungen sind besser validierbar.",
@@ -579,6 +669,10 @@
           "files": [
             "agent/",
             "docs/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "PRF-080"
           ],
           "acceptance": [
             "Worker-Profile sind formal beschrieben.",
@@ -599,6 +693,10 @@
             "agent/",
             "docs/"
           ],
+          "dependencies": [
+            "ARC-060",
+            "ARC-061"
+          ],
           "acceptance": [
             "Lokale und entfernte Provider wirken konsistenter.",
             "Routing und Governance haben weniger Sonderfaelle.",
@@ -616,6 +714,10 @@
           "effort": "medium",
           "files": [
             "docs/"
+          ],
+          "dependencies": [
+            "ARC-060",
+            "ARC-061"
           ],
           "acceptance": [
             "Drittintegrationen haben definierte Mindestanforderungen.",
@@ -643,6 +745,9 @@
             "tests/",
             "agent/"
           ],
+          "dependencies": [
+            "PRD-001"
+          ],
           "acceptance": [
             "Es gibt eine feste Benchmark-Aufgabenliste.",
             "Die Aufgaben repräsentieren echte Ananta-Staerken.",
@@ -660,6 +765,10 @@
           "effort": "medium",
           "files": [
             "docs/"
+          ],
+          "dependencies": [
+            "BMK-070",
+            "GOV-050"
           ],
           "acceptance": [
             "Benchmarking bewertet mehr als nur ob etwas lief.",
@@ -679,6 +788,10 @@
           "files": [
             "docs/"
           ],
+          "dependencies": [
+            "BMK-070",
+            "BMK-071"
+          ],
           "acceptance": [
             "Es gibt dokumentierte Vergleichsfaelle gegen relevante Projektklassen.",
             "Anantas Staerken und Schwächen werden belastbarer greifbar.",
@@ -697,6 +810,11 @@
           "files": [
             "docs/",
             "CHANGELOG.md"
+          ],
+          "dependencies": [
+            "BMK-070",
+            "BMK-071",
+            "BMK-072"
           ],
           "acceptance": [
             "Benchmark-Ergebnisse koennen intern und extern sinnvoll genutzt werden.",
@@ -725,6 +843,10 @@
             "frontend-angular/",
             "agent/"
           ],
+          "dependencies": [
+            "PRD-001",
+            "GOV-050"
+          ],
           "acceptance": [
             "Es gibt klar benannte Produkt- oder Betriebsprofile.",
             "Profile unterscheiden sich nachvollziehbar.",
@@ -746,6 +868,11 @@
             "frontend-angular/",
             "docs/"
           ],
+          "dependencies": [
+            "PRF-080",
+            "GOV-050",
+            "ARC-061"
+          ],
           "acceptance": [
             "Produktprofile haben echte technische und UX-seitige Wirkung.",
             "Defaults passen zum jeweiligen Zielprofil.",
@@ -765,6 +892,10 @@
             "README.md",
             "docs/",
             "CHANGELOG.md"
+          ],
+          "dependencies": [
+            "PRF-080",
+            "PRF-081"
           ],
           "acceptance": [
             "Kommunikation passt besser zu unterschiedlichen Nutzergruppen.",
@@ -791,6 +922,7 @@
       "PRD-001",
       "PRD-010",
       "PRD-020",
+      "PRD-021",
       "PRD-011",
       "UX-040",
       "GOV-050",
@@ -799,6 +931,7 @@
       "PRD-003",
       "PRD-012",
       "UX-042",
+      "PRD-023",
       "PRD-013",
       "PRD-014",
       "OPS-030",
@@ -821,9 +954,7 @@
       "BMK-071",
       "BMK-072",
       "BMK-073",
-      "PRD-021",
-      "PRD-022",
-      "PRD-023"
+      "PRD-022"
     ],
     "foundation_slice": {
       "name": "product-foundation-slice",
@@ -860,8 +991,14 @@
     "milestones": [
       {
         "id": "M1",
-        "name": "Produktfundament und offizieller Einstieg",
+        "name": "Produktfundament, Governance und Einstieg",
         "intent": "Klaert, wofuer Ananta zuerst steht und wie neue Nutzer zum ersten sichtbaren Ergebnis kommen.",
+        "depends_on": [],
+        "decision_focus": [
+          "Welche Kern-Use-Cases repraesentieren Ananta offiziell?",
+          "Welcher Schnellstart und welcher UI-Golden-Path sind der Default?",
+          "Welche Governance-Modi und Produktprofile bilden die erste Produktlogik?"
+        ],
         "items": [
           "PRD-001",
           "PRD-010",
@@ -878,8 +1015,16 @@
       },
       {
         "id": "M2",
-        "name": "Reproduzierbare Demo- und Onboarding-Pfade",
+        "name": "Gefuehrte Demo-, UI- und CLI-Einstiege",
         "intent": "Macht die Produktbasis fuer Erstnutzer, Reviewer und Demos praktisch nachvollziehbar.",
+        "depends_on": [
+          "M1"
+        ],
+        "decision_focus": [
+          "Wie wird jeder Kern-Use-Case reproduzierbar gezeigt?",
+          "Welche Einstiegshilfen braucht UI und CLI wirklich?",
+          "Welche Fehl- und Blockierungszustaende brauchen konkrete naechste Schritte?"
+        ],
         "items": [
           "PRD-002",
           "PRD-003",
@@ -899,6 +1044,15 @@
         "id": "M3",
         "name": "Operative Sichtbarkeit und Governance-Produktisierung",
         "intent": "Macht reale Nutzung, Friktion und effektive Kontrollregeln sichtbar und steuerbar.",
+        "depends_on": [
+          "M1",
+          "M2"
+        ],
+        "decision_focus": [
+          "Welche Produkt-Events bilden die Kernflows ab?",
+          "Welche Friktionssignale sollen UI, CLI und API getrennt sichtbar machen?",
+          "Wie wird Governance als waehlbare, erklaerbare Produktfunktion dargestellt?"
+        ],
         "items": [
           "OPS-030",
           "OPS-031",
@@ -917,8 +1071,17 @@
       },
       {
         "id": "M4",
-        "name": "Contracts, Profile und kontrollierte Erweiterbarkeit",
+        "name": "Contracts, Profil-Defaults und kontrollierte Erweiterbarkeit",
         "intent": "Stabilisiert die Erweiterungspunkte, ohne die Hub-Worker-Verantwortlichkeiten aufzuweichen.",
+        "depends_on": [
+          "M1",
+          "M3"
+        ],
+        "decision_focus": [
+          "Welche Tool-, Worker- und Provider-Contracts muessen stabil werden?",
+          "Welche Defaults machen Produktprofile technisch nutzbar?",
+          "Welche Integrationsregeln verhindern implizite Kopplung und unkontrollierte Ausfuehrungspfade?"
+        ],
         "items": [
           "ARC-060",
           "ARC-061",
@@ -937,6 +1100,15 @@
         "id": "M5",
         "name": "Benchmarking und Release-Nachweis",
         "intent": "Macht Fortschritt und Positionierung ueber reproduzierbare Aufgaben bewertbar.",
+        "depends_on": [
+          "M1",
+          "M4"
+        ],
+        "decision_focus": [
+          "Welche realistischen Aufgaben beweisen Anantas Staerken?",
+          "Welche Kriterien bewerten neben Erfolg auch Sicherheit, Review-Qualitaet und Nachvollziehbarkeit?",
+          "Wie fliessen Benchmark- und Governance-Signale in Release-Freigaben ein?"
+        ],
         "items": [
           "BMK-070",
           "BMK-071",
@@ -950,9 +1122,20 @@
         ]
       }
     ],
+    "dependency_model": {
+      "meaning": "dependencies benennt fachliche oder planerische Vorbedingungen innerhalb dieser Todo-Datei, nicht zwingend technische Build-Abhaengigkeiten.",
+      "rules": [
+        "Foundation-Items duerfen wenige oder keine dependencies haben, muessen aber in M1 gemeinsam abgestimmt werden.",
+        "Ein Item soll nur dependencies nennen, die fuer sinnvolle Umsetzung oder konsistente Produktentscheidungen wirklich benoetigt werden.",
+        "Dependencies duerfen nicht genutzt werden, um Worker-zu-Worker-Orchestrierung oder implizite gemeinsame Runtime-Annahmen einzufuehren.",
+        "Wenn eine dependency erledigt ist, muss das abhaengige Item trotzdem separat gegen seine Acceptance-Kriterien geprueft werden."
+      ]
+    },
     "review_checks": [
       "Zaehlt die Datei weiterhin exakt so viele Items, wie meta.total_items angibt?",
       "Sind alle offenen Items in recommended_order und genau einem Milestone enthalten?",
+      "Verweisen alle dependencies auf existierende Todo-IDs und erzeugen keine Zyklen?",
+      "Sind Milestone-depends_on-Werte azyklisch und nachvollziehbar?",
       "Hat jedes Foundation-Item mindestens ein pruefbares Acceptance-Kriterium statt nur Wirkungssprache?",
       "Bleiben Hub-Orchestrierung, Worker-Ausfuehrung und Container-Grenzen explizit gewahrt?",
       "Entstehen durch neue Profile, Modi oder Contracts keine SRP-, OCP-, ISP- oder DIP-Konflikte?"
