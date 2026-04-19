@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20.19.5-slim
 
 WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright

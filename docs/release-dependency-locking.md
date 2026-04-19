@@ -26,7 +26,7 @@ The intended release flow is:
 
 Release and container builds must use `npm ci`, not `npm install`, so the install path follows the committed lockfile.
 
-`package.json` version ranges are developer metadata until a stricter exact-version policy is chosen. A release build is not valid without the matching `package-lock.json`.
+Top-level `dependencies` and `devDependencies` in `frontend-angular/package.json` must use exact versions for release branches. Version range updates are allowed during dependency maintenance, but the final release branch must commit the resulting exact package manifest and matching `package-lock.json`.
 
 ## Containers And Tools
 
@@ -37,3 +37,9 @@ The backend image pins `opencode-ai` via the `OPENCODE_AI_VERSION` build environ
 CI diagram rendering pins `@mermaid-js/mermaid-cli@11.12.0`.
 
 Digest pinning is preferred for final release artifacts. If digest lookup is not available during development, use exact tags first and document the remaining drift in the release checklist.
+
+## Apt Drift
+
+Backend images are pinned to `python:3.11.15-slim-bookworm`, which fixes both the Python patch line and Debian suite for the application runtime. The remaining `apt-get` installs still resolve against the current Debian Bookworm package index at build time.
+
+The current v1.0.0 release track treats that as documented residual drift. A stricter future step should move these system dependencies into an internally built base image or a Debian snapshot-backed build path before introducing digest-pinned production artifacts.
