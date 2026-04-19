@@ -23,6 +23,11 @@
       "detail": "frontend package manifest uses exact top-level versions matching package-lock"
     },
     {
+      "name": "actions-pinning",
+      "ok": true,
+      "detail": "GitHub Actions are pinned to concrete commit SHAs"
+    },
+    {
       "name": "image-pinning",
       "ok": true,
       "detail": "release Dockerfiles and Compose files use explicit tags plus digests"
@@ -38,9 +43,14 @@
       "detail": "CI uses locked Python deps, npm ci, pinned Node, and release gate"
     },
     {
+      "name": "apt-snapshots",
+      "ok": true,
+      "detail": "apt packages are installed through fixed Debian/Ubuntu snapshot configuration"
+    },
+    {
       "name": "todo-status",
       "ok": true,
-      "detail": "todo status counters are synchronized and REL-012 is completed"
+      "detail": "todo status counters are synchronized and all release todo items are completed"
     },
     {
       "name": "compose-config",
