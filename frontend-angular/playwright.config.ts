@@ -59,7 +59,9 @@ export default defineConfig({
     baseURL: baseUrl,
     actionTimeout: actionTimeoutMs,
     navigationTimeout: navigationTimeoutMs,
-    trace: 'on-first-retry'
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure'
   },
   webServer: reuseExistingServer
     ? undefined

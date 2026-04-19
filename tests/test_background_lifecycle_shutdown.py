@@ -52,3 +52,43 @@ def test_background_manager_shutdown_is_idempotent_and_joins_threads(monkeypatch
     assert second["shutdown_requested"] is True
     assert thread.join_calls == 1
     assert agent.common.context.shutdown_requested is True
+
+
+def test_background_manager_skip_reloader_does_not_record_partial_start(monkeypatch):
+    app = SimpleNamespace(testing=False, extensions={})
+    manager = lifecycle.BackgroundServiceManager(app)
+    service_calls = []
+    signal_calls = []
+
+    monkeypatch.setattr(manager, "_is_testing", lambda: False)
+    monkeypatch.setattr(manager, "_should_skip_for_reloader", lambda: True)
+    monkeypatch.setattr(manager, "_start_registration", lambda: service_calls.append("registration"))
+    monkeypatch.setattr(lifecycle.signal, "signal", lambda sig, handler: signal_calls.append((sig, handler)))
+
+    manager.start_all()
+
+    assert service_calls == []
+    assert manager.runtime_state() == {
+        "started": [],
+        "failed": {},
+        "shutdown_requested": False,
+        "active_thread_count": 0,
+    }
+    assert len(signal_calls) == 2
+
+
+def test_background_manager_shutdown_records_scheduler_stop_failure_and_skips_current_thread(monkeypatch):
+    app = SimpleNamespace(testing=False, extensions={})
+    live_thread = _FakeThread()
+    manager = lifecycle.BackgroundServiceManager(app)
+
+    monkeypatch.setattr(agent.common.context, "shutdown_requested", False)
+    monkeypatch.setattr(agent.common.context, "active_threads", [live_thread, lifecycle.threading.current_thread()])
+    monkeypatch.setattr(manager, "_stop_scheduler", lambda: (_ for _ in ()).throw(RuntimeError("scheduler down")))
+
+    state = manager.shutdown(join_timeout=0.1)
+
+    assert state["failed"] == {"scheduler_stop": "scheduler down"}
+    assert live_thread.join_calls == 1
+    assert live_thread.timeout == 0.1
+    assert app.extensions["background_services"]["shutdown_requested"] is True
