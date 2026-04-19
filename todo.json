@@ -479,7 +479,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Faster-Startup, Better-Feature-Isolation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/app.routes.ts",
@@ -665,7 +665,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "End-to-End-Contract-Alignment",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/models/",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 27,
+      "completed": 29,
       "partial": 0,
-      "open": 10
+      "open": 8
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",

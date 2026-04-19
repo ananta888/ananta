@@ -225,6 +225,7 @@ export interface ContractsStatus {
 export interface DashboardReadModel {
   system_health?: SystemHealth | null;
   contracts?: ContractsStatus | null;
+  config?: Record<string, unknown>;
   teams?: { count?: number; items?: TeamEntry[] };
   roles?: { count?: number; items?: RoleEntry[] };
   templates?: { count?: number; items?: unknown[] };
