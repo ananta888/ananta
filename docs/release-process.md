@@ -1,55 +1,80 @@
-# Ananta Release-Prozess
+# Ananta Release Process
 
-Dieser Dokument beschreibt den standardisierten Release-Prozess für das Ananta-Projekt.
+This document defines the v1.0.0 release process for Ananta.
 
-## 1. Voraussetzungen (Release Gate)
+## Release Gate
 
-Bevor ein Release erstellt werden kann, müssen alle Qualitätsprüfungen bestanden sein.
-Dazu gehört der `release-gate` Check, der sicherstellt, dass alle notwendigen Dateien vorhanden und die Abhängigkeiten konsistent sind.
+Every release candidate must pass the release gate from a clean checkout:
 
 ```bash
-make release-gate
+ANANTA_DOCKER_CLEAN_PATH=1 \
+ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
+python scripts/release_gate.py \
+  --compose-config \
+  --frontend-build \
+  --build-images \
+  --report release-verification-report.json
 ```
 
-## 2. Standard-Qualitätschecks
+The gate verifies locked Python dependencies, exact frontend package versions, digest-pinned images, pinned GitHub Actions, exact CI runtimes, fixed apt snapshots, Compose rendering, frontend build output and backend/frontend image builds.
 
-Führen Sie die Standard-Pipeline aus, um sicherzustellen, dass der Code den Qualitätsrichtlinien entspricht.
+## Standard Checks
+
+Run the normal quality pipeline before the release gate:
 
 ```bash
 make check
 ```
 
-Für eine vollständige Prüfung vor einem Major-Release:
+For a larger pre-release sweep:
 
 ```bash
 make check-deep
 ```
 
-## 3. Docker-Build und Validierung
+## Docker Images
 
-Das Hauptartefakt von Ananta ist das Docker-Image.
+Release builds use digest-pinned base images from `Dockerfile` and `frontend-angular/Dockerfile`.
 
-### Build
-
-```bash
-docker build -t ananta:latest .
-```
-
-### Validierung des Images (Smoke Test)
-
-Nach dem Build sollte das Image kurz gestartet werden, um sicherzustellen, dass die Abhängigkeiten korrekt geladen werden und der Agent-Core startfähig ist.
+Build the release candidate images with explicit candidate tags:
 
 ```bash
-docker run --rm ananta:latest python -m agent.ai_agent --version
+docker build -t ananta-backend:v1.0.0-rc .
+docker build -t ananta-frontend:v1.0.0-rc frontend-angular
 ```
-(Hinweis: Stellen Sie sicher, dass ein `--version` Flag oder ein ähnlicher Smoke-Befehl implementiert ist.)
 
-## 4. Versionierung
+The release gate already executes equivalent backend and frontend image builds with `:release-gate` tags.
 
-Die Version wird in der `pyproject.toml` gepflegt.
-Bei einem Release sollte diese Version inkrementiert werden.
+## Smoke Test
 
-## 5. CI/CD Integration
+Use the release gate as the smoke test for the build path. It verifies that the backend and frontend images build from the pinned inputs and that the frontend production build completes with Node `20.19.5`.
 
-In der GitHub Actions Pipeline werden diese Schritte automatisch bei Pushes auf den `main` Branch oder bei Erstellung von Tags ausgeführt.
-Ein Scheitern des `release-gate` blockiert den Build-Prozess.
+For runtime smoke testing, start the pinned lite stack:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml ps
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+```
+
+## Versioning
+
+The Python package version is maintained in `pyproject.toml`.
+
+Release candidate evidence must include:
+
+```bash
+git rev-parse HEAD
+python --version
+node --version
+npm --version
+docker --version
+docker compose version
+python scripts/release_gate.py --compose-config --report release-verification-report.json
+```
+
+## CI
+
+Release-relevant GitHub Actions are pinned to commit SHAs, not floating major tags. CI uses Python `3.11.15`, Node `20.19.5`, Python lockfiles and `npm ci`.
+
+The `release-gate` CI job uploads `release-verification-report.json`. A failed release gate blocks the release.

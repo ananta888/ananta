@@ -4,9 +4,9 @@ This document defines the supported runtime and build environment for the v1.0.0
 
 ## Language Runtimes
 
-- Backend runtime: Python `3.11`, containerized with `python:3.11.15-slim-bookworm`.
+- Backend runtime and CI: Python `3.11.15`, containerized with `python:3.11.15-slim-bookworm`.
 - Backend dependency source: `requirements.lock` for runtime, `requirements-dev.lock` for CI-only test and lint tooling.
-- Frontend runtime and CI: Node `20.19.5`.
+- Frontend runtime, engine and CI: Node `20.19.5`.
 - Frontend dependency source: `frontend-angular/package-lock.json` through `npm ci`.
 
 ## Container Images
@@ -37,10 +37,11 @@ The Taiga example stack under `docs/taiga/` is not part of the Ananta v1.0.0 rel
 
 - Backend image global CLI: `opencode-ai@1.14.18`.
 - CI architecture diagram renderer: `@mermaid-js/mermaid-cli@11.12.0`.
+- GitHub Actions in release CI are pinned to concrete commit SHAs.
 - Docker Compose release validation should use the pinned compose files and not override image references with floating tags.
 
-## Residual Drift
+## Apt Snapshots
 
-Docker image tags are digest-pinned. The remaining system package drift comes from `apt-get` resolving packages from the current Debian repository for the pinned base image suite.
+Docker image tags are digest-pinned. Backend apt packages are resolved through Debian snapshot `20260406T000000Z`; the WSL/Vulkan Ollama build path uses Ubuntu snapshot `20260406T000000Z`.
 
-For a stricter production release, move apt-installed runtime tools into a maintained internal base image or Debian snapshot-backed build.
+For a stricter production release after v1.0.0, these snapshot-based system packages may be moved into maintained internal base images.

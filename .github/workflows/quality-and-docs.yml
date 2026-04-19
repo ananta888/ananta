@@ -9,10 +9,10 @@ jobs:
   backend-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.11.15"
       - name: Install backend deps
         run: |
           python -m pip install --upgrade pip
@@ -24,10 +24,10 @@ jobs:
   backend-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.11.15"
       - name: Install backend test deps
         run: |
           python -m pip install --upgrade pip
@@ -47,8 +47,8 @@ jobs:
       run:
         working-directory: frontend-angular
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "20.19.5"
           cache: "npm"
@@ -68,7 +68,7 @@ jobs:
       AGENT_TOKEN_GAMMA: gamma-token
       AGENT_TOKEN_DELTA: delta-token
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Validate lite compose config
         run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml config >/tmp/compose-lite.out
       - name: Validate distributed compose config
@@ -87,13 +87,13 @@ jobs:
       AGENT_TOKEN_DELTA: delta-token
       GRAFANA_PASSWORD: test-grafana-password
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.11.15"
       - name: Run release reproducibility gate
         run: python scripts/release_gate.py --compose-config --report release-verification-report.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-verification-report
           path: release-verification-report.json
@@ -101,8 +101,8 @@ jobs:
   e2e-compose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "20.19.5"
           cache: "npm"
@@ -123,7 +123,7 @@ jobs:
         working-directory: frontend-angular
       - name: Upload E2E artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: e2e-compose-results
           path: |
@@ -140,10 +140,10 @@ jobs:
   todo-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.11.15"
       - run: pip install -r requirements.lock
       - run: python devtools/sync_todo_stats.py
       - run: python devtools/validate_todo_schema.py
@@ -152,17 +152,17 @@ jobs:
   docs-links:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.11.15"
       - run: python devtools/check_markdown_links.py
 
   architecture-diagrams:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "20.19.5"
       - run: npm install -g @mermaid-js/mermaid-cli@11.12.0
@@ -172,7 +172,7 @@ jobs:
             out="architektur/rendered/$(basename "${f%.mmd}.png")"
             mmdc -i "$f" -o "$out" -b transparent
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: architecture-diagrams
           path: architektur/rendered/*.png

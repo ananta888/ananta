@@ -16,8 +16,11 @@ The standard gate checks:
 - `requirements.lock` and `requirements-dev.lock` contain pinned package entries
 - Python runtime and dev source dependency lists match `pyproject.toml`
 - frontend top-level dependency versions are exact and match `package-lock.json`
-- release Dockerfiles and Compose files avoid floating image tags
+- GitHub Actions are pinned to commit SHAs
+- CI uses Python `3.11.15`
+- release Dockerfiles and Compose files use digest-pinned public image references
 - global release tools are pinned
+- backend and WSL/Ollama apt installs use fixed snapshots
 - CI installs from lockfiles and runs the release gate
 - lite and distributed Compose configs render successfully
 
@@ -78,12 +81,15 @@ The two builds are acceptable when the gate passes in both clean checkouts and b
 Block the release if any of these are true:
 
 - a release Dockerfile or Compose file uses `latest`, a moving major-only tag, or a public image without a digest
+- release CI uses a floating `actions/*@vN` tag
+- release CI uses open Python `3.11` instead of Python `3.11.15`
 - CI installs backend dependencies from `requirements.txt` or `requirements-dev.txt`
 - frontend release builds use `npm install` instead of `npm ci`
 - `opencode-ai` or `@mermaid-js/mermaid-cli` is globally installed without an explicit version
+- backend or WSL/Ollama release Dockerfiles install apt packages without a fixed snapshot
 - `todo.json` release-pinning status counters are out of sync
 - backend or frontend image builds fail in a clean environment
 
-## Residual Drift
+## Fixed Release Inputs
 
-Exact image tags plus digests are required for public release images. Debian snapshot-backed apt installs remain the next hardening step and are documented in `docs/release-dependency-locking.md`.
+Exact image tags plus digests are required for public release images. Debian and Ubuntu apt installs use snapshot `20260406T000000Z`. Local build-output image names such as `ananta-...:local` remain local-only placeholders and are not registry release inputs.

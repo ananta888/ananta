@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.1.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T00:00:00Z",
+  "updated": "2026-04-19T16:35:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "hardening",
           "principle": "Reproducible-CI, No-Floating-Actions",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/quality-and-docs.yml",
@@ -45,7 +45,7 @@
           "priority": "high",
           "type": "hardening",
           "principle": "Runtime-Alignment, Patch-Level-Reproducibility",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/quality-and-docs.yml",
@@ -65,7 +65,7 @@
           "priority": "critical",
           "type": "hardening",
           "principle": "Immutable-Images, Maximal-Reproducibility",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "Dockerfile",
@@ -93,7 +93,7 @@
           "priority": "high",
           "type": "hardening",
           "principle": "No-Moving-System-Packages, Build-Reproducibility",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "Dockerfile",
@@ -115,7 +115,7 @@
           "priority": "medium",
           "type": "hardening",
           "principle": "Exact-Runtime-Contract, Less-Environment-Ambiguity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/package.json",
@@ -135,7 +135,7 @@
           "priority": "high",
           "type": "documentation",
           "principle": "Docs-Match-Reality, No-Soft-Release-Language",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/release-process.md",
@@ -156,9 +156,9 @@
   "meta": {
     "total_items": 6,
     "by_status": {
-      "completed": 0,
+      "completed": 6,
       "partial": 0,
-      "open": 6
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei ist bewusst die letzte harte Restliste fuer den Release-Freeze.",
