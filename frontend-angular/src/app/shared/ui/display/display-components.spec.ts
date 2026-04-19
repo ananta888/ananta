@@ -1,5 +1,8 @@
 import { SummaryPanelComponent } from './summary-panel.component';
 import { TableShellComponent } from './table-shell.component';
+import { ExplanationNoticeComponent } from './explanation-notice.component';
+import { NextStepsComponent } from './next-steps.component';
+import { SafetyNoticeComponent } from './safety-notice.component';
 
 describe('shared display components', () => {
   it('keeps summary panel metrics domain-neutral', () => {
@@ -27,5 +30,32 @@ describe('shared display components', () => {
 
     expect(cmp.loading).toBe(true);
     expect(events).toEqual(['refresh']);
+  });
+
+  it('emits local next step actions while keeping links declarative', () => {
+    const cmp = new NextStepsComponent();
+    const selected: string[] = [];
+    cmp.steps = [
+      { id: 'refresh', label: 'Aktualisieren' },
+      { id: 'board', label: 'Board', routerLink: ['/board'] },
+    ];
+    cmp.selectStep.subscribe(step => selected.push(step.id));
+
+    cmp.selectStep.emit(cmp.steps[0]);
+
+    expect(selected).toEqual(['refresh']);
+    expect(cmp.steps[1].routerLink).toEqual(['/board']);
+  });
+
+  it('keeps explanation and safety notices semantic', () => {
+    const explanation = new ExplanationNoticeComponent();
+    explanation.tone = 'info';
+
+    const safety = new SafetyNoticeComponent();
+    safety.message = 'Review erforderlich.';
+    safety.tone = 'warning';
+
+    expect(explanation.toneClass()).toBe('notice-info');
+    expect(safety.message).toContain('Review');
   });
 });

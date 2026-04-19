@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TooltipDirective } from '../directives/tooltip.directive';
 import { AutopilotSecurityLevel, AutopilotStatus, TeamEntry } from '../models/dashboard.models';
+import { SummaryMetric, SummaryPanelComponent } from '../shared/ui/display';
+import { FormFieldComponent } from '../shared/ui/forms';
+import { SectionCardComponent } from '../shared/ui/layout';
 
 export interface AutopilotStartPayload {
   goal: string;
@@ -16,46 +19,39 @@ export interface AutopilotStartPayload {
 @Component({
   standalone: true,
   selector: 'app-dashboard-autopilot-panel',
-  imports: [CommonModule, FormsModule, TooltipDirective],
+  imports: [CommonModule, FormsModule, TooltipDirective, FormFieldComponent, SectionCardComponent, SummaryPanelComponent],
   template: `
-    <div class="card mt-md">
-      <h3>Autopilot Control Center <span class="help-icon" [appTooltip]="'Der Autopilot fuehrt Tasks automatisch in regelmaessigen Abstaenden aus.'" tabindex="0">?</span></h3>
-      <p class="muted mt-sm">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
+    <app-section-card class="block mt-md" title="Autopilot Control Center" subtitle="Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.">
+      <span section-actions class="help-icon" [appTooltip]="'Der Autopilot fuehrt Tasks automatisch in regelmaessigen Abstaenden aus.'" tabindex="0">?</span>
 
       <div class="grid cols-2 mt-sm">
-        <label>
-          Sprint Goal
+        <app-form-field label="Sprint Goal">
           <input [ngModel]="goal" (ngModelChange)="goalChange.emit($event)" placeholder="z.B. MVP Login + Team Setup" aria-label="Autopilot Sprint Goal" />
-        </label>
-        <label>
-          Team
+        </app-form-field>
+        <app-form-field label="Team">
           <select [ngModel]="teamId" (ngModelChange)="teamIdChange.emit($event)" aria-label="Autopilot Team auswaehlen">
             <option value="">Aktives Team</option>
             @for (t of teams; track t) {
               <option [value]="t.id">{{ t.name }}</option>
             }
           </select>
-        </label>
-        <label>
-          Tick-Intervall (s) <span class="help-icon" [appTooltip]="'Zeit zwischen automatischen Ausfuehrungen in Sekunden.'" tabindex="0">?</span>
+        </app-form-field>
+        <app-form-field label="Tick-Intervall (s)" hint="Zeit zwischen automatischen Ausfuehrungen in Sekunden.">
           <input type="number" min="3" [ngModel]="intervalSeconds" (ngModelChange)="intervalSecondsChange.emit($event)" aria-label="Autopilot Tick-Intervall in Sekunden" />
-        </label>
-        <label>
-          Max Parallelitaet <span class="help-icon" [appTooltip]="'Maximale Anzahl gleichzeitig ausgefuehrter Tasks.'" tabindex="0">?</span>
+        </app-form-field>
+        <app-form-field label="Max Parallelitaet" hint="Maximale Anzahl gleichzeitig ausgefuehrter Tasks.">
           <input type="number" min="1" [ngModel]="maxConcurrency" (ngModelChange)="maxConcurrencyChange.emit($event)" aria-label="Autopilot maximale Parallelitaet" />
-        </label>
-        <label>
-          Budget-Hinweis
+        </app-form-field>
+        <app-form-field label="Budget-Hinweis">
           <input [ngModel]="budgetLabel" (ngModelChange)="budgetLabelChange.emit($event)" placeholder="z.B. 2h / 10k tokens" aria-label="Autopilot Budget-Hinweis" />
-        </label>
-        <label>
-          Sicherheitslevel <span class="help-icon" [appTooltip]="'safe: Nur sichere Ops, balanced: Eingeschraenkt, aggressive: Alle Ops erlaubt'" tabindex="0">?</span>
+        </app-form-field>
+        <app-form-field label="Sicherheitslevel" hint="safe: Nur sichere Ops, balanced: Eingeschraenkt, aggressive: Alle Ops erlaubt">
           <select [ngModel]="securityLevel" (ngModelChange)="securityLevelChange.emit($event)" aria-label="Autopilot Sicherheitslevel">
             <option value="safe">safe</option>
             <option value="balanced">balanced</option>
             <option value="aggressive">aggressive</option>
           </select>
-        </label>
+        </app-form-field>
       </div>
 
       <div class="row gap-sm mt-md">
@@ -66,30 +62,13 @@ export interface AutopilotStartPayload {
       </div>
 
       @if (status) {
-        <div class="grid cols-4 mt-md">
-          <div>
-            <div class="muted">Status</div>
-            <strong [class.success]="status.running" [class.danger]="!status.running">{{ status.running ? 'running' : 'stopped' }}</strong>
-          </div>
-          <div>
-            <div class="muted">Ticks</div>
-            <strong>{{ status.tick_count || 0 }}</strong>
-          </div>
-          <div>
-            <div class="muted">Dispatched</div>
-            <strong>{{ status.dispatched_count || 0 }}</strong>
-          </div>
-          <div>
-            <div class="muted">Completed/Failed</div>
-            <strong>{{ status.completed_count || 0 }}/{{ status.failed_count || 0 }}</strong>
-          </div>
-        </div>
+        <app-summary-panel class="block mt-md" title="Autopilot Status" [metrics]="statusMetrics()" [columns]="3"></app-summary-panel>
         <div class="muted status-text-sm-lg">
           Last tick: {{ status.last_tick_at ? (status.last_tick_at * 1000 | date:'HH:mm:ss') : '-' }} |
           Last error: {{ status.last_error || '-' }}
         </div>
       }
-    </div>
+    </app-section-card>
   `,
 })
 export class DashboardAutopilotPanelComponent {
@@ -119,4 +98,13 @@ export class DashboardAutopilotPanelComponent {
   @Output() stop = new EventEmitter<void>();
   @Output() tick = new EventEmitter<void>();
   @Output() refresh = new EventEmitter<void>();
+
+  statusMetrics(): SummaryMetric[] {
+    return [
+      { label: 'Status', value: this.status?.running ? 'running' : 'stopped', tone: this.status?.running ? 'success' : 'warning' },
+      { label: 'Ticks', value: this.status?.tick_count || 0 },
+      { label: 'Dispatched', value: this.status?.dispatched_count || 0 },
+      { label: 'Completed/Failed', value: `${this.status?.completed_count || 0}/${this.status?.failed_count || 0}` },
+    ];
+  }
 }
