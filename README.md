@@ -1,6 +1,20 @@
 # Ananta
 
-Ananta hilft dabei, groessere Entwicklungsziele in planbare Aufgaben, Ausfuehrungsschritte, Pruefung und Ergebnisse zu uebersetzen. Du beschreibst ein Ziel; der Hub plant und steuert die Arbeit, Worker fuehren delegierte Aufgaben aus.
+Ananta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.
+
+Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares System fuer:
+
+- Goal -> Plan -> Task -> Execution -> Verification -> Artifact
+- Hub-kontrollierte Orchestrierung statt Worker-zu-Worker-Automation
+- Docker-basierte Hub- und Worker-Laufzeiten
+- reproduzierbare Releases, CI-Gates und Security-/Governance-Regeln
+
+| Einstieg | Fuer wen | Link |
+| --- | --- | --- |
+| Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
+| Architektur verstehen | technische Reviewer | [Architektur](#architektur) |
+| Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |
+| API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |
 
 ## Schnellstart in 5 Minuten
 

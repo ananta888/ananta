@@ -28,6 +28,8 @@ Recommended required checks:
 
 `e2e-compose`, `architecture-diagrams` and nightly/RC jobs should stay visible but can remain non-required until their runtime and cost are predictable enough for every pull request.
 
+For pull requests that need deeper validation before merge, add the `full-ci` label. That opts the pull request into the heavier Quality And Docs jobs without making them mandatory for every small change.
+
 ## Review Rules
 
 Use the repository `CODEOWNERS` file as the source of ownership. For critical areas, enable Code Owner review in branch protection instead of relying on informal reviewer assignment.

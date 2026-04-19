@@ -11,6 +11,7 @@ Use a small label set that supports triage, release notes and branch-protection 
 | `governance` | Repository, policy, review or architecture governance. |
 | `ci` | GitHub Actions, test pipeline or release automation. |
 | `flaky` | Unstable test or workflow result tracked separately. |
+| `full-ci` | Opt a pull request into heavier optional CI jobs. |
 | `backend` | Backend API, services, persistence or hub logic. |
 | `frontend` | Angular frontend or browser-facing behavior. |
 | `api` | Public or internal API contract changes. |
