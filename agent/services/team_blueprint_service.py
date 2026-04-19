@@ -374,6 +374,28 @@ def reconcile_seed_blueprints(
     with_role_profile_defaults,
     ensure_default_templates_callback,
 ) -> list[dict]:
+    for attempt in range(2):
+        try:
+            return _reconcile_seed_blueprints_once(
+                seed_blueprints,
+                normalize_team_type_name=normalize_team_type_name,
+                with_role_profile_defaults=with_role_profile_defaults,
+                ensure_default_templates_callback=ensure_default_templates_callback,
+            )
+        except IntegrityError:
+            if attempt >= 1:
+                raise
+            time.sleep(0.05)
+    return []
+
+
+def _reconcile_seed_blueprints_once(
+    seed_blueprints: dict,
+    *,
+    normalize_team_type_name,
+    with_role_profile_defaults,
+    ensure_default_templates_callback,
+) -> list[dict]:
     reconcile_reports: list[dict] = []
     for blueprint_name, blueprint_definition in seed_blueprints.items():
         base_team_type_name = normalize_team_type_name(str(blueprint_definition.get("base_team_type_name") or blueprint_name))
