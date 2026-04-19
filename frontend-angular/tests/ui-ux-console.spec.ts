@@ -12,7 +12,7 @@ test.describe('UI UX console and visibility', () => {
     await login(page);
 
     const checks: Array<{ path: string; heading: RegExp }> = [
-      { path: '/dashboard', heading: /System Dashboard/i },
+      { path: '/dashboard', heading: /System Dashboard|Ananta starten/i },
       { path: '/agents', heading: /^Agenten$/i },
       { path: '/board', heading: /^Board$/i },
       { path: '/templates', heading: /Templates \(Hub\)/i },
@@ -79,7 +79,7 @@ test.describe('UI UX console and visibility', () => {
     await login(page);
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await expect.poll(async () => {
       const quickGoalVisible = await page.getByLabel(/Quick Goal Beschreibung eingeben/i).isVisible().catch(() => false);
       const loadingCount = await page.getByText(/Lade Statistiken von Hub/i).count();

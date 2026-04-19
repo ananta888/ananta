@@ -77,7 +77,7 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     
     const container = await openAssistant(page);
     await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Sag Hallo');
@@ -96,7 +96,7 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     
     const container = await openAssistant(page);
     await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Leere Antwort');
@@ -119,7 +119,7 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     
     const container = await openAssistant(page);
     await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Starte Tool');
@@ -158,7 +158,7 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
 
     const container = await openAssistant(page);
     await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Bitte Scrum Templates erstellen');

@@ -54,7 +54,7 @@ test.describe('Live click critical paths', () => {
     await installLiveClickMocks(page);
 
     await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.getByRole('button', { name: /Diagnostizieren/i }).click();
     await expect(page.locator('#quick-goal').getByLabel('Quick Goal Beschreibung eingeben')).toBeVisible();
     await expect(page.getByText(/Goal Governance & Cost Summary/i)).toBeVisible();

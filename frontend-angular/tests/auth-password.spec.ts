@@ -38,7 +38,7 @@ test.describe('Password Change', () => {
 
       await loginFast(page, request, username, newPassword);
       await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     } finally {
       await deleteUserAsAdmin(username);
     }

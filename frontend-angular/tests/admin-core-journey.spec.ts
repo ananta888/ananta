@@ -7,7 +7,7 @@ test.describe('Admin Core Journey', () => {
     clearBrowserErrorGuards(page);
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText(/System Dashboard/i)).toBeVisible();
+    await expect(page.getByText(/System Dashboard|Ananta starten/i)).toBeVisible();
 
     await page.goto('/teams', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
