@@ -1,14 +1,27 @@
 FROM ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
 
+ARG UBUNTU_SNAPSHOT=20260406T000000Z
+
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        software-properties-common \
-        ca-certificates \
-    && add-apt-repository -y ppa:kisak/kisak-mesa \
+RUN printf '%s\n' \
+        'Types: deb' \
+        'URIs: http://archive.ubuntu.com/ubuntu/' \
+        'Suites: noble noble-updates noble-backports' \
+        'Components: main universe restricted multiverse' \
+        'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+        "Snapshot: ${UBUNTU_SNAPSHOT}" \
+        '' \
+        'Types: deb' \
+        'URIs: http://security.ubuntu.com/ubuntu/' \
+        'Suites: noble-security' \
+        'Components: main universe restricted multiverse' \
+        'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+        "Snapshot: ${UBUNTU_SNAPSHOT}" \
+        > /etc/apt/sources.list.d/ubuntu.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        ca-certificates \
         mesa-vulkan-drivers \
         vulkan-tools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*

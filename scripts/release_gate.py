@@ -50,6 +50,16 @@ RELEASE_IMAGE_FILES = [
 ]
 
 RELEASE_CI_FILE = ".github/workflows/quality-and-docs.yml"
+EXACT_PYTHON_VERSION = "3.11.15"
+EXACT_NODE_VERSION = "20.19.5"
+APT_SNAPSHOT = "20260406T000000Z"
+
+PINNED_ACTIONS = {
+    "actions/checkout": "34e114876b0b11c390a56381ad16ebd13914f8d5",
+    "actions/setup-python": "a26af69be951a213d495a4c3e4e4022e16d87065",
+    "actions/setup-node": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+    "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+}
 
 LOCAL_IMAGE_PREFIXES = (
     "ananta-",
@@ -198,13 +208,30 @@ def check_frontend_manifest() -> CheckResult:
                 problems.append(f"{section}.{name} package={version} lock={locked_version}")
 
     node_engine = package_json.get("engines", {}).get("node")
-    if node_engine != ">=20.19.0":
-        problems.append(f"frontend node engine must remain >=20.19.0, got {node_engine!r}")
+    if node_engine != EXACT_NODE_VERSION:
+        problems.append(f"frontend node engine must be {EXACT_NODE_VERSION}, got {node_engine!r}")
 
     return CheckResult(
         "frontend-manifest",
         not problems,
         "frontend package manifest uses exact top-level versions matching package-lock" if not problems else "; ".join(problems),
+    )
+
+
+def check_actions_pinning() -> CheckResult:
+    workflow = read_text(RELEASE_CI_FILE)
+    problems = []
+    floating = sorted(set(re.findall(r"actions/[A-Za-z0-9_.-]+@v\d+(?:\.\d+)?", workflow)))
+    if floating:
+        problems.append(f"floating GitHub Actions refs: {floating}")
+    for action, sha in PINNED_ACTIONS.items():
+        expected = f"{action}@{sha}"
+        if expected not in workflow:
+            problems.append(f"missing pinned action ref: {expected}")
+    return CheckResult(
+        "actions-pinning",
+        not problems,
+        "GitHub Actions are pinned to concrete commit SHAs" if not problems else "; ".join(problems),
     )
 
 
@@ -290,10 +317,10 @@ def check_ci_release_paths() -> CheckResult:
     workflow = read_text(RELEASE_CI_FILE)
     problems = []
     required_snippets = [
-        'python-version: "3.11"',
+        f'python-version: "{EXACT_PYTHON_VERSION}"',
         "pip install -r requirements.lock",
         "pip install -r requirements-dev.lock",
-        'node-version: "20.19.5"',
+        f'node-version: "{EXACT_NODE_VERSION}"',
         "npm ci",
         "python scripts/release_gate.py",
     ]
@@ -302,10 +329,35 @@ def check_ci_release_paths() -> CheckResult:
             problems.append(f"missing CI snippet: {snippet}")
     if "pip install -r requirements.txt" in workflow or "pip install -r requirements-dev.txt" in workflow:
         problems.append("CI must install Python dependencies from lockfiles, not source requirements")
+    if 'python-version: "3.11"' in workflow:
+        problems.append("CI must use the exact Python patch version, not open 3.11")
     return CheckResult(
         "ci-release-paths",
         not problems,
         "CI uses locked Python deps, npm ci, pinned Node, and release gate" if not problems else "; ".join(problems),
+    )
+
+
+def check_apt_snapshots() -> CheckResult:
+    backend = read_text("Dockerfile")
+    ollama = read_text("Dockerfile.ollama-wsl-amd")
+    problems = []
+    if f"ARG DEBIAN_SNAPSHOT={APT_SNAPSHOT}" not in backend:
+        problems.append("Dockerfile must pin DEBIAN_SNAPSHOT")
+    if f"snapshot.debian.org/archive/debian/${{DEBIAN_SNAPSHOT}}" not in backend:
+        problems.append("Dockerfile must install apt packages from snapshot.debian.org")
+    if 'Acquire::Check-Valid-Until "false"' not in backend:
+        problems.append("Dockerfile must disable Valid-Until checks for Debian snapshots")
+    if f"ARG UBUNTU_SNAPSHOT={APT_SNAPSHOT}" not in ollama:
+        problems.append("Dockerfile.ollama-wsl-amd must pin UBUNTU_SNAPSHOT")
+    if f"Snapshot: ${{UBUNTU_SNAPSHOT}}" not in ollama:
+        problems.append("Dockerfile.ollama-wsl-amd must configure Ubuntu snapshot sources")
+    if "add-apt-repository" in ollama or "ppa:" in ollama:
+        problems.append("Dockerfile.ollama-wsl-amd must not add moving PPAs in the release path")
+    return CheckResult(
+        "apt-snapshots",
+        not problems,
+        "apt packages are installed through fixed Debian/Ubuntu snapshot configuration" if not problems else "; ".join(problems),
     )
 
 
@@ -314,18 +366,18 @@ def check_todo_status() -> CheckResult:
     items = [item for category in data.get("categories", []) for item in category.get("items", [])]
     statuses = Counter(item.get("status", "open") for item in items)
     meta = data.get("meta", {}).get("by_status", {})
-    rel012 = next((item for item in items if item.get("id") == "REL-012"), None)
     problems = []
     if dict(statuses) != {key: value for key, value in meta.items() if value}:
         expected = {key: statuses.get(key, 0) for key in ("completed", "partial", "open")}
         if expected != meta:
             problems.append(f"todo meta mismatch: expected {expected}, got {meta}")
-    if rel012 and rel012.get("status") != "completed":
-        problems.append("REL-012 must be completed once this release gate is in use")
+    open_items = [item.get("id", "<unknown>") for item in items if item.get("status") != "completed"]
+    if open_items:
+        problems.append(f"todo contains non-completed items: {open_items}")
     return CheckResult(
         "todo-status",
         not problems,
-        "todo status counters are synchronized and REL-012 is completed" if not problems else "; ".join(problems),
+        "todo status counters are synchronized and all release todo items are completed" if not problems else "; ".join(problems),
     )
 
 
@@ -447,9 +499,11 @@ def main() -> int:
         check_python_dependency_sources(),
         check_python_locks(),
         check_frontend_manifest(),
+        check_actions_pinning(),
         check_image_pinning(),
         check_tool_pinning(),
         check_ci_release_paths(),
+        check_apt_snapshots(),
         check_todo_status(),
     ]
     if args.compose_config:
