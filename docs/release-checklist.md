@@ -2,6 +2,21 @@
 
 This checklist verifies that a v1.0.0 release candidate can be rebuilt from a clean checkout with the pinned dependency, tool and container inputs.
 
+## Final GitHub Release Checklist
+
+Before creating or publishing a release tag:
+
+1. Confirm the release scope, version, and tag name follow `docs/release-process.md`.
+2. Confirm all required branch-protection checks are green on the release commit.
+3. Run the standard release gate and keep `release-verification-report.json`.
+4. Run the full local rebuild gate for release candidates that publish build artifacts or images.
+5. Confirm `todo.json` status counters are synchronized.
+6. Confirm release notes or changelog text is ready.
+7. Confirm official release assets are intentional: verification report, checksums, selected docs or diagrams, and any container/image references.
+8. Confirm no global repository secret is used where a protected release environment secret should be used.
+9. Confirm security-sensitive changes have human review.
+10. Create the tag only after the above evidence is available.
+
 ## Standard Gate
 
 Run the fast release gate first:

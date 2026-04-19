@@ -1,0 +1,31 @@
+# CODEOWNERS for release-, security- and architecture-critical areas.
+#
+# Replace @ananta-maintainers with the actual GitHub team or users before
+# enabling required code-owner reviews in branch protection.
+
+* @ananta-maintainers
+
+/.github/ @ananta-maintainers
+/Dockerfile* @ananta-maintainers
+/docker-compose*.yml @ananta-maintainers
+/scripts/ @ananta-maintainers
+/devtools/ @ananta-maintainers
+/requirements*.txt @ananta-maintainers
+/requirements*.lock @ananta-maintainers
+/pyproject.toml @ananta-maintainers
+
+/agent/ @ananta-maintainers
+/agent/auth.py @ananta-maintainers
+/agent/common/ @ananta-maintainers
+/agent/routes/ @ananta-maintainers
+/agent/services/ @ananta-maintainers
+
+/frontend-angular/src/app/ @ananta-maintainers
+/frontend-angular/package.json @ananta-maintainers
+/frontend-angular/package-lock.json @ananta-maintainers
+/frontend-angular/playwright.config.ts @ananta-maintainers
+
+/docs/release-*.md @ananta-maintainers
+/docs/security_baseline.md @ananta-maintainers
+/docs/governance-security-model.md @ananta-maintainers
+/todo.json @ananta-maintainers
