@@ -38,6 +38,8 @@ export interface AuthTarget {
   agentSharedSecret: string | null;
   /** Lesbarer Grund für Logs/Audit. */
   reason: string;
+  /** Nur User-Bearer-Pfade duerfen 401->Refresh->Retry ausloesen. */
+  refreshOnUnauthorized: boolean;
 }
 
 export interface AuthTargetContext {
@@ -46,8 +48,23 @@ export interface AuthTargetContext {
   requestUrl: string;
 }
 
+export function normalizeAuthUrl(url: string): string {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+export function resolveAgentForUrl(agents: Agent[], requestUrl: string): Agent | null {
+  const normalizedRequestUrl = normalizeAuthUrl(requestUrl);
+  const candidates = agents
+    .filter(agent => normalizeAuthUrl(agent.url))
+    .sort((left, right) => normalizeAuthUrl(right.url).length - normalizeAuthUrl(left.url).length);
+  return candidates.find(agent => {
+    const base = normalizeAuthUrl(agent.url);
+    return normalizedRequestUrl === base || normalizedRequestUrl.startsWith(`${base}/`);
+  }) ?? null;
+}
+
 export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
-  const agent = ctx.agents.find(a => ctx.requestUrl.startsWith(a.url)) ?? null;
+  const agent = resolveAgentForUrl(ctx.agents, ctx.requestUrl);
 
   if (!agent) {
     return {
@@ -56,6 +73,7 @@ export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
       userToken: null,
       agentSharedSecret: null,
       reason: 'Request-URL matcht keinen bekannten Agenten im Directory.',
+      refreshOnUnauthorized: false,
     };
   }
 
@@ -66,6 +84,7 @@ export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
       userToken: ctx.userToken,
       agentSharedSecret: null,
       reason: 'Hub-Request mit gültigem User-JWT.',
+      refreshOnUnauthorized: true,
     };
   }
 
@@ -76,6 +95,7 @@ export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
       userToken: null,
       agentSharedSecret: agent.token,
       reason: 'Agent hat Shared Secret hinterlegt – kurzlebiger Agent-JWT wird erzeugt.',
+      refreshOnUnauthorized: false,
     };
   }
 
@@ -88,6 +108,7 @@ export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
       reason:
         'Worker ohne Shared Secret, aber gültiger User-Token vorhanden – ' +
         'Fallback verwendet, um 401->refresh->retry-Zyklen bei read-only Requests zu vermeiden.',
+      refreshOnUnauthorized: true,
     };
   }
 
@@ -97,5 +118,6 @@ export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
     userToken: null,
     agentSharedSecret: null,
     reason: 'Zielagent erkannt, aber weder User-Token noch Shared Secret verfügbar.',
+    refreshOnUnauthorized: false,
   };
 }
