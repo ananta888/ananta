@@ -50,7 +50,7 @@ export const USER_FACING_TERMS: Record<PlatformTerm, UserFacingTerm> = {
     term: 'routing',
     label: 'Zuweisung',
     technicalLabel: 'Routing',
-    hint: 'Der Hub waehlt aus, welcher Worker fuer diese Aufgabe passt.',
+    hint: 'Ananta waehlt aus, welche Ausfuehrungsumgebung fuer diese Aufgabe passt.',
   },
   'tool-approval': {
     term: 'tool-approval',
@@ -81,9 +81,9 @@ export function userFacingTermHint(term: PlatformTerm): string {
 export function decisionExplanation(kind: PlatformTerm): string {
   switch (kind) {
     case 'routing':
-      return 'Der Hub verteilt Arbeit gezielt an einen passenden Worker, damit Planung und Ausfuehrung getrennt bleiben.';
+      return 'Ananta weist Arbeit gezielt zu. So bleiben Planung, Ausfuehrung und Pruefung getrennt und nachvollziehbar.';
     case 'verification':
-      return 'Ananta prueft Ergebnisse, bevor du sie als abgeschlossen bewertest.';
+      return 'Ananta prueft Ergebnisse, bevor du sie weiterverwendest oder als abgeschlossen bewertest.';
     case 'tool-approval':
       return 'Tool-Nutzung bleibt begrenzt, damit Aktionen nachvollziehbar und freigegeben bleiben.';
     case 'blocked':

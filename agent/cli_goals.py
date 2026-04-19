@@ -21,6 +21,16 @@ import requests
 from agent.config import settings
 
 SHORTCUT_GOALS = {
+    "ask": {
+        "mode": None,
+        "prefix": "Beantworte diese Frage und nenne bei Unsicherheit die naechsten pruefbaren Schritte:",
+        "context": "Kurzkommando: Frage. Fokus auf klare Antwort, Annahmen und naechste pruefbare Schritte.",
+    },
+    "plan": {
+        "mode": None,
+        "prefix": "Plane konkrete naechste Schritte fuer:",
+        "context": "Kurzkommando: Planen. Fokus auf Ziel, Aufgaben, Reihenfolge und Pruefung.",
+    },
     "analyze": {
         "mode": "repo_analysis",
         "prefix": "Analysiere und fasse die wichtigsten Befunde zusammen:",
@@ -153,7 +163,7 @@ def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_
         context=shortcut["context"],
         team_id=team_id,
         create_tasks=create_tasks,
-        mode=shortcut["mode"],
+        mode=shortcut.get("mode"),
         mode_data={"shortcut": kind},
     )
 
@@ -312,6 +322,8 @@ Examples:
     python -m agent.cli_goals "Implement user login"
 
   Short human-friendly commands:
+    python -m agent.cli_goals ask "What should I do next?"
+    python -m agent.cli_goals plan "Prepare a release checklist"
     python -m agent.cli_goals analyze "Find the riskiest frontend areas"
     python -m agent.cli_goals review "Review the auth changes"
     python -m agent.cli_goals diagnose "Docker frontend cannot reach hub"
@@ -340,7 +352,7 @@ Examples:
 """,
     )
 
-    parser.add_argument("goal", nargs="?", help="Goal description to submit, or shortcut: analyze/review/diagnose/patch")
+    parser.add_argument("goal", nargs="?", help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch")
     parser.add_argument("extra", nargs="*", help="Additional words for shortcut goals")
     parser.add_argument("--goal", "-g", dest="goal_flag", help="Goal description (alternative)")
     parser.add_argument("--context", "-c", help="Additional context for the goal")
