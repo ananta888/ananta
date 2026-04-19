@@ -69,6 +69,10 @@
             ".github/workflows/",
             "docs/testing.md"
           ],
+          "dependencies": [
+            "LLMCI-001",
+            "LLMCI-002"
+          ],
           "acceptance": [
             "Live-LLM-Läufe werden nicht auf jedem kleinen Commit automatisch gestartet.",
             "Es gibt einen klaren Trigger-Mechanismus für echte LLM-Tests.",
@@ -95,6 +99,10 @@
             "docs/testing.md",
             "docs/"
           ],
+          "dependencies": [
+            "LLMCI-001",
+            "LLMCI-002"
+          ],
           "acceptance": [
             "Live-LLM-CI nutzt standardmäßig OpenAI.",
             "Ollama bleibt optional für lokal oder schwerere Spezialläufe.",
@@ -103,11 +111,11 @@
         },
         {
           "id": "LLMCI-011",
-          "title": "gpt-4o-mini als Standardmodell für CI-Smoke definieren",
-          "description": "Für Live-CI ein kleines, schnelles und günstiges Modell wie gpt-4o-mini als offiziellen Standard festlegen.",
+          "title": "Kleines hosted OpenAI-Modell als Standard für CI-Smoke definieren",
+          "description": "Für Live-CI ein kleines, schnelles und günstiges hosted OpenAI-Modell als offiziellen Standard festlegen, initial zum Beispiel gpt-4o-mini, aber zentral austauschbar halten.",
           "priority": "critical",
           "type": "ci-cd",
-          "principle": "Cheap-Real-Model, Fast-Smoke-Signal",
+          "principle": "Cheap-Real-Model, Swappable-Fast-Smoke-Signal",
           "status": "open",
           "effort": "small",
           "files": [
@@ -115,10 +123,14 @@
             "docs/testing.md",
             "docs/"
           ],
+          "dependencies": [
+            "LLMCI-010"
+          ],
           "acceptance": [
-            "Es gibt ein offizielles kleines Standardmodell für CI.",
+            "Es gibt ein offizielles kleines hosted Standardmodell für CI.",
             "Modellwahl ist dokumentiert und nicht zufällig.",
-            "Kosten und Laufzeit bleiben klein."
+            "Kosten und Laufzeit bleiben klein.",
+            "Das konkrete Modell ist zentral konfigurierbar und nicht in mehreren Workflows oder Tests hart verdrahtet."
           ]
         },
         {
@@ -133,6 +145,10 @@
           "files": [
             ".github/workflows/",
             "docs/"
+          ],
+          "dependencies": [
+            "LLMCI-010",
+            "LLMCI-011"
           ],
           "acceptance": [
             "OPENAI_API_KEY ist sauber als Secret eingeplant.",
@@ -152,6 +168,11 @@
           "files": [
             ".github/workflows/",
             "docs/testing.md"
+          ],
+          "dependencies": [
+            "LLMCI-010",
+            "LLMCI-011",
+            "LLMCI-012"
           ],
           "acceptance": [
             "Provider- und Modellkonfiguration sind konsistent.",
@@ -178,6 +199,11 @@
             "tests/",
             "docs/testing.md"
           ],
+          "dependencies": [
+            "LLMCI-001",
+            "LLMCI-010",
+            "LLMCI-011"
+          ],
           "acceptance": [
             "Es gibt einen sehr kleinen offiziellen Live-LLM-Smoke-Satz.",
             "Die Suite prüft Kernfähigkeit statt Vollabdeckung.",
@@ -195,6 +221,9 @@
           "effort": "medium",
           "files": [
             "tests/"
+          ],
+          "dependencies": [
+            "LLMCI-020"
           ],
           "acceptance": [
             "Assertions sind modellrobust und nicht überfein.",
@@ -216,6 +245,10 @@
             ".github/workflows/",
             "docs/testing.md"
           ],
+          "dependencies": [
+            "LLMCI-020",
+            "LLMCI-021"
+          ],
           "acceptance": [
             "Live-Smoke-Prompts bleiben klein.",
             "Tokenverbrauch ist bewusst begrenzt.",
@@ -235,6 +268,10 @@
             ".github/workflows/",
             "tests/",
             "docs/testing.md"
+          ],
+          "dependencies": [
+            "LLMCI-020",
+            "LLMCI-021"
           ],
           "acceptance": [
             "Live-LLM-Jobs haben definierte kurze Timeouts.",
@@ -261,6 +298,9 @@
             "docs/testing.md",
             ".github/workflows/quality-and-docs.yml"
           ],
+          "dependencies": [
+            "LLMCI-001"
+          ],
           "acceptance": [
             "Compose-Nutzung in CI ist ausdrücklich erklärt.",
             "Der schwere Charakter von Compose-Läufen ist dokumentiert.",
@@ -278,6 +318,10 @@
           "effort": "small",
           "files": [
             ".github/workflows/"
+          ],
+          "dependencies": [
+            "LLMCI-001",
+            "LLMCI-030"
           ],
           "acceptance": [
             "Schwere Compose-Läufe haben begrenzte Trigger.",
@@ -298,6 +342,14 @@
             ".github/workflows/",
             "tests/",
             "docs/testing.md"
+          ],
+          "dependencies": [
+            "LLMCI-010",
+            "LLMCI-012",
+            "LLMCI-020",
+            "LLMCI-021",
+            "LLMCI-022",
+            "LLMCI-023"
           ],
           "acceptance": [
             "Es gibt eine echte Live-LLM-Stufe ohne Compose-Vollstack.",
@@ -323,6 +375,11 @@
           "files": [
             ".github/workflows/"
           ],
+          "dependencies": [
+            "LLMCI-003",
+            "LLMCI-013",
+            "LLMCI-032"
+          ],
           "acceptance": [
             "Live-LLM-Smoke ist als eigener Pfad sichtbar.",
             "Logs und Fehler sind klar von Standard-CI trennbar.",
@@ -340,6 +397,10 @@
           "effort": "small",
           "files": [
             ".github/workflows/"
+          ],
+          "dependencies": [
+            "LLMCI-012",
+            "LLMCI-040"
           ],
           "acceptance": [
             "Fork-PRs lösen keine problematischen Secret-Pfade aus.",
@@ -360,6 +421,10 @@
             ".github/workflows/",
             "tests/",
             "docs/"
+          ],
+          "dependencies": [
+            "LLMCI-040",
+            "LLMCI-041"
           ],
           "acceptance": [
             "Provider-Ausfälle sind erkennbar und nicht bloß rätselhafte Red-Builds.",
@@ -386,6 +451,11 @@
             "docs/testing.md",
             "docs/"
           ],
+          "dependencies": [
+            "LLMCI-011",
+            "LLMCI-020",
+            "LLMCI-022"
+          ],
           "acceptance": [
             "Es gibt eine grobe Kostenvorstellung pro Live-LLM-Lauf.",
             "Das Team oder du selbst können die Strategie bewusster steuern.",
@@ -406,6 +476,11 @@
             "docs/ci-artifacts.md",
             "tests/"
           ],
+          "dependencies": [
+            "LLMCI-040",
+            "LLMCI-041",
+            "LLMCI-042"
+          ],
           "acceptance": [
             "Live-Smoke-Läufe liefern brauchbare Diagnostik.",
             "Artefakte sind nicht unnötig riesig.",
@@ -425,6 +500,10 @@
             ".github/workflows/",
             "docs/"
           ],
+          "dependencies": [
+            "LLMCI-011",
+            "LLMCI-013"
+          ],
           "acceptance": [
             "Modellwechsel sind konfigurierbar statt tief hartkodiert.",
             "Die Live-LLM-CI bleibt anpassbar.",
@@ -435,15 +514,15 @@
     }
   ],
   "meta": {
-    "total_items": 18,
+    "total_items": 20,
     "by_status": {
       "completed": 0,
       "partial": 0,
-      "open": 18
+      "open": 20
     },
     "notes": [
       "Diese Todo-Datei ist bewusst klein und pragmatisch gehalten: Ziel ist nicht eine zweite schwere Testwelt, sondern ein gangbarer echter Live-LLM-Pfad in GitHub Actions.",
-      "Ollama bleibt für lokale und manuelle schwerere Validierung sinnvoll; OpenAI gpt-4o-mini ist der bevorzugte CI-Live-Smoke-Weg.",
+      "Ollama bleibt für lokale und manuelle schwerere Validierung sinnvoll; ein kleines hosted OpenAI-Modell wie gpt-4o-mini ist der initial bevorzugte CI-Live-Smoke-Weg.",
       "Compose ist im Projekt bereits vorgesehen, soll in CI aber bewusst nur selektiv und nicht als universeller Default genutzt werden."
     ],
     "recommended_order": [
@@ -464,9 +543,160 @@
       "LLMCI-030",
       "LLMCI-031",
       "LLMCI-050",
-      "LLMCI-051",
       "LLMCI-042",
+      "LLMCI-051",
       "LLMCI-052"
+    ],
+    "foundation_slice": {
+      "name": "live-llm-ci-foundation-slice",
+      "goal": "Zuerst CI-Tiering, hosted Provider-Entscheidung, Secret-Sicherheit und minimale Smoke-Suite klaeren, bevor Workflows oder Tests breit ausgebaut werden.",
+      "items": [
+        "LLMCI-001",
+        "LLMCI-002",
+        "LLMCI-003",
+        "LLMCI-010",
+        "LLMCI-011",
+        "LLMCI-012",
+        "LLMCI-020",
+        "LLMCI-021"
+      ],
+      "done_when": [
+        "Fast-CI, Live-LLM-Smoke und Heavy-Compose sind als getrennte Stufen definiert.",
+        "Fast-CI bleibt deterministisch und nutzt keine echten LLM-Provider.",
+        "Hosted OpenAI-Live-Smoke ist als kontrollierte optionale CI-Stufe eingeordnet.",
+        "Secret- und Fork-PR-Verhalten sind vor Workflow-Ausbau geklaert.",
+        "Die Live-Smoke-Suite ist klein, robust und modellvarianz-tolerant definiert."
+      ],
+      "architecture_guardrails": [
+        "Live-LLM-CI darf keine alternative Orchestrierung am Hub vorbei einfuehren.",
+        "Hosted OpenAI ist nur ein Provider im bestehenden LLM-Ausfuehrungspfad, kein neuer Worker-zu-Worker-Kommunikationsweg.",
+        "Compose bleibt schwere Validierungsstufe und darf nicht unbeabsichtigt zum Default fuer normale PRs werden.",
+        "Secrets bleiben CI-/Environment-Grenzen und duerfen nicht in Artefakte, Logs oder Repo-Dateien gelangen."
+      ],
+      "solid_guardrails": [
+        "SRP: Trigger-Policy, Provider-Konfiguration, Smoke-Test-Auswahl, Secret-Handling und Diagnose bleiben getrennte Verantwortungsbereiche.",
+        "OCP: Hosted Modell und Provider sollen austauschbar bleiben, ohne Workflow- und Testlogik mehrfach umzubauen.",
+        "ISP: Live-Smoke-Tests pruefen wenige stabile Signale statt eine breite Live-Testoberflaeche zu erzwingen.",
+        "DIP: Tests und Workflows arbeiten gegen explizite Provider-/Modell-Konfiguration, nicht gegen hart verdrahtete OpenAI-Details."
+      ]
+    },
+    "milestones": [
+      {
+        "id": "M1",
+        "name": "CI-Tiering und Default-Policy",
+        "intent": "Legt fest, welche Tests im Alltag hart laufen und welche Live- oder Compose-Läufe bewusst opt-in bleiben.",
+        "depends_on": [],
+        "decision_focus": [
+          "Welche Jobs gehoeren in Fast-CI?",
+          "Welche Trigger duerfen echte LLM-Kosten verursachen?",
+          "Welche Compose-Laeufe bleiben schwere Validierung statt Default?"
+        ],
+        "items": [
+          "LLMCI-001",
+          "LLMCI-002",
+          "LLMCI-003",
+          "LLMCI-030",
+          "LLMCI-031"
+        ],
+        "exit_criteria": [
+          "Normale PRs und Pushes haben einen deterministischen, guenstigen Default-Pfad.",
+          "Live-LLM- und Heavy-Compose-Laeufe haben absichtliche, dokumentierte Trigger."
+        ]
+      },
+      {
+        "id": "M2",
+        "name": "Hosted Provider, Modell und Secret-Sicherheit",
+        "intent": "Klaert OpenAI als hosted Live-Smoke-Provider, zentrale Modellkonfiguration und sicheres Secret-Verhalten.",
+        "depends_on": [
+          "M1"
+        ],
+        "decision_focus": [
+          "Welcher hosted Provider ist CI-Standard?",
+          "Welches kleine Modell ist initialer Default und wie bleibt es austauschbar?",
+          "Wie werden Secrets bei fehlendem Key und Fork-PRs sicher behandelt?"
+        ],
+        "items": [
+          "LLMCI-010",
+          "LLMCI-011",
+          "LLMCI-012",
+          "LLMCI-013",
+          "LLMCI-041",
+          "LLMCI-052"
+        ],
+        "exit_criteria": [
+          "Provider- und Modellwahl sind zentral konfigurierbar.",
+          "OPENAI_API_KEY ist als optionales Secret eingeplant und Fork-/No-Secret-Pfade sind sicher."
+        ]
+      },
+      {
+        "id": "M3",
+        "name": "Minimale robuste Live-Smoke-Suite",
+        "intent": "Definiert einen kleinen echten Live-Test-Satz mit stabilen Assertions, Kosten- und Laufzeitgrenzen.",
+        "depends_on": [
+          "M1",
+          "M2"
+        ],
+        "decision_focus": [
+          "Welche ein bis drei Tests liefern ein echtes Kernsignal?",
+          "Welche Assertions sind robust gegen Modellvarianz?",
+          "Welche Tokenlimits, Timeouts und Retries halten Kosten und Flakiness klein?"
+        ],
+        "items": [
+          "LLMCI-020",
+          "LLMCI-021",
+          "LLMCI-022",
+          "LLMCI-023",
+          "LLMCI-050"
+        ],
+        "exit_criteria": [
+          "Der Live-Smoke-Satz ist klein genug fuer CI und gross genug fuer ein echtes Signal.",
+          "Prompts, Outputs, Timeouts, Retries und Kostenrahmen sind begrenzt und dokumentierbar."
+        ]
+      },
+      {
+        "id": "M4",
+        "name": "Workflow-Spur, Skip/Fallback und Diagnose",
+        "intent": "Macht den hosted Live-Smoke-Lauf als eigene CI-Spur sichtbar und operational robust.",
+        "depends_on": [
+          "M2",
+          "M3"
+        ],
+        "decision_focus": [
+          "Ist Live-LLM-Smoke ein eigener Workflow oder eine klar getrennte Jobgruppe?",
+          "Wie werden fehlende Secrets, Fork-PRs und Provider-Ausfaelle sichtbar eingeordnet?",
+          "Welche kompakten Artefakte reichen fuer Diagnose?"
+        ],
+        "items": [
+          "LLMCI-032",
+          "LLMCI-040",
+          "LLMCI-042",
+          "LLMCI-051"
+        ],
+        "exit_criteria": [
+          "Live-Smoke ist ohne Compose-Vollstack ausfuehrbar und klar von Standard-CI getrennt.",
+          "Skip-, Fehler- und Diagnoseverhalten ist kontrolliert und auditierbar."
+        ]
+      }
+    ],
+    "dependency_model": {
+      "meaning": "dependencies benennt fachliche oder planerische Vorbedingungen innerhalb dieser Todo-Datei, nicht zwingend technische Build-Abhaengigkeiten.",
+      "rules": [
+        "CI-Tiering und Secret-Sicherheit muessen vor echter hosted Live-Ausfuehrung geklaert sein.",
+        "Modell- und Providerwahl muessen zentral konfigurierbar bleiben und duerfen nicht in mehreren Jobs hart verdrahtet werden.",
+        "Live-Smoke-Tests duerfen keine breite Live-Testwelt erzwingen; sie pruefen wenige stabile Signale.",
+        "Compose-Dependencies duerfen nicht dazu fuehren, dass Heavy-Compose zum unbewussten Default fuer normale PRs wird."
+      ]
+    },
+    "review_checks": [
+      "Zaehlt die Datei weiterhin exakt so viele Items, wie meta.total_items angibt?",
+      "Sind alle offenen Items in recommended_order und genau einem Milestone enthalten?",
+      "Verweisen alle dependencies auf existierende Todo-IDs und erzeugen keine Zyklen?",
+      "Sind Milestone-depends_on-Werte azyklisch und nachvollziehbar?",
+      "Bleibt Fast-CI deterministisch und ohne echte LLM-Provider?",
+      "Sind Fork-PRs, fehlende Secrets und Secret-Logs sicher behandelt?",
+      "Ist das hosted Modell zentral austauschbar statt mehrfach hart verdrahtet?",
+      "Bleibt Compose eine schwere opt-in Validierungsstufe statt Default?",
+      "Entstehen durch Provider-, Workflow- oder Testlogik keine SRP-, OCP-, ISP- oder DIP-Konflikte?"
     ]
   }
 }
