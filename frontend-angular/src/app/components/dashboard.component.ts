@@ -32,6 +32,8 @@ import {
   TeamEntry,
   TimelineEvent,
 } from '../models/dashboard.models';
+import { KeyValueItem } from '../shared/ui/display';
+import { StatusTone } from '../shared/ui/state';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
@@ -41,7 +43,9 @@ import { DashboardTimelinePanelComponent } from './dashboard-timeline-panel.comp
 import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.component';
 import { DashboardFacade } from './dashboard.facade';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
-import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
+import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent, StatusBadgeComponent } from '../shared/ui/state';
+import { KeyValueGridComponent, MetricCardComponent } from '../shared/ui/display';
+import { SectionCardComponent } from '../shared/ui/layout';
 
 @Component({
   standalone: true,
@@ -57,6 +61,11 @@ import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
     DashboardBenchmarkPanelComponent,
     EmptyStateComponent,
     ErrorStateComponent,
+    LoadingStateComponent,
+    StatusBadgeComponent,
+    MetricCardComponent,
+    KeyValueGridComponent,
+    SectionCardComponent,
   ],
   template: `
     <section class="start-hero">
@@ -99,7 +108,7 @@ import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
     }
 
     @if (viewState.loading) {
-      <app-ui-skeleton [count]="1" [lineCount]="1" lineClass="skeleton block"></app-ui-skeleton>
+      <app-loading-state label="Dashboard wird geladen" [count]="1" [lineCount]="1" lineClass="skeleton block"></app-loading-state>
     }
     @if (viewState.error) {
       <app-error-state
@@ -121,31 +130,17 @@ import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
     }
 
     @if (hub) {
-      <section class="card personal-home mb-md" aria-labelledby="personal-home-title">
-        <div class="row space-between align-start">
-          <div>
-            <div class="muted font-sm mb-xs">Mein Arbeitsbereich</div>
-            <h3 id="personal-home-title" class="no-margin">Willkommen zurueck</h3>
-            <p class="muted mt-sm no-margin">Hier findest du deine letzten Ziele, naechsten Aufgaben und passende Startvorlagen.</p>
-          </div>
-          <button class="secondary btn-small" type="button" (click)="focusQuickGoal()">Neues Ziel</button>
-        </div>
+      <app-section-card
+        class="block mb-md"
+        eyebrow="Mein Arbeitsbereich"
+        title="Willkommen zurueck"
+        subtitle="Hier findest du deine letzten Ziele, naechsten Aufgaben und passende Startvorlagen."
+      >
+        <button section-actions class="secondary btn-small" type="button" (click)="focusQuickGoal()">Neues Ziel</button>
         <div class="grid cols-3 mt-md">
-          <div class="card card-light">
-            <div class="muted font-sm">Laufende Goals</div>
-            <strong>{{ activeGoalCount() }}</strong>
-            <p class="muted no-margin mt-sm">Noch nicht abgeschlossene Ziele.</p>
-          </div>
-          <div class="card card-light">
-            <div class="muted font-sm">Naechste Aufgaben</div>
-            <strong>{{ nextTaskCount() }}</strong>
-            <p class="muted no-margin mt-sm">Offen, blockiert oder in Arbeit.</p>
-          </div>
-          <div class="card card-light">
-            <div class="muted font-sm">Erster Fortschritt</div>
-            <strong>{{ starterProgress().done }}/{{ starterProgress().total }}</strong>
-            <p class="muted no-margin mt-sm">{{ starterProgress().label }}</p>
-          </div>
+          <app-metric-card label="Laufende Goals" [value]="activeGoalCount()" hint="Noch nicht abgeschlossene Ziele."></app-metric-card>
+          <app-metric-card label="Naechste Aufgaben" [value]="nextTaskCount()" hint="Offen, blockiert oder in Arbeit."></app-metric-card>
+          <app-metric-card label="Erster Fortschritt" [value]="starterProgress().done + '/' + starterProgress().total" [hint]="starterProgress().label" tone="success"></app-metric-card>
         </div>
         <div class="grid cols-2 mt-md">
           <div>
@@ -178,7 +173,7 @@ import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
             </div>
           </div>
         </div>
-      </section>
+      </app-section-card>
 
       @if (isHintVisible('dashboard-start')) {
         <div class="state-banner mb-md inline-help">
@@ -432,45 +427,17 @@ import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
     @if (stats) {
       <app-onboarding-checklist />
       <div class="grid cols-3">
-        <div class="card">
-          <h3>Agenten</h3>
-          <div class="row space-between">
-            <span>Gesamt:</span>
-            <strong>{{stats.agents?.total || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>Online:</span>
-            <strong class="success">{{stats.agents?.online || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>Offline:</span>
-            <strong class="danger">{{stats.agents?.offline || 0}}</strong>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Tasks</h3>
-          <div class="row space-between">
-            <span>Gesamt:</span>
-            <strong>{{stats.tasks?.total || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>Abgeschlossen:</span>
-            <strong class="success">{{stats.tasks?.completed || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>Fehlgeschlagen:</span>
-            <strong class="danger">{{stats.tasks?.failed || 0}}</strong>
-          </div>
-          <div class="row space-between">
-            <span>In Arbeit:</span>
-            <strong>{{stats.tasks?.in_progress || 0}}</strong>
-          </div>
-        </div>
+        <app-section-card title="Agenten">
+          <app-key-value-grid [items]="agentSummaryItems()" [columns]="2"></app-key-value-grid>
+        </app-section-card>
+        <app-section-card title="Tasks">
+          <app-key-value-grid [items]="taskSummaryItems()" [columns]="2"></app-key-value-grid>
+        </app-section-card>
         <div class="card">
           <h3>System Status</h3>
           <div class="row gap-sm">
             <div class="status-dot" [class.online]="systemHealth?.status === 'ok'" [class.offline]="systemHealth?.status !== 'ok'" role="status" [attr.aria-label]="'Systemstatus ' + (systemHealth?.status || 'unknown')"></div>
-            <strong>{{ systemHealth?.status || ((stats.agents?.online || 0) > 0 ? 'ok' : 'degraded') }}</strong>
+            <app-status-badge [label]="systemStatusLabel()" [tone]="systemStatusTone()" [dot]="true"></app-status-badge>
           </div>
           <div class="muted font-sm mt-sm">
             Live Sync:
@@ -1279,6 +1246,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const done = checks.filter(Boolean).length;
     const label = done >= checks.length ? 'Erste Nutzung ist vorbereitet.' : 'Naechster Schritt bleibt sichtbar.';
     return { done, total: checks.length, label };
+  }
+
+  agentSummaryItems(): KeyValueItem[] {
+    return [
+      { label: 'Gesamt', value: this.stats?.agents?.total || 0 },
+      { label: 'Online', value: this.stats?.agents?.online || 0 },
+      { label: 'Offline', value: this.stats?.agents?.offline || 0 },
+    ];
+  }
+
+  taskSummaryItems(): KeyValueItem[] {
+    return [
+      { label: 'Gesamt', value: this.stats?.tasks?.total || 0 },
+      { label: 'Abgeschlossen', value: this.stats?.tasks?.completed || 0 },
+      { label: 'Fehlgeschlagen', value: this.stats?.tasks?.failed || 0 },
+      { label: 'In Arbeit', value: this.stats?.tasks?.in_progress || 0 },
+    ];
+  }
+
+  systemStatusLabel(): string {
+    return String(this.systemHealth?.status || ((this.stats?.agents?.online || 0) > 0 ? 'ok' : 'degraded'));
+  }
+
+  systemStatusTone(): StatusTone {
+    const label = this.systemStatusLabel().toLowerCase();
+    if (label === 'ok') return 'success';
+    if (label === 'degraded') return 'warning';
+    if (label === 'error' || label === 'failed') return 'error';
+    return 'unknown';
   }
 
   private ensureTaskCollection(): void {

@@ -365,6 +365,24 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.starterProgress().done).toBeGreaterThanOrEqual(2);
   });
 
+  it('builds shared display view models for dashboard summaries', () => {
+    const cmp = createComponent();
+    cmp.stats = {
+      agents: { total: 3, online: 2, offline: 1 },
+      tasks: { total: 5, completed: 3, failed: 1, in_progress: 1 },
+    } as any;
+    cmp.systemHealth = { status: 'degraded' } as any;
+
+    expect(cmp.agentSummaryItems()).toEqual([
+      { label: 'Gesamt', value: 3 },
+      { label: 'Online', value: 2 },
+      { label: 'Offline', value: 1 },
+    ]);
+    expect(cmp.taskSummaryItems()[1]).toEqual({ label: 'Abgeschlossen', value: 3 });
+    expect(cmp.systemStatusLabel()).toBe('degraded');
+    expect(cmp.systemStatusTone()).toBe('warning');
+  });
+
   it('persists dismissed inline hints', () => {
     const cmp = createComponent();
 

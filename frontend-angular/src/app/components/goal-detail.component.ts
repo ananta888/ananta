@@ -4,22 +4,20 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
-import { UiSkeletonComponent } from './ui-skeleton.component';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
+import { LoadingStateComponent, StatusBadgeComponent, StatusTone } from '../shared/ui/state';
+import { MetricCardComponent } from '../shared/ui/display';
+import { SectionCardComponent } from '../shared/ui/layout';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
   selector: 'app-goal-detail',
-  imports: [CommonModule, RouterLink, UiSkeletonComponent],
+  imports: [CommonModule, RouterLink, LoadingStateComponent, StatusBadgeComponent, MetricCardComponent, SectionCardComponent],
   template: `
     <div class="container pb-lg">
       @if (loading && !goal) {
-        <app-ui-skeleton [count]="1" [lineCount]="2" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
-        <div class="grid cols-2 gap-md mt-md">
-           <app-ui-skeleton [count]="1" [lineCount]="5" lineClass="skeleton block"></app-ui-skeleton>
-           <app-ui-skeleton [count]="1" [lineCount]="5" lineClass="skeleton block"></app-ui-skeleton>
-        </div>
+        <app-loading-state label="Goal wird geladen" [count]="2" [columns]="2" [lineCount]="5" lineClass="skeleton block"></app-loading-state>
       }
 
       @if (goal) {
@@ -30,9 +28,7 @@ import { interval, Subscription } from 'rxjs';
               <h2 class="no-margin">{{ goal.summary || 'Unbenanntes Goal' }}</h2>
             </div>
             <div class="row gap-sm">
-              <span class="badge" [class.success]="goal.status === 'completed'" [class.warning]="goal.status === 'planning' || goal.status === 'planned'">
-                {{ goal.status }}
-              </span>
+              <app-status-badge [label]="goal.status || 'unknown'" [tone]="goalStatusTone()" [dot]="true"></app-status-badge>
               <button class="secondary btn-small" (click)="refresh()">Refresh</button>
             </div>
           </div>
@@ -42,39 +38,14 @@ import { interval, Subscription } from 'rxjs';
           </div>
         </div>
 
-        <section class="card mt-md result-summary">
-          <div class="row space-between align-start">
-            <div>
-              <div class="muted font-sm mb-xs">Abschluss & naechste Schritte</div>
-              <h3 class="no-margin">{{ resultHeadline() }}</h3>
-              <p class="muted mt-sm">{{ resultDescription() }}</p>
-            </div>
-            <div class="row gap-sm">
-              <button class="secondary btn-small" [routerLink]="['/board']">Aufgaben oeffnen</button>
-              <button class="secondary btn-small" [routerLink]="['/artifacts']">Ergebnisse oeffnen</button>
-            </div>
-          </div>
+        <app-section-card class="block mt-md result-summary" eyebrow="Abschluss & naechste Schritte" [title]="resultHeadline()" [subtitle]="resultDescription()">
+          <button section-actions class="secondary btn-small" [routerLink]="['/board']">Aufgaben oeffnen</button>
+          <button section-actions class="secondary btn-small" [routerLink]="['/artifacts']">Ergebnisse oeffnen</button>
           <div class="grid cols-4 gap-sm mt-md">
-            <div class="card card-light">
-              <div class="muted font-sm">Fortschritt</div>
-              <strong>{{ completedTasks() }}/{{ tasks.length }}</strong>
-              <div class="muted font-sm">Tasks abgeschlossen</div>
-            </div>
-            <div class="card card-light">
-              <div class="muted font-sm">Offen</div>
-              <strong>{{ openTasks() }}</strong>
-              <div class="muted font-sm">naechste Tasks</div>
-            </div>
-            <div class="card card-light">
-              <div class="muted font-sm">{{ term('artifact').label }}</div>
-              <strong>{{ artifacts.length }}</strong>
-              <div class="muted font-sm">{{ term('artifact').technicalLabel }} / sichtbare Resultate</div>
-            </div>
-            <div class="card card-light">
-              <div class="muted font-sm">{{ term('verification').label }}</div>
-              <strong>{{ verificationLabel() }}</strong>
-              <div class="muted font-sm">{{ term('verification').technicalLabel }}</div>
-            </div>
+            <app-metric-card label="Fortschritt" [value]="completedTasks() + '/' + tasks.length" hint="Tasks abgeschlossen"></app-metric-card>
+            <app-metric-card label="Offen" [value]="openTasks()" hint="naechste Tasks" tone="warning"></app-metric-card>
+            <app-metric-card [label]="term('artifact').label" [value]="artifacts.length" [hint]="term('artifact').technicalLabel + ' / sichtbare Resultate'"></app-metric-card>
+            <app-metric-card [label]="term('verification').label" [value]="verificationLabel()" [hint]="term('verification').technicalLabel"></app-metric-card>
           </div>
           <div class="grid cols-2 gap-sm mt-md">
             <div class="state-banner">
@@ -103,7 +74,7 @@ import { interval, Subscription } from 'rxjs';
               <p class="muted no-margin mt-sm">Pruefe die offenen Tasks oder starte die Ausfuehrung, damit ein sichtbares Ergebnis entsteht.</p>
             </div>
           }
-        </section>
+        </app-section-card>
 
         <div class="grid cols-3 gap-md mt-md">
           <!-- Linke Spalte: Plan & Status -->
@@ -364,6 +335,14 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
     if (this.openTasks() > 0) return 'Noch sind nicht alle Aufgaben fertig. Ergebnisse koennen sich aendern, bis offene Tasks abgeschlossen oder bewusst verworfen sind.';
     if (this.verificationLabel() === 'offen') return safetyBoundaryExplanation('verification');
     return 'Die sichtbaren Ergebnisse haben die bekannten Pruefschritte durchlaufen oder enthalten keine offenen Warnungen.';
+  }
+
+  goalStatusTone(): StatusTone {
+    const status = String(this.goal?.status || '').toLowerCase();
+    if (status === 'completed') return 'success';
+    if (status === 'failed') return 'error';
+    if (status === 'planning' || status === 'planned' || status === 'running' || status === 'in_progress') return 'warning';
+    return 'unknown';
   }
 
   isHintVisible(key: string): boolean {
