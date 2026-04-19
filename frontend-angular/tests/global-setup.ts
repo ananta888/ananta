@@ -23,10 +23,17 @@ function localhostCandidateUrls(rawUrl: string, paths: string[] = ['']): string[
   const normalizedPaths = paths.map((entry) => (entry.startsWith('/') ? entry : `/${entry}`));
   const out = new Set<string>(normalizedPaths.map((entry) => `${base}${entry === '/' ? '' : entry}`));
 
+  if (parsed.pathname === '/health' && !parsed.search) {
+    out.add(`${base}?basic=1`);
+  }
+
   if (parsed.hostname === 'localhost') {
     const ipBase = `${parsed.protocol}//127.0.0.1${parsed.port ? `:${parsed.port}` : ''}`;
     for (const entry of normalizedPaths) {
       out.add(`${ipBase}${entry === '/' ? '' : entry}`);
+    }
+    if (parsed.pathname === '/health' && !parsed.search) {
+      out.add(`${ipBase}${parsed.pathname}?basic=1`);
     }
   }
 
