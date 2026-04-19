@@ -8,16 +8,55 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { ToastService } from '../services/toast.service';
 import { UiAsyncState } from '../models/ui.models';
+import {
+  AgentEntry,
+  ArtifactFlowStatus,
+  AutopilotSecurityLevel,
+  AutopilotStatus,
+  BenchmarkItem,
+  BenchmarkRecommendation,
+  BenchmarkTaskKind,
+  ContextPolicyStatus,
+  ContractsStatus,
+  DashboardStatsBlock,
+  GoalDetail,
+  GoalGovernanceSummary,
+  GoalListEntry,
+  HubCopilotStatus,
+  LlmEffectiveRuntime,
+  LlmModelReference,
+  ResearchBackendProvider,
+  ResearchBackendStatus,
+  RoleEntry,
+  RuntimeTelemetry,
+  SystemHealth,
+  TeamEntry,
+  TimelineEvent,
+} from '../models/dashboard.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { TooltipDirective } from '../directives/tooltip.directive';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { DashboardAutopilotPanelComponent } from './dashboard-autopilot-panel.component';
+import { DashboardTimelinePanelComponent } from './dashboard-timeline-panel.component';
+import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.component';
+import { DashboardFacade } from './dashboard.facade';
 
 @Component({
   standalone: true,
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent, TooltipDirective, UiSkeletonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    OnboardingChecklistComponent,
+    TooltipDirective,
+    UiSkeletonComponent,
+    DashboardAutopilotPanelComponent,
+    DashboardTimelinePanelComponent,
+    DashboardBenchmarkPanelComponent,
+  ],
   template: `
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Uebersicht ueber Agenten und Tasks.</p>
@@ -282,243 +321,22 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
     }
 
     @if (hub) {
-      <div class="card mt-md">
-        <div class="row space-between">
-          <div>
-            <h3 class="no-margin">LLM Benchmark & Empfehlung</h3>
-            <div class="muted font-sm mt-sm">
-              Vergleich je Aufgabenart mit transparenter Bewertungsgrundlage.
-            </div>
-          </div>
-          <div class="row gap-sm">
-            <select aria-label="Benchmark Aufgabenart" [(ngModel)]="benchmarkTaskKind" (ngModelChange)="refreshBenchmarks()">
-              <option value="analysis">analysis</option>
-              <option value="coding">coding</option>
-              <option value="doc">doc</option>
-              <option value="ops">ops</option>
-            </select>
-            <button class="secondary" (click)="refreshBenchmarks()" aria-label="Benchmark-Daten aktualisieren">Refresh</button>
-          </div>
-        </div>
-        @if (benchmarkData.length) {
-          <div class="grid cols-4 mt-sm">
-            <div class="card card-light">
-              <div class="muted">Empfohlenes Modell</div>
-              <strong>{{ benchmarkData[0]?.provider }} / {{ benchmarkData[0]?.model }}</strong>
-              <div class="muted status-text-sm-alt">
-                Suitability: {{ benchmarkData[0]?.focus?.suitability_score || 0 | number:'1.0-2' }}%
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Success Rate</div>
-              <strong>{{ benchmarkData[0]?.focus?.success_rate || 0 | percent:'1.0-0' }}</strong>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Quality Rate</div>
-              <strong>{{ benchmarkData[0]?.focus?.quality_rate || 0 | percent:'1.0-0' }}</strong>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Letztes Update</div>
-              <strong>{{ benchmarkUpdatedAt ? (benchmarkUpdatedAt * 1000 | date:'HH:mm:ss') : '-' }}</strong>
-            </div>
-          </div>
-          <div class="grid cols-4 mt-sm">
-            <div class="card card-light">
-              <div class="muted">Default</div>
-              <strong>{{ llmDefaults?.provider || '-' }} / {{ llmDefaults?.model || '-' }}</strong>
-              <div class="muted status-text-sm-alt">
-                Quelle: {{ llmDefaults?.source?.provider || '-' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Benchmark-Empfehlung</div>
-              <strong>{{ benchmarkRecommendation?.recommended?.provider || '-' }} / {{ benchmarkRecommendation?.recommended?.model || '-' }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ benchmarkRecommendation?.is_recommendation_active ? 'Aktiv im Runtime-Pfad' : 'Nur Empfehlung, nicht still aktiv' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Expliziter Override</div>
-              <strong>{{ llmExplicitOverride?.active ? 'aktiv' : 'kein Override' }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ llmExplicitOverride?.provider || '-' }} / {{ llmExplicitOverride?.model || '-' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Hub-Copilot</div>
-              <strong>{{ hubCopilotStatus?.active ? 'optional aktiv' : (hubCopilotStatus?.enabled ? 'konfiguriert, aber inaktiv' : 'deaktiviert') }}</strong>
-              <div class="muted status-text-sm-alt">
-                Mode: {{ hubCopilotStatus?.strategy_mode || '-' }}
-              </div>
-            </div>
-          </div>
-          <div class="grid cols-4 mt-sm">
-            <div class="card card-light">
-              <div class="muted">Context-Policy</div>
-              <strong>{{ contextPolicyStatus?.effective?.mode || '-' }}</strong>
-              <div class="muted status-text-sm-alt">
-                Compact: {{ contextPolicyStatus?.effective?.compact_max_chunks || '-' }} · Standard: {{ contextPolicyStatus?.effective?.standard_max_chunks || '-' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Artifact Flow</div>
-              <strong>{{ artifactFlowStatus?.effective?.enabled ? 'enabled' : 'disabled' }}</strong>
-              <div class="muted status-text-sm-alt">
-                RAG: {{ artifactFlowStatus?.effective?.rag_enabled ? 'on' : 'off' }} · Top-K: {{ artifactFlowStatus?.effective?.rag_top_k || '-' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Effektive Runtime ohne Override</div>
-              <strong>{{ llmEffectiveRuntime?.provider || '-' }} / {{ llmEffectiveRuntime?.model || '-' }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ llmEffectiveRuntime?.benchmark_applied ? 'Benchmark beeinflusst ungepinnte Requests' : 'Entspricht der konfigurierten Basis' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Runtime-Quelle</div>
-              <strong>{{ llmEffectiveRuntime?.selection_source || '-' }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ llmEffectiveRuntime?.replaces_configured ? 'Ersetzt die konfigurierte Basis zur Laufzeit' : 'Kein stiller Austausch der konfigurierten Basis' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Research-Backend</div>
-              <strong>{{ researchBackendStatus?.provider || '-' }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ researchBackendStatus?.enabled ? 'aktiviert' : 'deaktiviert' }} · {{ researchBackendStatus?.configured ? 'konfiguriert' : 'nicht konfiguriert' }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Research-Review</div>
-              <strong>{{ researchBackendStatus?.review_policy?.required ? 'required' : 'not required' }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ researchBackendStatus?.review_policy?.reason || '-' }}
-              </div>
-            </div>
-          </div>
-          @if (activeInferenceRuntime()) {
-            <div class="grid cols-4 mt-sm">
-              <div class="card card-light">
-                <div class="muted">Active Inference Runtime</div>
-                <strong>{{ activeInferenceRuntime()?.provider || '-' }} / {{ activeInferenceRuntime()?.model || '-' }}</strong>
-                <div class="muted status-text-sm-alt">
-                  Context: {{ activeInferenceRuntime()?.contextLengthLabel || '-' }}
-                </div>
-                <div class="muted status-text-sm-alt">
-                  Temperature: {{ activeInferenceRuntime()?.temperatureLabel || '-' }}
-                </div>
-              </div>
-              <div class="card card-light">
-                <div class="muted">Runtime Executor</div>
-                <strong>{{ activeInferenceRuntime()?.executorLabel || '-' }}</strong>
-                <div class="muted status-text-sm-alt">
-                  GPU Active: {{ activeInferenceRuntime()?.gpuActiveLabel || 'unknown' }}
-                </div>
-              </div>
-              <div class="card card-light">
-                <div class="muted">Provider Health</div>
-                <strong>{{ activeInferenceRuntime()?.providerStatus || '-' }}</strong>
-                <div class="muted status-text-sm-alt">
-                  Reachable: {{ activeInferenceRuntime()?.providerReachableLabel || '-' }}
-                </div>
-              </div>
-              <div class="card card-light">
-                <div class="muted">Model Inventory</div>
-                <strong>{{ activeInferenceRuntime()?.candidateCountLabel || '-' }}</strong>
-                <div class="muted status-text-sm-alt">
-                  Source: {{ activeInferenceRuntime()?.telemetrySource || '-' }}
-                </div>
-              </div>
-            </div>
-            @if (liveRuntimeModels().length) {
-              <div class="table-scroll mt-sm">
-                <table class="standard-table table-min-600">
-                  <thead>
-                    <tr class="card-light">
-                      <th>Provider</th>
-                      <th>Model</th>
-                      <th>Executor</th>
-                      <th>Context</th>
-                      <th>Status</th>
-                      <th>Source</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (row of liveRuntimeModels(); track row.id) {
-                      <tr>
-                        <td>{{ row.provider }}</td>
-                        <td class="font-mono font-sm">{{ row.model }}</td>
-                        <td>{{ row.executorLabel }}</td>
-                        <td>{{ row.contextLengthLabel }}</td>
-                        <td>{{ row.statusLabel }}</td>
-                        <td class="font-mono font-sm">{{ row.sourceLabel }}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-          }
-          @if (researchBackendStatus?.providers) {
-            <div class="table-scroll mt-sm">
-              <table class="standard-table table-min-600">
-                <thead>
-                  <tr class="card-light">
-                    <th>Provider</th>
-                    <th>Status</th>
-                    <th>Binary</th>
-                    <th>Working Dir</th>
-                    <th>Mode</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (entry of researchBackendProviderEntries(); track entry.provider) {
-                    <tr>
-                      <td>{{ entry.provider }}</td>
-                      <td>{{ entry.selected ? 'active' : 'optional' }} / {{ entry.configured ? 'configured' : 'missing config' }}</td>
-                      <td>{{ entry.binary_available ? 'ok' : 'missing' }}</td>
-                      <td>{{ entry.working_dir_exists ? 'ok' : (entry.working_dir ? 'missing' : 'not set') }}</td>
-                      <td>{{ entry.mode || '-' }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-          <div class="table-scroll mt-sm">
-            <table class="standard-table table-min-600">
-              <thead>
-                <tr class="card-light">
-                  <th>Rank</th>
-                  <th>Provider</th>
-                  <th>Model</th>
-                  <th>Suitability</th>
-                  <th>Success</th>
-                  <th>Quality</th>
-                  <th>Latency</th>
-                  <th>Tokens</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of benchmarkData; track item.id; let i = $index) {
-                  <tr>
-                    <td>{{ i + 1 }}</td>
-                    <td>{{ item.provider }}</td>
-                    <td class="font-mono font-sm">{{ item.model }}</td>
-                    <td>{{ item.focus?.suitability_score || 0 | number:'1.0-2' }}%</td>
-                    <td>{{ item.focus?.success_rate || 0 | percent:'1.0-0' }}</td>
-                    <td>{{ item.focus?.quality_rate || 0 | percent:'1.0-0' }}</td>
-                    <td>{{ item.focus?.avg_latency_ms || 0 | number:'1.0-0' }} ms</td>
-                    <td>{{ item.focus?.avg_tokens || 0 | number:'1.0-0' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <div class="muted mt-sm">Noch keine Benchmarkdaten vorhanden.</div>
-        }
-      </div>
+      <app-dashboard-benchmark-panel
+        [data]="benchmarkData"
+        [updatedAt]="benchmarkUpdatedAt"
+        [recommendation]="benchmarkRecommendation"
+        [llmDefaults]="llmDefaults"
+        [llmExplicitOverride]="llmExplicitOverride"
+        [llmEffectiveRuntime]="llmEffectiveRuntime"
+        [hubCopilotStatus]="hubCopilotStatus"
+        [contextPolicyStatus]="contextPolicyStatus"
+        [artifactFlowStatus]="artifactFlowStatus"
+        [researchBackendStatus]="researchBackendStatus"
+        [runtimeTelemetry]="runtimeTelemetry"
+        [(taskKind)]="benchmarkTaskKind"
+        (refresh)="refreshBenchmarks()"
+      ></app-dashboard-benchmark-panel>
+
       <div class="card mt-md">
         <div class="row space-between">
           <div>
@@ -622,157 +440,33 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           <div class="muted mt-sm">Noch keine Goals fuer Governance- und Cost-Reporting vorhanden.</div>
         }
       </div>
-      <div class="card mt-md">
-        <h3>Autopilot Control Center <span class="help-icon" [appTooltip]="'Der Autopilot fuehrt Tasks automatisch in regelmaessigen Abstaenden aus.'" tabindex="0">?</span></h3>
-        <p class="muted mt-sm">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
 
-        <div class="grid cols-2 mt-sm">
-          <label>
-            Sprint Goal
-            <input [(ngModel)]="autopilotGoal" placeholder="z.B. MVP Login + Team Setup" aria-label="Autopilot Sprint Goal" />
-          </label>
-          <label>
-            Team
-            <select [(ngModel)]="autopilotTeamId" aria-label="Autopilot Team auswaehlen">
-              <option value="">Aktives Team</option>
-              @for (t of teamsList; track t) {
-                <option [value]="t.id">{{ t.name }}</option>
-              }
-            </select>
-          </label>
-          <label>
-            Tick-Intervall (s) <span class="help-icon" [appTooltip]="'Zeit zwischen automatischen Ausfuehrungen in Sekunden.'" tabindex="0">?</span>
-            <input type="number" min="3" [(ngModel)]="autopilotIntervalSeconds" aria-label="Autopilot Tick-Intervall in Sekunden" />
-          </label>
-          <label>
-            Max Parallelitaet <span class="help-icon" [appTooltip]="'Maximale Anzahl gleichzeitig ausgefuehrter Tasks.'" tabindex="0">?</span>
-            <input type="number" min="1" [(ngModel)]="autopilotMaxConcurrency" aria-label="Autopilot maximale Parallelitaet" />
-          </label>
-          <label>
-            Budget-Hinweis
-            <input [(ngModel)]="autopilotBudgetLabel" placeholder="z.B. 2h / 10k tokens" aria-label="Autopilot Budget-Hinweis" />
-          </label>
-          <label>
-            Sicherheitslevel <span class="help-icon" [appTooltip]="'safe: Nur sichere Ops, balanced: Eingeschraenkt, aggressive: Alle Ops erlaubt'" tabindex="0">?</span>
-            <select [(ngModel)]="autopilotSecurityLevel" aria-label="Autopilot Sicherheitslevel">
-              <option value="safe">safe</option>
-              <option value="balanced">balanced</option>
-              <option value="aggressive">aggressive</option>
-            </select>
-          </label>
-        </div>
+      <app-dashboard-autopilot-panel
+        [status]="autopilotStatus"
+        [teams]="teamsList"
+        [busy]="autopilotBusy"
+        [(goal)]="autopilotGoal"
+        [(teamId)]="autopilotTeamId"
+        [(intervalSeconds)]="autopilotIntervalSeconds"
+        [(maxConcurrency)]="autopilotMaxConcurrency"
+        [(budgetLabel)]="autopilotBudgetLabel"
+        [(securityLevel)]="autopilotSecurityLevel"
+        (start)="startAutopilot()"
+        (stop)="stopAutopilot()"
+        (tick)="tickAutopilot()"
+        (refresh)="refreshAutopilot()"
+      ></app-dashboard-autopilot-panel>
 
-        <div class="row gap-sm mt-md">
-          <button (click)="startAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot starten">Start</button>
-          <button class="secondary" (click)="stopAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot stoppen">Stop</button>
-          <button class="secondary" (click)="tickAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot manuell ticken">Tick now</button>
-          <button class="secondary" (click)="refreshAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot Status aktualisieren">Refresh status</button>
-        </div>
-
-        @if (autopilotStatus) {
-          <div class="grid cols-4 mt-md">
-            <div>
-              <div class="muted">Status</div>
-              <strong [class.success]="autopilotStatus.running" [class.danger]="!autopilotStatus.running">{{ autopilotStatus.running ? 'running' : 'stopped' }}</strong>
-            </div>
-            <div>
-              <div class="muted">Ticks</div>
-              <strong>{{ autopilotStatus.tick_count || 0 }}</strong>
-            </div>
-            <div>
-              <div class="muted">Dispatched</div>
-              <strong>{{ autopilotStatus.dispatched_count || 0 }}</strong>
-            </div>
-            <div>
-              <div class="muted">Completed/Failed</div>
-              <strong>{{ autopilotStatus.completed_count || 0 }}/{{ autopilotStatus.failed_count || 0 }}</strong>
-            </div>
-          </div>
-          <div class="muted status-text-sm-lg">
-            Last tick: {{ autopilotStatus.last_tick_at ? (autopilotStatus.last_tick_at * 1000 | date:'HH:mm:ss') : '-' }} |
-            Last error: {{ autopilotStatus.last_error || '-' }}
-          </div>
-        }
-
-        <div class="card card-light mt-md">
-          <h3 class="no-margin">Live Decision Timeline</h3>
-          <div class="grid cols-4 mt-sm">
-            <label>
-              Team
-              <select [(ngModel)]="timelineTeamId" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Team-Filter">
-                <option value="">Alle</option>
-                @for (t of teamsList; track t) {
-                  <option [value]="t.id">{{ t.name }}</option>
-                }
-              </select>
-            </label>
-            <label>
-              Agent
-              <select [(ngModel)]="timelineAgent" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Agent-Filter">
-                <option value="">Alle</option>
-                @for (a of agentsList; track a) {
-                  <option [value]="a.url">{{ a.name }}</option>
-                }
-              </select>
-            </label>
-            <label>
-              Status
-              <select [(ngModel)]="timelineStatus" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Status-Filter">
-                <option value="">Alle</option>
-                <option value="todo">todo</option>
-                <option value="assigned">assigned</option>
-                <option value="completed">completed</option>
-                <option value="failed">failed</option>
-                <option value="blocked">blocked</option>
-              </select>
-            </label>
-            <label class="row gap-sm flex-end">
-              <input type="checkbox" [(ngModel)]="timelineErrorOnly" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline nur Fehler anzeigen" />
-              Nur Fehler
-            </label>
-          </div>
-          <div class="muted font-sm mt-sm">Eintraege: {{ taskTimeline.length }}</div>
-          <div class="timeline-container mt-sm">
-            @for (ev of taskTimeline; track ev) {
-              <div class="list-item">
-                <div class="row space-between">
-                  <div class="row gap-sm">
-                    <strong>{{ ev.event_type }}</strong>
-                    @if (isGuardrailEvent(ev)) {
-                      <span class="badge danger">Guardrail Block</span>
-                    }
-                  </div>
-                  <span class="muted">{{ (ev.timestamp || 0) * 1000 | date:'HH:mm:ss' }}</span>
-                </div>
-                <div class="muted font-sm">
-                  Task: <a [routerLink]="['/task', ev.task_id]">{{ ev.task_id }}</a> |
-                  Agent: {{ shortActor(ev.actor) }} |
-                  Status: {{ ev.task_status || '-' }}
-                </div>
-                @if (ev.details?.reason) {
-                  <div class="font-sm mt-sm">Grund: {{ ev.details.reason }}</div>
-                }
-                @if (isGuardrailEvent(ev)) {
-                  <div class="font-sm mt-sm">
-                    Blockierte Tools: {{ guardrailBlockedToolsCount(ev) }}
-                  </div>
-                }
-                @if (isGuardrailEvent(ev) && guardrailReasonsText(ev)) {
-                  <div class="muted font-sm mt-sm">
-                    Regeln: {{ guardrailReasonsText(ev) }}
-                  </div>
-                }
-                @if (ev.details?.output_preview) {
-                  <div class="muted font-sm mt-sm">Ergebnis: {{ ev.details.output_preview }}</div>
-                }
-              </div>
-            }
-            @if (!taskTimeline.length) {
-              <div class="list-item muted">Keine Timeline-Eintraege fuer aktuellen Filter.</div>
-            }
-          </div>
-        </div>
-      </div>
+      <app-dashboard-timeline-panel
+        [items]="taskTimeline"
+        [teams]="teamsList"
+        [agents]="agentsList"
+        [(teamId)]="timelineTeamId"
+        [(agent)]="timelineAgent"
+        [(status)]="timelineStatus"
+        [(errorOnly)]="timelineErrorOnly"
+        (refresh)="refreshTaskTimeline()"
+      ></app-dashboard-timeline-panel>
     }
 
     @if (history.length > 1) {
@@ -860,52 +554,78 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
-  private ns = inject(NotificationService);
+  protected ns = inject(NotificationService);
   private toast = inject(ToastService);
   private router = inject(Router);
-  private hubApi = inject(ControlPlaneFacade);
-  private taskFacade = inject(TaskManagementFacade);
+  protected hubApi = inject(ControlPlaneFacade);
+  protected taskFacade = inject(TaskManagementFacade);
+  private facade = inject(DashboardFacade);
   readonly liveState = this.hubApi;
 
   hub = this.dir.list().find(a => a.role === 'hub');
-  stats: any;
-  systemHealth: any;
-  contracts: any;
-  history: any[] = [];
-  agentsList: any[] = [];
-  teamsList: any[] = [];
-  activeTeam: any;
-  roles: any[] = [];
-  autopilotStatus: any;
+
+  // Daten-/ViewState-Felder delegieren an DashboardFacade.
+  get stats(): DashboardStatsBlock | null { return this.facade.stats; }
+  set stats(v: DashboardStatsBlock | null) { this.facade.stats = v; }
+  get systemHealth(): SystemHealth | null { return this.facade.systemHealth; }
+  set systemHealth(v: SystemHealth | null) { this.facade.systemHealth = v; }
+  get contracts(): ContractsStatus | null { return this.facade.contracts; }
+  set contracts(v: ContractsStatus | null) { this.facade.contracts = v; }
+  get history(): unknown[] { return this.facade.history; }
+  set history(v: unknown[]) { this.facade.history = v; }
+  get agentsList(): AgentEntry[] { return this.facade.agents; }
+  set agentsList(v: AgentEntry[]) { this.facade.agents = v; }
+  get teamsList(): TeamEntry[] { return this.facade.teams; }
+  set teamsList(v: TeamEntry[]) { this.facade.teams = v; }
+  get activeTeam(): TeamEntry | null { return this.facade.activeTeam; }
+  set activeTeam(v: TeamEntry | null) { this.facade.activeTeam = v; }
+  get roles(): RoleEntry[] { return this.facade.roles; }
+  set roles(v: RoleEntry[]) { this.facade.roles = v; }
+  get taskTimeline(): TimelineEvent[] { return this.facade.taskTimeline; }
+  set taskTimeline(v: TimelineEvent[]) { this.facade.taskTimeline = v; }
+  get benchmarkData(): BenchmarkItem[] { return this.facade.benchmarkData; }
+  set benchmarkData(v: BenchmarkItem[]) { this.facade.benchmarkData = v; }
+  get benchmarkUpdatedAt(): number | null { return this.facade.benchmarkUpdatedAt; }
+  set benchmarkUpdatedAt(v: number | null) { this.facade.benchmarkUpdatedAt = v; }
+  get benchmarkRecommendation(): BenchmarkRecommendation | null { return this.facade.benchmarkRecommendation; }
+  set benchmarkRecommendation(v: BenchmarkRecommendation | null) { this.facade.benchmarkRecommendation = v; }
+  get llmDefaults(): LlmModelReference | null { return this.facade.llmDefaults; }
+  set llmDefaults(v: LlmModelReference | null) { this.facade.llmDefaults = v; }
+  get llmExplicitOverride(): LlmModelReference | null { return this.facade.llmExplicitOverride; }
+  set llmExplicitOverride(v: LlmModelReference | null) { this.facade.llmExplicitOverride = v; }
+  get llmEffectiveRuntime(): LlmEffectiveRuntime | null { return this.facade.llmEffectiveRuntime; }
+  set llmEffectiveRuntime(v: LlmEffectiveRuntime | null) { this.facade.llmEffectiveRuntime = v; }
+  get hubCopilotStatus(): HubCopilotStatus | null { return this.facade.hubCopilotStatus; }
+  set hubCopilotStatus(v: HubCopilotStatus | null) { this.facade.hubCopilotStatus = v; }
+  get contextPolicyStatus(): ContextPolicyStatus | null { return this.facade.contextPolicyStatus; }
+  set contextPolicyStatus(v: ContextPolicyStatus | null) { this.facade.contextPolicyStatus = v; }
+  get artifactFlowStatus(): ArtifactFlowStatus | null { return this.facade.artifactFlowStatus; }
+  set artifactFlowStatus(v: ArtifactFlowStatus | null) { this.facade.artifactFlowStatus = v; }
+  get researchBackendStatus(): ResearchBackendStatus | null { return this.facade.researchBackendStatus; }
+  set researchBackendStatus(v: ResearchBackendStatus | null) { this.facade.researchBackendStatus = v; }
+  get runtimeTelemetry(): RuntimeTelemetry | null { return this.facade.runtimeTelemetry; }
+  set runtimeTelemetry(v: RuntimeTelemetry | null) { this.facade.runtimeTelemetry = v; }
+  get viewState(): UiAsyncState { return this.facade.viewState; }
+  set viewState(v: UiAsyncState) { this.facade.viewState = v; }
+
+  autopilotStatus: AutopilotStatus | null = null;
   autopilotBusy = false;
   autopilotGoal = '';
   autopilotTeamId = '';
   autopilotIntervalSeconds = 20;
   autopilotMaxConcurrency = 2;
   autopilotBudgetLabel = '';
-  autopilotSecurityLevel: 'safe' | 'balanced' | 'aggressive' = 'safe';
-  taskTimeline: any[] = [];
-  benchmarkTaskKind: 'coding' | 'analysis' | 'doc' | 'ops' = 'analysis';
-  benchmarkData: any[] = [];
-  benchmarkUpdatedAt: number | null = null;
-  benchmarkRecommendation: any = null;
-  llmDefaults: any = null;
-  llmExplicitOverride: any = null;
-  llmEffectiveRuntime: any = null;
-  hubCopilotStatus: any = null;
-  contextPolicyStatus: any = null;
-  artifactFlowStatus: any = null;
-  researchBackendStatus: any = null;
-  runtimeTelemetry: any = null;
-  goalsList: any[] = [];
+  autopilotSecurityLevel: AutopilotSecurityLevel = 'safe';
+  get benchmarkTaskKind(): BenchmarkTaskKind { return this.facade.benchmarkTaskKind; }
+  set benchmarkTaskKind(v: BenchmarkTaskKind) { this.facade.benchmarkTaskKind = v; }
+  goalsList: GoalListEntry[] = [];
   selectedGoalId = '';
-  goalDetail: any = null;
-  goalGovernance: any = null;
+  goalDetail: GoalDetail | null = null;
+  goalGovernance: GoalGovernanceSummary | null = null;
   goalReportingLoading = false;
-  goalModes: any[] = [];
-  selectedGoalMode: any = null;
-  goalModeData: Record<string, any> = {};
-  viewState: UiAsyncState = { loading: true, error: null, empty: false };
+  goalModes: Array<{ id: string; title: string; description?: string; fields?: Array<{ name: string; label: string; type: string; options?: string[]; placeholder?: string; default?: unknown }> }> = [];
+  selectedGoalMode: { id: string; title: string; fields?: Array<{ name: string; label: string; type: string; options?: string[]; placeholder?: string; default?: unknown }> } | null = null;
+  goalModeData: Record<string, unknown> = {};
   timelineTeamId = '';
   timelineAgent = '';
   timelineStatus = '';
@@ -915,8 +635,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
   private sub?: Subscription;
   private connectedTaskCollectionHubUrl: string | null = null;
-  private refreshSafetyTimer?: ReturnType<typeof setTimeout>;
-  private dashboardReadModelInFlight = false;
 
   ngOnInit() {
     if (this.hub?.url) this.ensureTaskCollection();
@@ -929,10 +647,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.sub?.unsubscribe();
     this.taskFacade.disconnectTaskCollection(this.hub?.url);
     this.connectedTaskCollectionHubUrl = null;
-    if (this.refreshSafetyTimer) {
-      clearTimeout(this.refreshSafetyTimer);
-      this.refreshSafetyTimer = undefined;
-    }
+    this.facade.dispose();
   }
 
   refresh() {
@@ -940,128 +655,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.hub = this.dir.list().find(a => a.role === 'hub');
     }
     if (!this.hub) return;
-    if (this.dashboardReadModelInFlight) return;
     this.liveState.ensureSystemEvents(this.hub.url);
     this.ensureTaskCollection();
 
-    if (this.refreshSafetyTimer) {
-      clearTimeout(this.refreshSafetyTimer);
-      this.refreshSafetyTimer = undefined;
-    }
-    this.viewState = { loading: true, error: null, empty: false };
-    this.dashboardReadModelInFlight = true;
-    this.refreshSafetyTimer = setTimeout(() => {
-      if (this.viewState.loading) {
-        this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
-      }
-      this.dashboardReadModelInFlight = false;
-      this.refreshSafetyTimer = undefined;
-    }, 15000);
-    this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
-      next: (rm) => {
-        if (this.refreshSafetyTimer) {
-          clearTimeout(this.refreshSafetyTimer);
-          this.refreshSafetyTimer = undefined;
-        }
-        this.dashboardReadModelInFlight = false;
-        const sharedTasks = this.taskFacade.tasks();
-        const counts = this.buildTaskCounts(sharedTasks);
-        this.systemHealth = rm?.system_health || null;
-        this.contracts = rm?.contracts || null;
-        this.stats = {
-          agents: {
-            total: Number(rm?.agents?.count || 0),
-            online: Array.isArray(rm?.agents?.items) ? rm.agents.items.filter((a: any) => a.status === 'online').length : 0,
-            offline: Array.isArray(rm?.agents?.items) ? rm.agents.items.filter((a: any) => a.status !== 'online').length : 0,
-          },
-          tasks: {
-            total: Number(counts.total || 0),
-            completed: Number(counts.completed || 0),
-            failed: Number(counts.failed || 0),
-            in_progress: Number(counts.in_progress || 0),
-          },
-          timestamp: Number(rm?.context_timestamp || Math.floor(Date.now() / 1000)),
-          agent_name: String(rm?.system_health?.agent || 'hub'),
-        };
-        this.teamsList = Array.isArray(rm?.teams?.items) ? rm.teams.items : [];
-        this.roles = Array.isArray(rm?.roles?.items) ? rm.roles.items : [];
-        this.agentsList = Array.isArray(rm?.agents?.items) ? rm.agents.items : [];
-        const responseTaskKind = String(rm?.benchmarks?.task_kind || '').trim();
-        if (responseTaskKind === 'analysis' || responseTaskKind === 'coding' || responseTaskKind === 'doc' || responseTaskKind === 'ops') {
-          this.benchmarkTaskKind = responseTaskKind;
-        }
-        this.benchmarkData = Array.isArray(rm?.benchmarks?.items) ? rm.benchmarks.items : [];
-        this.benchmarkUpdatedAt = Number(rm?.benchmarks?.updated_at || 0) || null;
-        this.benchmarkRecommendation = rm?.benchmarks?.recommendation || null;
-        this.llmDefaults = rm?.llm_configuration?.defaults || null;
-        this.llmExplicitOverride = rm?.llm_configuration?.explicit_override || null;
-        this.llmEffectiveRuntime = rm?.llm_configuration?.effective_runtime || null;
-        this.hubCopilotStatus = rm?.llm_configuration?.hub_copilot || null;
-        this.contextPolicyStatus = rm?.llm_configuration?.context_bundle_policy || null;
-        this.artifactFlowStatus = rm?.llm_configuration?.artifact_flow || null;
-        this.researchBackendStatus = rm?.llm_configuration?.research_backend || null;
-        this.runtimeTelemetry = rm?.llm_configuration?.runtime_telemetry || null;
-        this.activeTeam = this.teamsList.find(t => t.is_active);
-        const recentTasks = sharedTasks
-          .slice()
-          .sort((left: any, right: any) => Number(right?.updated_at || right?.created_at || 0) - Number(left?.updated_at || left?.created_at || 0))
-          .slice(0, 30);
-        this.taskTimeline = recentTasks.length
-          ? recentTasks.map((t: any) => ({
-              event_type: 'task_state',
-              task_id: t.id,
-              task_status: t.status,
-              timestamp: t.updated_at || t.created_at || rm?.context_timestamp,
-              actor: 'system',
-            }))
-          : [];
-        this.viewState = { loading: false, error: null, empty: !this.stats?.tasks?.total };
-      },
-      error: () => {
-        if (this.refreshSafetyTimer) {
-          clearTimeout(this.refreshSafetyTimer);
-          this.refreshSafetyTimer = undefined;
-        }
-        this.dashboardReadModelInFlight = false;
-        this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
-        this.ns.error('Dashboard-Daten konnten nicht geladen werden');
-      }
-    });
-
-    this.hubApi.getStatsHistory(this.hub.url).subscribe({
-      next: h => this.history = Array.isArray(h) ? h : [],
-      error: () => this.ns.error('Dashboard-Historie konnte nicht geladen werden')
-    });
-
-    this.hubApi.listTeams(this.hub.url).subscribe({
-      next: teams => {
-        this.teamsList = Array.isArray(teams) ? teams : [];
-        this.activeTeam = this.teamsList.find(t => t.is_active);
-      },
-      error: () => this.ns.error('Teams konnten nicht geladen werden')
-    });
-
-    this.hubApi.listTeamRoles(this.hub.url).subscribe({
-      next: roles => this.roles = Array.isArray(roles) ? roles : [],
-      error: () => this.ns.error('Team-Rollen konnten nicht geladen werden')
-    });
-
-    this.hubApi.listAgents(this.hub.url).subscribe({
-      next: agents => {
-        if (Array.isArray(agents)) {
-          this.agentsList = agents;
-        } else if (agents && typeof agents === 'object') {
-          this.agentsList = Object.entries(agents).map(([name, info]: [string, any]) => ({
-            name: info.name || name,
-            ...info
-          }));
-        } else {
-          this.agentsList = [];
-        }
-      },
-      error: () => this.ns.error('Agentenliste konnte nicht geladen werden')
-    });
-
+    this.facade.refresh(this.hub.url, this.benchmarkTaskKind);
     this.refreshAutopilot();
     this.refreshGoalReporting();
   }
@@ -1127,6 +724,187 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  startAutopilot() {
+    if (!this.hub) return;
+    this.autopilotBusy = true;
+    const selectedTeamId = this.autopilotTeamId || this.activeTeam?.id || '';
+    this.hubApi.startAutopilot(this.hub.url, {
+      interval_seconds: Number(this.autopilotIntervalSeconds) || 20,
+      max_concurrency: Number(this.autopilotMaxConcurrency) || 2,
+      goal: this.autopilotGoal || '',
+      team_id: selectedTeamId,
+      budget_label: this.autopilotBudgetLabel || '',
+      security_level: this.autopilotSecurityLevel || 'safe'
+    }).subscribe({
+      next: s => {
+        this.autopilotStatus = s;
+        this.autopilotBusy = false;
+      },
+      error: () => {
+        this.autopilotBusy = false;
+        this.ns.error('Autopilot konnte nicht gestartet werden');
+      }
+    });
+  }
+
+  stopAutopilot() {
+    if (!this.hub) return;
+    this.autopilotBusy = true;
+    this.hubApi.stopAutopilot(this.hub.url).subscribe({
+      next: s => {
+        this.autopilotStatus = s;
+        this.autopilotBusy = false;
+      },
+      error: () => {
+        this.autopilotBusy = false;
+        this.ns.error('Autopilot konnte nicht gestoppt werden');
+      }
+    });
+  }
+
+  tickAutopilot() {
+    if (!this.hub) return;
+    this.autopilotBusy = true;
+    this.hubApi.tickAutopilot(this.hub.url).subscribe({
+      next: s => {
+        this.autopilotStatus = s;
+        this.autopilotBusy = false;
+      },
+      error: () => {
+        this.autopilotBusy = false;
+        this.ns.error('Autopilot-Tick fehlgeschlagen');
+      }
+    });
+  }
+
+  refreshTaskTimeline() {
+    if (!this.hub) return;
+    this.facade.refreshTaskTimeline(this.hub.url, {
+      teamId: this.timelineTeamId,
+      agent: this.timelineAgent,
+      status: this.timelineStatus,
+      errorOnly: this.timelineErrorOnly,
+    });
+  }
+
+  refreshBenchmarks() {
+    if (!this.hub) return;
+    this.facade.refreshBenchmarks(this.hub.url, this.benchmarkTaskKind);
+  }
+
+  tasksLastLoadedAt(): number | null {
+    return this.taskFacade.tasksLastLoadedAt();
+  }
+
+  tasksLoading(): boolean {
+    return this.taskFacade.tasksLoading();
+  }
+
+  taskCollectionError(): string | null {
+    return this.taskFacade.taskCollectionError();
+  }
+
+  private ensureTaskCollection(): void {
+    if (!this.hub?.url) return;
+    if (this.connectedTaskCollectionHubUrl && this.connectedTaskCollectionHubUrl !== this.hub.url) {
+      this.taskFacade.disconnectTaskCollection(this.connectedTaskCollectionHubUrl);
+      this.connectedTaskCollectionHubUrl = null;
+    }
+    if (this.connectedTaskCollectionHubUrl === this.hub.url) return;
+    this.liveState.ensureSystemEvents(this.hub.url);
+    this.taskFacade.connectTaskCollection(this.hub.url, 10000);
+    this.connectedTaskCollectionHubUrl = this.hub.url;
+  }
+
+  refreshGoalReporting(goalId?: string) {
+    if (!this.hub) return;
+    if (goalId) {
+      this.selectedGoalId = goalId;
+    }
+    this.goalReportingLoading = true;
+    this.hubApi.listGoals(this.hub.url).subscribe({
+      next: (goals) => {
+        this.goalsList = Array.isArray(goals)
+          ? [...goals].sort(
+              (left: any, right: any) =>
+                Number(right?.updated_at || right?.created_at || 0) - Number(left?.updated_at || left?.created_at || 0)
+            )
+          : [];
+        const selectedId = this.resolveGoalReportingId();
+        if (!selectedId) {
+          this.selectedGoalId = '';
+          this.goalDetail = null;
+          this.goalGovernance = null;
+          this.goalReportingLoading = false;
+          return;
+        }
+        this.selectedGoalId = selectedId;
+        let pending = 2;
+        const markDone = () => {
+          pending -= 1;
+          if (pending <= 0) {
+            this.goalReportingLoading = false;
+          }
+        };
+        this.hubApi.getGoalDetail(this.hub.url, selectedId).subscribe({
+          next: (detail) => {
+            this.goalDetail = detail;
+            markDone();
+          },
+          error: () => {
+            this.goalDetail = null;
+            markDone();
+            this.ns.error('Goal-Detail konnte nicht geladen werden');
+          }
+        });
+        this.hubApi.getGoalGovernanceSummary(this.hub.url, selectedId).subscribe({
+          next: (summary) => {
+            this.goalGovernance = summary;
+            markDone();
+          },
+          error: () => {
+            this.goalGovernance = null;
+            markDone();
+            this.ns.error('Goal-Governance konnte nicht geladen werden');
+          }
+        });
+      },
+      error: () => {
+        this.goalsList = [];
+        this.selectedGoalId = '';
+        this.goalDetail = null;
+        this.goalGovernance = null;
+        this.goalReportingLoading = false;
+        this.ns.error('Goals konnten nicht geladen werden');
+      }
+    });
+  }
+
+  agentRoutingState(agent: any): string {
+    const available = agent?.liveness?.available_for_routing;
+    if (available === false && agent?.status === 'online') return 'paused';
+    if (available === true) return 'ready';
+    return String(agent?.liveness?.status || agent?.status || 'unknown');
+  }
+
+  agentCurrentLoad(agent: any): number {
+    return Number(agent?.current_load ?? agent?.routing_signals?.current_load ?? 0);
+  }
+
+  agentLastSeen(agent: any): string {
+    const lastSeen = Number(agent?.liveness?.last_seen || 0);
+    if (!lastSeen) return '—';
+    return new Date(lastSeen * 1000).toLocaleTimeString();
+  }
+
+  goalCostTasks(): any[] {
+    const tasks = Array.isArray(this.goalDetail?.tasks) ? this.goalDetail.tasks : [];
+    return [...tasks]
+      .filter((task: any) => Number(task?.cost_summary?.cost_units || 0) > 0)
+      .sort((left: any, right: any) => Number(right?.cost_summary?.cost_units || 0) - Number(left?.cost_summary?.cost_units || 0))
+      .slice(0, 5);
+  }
+
   researchBackendProviderEntries(): any[] {
     const providers = this.researchBackendStatus?.providers;
     if (!providers || typeof providers !== 'object') return [];
@@ -1150,7 +928,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.llmExplicitOverride?.model ||
       ''
     ).trim();
-    const providerState = runtimeProviders?.[provider] || null;
+    const providerState: any = (runtimeProviders as Record<string, any>)?.[provider] || null;
     if (!providerState) return null;
 
     const contextLength = this.resolveContextLength(provider, model, providerState);
@@ -1178,11 +956,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       gpuActiveLabel: gpuActive === true ? 'yes' : gpuActive === false ? 'no' : 'unknown',
       providerStatus: String(providerState?.status || 'unknown'),
       providerReachableLabel: providerState?.reachable === true ? 'yes' : providerState?.reachable === false ? 'no' : 'unknown',
-      candidateCountLabel: String(
-        provider === 'ollama'
-          ? Number(providerState?.candidate_count || 0)
-          : Number(providerState?.candidate_count || 0)
-      ),
+      candidateCountLabel: String(Number(providerState?.candidate_count || 0)),
       telemetrySource: provider === 'ollama' ? '/api/tags + /api/ps' : '/v1/models',
     };
   }
@@ -1279,235 +1053,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  startAutopilot() {
-    if (!this.hub) return;
-    this.autopilotBusy = true;
-    const selectedTeamId = this.autopilotTeamId || this.activeTeam?.id || '';
-    this.hubApi.startAutopilot(this.hub.url, {
-      interval_seconds: Number(this.autopilotIntervalSeconds) || 20,
-      max_concurrency: Number(this.autopilotMaxConcurrency) || 2,
-      goal: this.autopilotGoal || '',
-      team_id: selectedTeamId,
-      budget_label: this.autopilotBudgetLabel || '',
-      security_level: this.autopilotSecurityLevel || 'safe'
-    }).subscribe({
-      next: s => {
-        this.autopilotStatus = s;
-        this.autopilotBusy = false;
-      },
-      error: () => {
-        this.autopilotBusy = false;
-        this.ns.error('Autopilot konnte nicht gestartet werden');
-      }
-    });
-  }
-
-  stopAutopilot() {
-    if (!this.hub) return;
-    this.autopilotBusy = true;
-    this.hubApi.stopAutopilot(this.hub.url).subscribe({
-      next: s => {
-        this.autopilotStatus = s;
-        this.autopilotBusy = false;
-      },
-      error: () => {
-        this.autopilotBusy = false;
-        this.ns.error('Autopilot konnte nicht gestoppt werden');
-      }
-    });
-  }
-
-  tickAutopilot() {
-    if (!this.hub) return;
-    this.autopilotBusy = true;
-    this.hubApi.tickAutopilot(this.hub.url).subscribe({
-      next: s => {
-        this.autopilotStatus = s;
-        this.autopilotBusy = false;
-      },
-      error: () => {
-        this.autopilotBusy = false;
-        this.ns.error('Autopilot-Tick fehlgeschlagen');
-      }
-    });
-  }
-
-  refreshTaskTimeline() {
-    if (!this.hub) return;
-    this.hubApi.getTaskTimeline(
-      this.hub.url,
-      {
-        team_id: this.timelineTeamId || undefined,
-        agent: this.timelineAgent || undefined,
-        status: this.timelineStatus || undefined,
-        error_only: this.timelineErrorOnly,
-        limit: 150
-      }
-    ).subscribe({
-      next: payload => {
-        const items = payload?.items;
-        this.taskTimeline = Array.isArray(items) ? items : [];
-      },
-      error: () => this.ns.error('Task-Timeline konnte nicht geladen werden')
-    });
-  }
-
-  refreshBenchmarks() {
-    if (!this.hub) return;
-    this.hubApi.getLlmBenchmarks(this.hub.url, { task_kind: this.benchmarkTaskKind, top_n: 8 }).subscribe({
-      next: payload => {
-        this.benchmarkData = Array.isArray(payload?.items) ? payload.items : [];
-        this.benchmarkUpdatedAt = Number(payload?.updated_at || 0) || null;
-      },
-      error: () => {
-        this.benchmarkData = [];
-      }
-    });
-  }
-
-  tasksLastLoadedAt(): number | null {
-    return this.taskFacade.tasksLastLoadedAt();
-  }
-
-  tasksLoading(): boolean {
-    return this.taskFacade.tasksLoading();
-  }
-
-  taskCollectionError(): string | null {
-    return this.taskFacade.taskCollectionError();
-  }
-
-  private buildTaskCounts(tasks: any[]): Record<string, number> {
-    const counts: Record<string, number> = { total: tasks.length, completed: 0, failed: 0, todo: 0, in_progress: 0, blocked: 0 };
-    for (const task of tasks) {
-      const status = String(task?.status || 'todo').trim().toLowerCase();
-      counts[status] = Number(counts[status] || 0) + 1;
-    }
-    return counts;
-  }
-
-  private ensureTaskCollection(): void {
-    if (!this.hub?.url) return;
-    if (this.connectedTaskCollectionHubUrl && this.connectedTaskCollectionHubUrl !== this.hub.url) {
-      this.taskFacade.disconnectTaskCollection(this.connectedTaskCollectionHubUrl);
-      this.connectedTaskCollectionHubUrl = null;
-    }
-    if (this.connectedTaskCollectionHubUrl === this.hub.url) return;
-    this.liveState.ensureSystemEvents(this.hub.url);
-    this.taskFacade.connectTaskCollection(this.hub.url, 10000);
-    this.connectedTaskCollectionHubUrl = this.hub.url;
-  }
-
-  refreshGoalReporting(goalId?: string) {
-    if (!this.hub) return;
-    if (goalId) {
-      this.selectedGoalId = goalId;
-    }
-    this.goalReportingLoading = true;
-    this.hubApi.listGoals(this.hub.url).subscribe({
-      next: (goals) => {
-        this.goalsList = Array.isArray(goals)
-          ? [...goals].sort(
-              (left: any, right: any) =>
-                Number(right?.updated_at || right?.created_at || 0) - Number(left?.updated_at || left?.created_at || 0)
-            )
-          : [];
-        const selectedId = this.resolveGoalReportingId();
-        if (!selectedId) {
-          this.selectedGoalId = '';
-          this.goalDetail = null;
-          this.goalGovernance = null;
-          this.goalReportingLoading = false;
-          return;
-        }
-        this.selectedGoalId = selectedId;
-        let pending = 2;
-        const markDone = () => {
-          pending -= 1;
-          if (pending <= 0) {
-            this.goalReportingLoading = false;
-          }
-        };
-        this.hubApi.getGoalDetail(this.hub.url, selectedId).subscribe({
-          next: (detail) => {
-            this.goalDetail = detail;
-            markDone();
-          },
-          error: () => {
-            this.goalDetail = null;
-            markDone();
-            this.ns.error('Goal-Detail konnte nicht geladen werden');
-          }
-        });
-        this.hubApi.getGoalGovernanceSummary(this.hub.url, selectedId).subscribe({
-          next: (summary) => {
-            this.goalGovernance = summary;
-            markDone();
-          },
-          error: () => {
-            this.goalGovernance = null;
-            markDone();
-            this.ns.error('Goal-Governance konnte nicht geladen werden');
-          }
-        });
-      },
-      error: () => {
-        this.goalsList = [];
-        this.selectedGoalId = '';
-        this.goalDetail = null;
-        this.goalGovernance = null;
-        this.goalReportingLoading = false;
-        this.ns.error('Goals konnten nicht geladen werden');
-      }
-    });
-  }
-
-  shortActor(actor: string): string {
-    if (!actor) return 'system';
-    const match = this.agentsList.find(a => a.url === actor);
-    if (match?.name) return match.name;
-    return actor.replace(/^https?:\/\//, '');
-  }
-
-  isGuardrailEvent(ev: any): boolean {
-    return String(ev?.event_type || '').toLowerCase() === 'tool_guardrail_blocked';
-  }
-
-  guardrailBlockedToolsCount(ev: any): number {
-    const blockedTools = ev?.details?.blocked_tools;
-    return Array.isArray(blockedTools) ? blockedTools.length : 0;
-  }
-
-  guardrailReasonsText(ev: any): string {
-    const reasons = ev?.details?.blocked_reasons;
-    return Array.isArray(reasons) ? reasons.join(', ') : '';
-  }
-
-  agentRoutingState(agent: any): string {
-    const available = agent?.liveness?.available_for_routing;
-    if (available === false && agent?.status === 'online') return 'paused';
-    if (available === true) return 'ready';
-    return String(agent?.liveness?.status || agent?.status || 'unknown');
-  }
-
-  agentCurrentLoad(agent: any): number {
-    return Number(agent?.current_load ?? agent?.routing_signals?.current_load ?? 0);
-  }
-
-  agentLastSeen(agent: any): string {
-    const lastSeen = Number(agent?.liveness?.last_seen || 0);
-    if (!lastSeen) return '—';
-    return new Date(lastSeen * 1000).toLocaleTimeString();
-  }
-
-  goalCostTasks(): any[] {
-    const tasks = Array.isArray(this.goalDetail?.tasks) ? this.goalDetail.tasks : [];
-    return [...tasks]
-      .filter((task: any) => Number(task?.cost_summary?.cost_units || 0) > 0)
-      .sort((left: any, right: any) => Number(right?.cost_summary?.cost_units || 0) - Number(left?.cost_summary?.cost_units || 0))
-      .slice(0, 5);
-  }
-
   private resolveGoalReportingId(): string {
     if (!this.goalsList.length) {
       return '';
@@ -1519,23 +1064,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {
-    if (this.history.length < 2) return '';
+    const history = this.history as Array<{
+      tasks?: { total?: number; completed?: number; failed?: number };
+      resources?: { cpu_percent?: number; ram_bytes?: number };
+    }>;
+    if (history.length < 2) return '';
 
     let maxVal = 1;
     if (type === 'completed' || type === 'failed') {
-      maxVal = Math.max(...this.history.map(h => h.tasks?.total || 1), 1);
+      maxVal = Math.max(...history.map(h => h.tasks?.total || 1), 1);
     } else if (type === 'cpu') {
       maxVal = 100;
     } else if (type === 'ram') {
-      maxVal = Math.max(...this.history.map(h => h.resources?.ram_bytes || 1), 1);
+      maxVal = Math.max(...history.map(h => h.resources?.ram_bytes || 1), 1);
     }
 
-    const stepX = 1000 / (this.history.length - 1);
+    const stepX = 1000 / (history.length - 1);
 
-    return this.history.map((h, i) => {
+    return history.map((h, i) => {
       let val = 0;
       if (type === 'completed' || type === 'failed') {
-        val = h.tasks ? h.tasks[type] : 0;
+        val = Number(h.tasks?.[type] || 0);
       } else if (type === 'cpu') {
         val = h.resources?.cpu_percent || 0;
       } else if (type === 'ram') {

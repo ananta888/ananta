@@ -1,6 +1,6 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.8.1",
+  "version": "5.8.2",
   "created": "2026-04-18",
   "updated": "2026-04-19T00:00:00Z",
   "project": "ananta",
@@ -505,7 +505,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Component-Splitting, UI-Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -526,7 +526,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "ViewModel-First, Reduced-Component-Logic",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -621,7 +621,7 @@
           "priority": "critical",
           "type": "improvement",
           "principle": "Type-Safety, Safer-Refactors",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/models/",
@@ -763,7 +763,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Security-Clarity, Predictable-Auth",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/auth.interceptor.ts",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 10,
+      "completed": 14,
       "partial": 0,
-      "open": 27
+      "open": 23
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",
