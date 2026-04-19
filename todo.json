@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.0.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T15:25:00Z",
+  "updated": "2026-04-19T15:48:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -381,7 +381,7 @@
           "priority": "high",
           "type": "release-verification",
           "principle": "Verifiable-Reproducibility",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "docs/release-checklist.md",
@@ -420,9 +420,9 @@
   "meta": {
     "total_items": 12,
     "by_status": {
-      "completed": 11,
+      "completed": 12,
       "partial": 0,
-      "open": 1
+      "open": 0
     },
     "notes": [
       "P0-nahe Arbeit beginnt mit Frontend npm ci und der Python-Lockstrategie, weil diese Aenderungen die spaeteren Docker- und CI-Pfade bestimmen.",
