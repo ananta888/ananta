@@ -11,6 +11,7 @@ class DemoExample:
     goal: str
     outcome: str
     tasks: tuple[str, ...]
+    starter_context: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -19,6 +20,7 @@ class DemoExample:
             "goal": self.goal,
             "outcome": self.outcome,
             "tasks": list(self.tasks),
+            "starter_context": self.starter_context,
         }
 
 
@@ -33,6 +35,7 @@ class DemoModeService:
                 goal="Analysiere ein neues Repository und fasse Architektur, Risiken und naechste Schritte zusammen.",
                 outcome="Ein klarer Einstieg mit Hotspots, offenen Fragen und konkretem Arbeitsplan.",
                 tasks=("Projektstruktur lesen", "Architekturgrenzen pruefen", "Review-Plan erstellen"),
+                starter_context="Fokus: Einstieg fuer neue Maintainer, Risiken benennen, keine Code-Aenderungen.",
             ),
             DemoExample(
                 id="bugfix-plan",
@@ -43,6 +46,7 @@ class DemoModeService:
                 ),
                 outcome="Ein nachvollziehbarer Fix-Plan mit passenden Tests statt blindem Code-Aendern.",
                 tasks=("Fehler reproduzieren", "Betroffene Pfade finden", "Fix und Regressionstest vorschlagen"),
+                starter_context="Fokus: kleine, testbare Korrektur planen und Regressionen vermeiden.",
             ),
             DemoExample(
                 id="compose-diagnosis",
@@ -50,6 +54,7 @@ class DemoModeService:
                 goal="Pruefe Docker-/Compose-Probleme und leite eine robuste lokale Startsequenz ab.",
                 outcome="Konkrete Startbefehle, bekannte Stolperstellen und sichere naechste Diagnose.",
                 tasks=("Compose-Profile pruefen", "Ports und Health-Checks auswerten", "Startpfad dokumentieren"),
+                starter_context="Fokus: lokaler Start, Compose-Profile, Health-Checks und klare naechste Diagnose.",
             ),
         )
         return {
