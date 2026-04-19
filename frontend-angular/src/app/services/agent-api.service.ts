@@ -1,152 +1,91 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, timeout, retry, map } from 'rxjs';
-import { AgentDirectoryService } from './agent-directory.service';
-import { UserAuthService } from './user-auth.service';
+import { Observable } from 'rxjs';
 
+import { LlmApiClient, LlmGenerateOptions } from './llm-api.client';
+import { SgptApiClient, SgptBackend } from './sgpt-api.client';
+import { SystemApiClient } from './system-api.client';
+import { TaskApiClient } from './task-api.client';
+import { WorkspaceApiClient } from './workspace-api.client';
+
+/**
+ * Fassade über die fachlichen API-Clients.
+ *
+ * Die eigentliche Endpoint-Logik lebt in System/Task/Llm/Sgpt/Workspace-Clients.
+ * Diese Klasse bleibt als Aggregator erhalten, damit bestehende Call-Sites
+ * (AgentPanel, AiAssistant, Artifacts, Settings, SystemFacade) unverändert bleiben.
+ */
 @Injectable({ providedIn: 'root' })
 export class AgentApiService {
-  private http = inject(HttpClient);
-  private dir = inject(AgentDirectoryService);
-  private userAuth = inject(UserAuthService);
-
-  private timeoutMs = 15000;
-  private retryCount = 2;
-
-  private getHeaders(baseUrl: string, token?: string) {
-    let headers = new HttpHeaders();
-    const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
-
-    // Do not send raw agent shared-secrets as bearer token.
-    // For worker URLs, AuthInterceptor will generate short-lived JWTs.
-    if (token && agent?.token && token === agent.token) {
-      token = undefined;
-    }
-
-    if (!token) {
-      const hub = this.dir.list().find(a => a.role === 'hub');
-      if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
-        token = this.userAuth.token;
-      }
-    }
-    if (token) {
-      headers = headers.set('Authorization', `Bearer ${token}`);
-    }
-    return { headers };
-  }
-
-  private unwrapResponse<T>(obs: Observable<T>): Observable<T> {
-    return obs.pipe(
-      map((response: any) => {
-        if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
-          return response.data;
-        }
-        return response;
-      })
-    );
-  }
+  private system = inject(SystemApiClient);
+  private tasks = inject(TaskApiClient);
+  private llm = inject(LlmApiClient);
+  private sgpt = inject(SgptApiClient);
+  private workspace = inject(WorkspaceApiClient);
 
   health(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/health`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount)));
+    return this.system.health(baseUrl, token);
   }
   ready(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/ready`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount)));
+    return this.system.ready(baseUrl, token);
   }
   getConfig(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+    return this.system.getConfig(baseUrl, token);
   }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+    return this.system.setConfig(baseUrl, cfg, token);
   }
   propose(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/step/propose`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000))); // LLM calls take longer
+    return this.tasks.propose(baseUrl, body, token);
   }
   execute(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+    return this.tasks.execute(baseUrl, body, token);
   }
   logs(baseUrl: string, limit = 200, taskId?: string, token?: string): Observable<any> {
-    const q = new URLSearchParams({ limit: String(limit), ...(taskId ? { task_id: taskId } : {}) });
-    return this.unwrapResponse(this.http.get(`${baseUrl}/logs?${q.toString()}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+    return this.system.logs(baseUrl, limit, taskId, token);
   }
   rotateToken(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/rotate-token`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+    return this.system.rotateToken(baseUrl, token);
   }
   getMetrics(baseUrl: string, token?: string): Observable<string> {
-    // Metrics endpoint returns raw text, not JSON, so no unwrapping needed
-    return this.http.get(`${baseUrl}/metrics`, {
-      headers: this.getHeaders(baseUrl, token).headers,
-      responseType: 'text'
-    }).pipe(timeout(this.timeoutMs));
+    return this.system.getMetrics(baseUrl, token);
   }
   llmGenerate(
     baseUrl: string,
     prompt: string,
     config?: any,
     token?: string,
-    options?: {
-      history?: Array<{ role: string; content: string }>;
-      context?: any;
-      tool_calls?: any[];
-      confirm_tool_calls?: boolean;
-    }
+    options?: LlmGenerateOptions,
   ): Observable<any> {
-    const body: any = { prompt, config };
-    if (options) {
-      if (options.history) body.history = options.history;
-      if (options.context) body.context = options.context;
-      if (options.tool_calls) body.tool_calls = options.tool_calls;
-      if (options.confirm_tool_calls) body.confirm_tool_calls = options.confirm_tool_calls;
-    }
-    return this.unwrapResponse(this.http.post(`${baseUrl}/llm/generate`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+    return this.llm.generate(baseUrl, prompt, config, token, options);
   }
-
   sgptExecute(
     baseUrl: string,
     prompt: string,
     options: string[] = [],
     token?: string,
     useHybridContext = false,
-    backend?: 'sgpt' | 'codex' | 'opencode' | 'aider' | 'mistral_code' | 'auto'
+    backend?: SgptBackend,
   ): Observable<any> {
-    const body: any = { prompt, options, use_hybrid_context: useHybridContext };
-    if (backend) body.backend = backend;
-    return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+    return this.sgpt.execute(baseUrl, prompt, options, token, useHybridContext, backend);
   }
-
   sgptContext(baseUrl: string, query: string, token?: string, includeContextText = true): Observable<any> {
-    const body = { query, include_context_text: includeContextText };
-    return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/context`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+    return this.sgpt.context(baseUrl, query, token, includeContextText);
   }
-
   sgptSource(baseUrl: string, sourcePath: string, token?: string): Observable<any> {
-    const body = { source_path: sourcePath };
-    return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/source`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+    return this.sgpt.source(baseUrl, sourcePath, token);
   }
-
   sgptBackends(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/api/sgpt/backends`, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+    return this.sgpt.backends(baseUrl, token);
   }
-
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/llm/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+    return this.llm.history(baseUrl, token);
   }
-
   taskWorkspaceFiles(
     baseUrl: string,
     taskId: string,
     token?: string,
-    options?: { trackedOnly?: boolean; maxEntries?: number }
+    options?: { trackedOnly?: boolean; maxEntries?: number },
   ): Observable<any> {
-    const trackedOnly = options?.trackedOnly ?? true;
-    const maxEntries = Number(options?.maxEntries || 2000);
-    const q = new URLSearchParams({
-      tracked_only: trackedOnly ? '1' : '0',
-      max_entries: String(Number.isFinite(maxEntries) ? Math.max(1, Math.min(maxEntries, 10000)) : 2000),
-    });
-    return this.unwrapResponse(
-      this.http
-        .get(`${baseUrl}/tasks/${encodeURIComponent(taskId)}/workspace/files?${q.toString()}`, this.getHeaders(baseUrl, token))
-        .pipe(timeout(45000), retry(1))
-    );
+    return this.workspace.taskWorkspaceFiles(baseUrl, taskId, token, options);
   }
 }
