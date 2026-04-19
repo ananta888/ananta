@@ -10,14 +10,22 @@ shift || true
 # Default: WSL2/Vulkan overlay enabled for test/e2e stack.
 USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-1}"
 USE_LIVE_CODE_MOUNT="${ANANTA_LIVE_CODE_MOUNT:-0}"
+USE_DISTRIBUTED="${ANANTA_DISTRIBUTED:-0}"
 if [[ "$cmd" == "up-live" ]]; then
   USE_LIVE_CODE_MOUNT=1
+fi
+if [[ "$cmd" == "up-distributed" ]]; then
+  USE_DISTRIBUTED=1
 fi
 
 compose_files=(
   "docker-compose.base.yml"
   "docker-compose-lite.yml"
 )
+
+if [[ "$USE_DISTRIBUTED" == "1" ]]; then
+  compose_files+=("docker-compose.distributed.yml")
+fi
 
 if [[ "$USE_WSL_VULKAN" == "1" ]]; then
   compose_files+=("docker-compose.ollama-wsl.yml")
@@ -39,6 +47,7 @@ usage() {
 Usage:
   scripts/compose-test-stack.sh up
   scripts/compose-test-stack.sh up-live
+  scripts/compose-test-stack.sh up-distributed
   scripts/compose-test-stack.sh down
   scripts/compose-test-stack.sh clean
   scripts/compose-test-stack.sh ps
@@ -52,6 +61,7 @@ Usage:
 Env:
   ANANTA_USE_WSL_VULKAN=1   Default. Includes docker-compose.ollama-wsl.yml.
   ANANTA_USE_WSL_VULKAN=0   Disable WSL2/Vulkan overlay.
+  ANANTA_DISTRIBUTED=1      Adds docker-compose.distributed.yml for distributed-stack smokes.
   ANANTA_LIVE_CODE_MOUNT=1  Adds docker-compose.live-code.yml (bind mounts + dev watch behavior).
                             Python worker/hub and Angular frontend use local code directly.
 
@@ -109,6 +119,9 @@ case "$cmd" in
     "${compose_cmd[@]}" up -d --build
     ;;
   up-live)
+    "${compose_cmd[@]}" up -d --build
+    ;;
+  up-distributed)
     "${compose_cmd[@]}" up -d --build
     ;;
   down)

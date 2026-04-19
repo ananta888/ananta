@@ -438,7 +438,7 @@
           "priority": "high",
           "type": "test-e2e",
           "principle": "Deployment-Variant-Confidence, Wider-Operational-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docker-compose*.yml",
@@ -530,7 +530,7 @@
           "priority": "medium",
           "type": "test-tui",
           "principle": "Terminal-UX-Stability, Reproducible-Interactive-Flows",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -574,7 +574,7 @@
           "priority": "critical",
           "type": "security-test",
           "principle": "Adversarial-Resilience, No-Blind-Trust-in-Model",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/",
@@ -594,7 +594,7 @@
           "priority": "critical",
           "type": "security-test",
           "principle": "Hostile-Model-Assumption, Defensive-Parsing",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/",
@@ -614,7 +614,7 @@
           "priority": "high",
           "type": "security-test",
           "principle": "Context-Poisoning-Resistance, Safe-Retrieval-Usage",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -830,9 +830,9 @@
   "meta": {
     "total_items": 38,
     "by_status": {
-      "completed": 17,
+      "completed": 22,
       "partial": 0,
-      "open": 21
+      "open": 16
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",
