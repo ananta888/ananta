@@ -1,480 +1,177 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T15:48:00Z",
+  "updated": "2026-04-19T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Release-Pinning fuer v1.0.0 so vorbereiten, dass Backend, Frontend, Container und CI reproduzierbar aus einem sauberen Checkout gebaut werden koennen.",
+    "review_goal": "Die letzten verbleibenden Release-Drifts fuer den ersten harten, wirklich fixen v1.0.0-Release schliessen, so dass Build, CI und Dokumentation nicht nur weitgehend, sondern bewusst maximal fest gezogen sind.",
     "notes": [
-      "Diese Todo-Datei wurde aus release-pinning-todo.json abgeleitet und in das allgemeine Ananta-Todo-Schema ueberfuehrt.",
-      "Der Fokus liegt auf deterministischen Release-Builds, nicht auf Feature-Verhalten.",
-      "Aenderungen duerfen die Hub-Worker-Architektur nicht veraendern; sie betreffen nur Dependency-, Tooling-, Container-, CI- und Release-Dokumentation."
-    ],
-    "source_file": "release-pinning-todo.json",
-    "release_target": "v1.0.0"
+      "Die Hauptarbeit ist bereits erledigt: Python-Lockfiles, npm ci, feste Frontend-Versionen, feste Compose-Tags und ein Release-Gate existieren bereits.",
+      "Die offenen Reste betreffen vor allem maximal harte Reproduzierbarkeit: CI-Actions noch nicht auf Commit-SHAs, CI-Python nur major/minor, Container noch ohne Digests, apt-basierte Restdrift, eine zu weiche Node-Engine-Angabe und veraltete Release-Dokumentation.",
+      "Diese Todo-Datei ist bewusst klein und hart: nur die letzten sechs Punkte, die aus einem guten Release einen wirklich streng fixierten Release machen."
+    ]
   },
   "categories": [
     {
-      "name": "release-locking-strategy",
-      "label": "Release Locking Strategie",
+      "name": "release-hardening-final",
+      "label": "Finale Release Hardening Punkte",
       "items": [
         {
-          "id": "REL-001",
-          "title": "Python Release-Lockstrategie verbindlich festlegen",
-          "description": "Eine einzige autoritative Lock-Quelle fuer Python-Release-Builds festlegen, ohne pyproject.toml als Entwickler-Metadaten unnoetig zu verharten.",
+          "id": "RELFIX-001",
+          "title": "GitHub Actions nicht nur auf Major-Tags, sondern auf konkrete Commit-SHAs pinnen",
+          "description": "Alle in der Release-relevanten Workflow-Datei verwendeten GitHub Actions von floating Major-Tags wie @v4 oder @v5 auf konkrete Commit-SHAs umstellen, damit auch die CI-Werkzeuge selbst nicht still driften.",
           "priority": "critical",
-          "type": "release-strategy",
-          "principle": "Reproducibility, Single-Source-of-Truth",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "pyproject.toml",
-            "requirements.txt",
-            "requirements.lock",
-            "docs/"
-          ],
-          "acceptance": [
-            "Die gewaehlte Python-Lockstrategie ist dokumentiert.",
-            "Es ist klar, welche Datei fuer Release-Builds autoritativ ist.",
-            "Docker und CI muessen nicht mehr aus ungebundenen Python-Abhaengigkeiten installieren."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T1"
-            ],
-            "source_findings": [
-              "python-deps-unpinned",
-              "pyproject-not-release-locked"
-            ],
-            "recommended_strategy": "pyproject.toml entwicklerfreundlich halten und eine dedizierte requirements.lock fuer Release-Builds verwenden."
-          }
-        },
-        {
-          "id": "REL-002",
-          "title": "Runtime- und Dev-Abhaengigkeiten fuer Python trennen",
-          "description": "Die Python-Abhaengigkeiten so aufteilen, dass Release-Images nur Runtime-Pakete installieren und Test-/Lint-Pakete separat bleiben.",
-          "priority": "high",
-          "type": "dependency-hygiene",
-          "principle": "Least-Privilege, Smaller-Runtime-Surface",
-          "status": "completed",
+          "type": "hardening",
+          "principle": "Reproducible-CI, No-Floating-Actions",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "pyproject.toml",
-            "requirements.txt",
-            "requirements.lock",
-            "requirements-dev.lock",
-            "Dockerfile",
-            ".github/workflows/"
-          ],
-          "dependencies": [
-            "REL-001"
-          ],
-          "acceptance": [
-            "Release-Runtime und Dev/Test-Dependencies sind klar getrennt.",
-            "Backend-Image installiert keine offensichtlich reinen Testtools fuer den Runtime-Pfad.",
-            "CI kann weiterhin Testtools installieren, aber aus einem expliziten Dev-Pfad."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T2"
-            ]
-          }
-        },
-        {
-          "id": "REL-003",
-          "title": "Python Runtime-Dependencies vollstaendig pinnen",
-          "description": "Direkte und transitive Python-Runtime-Abhaengigkeiten in eine committete Release-Lockdatei mit exakten Versionen aufloesen.",
-          "priority": "critical",
-          "type": "dependency-lock",
-          "principle": "Deterministic-Backend-Builds",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "requirements.lock",
-            "requirements.txt",
-            "pyproject.toml"
-          ],
-          "dependencies": [
-            "REL-001",
-            "REL-002"
-          ],
-          "acceptance": [
-            "Eine committete Python-Release-Lockdatei existiert.",
-            "Alle Runtime-Pakete in der Release-Lockdatei sind exakt versioniert.",
-            "Ein Rebuild desselben Commits loest denselben Python-Dependency-Graph auf."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T2"
-            ],
-            "requires_network_resolution": true
-          }
-        }
-      ]
-    },
-    {
-      "name": "frontend-release-determinism",
-      "label": "Frontend Release Determinism",
-      "items": [
-        {
-          "id": "REL-004",
-          "title": "Frontend-Installation auf npm ci und Lockfile ausrichten",
-          "description": "Den Frontend-Release-Pfad auf package-lock.json und npm ci ausrichten, damit Container und CI denselben Dependency-Graph nutzen.",
-          "priority": "critical",
-          "type": "frontend-locking",
-          "principle": "Deterministic-Frontend-Builds",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "frontend-angular/package.json",
-            "frontend-angular/package-lock.json",
-            "frontend-angular/Dockerfile",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "frontend-angular/Dockerfile nutzt npm ci statt npm install.",
-            "package-lock.json bleibt die Installationsquelle fuer Frontend-Builds.",
-            "npm ci funktioniert aus einem sauberen Checkout."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T3"
-            ],
-            "source_findings": [
-              "frontend-install-not-ci",
-              "frontend-package-ranges"
-            ]
-          }
-        },
-        {
-          "id": "REL-005",
-          "title": "Frontend package.json Version-Ranges fuer Release bewerten und haerten",
-          "description": "Die vorhandenen ^- und ~-Ranges im Frontend bewusst behandeln: entweder exact pinnen oder dokumentieren, dass package-lock.json fuer Release autoritativ ist.",
-          "priority": "high",
-          "type": "frontend-locking",
-          "principle": "Explicit-Release-Inputs",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/package.json",
-            "frontend-angular/package-lock.json",
-            "docs/"
-          ],
-          "dependencies": [
-            "REL-004"
-          ],
-          "acceptance": [
-            "Die Release-Policy fuer package.json Ranges ist dokumentiert.",
-            "Release-Builds installieren nicht ohne package-lock.json.",
-            "Ein sauberer npm ci Build ist nachweisbar."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T3"
-            ],
-            "source_findings": [
-              "frontend-package-ranges"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "container-and-tool-pinning",
-      "label": "Container und Tool Pinning",
-      "items": [
-        {
-          "id": "REL-006",
-          "title": "Backend-Dockerfile auf Python-Lockdatei umstellen",
-          "description": "Das Backend-Image darf fuer Release-Builds nicht mehr aus ungebundenem requirements.txt installieren, sondern muss die autoritative Lockdatei verwenden.",
-          "priority": "critical",
-          "type": "container-build",
-          "principle": "Release-Input-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "Dockerfile",
-            "requirements.lock",
-            "requirements.txt"
-          ],
-          "dependencies": [
-            "REL-003"
-          ],
-          "acceptance": [
-            "Dockerfile installiert Python-Runtime-Dependencies aus der Release-Lockdatei.",
-            "Ungebundene requirements.txt wird nicht mehr als Release-Installationsquelle genutzt.",
-            "Backend-Image bleibt baubar."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T1",
-              "T2"
-            ]
-          }
-        },
-        {
-          "id": "REL-007",
-          "title": "Container- und Service-Images ohne latest oder Floating Tags betreiben",
-          "description": "Release-relevante Dockerfiles und Compose-Dateien auf floating Tags pruefen und auf exakte Tags oder Digests umstellen.",
-          "priority": "critical",
-          "type": "container-pinning",
-          "principle": "Deterministic-Container-Inputs",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "Dockerfile",
-            "frontend-angular/Dockerfile",
-            "docker-compose.base.yml",
-            "docker-compose-lite.yml",
-            "docker-compose.yml",
-            "docker-compose.distributed.yml",
-            "docker-compose.test.yml"
-          ],
-          "acceptance": [
-            "Keine Release-relevante Compose-Datei nutzt latest.",
-            "Backend- und Frontend-Basisimages verwenden exakte Tags oder Digests.",
-            "Weitere Service-Images sind dokumentiert oder gepinnt."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T4"
-            ],
-            "source_findings": [
-              "backend-base-image-not-exact",
-              "frontend-base-image-not-exact",
-              "ollama-latest-tag"
-            ],
-            "digest_pinning_requires_registry_lookup": true
-          }
-        },
-        {
-          "id": "REL-008",
-          "title": "Globale Tools im Backend-Image exakt pinnen",
-          "description": "Global installierte Tools wie opencode-ai mit expliziter Version installieren und die erwartete Version im Release-Pfad pruefbar machen.",
-          "priority": "critical",
-          "type": "tool-pinning",
-          "principle": "No-Floating-Toolchain",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "Dockerfile",
-            "docs/",
-            "tests/",
-            "scripts/"
-          ],
-          "acceptance": [
-            "opencode-ai wird mit expliziter Version installiert.",
-            "Die gewaehlte Version ist dokumentiert.",
-            "Ein Smoke-Test oder Build-Check prueft die erwartete CLI-Version."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T5"
-            ],
-            "source_findings": [
-              "global-npm-tool-unpinned"
-            ],
-            "requires_version_decision": true
-          }
-        },
-        {
-          "id": "REL-009",
-          "title": "Apt-Drift minimieren und dokumentieren",
-          "description": "Systempakete im Backend-Image auf das notwendige Minimum reduzieren und die verbleibende Drift ueber Basisimage, Snapshot-Strategie oder Release-Dokumentation absichern.",
-          "priority": "medium",
-          "type": "container-hardening",
-          "principle": "Minimize-Release-Variance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "Dockerfile",
-            "docs/"
-          ],
-          "dependencies": [
-            "REL-007"
-          ],
-          "acceptance": [
-            "Apt-Installationen sind auf notwendige Runtime-Pakete begrenzt.",
-            "Die verbleibende Systempaket-Drift ist im Release-Dokument benannt.",
-            "Eine staerkere Snapshot- oder Internal-Base-Image-Strategie ist als Folgeoption dokumentiert."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T6"
-            ],
-            "source_findings": [
-              "apt-packages-floating"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "ci-release-environment-and-verification",
-      "label": "CI Release Environment und Verification",
-      "items": [
-        {
-          "id": "REL-010",
-          "title": "CI Runtime- und Installationspfade pinnen",
-          "description": "GitHub Actions sollen explizite Python- und Node-Versionen sowie dieselben Lock-Inputs wie lokale und Docker-Release-Builds verwenden.",
-          "priority": "high",
-          "type": "ci-hardening",
-          "principle": "CI-Matches-Release",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/",
-            "requirements.lock",
-            "requirements-dev.lock",
-            "frontend-angular/package-lock.json"
-          ],
-          "dependencies": [
-            "REL-003",
-            "REL-004"
-          ],
-          "acceptance": [
-            "CI nutzt explizite Python- und Node-Versionen.",
-            "CI installiert Backend-Dependencies aus Lockdateien.",
-            "Frontend-CI nutzt npm ci mit package-lock.json."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T7"
-            ],
-            "source_findings": [
-              "ci-runtime-pinning-not-confirmed"
-            ]
-          }
-        },
-        {
-          "id": "REL-011",
-          "title": "Unterstuetzte Release-Umgebung dokumentieren",
-          "description": "Die fuer v1.0.0 unterstuetzten Versionen fuer Python, Node, Docker/Compose und relevante Services dokumentieren.",
-          "priority": "high",
-          "type": "release-documentation",
-          "principle": "Reproducible-Environment-Contract",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "README.md",
-            "docs/release-environment.md",
-            "frontend-angular/package.json",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Python-, Node- und Docker/Compose-Versionen sind fuer Release-Builds klar benannt.",
-            "Redis, Postgres, Ollama und Playwright/Chromium Erwartungen sind dokumentiert.",
-            "Die Dokumentation erklaert, welche Locks fuer Release autoritativ sind."
-          ],
-          "metadata": {
-            "source_tasks": [
-              "T8"
-            ]
-          }
-        },
-        {
-          "id": "REL-012",
-          "title": "Release-Reproduzierbarkeit pruefbar machen",
-          "description": "Eine Release-Checkliste oder ein Skript bereitstellen, das saubere Backend- und Frontend-Builds, Smoke-Tests und Versionsnachweise fuer zwei Builds desselben Commits beschreibt oder automatisiert.",
-          "priority": "high",
-          "type": "release-verification",
-          "principle": "Verifiable-Reproducibility",
-          "status": "completed",
-          "effort": "large",
-          "files": [
+            ".github/workflows/quality-and-docs.yml",
             "docs/release-checklist.md",
-            "scripts/",
-            ".github/workflows/",
-            "Dockerfile",
-            "frontend-angular/Dockerfile"
-          ],
-          "dependencies": [
-            "REL-006",
-            "REL-007",
-            "REL-008",
-            "REL-010",
-            "REL-011"
+            "docs/release-dependency-locking.md"
           ],
           "acceptance": [
-            "Eine Release-Checkliste dokumentiert saubere Rebuild-Verifikation.",
-            "Backend- und Frontend-Image-Builds werden als Release-Gate beschrieben oder automatisiert.",
-            "Dependency-, Image- und Tool-Versionen sind als Nachweis erfassbar."
+            "actions/checkout, actions/setup-python, actions/setup-node und actions/upload-artifact sind auf konkrete Commit-SHAs gepinnt.",
+            "Die Release-Dokumentation erwaehnt bewusst, dass Release-CI keine floating Major-Tags mehr nutzt.",
+            "Der Release-Gate oder eine Folgepruefung erkennt wieder eingefuehrte floating Actions-Tags."
+          ]
+        },
+        {
+          "id": "RELFIX-002",
+          "title": "CI Python-Version auf exakten Patchstand ziehen",
+          "description": "Die Release-relevante CI nicht nur auf Python 3.11 allgemein, sondern auf denselben Patchstand wie den Containerpfad oder auf einen bewusst freigegebenen exakten Patchstand fixieren.",
+          "priority": "high",
+          "type": "hardening",
+          "principle": "Runtime-Alignment, Patch-Level-Reproducibility",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/quality-and-docs.yml",
+            "docs/release-environment.md",
+            "scripts/release_gate.py"
           ],
-          "metadata": {
-            "source_tasks": [
-              "T9"
-            ],
-            "release_gate": [
-              "No floating production dependency installs remain",
-              "No latest container tags remain",
-              "No unpinned global CLI installs remain",
-              "Frontend and backend builds are reproducible from a clean checkout"
-            ]
-          }
+          "acceptance": [
+            "Die Release-CI verwendet keine offene Python-Major-Minor-Angabe mehr.",
+            "Die Dokumentation nennt denselben exakten Python-Stand fuer CI und Release-Pfad oder erklaert bewusst jede Abweichung.",
+            "Der Release-Gate prueft den gewuenschten exakten Python-Stand in der Workflow-Datei."
+          ]
+        },
+        {
+          "id": "RELFIX-003",
+          "title": "Alle release-relevanten Container von exakten Tags auf Digests anheben",
+          "description": "Die bereits auf exakte Versionstags gezogenen Docker- und Compose-Images fuer den v1.0.0-Release auf konkrete Digests umstellen, damit selbst Tag-Neuauflagen oder Registry-Drift ausgeschlossen werden.",
+          "priority": "critical",
+          "type": "hardening",
+          "principle": "Immutable-Images, Maximal-Reproducibility",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "Dockerfile",
+            "frontend-angular/Dockerfile",
+            "Dockerfile.ollama-wsl-amd",
+            "docker-compose.base.yml",
+            "docker-compose.yml",
+            "docker-compose-lite.yml",
+            "docker-compose.ollama-wsl.yml",
+            "docker-compose.dev-vulkan-live.yml",
+            "docs/release-environment.md",
+            "docs/release-dependency-locking.md",
+            "scripts/release_gate.py"
+          ],
+          "acceptance": [
+            "Alle release-relevanten FROM- und image:-Referenzen nutzen Digests statt nur Tags oder dokumentierte lokale Sonderfaelle wie :local.",
+            "Die Release-Dokumentation fuehrt diese Digests oder deren Quelle nachvollziehbar auf.",
+            "Der Release-Gate behandelt exakte Digests als bevorzugten Zielzustand und blockiert reine Tag-Referenzen im finalen Release-Modus."
+          ]
+        },
+        {
+          "id": "RELFIX-004",
+          "title": "Apt-Restdrift fuer den Release-Pfad entfernen",
+          "description": "Den aktuell noch dokumentierten apt-basierten Restdrift beseitigen, indem die benoetigten Systempakete entweder in ein eigenes internes Basisimage ueberfuehrt oder ueber Debian-Snapshots stabilisiert werden.",
+          "priority": "high",
+          "type": "hardening",
+          "principle": "No-Moving-System-Packages, Build-Reproducibility",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "Dockerfile",
+            "Dockerfile.ollama-wsl-amd",
+            "docs/release-dependency-locking.md",
+            "docs/release-environment.md",
+            "scripts/release_gate.py"
+          ],
+          "acceptance": [
+            "Der Backend- und der WSL/Ollama-Buildpfad ziehen keine still driftenden apt-Pakete mehr aus dem jeweils aktuellen Repo-Stand.",
+            "Es existiert entweder ein snapshot-basierter Build oder ein intern gepflegtes Basisimage fuer den Release-Pfad.",
+            "Die Release-Dokumentation fuehrt apt-Drift nicht mehr als offenen Restpunkt."
+          ]
+        },
+        {
+          "id": "RELFIX-005",
+          "title": "Node-Engine und Release-Runtime-Angabe wirklich exakt machen",
+          "description": "Die Frontend-Engine-Angabe nicht nur als Bereich >=20.19.0 belassen, sondern fuer den Release-Zweig auf den gewollten festen Node-Stand ziehen, damit lokale und CI-seitige Interpretationsspielraeume weiter sinken.",
+          "priority": "medium",
+          "type": "hardening",
+          "principle": "Exact-Runtime-Contract, Less-Environment-Ambiguity",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "frontend-angular/package.json",
+            "docs/release-environment.md",
+            "scripts/release_gate.py"
+          ],
+          "acceptance": [
+            "package.json verwendet fuer den Release-Zweig eine exakte oder bewusst eng definierte Node-Engine-Angabe.",
+            "CI, Container und Dokumentation zeigen denselben erwarteten Node-Stand.",
+            "Der Release-Gate prueft die finale Node-Engine-Regel statt nur >=20.19.0."
+          ]
+        },
+        {
+          "id": "RELFIX-006",
+          "title": "Release-Dokumentation vollstaendig auf den harten Fix-Stand bringen",
+          "description": "Die Release-Prozess-Dokumentation und alle benachbarten Release-Dokumente so angleichen, dass keine alten Beispiele wie ananta:latest, halbfertige Smoke-Test-Hinweise oder weichere Aussagen zum finalen Release-Stand mehr enthalten sind.",
+          "priority": "high",
+          "type": "documentation",
+          "principle": "Docs-Match-Reality, No-Soft-Release-Language",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docs/release-process.md",
+            "docs/release-checklist.md",
+            "docs/release-environment.md",
+            "docs/release-dependency-locking.md"
+          ],
+          "acceptance": [
+            "docs/release-process.md verwendet keine Beispiele mit ananta:latest mehr.",
+            "Der dokumentierte Smoke-Test ist real existent und nicht mehr als offener Hinweis formuliert.",
+            "Alle Release-Dokumente sprechen denselben festen Stand und dieselben harten Regeln.",
+            "Die Dokumentation beschreibt klar, was fuer v1.0.0 wirklich als fix gilt und was erst danach folgen wuerde."
+          ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 12,
+    "total_items": 6,
     "by_status": {
-      "completed": 12,
+      "completed": 0,
       "partial": 0,
-      "open": 0
+      "open": 6
     },
     "notes": [
-      "P0-nahe Arbeit beginnt mit Frontend npm ci und der Python-Lockstrategie, weil diese Aenderungen die spaeteren Docker- und CI-Pfade bestimmen.",
-      "Digest-Pinning von Container-Images sollte nicht geraten werden; falls keine Registry-Aufloesung moeglich ist, zuerst exakte Tags pinnen und Digest-Pinning dokumentieren.",
-      "Python-Lockdateien koennen Netzwerkzugriff erfordern, weil direkte und transitive Versionen aufgeloest werden muessen."
+      "Diese Todo-Datei ist bewusst die letzte harte Restliste fuer den Release-Freeze.",
+      "Sie geht ueber pragmatisch releasefaehig hinaus und zielt auf moeglichst strikte Fixierung aller Build- und Release-Eingaben.",
+      "Nach Abschluss dieser Punkte bleibt praktisch nur noch bewusst akzeptierter lokaler Sonderfall-Spielraum, aber keine unbeabsichtigte Drift."
     ],
     "recommended_order": [
-      "REL-004",
-      "REL-001",
-      "REL-002",
-      "REL-003",
-      "REL-006",
-      "REL-008",
-      "REL-005",
-      "REL-007",
-      "REL-009",
-      "REL-010",
-      "REL-011",
-      "REL-012"
-    ],
-    "source_task_mapping": {
-      "T1": [
-        "REL-001",
-        "REL-006"
-      ],
-      "T2": [
-        "REL-002",
-        "REL-003",
-        "REL-006"
-      ],
-      "T3": [
-        "REL-004",
-        "REL-005"
-      ],
-      "T4": [
-        "REL-007"
-      ],
-      "T5": [
-        "REL-008"
-      ],
-      "T6": [
-        "REL-009"
-      ],
-      "T7": [
-        "REL-010"
-      ],
-      "T8": [
-        "REL-011"
-      ],
-      "T9": [
-        "REL-012"
-      ]
-    }
+      "RELFIX-006",
+      "RELFIX-002",
+      "RELFIX-005",
+      "RELFIX-001",
+      "RELFIX-003",
+      "RELFIX-004"
+    ]
   }
 }

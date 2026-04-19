@@ -37,6 +37,18 @@ This additionally runs `npm ci`, `npm run build`, and backend/frontend Docker im
 
 If Docker cannot pull images because of a local credential-store or registry issue, fix that environment issue before treating the release candidate as verified. Do not replace image tags with floating tags to work around registry failures.
 
+On this WSL/Rancher Desktop setup, Docker pulls can fail when the Windows/Rancher `docker-credential-secretservice` helper is found on `PATH` without a running Freedesktop secret service. Use a clean Docker invocation for release verification:
+
+```bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+DOCKER_CONFIG=/tmp/ananta-docker-config \
+python scripts/release_gate.py \
+  --compose-config \
+  --frontend-build \
+  --build-images \
+  --report release-verification-report.json
+```
+
 ## Two-Build Reproducibility Check
 
 For a release candidate commit:
@@ -65,7 +77,7 @@ The two builds are acceptable when the gate passes in both clean checkouts and b
 
 Block the release if any of these are true:
 
-- a release Dockerfile or Compose file uses `latest` or a moving major-only tag
+- a release Dockerfile or Compose file uses `latest`, a moving major-only tag, or a public image without a digest
 - CI installs backend dependencies from `requirements.txt` or `requirements-dev.txt`
 - frontend release builds use `npm install` instead of `npm ci`
 - `opencode-ai` or `@mermaid-js/mermaid-cli` is globally installed without an explicit version
@@ -74,4 +86,4 @@ Block the release if any of these are true:
 
 ## Residual Drift
 
-Exact image tags are required for this release track. Digest pinning and Debian snapshot-backed apt installs remain the next hardening step and are documented in `docs/release-dependency-locking.md`.
+Exact image tags plus digests are required for public release images. Debian snapshot-backed apt installs remain the next hardening step and are documented in `docs/release-dependency-locking.md`.

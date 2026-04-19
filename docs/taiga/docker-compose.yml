@@ -8,7 +8,7 @@ networks:
 
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.1@sha256:74d72c7a1345984f186bddbabcc462b2128d0d8054177dc84afaeac4db1f0f56
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -50,7 +50,7 @@ services:
       - traefik.http.middlewares.taiga-ratelimit.ratelimit.burst=50
 
   taiga-db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:93d55776e04376e19adb2733e3ccebb4392ee7dd86d8ff238503b30fe719c84f
     restart: unless-stopped
     environment:
       POSTGRES_DB: taiga
@@ -66,12 +66,12 @@ services:
     networks: [internal]
 
   taiga-redis:
-    image: redis:7-alpine
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
     restart: unless-stopped
     networks: [internal]
 
   taiga-back:
-    image: monogramm/docker-taiga-back:latest
+    image: monogramm/docker-taiga-back@sha256:783dd398c012618bbdb878cd34d1999b4004e5771305e0fd554cacc96443f78e
     restart: unless-stopped
     depends_on:
       taiga-db: { condition: service_healthy }
@@ -121,7 +121,7 @@ services:
       - traefik.http.services.taiga-static.loadbalancer.server.port=8000
 
   taiga-async:
-    image: taigaio/taiga-back:latest
+    image: taigaio/taiga-back@sha256:70ee08e4416c282437f55b5a5f48e8c3c10390022eac275999366728e227e961
     restart: unless-stopped
     entrypoint: ["/taiga-back/docker/async_entrypoint.sh"]
     environment:
@@ -138,7 +138,7 @@ services:
     networks: [internal]
 
   taiga-events-rabbitmq:
-    image: rabbitmq:3.13-management-alpine
+    image: rabbitmq:3.13-management-alpine@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: taiga
@@ -149,7 +149,7 @@ services:
     networks: [internal]
 
   taiga-events:
-    image: monogramm/docker-taiga-events:latest
+    image: monogramm/docker-taiga-events@sha256:4c09ac3186f71cc13e0b56ced45631ba3c0e3820b3790d50ebd92954ed051eed
     restart: unless-stopped
     environment:
       TZ: Europe/Berlin
@@ -170,7 +170,7 @@ services:
       - traefik.http.services.taiga-events.loadbalancer.server.port=8888
 
   taiga-front:
-    image: monogramm/docker-taiga-front:latest
+    image: monogramm/docker-taiga-front@sha256:5c54f6441eb87cfabc3bba305c2bf5e6412026238c13fdecc8855c21f1ad3feb
     restart: unless-stopped
     environment:
       TZ: Europe/Berlin

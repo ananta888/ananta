@@ -5,7 +5,7 @@
 
 services:
   postgres:
-    image: postgres:16.13
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
@@ -27,7 +27,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
 
   redis:
-    image: redis:7.4.8-alpine
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
     restart: unless-stopped
     deploy:
       resources:
@@ -106,7 +106,7 @@ services:
         condition: service_healthy
 
   nginx:
-    image: nginx:1.29.4-alpine3.23
+    image: nginx:1.29.4-alpine3.23@sha256:4870c12cd2ca986de501a804b4f506ad3875a0b1874940ba0a2c7f763f1855b2
     restart: unless-stopped
     deploy:
       resources:
@@ -130,7 +130,7 @@ services:
       - ai-agent-hub
 
   loki:
-    image: grafana/loki:3.6.10
+    image: grafana/loki:3.6.10@sha256:f59e6aedfee6af2388d69962b178a35a23152573b4bf0937106746deb7146ec7
     restart: unless-stopped
     profiles: ["observability"]
     ports:
@@ -138,7 +138,7 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
-    image: grafana/promtail:3.6.10
+    image: grafana/promtail:3.6.10@sha256:2a0f5e3e160ee5d549c585f6cc4f4e1c566ff783324a424bd75bc16503fc660e
     restart: unless-stopped
     profiles: ["observability"]
     volumes:
@@ -149,7 +149,7 @@ services:
     command: -config.file=/etc/promtail/config.yaml
 
   grafana:
-    image: grafana/grafana:12.3.0
+    image: grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8
     restart: unless-stopped
     profiles: ["observability"]
     ports:
@@ -164,7 +164,7 @@ services:
       - prometheus
 
   prometheus:
-    image: prom/prometheus:v3.11.2
+    image: prom/prometheus:v3.11.2@sha256:5550dc63da361dc30f6fe02ac0e4dfc736ededfef3c8d12a634db04a67824d78
     restart: unless-stopped
     profiles: ["observability"]
     ports:
@@ -179,7 +179,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
 
   certbot:
-    image: certbot/certbot:v5.5.0
+    image: certbot/certbot:v5.5.0@sha256:78a7eaa40af657301e25731297b6e73646c695370d17e9bb03189fa82966d65c
     profiles: ["edge"]
     volumes:
       - certbot-etc:/etc/letsencrypt
