@@ -107,7 +107,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Fast-Required-Gates, Separated-Heavy-Jobs",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/quality-and-docs.yml"
@@ -608,7 +608,7 @@
           "priority": "high",
           "type": "presentation",
           "principle": "GitHub-First-Clarity, Stronger-First-Impression",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "README.md",
@@ -734,9 +734,9 @@
   "meta": {
     "total_items": 34,
     "by_status": {
-      "completed": 26,
+      "completed": 28,
       "partial": 6,
-      "open": 2
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei baut nicht weitere Produktfeatures, sondern die GitHub-, Release- und Betriebsreife des Projekts aus.",
@@ -748,6 +748,7 @@
     "execution_model": {
       "local_complete": [
         "GIT-004",
+        "GIT-010",
         "GIT-011",
         "GIT-012",
         "GIT-013",
@@ -768,6 +769,7 @@
         "GIT-061",
         "GIT-070",
         "GIT-071",
+        "GIT-081",
         "GIT-082",
         "GIT-090",
         "GIT-091",
