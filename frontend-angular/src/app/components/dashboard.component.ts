@@ -43,13 +43,15 @@ import { DashboardDemoPreviewComponent, DemoPreviewExample } from './dashboard-d
 import { DashboardFacade } from './dashboard.facade';
 import { DashboardGoalReportingFacade } from './dashboard-goal-reporting.facade';
 import { DashboardGoalGovernanceSummaryCardComponent } from './dashboard-goal-governance-summary-card.component';
+import { DashboardGuidedGoalWizardComponent, GoalModeDefinition, GuidedGoalSubmit } from './dashboard-guided-goal-wizard.component';
 import { DashboardPersonalWorkspaceComponent } from './dashboard-personal-workspace.component';
+import { DashboardQuickGoalPanelComponent, QuickGoalResult } from './dashboard-quick-goal-panel.component';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
 import { DashboardWorkspaceViewModelService } from './dashboard-workspace-view-model.service';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from '../shared/ui/state';
-import { ExplanationNoticeComponent, KeyValueGridComponent, NextStepsComponent, SafetyNoticeComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
+import { ExplanationNoticeComponent, KeyValueGridComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
-import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOption, PresetPickerComponent, WizardShellComponent } from '../shared/ui/forms';
+import { ModeCardOption, PresetOption } from '../shared/ui/forms';
 
 @Component({
   standalone: true,
@@ -65,22 +67,18 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
     DashboardBenchmarkPanelComponent,
     DashboardDemoPreviewComponent,
     DashboardGoalGovernanceSummaryCardComponent,
+    DashboardGuidedGoalWizardComponent,
     DashboardPersonalWorkspaceComponent,
+    DashboardQuickGoalPanelComponent,
     EmptyStateComponent,
     ErrorStateComponent,
     LoadingStateComponent,
     KeyValueGridComponent,
     ExplanationNoticeComponent,
-    NextStepsComponent,
-    SafetyNoticeComponent,
     SystemStatusSummaryComponent,
     SectionCardComponent,
     PageIntroComponent,
     ActionCardComponent,
-    FormFieldComponent,
-    ModeCardPickerComponent,
-    PresetPickerComponent,
-    WizardShellComponent,
   ],
   template: `
     <app-page-intro
@@ -174,148 +172,30 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
       }
 
       <section class="card card-primary mb-md" id="quick-goal">
-        <h3 class="no-margin">Ziel planen</h3>
-        <p class="muted font-sm mt-sm">Starte einfach mit einem Ziel. Gefuehrte Modi bleiben fuer strukturierte Faelle verfuegbar.</p>
-        @if (isHintVisible('quick-goal')) {
-          <app-explanation-notice class="block mt-sm inline-help" message='Ein gutes Ziel beschreibt Ergebnis und Grenze, zum Beispiel: "Analysiere nur das Frontend und schlage drei naechste Schritte vor."'>
-            <button class="secondary btn-small" type="button" (click)="dismissHint('quick-goal')">Ausblenden</button>
-          </app-explanation-notice>
-        }
-
-        <app-preset-picker
-          class="block mt-sm"
+        <app-dashboard-quick-goal-panel
+          [text]="quickGoalText"
+          [busy]="quickGoalBusy"
+          [result]="quickGoalResult"
           [presets]="goalPresetOptions()"
-          ariaLabel="Goal-Vorlagen"
-          (selectPreset)="applyGoalPresetById($event.id)"
-        ></app-preset-picker>
-
-        <div class="row gap-sm mt-sm flex-end">
-          <div class="flex-1">
-            <app-form-field label="Quick Goal" hint="Ein Satz reicht fuer den ersten planbaren Hub-Auftrag.">
-              <input
-                [(ngModel)]="quickGoalText"
-                placeholder="z.B. Analysiere dieses Repository und schlage die naechsten Schritte vor"
-                class="w-full"
-                aria-label="Quick Goal Beschreibung eingeben"
-                #quickGoalInput
-              />
-            </app-form-field>
-          </div>
-          <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()" aria-label="Goal planen und Tasks generieren">
-            @if (quickGoalBusy) {
-              Generiere...
-            } @else {
-              Goal planen
-            }
-          </button>
-          <button class="secondary" [routerLink]="['/auto-planner']" aria-label="Zur Auto-Planner Konfiguration navigieren">Mehr Optionen</button>
-        </div>
-        @if (quickGoalResult) {
-          <app-safety-notice class="block mt-sm" title="Goal wurde geplant" [message]="quickGoalResult.tasks_created + ' Tasks erstellt.'" tone="success"></app-safety-notice>
-          <div class="card-success mt-sm">
-            <div class="row space-between">
-              <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
-              <div class="row gap-sm">
-                @if (quickGoalResult.goal_id) {
-                  <button class="secondary btn-small" (click)="goToGoal(quickGoalResult.goal_id)">Zum Goal Detail</button>
-                }
-                <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
-              </div>
-            </div>
-            @if (quickGoalResult.task_ids?.length) {
-              <div class="muted status-text-sm">
-                Task IDs: {{ quickGoalResult.task_ids.slice(0, 3).join(', ') }}{{ quickGoalResult.task_ids.length > 3 ? '...' : '' }}
-              </div>
-            }
-          </div>
-          <app-next-steps class="block mt-sm" [steps]="quickGoalNextSteps()" (selectStep)="handleQuickGoalNextStep($event)"></app-next-steps>
-        }
+          [nextSteps]="quickGoalNextSteps()"
+          [showHint]="isHintVisible('quick-goal')"
+          (textChange)="quickGoalText = $event"
+          (dismissHint)="dismissHint('quick-goal')"
+          (selectPreset)="applyGoalPresetById($event)"
+          (submit)="submitQuickGoal()"
+          (openGoal)="goToGoal($event)"
+          (openBoard)="goToBoard()"
+          (selectNextStep)="handleQuickGoalNextStep($event)"
+        ></app-dashboard-quick-goal-panel>
 
         <div style="margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
 
-        <h3 class="no-margin">Gefuehrter Ziel-Assistent</h3>
-        <p class="muted font-sm mt-sm">Der Assistent fragt nur die Angaben ab, die dem Hub beim Planen, Zuweisen und Pruefen helfen.</p>
-
-        @if (!selectedGoalMode) {
-          <app-mode-card-picker
-            class="block mt-sm"
-            [options]="goalModes"
-            [columns]="4"
-            ariaLabel="Goal-Modus auswaehlen"
-            (selectOption)="setGoalMode($event)"
-          ></app-mode-card-picker>
-        } @else {
-          <app-wizard-shell
-            class="block mt-sm guided-goal-card"
-            [title]="selectedGoalMode.title"
-            [steps]="goalWizardSteps"
-            [activeIndex]="goalWizardStepIndex"
-            [canContinue]="canContinueGoalWizard()"
-            [busy]="quickGoalBusy"
-            submitLabel="Goal planen"
-            busyLabel="Plane..."
-            ariaLabel="Gefuehrte Zielerstellung"
-            (stepSelect)="goToGoalWizardStep($event)"
-            (previous)="previousGoalWizardStep()"
-            (next)="nextGoalWizardStep()"
-            (submit)="submitGuidedGoal()"
-          >
-            <button wizard-actions class="secondary btn-small" (click)="setGoalMode(null)">Zurueck</button>
-              @if (activeGoalWizardStep().id === 'goal') {
-                <div class="grid gap-sm">
-                  @for (field of requiredGoalFields(); track field.name) {
-                    <app-form-field [label]="field.label" [hint]="fieldHelper(field.name)" [required]="true">
-                      @if (field.type === 'textarea') {
-                        <textarea [(ngModel)]="goalModeData[field.name]" class="w-full" rows="3" style="min-height: 88px;" [placeholder]="field.placeholder || 'Beschreibe, was erreicht werden soll.'"></textarea>
-                      } @else if (field.type === 'select') {
-                        <select [(ngModel)]="goalModeData[field.name]" class="w-full">
-                          @for (opt of field.options; track opt) {
-                            <option [value]="opt">{{ opt }}</option>
-                          }
-                        </select>
-                      } @else {
-                        <input [(ngModel)]="goalModeData[field.name]" [type]="field.type" [placeholder]="field.placeholder || ''" class="w-full" />
-                      }
-                    </app-form-field>
-                  }
-                </div>
-              } @else if (activeGoalWizardStep().id === 'context') {
-                <app-form-field label="Kontext und Eingabedaten" hint="Mehr Kontext reduziert Rueckfragen und hilft dem Hub, Tasks an passende Worker zu geben.">
-                  <textarea [(ngModel)]="goalModeData['context']" class="w-full" rows="5" placeholder="Links, Dateien, Fehlermeldungen, Repo-Bereich oder wichtige Einschraenkungen"></textarea>
-                </app-form-field>
-              } @else if (activeGoalWizardStep().id === 'execution') {
-                <div class="grid cols-3 gap-sm">
-                  @for (option of executionDepthOptions; track option.value) {
-                    <button type="button" class="card card-light wizard-choice text-left" [class.active]="goalModeData['execution_depth'] === option.value" (click)="goalModeData['execution_depth'] = option.value">
-                      <strong>{{ option.label }}</strong>
-                      <span>{{ option.description }}</span>
-                    </button>
-                  }
-                </div>
-              } @else if (activeGoalWizardStep().id === 'safety') {
-                <div class="grid cols-3 gap-sm">
-                  @for (option of safetyLevelOptions; track option.value) {
-                    <button type="button" class="card card-light wizard-choice text-left" [class.active]="goalModeData['safety_level'] === option.value" (click)="goalModeData['safety_level'] = option.value">
-                      <strong>{{ option.label }}</strong>
-                      <span>{{ option.description }}</span>
-                    </button>
-                  }
-                </div>
-              } @else {
-                <app-explanation-notice title="Bereit zum Planen" message="Der Hub erstellt daraus planbare Tasks. Worker fuehren die delegierten Schritte aus; Pruefungen und Freigaben bleiben sichtbar."></app-explanation-notice>
-                <div class="grid cols-2 gap-sm mt-sm">
-                  <div class="card card-light">
-                    <div class="muted font-sm">Ausfuehrung</div>
-                    <strong>{{ selectedExecutionDepthLabel() }}</strong>
-                  </div>
-                  <div class="card card-light">
-                    <div class="muted font-sm">Sicherheit</div>
-                    <strong>{{ selectedSafetyLevelLabel() }}</strong>
-                  </div>
-                </div>
-              }
-          </app-wizard-shell>
-        }
+        <app-dashboard-guided-goal-wizard
+          [goalModes]="goalModes"
+          [busy]="quickGoalBusy"
+          [resetKey]="guidedGoalResetKey"
+          (submitGoal)="submitGuidedGoal($event)"
+        ></app-dashboard-guided-goal-wizard>
       </section>
     }
 
@@ -576,26 +456,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get goalGovernance() { return this.goalReporting.state.goalGovernance; }
   get goalReportingLoading(): boolean { return this.goalReporting.state.loading; }
   goalModes: GoalModeDefinition[] = [];
-  selectedGoalMode: GoalModeDefinition | null = null;
-  goalModeData: Record<string, unknown> = {};
-  goalWizardStepIndex = 0;
-  goalWizardSteps: GoalWizardStep[] = [
-    { id: 'goal', title: 'Ziel', helper: 'Beschreibe, was am Ende anders oder besser sein soll.' },
-    { id: 'context', title: 'Kontext', helper: 'Ergaenze Daten, Grenzen oder Fundstellen, damit weniger Rueckfragen entstehen.' },
-    { id: 'execution', title: 'Tiefe', helper: 'Waehle, wie gruendlich der Hub planen und Tasks erzeugen soll.' },
-    { id: 'safety', title: 'Sicherheit', helper: 'Lege fest, wie vorsichtig Ananta mit Freigaben und Pruefung umgehen soll.' },
-    { id: 'review', title: 'Pruefen', helper: 'Kontrolliere die Angaben, bevor der Hub Tasks erstellt.' },
-  ];
-  executionDepthOptions = [
-    { value: 'quick', label: 'Schnell', description: 'Kleiner Plan mit wenigen Tasks fuer einfache Ziele.' },
-    { value: 'standard', label: 'Standard', description: 'Ausgewogener Plan mit Kontext, Umsetzung und Pruefung.' },
-    { value: 'deep', label: 'Gruendlich', description: 'Mehr Analyse, klarere Risiken und staerkere Nachweise.' },
-  ];
-  safetyLevelOptions = [
-    { value: 'safe', label: 'Vorsichtig', description: 'Mehr Review und keine riskanten automatischen Schritte.' },
-    { value: 'balanced', label: 'Ausgewogen', description: 'Normale Freigaben und sichtbare Pruefpunkte.' },
-    { value: 'fast', label: 'Schneller', description: 'Weniger Reibung fuer harmlose lokale Aufgaben.' },
-  ];
+  guidedGoalResetKey = 0;
   firstStartOptions: ModeCardOption[] = [
     { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und bei Bedarf als echte Goals starten.' },
     { id: 'goal', title: 'Eigenes Ziel planen', description: 'Mit einem Satz starten und Tasks erzeugen lassen.' },
@@ -608,7 +469,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalText = '';
   quickGoalContext = '';
   quickGoalBusy = false;
-  quickGoalResult: { tasks_created: number; task_ids: string[]; goal_id?: string } | null = null;
+  quickGoalResult: QuickGoalResult | null = null;
   demoPreview: { examples?: DemoPreviewExample[] } | null = null;
   demoLoading = false;
   demoError = '';
@@ -665,71 +526,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  setGoalMode(mode: any) {
-    this.selectedGoalMode = mode;
-    this.goalModeData = {};
-    this.goalWizardStepIndex = 0;
-    if (mode) {
-      mode.fields?.forEach((f: any) => {
-        if (f.default !== undefined) this.goalModeData[f.name] = f.default;
-      });
-      this.goalModeData['execution_depth'] = this.goalModeData['execution_depth'] || 'standard';
-      this.goalModeData['safety_level'] = this.goalModeData['safety_level'] || 'balanced';
-    }
-  }
-
-  activeGoalWizardStep(): GoalWizardStep {
-    return this.goalWizardSteps[this.goalWizardStepIndex] || this.goalWizardSteps[0];
-  }
-
-  goToGoalWizardStep(index: number): void {
-    if (index < 0 || index >= this.goalWizardSteps.length) return;
-    this.goalWizardStepIndex = index;
-  }
-
-  nextGoalWizardStep(): void {
-    if (!this.canContinueGoalWizard()) return;
-    this.goalWizardStepIndex = Math.min(this.goalWizardStepIndex + 1, this.goalWizardSteps.length - 1);
-  }
-
-  previousGoalWizardStep(): void {
-    this.goalWizardStepIndex = Math.max(this.goalWizardStepIndex - 1, 0);
-  }
-
-  isLastGoalWizardStep(): boolean {
-    return this.goalWizardStepIndex >= this.goalWizardSteps.length - 1;
-  }
-
-  canContinueGoalWizard(): boolean {
-    const step = this.activeGoalWizardStep().id;
-    if (step === 'goal') return this.requiredGoalFields().every(field => String(this.goalModeData[field.name] || '').trim().length > 0);
-    if (step === 'execution') return !!this.goalModeData['execution_depth'];
-    if (step === 'safety') return !!this.goalModeData['safety_level'];
-    return true;
-  }
-
-  requiredGoalFields(): GoalModeField[] {
-    return (this.selectedGoalMode?.fields || []).filter(field => field.type !== 'hidden');
-  }
-
-  fieldHelper(name: string): string {
-    const normalized = String(name || '').toLowerCase();
-    if (normalized.includes('goal') || normalized.includes('ziel')) return 'Ein klares Ziel hilft dem Hub, daraus pruefbare Tasks zu bilden.';
-    if (normalized.includes('context') || normalized.includes('kontext')) return 'Kontext verhindert falsche Annahmen und hilft bei der Worker-Zuweisung.';
-    if (normalized.includes('team')) return 'Optional: Teams koennen spaeter auch im Board oder in Expertenbereichen gesetzt werden.';
-    return 'Diese Angabe strukturiert den Plan und macht das Ergebnis besser pruefbar.';
-  }
-
-  selectedExecutionDepthLabel(): string {
-    const selected = this.executionDepthOptions.find(option => option.value === this.goalModeData['execution_depth']);
-    return selected?.label || 'Standard';
-  }
-
-  selectedSafetyLevelLabel(): string {
-    const selected = this.safetyLevelOptions.find(option => option.value === this.goalModeData['safety_level']);
-    return selected?.label || 'Ausgewogen';
-  }
-
   isHintVisible(key: string): boolean {
     return !this.hiddenHints.has(key);
   }
@@ -739,19 +535,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     localStorage.setItem('ananta.hidden-hints', Array.from(this.hiddenHints).join(','));
   }
 
-  submitGuidedGoal() {
-    if (!this.hub || !this.selectedGoalMode) return;
+  submitGuidedGoal(request: GuidedGoalSubmit) {
+    if (!this.hub || !request.mode) return;
     this.quickGoalBusy = true;
     this.quickGoalResult = null;
 
     this.hubApi.createGoal(this.hub.url, {
-      mode: this.selectedGoalMode.id,
+      mode: request.mode.id,
       mode_data: {
-        ...this.goalModeData,
+        ...request.modeData,
         wizard: {
-          execution_depth: this.goalModeData['execution_depth'] || 'standard',
-          safety_level: this.goalModeData['safety_level'] || 'balanced',
-          context: this.goalModeData['context'] || '',
+          execution_depth: request.modeData['execution_depth'] || 'standard',
+          safety_level: request.modeData['safety_level'] || 'balanced',
+          context: request.modeData['context'] || '',
         },
       },
       create_tasks: true
@@ -764,9 +560,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           goal_id: result?.goal?.id
         };
         this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
-        this.selectedGoalMode = null;
-        this.goalModeData = {};
-        this.goalWizardStepIndex = 0;
+        this.guidedGoalResetKey += 1;
         this.refresh();
       },
       error: (err) => {
@@ -1287,28 +1081,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   goToGoal(id: string) {
     this.router.navigate(['/goal', id]);
   }
-}
-
-interface GoalModeField {
-  name: string;
-  label: string;
-  type: string;
-  options?: string[];
-  placeholder?: string;
-  default?: unknown;
-}
-
-interface GoalModeDefinition {
-  id: string;
-  title: string;
-  description?: string;
-  fields?: GoalModeField[];
-}
-
-interface GoalWizardStep {
-  id: 'goal' | 'context' | 'execution' | 'safety' | 'review';
-  title: string;
-  helper: string;
 }
 
 const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [

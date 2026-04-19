@@ -67,7 +67,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Mode-Separation, Lower-Complexity",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -278,7 +278,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Type-Safety, Refactor-Safety",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -298,7 +298,7 @@
           "priority": "medium",
           "type": "domain-model",
           "principle": "Explicit-Request-Contracts, Cleaner-Core-API",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -321,7 +321,7 @@
           "priority": "medium",
           "type": "domain-model",
           "principle": "Stable-Core-Contracts, Better-Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -575,9 +575,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 15,
+      "completed": 19,
       "partial": 0,
-      "open": 9
+      "open": 5
     },
     "notes": [
       "Diese Todo-Datei bündelt die wichtigsten nächsten sinnvollen Verbesserungen nach den großen Architektur-, Accessibility- und Release-Runden.",

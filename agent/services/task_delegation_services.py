@@ -19,6 +19,21 @@ from agent.services.workspace_scope_builder import build_worker_workspace, deriv
 
 
 @dataclass(frozen=True)
+class DelegationRequest:
+    task_id: str
+    parent_task: dict[str, Any]
+    data: Any
+
+
+@dataclass(frozen=True)
+class RoutingDecision:
+    payload: dict[str, Any]
+
+    def as_dict(self) -> dict[str, Any]:
+        return dict(self.payload)
+
+
+@dataclass(frozen=True)
 class TaskDelegationPlan:
     agent_url: str
     selected_by_policy: bool
@@ -39,7 +54,7 @@ class WorkerExecutionBundle:
     task_neighborhood: dict[str, Any]
     expected_output_schema: dict[str, Any]
     allowed_tools: list[str]
-    routing_decision: dict[str, Any]
+    routing_decision: RoutingDecision
     worker_job: Any
     workspace_scope: dict[str, Any]
     worker_execution_context: dict[str, Any]
@@ -55,11 +70,12 @@ class TaskDelegationPlanner:
     def plan(
         self,
         *,
-        task_id: str,
-        parent_task: dict[str, Any],
-        data: Any,
+        request: DelegationRequest,
         agent_registry_service,
     ) -> TaskDelegationPlan | dict[str, Any]:
+        task_id = request.task_id
+        parent_task = request.parent_task
+        data = request.data
         agent_url = data.agent_url
         selected_by_policy = False
         selection = None
@@ -132,13 +148,14 @@ class WorkerExecutionContextFactory:
     def build(
         self,
         *,
-        task_id: str,
-        parent_task: dict[str, Any],
-        data: Any,
+        request: DelegationRequest,
         plan: TaskDelegationPlan,
         worker_job_service,
         worker_contract_service,
     ) -> WorkerExecutionBundle:
+        task_id = request.task_id
+        parent_task = request.parent_task
+        data = request.data
         subtask_id = f"sub-{uuid.uuid4()}"
         context_query = self._context_query(parent_task=parent_task, data=data)
         context_policy, retrieval_hints, task_neighborhood = (
@@ -156,7 +173,7 @@ class WorkerExecutionContextFactory:
         )
         expected_output_schema = dict(data.expected_output_schema or {})
         allowed_tools = normalize_allowed_tools(data.allowed_tools)
-        routing_decision = worker_contract_service.build_routing_decision(
+        routing_decision_payload = worker_contract_service.build_routing_decision(
             agent_url=plan.agent_url,
             selected_by_policy=plan.selected_by_policy,
             task_kind=plan.effective_task_kind,
@@ -165,7 +182,8 @@ class WorkerExecutionContextFactory:
             preferred_backend=plan.preferred_backend,
         )
         if plan.routing_hint:
-            routing_decision["copilot_hint"] = dict(plan.routing_hint)
+            routing_decision_payload["copilot_hint"] = dict(plan.routing_hint)
+        routing_decision = RoutingDecision(routing_decision_payload)
         worker_job = worker_job_service.create_worker_job(
             parent_task_id=task_id,
             subtask_id=subtask_id,
@@ -174,7 +192,7 @@ class WorkerExecutionContextFactory:
             allowed_tools=allowed_tools,
             expected_output_schema=expected_output_schema,
             metadata=worker_contract_service.build_job_metadata(
-                routing_decision=routing_decision,
+                routing_decision=routing_decision.as_dict(),
                 task_kind=plan.effective_task_kind,
                 required_capabilities=plan.effective_required_capabilities,
                 context_policy=context_policy,
@@ -209,12 +227,10 @@ class WorkerExecutionContextFactory:
             artifact_sync=artifact_sync,
             allowed_tools=allowed_tools,
             expected_output_schema=expected_output_schema,
-            routing_decision=routing_decision,
+            routing_decision=routing_decision.as_dict(),
         )
         delegation_payload = self._delegation_payload(
-            task_id=task_id,
-            parent_task=parent_task,
-            data=data,
+            request=request,
             plan=plan,
             subtask_id=subtask_id,
             context_bundle_id=context_bundle.id,
@@ -252,9 +268,7 @@ class WorkerExecutionContextFactory:
     @staticmethod
     def _delegation_payload(
         *,
-        task_id: str,
-        parent_task: dict[str, Any],
-        data: Any,
+        request: DelegationRequest,
         plan: TaskDelegationPlan,
         subtask_id: str,
         context_bundle_id: str,
@@ -262,6 +276,9 @@ class WorkerExecutionContextFactory:
         context_policy: dict[str, Any],
         worker_execution_context: dict[str, Any],
     ) -> dict[str, Any]:
+        task_id = request.task_id
+        parent_task = request.parent_task
+        data = request.data
         my_url = settings.agent_url or f"http://localhost:{settings.port}"
         callback_url = f"{my_url.rstrip('/')}/tasks/{task_id}/subtask-callback"
         return {
@@ -297,16 +314,13 @@ class TaskDelegationResultWriter:
     def forward_and_write(
         self,
         *,
-        task_id: str,
-        parent_task: dict[str, Any],
-        data: Any,
+        request: DelegationRequest,
         plan: TaskDelegationPlan,
         bundle: WorkerExecutionBundle,
     ) -> dict[str, Any]:
         try:
             policy_decision = plan.policy_decision or self._persist_manual_policy(
-                task_id=task_id,
-                data=data,
+                request=request,
                 plan=plan,
                 bundle=bundle,
             )
@@ -315,16 +329,14 @@ class TaskDelegationResultWriter:
                     plan.agent_url,
                     "/tasks",
                     bundle.delegation_payload,
-                    token=data.agent_token or "",
+                    token=request.data.agent_token or "",
                 )
             )
         except Exception as exc:
             return {"error": "delegation_failed", "code": 502, "data": {"details": str(exc)}}
 
         self._update_parent_task(
-            task_id=task_id,
-            parent_task=parent_task,
-            data=data,
+            request=request,
             plan=plan,
             bundle=bundle,
             policy_decision=policy_decision,
@@ -339,8 +351,7 @@ class TaskDelegationResultWriter:
     def _persist_manual_policy(
         self,
         *,
-        task_id: str,
-        data: Any,
+        request: DelegationRequest,
         plan: TaskDelegationPlan,
         bundle: WorkerExecutionBundle,
     ):
@@ -353,7 +364,7 @@ class TaskDelegationResultWriter:
             policy_version="worker-routing-v2",
             reasons=(plan.selection.reasons if plan.selection else ["manual_override"]),
             details={
-                "task_kind": data.task_kind,
+                "task_kind": request.data.task_kind,
                 "required_capabilities": plan.effective_required_capabilities,
                 "manual_override": True,
                 "copilot_routing_hint": plan.routing_hint,
@@ -361,20 +372,21 @@ class TaskDelegationResultWriter:
                 "retrieval_hints": bundle.retrieval_hints,
                 "task_neighborhood": bundle.task_neighborhood,
             },
-            task_id=task_id,
+            task_id=request.task_id,
             worker_url=plan.agent_url,
         )
 
     def _update_parent_task(
         self,
         *,
-        task_id: str,
-        parent_task: dict[str, Any],
-        data: Any,
+        request: DelegationRequest,
         plan: TaskDelegationPlan,
         bundle: WorkerExecutionBundle,
         policy_decision: Any,
     ) -> None:
+        task_id = request.task_id
+        parent_task = request.parent_task
+        data = request.data
         subtasks = list(parent_task.get("subtasks") or [])
         subtasks.append(
             {
@@ -425,7 +437,7 @@ class TaskDelegationResultWriter:
                 "response": response,
                 "selected_by_policy": plan.selected_by_policy,
                 "selection_reasons": plan.selection.reasons if plan.selection else ["manual_override"],
-                "worker_selection": bundle.routing_decision,
+                "worker_selection": bundle.routing_decision.as_dict(),
                 "copilot_routing_hint": plan.routing_hint,
                 "policy_decision_id": getattr(policy_decision, "id", None),
                 "context_bundle_id": bundle.context_bundle.id,
