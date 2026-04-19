@@ -65,7 +65,7 @@ services:
         condition: service_healthy
 
   evolver:
-    image: ${EVOLVER_IMAGE:-ghcr.io/ananta/evolver:0.7.0}
+    image: ${EVOLVER_IMAGE:-ananta-evolver:local}
     restart: unless-stopped
     profiles: ["evolution"]
     environment:

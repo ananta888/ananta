@@ -1,6 +1,6 @@
 {
   "release_target": "v1.0.0",
-  "ok": false,
+  "ok": true,
   "checks": [
     {
       "name": "required-files",
@@ -49,8 +49,8 @@
     },
     {
       "name": "frontend-build",
-      "ok": false,
-      "detail": "npm run build failed: \n> ananta-angular@0.7.0 build\n> ng build\n\nNode.js version v18.19.1 detected.\nThe Angular CLI requires a minimum Node.js version of v20.19 or v22.12.\n\nPlease update your Node.js version or visit https://nodejs.org/ for additional instructions.\n\n"
+      "ok": true,
+      "detail": "frontend npm ci and build passed"
     },
     {
       "name": "image-builds",
