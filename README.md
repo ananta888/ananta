@@ -35,6 +35,15 @@ Ananta folgt einem Goal -> Plan -> Task -> Execution -> Verification -> Artifact
 
 Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 
+## Release und Governance
+
+- Release-Prozess: `docs/release-process.md`
+- Release-Checklist: `docs/release-checklist.md`
+- Changelog-Strategie: `CHANGELOG.md`
+- Secrets-Inventar fuer GitHub Actions: `docs/github-secrets-inventory.md`
+- AI-assisted Development Policy: `docs/ai-assisted-development.md`
+- Security Policy: `.github/SECURITY.md`
+
 ## Manifest fuer verantwortliche Agentenentwicklung
 
 Ananta versteht Agentensysteme nicht als harmlose Blackboxes, sondern als wirkungsmaechtige Systeme, die Kontrolle, Nachvollziehbarkeit, Begrenzung und ehrliche Kommunikation brauchen.

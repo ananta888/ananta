@@ -58,9 +58,17 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml ps
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
 ```
 
-## Versioning
+## Versioning And Tags
 
-The Python package version is maintained in `pyproject.toml`.
+Ananta uses SemVer-style release tags:
+
+- Stable releases use `vMAJOR.MINOR.PATCH`, for example `v1.0.0`.
+- Release candidates use `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.0.0-rc.1`.
+- Alpha and beta pre-releases may use `vMAJOR.MINOR.PATCH-alpha.N` or `vMAJOR.MINOR.PATCH-beta.N`.
+
+The Python package version is maintained in `pyproject.toml`. Stable tags must match that version without the leading `v`. Release candidate tags may point at commits where the package version still represents the upcoming stable version.
+
+Do not reuse or move published release tags. If a release candidate is invalid, create a new candidate tag.
 
 Release candidate evidence must include:
 
@@ -101,3 +109,9 @@ bash scripts/prepare_release_assets.sh
 ```
 
 The release tag remains the source of truth for source code. Release assets are supporting evidence and operator-facing material, not an alternate distribution channel for untracked build outputs.
+
+## Release Notes And Changelog
+
+GitHub Releases are the primary public release notes channel. `.github/release.yml` groups generated release notes by labels such as security, governance, release, CI, backend, frontend and docs.
+
+`CHANGELOG.md` is a curated index for stable release summaries, migration notes and operator-facing compatibility changes. It should not duplicate every PR. When a PR affects APIs, runtime behavior, release process, security posture, Docker, CI or operator workflows, mark it as release-note relevant in the PR template.

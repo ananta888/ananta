@@ -271,7 +271,7 @@
           "priority": "high",
           "type": "security",
           "principle": "Secret-Hygiene, Explicit-Credential-Ownership",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -401,7 +401,7 @@
           "priority": "high",
           "type": "release-prep",
           "principle": "Predictable-Versioning, Cleaner-Release-History",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -439,7 +439,7 @@
           "priority": "medium",
           "type": "release-prep",
           "principle": "Readable-Releases, Better-Consumer-Communication",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/",
@@ -459,7 +459,7 @@
           "priority": "medium",
           "type": "release-prep",
           "principle": "Single-Source-or-Clearly-Split-Change-Communication",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "CHANGELOG.md",
@@ -545,7 +545,7 @@
           "priority": "high",
           "type": "repo-governance",
           "principle": "AI-Assisted-But-Human-Controlled, No-Blind-Generation",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -564,7 +564,7 @@
           "priority": "low",
           "type": "repo-governance",
           "principle": "Transparent-AI-Assistance, Better-Review-Awareness",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/pull_request_template.md",
@@ -734,9 +734,9 @@
   "meta": {
     "total_items": 34,
     "by_status": {
-      "completed": 11,
+      "completed": 17,
       "partial": 0,
-      "open": 23
+      "open": 17
     },
     "notes": [
       "Diese Todo-Datei baut nicht weitere Produktfeatures, sondern die GitHub-, Release- und Betriebsreife des Projekts aus.",

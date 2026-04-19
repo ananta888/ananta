@@ -35,6 +35,18 @@ Notes:
 
 ```
 
+## AI Assistance
+
+- [ ] No substantial AI assistance.
+- [ ] AI-assisted drafting or implementation was used.
+- [ ] AI-assisted changes touch a high-risk area listed in `docs/ai-assisted-development.md`.
+
+Review notes:
+
+```text
+
+```
+
 ## Release Impact
 
 - [ ] No release notes needed.
