@@ -700,6 +700,72 @@ body.dark-mode .progress-bar {
   justify-content: flex-end;
 }
 
+.shared-preset-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shared-preset-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.shared-preset-chip span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shared-form-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.shared-form-field.inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shared-form-field-label {
+  font-weight: 600;
+}
+
+.shared-form-field.invalid input,
+.shared-form-field.invalid select,
+.shared-form-field.invalid textarea {
+  border-color: #ef4444;
+}
+
+.shared-summary-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.shared-summary-metrics {
+  margin-top: 0;
+}
+
+.shared-table-shell {
+  display: block;
+}
+
+.shared-table-header,
+.shared-table-toolbar {
+  gap: 8px;
+}
+
+.shared-table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .shared-metric-card {
   display: grid;
   gap: 4px;

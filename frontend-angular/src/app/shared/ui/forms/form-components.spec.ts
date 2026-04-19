@@ -1,4 +1,6 @@
 import { ModeCardPickerComponent } from './mode-card-picker.component';
+import { FormFieldComponent } from './form-field.component';
+import { PresetPickerComponent } from './preset-picker.component';
 import { WizardShellComponent } from './wizard-shell.component';
 
 describe('shared form components', () => {
@@ -29,5 +31,26 @@ describe('shared form components', () => {
 
     expect(cmp.activeStep()?.id).toBe('review');
     expect(cmp.isLastStep()).toBe(true);
+  });
+
+  it('keeps preset picker selections generic', () => {
+    const cmp = new PresetPickerComponent();
+    const selected: string[] = [];
+    cmp.presets = [{ id: 'repo', title: 'Repository', description: 'Analyse' }];
+    cmp.selectPreset.subscribe(preset => selected.push(preset.id));
+
+    cmp.selectPreset.emit(cmp.presets[0]);
+
+    expect(selected).toEqual(['repo']);
+  });
+
+  it('keeps form field metadata separate from projected controls', () => {
+    const cmp = new FormFieldComponent();
+    cmp.label = 'Kontext';
+    cmp.hint = 'Hilft beim Planen.';
+    cmp.required = true;
+
+    expect(cmp.label).toBe('Kontext');
+    expect(cmp.required).toBe(true);
   });
 });

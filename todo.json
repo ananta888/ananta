@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.5",
   "created": "2026-04-19",
-  "updated": "2026-04-19T11:32:00Z",
+  "updated": "2026-04-19T11:42:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -315,7 +315,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Result-Clarity, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -335,7 +335,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Structured-Data-Reuse, Lower-Boilerplate",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -407,7 +407,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Preset-Reuse, Faster-Interaction",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -430,7 +430,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Form-Consistency, Better-Micro-UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -690,9 +690,9 @@
   "meta": {
     "total_items": 29,
     "by_status": {
-      "completed": 15,
+      "completed": 19,
       "partial": 0,
-      "open": 14
+      "open": 10
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",
