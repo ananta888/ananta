@@ -7,25 +7,25 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     <div class="card">
-      <h3>Onboarding Checklist</h3>
-      <div class="muted" style="font-size: 12px; margin-bottom: 8px;">Guided setup for first-time operators.</div>
+      <h3>Erste Schritte</h3>
+      <div class="muted" style="font-size: 12px; margin-bottom: 8px;">Markiere, was fuer deinen ersten lokalen Lauf bereits erledigt ist.</div>
       @for (item of items; track item.key) {
         <label class="row" style="justify-content: space-between; width: 100%;">
           <span>{{ item.label }}</span>
           <input type="checkbox" [checked]="item.done" (change)="toggle(item.key, $event)">
         </label>
       }
-      <div class="muted" style="font-size: 12px; margin-top: 8px;">Progress: {{ progress() }}%</div>
+      <div class="muted" style="font-size: 12px; margin-top: 8px;">Fortschritt: {{ progress() }}%</div>
     </div>
   `,
 })
 export class OnboardingChecklistComponent {
   items = [
-    { key: 'hub', label: 'Hub configured', done: false },
-    { key: 'agents', label: 'Worker agents added', done: false },
-    { key: 'llm', label: 'LLM provider configured', done: false },
-    { key: 'teams', label: 'Team and roles configured', done: false },
-    { key: 'templates', label: 'Templates reviewed', done: false },
+    { key: 'hub', label: 'Hub ist erreichbar', done: false },
+    { key: 'agents', label: 'Mindestens ein Worker ist verbunden', done: false },
+    { key: 'llm', label: 'LLM-Anbieter ist eingestellt', done: false },
+    { key: 'teams', label: 'Team und Rollen sind vorbereitet', done: false },
+    { key: 'templates', label: 'Vorlagen wurden geprueft', done: false },
   ];
 
   constructor() {

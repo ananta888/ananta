@@ -17,6 +17,7 @@ describe('DashboardComponent (benchmarks)', () => {
     getGoalGovernanceSummary: vi.fn(() => of(null)),
     getDemoPreview: vi.fn(() => of({ isolated: true, examples: [] })),
     planGoal: vi.fn(() => of({ created_task_ids: [], goal_id: null })),
+    createGoal: vi.fn(() => of({ created_task_ids: ['T-1'], goal: { id: 'G-1' } })),
     tasks: vi.fn(() => []),
     tasksLoading: vi.fn(() => false),
     tasksLastLoadedAt: vi.fn(() => 1739790000),
@@ -79,6 +80,24 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.toast = { success: vi.fn(), error: vi.fn() } as any;
     cmp.showFirstStartWizard = true;
     cmp.showAdvancedDashboard = false;
+    cmp.goalWizardStepIndex = 0;
+    cmp.goalWizardSteps = [
+      { id: 'goal', title: 'Ziel', helper: 'Beschreibe, was am Ende anders oder besser sein soll.' },
+      { id: 'context', title: 'Kontext', helper: 'Ergaenze Daten, Grenzen oder Fundstellen, damit weniger Rueckfragen entstehen.' },
+      { id: 'execution', title: 'Tiefe', helper: 'Waehle, wie gruendlich der Hub planen und Tasks erzeugen soll.' },
+      { id: 'safety', title: 'Sicherheit', helper: 'Lege fest, wie vorsichtig Ananta mit Freigaben und Pruefung umgehen soll.' },
+      { id: 'review', title: 'Pruefen', helper: 'Kontrolliere die Angaben, bevor der Hub Tasks erstellt.' },
+    ] as any;
+    cmp.executionDepthOptions = [
+      { value: 'quick', label: 'Schnell', description: 'Kleiner Plan mit wenigen Tasks fuer einfache Ziele.' },
+      { value: 'standard', label: 'Standard', description: 'Ausgewogener Plan mit Kontext, Umsetzung und Pruefung.' },
+      { value: 'deep', label: 'Gruendlich', description: 'Mehr Analyse, klarere Risiken und staerkere Nachweise.' },
+    ];
+    cmp.safetyLevelOptions = [
+      { value: 'safe', label: 'Vorsichtig', description: 'Mehr Review und keine riskanten automatischen Schritte.' },
+      { value: 'balanced', label: 'Ausgewogen', description: 'Normale Freigaben und sichtbare Pruefpunkte.' },
+      { value: 'fast', label: 'Schneller', description: 'Weniger Reibung fuer harmlose lokale Aufgaben.' },
+    ];
     return cmp;
   }
 
@@ -267,6 +286,63 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.quickGoalText).toBe('Plane einen Bugfix');
     expect(cmp.quickGoalContext).toBe('Kontext');
     expect(cmp.focusQuickGoal).toHaveBeenCalled();
+  });
+
+  it('guides goal modes through structured wizard steps', () => {
+    const cmp = createComponent();
+    cmp.setGoalMode({
+      id: 'repo',
+      title: 'Repo analysieren',
+      fields: [{ name: 'goal', label: 'Ziel', type: 'textarea' }],
+    });
+
+    expect(cmp.activeGoalWizardStep().id).toBe('goal');
+    expect(cmp.canContinueGoalWizard()).toBe(false);
+
+    cmp.goalModeData['goal'] = 'Analysiere das Repository';
+    expect(cmp.canContinueGoalWizard()).toBe(true);
+
+    cmp.nextGoalWizardStep();
+    expect(cmp.activeGoalWizardStep().id).toBe('context');
+    cmp.nextGoalWizardStep();
+    expect(cmp.activeGoalWizardStep().id).toBe('execution');
+    expect(cmp.selectedExecutionDepthLabel()).toBe('Standard');
+  });
+
+  it('submits guided goals with wizard metadata', () => {
+    hubApiMock.createGoal = vi.fn(() => of({ created_task_ids: ['T-1', 'T-2'], goal: { id: 'G-42' } }));
+    const cmp = createComponent();
+    cmp.refresh = vi.fn();
+    cmp.setGoalMode({
+      id: 'repo',
+      title: 'Repo analysieren',
+      fields: [{ name: 'goal', label: 'Ziel', type: 'textarea' }],
+    });
+    cmp.goalModeData['goal'] = 'Analysiere das Repository';
+    cmp.goalModeData['context'] = 'Nur Frontend';
+    cmp.goalModeData['execution_depth'] = 'deep';
+    cmp.goalModeData['safety_level'] = 'safe';
+
+    cmp.submitGuidedGoal();
+
+    expect(hubApiMock.createGoal).toHaveBeenCalledWith('http://hub:5000', {
+      mode: 'repo',
+      mode_data: {
+        goal: 'Analysiere das Repository',
+        context: 'Nur Frontend',
+        execution_depth: 'deep',
+        safety_level: 'safe',
+        wizard: {
+          execution_depth: 'deep',
+          safety_level: 'safe',
+          context: 'Nur Frontend',
+        },
+      },
+      create_tasks: true,
+    });
+    expect(cmp.quickGoalResult?.goal_id).toBe('G-42');
+    expect(cmp.selectedGoalMode).toBeNull();
+    expect(cmp.goalWizardStepIndex).toBe(0);
   });
 
   it('derives active inference runtime tile data from telemetry', () => {

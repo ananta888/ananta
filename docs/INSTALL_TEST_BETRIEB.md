@@ -34,7 +34,18 @@ Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
 
 5. Im Dashboard ein erstes Ziel eingeben oder die Demo-Vorschau oeffnen.
 
-### B. Weitere Compose-Varianten
+### B. Welche Compose-Variante passt?
+
+| Ziel | Variante | Empfehlung |
+| --- | --- | --- |
+| Demo ansehen oder erstes Goal planen | Lite-Stack | Standard fuer neue Nutzer. |
+| Lokal entwickeln | Lite-Stack mit `setup.ps1` | Gute Balance aus Einfachheit und reproduzierbarer Umgebung. |
+| Live-Code bearbeiten | Live-Code-Stack | Fuer schnelle Frontend-/Backend-Aenderungen im Container. |
+| Lokales Ollama unter WSL2/Vulkan nutzen | Lite + Ollama-WSL Overlay | Nur waehlen, wenn die lokale GPU-/WSL-Runtime gebraucht wird. |
+| Worker-Verteilung pruefen | Distributed Stack | Fuer Routing-, Team- und Mehr-Worker-Tests. |
+| Automatisierte Browsertests | Test-Stack | Fuer Playwright/CI, nicht fuer den normalen Browserzugriff. |
+
+### C. Weitere Compose-Befehle
 
    Unter WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service nutzen Sie stattdessen das additive Overlay:
    ```bash
@@ -45,7 +56,7 @@ Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
    powershell -ExecutionPolicy Bypass -File devtools/compose-lite.ps1 -Action up -Build
    ```
 
-### C. Manuelle Installation (Entwicklung)
+### D. Manuelle Installation (Entwicklung)
 
 #### AI-Agent (Hub oder Worker)
 1. In das Verzeichnis `agent/` wechseln.

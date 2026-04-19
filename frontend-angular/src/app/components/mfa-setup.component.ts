@@ -13,19 +13,19 @@ import { NotificationService } from '../services/notification.service';
       <h3>Multi-Faktor-Authentifizierung (MFA)</h3>
       @if (!setupData && !mfaEnabled) {
         <div>
-          <p>Erhöhen Sie die Sicherheit Ihres Kontos durch MFA.</p>
-          <button (click)="startSetup()" aria-label="MFA Einrichtung starten">MFA Einrichten</button>
+          <p>Schuetze dein Konto mit einem zweiten Login-Schritt.</p>
+          <button (click)="startSetup()" aria-label="MFA Einrichtung starten">MFA einrichten</button>
         </div>
       }
 
       @if (setupData) {
         <div class="setup-container">
-          <p id="mfa-step1">1. Scannen Sie diesen QR-Code mit einer Authentifikator-App (z.B. Google Authenticator, Authy):</p>
+          <p id="mfa-step1">1. Scanne den QR-Code mit deiner Authenticator-App.</p>
           <div class="qr-code">
             <img [src]="setupData.qr_code" alt="QR Code für MFA Einrichtung">
           </div>
-          <p>Oder geben Sie den Code manuell ein: <code aria-label="Geheimer Schlüssel">{{setupData.secret}}</code></p>
-          <p id="mfa-step2">2. Geben Sie den 6-stelligen Code aus der App ein:</p>
+          <p>Oder gib diesen Code manuell ein: <code aria-label="Geheimer Schlüssel">{{setupData.secret}}</code></p>
+          <p id="mfa-step2">2. Gib den 6-stelligen Code aus der App ein.</p>
           <div class="row">
             <label for="mfa-token" class="sr-only">Verifizierungscode</label>
             <input
@@ -46,8 +46,8 @@ import { NotificationService } from '../services/notification.service';
 
       @if (backupCodes.length > 0) {
         <div class="card success mfa-backup-section" role="alert" aria-live="polite">
-          <h4>⚠️ MFA Backup-Codes</h4>
-          <p>Bitte speichern Sie diese Codes an einem sicheren Ort. Sie können verwendet werden, wenn Sie den Zugriff auf Ihre App verlieren.</p>
+          <h4>MFA Backup-Codes</h4>
+          <p>Speichere diese Codes sicher. Du brauchst sie, falls du den Zugriff auf deine App verlierst.</p>
           <div
             class="grid cols-2 backup-codes-display"
             role="list"
@@ -62,8 +62,8 @@ import { NotificationService } from '../services/notification.service';
 
       @if (mfaEnabled && !setupData && backupCodes.length === 0) {
         <div>
-          <p class="status-success" role="status">✅ MFA ist für Ihr Konto aktiviert.</p>
-          <button (click)="disable()" class="button-outline danger" aria-label="MFA für dieses Konto deaktivieren">MFA Deaktivieren</button>
+          <p class="status-success" role="status">MFA ist fuer dein Konto aktiviert.</p>
+          <button (click)="disable()" class="button-outline danger" aria-label="MFA fuer dieses Konto deaktivieren">MFA deaktivieren</button>
         </div>
       }
     </div>
