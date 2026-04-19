@@ -1,0 +1,235 @@
+{
+  "release": {
+    "target": "v1.0.0",
+    "goal": "Deterministic and reproducible first release builds across backend, frontend, containers, and CI"
+  },
+  "status": "needs_work",
+  "summary": {
+    "backend_python_dependencies": "unpinned",
+    "frontend_npm_dependencies": "partially_unpinned",
+    "container_images": "partially_floating",
+    "global_tools": "unpinned",
+    "system_packages": "not_fully_reproducible",
+    "ci_runtime_versions": "not_verified"
+  },
+  "findings": [
+    {
+      "id": "python-deps-unpinned",
+      "severity": "high",
+      "area": "backend",
+      "file": "requirements.txt",
+      "problem": "Python dependencies are listed without fixed versions.",
+      "examples": ["flask", "requests", "sqlmodel", "redis", "pypdf", "python-docx", "openpyxl", "python-pptx", "pytest"]
+    },
+    {
+      "id": "pyproject-not-release-locked",
+      "severity": "high",
+      "area": "backend",
+      "file": "pyproject.toml",
+      "problem": "Python project metadata is not being used as a strict release lock source."
+    },
+    {
+      "id": "frontend-package-ranges",
+      "severity": "high",
+      "area": "frontend",
+      "file": "frontend-angular/package.json",
+      "problem": "Frontend dependencies use version ranges like caret (^), so installs can drift over time."
+    },
+    {
+      "id": "frontend-install-not-ci",
+      "severity": "high",
+      "area": "frontend",
+      "file": "frontend-angular/Dockerfile",
+      "problem": "Frontend image uses npm install instead of npm ci, reducing reproducibility."
+    },
+    {
+      "id": "backend-base-image-not-exact",
+      "severity": "medium",
+      "area": "containers",
+      "file": "Dockerfile",
+      "problem": "Backend image uses python:3.11-slim instead of an exact image tag or digest."
+    },
+    {
+      "id": "frontend-base-image-not-exact",
+      "severity": "medium",
+      "area": "containers",
+      "file": "frontend-angular/Dockerfile",
+      "problem": "Frontend image uses node:20-slim instead of an exact image tag or digest."
+    },
+    {
+      "id": "ollama-latest-tag",
+      "severity": "high",
+      "area": "containers",
+      "file": "docker-compose.base.yml",
+      "problem": "Compose uses ollama/ollama:latest, which is floating and not release-safe."
+    },
+    {
+      "id": "global-npm-tool-unpinned",
+      "severity": "high",
+      "area": "tooling",
+      "file": "Dockerfile",
+      "problem": "Global npm package opencode-ai is installed without a fixed version."
+    },
+    {
+      "id": "apt-packages-floating",
+      "severity": "medium",
+      "area": "containers",
+      "file": "Dockerfile",
+      "problem": "System packages are installed via apt-get without snapshot pinning, so package resolution may drift."
+    },
+    {
+      "id": "ci-runtime-pinning-not-confirmed",
+      "severity": "medium",
+      "area": "ci",
+      "file": ".github/workflows/*",
+      "problem": "CI runtime and action pinning was not verified and must be checked before release."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "priority": "P0",
+      "title": "Choose one Python release locking strategy",
+      "options": [
+        "Keep pyproject.toml with semantic ranges and generate a locked release artifact such as requirements.lock or constraints-release.txt",
+        "Use exact versions directly in pyproject.toml and mirror them into requirements.txt"
+      ],
+      "recommended": "Keep pyproject.toml developer-friendly, but generate a dedicated locked release file and make Docker/CI install only from that file.",
+      "done_when": [
+        "A single authoritative release lock file exists",
+        "Backend Docker build uses only the locked release file",
+        "CI install path uses only the locked release file"
+      ]
+    },
+    {
+      "id": "T2",
+      "priority": "P0",
+      "title": "Pin all Python runtime dependencies",
+      "actions": [
+        "Resolve all direct and transitive Python dependencies to fixed versions",
+        "Commit the lock output to the repository",
+        "Separate dev-only dependencies from release/runtime dependencies if not already separated"
+      ],
+      "done_when": [
+        "No release build step installs Python packages from unbounded names",
+        "Rebuilding the same commit resolves the same Python dependency graph"
+      ]
+    },
+    {
+      "id": "T3",
+      "priority": "P0",
+      "title": "Make frontend dependency installation deterministic",
+      "actions": [
+        "Remove ^ and ~ ranges from frontend-angular/package.json for release-critical dependencies",
+        "Keep package-lock.json committed and up to date",
+        "Change frontend-angular/Dockerfile from npm install to npm ci"
+      ],
+      "done_when": [
+        "npm ci succeeds from a clean checkout",
+        "Rebuilding the same commit resolves identical frontend packages"
+      ]
+    },
+    {
+      "id": "T4",
+      "priority": "P0",
+      "title": "Pin container base images and service images",
+      "actions": [
+        "Replace python:3.11-slim with an exact tag, ideally a digest",
+        "Replace node:20-slim with an exact tag, ideally a digest",
+        "Replace ollama/ollama:latest with an exact version or digest",
+        "Review any other service images for floating tags"
+      ],
+      "done_when": [
+        "No Dockerfile or Compose file uses latest",
+        "All release-relevant images use exact tags or digests"
+      ]
+    },
+    {
+      "id": "T5",
+      "priority": "P0",
+      "title": "Pin globally installed tools",
+      "actions": [
+        "Install opencode-ai with an explicit version",
+        "Document why this exact version is required",
+        "Add a smoke test proving the expected CLI version is present in the built image"
+      ],
+      "done_when": [
+        "Global CLI installs no longer float",
+        "Image build contains the expected tool version"
+      ]
+    },
+    {
+      "id": "T6",
+      "priority": "P1",
+      "title": "Reduce drift from apt packages",
+      "actions": [
+        "Minimize apt-installed packages to what runtime really needs",
+        "Consider a prebuilt internal base image or Debian snapshot pinning for stronger reproducibility",
+        "At minimum, document the exact base image used for release builds"
+      ],
+      "done_when": [
+        "Apt usage is minimized and documented",
+        "Release rebuild variance from system packages is reduced"
+      ]
+    },
+    {
+      "id": "T7",
+      "priority": "P1",
+      "title": "Audit CI version pinning",
+      "actions": [
+        "Pin setup-node and setup-python to exact runtime versions",
+        "Pin GitHub Actions to stable versions or commit SHAs where appropriate",
+        "Ensure CI uses the same lock inputs as local and Docker release builds"
+      ],
+      "done_when": [
+        "CI runtime versions are explicit",
+        "CI does not resolve a different dependency graph than release builds"
+      ]
+    },
+    {
+      "id": "T8",
+      "priority": "P1",
+      "title": "Define supported release environment versions",
+      "actions": [
+        "Document exact supported Python version",
+        "Document exact supported Node version",
+        "Document exact supported Docker/Compose baseline",
+        "Document expected service versions for Redis, Postgres, Ollama, and Playwright/Chromium where relevant"
+      ],
+      "done_when": [
+        "README or release docs clearly state supported versions",
+        "Developers can reproduce the intended build/runtime environment"
+      ]
+    },
+    {
+      "id": "T9",
+      "priority": "P1",
+      "title": "Add release reproducibility verification",
+      "actions": [
+        "Build backend and frontend images from a clean state",
+        "Run smoke tests against those images",
+        "Rebuild from the same commit and verify package/image/tool versions match"
+      ],
+      "done_when": [
+        "Two independent builds from the same commit produce matching dependency and image versions",
+        "A release checklist includes this verification"
+      ]
+    }
+  ],
+  "preferred_repo_changes_next": [
+    "Add requirements.lock or constraints-release.txt",
+    "Update Dockerfile to install from the locked Python dependency file",
+    "Update frontend-angular/Dockerfile to use npm ci",
+    "Pin opencode-ai to an exact version",
+    "Replace floating image tags in docker-compose.base.yml",
+    "Add release environment version documentation"
+  ],
+  "release_gate": {
+    "must_be_true_before_first_release": [
+      "No floating production dependency installs remain",
+      "No latest container tags remain",
+      "No unpinned global CLI installs remain",
+      "Frontend and backend builds are reproducible from a clean checkout"
+    ]
+  }
+}
