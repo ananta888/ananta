@@ -32,5 +32,20 @@ describe('GoalDetailComponent result summary', () => {
     expect(cmp.failedTasks()).toBe(1);
     expect(cmp.openTasks()).toBe(1);
     expect(cmp.resultDescription()).toContain('fehlgeschlagen');
+    expect(cmp.resultSafetyExplanation()).toContain('Logs');
+  });
+
+  it('explains open verification and incomplete work as safety boundaries', () => {
+    const cmp = component();
+    cmp.goal = { status: 'running' };
+    cmp.tasks = [{ status: 'completed' }, { status: 'todo' }];
+    cmp.artifacts = [];
+    cmp.artifactSummary = null;
+    cmp.governance = null;
+
+    expect(cmp.resultSafetyExplanation()).toContain('offene Tasks');
+
+    cmp.tasks = [{ status: 'completed' }];
+    expect(cmp.resultSafetyExplanation()).toContain('Pruefhinweise');
   });
 });

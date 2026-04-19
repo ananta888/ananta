@@ -10,6 +10,7 @@ import { normalizeTaskStatus } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
+import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 
 @Component({
   standalone: true,
@@ -36,6 +37,10 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 
     @if (hub && view === 'board') {
       <div>
+        <div class="state-banner mb-md">
+          <strong>Wie das Board entscheidet</strong>
+          <p class="muted no-margin mt-sm">{{ decisionExplanation('routing') }} Blockierte Aufgaben bleiben sichtbar, weil Ananta dort bewusst auf Klaerung wartet.</p>
+        </div>
         <div class="card row gap-sm flex-end">
           <label for="new-task-input">Neuer Task
             <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task-Titel" aria-required="true" />
@@ -94,7 +99,7 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
                     </div>
                   }
                   @if (!tasksBy(col.id).length) {
-                    <div class="muted board-empty">Keine Tasks</div>
+                    <div class="muted board-empty">{{ emptyColumnHint(col.id) }}</div>
                   }
                 </div>
               </div>
@@ -123,6 +128,12 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
           <div class="card">
             <h3>Roadmap</h3>
             <div class="muted font-sm mb-sm">Blocked: {{ tasksBy('blocked').length }} | In Progress: {{ tasksBy('in_progress').length }}</div>
+            @if (tasksBy('blocked').length) {
+              <div class="state-banner warning mb-sm">
+                <strong>{{ term('blocked').label }}</strong>
+                <p class="muted no-margin mt-sm">{{ safetyBoundaryExplanation('blocked') }}</p>
+              </div>
+            }
             @for (t of getRoadmapTasks(); track t) {
               <div class="roadmap-task">
                 <strong>{{t.title}}</strong>
@@ -247,5 +258,17 @@ export class BoardComponent implements OnInit, OnDestroy {
       next: () => { this.newTitle = ''; this.err = ''; this.reload(); },
       error: () => { this.err = 'Fehler beim Anlegen'; }
     });
+  }
+
+  term = userFacingTerm;
+  decisionExplanation = decisionExplanation;
+  safetyBoundaryExplanation = safetyBoundaryExplanation;
+
+  emptyColumnHint(status: string): string {
+    const normalized = this.normalizeTaskStatus(status);
+    if (normalized === 'blocked') return 'Keine Aufgaben warten auf Klaerung.';
+    if (normalized === 'completed') return 'Noch keine Aufgaben abgeschlossen.';
+    if (normalized === 'in_progress') return 'Gerade keine aktive Bearbeitung.';
+    return 'Keine offenen Aufgaben.';
   }
 }

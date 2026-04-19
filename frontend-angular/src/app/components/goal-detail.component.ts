@@ -5,6 +5,7 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
@@ -65,14 +66,24 @@ import { interval, Subscription } from 'rxjs';
               <div class="muted font-sm">naechste Tasks</div>
             </div>
             <div class="card card-light">
-              <div class="muted font-sm">Artefakte</div>
+              <div class="muted font-sm">{{ term('artifact').label }}</div>
               <strong>{{ artifacts.length }}</strong>
-              <div class="muted font-sm">sichtbare Ergebnisse</div>
+              <div class="muted font-sm">{{ term('artifact').technicalLabel }} / sichtbare Resultate</div>
             </div>
             <div class="card card-light">
-              <div class="muted font-sm">Pruefung</div>
+              <div class="muted font-sm">{{ term('verification').label }}</div>
               <strong>{{ verificationLabel() }}</strong>
-              <div class="muted font-sm">Verification</div>
+              <div class="muted font-sm">{{ term('verification').technicalLabel }}</div>
+            </div>
+          </div>
+          <div class="grid cols-2 gap-sm mt-md">
+            <div class="state-banner">
+              <strong>Warum wird geprueft?</strong>
+              <p class="muted no-margin mt-sm">{{ decisionExplanation('verification') }}</p>
+            </div>
+            <div class="state-banner" [class.warning]="failedTasks() > 0 || openTasks() > 0">
+              <strong>Sicherheitsgrenze</strong>
+              <p class="muted no-margin mt-sm">{{ resultSafetyExplanation() }}</p>
             </div>
           </div>
           @if (headlineArtifact()) {
@@ -132,7 +143,8 @@ import { interval, Subscription } from 'rxjs';
           <!-- Rechte Spalte: Artefakte & Kosten -->
           <div class="column flex-column gap-md">
             <div class="card">
-              <h3 class="no-margin">Erzeugte Artefakte</h3>
+              <h3 class="no-margin">Erzeugte Ergebnisse</h3>
+              <p class="muted font-sm mt-sm">{{ term('artifact').technicalLabel }} bedeutet hier: {{ term('artifact').hint }}</p>
               <div class="artifact-list mt-md">
                 @for (art of artifacts; track art.task_id) {
                   <div class="artifact-item list-item clickable" [routerLink]="['/task', art.task_id]">
@@ -148,6 +160,7 @@ import { interval, Subscription } from 'rxjs';
 
             <div class="card">
               <h3 class="no-margin">Governance & Kosten</h3>
+              <p class="muted font-sm mt-sm">Governance fasst Freigaben, Pruefung und Kosten nachvollziehbar zusammen.</p>
               @if (costSummary) {
                 <div class="grid cols-2 gap-sm mt-md">
                    <div>
@@ -163,7 +176,7 @@ import { interval, Subscription } from 'rxjs';
               @if (governance) {
                 <div class="mt-md">
                    <div class="row space-between font-sm">
-                     <span>Verification:</span>
+                     <span>{{ term('verification').label }}:</span>
                      <strong>{{ governance.verification?.passed }}/{{ governance.verification?.total }} passed</strong>
                    </div>
                    <div class="row space-between font-sm mt-xs">
@@ -338,4 +351,14 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
     }
     return 'Noch fehlen sichtbare Ergebnisse. Starte oder pruefe die erzeugten Tasks, um ein Abschlussartefakt zu erhalten.';
   }
+
+  resultSafetyExplanation(): string {
+    if (this.failedTasks() > 0) return safetyBoundaryExplanation('failed');
+    if (this.openTasks() > 0) return 'Noch sind nicht alle Aufgaben fertig. Ergebnisse koennen sich aendern, bis offene Tasks abgeschlossen oder bewusst verworfen sind.';
+    if (this.verificationLabel() === 'offen') return safetyBoundaryExplanation('verification');
+    return 'Die sichtbaren Ergebnisse haben die bekannten Pruefschritte durchlaufen oder enthalten keine offenen Warnungen.';
+  }
+
+  term = userFacingTerm;
+  decisionExplanation = decisionExplanation;
 }
