@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-import { AppNavGroup, AppRouteArea, buildNavGroups } from '../models/route-metadata';
+import { AppNavGroup, AppRouteArea, AppShellMode, buildNavGroups } from '../models/route-metadata';
 import { MobileRuntimeService } from './mobile-runtime.service';
 
 @Injectable({ providedIn: 'root' })
@@ -13,18 +13,20 @@ export class AppShellStateService {
 
   readonly mobileNavOpen = signal(false);
   readonly darkMode = signal(false);
+  readonly mode = signal<AppShellMode>('simple');
   readonly area = signal<AppRouteArea>('General');
   readonly routeUrl = signal('/');
 
   init(): void {
     this.mobile.init();
     this.darkMode.set(this.applyStoredTheme());
+    this.mode.set(this.applyStoredMode());
     this.updateRouteContext();
     this.router.events.pipe(filter(event => event instanceof NavigationEnd)).subscribe(() => this.updateRouteContext());
   }
 
   navGroups(role?: string | null): AppNavGroup[] {
-    return buildNavGroups(role);
+    return buildNavGroups(role, this.mode());
   }
 
   toggleMobileNav(): void {
@@ -40,6 +42,17 @@ export class AppShellStateService {
     localStorage.setItem('ananta.dark-mode', String(next));
     this.applyThemeClass(next);
     this.darkMode.set(next);
+  }
+
+  toggleMode(): void {
+    const next: AppShellMode = this.mode() === 'simple' ? 'advanced' : 'simple';
+    localStorage.setItem('ananta.shell.mode', next);
+    this.mode.set(next);
+  }
+
+  private applyStoredMode(): AppShellMode {
+    const stored = localStorage.getItem('ananta.shell.mode');
+    return stored === 'advanced' ? 'advanced' : 'simple';
   }
 
   private applyStoredTheme(): boolean {
