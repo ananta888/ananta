@@ -1,0 +1,472 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": "6.4.1",
+  "created": "2026-04-19",
+  "updated": "2026-04-19T00:00:00Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Eine günstige, schnelle und robuste CI-Strategie für echte Live-LLM-Tests einführen, bei der die Standardpipeline deterministisch und billig bleibt, während wenige gezielte Smoke-Tests mit einem echten kleinen OpenAI-Modell wie gpt-4o-mini abgesichert werden.",
+    "notes": [
+      "Das bestehende Projekt hat bereits Compose-Test-Stack, Live-LLM-Testpfade, E2E-Compose und Release-Gates.",
+      "Ollama ist lokal und für manuelle oder schwerere Läufe sinnvoll, aber für günstige Standard-GitHub-Actions-Läufe eher unpraktisch.",
+      "Die neue Strategie soll Fast-CI, Live-LLM-Smoke und schwere Compose-/Release-Läufe sauber trennen."
+    ]
+  },
+  "categories": [
+    {
+      "name": "ci-test-tiering",
+      "label": "CI Test Tiering",
+      "items": [
+        {
+          "id": "LLMCI-001",
+          "title": "CI in fast, live-llm-smoke und heavy-compose klar aufteilen",
+          "description": "Die Pipeline in drei klar getrennte Ebenen schneiden: schneller deterministischer Standardlauf, kleiner echter Live-LLM-Smoke-Lauf und schwerer Compose-/Release-Lauf.",
+          "priority": "critical",
+          "type": "ci-cd",
+          "principle": "Layered-Validation, Cheap-Default-Confidence",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Es gibt klar getrennte Teststufen.",
+            "Normale PRs und Pushes laufen nicht automatisch durch schwere Live-LLM- oder Compose-Läufe.",
+            "Die Pipeline bleibt für den Alltag schnell und bezahlbar."
+          ]
+        },
+        {
+          "id": "LLMCI-002",
+          "title": "Fast-CI als harter Default ohne echtes LLM festlegen",
+          "description": "Die Standardpipeline für jeden Commit und PR auf deterministische Unit-, Integration- und Build-Läufe ohne echte LLM-Calls festlegen.",
+          "priority": "critical",
+          "type": "ci-cd",
+          "principle": "Deterministic-Default, Minimal-Cost-Mainline",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/quality-and-docs.yml",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Standard-CI nutzt keine echten LLM-Provider.",
+            "Normale Änderungen bleiben schnell validierbar.",
+            "API-Kosten und Flaky-Risiken im Default-Pfad sinken."
+          ]
+        },
+        {
+          "id": "LLMCI-003",
+          "title": "Live-LLM-Smoke nur auf main, nightly, workflow_dispatch oder PR-Label ausführen",
+          "description": "Echte LLM-Smoke-Tests nur kontrolliert ausführen, etwa auf main, per Nightly, manuell oder über ein bewusst gesetztes Label wie full-ci oder live-llm.",
+          "priority": "high",
+          "type": "ci-cd",
+          "principle": "Intentional-Live-Validation, Cost-Controlled-Execution",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Live-LLM-Läufe werden nicht auf jedem kleinen Commit automatisch gestartet.",
+            "Es gibt einen klaren Trigger-Mechanismus für echte LLM-Tests.",
+            "Kosten und Laufzeit bleiben kontrollierbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "openai-mini-live-llm-strategy",
+      "label": "OpenAI Mini Live LLM Strategy",
+      "items": [
+        {
+          "id": "LLMCI-010",
+          "title": "OpenAI als Standard-Provider für Live-LLM-CI festlegen",
+          "description": "Für GitHub Actions echte LLM-Smoke-Tests standardmäßig über OpenAI statt Ollama oder Copilot-basierte Hoffnungspfade fahren.",
+          "priority": "critical",
+          "type": "ci-cd",
+          "principle": "Pragmatic-Hosted-Live-Validation, Lower-CI-Friction",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/testing.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Live-LLM-CI nutzt standardmäßig OpenAI.",
+            "Ollama bleibt optional für lokal oder schwerere Spezialläufe.",
+            "GitHub-CI-Live-Tests werden einfacher und stabiler."
+          ]
+        },
+        {
+          "id": "LLMCI-011",
+          "title": "gpt-4o-mini als Standardmodell für CI-Smoke definieren",
+          "description": "Für Live-CI ein kleines, schnelles und günstiges Modell wie gpt-4o-mini als offiziellen Standard festlegen.",
+          "priority": "critical",
+          "type": "ci-cd",
+          "principle": "Cheap-Real-Model, Fast-Smoke-Signal",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/testing.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Es gibt ein offizielles kleines Standardmodell für CI.",
+            "Modellwahl ist dokumentiert und nicht zufällig.",
+            "Kosten und Laufzeit bleiben klein."
+          ]
+        },
+        {
+          "id": "LLMCI-012",
+          "title": "OpenAI API Key als GitHub Secret sauber integrieren",
+          "description": "Den OpenAI-Key über Repository- oder Environment-Secrets integrieren und die Workflows so aufbauen, dass ohne Secret die Live-LLM-Jobs sauber übersprungen oder deaktiviert werden.",
+          "priority": "critical",
+          "type": "security",
+          "principle": "Secret-Backed-Live-Validation, Safe-Optional-Execution",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/"
+          ],
+          "acceptance": [
+            "OPENAI_API_KEY ist sauber als Secret eingeplant.",
+            "Workflows brechen ohne Secret nicht chaotisch.",
+            "Live-LLM-Jobs sind optional und robust."
+          ]
+        },
+        {
+          "id": "LLMCI-013",
+          "title": "OpenAI Provider-Env und Modell-Env zentral standardisieren",
+          "description": "LIVE_LLM_PROVIDER, LIVE_LLM_MODEL und verwandte Variablen für CI konsistent definieren statt ad hoc über verschiedene Jobs zu verteilen.",
+          "priority": "high",
+          "type": "ci-cd",
+          "principle": "Centralized-Live-LLM-Config, Less-Workflow-Drift",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Provider- und Modellkonfiguration sind konsistent.",
+            "Workflows müssen dieselben Werte nicht wild duplizieren.",
+            "Modellwechsel bleiben einfacher kontrollierbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "small-real-llm-smoke-suite",
+      "label": "Small Real LLM Smoke Suite",
+      "items": [
+        {
+          "id": "LLMCI-020",
+          "title": "Nur ein bis drei echte Live-LLM-Smoke-Tests als offiziellen CI-Satz definieren",
+          "description": "Einen winzigen, gezielten Satz echter LLM-Tests definieren, der nur Kernsignale validiert statt große Teile der Testwelt gegen ein Live-Modell laufen zu lassen.",
+          "priority": "critical",
+          "type": "test-live-llm",
+          "principle": "Minimal-Real-LLM-Surface, High-Signal-Low-Cost",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Es gibt einen sehr kleinen offiziellen Live-LLM-Smoke-Satz.",
+            "Die Suite prüft Kernfähigkeit statt Vollabdeckung.",
+            "Kosten und Flaky-Risiko bleiben klein."
+          ]
+        },
+        {
+          "id": "LLMCI-021",
+          "title": "Live-LLM-Smoke auf kleine, robuste Assertions begrenzen",
+          "description": "Die echten LLM-Tests nur gegen grobe, stabile Signale prüfen, etwa Antwortform, Policy-Reaktion oder minimalen Planungserfolg, statt fragile inhaltliche Feinheiten zu erwarten.",
+          "priority": "critical",
+          "type": "test-live-llm",
+          "principle": "Robust-Smoke-Assertions, Less-Model-Variance-Pain",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/"
+          ],
+          "acceptance": [
+            "Assertions sind modellrobust und nicht überfein.",
+            "Kleine Modellabweichungen machen die Tests nicht sofort wertlos.",
+            "Live-Smokes bleiben verlässlich genug für CI."
+          ]
+        },
+        {
+          "id": "LLMCI-022",
+          "title": "Token-Limits und kurze Prompts für CI-Live-Tests strikt setzen",
+          "description": "Die Live-LLM-Smoke-Tests auf kleine Eingaben, kleine Outputs und harte Tokenlimits zuschneiden, damit Laufzeit und Kosten planbar bleiben.",
+          "priority": "high",
+          "type": "test-live-llm",
+          "principle": "Bounded-Live-Calls, Predictable-CI-Cost",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "tests/",
+            ".github/workflows/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Live-Smoke-Prompts bleiben klein.",
+            "Tokenverbrauch ist bewusst begrenzt.",
+            "Die Tests sind kostentechnisch kontrollierbar."
+          ]
+        },
+        {
+          "id": "LLMCI-023",
+          "title": "Kurze Timeouts und begrenzte Retries für Live-LLM-CI einführen",
+          "description": "Für OpenAI-basierte Live-CI kurze Timeouts und sparsame Retries setzen, damit Hänger oder API-Zuckungen nicht die gesamte Pipeline unverhältnismäßig aufblasen.",
+          "priority": "high",
+          "type": "ci-cd",
+          "principle": "Fail-Fast-Live-CI, Controlled-Retry-Behavior",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "tests/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Live-LLM-Jobs haben definierte kurze Timeouts.",
+            "Retries sind begrenzt und nachvollziehbar.",
+            "API-Aussetzer ruinieren nicht den gesamten CI-Alltag."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "compose-usage-policy-in-ci",
+      "label": "Compose Usage Policy in CI",
+      "items": [
+        {
+          "id": "LLMCI-030",
+          "title": "Compose in CI explizit als schwere Teststufe dokumentieren",
+          "description": "Klar dokumentieren, dass docker compose in GitHub Actions bei Ananta vorgesehen ist, aber bewusst nur für E2E, Stack-Smokes und release-nahe Validierung genutzt werden soll.",
+          "priority": "high",
+          "type": "ci-cd",
+          "principle": "Explicit-Compose-Scope, No-Accidental-Heavy-Default",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "docs/testing.md",
+            ".github/workflows/quality-and-docs.yml"
+          ],
+          "acceptance": [
+            "Compose-Nutzung in CI ist ausdrücklich erklärt.",
+            "Der schwere Charakter von Compose-Läufen ist dokumentiert.",
+            "Compose wird nicht versehentlich zum Default für alles."
+          ]
+        },
+        {
+          "id": "LLMCI-031",
+          "title": "Heavy Compose Jobs nur für Release, Nightly oder manuelle Ausführung nutzen",
+          "description": "Die Compose-basierten schwereren Läufe auf release-nahe oder manuell gewünschte Kontexte begrenzen statt sie pauschal überall laufen zu lassen.",
+          "priority": "high",
+          "type": "ci-cd",
+          "principle": "Selective-Heavy-Validation, Better-CI-Economics",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Schwere Compose-Läufe haben begrenzte Trigger.",
+            "Normale PRs werden nicht unnötig mit Full-Stack-Läufen belastet.",
+            "CI bleibt wirtschaftlicher."
+          ]
+        },
+        {
+          "id": "LLMCI-032",
+          "title": "OpenAI Live-Smoke ohne Compose als mittlere CI-Stufe ermöglichen",
+          "description": "Eine mittlere CI-Stufe einführen, die echte kleine OpenAI-Live-Tests ausführt, ohne dafür gleich den gesamten Compose-Stack hochzufahren.",
+          "priority": "critical",
+          "type": "ci-cd",
+          "principle": "Hosted-Live-Middle-Layer, Faster-Than-Full-Stack",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            ".github/workflows/",
+            "tests/",
+            "docs/testing.md"
+          ],
+          "acceptance": [
+            "Es gibt eine echte Live-LLM-Stufe ohne Compose-Vollstack.",
+            "Die mittlere Stufe ist schneller als E2E-Compose.",
+            "Reale Modellvalidierung wird günstiger und gangbarer."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "workflow-implementation-and-fallbacks",
+      "label": "Workflow Implementation und Fallbacks",
+      "items": [
+        {
+          "id": "LLMCI-040",
+          "title": "Eigenen Workflow oder Jobgruppe für live-llm-smoke anlegen",
+          "description": "Den OpenAI-basierten Live-LLM-Smoke-Lauf als klar erkennbare eigene Workflow-Stufe oder eigenen Workflow ausprägen.",
+          "priority": "high",
+          "type": "ci-cd",
+          "principle": "Visible-Live-Validation-Lane, Cleaner-CI-Structure",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Live-LLM-Smoke ist als eigener Pfad sichtbar.",
+            "Logs und Fehler sind klar von Standard-CI trennbar.",
+            "Die Workflow-Struktur bleibt verständlich."
+          ]
+        },
+        {
+          "id": "LLMCI-041",
+          "title": "Live-LLM-Jobs ohne Secret oder bei Fork-PRs sauber skippen",
+          "description": "Die Pipeline so gestalten, dass Live-LLM-Jobs bei fehlenden Secrets, Fork-PRs oder bewusst deaktivierten Kontexten kontrolliert übersprungen werden.",
+          "priority": "critical",
+          "type": "security",
+          "principle": "Safe-Secret-Aware-Skips, No-Leaky-CI-Behavior",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Fork-PRs lösen keine problematischen Secret-Pfade aus.",
+            "Fehlende Secrets erzeugen keinen Workflow-Müll.",
+            "Skip-Verhalten ist klar und sicher."
+          ]
+        },
+        {
+          "id": "LLMCI-042",
+          "title": "Fallback auf Mock- oder Skip-Modus bei OpenAI-Ausfall vorbereiten",
+          "description": "Für temporäre OpenAI-Probleme einen klaren Fallback oder wenigstens eine kontrollierte Fehlersicht definieren, damit CI nicht unnötig unklar wird.",
+          "priority": "medium",
+          "type": "ci-cd",
+          "principle": "Graceful-Live-Provider-Failure-Handling, Better-Diagnosis",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            ".github/workflows/",
+            "tests/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Provider-Ausfälle sind erkennbar und nicht bloß rätselhafte Red-Builds.",
+            "Live-LLM-Fehler lassen sich besser einordnen.",
+            "Es gibt einen klaren Umgang mit externer API-Störung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cost-control-and-diagnostics",
+      "label": "Cost Control und Diagnostics",
+      "items": [
+        {
+          "id": "LLMCI-050",
+          "title": "Kostenrahmen für Live-LLM-CI grob dokumentieren",
+          "description": "Eine kleine Kostenabschätzung für gpt-4o-mini-basierte Smoke-Läufe dokumentieren, damit die Nutzung nicht gefühlt, sondern bewusst gesteuert wird.",
+          "priority": "medium",
+          "type": "operations",
+          "principle": "Visible-Cost-Envelope, Conscious-CI-Economics",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "docs/testing.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Es gibt eine grobe Kostenvorstellung pro Live-LLM-Lauf.",
+            "Das Team oder du selbst können die Strategie bewusster steuern.",
+            "Live-LLM-CI bleibt wirtschaftlich einschätzbar."
+          ]
+        },
+        {
+          "id": "LLMCI-051",
+          "title": "Live-LLM-Jobartefakte auf kleine aber brauchbare Diagnose begrenzen",
+          "description": "Für OpenAI-Live-Smoke nur kompakte, sinnvolle Diagnoseartefakte sammeln, etwa Fehlersummaries, Modellname, Laufdauer und Testfallstatus.",
+          "priority": "medium",
+          "type": "ci-cd",
+          "principle": "Compact-Live-Diagnostics, Useful-Without-Bloat",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/ci-artifacts.md",
+            "tests/"
+          ],
+          "acceptance": [
+            "Live-Smoke-Läufe liefern brauchbare Diagnostik.",
+            "Artefakte sind nicht unnötig riesig.",
+            "Fehler lassen sich trotzdem schnell analysieren."
+          ]
+        },
+        {
+          "id": "LLMCI-052",
+          "title": "OpenAI-Modellwechsel zentral und risikoarm vorbereiten",
+          "description": "Die Konfiguration so schneiden, dass später bei Bedarf ein anderes kleines Hosted-Modell eingeführt werden kann, ohne die Workflows wild umzubauen.",
+          "priority": "low",
+          "type": "ci-cd",
+          "principle": "Swappable-Hosted-Live-Model, Lower-Future-Migration-Pain",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            ".github/workflows/",
+            "docs/"
+          ],
+          "acceptance": [
+            "Modellwechsel sind konfigurierbar statt tief hartkodiert.",
+            "Die Live-LLM-CI bleibt anpassbar.",
+            "Spätere Provider- oder Modellwechsel werden einfacher."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 18,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 18
+    },
+    "notes": [
+      "Diese Todo-Datei ist bewusst klein und pragmatisch gehalten: Ziel ist nicht eine zweite schwere Testwelt, sondern ein gangbarer echter Live-LLM-Pfad in GitHub Actions.",
+      "Ollama bleibt für lokale und manuelle schwerere Validierung sinnvoll; OpenAI gpt-4o-mini ist der bevorzugte CI-Live-Smoke-Weg.",
+      "Compose ist im Projekt bereits vorgesehen, soll in CI aber bewusst nur selektiv und nicht als universeller Default genutzt werden."
+    ],
+    "recommended_order": [
+      "LLMCI-001",
+      "LLMCI-002",
+      "LLMCI-003",
+      "LLMCI-010",
+      "LLMCI-011",
+      "LLMCI-012",
+      "LLMCI-013",
+      "LLMCI-020",
+      "LLMCI-021",
+      "LLMCI-022",
+      "LLMCI-023",
+      "LLMCI-032",
+      "LLMCI-040",
+      "LLMCI-041",
+      "LLMCI-030",
+      "LLMCI-031",
+      "LLMCI-050",
+      "LLMCI-051",
+      "LLMCI-042",
+      "LLMCI-052"
+    ]
+  }
+}
