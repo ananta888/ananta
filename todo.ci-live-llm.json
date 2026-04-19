@@ -314,7 +314,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Selective-Heavy-Validation, Better-CI-Economics",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/"
@@ -415,7 +415,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Graceful-Live-Provider-Failure-Handling, Better-Diagnosis",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -445,7 +445,7 @@
           "priority": "medium",
           "type": "operations",
           "principle": "Visible-Cost-Envelope, Conscious-CI-Economics",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/testing.md",
@@ -469,7 +469,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Compact-Live-Diagnostics, Useful-Without-Bloat",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".github/workflows/",
@@ -516,9 +516,9 @@
   "meta": {
     "total_items": 20,
     "by_status": {
-      "completed": 16,
-      "partial": 1,
-      "open": 3
+      "completed": 20,
+      "partial": 0,
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei ist bewusst klein und pragmatisch gehalten: Ziel ist nicht eine zweite schwere Testwelt, sondern ein gangbarer echter Live-LLM-Pfad in GitHub Actions.",

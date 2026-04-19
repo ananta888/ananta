@@ -40,6 +40,7 @@ jobs:
       LIVE_LLM_TIMEOUT_SEC: "20"
       LIVE_LLM_RETRY_ATTEMPTS: "1"
       LIVE_LLM_MAX_OUTPUT_TOKENS: "16"
+      LIVE_LLM_ALLOW_PROVIDER_SKIP: "1"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -49,6 +50,14 @@ jobs:
       - name: Skip when OpenAI secret is unavailable
         if: env.OPENAI_API_KEY == ''
         run: |
+          mkdir -p ci-artifacts/live-llm-smoke
+          cat > ci-artifacts/live-llm-smoke/smoke-summary.json <<'JSON'
+          {
+            "status": "skipped",
+            "reason": "OPENAI_API_KEY is not available",
+            "provider": "openai"
+          }
+          JSON
           echo "OPENAI_API_KEY is not available; skipping hosted Live LLM smoke."
       - name: Install backend deps
         if: env.OPENAI_API_KEY != ''
@@ -59,3 +68,10 @@ jobs:
       - name: Run one hosted OpenAI smoke request
         if: env.OPENAI_API_KEY != ''
         run: pytest -q tests/test_openai_live_smoke.py -rs
+      - name: Upload Live LLM smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-live-llm-smoke-diagnostics
+          path: ci-artifacts/live-llm-smoke/**
+          if-no-files-found: ignore
