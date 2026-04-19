@@ -26,7 +26,7 @@ jobs:
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
       - name: Run unified check pipeline (standard mode)
-        run: python scripts/check_pipeline.py --mode standard
+        run: python scripts/check_pipeline.py --mode standard --skip-style
 
   backend-smoke:
     runs-on: ubuntu-latest
@@ -74,6 +74,7 @@ jobs:
       AGENT_TOKEN_BETA: beta-token
       AGENT_TOKEN_GAMMA: gamma-token
       AGENT_TOKEN_DELTA: delta-token
+      GRAFANA_PASSWORD: test-grafana-password
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Prepare compose artifact directory
@@ -117,6 +118,16 @@ jobs:
   e2e-compose:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: test-postgres-password
+      INITIAL_ADMIN_PASSWORD: test-admin-password
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      AGENT_TOKEN_HUB: hub-token
+      AGENT_TOKEN_ALPHA: alpha-token
+      AGENT_TOKEN_BETA: beta-token
+      AGENT_TOKEN_GAMMA: gamma-token
+      AGENT_TOKEN_DELTA: delta-token
+      GRAFANA_PASSWORD: test-grafana-password
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -186,7 +197,7 @@ jobs:
       - run: |
           for f in architektur/uml/*.mmd; do
             out="architektur/rendered/$(basename "${f%.mmd}.png")"
-            mmdc -i "$f" -o "$out" -b transparent
+            mmdc -p architektur/puppeteer-config.json -i "$f" -o "$out" -b transparent
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

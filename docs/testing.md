@@ -205,7 +205,7 @@ URL-Reihenfolge fuer Ollama im Live-Agent-Chain-Test:
 - `http://127.0.0.1:11434/api/generate`
 - `http://host.docker.internal:11434/api/generate`
 
-Die uebergreifende Compose-/Host-/WSL-Matrix steht in [container-networking-matrix.md](/mnt/c/Users/pst/IdeaProjects/ananta/docs/container-networking-matrix.md).
+Die uebergreifende Compose-/Host-/WSL-Matrix steht in [container-networking-matrix.md](container-networking-matrix.md).
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
