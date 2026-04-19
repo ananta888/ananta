@@ -1,21 +1,12 @@
 from __future__ import annotations
 
-import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from flask import current_app, has_app_context
 
-from agent.common.api_envelope import unwrap_api_envelope
-from agent.config import settings
 from agent.models import TaskStatus
-from agent.research_backend import resolve_research_backend_config
-from agent.routes.tasks.orchestration_policy import (
-    derive_required_capabilities,
-    evaluate_worker_routing_policy,
-    persist_policy_decision,
-)
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.copilot_routing_advisor import (
     build_copilot_routing_prompt,
@@ -23,11 +14,15 @@ from agent.services.copilot_routing_advisor import (
     get_copilot_routing_advisor,
 )
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_delegation_services import (
+    TaskDelegationPlan,
+    TaskDelegationPlanner,
+    TaskDelegationResultWriter,
+    WorkerExecutionContextFactory,
+)
 from agent.services.task_context_policy_service import get_task_context_policy_service
-from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
-from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
 
 __all__ = [
     "TaskOrchestrationDependencies",
@@ -74,6 +69,9 @@ class TaskOrchestrationService:
 
     def __init__(self, dependencies: TaskOrchestrationDependencies | None = None) -> None:
         self.dependencies = dependencies or _default_dependencies()
+        self.delegation_planner = TaskDelegationPlanner(self.dependencies)
+        self.execution_context_factory = WorkerExecutionContextFactory(self.dependencies)
+        self.delegation_result_writer = TaskDelegationResultWriter(self.dependencies)
 
     def delegate_task(
         self,
@@ -90,243 +88,30 @@ class TaskOrchestrationService:
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
 
-        agent_url = data.agent_url
-        selected_by_policy = False
-        selection = None
-        policy_decision = None
-        routing_hint = None
-        effective_task_kind = data.task_kind or parent_task.get("task_kind")
-        effective_required_capabilities = (
-            data.required_capabilities
-            or parent_task.get("required_capabilities")
-            or derive_required_capabilities(parent_task, effective_task_kind)
-        )
-        preferred_backend = (
-            resolve_research_backend_config(
-                agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {}
-            ).get("provider")
-            if str(effective_task_kind or "").strip().lower() == "research"
-            else None
-        )
-        if not agent_url:
-            repos = self.dependencies.repository_registry()
-            available_workers = [
-                agent_registry_service.build_directory_entry(agent=worker, timeout=300)
-                for worker in repos.agent_repo.get_all()
-            ]
-            routing_hint = self.dependencies.routing_advisor().resolve_routing_hint(
-                task=parent_task,
-                workers=available_workers,
-                task_kind=effective_task_kind,
-                required_capabilities=effective_required_capabilities,
-            )
-            selection, _decision = evaluate_worker_routing_policy(
-                task=parent_task,
-                workers=available_workers,
-                decision_type="delegation",
-                task_kind=effective_task_kind,
-                required_capabilities=effective_required_capabilities,
-                task_id=task_id,
-                extra_details={"copilot_routing_hint": routing_hint} if routing_hint else None,
-            )
-            policy_decision = _decision
-            agent_url = selection.worker_url
-            selected_by_policy = True
-            if not agent_url:
-                return {
-                    "error": "no_worker_available",
-                    "code": 409,
-                    "data": {"reasons": selection.reasons},
-                }
-
-        subtask_id = f"sub-{uuid.uuid4()}"
-        my_url = settings.agent_url or f"http://localhost:{settings.port}"
-        callback_url = f"{my_url.rstrip('/')}/tasks/{task_id}/subtask-callback"
-        context_query = str(data.context_query or "").strip() or " ".join(
-            item
-            for item in [
-                str(parent_task.get("title") or "").strip(),
-                str(parent_task.get("description") or "").strip(),
-                str(data.subtask_description or "").strip(),
-            ]
-            if item
-        )
-        context_policy, retrieval_hints, task_neighborhood = (
-            self.dependencies.context_policy_service().build_context_policy(
-                parent_task=parent_task,
-                data=data,
-                effective_task_kind=effective_task_kind,
-            )
-        )
-        context_bundle = worker_job_service.create_context_bundle(
-            query=context_query,
-            parent_task_id=task_id,
-            goal_id=parent_task.get("goal_id"),
-            context_policy=context_policy,
-        )
-        expected_output_schema = dict(data.expected_output_schema or {})
-        allowed_tools = normalize_allowed_tools(data.allowed_tools)
-        routing_decision = worker_contract_service.build_routing_decision(
-            agent_url=agent_url,
-            selected_by_policy=selected_by_policy,
-            task_kind=effective_task_kind,
-            required_capabilities=effective_required_capabilities,
-            selection=selection,
-            preferred_backend=preferred_backend,
-        )
-        if routing_hint:
-            routing_decision["copilot_hint"] = dict(routing_hint)
-        worker_job = worker_job_service.create_worker_job(
-            parent_task_id=task_id,
-            subtask_id=subtask_id,
-            worker_url=agent_url,
-            context_bundle_id=context_bundle.id,
-            allowed_tools=allowed_tools,
-            expected_output_schema=expected_output_schema,
-            metadata=worker_contract_service.build_job_metadata(
-                routing_decision=routing_decision,
-                task_kind=effective_task_kind,
-                required_capabilities=effective_required_capabilities,
-                context_policy=context_policy,
-                extra_metadata={"selected_by_policy": selected_by_policy},
-            ),
-        )
-        workspace_scope = derive_workspace_scope(
+        plan = self.delegation_planner.plan(
+            task_id=task_id,
             parent_task=parent_task,
-            subtask_id=subtask_id,
-            worker_job_id=worker_job.id,
-            agent_url=agent_url,
+            data=data,
+            agent_registry_service=agent_registry_service,
         )
-        worker_workspace = build_worker_workspace(
-            scope=workspace_scope,
-            parent_task_id=task_id,
-            subtask_id=subtask_id,
-            worker_job_id=worker_job.id,
-            agent_url=agent_url,
-        )
-        artifact_sync = {
-            "enabled": True,
-            "sync_to_hub": True,
-            "collection_name": "task-execution-results",
-            "max_changed_files": 30,
-            "max_file_size_bytes": 2 * 1024 * 1024,
-        }
-        worker_execution_context = worker_contract_service.build_execution_context(
-            instructions=data.subtask_description,
-            context_bundle=context_bundle,
-            context_policy=context_policy,
-            workspace=worker_workspace,
-            artifact_sync=artifact_sync,
-            allowed_tools=allowed_tools,
-            expected_output_schema=expected_output_schema,
-            routing_decision=routing_decision,
-        )
+        if not isinstance(plan, TaskDelegationPlan):
+            return plan
 
-        delegation_payload = {
-            "id": subtask_id,
-            "title": data.subtask_description[:200],
-            "description": data.subtask_description,
-            "parent_task_id": task_id,
-            "priority": data.priority,
-            "team_id": parent_task.get("team_id"),
-            "goal_id": parent_task.get("goal_id"),
-            "goal_trace_id": parent_task.get("goal_trace_id"),
-            "task_kind": effective_task_kind,
-            "retrieval_intent": retrieval_hints["retrieval_intent"],
-            "required_context_scope": retrieval_hints["required_context_scope"],
-            "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
-            "required_capabilities": effective_required_capabilities,
-            "context_bundle_id": context_bundle.id,
-            "worker_execution_context": worker_execution_context,
-            "callback_url": callback_url,
-            "callback_token": settings.agent_token or "",
-            "source": "agent",
-            "created_by": settings.agent_name or "hub",
-            "context_bundle_policy": dict(context_policy),
-        }
-        try:
-            if not selected_by_policy:
-                policy_decision = persist_policy_decision(
-                    decision_type="delegation",
-                    status="approved",
-                    policy_name="worker_capability_routing",
-                    policy_version="worker-routing-v2",
-                    reasons=(selection.reasons if selection else ["manual_override"]),
-                    details={
-                        "task_kind": data.task_kind,
-                        "required_capabilities": effective_required_capabilities,
-                        "manual_override": True,
-                        "copilot_routing_hint": routing_hint,
-                        "context_bundle_policy": context_policy,
-                        "retrieval_hints": retrieval_hints,
-                        "task_neighborhood": task_neighborhood,
-                    },
-                    task_id=task_id,
-                    worker_url=agent_url,
-                )
-            response = unwrap_api_envelope(
-                self.dependencies.forward_task_to_worker(
-                    agent_url,
-                    "/tasks",
-                    delegation_payload,
-                    token=data.agent_token or "",
-                )
-            )
-        except Exception as exc:
-            return {"error": "delegation_failed", "code": 502, "data": {"details": str(exc)}}
-
-        subtasks = list(parent_task.get("subtasks") or [])
-        subtasks.append(
-            {
-                "id": subtask_id,
-                "agent_url": agent_url,
-                "description": data.subtask_description,
-                "status": "created",
-            }
+        bundle = self.execution_context_factory.build(
+            task_id=task_id,
+            parent_task=parent_task,
+            data=data,
+            plan=plan,
+            worker_job_service=worker_job_service,
+            worker_contract_service=worker_contract_service,
         )
-        self.dependencies.update_task_status(
-            task_id,
-            parent_task.get("status", "in_progress"),
-            context_bundle_id=context_bundle.id,
-            current_worker_job_id=worker_job.id,
-            worker_execution_context=worker_execution_context,
-            subtasks=subtasks,
-            event_type="task_delegated",
-            event_actor="hub",
-            event_details={
-                "delegated_to": agent_url,
-                "subtask_id": subtask_id,
-                "context_bundle_id": context_bundle.id,
-                "worker_job_id": worker_job.id,
-                "policy": "hub_central_queue",
-                "selected_by_policy": selected_by_policy,
-                "copilot_routing_hint": routing_hint,
-                "context_bundle_policy": context_policy,
-                "retrieval_hints": retrieval_hints,
-                "task_neighborhood": task_neighborhood,
-                "workspace_scope": workspace_scope,
-                "policy_decision_id": getattr(policy_decision, "id", None),
-            },
+        return self.delegation_result_writer.forward_and_write(
+            task_id=task_id,
+            parent_task=parent_task,
+            data=data,
+            plan=plan,
+            bundle=bundle,
         )
-        return {
-            "data": {
-                "status": "delegated",
-                "subtask_id": subtask_id,
-                "agent_url": agent_url,
-                "response": response,
-                "selected_by_policy": selected_by_policy,
-                "selection_reasons": selection.reasons if selection else ["manual_override"],
-                "worker_selection": routing_decision,
-                "copilot_routing_hint": routing_hint,
-                "policy_decision_id": getattr(policy_decision, "id", None),
-                "context_bundle_id": context_bundle.id,
-                "worker_job_id": worker_job.id,
-                "context_bundle_policy": context_policy,
-                "retrieval_hints": retrieval_hints,
-                "task_neighborhood": task_neighborhood,
-                "workspace_scope": workspace_scope,
-            }
-        }
 
     def complete_task(
         self,

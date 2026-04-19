@@ -18,8 +18,6 @@ import {
   ContextPolicyStatus,
   ContractsStatus,
   DashboardStatsBlock,
-  GoalDetail,
-  GoalGovernanceSummary,
   GoalListEntry,
   HubCopilotStatus,
   LlmEffectiveRuntime,
@@ -37,14 +35,17 @@ import { StatusTone } from '../shared/ui/state';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
+import { DashboardAgentStatusPanelComponent } from './dashboard-agent-status-panel.component';
 import { DashboardAutopilotPanelComponent } from './dashboard-autopilot-panel.component';
 import { DashboardTimelinePanelComponent } from './dashboard-timeline-panel.component';
 import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.component';
 import { DashboardDemoPreviewComponent, DemoPreviewExample } from './dashboard-demo-preview.component';
 import { DashboardFacade } from './dashboard.facade';
+import { DashboardGoalReportingFacade } from './dashboard-goal-reporting.facade';
 import { DashboardGoalGovernanceSummaryCardComponent } from './dashboard-goal-governance-summary-card.component';
 import { DashboardPersonalWorkspaceComponent } from './dashboard-personal-workspace.component';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
+import { DashboardWorkspaceViewModelService } from './dashboard-workspace-view-model.service';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from '../shared/ui/state';
 import { ExplanationNoticeComponent, KeyValueGridComponent, NextStepsComponent, SafetyNoticeComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
@@ -58,6 +59,7 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
     FormsModule,
     RouterLink,
     OnboardingChecklistComponent,
+    DashboardAgentStatusPanelComponent,
     DashboardAutopilotPanelComponent,
     DashboardTimelinePanelComponent,
     DashboardBenchmarkPanelComponent,
@@ -479,41 +481,7 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
     }
 
     @if (agentsList.length > 0 && showAdvancedDashboard) {
-      <div class="card">
-        <h3>Agenten Status</h3>
-        <div class="grid cols-4">
-          @for (agent of agentsList; track agent) {
-            <div class="agent-card">
-              <div class="row gap-sm">
-                <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'" role="status" [attr.aria-label]="agent.name + ' ist ' + (agent.status === 'online' ? 'online' : 'offline')"></div>
-                <span class="font-weight-medium">{{agent.name}}</span>
-                <span class="muted font-sm">{{agent.role}}</span>
-              </div>
-              <div class="muted font-sm mt-sm row space-between">
-                <span>Routing: {{ agentRoutingState(agent) }}</span>
-                <span>Load: {{ agentCurrentLoad(agent) }}</span>
-              </div>
-              @if (agent?.liveness) {
-                <div class="muted font-sm mt-sm">
-                  Last seen: {{ agentLastSeen(agent) }}
-                  @if (agent?.liveness?.stale_seconds !== undefined && agent?.liveness?.stale_seconds !== null) {
-                    <span> · stale {{ agent.liveness.stale_seconds }}s</span>
-                  }
-                </div>
-              }
-              @if (agent?.security_level) {
-                <div class="muted font-sm mt-sm">Security: {{ agent.security_level }}</div>
-              }
-              @if (agent.resources) {
-                <div class="muted font-sm mt-sm row space-between">
-                  <span>CPU: {{agent.resources.cpu_percent | number:'1.0-1'}}%</span>
-                  <span>RAM: {{agent.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</span>
-                </div>
-              }
-            </div>
-          }
-        </div>
-      </div>
+      <app-dashboard-agent-status-panel [agents]="agentsList"></app-dashboard-agent-status-panel>
     }
 
     @if (!stats && hub && viewState.loading) {
@@ -542,6 +510,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected hubApi = inject(ControlPlaneFacade);
   protected taskFacade = inject(TaskManagementFacade);
   private facade = inject(DashboardFacade);
+  private goalReporting = inject(DashboardGoalReportingFacade);
+  private workspaceViewModel = inject(DashboardWorkspaceViewModelService);
   readonly liveState = this.hubApi;
 
   hub = this.dir.list().find(a => a.role === 'hub');
@@ -600,11 +570,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   autopilotSecurityLevel: AutopilotSecurityLevel = 'safe';
   get benchmarkTaskKind(): BenchmarkTaskKind { return this.facade.benchmarkTaskKind; }
   set benchmarkTaskKind(v: BenchmarkTaskKind) { this.facade.benchmarkTaskKind = v; }
-  goalsList: GoalListEntry[] = [];
-  selectedGoalId = '';
-  goalDetail: GoalDetail | null = null;
-  goalGovernance: GoalGovernanceSummary | null = null;
-  goalReportingLoading = false;
+  get goalsList(): GoalListEntry[] { return this.goalReporting.state.goals; }
+  get selectedGoalId(): string { return this.goalReporting.state.selectedGoalId; }
+  get goalDetail() { return this.goalReporting.state.goalDetail; }
+  get goalGovernance() { return this.goalReporting.state.goalGovernance; }
+  get goalReportingLoading(): boolean { return this.goalReporting.state.loading; }
   goalModes: GoalModeDefinition[] = [];
   selectedGoalMode: GoalModeDefinition | null = null;
   goalModeData: Record<string, unknown> = {};
@@ -1017,29 +987,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   recentGoals(): GoalListEntry[] {
-    return this.goalsList.slice(0, 3);
+    return this.goalReporting.recentGoals(3);
   }
 
   activeGoalCount(): number {
-    return this.goalsList.filter((goal: any) => !['completed', 'failed', 'cancelled'].includes(String(goal?.status || '').toLowerCase())).length;
+    return this.goalReporting.activeGoalCount();
   }
 
   nextTaskCount(): number {
-    const tasks = typeof this.taskFacade.tasks === 'function' ? this.taskFacade.tasks() : [];
-    return Array.isArray(tasks)
-      ? tasks.filter((task: any) => !['completed', 'done'].includes(String(task?.status || '').toLowerCase())).length
-      : 0;
+    return this.workspaceViewModel.nextTaskCount(typeof this.taskFacade.tasks === 'function' ? this.taskFacade.tasks() : []);
   }
 
   starterProgress(): { done: number; total: number; label: string } {
-    const checks = [
-      this.showFirstStartWizard === false,
-      this.goalsList.length > 0 || Boolean(this.quickGoalResult),
-      this.nextTaskCount() > 0 || Boolean(this.quickGoalResult?.tasks_created),
-    ];
-    const done = checks.filter(Boolean).length;
-    const label = done >= checks.length ? 'Erste Nutzung ist vorbereitet.' : 'Naechster Schritt bleibt sichtbar.';
-    return { done, total: checks.length, label };
+    return this.workspaceViewModel.starterProgress({
+      firstStartCompleted: this.showFirstStartWizard === false,
+      goals: this.goalsList,
+      hasQuickGoalResult: Boolean(this.quickGoalResult),
+      nextTaskCount: this.nextTaskCount(),
+      createdTaskCount: Number(this.quickGoalResult?.tasks_created || 0),
+    });
   }
 
   agentSummaryItems(): KeyValueItem[] {
@@ -1085,91 +1051,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   refreshGoalReporting(goalId?: string) {
     if (!this.hub) return;
-    if (goalId) {
-      this.selectedGoalId = goalId;
-    }
-    this.goalReportingLoading = true;
-    this.hubApi.listGoals(this.hub.url).subscribe({
-      next: (goals) => {
-        this.goalsList = Array.isArray(goals)
-          ? [...goals].sort(
-              (left: any, right: any) =>
-                Number(right?.updated_at || right?.created_at || 0) - Number(left?.updated_at || left?.created_at || 0)
-            )
-          : [];
-        const selectedId = this.resolveGoalReportingId();
-        if (!selectedId) {
-          this.selectedGoalId = '';
-          this.goalDetail = null;
-          this.goalGovernance = null;
-          this.goalReportingLoading = false;
-          return;
-        }
-        this.selectedGoalId = selectedId;
-        let pending = 2;
-        const markDone = () => {
-          pending -= 1;
-          if (pending <= 0) {
-            this.goalReportingLoading = false;
-          }
-        };
-        this.hubApi.getGoalDetail(this.hub.url, selectedId).subscribe({
-          next: (detail) => {
-            this.goalDetail = detail;
-            markDone();
-          },
-          error: () => {
-            this.goalDetail = null;
-            markDone();
-            this.ns.error('Goal-Detail konnte nicht geladen werden');
-          }
-        });
-        this.hubApi.getGoalGovernanceSummary(this.hub.url, selectedId).subscribe({
-          next: (summary) => {
-            this.goalGovernance = summary;
-            markDone();
-          },
-          error: () => {
-            this.goalGovernance = null;
-            markDone();
-            this.ns.error('Goal-Governance konnte nicht geladen werden');
-          }
-        });
-      },
-      error: () => {
-        this.goalsList = [];
-        this.selectedGoalId = '';
-        this.goalDetail = null;
-        this.goalGovernance = null;
-        this.goalReportingLoading = false;
-        this.ns.error('Goals konnten nicht geladen werden');
-      }
-    });
-  }
-
-  agentRoutingState(agent: any): string {
-    const available = agent?.liveness?.available_for_routing;
-    if (available === false && agent?.status === 'online') return 'paused';
-    if (available === true) return 'ready';
-    return String(agent?.liveness?.status || agent?.status || 'unknown');
-  }
-
-  agentCurrentLoad(agent: any): number {
-    return Number(agent?.current_load ?? agent?.routing_signals?.current_load ?? 0);
-  }
-
-  agentLastSeen(agent: any): string {
-    const lastSeen = Number(agent?.liveness?.last_seen || 0);
-    if (!lastSeen) return '—';
-    return new Date(lastSeen * 1000).toLocaleTimeString();
+    this.goalReporting.refresh(this.hub.url, goalId);
   }
 
   goalCostTasks(): any[] {
-    const tasks = Array.isArray(this.goalDetail?.tasks) ? this.goalDetail.tasks : [];
-    return [...tasks]
-      .filter((task: any) => Number(task?.cost_summary?.cost_units || 0) > 0)
-      .sort((left: any, right: any) => Number(right?.cost_summary?.cost_units || 0) - Number(left?.cost_summary?.cost_units || 0))
-      .slice(0, 5);
+    return this.goalReporting.costTasks();
   }
 
   researchBackendProviderEntries(): any[] {
@@ -1318,16 +1204,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return Number.isFinite(value) && value > 0 ? value : null;
     }
     return null;
-  }
-
-  private resolveGoalReportingId(): string {
-    if (!this.goalsList.length) {
-      return '';
-    }
-    if (this.selectedGoalId && this.goalsList.some((goal: any) => goal?.id === this.selectedGoalId)) {
-      return this.selectedGoalId;
-    }
-    return String(this.goalsList[0]?.id || '');
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {
