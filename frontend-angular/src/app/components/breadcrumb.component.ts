@@ -3,6 +3,7 @@ import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { filter, distinctUntilChanged } from 'rxjs/operators';
+import { APP_ROUTE_META } from '../models/route-metadata';
 
 interface Breadcrumb {
   label: string;
@@ -88,23 +89,6 @@ interface Breadcrumb {
 export class BreadcrumbComponent implements OnInit {
   breadcrumbs: Breadcrumb[] = [];
 
-  private routeLabels: { [key: string]: string } = {
-    'dashboard': 'Dashboard',
-    'settings': 'Settings',
-    'audit-log': 'Audit Log',
-    'agents': 'Agents',
-    'panel': 'Agent Panel',
-    'templates': 'Templates',
-    'teams': 'Teams',
-    'board': 'Board',
-    'archived': 'Archived Tasks',
-    'graph': 'Task Graph',
-    'operations': 'Operations Console',
-    'auto-planner': 'Auto Planner',
-    'webhooks': 'Webhooks',
-    'task': 'Task Details'
-  };
-
   constructor(
     private router: Router,
     private activatedRoute: ActivatedRoute
@@ -137,8 +121,7 @@ export class BreadcrumbComponent implements OnInit {
         url += `/${routeURL}`;
       }
 
-      // Get label from route data or use default
-      const label = child.snapshot.data['breadcrumb'] || this.getLabelFromUrl(routeURL, child);
+    const label = child.snapshot.data['breadcrumb'] || this.getLabelFromUrl(routeURL, child);
 
       if (label && routeURL !== '') {
         breadcrumbs.push({ label, url });
@@ -154,14 +137,13 @@ export class BreadcrumbComponent implements OnInit {
     const segments = url.split('/');
     const firstSegment = segments[0];
 
-    // Check if we have a predefined label
-    if (this.routeLabels[firstSegment]) {
-      // For parameterized routes, try to get the parameter value
+    const meta = APP_ROUTE_META[firstSegment];
+    if (meta) {
       if (segments.length > 1) {
         const param = segments[1];
-        return `${this.routeLabels[firstSegment]}: ${param}`;
+        return `${meta.label}: ${param}`;
       }
-      return this.routeLabels[firstSegment];
+      return meta.label;
     }
 
     // Fallback: capitalize first segment
