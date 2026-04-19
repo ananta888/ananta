@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Hotspot-Reduction, UI-Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -44,7 +44,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Thin-Component, ViewModel-First",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -90,7 +90,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Dedicated-Flow-State, Fewer-UI-Races",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -186,7 +186,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Core-Hotspot-Reduction, Safer-Changes",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -205,7 +205,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Planning-Separation, Better-Testing",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -227,7 +227,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Builder-Pattern, Less-Inline-Construction",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -250,7 +250,7 @@
           "priority": "medium",
           "type": "refactor",
           "principle": "Completion-Clarity, Reduced-Side-Effect-Density",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -575,9 +575,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 8,
+      "completed": 15,
       "partial": 0,
-      "open": 16
+      "open": 9
     },
     "notes": [
       "Diese Todo-Datei bündelt die wichtigsten nächsten sinnvollen Verbesserungen nach den großen Architektur-, Accessibility- und Release-Runden.",
