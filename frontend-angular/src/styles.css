@@ -530,6 +530,86 @@ body.dark-mode .progress-bar {
   margin: 8px 0 0;
 }
 
+.shared-loading-state {
+  display: block;
+}
+
+.shared-status-badge {
+  gap: 6px;
+}
+
+.shared-status-badge.status-success,
+.shared-status-badge.status-active {
+  color: #047857;
+  border-color: #34d399;
+}
+
+.shared-status-badge.status-warning,
+.shared-status-badge.status-paused {
+  color: var(--warning);
+  border-color: #f59e0b;
+}
+
+.shared-status-badge.status-error {
+  color: #dc2626;
+  border-color: #ef4444;
+}
+
+.shared-status-badge.status-info {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.shared-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  display: inline-block;
+}
+
+.shared-section-card {
+  display: block;
+}
+
+.shared-section-header {
+  align-items: flex-start;
+}
+
+.shared-section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.shared-metric-card {
+  display: grid;
+  gap: 4px;
+}
+
+.shared-metric-card.metric-success,
+.shared-metric-card.metric-active {
+  border-color: #34d399;
+}
+
+.shared-metric-card.metric-warning,
+.shared-metric-card.metric-paused {
+  border-color: #f59e0b;
+}
+
+.shared-metric-card.metric-error {
+  border-color: #ef4444;
+}
+
+.shared-key-value-grid {
+  gap: 12px;
+}
+
+.shared-key-value-item {
+  min-width: 0;
+}
+
 .start-hero {
   display: flex;
   justify-content: space-between;

@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.5",
   "created": "2026-04-19",
-  "updated": "2026-04-19T11:08:00Z",
+  "updated": "2026-04-19T11:18:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -140,7 +140,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Loading-Consistency, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/ui-skeleton.component.ts",
@@ -160,7 +160,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Visual-Consistency, Semantic-Status",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -186,7 +186,7 @@
           "priority": "critical",
           "type": "component",
           "principle": "Composition, Consistent-Structure",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -275,7 +275,7 @@
           "priority": "critical",
           "type": "component",
           "principle": "Data-Display-Consistency, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -295,7 +295,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Compact-Details, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -690,9 +690,9 @@
   "meta": {
     "total_items": 29,
     "by_status": {
-      "completed": 5,
+      "completed": 10,
       "partial": 0,
-      "open": 24
+      "open": 19
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",
