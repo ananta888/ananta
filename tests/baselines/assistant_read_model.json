@@ -522,14 +522,14 @@
         },
         "codex": {
           "binary_available": "bool",
-          "binary_path": "NoneType",
+          "binary_path": "str",
           "command": "str",
           "install_hint": "str",
           "verify_command": "str"
         },
         "deerflow": {
           "binary_available": "bool",
-          "binary_path": "str",
+          "binary_path": "NoneType",
           "command": "str",
           "install_hint": "str",
           "verify_command": "str"
@@ -577,12 +577,7 @@
         "lmstudio": {
           "base_url": "str",
           "candidate_count": "int",
-          "candidates": [
-            {
-              "context_length": "NoneType",
-              "id": "str"
-            }
-          ],
+          "candidates": [],
           "configured": "bool",
           "host_kind": "str",
           "is_local": "bool",
@@ -673,10 +668,41 @@
           }
         },
         "platform_governance": {
+          "action_packs": [
+            {
+              "capabilities": [
+                "str"
+              ],
+              "description": "str",
+              "enabled": "bool",
+              "name": "str",
+              "source": "str"
+            }
+          ],
           "available_modes": [
             "str"
           ],
           "decisions": {
+            "action_pack_browser": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "action_pack_document": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "action_pack_file": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "action_pack_git": {
+              "allowed": "bool",
+              "reason": "str"
+            },
+            "action_pack_shell": {
+              "allowed": "bool",
+              "reason": "str"
+            },
             "mcp": {
               "allowed": "bool",
               "reason": "str"
@@ -915,7 +941,7 @@
         },
         "research_backend": {
           "binary_available": "bool",
-          "binary_path": "str",
+          "binary_path": "NoneType",
           "command": "str",
           "configured": "bool",
           "docker_available": "bool",
@@ -952,7 +978,7 @@
             },
             "deerflow": {
               "binary_available": "bool",
-              "binary_path": "str",
+              "binary_path": "NoneType",
               "command": "str",
               "configured": "bool",
               "display_name": "str",

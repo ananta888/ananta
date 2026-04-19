@@ -47,6 +47,23 @@
       "title": "Goal",
       "type": "string"
     },
+    "mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "generic",
+      "title": "Mode"
+    },
+    "mode_data": {
+      "additionalProperties": true,
+      "title": "Mode Data",
+      "type": "object"
+    },
     "source": {
       "anyOf": [
         {

@@ -41,6 +41,10 @@ def ping():
 - Jedes Untermodul mit `__init__.py` in `AGENT_PLUGIN_DIRS` wird als Plugin versucht.
 - Alternativ koennen Plugin-Modulnamen direkt in `AGENT_PLUGINS` angegeben werden.
 - Plugin-Kontrakt identisch zu Extensions: `init_app(app)` oder `bp`/`blueprint`.
+- Optional koennen Plugins ein Manifest `ananta-plugin.json` im Plugin-Paket oder `<plugin>.plugin.json` neben einem Modul bereitstellen.
+- Das Manifest kann `name`, `type`, `provider`, `enabled`, `replace`, `default_roles` und `compatibility` deklarieren.
+- `enabled: false` deaktiviert ein Plugin kontrolliert; der Startup-Report weist es als `disabled` aus, ohne das Modul zu importieren.
+- Der strukturierte Report steht unter `app.extensions["plugin_startup_report"]`.
 
 ## Strenges Extension-Modell (Core-Guardrails)
 

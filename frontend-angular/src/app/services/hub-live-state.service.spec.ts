@@ -44,6 +44,7 @@ describe('HubLiveStateService', () => {
     expect(directory.upsert).toHaveBeenCalledWith(expect.objectContaining({ url: 'http://hub:5000', token: 'new-token' }));
     expect(service.systemStreamConnected()).toBe(true);
     expect(service.lastSystemEvent()).toEqual(expect.objectContaining({ type: 'token_rotated' }));
+    expect(service.snapshot()).toEqual(expect.objectContaining({ systemStreamConnected: true, activeTaskLogStreams: 0 }));
   });
 
   it('deduplicates task logs and flags refresh-worthy events', () => {
@@ -58,6 +59,7 @@ describe('HubLiveStateService', () => {
     const state = service.taskLogState('T-1');
     expect(state.logs).toHaveLength(2);
     expect(state.connected).toBe(true);
+    expect(service.snapshot().activeTaskLogStreams).toBe(1);
     expect(service.shouldRefreshTask({ event_type: 'execution_result' })).toBe(true);
     expect(service.shouldRefreshTask({ event_type: 'log_line' })).toBe(false);
   });

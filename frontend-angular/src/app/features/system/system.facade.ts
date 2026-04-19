@@ -58,6 +58,16 @@ export class SystemFacade {
     return this.agentStatusState.statusFor(agentName);
   }
 
+  agentStatusSummary(agentNames: string[]): { online: number; offline: number; unknown: number } {
+    return agentNames.reduce((acc, agentName) => {
+      const status = String(this.agentStatus(agentName) || 'unknown').toLowerCase();
+      if (status === 'online') acc.online += 1;
+      else if (status === 'offline') acc.offline += 1;
+      else acc.unknown += 1;
+      return acc;
+    }, { online: 0, offline: 0, unknown: 0 });
+  }
+
   ensureSystemEvents(hubUrl?: string | null): void {
     this.liveState.ensureSystemEvents(hubUrl || this.resolveHubAgent()?.url);
   }
@@ -72,6 +82,10 @@ export class SystemFacade {
 
   lastSystemEvent(): any | null {
     return this.liveState.lastSystemEvent();
+  }
+
+  liveSnapshot(): { systemStreamConnected: boolean; lastSystemEvent: any | null; activeTaskLogStreams: number } {
+    return this.liveState.snapshot();
   }
 
   health(baseUrl: string, token?: string) {

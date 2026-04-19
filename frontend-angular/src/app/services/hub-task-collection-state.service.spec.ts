@@ -28,6 +28,7 @@ describe('HubTaskCollectionStateService', () => {
     expect(hubApi.listTasks).toHaveBeenCalledWith('http://hub:5000');
     expect(service.tasks()).toHaveLength(2);
     expect(service.childrenOf('T-1')).toHaveLength(1);
+    expect(service.snapshot().counts).toEqual({ todo: 1, in_progress: 1 });
     expect(service.lastLoadedAt()).not.toBeNull();
     expect(service.loading()).toBe(false);
   });

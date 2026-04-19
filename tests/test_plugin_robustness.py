@@ -35,6 +35,7 @@ def test_load_plugins_handles_crashy_plugin(tmp_path: Path, caplog):
             assert by_name["healthy_plugin"]["status"] == "loaded"
             assert by_name["healthy_plugin"]["registration_mode"] == "init_app"
             assert by_name["crashy_plugin"]["status"] == "failed"
+            assert by_name["crashy_plugin"]["contained"] is True
             assert report["errors"][0]["name"] == "crashy_plugin"
             assert any("Fehler beim Laden des Plugins crashy_plugin" in record.message for record in caplog.records)
     finally:
@@ -77,6 +78,38 @@ def test_load_plugins_multiple_providers_in_one_file(tmp_path: Path):
     finally:
         settings.plugin_dirs = old_dirs
         registry.clear()
+
+
+def test_load_plugins_reads_manifest_and_skips_disabled_plugins(tmp_path: Path):
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    disabled = plugin_dir / "disabled_plugin"
+    disabled.mkdir()
+    (disabled / "__init__.py").write_text(
+        "def init_app(app): app.extensions['disabled_started'] = True",
+        encoding="utf-8",
+    )
+    (disabled / "ananta-plugin.json").write_text(
+        '{"name":"disabled_plugin","type":"test","enabled":false}',
+        encoding="utf-8",
+    )
+
+    old_dirs = settings.plugin_dirs
+    old_plugins = settings.plugins
+    try:
+        settings.plugin_dirs = str(plugin_dir)
+        settings.plugins = ""
+        app = Flask(__name__)
+        loaded = load_plugins(app)
+        assert "disabled_plugin" not in loaded
+        assert "disabled_started" not in app.extensions
+        entry = next(e for e in app.extensions["plugin_startup_report"]["entries"] if e["name"] == "disabled_plugin")
+        assert entry["status"] == "disabled"
+        assert entry["contained"] is True
+        assert entry["manifest"]["type"] == "test"
+    finally:
+        settings.plugin_dirs = old_dirs
+        settings.plugins = old_plugins
 
 def test_evolution_provider_versioning_support(tmp_path: Path):
     """

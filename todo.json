@@ -292,7 +292,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Explicit-Metadata, Safer-Loading",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/plugin_loader.py",
@@ -336,7 +336,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Failure-Isolation, Safer-Extensibility",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/plugin_loader.py",
@@ -386,7 +386,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Stable-Read-Models, Safer-Refactors",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -694,7 +694,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Meaningful-Abstractions, Less-Layer-Noise",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/features/**",
@@ -714,7 +714,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Single-UI-Source-of-Truth, Reactive-Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/features/**",
@@ -896,9 +896,9 @@
   "meta": {
     "total_items": 37,
     "by_status": {
-      "completed": 19,
+      "completed": 24,
       "partial": 0,
-      "open": 18
+      "open": 13
     },
     "notes": [
       "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",

@@ -26,6 +26,7 @@ describe('SystemFacade', () => {
       disconnectSystemEvents: vi.fn(),
       systemStreamConnected: vi.fn(() => true),
       lastSystemEvent: vi.fn(() => ({ event_type: 'system' })),
+      snapshot: vi.fn(() => ({ systemStreamConnected: true, lastSystemEvent: { event_type: 'system' }, activeTaskLogStreams: 0 })),
     };
 
     facade.connectAgentStatuses(undefined, 9000);
@@ -36,7 +37,9 @@ describe('SystemFacade', () => {
     expect(facade.agentStatusState.reload).toHaveBeenCalled();
     expect(facade.liveState.ensureSystemEvents).toHaveBeenCalledWith('http://hub:5000');
     expect(facade.agentStatus('hub')).toBe('online');
+    expect(facade.agentStatusSummary(['hub', 'worker-a'])).toEqual({ online: 2, offline: 0, unknown: 0 });
     expect(facade.systemStreamConnected()).toBe(true);
+    expect(facade.liveSnapshot().systemStreamConnected).toBe(true);
   });
 
   it('delegates hub and agent api calls through existing services', () => {
