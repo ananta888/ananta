@@ -1,0 +1,33 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - duplicate
+      - invalid
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
+    - title: Security And Governance
+      labels:
+        - security
+        - governance
+    - title: Release And CI
+      labels:
+        - release
+        - ci
+    - title: Backend And APIs
+      labels:
+        - backend
+        - api
+    - title: Frontend
+      labels:
+        - frontend
+        - ui
+    - title: Documentation
+      labels:
+        - docs
+        - documentation
+    - title: Other Changes
+      labels:
+        - "*"
