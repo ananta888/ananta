@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tomllib
@@ -93,6 +94,18 @@ def run_command(args: list[str], env: dict[str, str] | None = None) -> subproces
         stderr=subprocess.STDOUT,
         check=False,
     )
+
+
+def docker_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    env = {**os.environ, **(extra or {})}
+    if env.get("ANANTA_DOCKER_CLEAN_PATH") == "1":
+        env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        env.setdefault("DOCKER_CONFIG", "/tmp/ananta-docker-config")
+    return env
+
+
+def npm_command() -> list[str]:
+    return shlex.split(os.environ.get("ANANTA_NPM_COMMAND", "npm"))
 
 
 def package_name(spec: str) -> str:
@@ -344,7 +357,15 @@ def check_compose_config() -> CheckResult:
     ]
     failures = []
     for command in commands:
-        result = run_command(command, env=env)
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=docker_env(env),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
         if result.returncode != 0:
             failures.append(f"{' '.join(command)} failed: {result.stdout[-1000:]}")
     return CheckResult(
@@ -356,7 +377,7 @@ def check_compose_config() -> CheckResult:
 
 def check_frontend_build() -> CheckResult:
     install = subprocess.run(
-        ["npm", "ci", "--no-audit", "--no-fund"],
+        [*npm_command(), "ci", "--no-audit", "--no-fund"],
         cwd=ROOT / "frontend-angular",
         text=True,
         stdout=subprocess.PIPE,
@@ -366,7 +387,7 @@ def check_frontend_build() -> CheckResult:
     if install.returncode != 0:
         return CheckResult("frontend-build", False, f"npm ci failed: {install.stdout[-1000:]}")
     build = subprocess.run(
-        ["npm", "run", "build"],
+        [*npm_command(), "run", "build"],
         cwd=ROOT / "frontend-angular",
         text=True,
         stdout=subprocess.PIPE,
@@ -387,7 +408,15 @@ def check_image_builds() -> CheckResult:
     ]
     failures = []
     for command in commands:
-        result = run_command(command)
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=docker_env(),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
         if result.returncode != 0:
             failures.append(f"{' '.join(command)} failed: {result.stdout[-1000:]}")
     return CheckResult(
