@@ -249,7 +249,7 @@
           "priority": "critical",
           "type": "test-unit",
           "principle": "Reusable-UI-Confidence, Stable-Baukasten",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/shared/ui/",
@@ -269,7 +269,7 @@
           "priority": "critical",
           "type": "test-unit",
           "principle": "UI-Hotspot-Confidence, Safer-Refactors",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/",
@@ -289,7 +289,7 @@
           "priority": "critical",
           "type": "test-unit",
           "principle": "Critical-Auth-Testability, No-Silent-Breakage",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/",
@@ -333,7 +333,7 @@
           "priority": "critical",
           "type": "test-integration",
           "principle": "Workflow-Confidence, Realistic-UI-State",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -373,7 +373,7 @@
           "priority": "medium",
           "type": "test-integration",
           "principle": "Product-Entry-Confidence, Safer-Onboarding",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -830,9 +830,9 @@
   "meta": {
     "total_items": 38,
     "by_status": {
-      "completed": 7,
+      "completed": 12,
       "partial": 0,
-      "open": 31
+      "open": 26
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",

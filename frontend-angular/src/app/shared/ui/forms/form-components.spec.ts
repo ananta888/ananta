@@ -33,6 +33,27 @@ describe('shared form components', () => {
     expect(cmp.isLastStep()).toBe(true);
   });
 
+  it('keeps wizard navigation outputs explicit', () => {
+    const cmp = new WizardShellComponent();
+    const events: string[] = [];
+    cmp.steps = [
+      { id: 'goal', title: 'Ziel', helper: 'Beschreibe das Ziel.' },
+      { id: 'context', title: 'Kontext', helper: 'Grenzen und Eingaben.' },
+    ];
+    cmp.activeIndex = 0;
+    cmp.next.subscribe(() => events.push('next'));
+    cmp.previous.subscribe(() => events.push('previous'));
+    cmp.submit.subscribe(() => events.push('submit'));
+    cmp.stepSelect.subscribe(index => events.push(`step:${index}`));
+
+    cmp.next.emit();
+    cmp.previous.emit();
+    cmp.submit.emit();
+    cmp.stepSelect.emit(1);
+
+    expect(events).toEqual(['next', 'previous', 'submit', 'step:1']);
+  });
+
   it('keeps preset picker selections generic', () => {
     const cmp = new PresetPickerComponent();
     const selected: string[] = [];
