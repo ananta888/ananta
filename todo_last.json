@@ -1,948 +1,654 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.8.3",
+  "version": "5.9.0",
   "created": "2026-04-18",
-  "updated": "2026-04-19T09:43:19Z",
+  "updated": "2026-04-19T10:58:40Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Die bestehende starke Ananta-Architektur auf Codeebene weiter haerten, Hotspots aufspalten, Backend- und Frontend-Komplexitaet reduzieren und die langfristige Wartbarkeit gegen Systembreite absichern.",
+    "review_goal": "Ananta fuer neue und nicht tief eingearbeitete Nutzer deutlich zugaenglicher machen, ohne das governance-first und verification-first Kernmodell aufzugeben.",
     "notes": [
-      "Der Code ist insgesamt nicht das Problem; das Hauptrisiko ist die Menge guter Logik, die sich in einigen grossen Hotspots verdichtet.",
-      "Backend-seitig sind die groessten Hebel die Entflechtung des Bootstrap-Layers, die Reduktion impliziter globaler Service-Abhaengigkeiten, die Aufteilung orchestration-lastiger Grossservices und haertere Plugin-/Contract-Grenzen.",
-      "Frontend-seitig sind die groessten Hebel die Zerlegung grosser Komponenten, staerkere ViewModel-/Facade-Schichten, deutlich bessere DTO-Typisierung und eine klarere Trennung zwischen UI-State, Polling/Eventstreams und HTTP-Clients."
+      "Aktuell ist Ananta technisch stark, aber die erste Begegnung bleibt fuer viele Nutzer noch zu systemisch, zu leer oder zu administrativ.",
+      "Die wichtigste Huerde ist nicht fehlende Funktion, sondern fehlende Fuehrung beim Einstieg: zu viele Begriffe, zu viele Flaechen, zu wenig sofort sichtbarer Nutzen.",
+      "Zugaenglichkeit soll hier nicht als reine Barrierefreiheit verstanden werden, sondern als niedrigere Einstiegshuerde, klarere UX, bessere Orientierung, einfachere Sprache und schnellere erste Erfolgserlebnisse."
     ]
   },
   "categories": [
     {
-      "name": "backend-bootstrap-and-app-startup",
-      "label": "Backend Bootstrap und App Startup",
+      "name": "demo-first-onboarding",
+      "label": "Demo First Onboarding",
       "items": [
         {
-          "id": "BBS-001",
-          "title": "Flask Bootstrap aus ai_agent.py in klar getrennte Startup-Module aufteilen",
-          "description": "Den derzeit stark verdichteten Einstiegspunkt in eigenstaendige Bootstrap-Module fuer Security, Blueprints, Extensions, Background Services und Runtime-Hints zerlegen, damit create_app nur noch die Reihenfolge orchestriert.",
+          "id": "ACC-001",
+          "title": "Echten Demo Mode mit sofort sichtbaren Beispieldaten einführen",
+          "description": "Beim ersten Start einen Demo-Modus bereitstellen, der vorkonfigurierte Goals, Tasks, Artefakte, Teams und Ergebnisse enthält, damit das System nicht leer und abstrakt wirkt.",
           "priority": "critical",
-          "type": "refactor",
-          "principle": "Separation-of-Concerns, Bootstrap-Clarity",
+          "type": "improvement",
+          "principle": "Instant-Value, No-Empty-State-First-Impression",
           "status": "completed",
           "effort": "large",
           "files": [
-            "agent/ai_agent.py",
-            "agent/bootstrap/",
-            "tests/"
-          ],
-          "acceptance": [
-            "create_app bleibt lesbar und orchestriert nur noch klar benannte Bootstrap-Schritte.",
-            "Security-Headers, Request-Hooks, Blueprint-Registrierung, Extension-Loading und Background-Service-Start liegen in separaten Modulen.",
-            "Die Startreihenfolge bleibt testbar und dokumentiert."
-          ]
-        },
-        {
-          "id": "BBS-002",
-          "title": "Alias-Routen und kanonische Routenregistrierung explizit trennen",
-          "description": "Die Mischung aus kanonischen API-Endpunkten und zuschaltbaren Alias-Routen klarer modellieren, damit Dokumentation, Route-Inventory und Implementierung nicht still auseinanderlaufen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Route-Clarity, Contract-Stability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/ai_agent.py",
+            "frontend-angular/",
             "agent/routes/",
-            "devtools/export_route_inventory.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "BBS-001"
-          ],
-          "acceptance": [
-            "Alias- und Kanonikrouten sind technisch und dokumentarisch sauber unterscheidbar.",
-            "Route-Inventory und API-Doku koennen beide Routenklassen korrekt ausgeben.",
-            "Alias-Pfade sind bewusst und nicht nur historisch mitgeschleppt."
-          ]
-        },
-        {
-          "id": "BBS-003",
-          "title": "Startup-Phasen mit strukturiertem Telemetrie- und Fehlerbild instrumentieren",
-          "description": "Die App-Initialisierung in klar erkennbare Phasen mit Dauer, Fehlerursache und Abbruchpunkt unterteilen, damit Startprobleme in Compose-, Test- und Plugin-Szenarien schneller lokalisiert werden koennen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Operability, Faster-Diagnosis",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/ai_agent.py",
-            "agent/metrics.py",
-            "agent/common/logging.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "BBS-001"
-          ],
-          "acceptance": [
-            "Der Startup-Pfad liefert strukturierte Phaseninformationen statt nur einen Gesamtwert.",
-            "Plugin-, DB-, Registry- und Background-Failures sind klarer unterscheidbar.",
-            "Compose- und lokale Startfehler koennen schneller eingegrenzt werden."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "backend-service-registry-and-dependencies",
-      "label": "Service Registry und Abhaengigkeiten",
-      "items": [
-        {
-          "id": "SRG-010",
-          "title": "CoreServiceRegistry in fachliche Teil-Registries zerlegen",
-          "description": "Die sehr breite CoreServiceRegistry in kleinere fachliche Aggregate wie TaskServices, GovernanceServices, IntegrationServices, KnowledgeServices und RuntimeServices aufspalten, um Komplexitaet und Kopplungsdruck zu reduzieren.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Modularity, Reduced-Cognitive-Load",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/service_registry.py",
             "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Die zentrale Registry ist in klar benannte Teil-Registries gegliedert.",
-            "Einzelne Routen und Services greifen nur auf relevante fachliche Aggregate zu.",
-            "Die Lesbarkeit und Navigierbarkeit des Service-Layers steigt spuerbar."
-          ]
-        },
-        {
-          "id": "SRG-011",
-          "title": "Globale get_service Patterns in Hotspots auf explizitere Abhaengigkeitsuebergabe umstellen",
-          "description": "Die starke Nutzung impliziter globaler Service-Zugriffe in besonders zentralen Hotspots schrittweise auf explizitere Konstruktor- oder Funktionsabhaengigkeiten umstellen.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Testability, Explicit-Dependencies",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SRG-010"
-          ],
-          "acceptance": [
-            "Wichtige Hotspot-Services nutzen weniger implizite globale Service-Aufloesung.",
-            "Unit-Tests koennen Kernservices einfacher isoliert instanzieren.",
-            "Abhaengigkeiten sind im Code sichtbarer und nachvollziehbarer."
-          ]
-        },
-        {
-          "id": "SRG-012",
-          "title": "Service-Grenzen gegen cross-domain Aufrufe haerter absichern",
-          "description": "Neben Import-Grenzen auch fachliche Service-Grenzen pruefen, damit nicht beliebige Services quer ueber viele Domänen hinweg direkt zusammengerufen werden.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Domain-Boundaries, Architectural-Discipline",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "scripts/",
-            "tests/"
-          ],
-          "dependencies": [
-            "SRG-010"
-          ],
-          "acceptance": [
-            "Cross-domain Serviceaufrufe sind benannt, begrenzt oder ueber Fassaden kanalisiert.",
-            "Neue Grenzverletzungen koennen mechanisch erkannt werden.",
-            "Service-Layer bleibt trotz Systembreite beherrschbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "backend-orchestration-hotspots",
-      "label": "Backend Orchestration Hotspots",
-      "items": [
-        {
-          "id": "ORC-020",
-          "title": "TaskOrchestrationService in kleinere fachliche Services zerlegen",
-          "description": "Den sehr dichten TaskOrchestrationService in kleinere Services fuer Routing-Hints, Context-Policy, Workspace-Scoping, Delegation, Completion und Evolution-Trigger aufteilen.",
-          "priority": "critical",
-          "type": "refactor",
-          "principle": "Hotspot-Reduction, Single-Responsibility",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "TaskOrchestrationService bleibt als schlanke Fassade oder Orchestrator erhalten.",
-            "Routing, Context-Policy, Completion und Evolution-Trigger liegen in separaten fachlichen Einheiten.",
-            "Die neuen Einheiten sind isoliert testbar."
-          ]
-        },
-        {
-          "id": "ORC-021",
-          "title": "Routing-Hint und Copilot-Advisor Logik in eigenen Entscheidungsdienst auslagern",
-          "description": "Prompt-Bau, Copilot-Routing-Hinweise und deren Validierung in einen eigenen Advisor-Service verschieben, damit Orchestrierung und beratende Modelllogik nicht in einer Klasse vermischt bleiben.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Decision-Isolation, Better-Testability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "ORC-020"
-          ],
-          "acceptance": [
-            "Copilot-Routing-Hints werden ausserhalb des Orchestrators aufgebaut und validiert.",
-            "Das Verhalten bleibt fuer fehlende oder invalide Modellantworten robust.",
-            "Policy-Entscheidungen und Advisor-Hinweise bleiben klar getrennt."
-          ]
-        },
-        {
-          "id": "ORC-022",
-          "title": "Task Neighborhood und Retrieval-Hints in dedizierten Kontextdienst verschieben",
-          "description": "Task-Nachbarschaft, Retrieval-Intent und Context-Policy-Ableitung in einen eigenen Kontextableitungsdienst verschieben, damit diese Logik nicht weiter im Delegationspfad aufgeht.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Context-Modularity, Reuse",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/context_bundle_service.py",
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "ORC-020"
-          ],
-          "acceptance": [
-            "Task-Nachbarschaft und Retrieval-Hints werden zentral und wiederverwendbar abgeleitet.",
-            "Andere Pfade koennen dieselbe Kontextlogik nutzen.",
-            "Delegationscode wird merklich kuerzer und klarer."
-          ]
-        },
-        {
-          "id": "ORC-023",
-          "title": "Workspace Scope und Worker Execution Context auf eigene Builder abstrahieren",
-          "description": "Die Ableitung von Workspace-Scope, Session-Scope und Worker-Execution-Context in dedizierte Builder-Komponenten ueberfuehren, damit der Delegationspfad weniger Objektzusammenbau enthaelt.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Builder-Clarity, Reduced-Inline-Complexity",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/worker_contract_service.py",
-            "agent/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "ORC-020"
-          ],
-          "acceptance": [
-            "Workspace- und Execution-Context-Bau ist aus dem Hauptfluss ausgelagert.",
-            "Die Builder sind einzeln testbar.",
-            "Der Orchestrator beschreibt eher den Ablauf als die komplette Datenkonstruktion."
-          ]
-        },
-        {
-          "id": "ORC-024",
-          "title": "Complete Task Pfad gegen semantische Ueberladung aufspalten",
-          "description": "Verification-Record, Worker-Result, Result-Memory, Statusupdate und Evolution-Trigger im Complete-Task-Pfad expliziter in getrennte Teilschritte zerlegen.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Completion-Clarity, Safer-State-Transitions",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/verification_service.py",
-            "agent/services/result_memory_service.py",
-            "tests/"
-          ],
-          "dependencies": [
-            "ORC-020"
-          ],
-          "acceptance": [
-            "Complete-Task-Logik ist in klar benannte Teilschritte zerlegt.",
-            "Fehler im Completion-Pfad lassen sich besser zuordnen.",
-            "Status- und Seiteneffekt-Reihenfolgen sind nachvollziehbarer."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "backend-plugins-and-extension-runtime",
-      "label": "Plugins und Extension Runtime",
-      "items": [
-        {
-          "id": "PLX-030",
-          "title": "Plugin-Manifest fuer deklarative Plugin-Metadaten einführen",
-          "description": "Neben Python-Attributen ein explizites Plugin-Manifest fuer Name, Typ, Provider, Replace-Regeln, Default-Rollen und Kompatibilitaetsinformationen einfuehren.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Explicit-Metadata, Safer-Loading",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/plugin_loader.py",
-            "plugins/",
-            "docs/extensions.md",
-            "tests/"
-          ],
-          "acceptance": [
-            "Plugins koennen ueber ein Manifest ihre Kernmetadaten deklarieren.",
-            "Loader-Entscheidungen basieren weniger auf verstreuten Modulattributen.",
-            "Konflikte und Fehlkonfigurationen sind klarer diagnostizierbar."
-          ]
-        },
-        {
-          "id": "PLX-031",
-          "title": "Startup-Plugin-Report mit Konflikten und effektiven Registrierungen erzeugen",
-          "description": "Beim Start einen strukturierten Report erzeugen, der geladene Plugins, registrierte Provider, Default-Uebernahmen, Replace-Konflikte und Fehlerfaelle sichtbar macht.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Observability, Plugin-Debuggability",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "agent/plugin_loader.py",
-            "agent/routes/",
-            "tests/"
-          ],
-          "dependencies": [
-            "PLX-030"
-          ],
-          "acceptance": [
-            "Es existiert ein strukturierter Report ueber geladene Plugins und Provider.",
-            "Konflikte, Replace-Faelle und Ignorierungen sind nachvollziehbar sichtbar.",
-            "Admins koennen Plugin-Zustaende ohne Code-Lesen verstehen."
-          ]
-        },
-        {
-          "id": "PLX-032",
-          "title": "Plugin-Failure-Containment verbessern",
-          "description": "Fehlerhafte Plugins noch strikter isolieren, damit defekte optionale Erweiterungen nicht unnoetig den Rest des Systems beim Start oder Reload destabilisieren.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Failure-Isolation, Safer-Extensibility",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/plugin_loader.py",
-            "tests/",
-            "docs/extensions.md"
-          ],
-          "dependencies": [
-            "PLX-030"
-          ],
-          "acceptance": [
-            "Defekte Plugins koennen kontrolliert deaktiviert oder isoliert werden.",
-            "Die restliche Plattform startet weiter, soweit fachlich moeglich.",
-            "Fehlertexte und Reports sind fuer Betreiber brauchbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "backend-contracts-and-runtime-safety",
-      "label": "Contracts und Runtime Safety",
-      "items": [
-        {
-          "id": "CTS-040",
-          "title": "Policy-, Capability- und Route-Inventories als feste Build-Artefakte erzeugen",
-          "description": "Die starke Governance- und Expositionslogik ueber automatisch erzeugte Artefakte fuer Policies, Capabilities und Routen staerker gegen Doku- und Implementierungsdrift absichern.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Drift-Control, Mechanical-Documentation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "devtools/",
-            "agent/routes/",
             "docs/",
             "tests/"
           ],
           "acceptance": [
-            "Route-, Policy- und Capability-Inventories werden automatisch erzeugt.",
-            "Drift zwischen Doku und Implementierung wird frueher sichtbar.",
-            "Die Artefakte sind fuer CI und Review nutzbar."
+            "Neue Nutzer koennen das System sofort mit Beispielinhalten erleben.",
+            "Demo-Daten zeigen typische Arbeitsfaelle statt nur technische Platzhalter.",
+            "Der Demo-Modus ist klar als solcher erkennbar und sicher getrennt vom echten Arbeitsmodus."
           ]
         },
         {
-          "id": "CTS-041",
-          "title": "Read-Model-Vertraege fuer Governance, Dashboard und Assistant haerter snapshotten",
-          "description": "Die bestehenden Read-Models ueber explizite Snapshot- oder Contract-Baselines staerker absichern, damit UI und externe Integrationen weniger still brechen.",
+          "id": "ACC-002",
+          "title": "Gefuehrten Erststart-Wizard fuer Demo oder echte Nutzung einbauen",
+          "description": "Einen ersten Startdialog anbieten, der zwischen Demo-Modus, leerem produktivem Start und optionalem Import vorhandener Konfigurationen unterscheidet.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Stable-Read-Models, Safer-Refactors",
+          "principle": "Guided-Start, Reduced-Decision-Fatigue",
           "status": "completed",
           "effort": "medium",
           "files": [
+            "frontend-angular/",
             "agent/routes/",
-            "tests/",
-            "frontend-angular/"
+            "tests/"
           ],
           "dependencies": [
-            "CTS-040"
+            "ACC-001"
           ],
           "acceptance": [
-            "Zentrale Read-Models haben Baselines oder Vertrags-Snapshots.",
-            "Bewusste Strukturveraenderungen werden explizit reviewt.",
-            "Frontend- und API-Regressionen werden frueher sichtbar."
+            "Der Erststart fuehrt Nutzer aktiv zu einem sinnvollen ersten Modus.",
+            "Demo- und Produktivstart werden klar getrennt erklaert.",
+            "Der Nutzer muss nicht erst Doku lesen, um sinnvoll loszulegen."
           ]
         },
         {
-          "id": "CTS-042",
-          "title": "Background-Service-Lifecycle und Shutdown-Semantik gezielter testen",
-          "description": "Die Lifecycle- und Shutdown-Mechanik des Systems gegen Race Conditions und halbe Start-/Stopp-Zustaende haerter absichern, insbesondere bei Background-Services und Eventstreams.",
-          "priority": "medium",
+          "id": "ACC-003",
+          "title": "In-App Beispielaufgaben als direkt klickbare Starter integrieren",
+          "description": "Mehrere typische Startbeispiele wie Repo-Analyse, Bugfix-Planung, Log-Diagnose oder Compose-Reparatur direkt im UI als anklickbare Starter bereitstellen.",
+          "priority": "high",
           "type": "improvement",
-          "principle": "Lifecycle-Safety, Robustness",
+          "principle": "Learning-by-Doing, Lower-Entry-Barrier",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/ai_agent.py",
-            "agent/lifecycle.py",
+            "frontend-angular/",
             "agent/services/",
             "tests/"
           ],
+          "dependencies": [
+            "ACC-001"
+          ],
           "acceptance": [
-            "Start-, Stop- und Shutdown-Pfade sind gezielt getestet.",
-            "Background Services hinterlassen keine unklaren Zwischenzustaende.",
-            "Graceful Shutdown bleibt auch unter Last oder bei Fehlern nachvollziehbar."
+            "Beispielaufgaben lassen sich ohne Vorwissen starten.",
+            "Die Beispiele fuehren zu realistisch wirkenden Ergebnissen.",
+            "Die Nutzer verstehen schneller, wofuer Ananta praktisch gut ist."
           ]
         }
       ]
     },
     {
-      "name": "frontend-shell-and-routing",
-      "label": "Frontend Shell und Routing",
+      "name": "simplified-entry-and-task-selection",
+      "label": "Vereinfachter Einstieg und Aufgabenwahl",
       "items": [
         {
-          "id": "FRT-050",
-          "title": "AppComponent weiter zu einer duennen Shell reduzieren",
-          "description": "Theme-Steuerung, Mobile-Nav-State, Bereichszuordnung und Eventstream-Trigger weiter aus der Root-Komponente in dedizierte UI- und Runtime-Services verschieben.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Thin-Shell, Cleaner-Root-Component",
+          "id": "ACC-010",
+          "title": "Startseite auf drei bis fuenf konkrete Hauptaktionen reduzieren",
+          "description": "Die erste echte Nutzflaeche fuer neue Nutzer nicht als Plattformuebersicht, sondern als aufgabenorientierte Startseite mit wenigen grossen Hauptaktionen gestalten.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Task-First-UX, Reduced-Complexity",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/features/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die Startseite zeigt wenige klar erkennbare Hauptanwendungsfaelle.",
+            "Neue Nutzer muessen nicht zuerst Teams, Agenten, Graphen oder Policies verstehen.",
+            "Die Startseite fuehrt direkt in sinnvolle Arbeitsmodi."
+          ]
+        },
+        {
+          "id": "ACC-011",
+          "title": "Gefuehrte Goal-Erstellung als echten mehrstufigen Wizard ausbauen",
+          "description": "Die vorhandenen Goal-Modi zu einem mehrstufigen Assistenten weiterentwickeln, der Kontext, Ziel, Eingabedaten, Ausfuehrungstiefe und Sicherheitsniveau erklaerend abfragt.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Progressive-Disclosure, Better-Input-Quality",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Goal-Erstellung fuehlt sich fuer neue Nutzer wie ein gefuehrter Ablauf an.",
+            "Die Eingaben sind strukturierter als im reinen Freitextmodus.",
+            "Die Schritte erklaeren, warum bestimmte Angaben sinnvoll sind."
+          ]
+        },
+        {
+          "id": "ACC-012",
+          "title": "Vorlagen fuer haeufige Goal-Typen als klickbare Presets anbieten",
+          "description": "Hauefige Arbeitsfaelle als direkt waehlbare Presets mit vorausgefuellten Feldern, kurzer Erklaerung und typischer Folgelogik anbieten.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Preset-Driven-Usability, Faster-First-Success",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/services/",
+            "docs/",
+            "tests/"
+          ],
+          "dependencies": [
+            "ACC-011"
+          ],
+          "acceptance": [
+            "Neue Nutzer koennen aus typischen Arbeitsfaellen direkt starten.",
+            "Presets sparen Formulierungs- und Planungsaufwand.",
+            "Die Presets sind nicht nur Marketingtexte, sondern echte nutzbare Startpunkte."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "simple-mode-vs-advanced-mode",
+      "label": "Simple Mode versus Advanced Mode",
+      "items": [
+        {
+          "id": "ACC-020",
+          "title": "Einfachen Nutzermodus und erweiterten Expertenmodus einführen",
+          "description": "Die UI in einen einfachen Modus fuer alltaegliche Nutzung und einen erweiterten Modus fuer Governance, Teams, Policies, Routing und Admin-Details aufteilen.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "Progressive-Complexity, Expert-Depth-Without-Overload",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Normale Nutzer sehen zunaechst nur die wichtigsten Arbeitsflaechen.",
+            "Experten koennen weiterhin tiefere Systemflaechen nutzen.",
+            "Die Umschaltung ist konsistent und nicht nur kosmetisch."
+          ]
+        },
+        {
+          "id": "ACC-021",
+          "title": "Navigation im Simple Mode auf wenige Hauptbereiche reduzieren",
+          "description": "Im einfachen Modus nur wenige zentrale Bereiche wie Start, meine Aufgaben, Ergebnisse, Vorlagen und Hilfe anzeigen, statt die gesamte Plattformnavigation freizuschalten.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Lower-Noise, Guided-Navigation",
           "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/app.component.ts",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "AppComponent bleibt primaer Shell und Layout-Komponente.",
-            "Theme, Mobile Nav und Route-Area-Logik liegen in dedizierten Services oder Konfigurationen.",
-            "Root-seitige Businesslogik nimmt sichtbar ab."
-          ]
-        },
-        {
-          "id": "FRT-051",
-          "title": "Route-Metadaten fuer Bereichszuordnung und Navigation deklarativ modellieren",
-          "description": "Bereichszuordnung, Breadcrumb- oder Navigationskontext nicht mehr ueber String-Checks in Komponenten ableiten, sondern deklarativ an den Routen hinterlegen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Declarative-Routing, Less-UI-Logic",
-          "status": "completed",
-          "effort": "small",
-          "files": [
             "frontend-angular/src/app/app.routes.ts",
-            "frontend-angular/src/app/features/**",
+            "frontend-angular/src/app/features/",
             "tests/"
           ],
           "dependencies": [
-            "FRT-050"
+            "ACC-020"
           ],
           "acceptance": [
-            "Bereichszuordnung basiert auf Route-Metadaten statt auf String-Pruefungen.",
-            "Navigation und Breadcrumbs koennen dieselbe deklarative Quelle nutzen.",
-            "UI-Logik in Root-Komponenten wird einfacher."
+            "Simple Mode zeigt deutlich weniger Navigationspunkte.",
+            "Die sichtbaren Bereiche passen zu typischen Alltagsaufgaben.",
+            "Expertenflaechen bleiben erreichbar, aber nicht aufgedraengt."
           ]
         },
         {
-          "id": "FRT-052",
-          "title": "Feature-Routen konsequenter lazy laden",
-          "description": "Schwere Bereiche wie Dashboard-nahe Uebersichten, Admin, Operations oder Autopilot staerker ueber lazy geladene Routen und Komponenten isolieren.",
+          "id": "ACC-022",
+          "title": "Advanced-Bereiche bewusst als Expertenflaechen kennzeichnen",
+          "description": "Komplexe Bereiche wie Operations, Graph, Routing, Policies oder tiefe Governance-Ansichten klar als erweiterte Expertenflaechen kennzeichnen.",
           "priority": "medium",
           "type": "improvement",
-          "principle": "Faster-Startup, Better-Feature-Isolation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/app.routes.ts",
-            "frontend-angular/src/app/features/**",
-            "tests/"
-          ],
-          "acceptance": [
-            "Schwere Features werden lazy geladen.",
-            "Der initiale Frontend-Start profitiert davon.",
-            "Routing-Struktur bleibt klar und nachvollziehbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "frontend-dashboard-and-large-components",
-      "label": "Dashboard und grosse Komponenten",
-      "items": [
-        {
-          "id": "FDC-060",
-          "title": "DashboardComponent in fachliche Unterkomponenten zerlegen",
-          "description": "Die sehr grosse DashboardComponent in getrennte Panels fuer Goal Entry, Runtime/Benchmarks, Governance Summary, Timeline, Agent Summary und Autopilot aufteilen.",
-          "priority": "critical",
-          "type": "refactor",
-          "principle": "Component-Splitting, UI-Maintainability",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/features/control-plane/",
-            "tests/"
-          ],
-          "acceptance": [
-            "DashboardComponent wird deutlich kleiner und fokussierter.",
-            "Jeder grosse Bereich ist in einer eigenen Unterkomponente gekapselt.",
-            "Teilbereiche sind isoliert testbar und leichter aenderbar."
-          ]
-        },
-        {
-          "id": "FDC-061",
-          "title": "Dashboard ViewModel Service oder Facade einfuehren",
-          "description": "Die Datenaggregation, Refresh-Semantik, Polling-Koordination und ViewState-Bildung des Dashboards in einen dedizierten ViewModel-Service oder eine Dashboard-Facade verschieben.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "ViewModel-First, Reduced-Component-Logic",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/features/control-plane/",
-            "tests/"
-          ],
-          "dependencies": [
-            "FDC-060"
-          ],
-          "acceptance": [
-            "DashboardComponent konsumiert primär ViewModel-Daten statt selbst viele Requests zu orchestrieren.",
-            "Refresh-, Loading- und Error-Logik liegt ausserhalb der Template-Komponente.",
-            "Das Dashboard wird besser testbar und robuster gegen Race Conditions."
-          ]
-        },
-        {
-          "id": "FDC-062",
-          "title": "Polling, Eventstream und Refresh-Safety-Logik aus grossen Komponenten auslagern",
-          "description": "Intervalle, Refresh-Timer, Eventstream-Trigger und Sicherheitslogik fuer Wiederladezyklen in State- oder Runtime-Services verschieben.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Reactive-State, Fewer-Component-Side-Effects",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "FDC-061"
-          ],
-          "acceptance": [
-            "Komponenten setzen keine komplexen Polling- und Safety-Timer mehr selbst auf.",
-            "Eventstream- und Polling-Management ist zentralisiert.",
-            "Race- und Doppel-Refresh-Risiken nehmen ab."
-          ]
-        },
-        {
-          "id": "FDC-063",
-          "title": "Weitere grosse Smart Components identifizieren und nach Dashboard-Muster zerlegen",
-          "description": "Nach der Dashboard-Zerlegung weitere grosse Komponenten systematisch gegen denselben Hotspot-Typ pruefen und bei Bedarf ebenfalls in Shell plus Unterkomponenten aufteilen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Preventive-UI-Hotspot-Control",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/features/**",
-            "tests/"
-          ],
-          "dependencies": [
-            "FDC-060"
-          ],
-          "acceptance": [
-            "Die groessten verbleibenden UI-Hotspots sind identifiziert.",
-            "Mindestens die kritischsten Folgekomponenten sind zerlegt oder priorisiert.",
-            "Das Problem wird nicht nur bei Dashboard geloest."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "frontend-api-clients-and-typing",
-      "label": "API Clients und Typisierung",
-      "items": [
-        {
-          "id": "API-070",
-          "title": "AgentApiService in fachliche API-Clients aufspalten",
-          "description": "Den stark endpoint-lastigen AgentApiService in kleinere fachliche Clients wie SystemApiClient, TaskApiClient, LlmApiClient, WorkspaceApiClient und SgptApiClient zerlegen.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Client-Modularity, Clearer-API-Surface",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/services/agent-api.service.ts",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "HTTP-Clients sind nach Fachbereich getrennt statt in einer Grossdatei gesammelt.",
-            "Facades nutzen klarere und kleinere API-Clients.",
-            "Die Pflege neuer Endpunkte wird einfacher."
-          ]
-        },
-        {
-          "id": "API-071",
-          "title": "DTO- und Read-Model-Typen fuer Dashboard, Goal und Governance einfuehren",
-          "description": "Fuer die wichtigsten Backend-Responses im Frontend echte DTO- oder Read-Model-Typen aufbauen, um any-lastige Verarbeitung deutlich zu reduzieren.",
-          "priority": "critical",
-          "type": "improvement",
-          "principle": "Type-Safety, Safer-Refactors",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/src/app/models/",
-            "frontend-angular/src/app/services/",
-            "frontend-angular/src/app/features/**",
-            "tests/"
-          ],
-          "acceptance": [
-            "Dashboard-, Goal-, Governance-, Timeline- und Benchmark-Responses sind typisiert.",
-            "Zentrale Facades und Komponenten verwenden deutlich weniger any.",
-            "Backend-Aenderungen werden frueher im Frontend sichtbar."
-          ]
-        },
-        {
-          "id": "API-072",
-          "title": "Generisches API-Envelope-Unwrapping typisiert und zentralisieren",
-          "description": "Das Unwrapping der Backend-Antworten generisch und typsicher gestalten, statt lose any-basierte Objekterkennung in API-Services zu wiederholen.",
-          "priority": "medium",
-          "type": "refactor",
-          "principle": "Type-Aware-Transport-Layer, Less-Repetition",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/services/agent-api.service.ts",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "API-071"
-          ],
-          "acceptance": [
-            "Envelope-Unwrapping ist zentralisiert und typisiert.",
-            "API-Clients muessen weniger Response-Shape-Raten betreiben.",
-            "Die Transport-Schicht wird konsistenter."
-          ]
-        },
-        {
-          "id": "API-073",
-          "title": "Frontend-Modelle enger an Backend-Contract-Tests koppeln",
-          "description": "Die neue DTO-Schicht mit Backend-Contract-Tests und Read-Model-Baselines enger abgleichen, damit beide Seiten nicht still auseinanderlaufen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "End-to-End-Contract-Alignment",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/models/",
-            "tests/",
-            "agent/routes/"
-          ],
-          "dependencies": [
-            "API-071"
-          ],
-          "acceptance": [
-            "Wichtige Frontend-Modelle orientieren sich an den echten Backend-Vertraegen.",
-            "Contract-Drift wird schneller sichtbar.",
-            "Backend- und Frontend-Refactors bleiben besser synchron."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "frontend-facades-and-state",
-      "label": "Facades und State",
-      "items": [
-        {
-          "id": "FAS-080",
-          "title": "Duenne Weiterreich-Facades in echte ViewModel- oder Aggregationsfacades ueberfuehren",
-          "description": "Facades wie SystemFacade oder TaskManagementFacade darauf pruefen, ob sie echten Mehrwert liefern oder nur Methoden weiterreichen, und sie entsprechend konsolidieren oder aufwerten.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Meaningful-Abstractions, Less-Layer-Noise",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/features/**",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Facades kapseln entweder echte State-/ViewModel-Logik oder werden reduziert.",
-            "Unnoetige Durchreiche-Ebenen verschwinden.",
-            "Die verbleibenden Facades haben einen klaren Nutzen."
-          ]
-        },
-        {
-          "id": "FAS-081",
-          "title": "Signal-/State-Services konsistenter als UI-Datenquelle etablieren",
-          "description": "Task-Sammlungen, Agent-Status, Systemevents und vergleichbare Daten moeglichst konsequent ueber dedizierte State-Services konsumieren, statt ad hoc in Komponenten nachzuladen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Single-UI-Source-of-Truth, Reactive-Consistency",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/features/**",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "FAS-080"
-          ],
-          "acceptance": [
-            "Wiederkehrende UI-Daten stammen aus konsistenten State-Services.",
-            "Ad-hoc Nachladen in Komponenten nimmt ab.",
-            "Die UI wird berechenbarer und reaktiver."
-          ]
-        },
-        {
-          "id": "FAS-082",
-          "title": "UI-Async-State Muster vereinheitlichen",
-          "description": "Loading-, Error-, Empty- und Refresh-Zustaende ueber ein konsistentes Muster oder Hilfsmodell vereinheitlichen, statt sie pro grosser Komponente neu zu erfinden.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Consistent-UX-State, Lower-Boilerplate",
+          "principle": "Expectation-Management, Less-Intimidation",
           "status": "completed",
           "effort": "small",
           "files": [
-            "frontend-angular/src/app/models/",
-            "frontend-angular/src/app/features/**",
-            "tests/"
-          ],
-          "acceptance": [
-            "Async-States folgen einem konsistenten UI-Muster.",
-            "Komponenten enthalten weniger eigene Lade-/Fehler-Bastelei.",
-            "UX und Testbarkeit profitieren von dem einheitlichen Modell."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "frontend-auth-and-security-transport",
-      "label": "Auth und Security Transport",
-      "items": [
-        {
-          "id": "AUS-090",
-          "title": "AuthInterceptor Auth-Entscheidungen in klares Zieltyp-Modell ueberfuehren",
-          "description": "Die aktuell pragmatische, aber komplexe Auth-Entscheidungslogik in ein klares Modell fuer Hub-User-Auth, Worker-Agent-JWT und andere Zieltypen ueberfuehren.",
-          "priority": "high",
-          "type": "refactor",
-          "principle": "Security-Clarity, Predictable-Auth",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/services/auth.interceptor.ts",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Auth-Pfade sind explizit nach Zieltyp statt nach verstreuten If-Faellen modelliert.",
-            "Hub- und Worker-Zugriffe verhalten sich nachvollziehbarer.",
-            "Sicherheitsrelevante Fallbacks sind reduziert oder klar dokumentiert."
-          ]
-        },
-        {
-          "id": "AUS-091",
-          "title": "URL-basierte Agent-Erkennung im Frontend haerter kapseln",
-          "description": "Die Erkennung, welcher Request zu welchem Agent-Typ gehoert, in einen dedizierten Resolver oder eine Registry verschieben statt in mehreren Services auf URL-Prefix-Matching zu verlassen.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Transport-Safety, Centralized-Resolution",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "frontend-angular/src/app/services/auth.interceptor.ts",
-            "frontend-angular/src/app/services/agent-api.service.ts",
-            "frontend-angular/src/app/services/",
-            "tests/"
-          ],
-          "dependencies": [
-            "AUS-090"
-          ],
-          "acceptance": [
-            "Agent- und Zielauflösung ist zentralisiert.",
-            "URL-Prefix-Heuristiken sind nicht mehr in mehreren Klassen verteilt.",
-            "Fehlzuordnungen oder Sonderfaelle sind leichter testbar."
-          ]
-        },
-        {
-          "id": "AUS-092",
-          "title": "401 Refresh und Agent-JWT Pfade gezielt gegeneinander absichern",
-          "description": "Die Wechselwirkung zwischen User-Token-Refresh, Hub-Requests und per Shared Secret erzeugten Agent-JWTs gezielt testen und semantisch sauber trennen.",
-          "priority": "medium",
-          "type": "bugfix",
-          "principle": "Auth-Robustness, Reduced-Ambiguity",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/services/auth.interceptor.ts",
-            "frontend-angular/src/app/services/user-auth.service.ts",
-            "tests/"
-          ],
-          "dependencies": [
-            "AUS-090"
-          ],
-          "acceptance": [
-            "Refresh- und Agent-JWT-Pfade beeinflussen sich nicht unklar gegenseitig.",
-            "Mehrere 401-Szenarien sind gezielt getestet.",
-            "Logout- und Retry-Verhalten bleiben nachvollziehbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "cross-cutting-testing-and-reviews",
-      "label": "Cross-Cutting Tests und Reviews",
-      "items": [
-        {
-          "id": "TQA-100",
-          "title": "Hotspot-spezifische Review- und Testmatrix fuer Backend und Frontend pflegen",
-          "description": "Fuer die identifizierten Hotspots wie ai_agent, TaskOrchestrationService, DashboardComponent und AuthInterceptor eine feste Review- und Testmatrix pflegen.",
-          "priority": "medium",
-          "type": "documentation",
-          "principle": "Focused-Reviewing, Hotspot-Discipline",
-          "status": "completed",
-          "effort": "small",
-          "files": [
+            "frontend-angular/",
             "docs/",
-            "CONTRIBUTING.md",
+            "tests/"
+          ],
+          "dependencies": [
+            "ACC-020"
+          ],
+          "acceptance": [
+            "Komplexe Flaechen wirken nicht wie Pflichtwissen fuer den Einstieg.",
+            "Nutzer koennen besser unterscheiden, was Kernnutzung und was Expertentool ist.",
+            "Die Kennzeichnung ist konsistent in Navigation und Ueberschriften."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "result-presentation-and-guidance",
+      "label": "Ergebnisdarstellung und Fuehrung",
+      "items": [
+        {
+          "id": "ACC-030",
+          "title": "Ergebnisse als klare Abschlussseite mit naechsten Schritten darstellen",
+          "description": "Nach einem Goal oder Diagnoseablauf eine Ergebnisansicht anbieten, die Zusammenfassung, Fundstellen, Unsicherheiten, geaenderte Artefakte und direkt moegliche Folgeaktionen klar trennt.",
+          "priority": "critical",
+          "type": "improvement",
+          "principle": "Show-the-Outcome, Actionable-Next-Steps",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
             "tests/"
           ],
           "acceptance": [
-            "Kritische Hotspots sind als solche benannt.",
-            "Review und Testtiefe fuer diese Dateien ist explizit hoeher.",
-            "Die Hotspot-Liste bleibt aktuell und wird nicht nur einmalig erstellt."
+            "Nutzer sehen auf einen Blick, was herauskam.",
+            "Unsicherheiten und offene Punkte werden explizit getrennt gezeigt.",
+            "Es gibt direkte Folgeaktionen wie Review, Artefakt oeffnen oder Folgeaufgabe starten."
           ]
         },
         {
-          "id": "TQA-101",
-          "title": "Komponenten- und Servicegroesse ueber weiche Guardrails beobachten",
-          "description": "Dateigroessen, Methodenanzahl oder Template-Komplexitaet fuer bekannte Hotspot-Typen beobachten, damit neue Dashboard- oder Orchestrator-Monolithen frueher sichtbar werden.",
-          "priority": "low",
+          "id": "ACC-031",
+          "title": "Systementscheidungen mit kurzen Erklaerungen fuer normale Nutzer versehen",
+          "description": "Fuer Routing, Blockierungen, Verification und Tool-Freigaben kurze, nicht zu technische Warum-Hinweise anbieten, damit Nutzer die Plattformentscheidungen besser verstehen.",
+          "priority": "high",
           "type": "improvement",
-          "principle": "Preventive-Maintainability, Early-Warning",
+          "principle": "Explainability-for-Humans, Trust-Building",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
-            "scripts/",
+            "frontend-angular/",
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Wichtige Entscheidungen sind nicht nur maschinenlesbar, sondern auch kurz menschenlesbar erklaert.",
+            "Die Hinweise helfen echten Nutzern statt nur Admins.",
+            "Erklaerungen bleiben knapp und werden nicht selbst zur Reibung."
+          ]
+        },
+        {
+          "id": "ACC-032",
+          "title": "Unsicherheiten und Sicherheitsgrenzen sichtbar aber verstaendlich darstellen",
+          "description": "Unsicherheit, Verification-Bedarf, Blockierungen oder Review-Pflichten so darstellen, dass sie nicht wie kryptische Fehlermeldungen wirken, sondern wie erklaerte Sicherheitsmechanismen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Safety-with-Usability, Reduced-Friction",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
             "frontend-angular/",
             "agent/services/",
             "tests/"
           ],
           "acceptance": [
-            "Hotspot-Indikatoren werden sichtbar gemacht.",
-            "Neue Grossdateien oder Komplexitaetsspruenge bleiben nicht unbemerkt.",
-            "Die Regeln bleiben pragmatisch und nicht ueberbuerokratisch."
+            "Verification oder Blockierungen wirken nachvollziehbar statt willkuerlich.",
+            "Nutzer verstehen, was fehlt oder warum etwas nicht automatisch weiterging.",
+            "Die Darstellung foerdert Vertrauen statt Verwirrung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "language-and-terminology-simplification",
+      "label": "Sprache und Begriffsvereinfachung",
+      "items": [
+        {
+          "id": "ACC-040",
+          "title": "Schwierige Plattformbegriffe in der UI durch alltagstaugliche Labels ergaenzen",
+          "description": "Technische Begriffe wie Artifact, Blueprint, Verification, Exposure Policy oder Federation in der UI durch verstaendlichere Nutzlabels oder Hilfetexte uebersetzen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "User-Language, Reduced-Jargon",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "docs/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Technische Kernbegriffe werden durch zugaenglichere Labels oder Erklaerungen begleitet.",
+            "Neue Nutzer muessen weniger Architekturvokabular lernen.",
+            "Interne Praezision bleibt erhalten, ohne die UI unnoetig technisch wirken zu lassen."
           ]
         },
         {
-          "id": "TQA-102",
-          "title": "Refactoring-Reihenfolge auf Hotspot-Risiko statt nur auf Feature-Wunsch priorisieren",
-          "description": "Die naechsten grossen Refactorings explizit nach Hotspot-Risiko, Aenderungshaeufigkeit und Systemzentralitaet priorisieren, statt nur nach neuer Feature-Aktivitaet.",
-          "priority": "low",
+          "id": "ACC-041",
+          "title": "README Einstieg sprachlich fuer neue Nutzer vereinfachen",
+          "description": "Den obersten README-Einstieg weniger architektonisch und staerker auf erste Nutzbarkeit, drei Hauptanwendungsfaelle und schnellste Startpfade ausrichten.",
+          "priority": "high",
           "type": "documentation",
-          "principle": "Risk-Based-Refactoring, Long-Term-Health",
+          "principle": "Clear-First-Impression, Faster-Onboarding",
           "status": "completed",
           "effort": "small",
           "files": [
-            "todo.json",
-            "docs/",
-            "CONTRIBUTING.md"
+            "README.md",
+            "docs/"
           ],
           "acceptance": [
-            "Refactoring-Prioritaeten sind begruendet und nachvollziehbar.",
-            "Zentrale Hotspots werden nicht weiter aufgeschoben, nur weil neue Features locken.",
-            "Die Projektentwicklung bleibt auch strukturell gesund."
+            "Die ersten README-Abschnitte sind auch fuer neue Nutzer schnell verstaendlich.",
+            "Die ersten Schritte fokussieren Nutzen statt Architekturbreite.",
+            "Die tieferen technischen Details bleiben verfuegbar, aber nicht am Anfang dominierend."
+          ]
+        },
+        {
+          "id": "ACC-042",
+          "title": "Mikrotexte, Hilfetexte und Leerseitenhinweise konsistent ueberarbeiten",
+          "description": "Leerseiten, Formulare, Buttons, Platzhalter und Statushinweise sprachlich auf eine einfachere, freundlichere und weniger systemlastige Form bringen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Microcopy-Matters, Lower-Intimidation",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "docs/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Leerseiten helfen dem Nutzer weiter statt nur Leerstand anzuzeigen.",
+            "Mikrotexte fuehlen sich weniger wie Admin- oder Debug-UI an.",
+            "Sprache und Tonfall bleiben konsistent ueber die Hauptflaechen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "quickstart-and-installation-simplification",
+      "label": "Quickstart und Installationsvereinfachung",
+      "items": [
+        {
+          "id": "ACC-050",
+          "title": "Ultra-kurzen Schnellstartpfad fuer erste lokale Nutzung an den README-Anfang stellen",
+          "description": "Ganz oben im README einen minimalen Schnellstart mit Setup, Start und erstem Aufruf platzieren, bevor die verschiedenen Compose- und Overlay-Varianten folgen.",
+          "priority": "critical",
+          "type": "documentation",
+          "principle": "Shortest-Path-to-First-Success",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/INSTALL_TEST_BETRIEB.md"
+          ],
+          "acceptance": [
+            "Der schnellste erste Start ist sofort sichtbar.",
+            "Neue Nutzer muessen nicht zuerst mehrere Compose-Varianten vergleichen.",
+            "Die vertiefenden Startoptionen bleiben vorhanden, aber nachgelagert."
+          ]
+        },
+        {
+          "id": "ACC-051",
+          "title": "Setup-Script nach erfolgreichem Start direkt in den ersten Demo- oder Startmodus ueberleiten",
+          "description": "Nach erfolgreichem Setup dem Nutzer nicht nur Ports nennen, sondern den naechsten konkreten Schritt anbieten, etwa Demo starten oder erstes Goal anlegen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "No-Dead-End-Setup, Guided-Continuation",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "setup.ps1",
+            "scripts/",
+            "docs/"
+          ],
+          "dependencies": [
+            "ACC-001",
+            "ACC-050"
+          ],
+          "acceptance": [
+            "Das Setup endet nicht nur mit technischen Hinweisen, sondern mit echtem naechstem Schritt.",
+            "Nutzer werden in Demo oder erste Nutzung weitergefuehrt.",
+            "Die Abschlussausgabe bleibt knapp und hilfreich."
+          ]
+        },
+        {
+          "id": "ACC-052",
+          "title": "Compose-Profile und Startvarianten aus Nutzersicht ordnen",
+          "description": "Die verschiedenen Compose-Varianten staerker nach typischen Zielen wie Demo, Standard lokal, Live-Entwicklung oder verteiltes Setup ordnen statt nur technisch nach Dateien zu listen.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "User-Oriented-Setup-Choice, Less-Configuration-Anxiety",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/compose-profiles.md",
+            "docs/INSTALL_TEST_BETRIEB.md"
+          ],
+          "acceptance": [
+            "Die Setup-Optionen lassen sich aus Nutzerperspektive leichter unterscheiden.",
+            "Neue Nutzer sehen schneller, welche Variante fuer sie passend ist.",
+            "Die Zahl der technischen Fehlentscheidungen beim Einstieg sinkt."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "personalized-workspace-and-orientation",
+      "label": "Persoenlicher Arbeitsbereich und Orientierung",
+      "items": [
+        {
+          "id": "ACC-060",
+          "title": "Persoenlichen Home-Bereich mit meinen Goals, Ergebnissen und Vorlagen aufbauen",
+          "description": "Eine persoenlichere Standardansicht einfuehren, die fuer normale Nutzer eher die eigene Arbeit als die gesamte Plattform in den Mittelpunkt stellt.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "User-Centricity, Less-Control-Center-Feeling",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die Standardansicht wirkt persoenlicher und weniger wie ein zentrales Admin-Panel.",
+            "Nutzer finden schneller ihre eigenen laufenden und letzten Arbeiten.",
+            "Persoenliche Vorlagen oder Favoriten koennen sichtbar werden."
+          ]
+        },
+        {
+          "id": "ACC-061",
+          "title": "Kontextuelle Hilfe und inline Onboarding-Hinweise in wichtigen Hauptflaechen einbauen",
+          "description": "In zentralen Arbeitsflaechen wie Goal-Erstellung, Ergebnisansicht, Board oder Review kurze kontextbezogene Hilfen und Erklaerungen direkt einbauen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Inline-Learning, No-Manual-First",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Nutzer muessen weniger zwischen UI und Doku springen.",
+            "Hilfetexte erscheinen dort, wo sie wirklich gebraucht werden.",
+            "Die Hinweise sind knapp und lassen sich bei Bedarf ausblenden."
+          ]
+        },
+        {
+          "id": "ACC-062",
+          "title": "Ersten Erfolgsfortschritt sichtbar machen",
+          "description": "Fuer neue Nutzer sichtbar machen, was sie schon erfolgreich erledigt oder ausprobiert haben, um erste Orientierung und Motivation aufzubauen.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "Progress-Visibility, Confidence-Building",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Das System zeigt erste sinnvolle Fortschritte oder erledigte Starter an.",
+            "Neue Nutzer sehen, dass sie bereits erfolgreich durch die ersten Schritte gekommen sind.",
+            "Der Fortschritt bleibt hilfreich und nicht gamifiziert um der Gamification willen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cli-and-api-accessibility",
+      "label": "CLI und API Zugaenglichkeit",
+      "items": [
+        {
+          "id": "ACC-070",
+          "title": "CLI um sehr einfache menschennahe Kurzbefehle erweitern",
+          "description": "Neben der bestehenden tieferen CLI sehr einfache Kurzbefehle fuer haeufige Aufgaben wie Analyse, Review, Diagnose oder Patch-Vorschlag anbieten.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Low-Friction-CLI, Human-Oriented-Commands",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/cli_goals.py",
+            "scripts/",
+            "docs/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die CLI bietet kurze, merkbare Befehle fuer Hauptanwendungsfaelle.",
+            "Nutzer muessen fuer einfache Faelle keine tiefe Architektur der CLI verstehen.",
+            "Die Kurzbefehle bleiben konsistent mit dem Goal-Modell."
+          ]
+        },
+        {
+          "id": "ACC-071",
+          "title": "API und Webhook Beispiele fuer typische Einstiegsfaelle vereinfachen",
+          "description": "Statt primär voller API-Breite konkrete Minimalbeispiele fuer drei bis fuenf Standardfaelle in Doku und gegebenenfalls UI verankern.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Example-Driven-Adoption, Lower-Integration-Friction",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "api-spec.md",
+            "README.md",
+            "docs/"
+          ],
+          "acceptance": [
+            "Externe Integratoren finden schnell einfache Startbeispiele.",
+            "Typische Einstiegsfaelle sind konkreter als die reine API-Beschreibung.",
+            "Die Beispiele sind realistisch und aktuell."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "accessibility-and-ui-quality",
+      "label": "Zugaenglichkeit und UI Qualitaet",
+      "items": [
+        {
+          "id": "ACC-080",
+          "title": "Tastaturfuehrung, Fokusverhalten und visuelle Orientierung in Hauptflaechen verbessern",
+          "description": "Die Hauptflaechen insbesondere Wizard, Ergebnisansicht, Navigation und modale Dialoge auf bessere Tastaturbedienbarkeit, Fokusfuehrung und Orientierung pruefen und verbessern.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Usability, Accessibility-Basics",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Wichtige Hauptflaechen lassen sich sauber per Tastatur bedienen.",
+            "Fokus springt nachvollziehbar und nicht verwirrend.",
+            "Bedienbarkeit verbessert sich auch fuer normale Nutzer ohne Mausfokus."
+          ]
+        },
+        {
+          "id": "ACC-081",
+          "title": "Leere, Fehler- und Wartezustaende in Hauptflaechen gestalterisch und inhaltlich verbessern",
+          "description": "Leere Zustände, Ladebilder und Fehlerkarten so ueberarbeiten, dass sie orientieren, beruhigen und konkrete naechste Schritte anbieten statt nur technischen Zustand zu melden.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Calm-UX, Better-Recovery",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Leere oder fehlerhafte Zustände fuehlen sich weniger wie Sackgassen an.",
+            "Die Nutzer erhalten konkrete Optionen zur Fortsetzung.",
+            "Die Gestaltung passt zur restlichen UX und bleibt ruhig."
+          ]
+        },
+        {
+          "id": "ACC-082",
+          "title": "Lese- und Informationsdichte im Dashboard und in Hauptansichten reduzieren",
+          "description": "Dichte Karten, Metrik- und Detailbloecke in zentralen Ansichten so staffeln, dass normale Nutzer nicht mit zu vielen Informationen gleichzeitig konfrontiert werden.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Information-Hierarchy, Reduced-Cognitive-Load",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die Hauptansichten bekommen eine klarere Informationshierarchie.",
+            "Neue Nutzer sehen zuerst Kerninformationen und nicht sofort alle Tiefendetails.",
+            "Experten koennen weiterhin auf die tieferen Informationen zugreifen."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 37,
+    "total_items": 26,
     "by_status": {
-      "completed": 37,
+      "completed": 26,
       "partial": 0,
       "open": 0
     },
     "notes": [
-      "Diese Todo-Datei ergänzt die bereits umgesetzten Plattform-, Governance- und Nutzbarkeitsausbauten um eine gezielte Codequalitaets- und Wartbarkeitsrunde.",
-      "Der Fokus liegt nicht auf neuen Endnutzerfeatures, sondern auf der Entschaerfung technischer Hotspots, der Aufteilung grosser Komponenten und Services sowie auf staerkerer Typ- und Contract-Sicherheit.",
-      "Das Leitmotiv ist: Die vorhandene starke Architektur muss jetzt gegen ihre eigene Systembreite abgesichert werden."
+      "Diese Todo-Datei fokussiert ausschliesslich auf Zugänglichkeit im Sinn von Onboarding, Verstaendlichkeit, einfacherem Einstieg und klarerer UX.",
+      "Der groesste Hebel liegt nicht in mehr Features, sondern in besserer Fuehrung, weniger Einstiegshaerte, einfacherer Sprache und klareren ersten Erfolgserlebnissen.",
+      "Ananta soll dabei nicht zu einem simplifizierten Spielzeug werden, sondern fuer Neueinsteiger und Alltagsnutzung zugänglicher, waehrend die Experten- und Governance-Tiefe erhalten bleibt."
     ],
     "recommended_order": [
-      "BBS-001",
-      "SRG-010",
-      "ORC-020",
-      "FDC-060",
-      "FDC-061",
-      "API-071",
-      "AUS-090",
-      "API-070",
-      "SRG-011",
-      "ORC-021",
-      "ORC-022",
-      "ORC-023",
-      "ORC-024",
-      "FDC-062",
-      "FRT-050",
-      "FRT-051",
-      "CTS-040",
-      "CTS-041",
-      "PLX-030",
-      "PLX-031",
-      "PLX-032",
-      "CTS-042",
-      "FAS-080",
-      "FAS-081",
-      "FAS-082",
-      "AUS-091",
-      "AUS-092",
-      "FRT-052",
-      "BBS-002",
-      "BBS-003",
-      "SRG-012",
-      "API-072",
-      "API-073",
-      "FDC-063",
-      "TQA-100",
-      "TQA-101",
-      "TQA-102"
+      "ACC-001",
+      "ACC-010",
+      "ACC-020",
+      "ACC-011",
+      "ACC-030",
+      "ACC-050",
+      "ACC-021",
+      "ACC-003",
+      "ACC-012",
+      "ACC-031",
+      "ACC-032",
+      "ACC-040",
+      "ACC-041",
+      "ACC-081",
+      "ACC-082",
+      "ACC-002",
+      "ACC-051",
+      "ACC-052",
+      "ACC-060",
+      "ACC-061",
+      "ACC-070",
+      "ACC-071",
+      "ACC-080",
+      "ACC-042",
+      "ACC-022",
+      "ACC-062"
     ]
   }
 }
