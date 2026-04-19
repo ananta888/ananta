@@ -15,6 +15,7 @@ docker compose --env-file .env up -d
 ## Sicherheit
 - HTTPS-Weiterleitung via Traefik
 - Security-Header und Rate-Limit aktiviert
+- Container-Images sind mit Registry-Digests gepinnt. Vor einem produktiven Upgrade die Digests bewusst aktualisieren und den Compose-Plan erneut pruefen.
 
 ## Betrieb
 - Backups fuer DB/Media/Static/Event-Queue einplanen
