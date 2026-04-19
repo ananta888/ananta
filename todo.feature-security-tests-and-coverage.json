@@ -1,0 +1,883 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": "6.3.0",
+  "created": "2026-04-19",
+  "updated": "2026-04-19T00:00:00Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Nach den Architektur-, Accessibility-, Release- und Hotspot-Runden eine große Test- und Security-Offensive aufbauen, damit Ananta nicht nur stark gebaut, sondern auch systematisch gegen Regressionen, feindliche Modellantworten, äußere Angriffe und UI-/CLI-/Runtime-Fehler abgesichert ist.",
+    "notes": [
+      "Diese Todo-Datei ergänzt die bestehende 6.2.0-Runde um eine bewusst breite Teststrategie über Backend, Frontend, E2E, Live-Click, CLI/TUI und adversarial Security.",
+      "Der Schwerpunkt liegt nicht auf kosmetischer Testabdeckung, sondern auf verlässlicher Validierung zentraler Arbeitsflüsse, Governance-Grenzen, Capability-Enforcement, hostile-input-Resistenz und crazy-LLM-Verhalten.",
+      "Die Tests sollen nicht nur Happy Paths sichern, sondern gezielt Fehlverhalten, Manipulation, Umgehungsversuche, Scope-Verletzungen, inkonsistente Zustände und Missbrauchspfade provozieren."
+    ]
+  },
+  "categories": [
+    {
+      "name": "backend-unit-core-services",
+      "label": "Backend Unit Tests Core Services",
+      "items": [
+        {
+          "id": "TST-001",
+          "title": "TaskDelegationPlanner mit isolierten Unit Tests absichern",
+          "description": "Die Delegationsplanung gegen verschiedene Worker-Lagen, Capability-Kombinationen, Policy-Entscheidungen, manuelle Overrides und fehlende Routing-Hints in gezielten Unit Tests absichern.",
+          "priority": "critical",
+          "type": "test-unit",
+          "principle": "Core-Decision-Confidence, Isolated-Logic-Tests",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Worker-Wahl und Policy-Vorbereitung sind isoliert testbar.",
+            "Mehrere positive und negative Routing-Szenarien sind abgedeckt.",
+            "Fehlende oder widersprüchliche Eingaben erzeugen klar erwartbare Ergebnisse."
+          ]
+        },
+        {
+          "id": "TST-002",
+          "title": "WorkerExecutionContextFactory gegen Scope- und Context-Build-Fehler testen",
+          "description": "Workspace-Scope, Worker-Workspace, Context Bundle und Execution Context mit Unit Tests gegen inkonsistente oder lückenhafte Eingaben absichern.",
+          "priority": "critical",
+          "type": "test-unit",
+          "principle": "Safe-Context-Building, Deterministic-Construction",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Execution-Context-Build ist in mehreren Szenarien deterministisch getestet.",
+            "Fehlende optionalen Daten brechen nicht unkontrolliert.",
+            "Workspace- und Kontextgrenzen bleiben nachvollziehbar erhalten."
+          ]
+        },
+        {
+          "id": "TST-003",
+          "title": "TaskDelegationResultWriter auf Seiteneffekt-Reihenfolge testen",
+          "description": "Parent-Task-Update, Event-Details, Subtask-Fortschreibung und API-Rückgabemodell gegen falsche Reihenfolgen, fehlende Felder und Statusinkonsistenzen absichern.",
+          "priority": "high",
+          "type": "test-unit",
+          "principle": "Ordered-Side-Effects, Stable-Core-Writeback",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Die Reihenfolge zentraler Seiteneffekte ist explizit getestet.",
+            "Parent-Task-Updates bleiben konsistent.",
+            "Fehlerfälle im Writeback lassen sich reproduzierbar erkennen."
+          ]
+        },
+        {
+          "id": "TST-004",
+          "title": "CompletionOutcome und RoutingDecision Modelle mit strengen Validierungstests abdecken",
+          "description": "Die neuen typisierten Kernmodelle gegen fehlende Felder, falsche Typen, inkonsistente Zustände und Erweiterungsfälle absichern.",
+          "priority": "high",
+          "type": "test-unit",
+          "principle": "Model-Contract-Safety, Early-Validation",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/models/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Modelle validieren positive und negative Fälle strikt.",
+            "Schema-Drift oder inkonsistente Rückgaben werden früh sichtbar.",
+            "Fehlermeldungen bleiben für Entwickler nutzbar."
+          ]
+        },
+        {
+          "id": "TST-005",
+          "title": "Policy-, Capability- und Exposure-Helfer breit per Unit Tests absichern",
+          "description": "Zentrale Hilfsfunktionen für Capability-Ableitung, Exposure-Policies, Tool-Normalisierung und Governance-Entscheidung gezielt isoliert testen.",
+          "priority": "high",
+          "type": "test-unit",
+          "principle": "Mechanized-Governance-Confidence, No-Logic-Guessing",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Governance-Helfer sind nicht nur indirekt über Integrationstests abgedeckt.",
+            "Regeländerungen können auf Unit-Ebene sicher angepasst werden.",
+            "Edge-Cases wie leere Capability-Sets oder Konflikte sind getestet."
+          ]
+        },
+        {
+          "id": "TST-006",
+          "title": "Result-Memory-, Verification- und Evolution-Helfer auf Grenzfälle testen",
+          "description": "Result Memory, Verification-Status und Evolution-Trigger auf Nullfälle, doppelte Writes, Fehlerfortpflanzung und fehlende optionalen Daten testen.",
+          "priority": "medium",
+          "type": "test-unit",
+          "principle": "Durable-State-Transitions, Safer-Progress-Tracking",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Kernzustände rund um Result Memory, Verification und Evolution sind gezielt abgesichert.",
+            "Fehlende oder doppelte Daten führen nicht zu stillen Inkonsistenzen.",
+            "Service-Fehler propagieren kontrolliert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backend-integration-flows",
+      "label": "Backend Integration Tests Flows",
+      "items": [
+        {
+          "id": "TST-010",
+          "title": "Goal zu Task zu Delegation zu Completion als End-to-End-Backend-Integrationspfad absichern",
+          "description": "Den wichtigsten Hub-Arbeitsfluss ohne Frontend über echte API- und Service-Integration testen, inklusive Task-Erzeugung, Delegation, Verification und Abschlussstatus.",
+          "priority": "critical",
+          "type": "test-integration",
+          "principle": "Core-Flow-Confidence, Realistic-Backend-Wiring",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Ein kompletter Kernpfad läuft als Integrationstest durch.",
+            "Goal-, Task-, Delegation- und Completion-Zustände bleiben konsistent.",
+            "Die wichtigsten Event- und Statusübergänge werden verifiziert."
+          ]
+        },
+        {
+          "id": "TST-011",
+          "title": "Verification-failed und Review-required Pfade als Integrationsszenarien abdecken",
+          "description": "Nicht nur erfolgreiche, sondern bewusst geblockte, eskalierte oder verification-failed Pfade gegen echte Persistenz und Statusübergänge testen.",
+          "priority": "critical",
+          "type": "test-integration",
+          "principle": "Failure-Path-Confidence, Safer-Governance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Verification-failed und Review-required Flows sind als echte Integrationstests vorhanden.",
+            "Status und Event-Historie verhalten sich nachvollziehbar.",
+            "Blocked/failed Pfade sind kein ungetesteter Nebenfall."
+          ]
+        },
+        {
+          "id": "TST-012",
+          "title": "Policy- und Capability-Grenzen über echte API-Pfade testen",
+          "description": "Über echte Requests absichern, dass Capability-Grenzen, Exposure-Policies und Governance-Regeln nicht nur logisch existieren, sondern praktisch greifen.",
+          "priority": "critical",
+          "type": "test-integration",
+          "principle": "Real-Enforcement-Validation, No-Policy-Illusions",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Verbotene Aktionen werden über reale API-Pfade blockiert.",
+            "Capability- und Exposure-Entscheidungen sind außen sichtbar korrekt.",
+            "Integrationstests bestätigen echte Enforcement-Wirkung."
+          ]
+        },
+        {
+          "id": "TST-013",
+          "title": "Read-Model- und Contract-Regressionen als Integrationssuites ausbauen",
+          "description": "Assistant-, Dashboard-, Goal-, Governance- und Task-Readmodels mit stärkeren Integrations- und Contract-Tests gegen Strukturdrift absichern.",
+          "priority": "high",
+          "type": "test-integration",
+          "principle": "Stable-Contracts, Frontend-Safe-Backend-Changes",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Zentrale Readmodels sind über Integrations- und Contract-Tests abgesichert.",
+            "Strukturelle Änderungen sind sichtbar und reviewpflichtig.",
+            "Frontend- und API-Regressionen werden früher erkannt."
+          ]
+        },
+        {
+          "id": "TST-014",
+          "title": "Multi-Worker und verteilte Delegationsszenarien über Integrationstests erweitern",
+          "description": "Mehrere Worker, Routing-Auswahl, manuelle Overrides und fehlende Worker-Situationen in realistischeren Integrationsszenarien prüfen.",
+          "priority": "medium",
+          "type": "test-integration",
+          "principle": "Distributed-Flow-Confidence, Safer-Routing",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Delegation mit mehreren Workern ist nicht nur theoretisch, sondern getestet.",
+            "Fallbacks und No-worker-Fälle sind abgedeckt.",
+            "Routing bleibt nachvollziehbar und robust."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend-unit-and-component-tests",
+      "label": "Frontend Unit und Component Tests",
+      "items": [
+        {
+          "id": "TST-020",
+          "title": "Shared UI Komponenten mit systematischen Component Tests absichern",
+          "description": "MetricCard, KeyValueGrid, SectionCard, EmptyState, ErrorState, StatusBadge, LoadingState, ActionCard, WizardShell, ExplanationNotice, SafetyNotice und NextSteps mit Host- und Render-Tests absichern.",
+          "priority": "critical",
+          "type": "test-unit",
+          "principle": "Reusable-UI-Confidence, Stable-Baukasten",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/shared/ui/",
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/**/*.spec.ts"
+          ],
+          "acceptance": [
+            "Zentrale Shared Components haben aussagekräftige Component Tests.",
+            "Inputs, Outputs, Slots und Varianten sind abgedeckt.",
+            "Spätere UI-Refactors am Baukasten sind sicherer."
+          ]
+        },
+        {
+          "id": "TST-021",
+          "title": "Dashboard-Panels und ViewModel-Services gezielt unit-testen",
+          "description": "Die entkoppelten Dashboard-Teilkomponenten und ViewModel-/Facade-Services gegen State-Übergänge, Ladefehler, Datenmapping und User-Events absichern.",
+          "priority": "critical",
+          "type": "test-unit",
+          "principle": "UI-Hotspot-Confidence, Safer-Refactors",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/services/",
+            "frontend-angular/src/app/features/"
+          ],
+          "acceptance": [
+            "Dashboard-nahe Logik ist nicht nur indirekt über E2E abgesichert.",
+            "State-Wechsel und Event-Weitergabe sind explizit getestet.",
+            "Die größten UI-Hotspots erhalten echte Regressionsnetze."
+          ]
+        },
+        {
+          "id": "TST-022",
+          "title": "AuthResolver, AgentJwtService und AuthRefreshCoordinator mit gezielten Unit Tests absichern",
+          "description": "Die entdichtete Auth-Schicht über feingranulare Tests gegen Zielklassifikation, Refresh-Sperre, Warteschlangenverhalten und Fehlerpfade absichern.",
+          "priority": "critical",
+          "type": "test-unit",
+          "principle": "Critical-Auth-Testability, No-Silent-Breakage",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/services/",
+            "frontend-angular/src/app/**/*.spec.ts"
+          ],
+          "acceptance": [
+            "Auth-Zielauflösung, Refresh und Agent-JWT sind separat getestet.",
+            "Fehler- und Konkurrenzfälle sind abgedeckt.",
+            "Sicherheitskritische Frontend-Logik ist nicht nur manuell verifiziert."
+          ]
+        },
+        {
+          "id": "TST-023",
+          "title": "User-facing-language und Explainability-Helfer vollständig testen",
+          "description": "Mapping-Helfer für nutzerfreundliche Sprache, Glossartexte, Sicherheitsnotices und Erklärungslayer gegen inkonsistente oder fehlende Begriffe absichern.",
+          "priority": "medium",
+          "type": "test-unit",
+          "principle": "Stable-UX-Language, No-Regressive-Jargon",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/**/*.spec.ts",
+            "frontend-angular/src/app/**/user-facing-language*"
+          ],
+          "acceptance": [
+            "Zentrale Sprach- und Erklärungshilfen sind konsistent getestet.",
+            "Neue oder geänderte Begriffe verursachen keine stillen UX-Brüche.",
+            "Explainability-Texte bleiben systematisch statt ad hoc."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend-integration-and-flow-tests",
+      "label": "Frontend Integration und Flow Tests",
+      "items": [
+        {
+          "id": "TST-030",
+          "title": "Quick Goal und Guided Goal Flows als Integrationstests absichern",
+          "description": "Die beiden Haupt-Goal-Pfade mit realistischeren Service-Mocks und mehreren UI-Schritten testen, statt nur einzelne Komponenten isoliert zu prüfen.",
+          "priority": "critical",
+          "type": "test-integration",
+          "principle": "Workflow-Confidence, Realistic-UI-State",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/features/",
+            "frontend-angular/src/app/**/*.spec.ts"
+          ],
+          "acceptance": [
+            "Quick Goal und Guided Goal laufen als mehrschrittige Integrationstests.",
+            "Validierung, Step-Wechsel und Submit-Pfade sind abgedeckt.",
+            "UI-Flows brechen nicht unbemerkt bei Refactors."
+          ]
+        },
+        {
+          "id": "TST-031",
+          "title": "Goal Reporting, Governance Summary und Result Summary im UI über Integrationsszenarien absichern",
+          "description": "Goal-Liste, Goal-Detail, Governance-Summary und Result Summary im Zusammenspiel testen, inklusive Ladefehlern, leeren Zuständen und Success-Pfaden.",
+          "priority": "high",
+          "type": "test-integration",
+          "principle": "Composite-UI-Stability, End-User-Visible-Confidence",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/features/",
+            "frontend-angular/src/app/**/*.spec.ts"
+          ],
+          "acceptance": [
+            "Wichtige Ergebnis- und Governance-Sichten sind als Integrationsfluss getestet.",
+            "Loading, Error und Empty State sind im Kontext abgesichert.",
+            "Zusammenspiel mehrerer UI-Bausteine bleibt stabil."
+          ]
+        },
+        {
+          "id": "TST-032",
+          "title": "Persönliche Arbeitsfläche und Start-Hauptaktionen über Integrationstests absichern",
+          "description": "Den persönlichen Einstieg, meine Goals, Demo-Pfade und Start-Hauptaktionen mit mehreren Benutzerwegen und Zustandskonstellationen testen.",
+          "priority": "medium",
+          "type": "test-integration",
+          "principle": "Product-Entry-Confidence, Safer-Onboarding",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/features/",
+            "frontend-angular/src/app/**/*.spec.ts"
+          ],
+          "acceptance": [
+            "Einstieg und persönliche Arbeitsfläche sind nicht nur manuell geklickt.",
+            "Leere, befüllte und Demo-Szenarien sind abgedeckt.",
+            "Produktzugang bleibt nach Refactors verständlich."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "e2e-and-compose-smoke-tests",
+      "label": "E2E und Compose Smoke Tests",
+      "items": [
+        {
+          "id": "TST-040",
+          "title": "Kritische Happy-Path-E2E-Suite für Login, erstes Goal und Ergebnisansicht aufbauen",
+          "description": "Die wichtigsten Endnutzerpfade als stabile E2E-Suite gegen den Compose-Stack absichern, inklusive Login, Goal-Erstellung, Ergebnisanzeige und grundlegender Navigation.",
+          "priority": "critical",
+          "type": "test-e2e",
+          "principle": "True-User-Path-Coverage, Release-Safety",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/",
+            "tests/",
+            "docker-compose*.yml"
+          ],
+          "acceptance": [
+            "Login, erstes Goal und Ergebnisansicht laufen reproduzierbar als E2E.",
+            "Die Suite ist für Release-Smoke geeignet.",
+            "Flaky-Verhalten bleibt unter Kontrolle."
+          ]
+        },
+        {
+          "id": "TST-041",
+          "title": "E2E-Suite für Guided Goal, Review-Hinweise und Sicherheitsnotices erweitern",
+          "description": "Geführte Goal-Erstellung, Sicherheitsnotices, Blockierungen und Review-/Verification-Hinweise in echte UI-End-to-End-Szenarien überführen.",
+          "priority": "high",
+          "type": "test-e2e",
+          "principle": "Governance-UX-Validation, No-Only-Happy-Paths",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Guided Goal und Sicherheits-/Review-Hinweise sind als E2E vorhanden.",
+            "Blockierungen und Explainability werden auf UI-Ebene sichtbar validiert.",
+            "Nicht nur Erfolgsfälle, sondern auch kontrollierte Stopps sind abgedeckt."
+          ]
+        },
+        {
+          "id": "TST-042",
+          "title": "Compose-Smoke-Matrix für Lite, Distributed und Ollama-Overlay pflegen",
+          "description": "Für die wichtigsten Betriebsvarianten kleine, verlässliche Smoke-Suiten aufbauen, damit zentrale Features nicht nur im Standard-Lite-Stack als getestet gelten.",
+          "priority": "high",
+          "type": "test-e2e",
+          "principle": "Deployment-Variant-Confidence, Wider-Operational-Safety",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docker-compose*.yml",
+            "scripts/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Lite-, Distributed- und Ollama-nahe Varianten haben definierte Smokes.",
+            "Wichtige Unterschiede im Stack werden nicht still ungetestet gelassen.",
+            "Release- und Betriebsvarianten bleiben nachvollziehbar abgesichert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "live-click-and-browser-runtime-tests",
+      "label": "Live Click und Browser Runtime Tests",
+      "items": [
+        {
+          "id": "TST-050",
+          "title": "Live-Click-Suite für Dashboard, Goal-Start und Ergebnisleseweg stabilisieren",
+          "description": "Die vorhandenen Live-Browser-/Firefox-/noVNC-Nähe nutzen, um reale Klickpfade mit robuster Selektorstrategie und Screenshot-/Fehlerdiagnostik abzusichern.",
+          "priority": "high",
+          "type": "test-live-click",
+          "principle": "Real-Browser-Confidence, Human-Like-Validation",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Wichtige Klickpfade laufen reproduzierbar in Live-Browser-Nähe.",
+            "Fehlschläge liefern brauchbare Diagnoseartefakte.",
+            "Selektoren sind robust genug gegen kleinere UI-Änderungen."
+          ]
+        },
+        {
+          "id": "TST-051",
+          "title": "Live-Click-Szenarien für Sicherheitsnotices, Blockierungen und Recovery-Pfade ergänzen",
+          "description": "Nicht nur Happy Paths, sondern auch reale Browser-Szenarien für Blockierungen, Review-Pflichten, Fehlerzustände und Wiederaufnahme ergänzen.",
+          "priority": "medium",
+          "type": "test-live-click",
+          "principle": "Visible-Safety-Validation, Real-Recovery-Confidence",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "scripts/",
+            "frontend-angular/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Sicherheits- und Recovery-Pfade sind auch in Live-Klicktests vertreten.",
+            "UI reagiert nachvollziehbar auf Blockierungen und Fehler.",
+            "Recovery-Pfade werden realistisch validiert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cli-and-tui-tests",
+      "label": "CLI und TUI Tests",
+      "items": [
+        {
+          "id": "TST-060",
+          "title": "CLI-Kurzbefehle analyze, review, diagnose und patch mit Unit- und Integrationssuites absichern",
+          "description": "Die produktnahen CLI-Kommandos gegen Parsing, Exit-Codes, Fehlerpfade, Ausgabeformat und Umgebungsvariablen testen.",
+          "priority": "critical",
+          "type": "test-cli",
+          "principle": "Reliable-CLI-Contracts, Product-Entry-Stability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/cli_goals.py",
+            "tests/",
+            "scripts/"
+          ],
+          "acceptance": [
+            "Die Kernkommandos haben aussagekräftige Tests auf Parsing und Ergebnisform.",
+            "Fehlerpfade und Exit-Codes sind explizit abgesichert.",
+            "CLI-Verhalten bleibt nach Refactors stabil."
+          ]
+        },
+        {
+          "id": "TST-061",
+          "title": "Interaktive TUI-Bausteine mit Snapshot- und Verhaltenstests einführen",
+          "description": "Falls oder sobald die CLI interaktive Text-UI-Elemente enthält, diese mit Snapshot- und Verhaltenstests gegen Prompts, Navigation, Abbruch und Fehlerdarstellung absichern.",
+          "priority": "medium",
+          "type": "test-tui",
+          "principle": "Terminal-UX-Stability, Reproducible-Interactive-Flows",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "tests/"
+          ],
+          "acceptance": [
+            "Interaktive TUI-Flows sind nicht nur manuell testbar.",
+            "Navigation, Abbruch und Statusdarstellung bleiben stabil.",
+            "Golden- oder Snapshot-Baselines sind pflegbar gehalten."
+          ]
+        },
+        {
+          "id": "TST-062",
+          "title": "CLI-Konfigurations- und Environment-Fehlerszenarien systematisch testen",
+          "description": "Fehlende Tokens, kaputte Configs, nicht erreichbare Endpunkte, falsche Modelle oder Runtime-Umgebungen gezielt über CLI-Testfälle absichern.",
+          "priority": "medium",
+          "type": "test-cli",
+          "principle": "Operational-CLI-Robustness, Better-Failure-Messaging",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/cli_goals.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "CLI reagiert kontrolliert auf fehlende oder defekte Umgebung.",
+            "Fehlermeldungen sind für Nutzer brauchbar.",
+            "Config- und Runtimefehler führen nicht zu chaotischen Ausgaben."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security-adversarial-llm-misbehavior",
+      "label": "Security Adversarial und LLM Misbehavior",
+      "items": [
+        {
+          "id": "SEC-100",
+          "title": "Prompt-Injection und Tool-Override-Versuche gegen Kernpfade testen",
+          "description": "Gezielte adversarial Tests für Prompt-Injection, Regelumgehung, versteckte Instruktionen und Tool-Override-Muster aufbauen, um Governance und Capability-Grenzen gegen feindliche Modellantworten zu validieren.",
+          "priority": "critical",
+          "type": "security-test",
+          "principle": "Adversarial-Resilience, No-Blind-Trust-in-Model",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "agent/services/",
+            "agent/routes/"
+          ],
+          "acceptance": [
+            "Mehrere Prompt-Injection- und Regelumgehungs-Muster sind als automatisierte Tests vorhanden.",
+            "Verbotene Tool- oder Scope-Eskalationen werden blockiert.",
+            "Die Tests belegen, dass Policies nicht nur sprachlich, sondern mechanisch greifen."
+          ]
+        },
+        {
+          "id": "SEC-101",
+          "title": "Crazy-LLM-Antworten als hostile model suite simulieren",
+          "description": "Eine Test-Suite aufbauen, in der Modellantworten absichtlich lügen, Strukturen verletzen, unerlaubte Tool-Argumente liefern, Status fälschen oder Output-Schemas ignorieren.",
+          "priority": "critical",
+          "type": "security-test",
+          "principle": "Hostile-Model-Assumption, Defensive-Parsing",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "agent/services/",
+            "agent/common/"
+          ],
+          "acceptance": [
+            "Feindliche Modellantworten werden nicht als vertrauenswürdig behandelt.",
+            "Schema-Verletzungen und manipulative Antworten werden kontrolliert erkannt.",
+            "Kernpfade bleiben bei hostile model behavior sicher begrenzt."
+          ]
+        },
+        {
+          "id": "SEC-102",
+          "title": "Kontextvergiftung und Artefakt-getriebene Instruktionsangriffe testen",
+          "description": "Markdown, Tickets, Dateien, Diff-Kommentare oder andere Artefakte mit versteckten oder überschreibenden Instruktionen als Angriffsmaterial in Retrieval- und Kontextpfaden testen.",
+          "priority": "high",
+          "type": "security-test",
+          "principle": "Context-Poisoning-Resistance, Safe-Retrieval-Usage",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/services/",
+            "agent/research_backend*"
+          ],
+          "acceptance": [
+            "Kontextvergiftung ist als eigener Angriffstyp automatisiert testbar.",
+            "Gefährliche Artefaktinhalte führen nicht zu stillen Policy-Umgehungen.",
+            "Retrieval und Kontextnutzung bleiben kontrolliert."
+          ]
+        },
+        {
+          "id": "SEC-103",
+          "title": "Multi-Hop und Subtask-Eskalationsversuche gegen Governance testen",
+          "description": "Tests aufbauen, in denen ein Subtask versucht, Scope, Tools, Credentials oder Zuständigkeiten über mehrstufige Anfragen schleichend zu erweitern.",
+          "priority": "high",
+          "type": "security-test",
+          "principle": "No-Escalation-by-Chaining, Delegation-Boundary-Enforcement",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/services/",
+            "agent/routes/tasks/"
+          ],
+          "acceptance": [
+            "Mehrstufige Eskalationsversuche sind als Testfälle vorhanden.",
+            "Subtasks können ihre Grenzen nicht schleichend erweitern.",
+            "Delegationsketten bleiben capability- und scope-gebunden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security-api-auth-and-boundary-tests",
+      "label": "Security API Auth und Boundary Tests",
+      "items": [
+        {
+          "id": "SEC-110",
+          "title": "Auth- und Boundary-Security über negative API-Tests massiv ausbauen",
+          "description": "Replay-artige Requests, Header-Spoofing, Hub-/Worker-Verwechslung, JWT-Missbrauch, Token-Refresh-Missbrauch und verbotene Tenant-/Workspace-Zugriffe automatisiert prüfen.",
+          "priority": "critical",
+          "type": "security-test",
+          "principle": "Boundary-Trust-Validation, Hostile-Caller-Assumption",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "agent/auth/",
+            "agent/routes/",
+            "frontend-angular/src/app/services/"
+          ],
+          "acceptance": [
+            "Negative Auth- und Boundary-Tests decken Spoofing, Replay und Scope-Verletzung ab.",
+            "Hub- und Worker-Grenzen sind praktisch validiert.",
+            "Kritische Header- und Token-Pfade sind gegen Missbrauch getestet."
+          ]
+        },
+        {
+          "id": "SEC-111",
+          "title": "API-Fuzzing-nahe Payload-Tests für invalide, oversized und verschachtelte Inputs einführen",
+          "description": "Requests mit kaputten, riesigen, tief verschachtelten oder semantisch manipulativen Payloads gezielt gegen zentrale Endpunkte testen.",
+          "priority": "high",
+          "type": "security-test",
+          "principle": "Input-Hardening, Robust-Rejection",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/routes/"
+          ],
+          "acceptance": [
+            "Mehrere Kernendpunkte sind gegen bösartige oder pathologische Inputs getestet.",
+            "Das System lehnt solche Inputs kontrolliert ab.",
+            "Serverfehler oder unklare Zustandsfolgen werden vermieden."
+          ]
+        },
+        {
+          "id": "SEC-112",
+          "title": "Statuswechsel- und Race-Condition-Angriffe gegen Task- und Goal-Endpunkte testen",
+          "description": "Parallele Requests, doppelte Completion, verspätete Callback-Nachrichten und unerwartete Statuswechsel als Angriffs- und Robustheitsszenarien prüfen.",
+          "priority": "high",
+          "type": "security-test",
+          "principle": "State-Integrity, Race-Resistance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/routes/",
+            "agent/services/"
+          ],
+          "acceptance": [
+            "Parallele und verspätete Zustandsmanipulationen sind als Tests vorhanden.",
+            "Task- und Goal-Status bleiben konsistent.",
+            "Race-Condition-Risiken werden sichtbar und überprüfbar reduziert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security-artifact-repository-and-output-tests",
+      "label": "Security Artefakt Repository und Output Tests",
+      "items": [
+        {
+          "id": "SEC-120",
+          "title": "Artefakt-, Diff- und Repository-Eingaben gegen bösartige Inhaltsformen testen",
+          "description": "Markdown, Diffs, Patch-Dateien, Dateinamen, Unicode-/Homoglyph-Tricks, Terminal-Escapes und manipulierte technische Inhalte als hostile inputs automatisiert prüfen.",
+          "priority": "high",
+          "type": "security-test",
+          "principle": "Hostile-Artifact-Handling, Safe-Rendering-and-Parsing",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/services/",
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Bösartige Artefakt- und Repository-Inhalte sind als Testklasse vorhanden.",
+            "Anzeige-, Parsing- und Weiterverarbeitungspfade reagieren kontrolliert.",
+            "Unicode- und Escape-Tricks führen nicht zu stillen Sicherheitsbrüchen."
+          ]
+        },
+        {
+          "id": "SEC-121",
+          "title": "CLI- und TUI-Ausgabe gegen ANSI-, Escape- und Terminal-Missbrauch testen",
+          "description": "Terminalbezogene Angriffe wie ANSI-Escape-Sequenzen, kaputte Newlines, Hyperlink-Escapes und irreführende Prompt-Ausgaben gegen die CLI-/TUI-Ausgabe testen.",
+          "priority": "medium",
+          "type": "security-test",
+          "principle": "Safe-Terminal-Interaction, No-Output-Spoofing",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "agent/cli_goals.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "CLI-/TUI-Ausgaben sind gegen typische Terminal-Missbrauchsmuster getestet.",
+            "Feindliche Inhalte können den Nutzer nicht leicht täuschen oder die Darstellung kapern.",
+            "Terminal-Relevante Sanitization bleibt nachweisbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "observability-release-and-chaos-validation",
+      "label": "Observability Release und Chaos Validation",
+      "items": [
+        {
+          "id": "TST-130",
+          "title": "Release-Gate, Strict-Mode und Build-Validation als eigene Testklasse absichern",
+          "description": "Die Release- und Strict-Mode-Prüfungen selbst gegen positive und negative Repository-Zustände testen, damit die Sicherungslogik nicht ungetestet bleibt.",
+          "priority": "medium",
+          "type": "test-integration",
+          "principle": "Trust-the-Gate-Because-It-Is-Tested",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "scripts/release_gate.py",
+            "tests/",
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Release-Gate und Strict-Mode werden selbst automatisiert geprüft.",
+            "Negative Fälle führen erwartbar zum Scheitern.",
+            "Die Build-Sicherungslogik bleibt nicht nur implizit vertraut."
+          ]
+        },
+        {
+          "id": "TST-131",
+          "title": "Startup-, Shutdown- und Background-Service-Chaos-Szenarien testen",
+          "description": "Start-/Stop-/Reload-Pfade, partielle Fehler im Bootstrap, Background-Service-Ausfälle und Wiederanlauf-Szenarien über gezielte Chaos-ähnliche Tests absichern.",
+          "priority": "medium",
+          "type": "test-integration",
+          "principle": "Operational-Robustness, Safer-Lifecycle",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/bootstrap/",
+            "agent/lifecycle.py",
+            "tests/"
+          ],
+          "acceptance": [
+            "Lifecycle-Pfade sind gegen partielle Störungen getestet.",
+            "Background-Ausfälle führen nicht zu unklaren Zwischenzuständen.",
+            "Start- und Shutdown-Robustheit wird praktisch validiert."
+          ]
+        },
+        {
+          "id": "TST-132",
+          "title": "Testmetriken, Flaky-Tracking und Failure-Diagnostik ausbauen",
+          "description": "Für E2E-, Live-Click- und Security-Suiten Diagnoseartefakte, Flaky-Kennzahlen, Screenshots, Logs und strukturierte Failure-Metadaten systematischer erfassen.",
+          "priority": "low",
+          "type": "test-infrastructure",
+          "principle": "Actionable-Test-Failures, Faster-Feedback",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "scripts/",
+            ".github/workflows/"
+          ],
+          "acceptance": [
+            "Schwere Testfehler liefern gute Diagnoseartefakte.",
+            "Flaky-Verhalten wird messbarer und sichtbarer.",
+            "Testinfrastruktur verbessert Debugbarkeit statt nur Anzahl von Tests."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 30,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 30
+    },
+    "notes": [
+      "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",
+      "Der wichtigste Unterschied zu gewöhnlichen Testplänen ist der adversarial Schwerpunkt: hostile model, hostile input, hostile external caller und hostile artifact werden explizit als eigene Testachsen behandelt.",
+      "Der Kernanspruch ist: Ananta soll nicht nur mit gutwilligen Eingaben und vernünftigen Modellen funktionieren, sondern auch unter feindlichen, chaotischen und irreführenden Bedingungen kontrolliert bleiben."
+    ],
+    "recommended_order": [
+      "TST-010",
+      "TST-011",
+      "TST-012",
+      "TST-020",
+      "TST-022",
+      "SEC-100",
+      "SEC-101",
+      "SEC-110",
+      "TST-040",
+      "TST-041",
+      "TST-060",
+      "TST-021",
+      "TST-030",
+      "TST-031",
+      "TST-001",
+      "TST-002",
+      "TST-005",
+      "TST-013",
+      "TST-014",
+      "SEC-102",
+      "SEC-103",
+      "SEC-111",
+      "SEC-112",
+      "SEC-120",
+      "TST-042",
+      "TST-050",
+      "TST-051",
+      "TST-061",
+      "TST-062",
+      "TST-003",
+      "TST-004",
+      "TST-006",
+      "TST-023",
+      "TST-032",
+      "SEC-121",
+      "TST-130",
+      "TST-131",
+      "TST-132"
+    ]
+  }
+}

@@ -92,7 +92,7 @@ jobs:
         with:
           python-version: "3.11.15"
       - name: Run release reproducibility gate
-        run: python scripts/release_gate.py --compose-config --report release-verification-report.json
+        run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-verification-report

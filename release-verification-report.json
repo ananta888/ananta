@@ -50,22 +50,12 @@
     {
       "name": "todo-status",
       "ok": true,
-      "detail": "todo status counters are synchronized and all release todo items are completed"
+      "detail": "todo status counters are synchronized"
     },
     {
       "name": "compose-config",
       "ok": true,
       "detail": "release compose configurations render successfully"
-    },
-    {
-      "name": "frontend-build",
-      "ok": true,
-      "detail": "frontend npm ci and build passed"
-    },
-    {
-      "name": "image-builds",
-      "ok": true,
-      "detail": "backend and frontend release images build successfully"
     }
   ]
 }

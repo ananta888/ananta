@@ -5,3 +5,4 @@ export * from './table-shell.component';
 export * from './next-steps.component';
 export * from './explanation-notice.component';
 export * from './safety-notice.component';
+export * from './system-status-summary.component';

@@ -10,6 +10,7 @@ Every release candidate must pass the release gate from a clean checkout:
 ANANTA_DOCKER_CLEAN_PATH=1 \
 ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
 python scripts/release_gate.py \
+  --strict \
   --compose-config \
   --frontend-build \
   --build-images \
@@ -70,7 +71,7 @@ node --version
 npm --version
 docker --version
 docker compose version
-python scripts/release_gate.py --compose-config --report release-verification-report.json
+python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
 ```
 
 ## CI
