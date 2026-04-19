@@ -1,21 +1,30 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 
+import { UiAsyncState, buildUiAsyncState, isCollectionEmpty } from '../models/ui-async-state';
 import { AgentDirectoryService } from './agent-directory.service';
 import { HubApiService } from './hub-api.service';
 
 export interface TaskLogStreamState {
   logs: any[];
   loading: boolean;
+  refreshing: boolean;
+  empty: boolean;
   connected: boolean;
   lastEvent: any | null;
+  error: string | null;
+  asyncState: UiAsyncState<any[]>;
 }
 
 const DEFAULT_TASK_LOG_STATE: TaskLogStreamState = {
   logs: [],
   loading: false,
+  refreshing: false,
+  empty: true,
   connected: false,
   lastEvent: null,
+  error: null,
+  asyncState: buildUiAsyncState([], { empty: true }),
 };
 
 const TASK_REFRESH_EVENT_TYPES = new Set([
@@ -94,8 +103,15 @@ export class HubLiveStateService implements OnDestroy {
     this.updateTaskState(normalizedTaskId, {
       logs: options?.reset ? [] : this.taskLogState(normalizedTaskId).logs,
       loading: true,
+      refreshing: this.taskLogState(normalizedTaskId).logs.length > 0,
+      empty: false,
       connected: false,
       lastEvent: null,
+      error: null,
+      asyncState: buildUiAsyncState(options?.reset ? [] : this.taskLogState(normalizedTaskId).logs, {
+        loading: true,
+        refreshing: this.taskLogState(normalizedTaskId).logs.length > 0,
+      }),
     });
 
     const sub = this.hubApi.streamTaskLogs(hubUrl, normalizedTaskId).subscribe({
@@ -105,8 +121,12 @@ export class HubLiveStateService implements OnDestroy {
         this.updateTaskState(normalizedTaskId, {
           logs: nextLogs,
           loading: false,
+          refreshing: false,
+          empty: isCollectionEmpty(nextLogs),
           connected: true,
           lastEvent: log ?? null,
+          error: null,
+          asyncState: buildUiAsyncState(nextLogs, { empty: isCollectionEmpty(nextLogs) }),
         });
         options?.onEvent?.(log);
       },
@@ -114,8 +134,15 @@ export class HubLiveStateService implements OnDestroy {
         this.updateTaskState(normalizedTaskId, {
           logs: this.taskLogState(normalizedTaskId).logs,
           loading: false,
+          refreshing: false,
+          empty: isCollectionEmpty(this.taskLogState(normalizedTaskId).logs),
           connected: false,
           lastEvent: this.taskLogState(normalizedTaskId).lastEvent,
+          error: 'Task-Logs konnten nicht geladen werden',
+          asyncState: buildUiAsyncState(this.taskLogState(normalizedTaskId).logs, {
+            empty: isCollectionEmpty(this.taskLogState(normalizedTaskId).logs),
+            error: 'Task-Logs konnten nicht geladen werden',
+          }),
         });
         options?.onError?.(error);
       },
@@ -132,8 +159,15 @@ export class HubLiveStateService implements OnDestroy {
     this.updateTaskState(normalizedTaskId, {
       logs: current.logs,
       loading: false,
+      refreshing: false,
+      empty: isCollectionEmpty(current.logs),
       connected: false,
       lastEvent: current.lastEvent,
+      error: current.error,
+      asyncState: buildUiAsyncState(current.logs, {
+        empty: isCollectionEmpty(current.logs),
+        error: current.error,
+      }),
     });
   }
 

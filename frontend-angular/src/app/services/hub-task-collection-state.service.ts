@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { Subscription, interval } from 'rxjs';
 
+import { UiAsyncState, buildUiAsyncState, isCollectionEmpty } from '../models/ui-async-state';
 import { HubApiService } from './hub-api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -79,16 +80,31 @@ export class HubTaskCollectionStateService implements OnDestroy {
   snapshot(): {
     tasks: any[];
     loading: boolean;
+    refreshing: boolean;
+    empty: boolean;
     lastLoadedAt: number | null;
     error: string | null;
+    asyncState: UiAsyncState<any[]>;
     counts: Record<string, number>;
   } {
     const tasks = this.tasks();
+    const loading = this.loading();
+    const lastLoadedAt = this.lastLoadedAt();
+    const error = this.error();
     return {
       tasks,
-      loading: this.loading(),
-      lastLoadedAt: this.lastLoadedAt(),
-      error: this.error(),
+      loading,
+      refreshing: loading && lastLoadedAt !== null,
+      empty: isCollectionEmpty(tasks) && !loading && !error,
+      lastLoadedAt,
+      error,
+      asyncState: buildUiAsyncState(tasks, {
+        loading,
+        refreshing: loading && lastLoadedAt !== null,
+        empty: isCollectionEmpty(tasks) && !loading && !error,
+        error,
+        lastLoadedAt,
+      }),
       counts: tasks.reduce((acc: Record<string, number>, task: any) => {
         const status = String(task?.status || 'unknown');
         acc[status] = (acc[status] || 0) + 1;

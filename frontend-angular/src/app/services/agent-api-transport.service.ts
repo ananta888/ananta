@@ -1,7 +1,8 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 
+import { ApiResponse, unwrapApiResponse } from './api-envelope';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
 
@@ -43,14 +44,7 @@ export class AgentApiTransport {
     return { headers };
   }
 
-  unwrap<T>(obs: Observable<T>): Observable<T> {
-    return obs.pipe(
-      map((response: any) => {
-        if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
-          return response.data;
-        }
-        return response;
-      }),
-    );
+  unwrap<T>(obs: Observable<ApiResponse<T>>): Observable<T> {
+    return unwrapApiResponse<T>(obs);
   }
 }

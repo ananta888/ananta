@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   test: {
@@ -6,6 +6,6 @@ export default defineConfig({
     include: ['src/**/*.spec.ts'],
     setupFiles: ['src/test-setup.ts'],
     environment: 'jsdom',
-    passWithNoTests: false
-  }
+    passWithNoTests: false,
+  },
 });
