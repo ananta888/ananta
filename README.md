@@ -41,6 +41,9 @@ Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 - Release-Checklist: `docs/release-checklist.md`
 - Changelog-Strategie: `CHANGELOG.md`
 - Secrets-Inventar fuer GitHub Actions: `docs/github-secrets-inventory.md`
+- GitHub Admin-Setup: `docs/github-admin-setup.md`
+- CI-Testtiefen: `docs/ci-test-depth-strategy.md`
+- Container-Release-Strategie: `docs/container-release-strategy.md`
 - AI-assisted Development Policy: `docs/ai-assisted-development.md`
 - Security Policy: `.github/SECURITY.md`
 

@@ -114,6 +114,16 @@ The release tag remains the source of truth for source code. Release assets are 
 
 SBOM and provenance policy are documented in `docs/release-provenance.md`. Dependency update visibility is documented in `docs/supply-chain-checks.md`.
 
+## Nightly, RC And Container Validation
+
+Validation depth is defined in `docs/ci-test-depth-strategy.md`.
+
+- `.github/workflows/nightly-rc-validation.yml` runs scheduled and manual release-adjacent validation.
+- `.github/workflows/container-release.yml` builds backend and frontend images for release tags and uploads image metadata.
+- Container publishing remains gated by `docs/container-release-strategy.md` and the protected `release` GitHub Environment.
+
+GitHub Environment setup is documented in `docs/github-environments.md`.
+
 ## Release Notes And Changelog
 
 GitHub Releases are the primary public release notes channel. `.github/release.yml` groups generated release notes by labels such as security, governance, release, CI, backend, frontend and docs.

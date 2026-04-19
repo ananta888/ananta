@@ -11,6 +11,8 @@ Artifact names use the `ananta-` prefix and describe the diagnostic surface:
 - `ananta-e2e-compose-results`: Playwright and E2E failure output from the compose-backed E2E job.
 - `ananta-architecture-diagrams`: rendered architecture diagrams.
 - `ananta-github-release-assets`: prepared GitHub Release asset bundle from the release workflow.
+- `ananta-nightly-rc-validation`: scheduled or manually triggered release-candidate validation evidence.
+- `ananta-container-release-metadata`: image metadata from release-tag container builds.
 
 New artifacts should follow the same pattern: `ananta-<area>-<content>`.
 
@@ -33,5 +35,7 @@ For a failed run, inspect artifacts in this order:
 3. `ananta-compose-configs` for rendered service configuration differences.
 4. `ananta-architecture-diagrams` for documentation rendering failures.
 5. `ananta-github-release-assets` for prepared release payload inspection.
+6. `ananta-nightly-rc-validation` for RC validation evidence.
+7. `ananta-container-release-metadata` for release image build provenance.
 
 If a workflow creates a new class of diagnostic output, update this document in the same pull request.

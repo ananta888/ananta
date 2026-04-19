@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "repo-governance",
           "principle": "No-Bypass-Merges, Protected-Mainline",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             ".github/workflows/quality-and-docs.yml",
@@ -44,7 +44,7 @@
           "priority": "high",
           "type": "repo-governance",
           "principle": "Controlled-Change-Flow, Auditable-Delivery",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "README.md",
@@ -64,7 +64,7 @@
           "priority": "high",
           "type": "repo-governance",
           "principle": "Human-Review-on-Critical-Changes, Safer-Merges",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             ".github/CODEOWNERS",
@@ -163,7 +163,7 @@
           "priority": "high",
           "type": "ci-cd",
           "principle": "Right-Depth-at-Right-Time, Sustainable-Validation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/"
@@ -252,7 +252,7 @@
           "priority": "critical",
           "type": "release-prep",
           "principle": "Scoped-Secrets, Protected-Deploy-Contexts",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "GitHub repository settings",
@@ -521,7 +521,7 @@
           "priority": "medium",
           "type": "repo-governance",
           "principle": "Clear-Triage-Taxonomy, Better-Planning",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "GitHub repository settings"
@@ -589,7 +589,7 @@
           "priority": "medium",
           "type": "presentation",
           "principle": "Clear-Positioning, Better-Discovery",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "GitHub repository settings",
@@ -697,7 +697,7 @@
           "priority": "high",
           "type": "release-prep",
           "principle": "Reproducible-Container-Releases, Explicit-Image-Flow",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/",
@@ -717,7 +717,7 @@
           "priority": "medium",
           "type": "ci-cd",
           "principle": "Earlier-Release-Signals, Fewer-Surprises-on-Tag-Day",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             ".github/workflows/"
@@ -734,9 +734,9 @@
   "meta": {
     "total_items": 34,
     "by_status": {
-      "completed": 23,
-      "partial": 0,
-      "open": 11
+      "completed": 26,
+      "partial": 6,
+      "open": 2
     },
     "notes": [
       "Diese Todo-Datei baut nicht weitere Produktfeatures, sondern die GitHub-, Release- und Betriebsreife des Projekts aus.",
@@ -750,9 +750,11 @@
         "GIT-004",
         "GIT-011",
         "GIT-012",
+        "GIT-013",
         "GIT-020",
         "GIT-021",
         "GIT-022",
+        "GIT-031",
         "GIT-032",
         "GIT-041",
         "GIT-042",
@@ -766,11 +768,19 @@
         "GIT-061",
         "GIT-070",
         "GIT-071",
-        "GIT-081",
         "GIT-082",
         "GIT-090",
         "GIT-091",
+        "GIT-100",
         "GIT-101"
+      ],
+      "local_prepared_requires_admin_activation": [
+        "GIT-001",
+        "GIT-002",
+        "GIT-003",
+        "GIT-030",
+        "GIT-062",
+        "GIT-080"
       ],
       "requires_github_admin_action": [
         "GIT-001",
@@ -780,10 +790,7 @@
         "GIT-062",
         "GIT-080"
       ],
-      "requires_release_strategy_decision": [
-        "GIT-013",
-        "GIT-100"
-      ]
+      "requires_release_strategy_decision": []
     },
     "recommended_order": [
       "GIT-001",
