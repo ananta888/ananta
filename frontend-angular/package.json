@@ -75,7 +75,7 @@
     "otplib": "13.2.1",
     "typescript": "5.9.3",
     "vitest": "3.2.4",
-    "zone.js": "0.16.0"
+    "zone.js": "0.16.1"
   },
   "overrides": {
     "lodash-es": "4.17.23"
