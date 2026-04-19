@@ -74,6 +74,30 @@ jobs:
       - name: Validate distributed compose config
         run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config >/tmp/compose-distributed.out
 
+  release-gate:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: test-postgres-password
+      INITIAL_ADMIN_PASSWORD: test-admin-password
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      AGENT_TOKEN_HUB: hub-token
+      AGENT_TOKEN_ALPHA: alpha-token
+      AGENT_TOKEN_BETA: beta-token
+      AGENT_TOKEN_GAMMA: gamma-token
+      AGENT_TOKEN_DELTA: delta-token
+      GRAFANA_PASSWORD: test-grafana-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run release reproducibility gate
+        run: python scripts/release_gate.py --compose-config --report release-verification-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-verification-report
+          path: release-verification-report.json
+
   e2e-compose:
     runs-on: ubuntu-latest
     steps:
