@@ -19,7 +19,7 @@ def _safe_segment(value: str | None, *, fallback: str) -> str:
     raw = str(value or "").strip().lower()
     if not raw:
         return fallback
-    normalized = re.sub(r"[^a-z0-9._-]+", "-", raw).strip("-")
+    normalized = re.sub(r"[^a-z0-9._-]+", "-", raw).strip("-.")
     return normalized or fallback
 
 

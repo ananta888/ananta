@@ -634,7 +634,7 @@
           "priority": "high",
           "type": "security-test",
           "principle": "No-Escalation-by-Chaining, Delegation-Boundary-Enforcement",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -660,7 +660,7 @@
           "priority": "critical",
           "type": "security-test",
           "principle": "Boundary-Trust-Validation, Hostile-Caller-Assumption",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/",
@@ -681,7 +681,7 @@
           "priority": "high",
           "type": "security-test",
           "principle": "Input-Hardening, Robust-Rejection",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -700,7 +700,7 @@
           "priority": "high",
           "type": "security-test",
           "principle": "State-Integrity, Race-Resistance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -726,7 +726,7 @@
           "priority": "high",
           "type": "security-test",
           "principle": "Hostile-Artifact-Handling, Safe-Rendering-and-Parsing",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -830,9 +830,9 @@
   "meta": {
     "total_items": 38,
     "by_status": {
-      "completed": 22,
+      "completed": 27,
       "partial": 0,
-      "open": 16
+      "open": 11
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",
