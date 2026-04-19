@@ -11,11 +11,12 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
+import { EmptyStateComponent } from '../shared/ui/state';
 
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [CommonModule, FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe, UiSkeletonComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe, UiSkeletonComponent, EmptyStateComponent],
   template: `
     <div class="row flex-between">
       <h2>Board</h2>
@@ -56,16 +57,15 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
           }
         </div>
         @if (!loading && tasks.length === 0) {
-          <div class="card empty-state mb-lg">
-            <h3 class="no-margin">Noch keine Aufgaben im Board</h3>
-            <p class="muted no-margin">
-              Lege oben eine einzelne Aufgabe an oder starte auf dem Dashboard mit einem Ziel, damit Ananta daraus passende Tasks ableitet.
-            </p>
-            <div class="row gap-sm flex-center mt-sm">
-              <button class="primary" [routerLink]="['/dashboard']">Ziel planen</button>
-              <button class="secondary" (click)="newTitle = 'Repository analysieren und naechste Schritte vorschlagen'">Beispiel einsetzen</button>
-            </div>
-          </div>
+          <app-empty-state
+            class="block mb-lg"
+            title="Noch keine Aufgaben im Board"
+            description="Lege oben eine einzelne Aufgabe an oder starte auf dem Dashboard mit einem Ziel, damit Ananta daraus passende Tasks ableitet."
+            primaryLabel="Ziel planen"
+            [primaryRouterLink]="['/dashboard']"
+            secondaryLabel="Beispiel einsetzen"
+            (secondary)="newTitle = 'Repository analysieren und naechste Schritte vorschlagen'"
+          ></app-empty-state>
         }
         @if (loading) {
           <app-ui-skeleton
@@ -149,10 +149,11 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
               </div>
             }
             @if (getRoadmapTasks().length === 0) {
-              <div class="empty-state compact">
-                <strong>Keine Roadmap-Aufgaben gefunden.</strong>
-                <p class="muted no-margin mt-sm">Sobald Tasks mit To-Do-Status oder Roadmap-Bezug vorhanden sind, erscheinen sie hier.</p>
-              </div>
+              <app-empty-state
+                title="Keine Roadmap-Aufgaben gefunden"
+                description="Sobald Tasks mit To-Do-Status oder Roadmap-Bezug vorhanden sind, erscheinen sie hier."
+                [compact]="true"
+              ></app-empty-state>
             }
           </div>
         </div>

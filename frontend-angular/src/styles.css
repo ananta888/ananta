@@ -496,6 +496,40 @@ body.dark-mode .progress-bar {
   margin: 0 0 20px 0;
 }
 
+.shared-empty-state {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card-bg) 92%, white);
+}
+
+.shared-state-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.shared-state-actions {
+  margin-top: 12px;
+}
+
+.shared-error-state {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.shared-error-content {
+  min-width: 0;
+}
+
+.shared-error-details {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 8px 0 0;
+}
+
 .start-hero {
   display: flex;
   justify-content: space-between;
