@@ -1,19 +1,19 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
-import { Observable, from, throwError, BehaviorSubject } from 'rxjs';
-import { switchMap, catchError, filter, take } from 'rxjs/operators';
+import { Observable, from, throwError } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
 import { AuthTarget, resolveAuthTarget } from './auth-target.resolver';
-import { generateJWT } from '../utils/jwt';
+import { AgentJwtService } from './agent-jwt.service';
+import { AuthRefreshCoordinator } from './auth-refresh-coordinator.service';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   private dir = inject(AgentDirectoryService);
   private userAuth = inject(UserAuthService);
-
-  private isRefreshing = false;
-  private refreshTokenSubject: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
+  private agentJwt = inject(AgentJwtService);
+  private refreshCoordinator = inject(AuthRefreshCoordinator);
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     if (req.headers.has('Authorization')) {
@@ -42,10 +42,7 @@ export class AuthInterceptor implements HttpInterceptor {
       }
       case 'agent_jwt_shared_secret': {
         return from(
-          generateJWT(
-            { sub: 'frontend', iat: Math.floor(Date.now() / 1000) },
-            target.agentSharedSecret!,
-          ),
+          this.agentJwt.createFrontendToken(target.agentSharedSecret!),
         ).pipe(
           switchMap(jwt => next.handle(this.addTokenHeader(req, jwt))),
         );
@@ -71,36 +68,14 @@ export class AuthInterceptor implements HttpInterceptor {
           !request.url.includes('/auth/refresh-token') &&
           !request.url.includes('/login')
         ) {
-          return this.handle401Error(request, next);
+          return this.refreshCoordinator.handleUnauthorized(
+            request,
+            next,
+            (retryRequest, token) => this.addTokenHeader(retryRequest, token),
+          );
         }
         return throwError(() => error);
       }),
-    );
-  }
-
-  private handle401Error(request: HttpRequest<unknown>, next: HttpHandler) {
-    if (!this.isRefreshing) {
-      this.isRefreshing = true;
-      this.refreshTokenSubject.next(null);
-
-      return this.userAuth.refreshToken().pipe(
-        switchMap((res: any) => {
-          this.isRefreshing = false;
-          this.refreshTokenSubject.next(res.access_token);
-          return next.handle(this.addTokenHeader(request, res.access_token));
-        }),
-        catchError((err) => {
-          this.isRefreshing = false;
-          this.userAuth.logout();
-          return throwError(() => err);
-        }),
-      );
-    }
-
-    return this.refreshTokenSubject.pipe(
-      filter((token): token is string => token !== null),
-      take(1),
-      switchMap(token => next.handle(this.addTokenHeader(request, token))),
     );
   }
 

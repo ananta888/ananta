@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.2.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T00:00:00Z",
+  "updated": "2026-04-19T17:36:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -116,7 +116,7 @@
           "priority": "critical",
           "type": "refactor",
           "principle": "Security-Clarity, Smaller-Critical-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/auth.interceptor.ts",
@@ -135,7 +135,7 @@
           "priority": "high",
           "type": "security",
           "principle": "Explicit-Credential-Handling, Cleaner-Auth-Design",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/services/auth.interceptor.ts",
@@ -157,7 +157,7 @@
           "priority": "high",
           "type": "security",
           "principle": "Separation-of-Critical-Flows, Better-Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/services/auth.interceptor.ts",
@@ -350,7 +350,7 @@
           "priority": "high",
           "type": "refactor",
           "principle": "Baukasten-UI, Lower-Template-Duplication",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -369,7 +369,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Reusable-System-Summary, Less-Special-Markup",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -391,7 +391,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Feature-Reuse, Better-Goal-Reporting",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -415,7 +415,7 @@
           "priority": "medium",
           "type": "component",
           "principle": "Entry-UI-Modularity, Better-Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -556,7 +556,7 @@
           "priority": "medium",
           "type": "release-hardening",
           "principle": "Machine-Enforced-Rigour, No-Soft-Release-Claims",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "scripts/release_gate.py",
@@ -573,11 +573,11 @@
     }
   ],
   "meta": {
-    "total_items": 17,
+    "total_items": 24,
     "by_status": {
-      "completed": 0,
+      "completed": 8,
       "partial": 0,
-      "open": 17
+      "open": 16
     },
     "notes": [
       "Diese Todo-Datei bündelt die wichtigsten nächsten sinnvollen Verbesserungen nach den großen Architektur-, Accessibility- und Release-Runden.",

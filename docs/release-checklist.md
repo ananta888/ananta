@@ -7,7 +7,7 @@ This checklist verifies that a v1.0.0 release candidate can be rebuilt from a cl
 Run the fast release gate first:
 
 ```bash
-python scripts/release_gate.py --compose-config --report release-verification-report.json
+python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
 ```
 
 The standard gate checks:
@@ -30,6 +30,7 @@ Use the full local gate before tagging a release candidate:
 
 ```bash
 python scripts/release_gate.py \
+  --strict \
   --compose-config \
   --frontend-build \
   --build-images \
@@ -46,6 +47,7 @@ On this WSL/Rancher Desktop setup, Docker pulls can fail when the Windows/Ranche
 ANANTA_DOCKER_CLEAN_PATH=1 \
 ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
 python scripts/release_gate.py \
+  --strict \
   --compose-config \
   --frontend-build \
   --build-images \
@@ -71,7 +73,7 @@ node --version
 npm --version
 docker --version
 docker compose version
-python scripts/release_gate.py --compose-config --report release-verification-report.json
+python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
 ```
 
 The two builds are acceptable when the gate passes in both clean checkouts and both reports show all checks as `ok: true`.

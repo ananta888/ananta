@@ -37,14 +37,16 @@ import { StatusTone } from '../shared/ui/state';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
-import { UiSkeletonComponent } from './ui-skeleton.component';
 import { DashboardAutopilotPanelComponent } from './dashboard-autopilot-panel.component';
 import { DashboardTimelinePanelComponent } from './dashboard-timeline-panel.component';
 import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.component';
+import { DashboardDemoPreviewComponent, DemoPreviewExample } from './dashboard-demo-preview.component';
 import { DashboardFacade } from './dashboard.facade';
+import { DashboardGoalGovernanceSummaryCardComponent } from './dashboard-goal-governance-summary-card.component';
+import { DashboardPersonalWorkspaceComponent } from './dashboard-personal-workspace.component';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
-import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent, StatusBadgeComponent } from '../shared/ui/state';
-import { ExplanationNoticeComponent, KeyValueGridComponent, MetricCardComponent, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
+import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from '../shared/ui/state';
+import { ExplanationNoticeComponent, KeyValueGridComponent, NextStepsComponent, SafetyNoticeComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
 import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOption, PresetPickerComponent, WizardShellComponent } from '../shared/ui/forms';
 
@@ -56,19 +58,20 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
     FormsModule,
     RouterLink,
     OnboardingChecklistComponent,
-    UiSkeletonComponent,
     DashboardAutopilotPanelComponent,
     DashboardTimelinePanelComponent,
     DashboardBenchmarkPanelComponent,
+    DashboardDemoPreviewComponent,
+    DashboardGoalGovernanceSummaryCardComponent,
+    DashboardPersonalWorkspaceComponent,
     EmptyStateComponent,
     ErrorStateComponent,
     LoadingStateComponent,
-    StatusBadgeComponent,
-    MetricCardComponent,
     KeyValueGridComponent,
     ExplanationNoticeComponent,
     NextStepsComponent,
     SafetyNoticeComponent,
+    SystemStatusSummaryComponent,
     SectionCardComponent,
     PageIntroComponent,
     ActionCardComponent,
@@ -130,50 +133,18 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
     }
 
     @if (hub) {
-      <app-section-card
-        class="block mb-md"
-        eyebrow="Mein Arbeitsbereich"
-        title="Willkommen zurueck"
-        subtitle="Hier findest du deine letzten Ziele, naechsten Aufgaben und passende Startvorlagen."
-      >
-        <button section-actions class="secondary btn-small" type="button" (click)="focusQuickGoal()">Neues Ziel</button>
-        <div class="grid cols-3 mt-md">
-          <app-metric-card label="Laufende Goals" [value]="activeGoalCount()" hint="Noch nicht abgeschlossene Ziele."></app-metric-card>
-          <app-metric-card label="Naechste Aufgaben" [value]="nextTaskCount()" hint="Offen, blockiert oder in Arbeit."></app-metric-card>
-          <app-metric-card label="Erster Fortschritt" [value]="starterProgress().done + '/' + starterProgress().total" [hint]="starterProgress().label" tone="success"></app-metric-card>
-        </div>
-        <div class="grid cols-2 mt-md">
-          <div>
-            <h4 class="no-margin">Zuletzt bearbeitet</h4>
-            @if (recentGoals().length) {
-              <div class="grid gap-sm mt-sm">
-                @for (goal of recentGoals(); track goal.id) {
-                  <button class="card card-light text-left personal-list-item" type="button" (click)="goToGoal(goal.id)">
-                    <strong>{{ goal.summary || goal.goal || goal.id }}</strong>
-                    <span class="muted font-sm">{{ goal.status || 'unbekannt' }}</span>
-                  </button>
-                }
-              </div>
-            } @else {
-              <div class="empty-state compact mt-sm">
-                <strong>Noch kein eigenes Ziel sichtbar.</strong>
-                <p class="muted no-margin mt-sm">Starte oben mit einem Ziel oder oeffne eine Vorlage.</p>
-              </div>
-            }
-          </div>
-          <div>
-            <h4 class="no-margin">Vorlagen fuer den Start</h4>
-            <div class="grid gap-sm mt-sm">
-              @for (preset of goalPresets().slice(0, 3); track preset.id) {
-                <button class="card card-light text-left personal-list-item" type="button" (click)="applyGoalPreset(preset)">
-                  <strong>{{ preset.title }}</strong>
-                  <span class="muted font-sm">{{ preset.outcome }}</span>
-                </button>
-              }
-            </div>
-          </div>
-        </div>
-      </app-section-card>
+      <app-dashboard-personal-workspace
+        [activeGoalCount]="activeGoalCount()"
+        [nextTaskCount]="nextTaskCount()"
+        [starterDone]="starterProgress().done"
+        [starterTotal]="starterProgress().total"
+        [starterLabel]="starterProgress().label"
+        [recentGoals]="recentGoals()"
+        [presets]="goalPresets().slice(0, 3)"
+        (newGoal)="focusQuickGoal()"
+        (openGoal)="goToGoal($event)"
+        (applyPreset)="applyGoalPreset($event)"
+      ></app-dashboard-personal-workspace>
 
       @if (isHintVisible('dashboard-start')) {
         <app-explanation-notice class="block mb-md inline-help" title="Kurzer Tipp" message="Beginne mit einem Ziel. Details wie Team, Worker oder Policies kannst du spaeter verfeinern.">
@@ -189,45 +160,15 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
       </div>
 
       @if (demoPreview || demoLoading || demoError) {
-        <section class="card mb-md">
-          <div class="row space-between">
-            <div>
-              <h3 class="no-margin">Demo-Vorschau</h3>
-              <p class="muted font-sm mt-sm no-margin">
-                Beispiele sind read-only und bleiben vom echten Arbeitsmodus getrennt.
-              </p>
-            </div>
-            <button class="secondary btn-small" (click)="demoPreview = null; demoError = ''">Schliessen</button>
-          </div>
-          @if (demoLoading) {
-            <app-ui-skeleton [count]="3" [columns]="3" [lineCount]="3" lineClass="skeleton line"></app-ui-skeleton>
-          } @else if (demoError) {
-            <app-error-state
-              title="Demo konnte nicht geladen werden"
-              [message]="demoError"
-              retryLabel="Erneut versuchen"
-              (retry)="loadDemoPreview()"
-            ></app-error-state>
-          } @else if (demoPreview?.examples?.length) {
-            <div class="grid cols-3 mt-sm">
-              @for (example of demoPreview.examples; track example.id) {
-                <article class="card-light demo-example">
-                  <h4>{{ example.title }}</h4>
-                  <p class="muted">{{ example.goal }}</p>
-                  <strong>{{ example.outcome }}</strong>
-                  <ul>
-                    @for (task of example.tasks; track task) {
-                      <li>{{ task }}</li>
-                    }
-                  </ul>
-                  <button class="primary btn-small mt-sm" (click)="startDemoExample(example)" [disabled]="quickGoalBusy">
-                    Als Goal starten
-                  </button>
-                </article>
-              }
-            </div>
-          }
-        </section>
+        <app-dashboard-demo-preview
+          [examples]="demoPreview?.examples || []"
+          [loading]="demoLoading"
+          [error]="demoError"
+          [busy]="quickGoalBusy"
+          (close)="closeDemoPreview()"
+          (retry)="loadDemoPreview()"
+          (startExample)="startDemoExample($event)"
+        ></app-dashboard-demo-preview>
       }
 
       <section class="card card-primary mb-md" id="quick-goal">
@@ -385,89 +326,29 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
         <app-section-card title="Tasks">
           <app-key-value-grid [items]="taskSummaryItems()" [columns]="2"></app-key-value-grid>
         </app-section-card>
-        <div class="card">
-          <h3>System Status</h3>
-          <div class="row gap-sm">
-            <div class="status-dot" [class.online]="systemHealth?.status === 'ok'" [class.offline]="systemHealth?.status !== 'ok'" role="status" [attr.aria-label]="'Systemstatus ' + (systemHealth?.status || 'unknown')"></div>
-            <app-status-badge [label]="systemStatusLabel()" [tone]="systemStatusTone()" [dot]="true"></app-status-badge>
-          </div>
-          <div class="muted font-sm mt-sm">
-            Live Sync:
-            <strong [class.success]="liveState.systemStreamConnected()" [class.danger]="!liveState.systemStreamConnected()">
-              {{ liveState.systemStreamConnected() ? 'connected' : 'idle' }}
-            </strong>
-          </div>
-          <div class="muted font-sm mt-sm">
-            Task Snapshot:
-            <strong [class.success]="!tasksLoading()" [class.danger]="!!taskCollectionError()">
-              {{ tasksLoading() ? 'loading' : 'signal-backed' }}
-            </strong>
-            @if (tasksLastLoadedAt()) {
-              <span> · Stand: {{ ((tasksLastLoadedAt() || 0) * 1000) | date:'HH:mm:ss' }}</span>
-            }
-          </div>
-          @if (liveState.lastSystemEvent()) {
-            <div class="muted font-sm mt-sm">
-              Letztes Event: <strong>{{ liveState.lastSystemEvent()?.type }}</strong>
-            </div>
-          }
-          @if (systemHealth?.checks?.queue) {
-            <div class="muted font-sm mt-sm">
-              Queue-Tiefe: <strong>{{ systemHealth.checks.queue.depth || 0 }}</strong>
-            </div>
-          }
-          @if (systemHealth?.checks?.registration?.enabled) {
-            <div class="muted font-sm mt-sm">
-              Registration: <strong>{{ systemHealth.checks.registration.status }}</strong>
-              @if (systemHealth.checks.registration.attempts) {
-                <span> · Attempts: {{ systemHealth.checks.registration.attempts }}</span>
-              }
-            </div>
-          }
-          @if (systemHealth?.checks?.scheduler) {
-            <div class="muted font-sm mt-sm">
-              Scheduler: <strong>{{ systemHealth.checks.scheduler.running ? 'running' : 'stopped' }}</strong>
-              <span> · Jobs: {{ systemHealth.checks.scheduler.scheduled_count || 0 }}</span>
-            </div>
-          }
-          @if (contracts) {
-            <div class="muted font-sm mt-sm">
-              Contracts: <strong>{{ contracts.version }}</strong>
-              <span> · Schemas: {{ contracts.schema_count || 0 }}</span>
-            </div>
-            @if (contracts.task_statuses?.canonical_values?.length) {
-              <div class="muted status-text-sm mt-sm">
-                Task-States: {{ contracts.task_statuses.canonical_values.join(', ') }}
-              </div>
-            }
-          }
-          @if (activeTeam) {
-            <div class="muted font-sm mt-md">
-              Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
-              @if (activeTeam.members?.length) {
-                <div class="mt-sm">
-                  @for (m of activeTeam.members; track m) {
-                    <div class="status-text-sm font-sm">
-                      {{m.agent_url}} - {{ getRoleName(m.role_id) }}
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          }
-          @if (!activeTeam) {
-            <div class="muted font-sm mt-md">
-              Kein Team aktiv.
-            </div>
-          }
-          <div class="muted status-text-sm">
-            Hub: {{stats.agent_name}}<br>
-            Letztes Update: {{stats.timestamp * 1000 | date:'HH:mm:ss'}}
-          </div>
-          <div class="mt-lg">
-            <button [routerLink]="['/board']" class="w-full">Zum Task-Board</button>
-          </div>
-        </div>
+        <app-system-status-summary
+          [systemStatus]="systemStatusLabel()"
+          [systemTone]="systemStatusTone()"
+          [liveConnected]="liveState.systemStreamConnected()"
+          [tasksLoading]="tasksLoading()"
+          [taskCollectionError]="taskCollectionError()"
+          [tasksLastLoadedAt]="tasksLastLoadedAt()"
+          [lastSystemEventType]="liveState.lastSystemEvent()?.type || ''"
+          [queueDepth]="systemHealth?.checks?.queue ? (systemHealth?.checks?.queue?.depth || 0) : null"
+          [registrationEnabled]="!!systemHealth?.checks?.registration?.enabled"
+          [registrationStatus]="systemHealth?.checks?.registration?.status || ''"
+          [registrationAttempts]="systemHealth?.checks?.registration?.attempts || 0"
+          [schedulerKnown]="!!systemHealth?.checks?.scheduler"
+          [schedulerRunning]="!!systemHealth?.checks?.scheduler?.running"
+          [schedulerJobCount]="systemHealth?.checks?.scheduler?.scheduled_count || 0"
+          [contractsVersion]="contracts?.version || ''"
+          [contractsSchemaCount]="contracts?.schema_count || 0"
+          [taskStates]="contracts?.task_statuses?.canonical_values || []"
+          [activeTeamName]="activeTeam?.name || ''"
+          [teamMembers]="activeTeamMembers()"
+          [hubName]="stats.agent_name"
+          [timestamp]="stats.timestamp"
+        ></app-system-status-summary>
       </div>
       <div class="row mt-sm">
         <button class="secondary btn-small" (click)="toggleAdvancedDashboard()">
@@ -527,109 +408,16 @@ import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOpti
         (refresh)="refreshBenchmarks()"
       ></app-dashboard-benchmark-panel>
 
-      <div class="card mt-md">
-        <div class="row space-between">
-          <div>
-            <h3 class="no-margin">Goal Governance & Cost Summary</h3>
-            <div class="muted font-sm mt-sm">
-              Verifikation, Policy-Entscheidungen und Ausfuehrungskosten des ausgewaehlten Goals.
-            </div>
-          </div>
-          <div class="row gap-sm">
-            <select
-              aria-label="Goal fuer Governance Summary"
-              [(ngModel)]="selectedGoalId"
-              (ngModelChange)="refreshGoalReporting($event)"
-              [disabled]="goalReportingLoading || !goalsList.length"
-            >
-              @for (goal of goalsList; track goal.id) {
-                <option [value]="goal.id">{{ goal.summary || goal.goal || goal.id }}</option>
-              }
-            </select>
-            <button
-              class="secondary"
-              (click)="refreshGoalReporting(selectedGoalId)"
-              [disabled]="goalReportingLoading"
-              aria-label="Goal Governance Summary aktualisieren"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
-        @if (goalReportingLoading) {
-          <app-ui-skeleton [count]="4" [columns]="4" [lineCount]="1" [card]="false" containerClass="mt-sm" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
-        } @else if (goalDetail && goalGovernance) {
-          <div class="muted font-sm mt-sm">
-            Goal:
-            <strong>{{ goalDetail?.goal?.summary || goalDetail?.goal?.goal || selectedGoalId }}</strong>
-            <span> · Status: {{ goalDetail?.goal?.status || '-' }}</span>
-            <span> · Tasks: {{ goalGovernance?.summary?.task_count || goalDetail?.tasks?.length || 0 }}</span>
-          </div>
-          <div class="grid cols-4 mt-sm">
-            <div class="card card-light">
-              <div class="muted">Verification</div>
-              <strong>{{ goalGovernance?.verification?.passed || 0 }}/{{ goalGovernance?.verification?.total || 0 }}</strong>
-              <div class="muted status-text-sm-alt">
-                Failed: {{ goalGovernance?.verification?.failed || 0 }} · Escalated: {{ goalGovernance?.verification?.escalated || 0 }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Policy</div>
-              <strong>{{ goalGovernance?.policy?.approved || 0 }}</strong>
-              <div class="muted status-text-sm-alt">
-                Approved · Blocked: {{ goalGovernance?.policy?.blocked || 0 }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Cost Units</div>
-              <strong>{{ goalGovernance?.cost_summary?.total_cost_units || 0 | number:'1.2-4' }}</strong>
-              <div class="muted status-text-sm-alt">
-                Tasks mit Cost: {{ goalGovernance?.cost_summary?.tasks_with_cost || 0 }}
-              </div>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Tokens / Latenz</div>
-              <strong>{{ goalGovernance?.cost_summary?.total_tokens || 0 }}</strong>
-              <div class="muted status-text-sm-alt">
-                {{ goalGovernance?.cost_summary?.total_latency_ms || 0 }} ms
-              </div>
-            </div>
-          </div>
-          @if (goalCostTasks().length) {
-            <div class="table-scroll mt-sm">
-              <table class="standard-table table-min-600">
-                <thead>
-                  <tr class="card-light">
-                    <th>Task</th>
-                    <th>Status</th>
-                    <th>Verification</th>
-                    <th>Cost</th>
-                    <th>Tokens</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (task of goalCostTasks(); track task.id) {
-                    <tr>
-                      <td>
-                        <div><strong>{{ task.title || task.id }}</strong></div>
-                        <div class="muted font-sm">{{ task.id }}</div>
-                      </td>
-                      <td>{{ task.status || '-' }}</td>
-                      <td>{{ task.verification_status?.status || '-' }}</td>
-                      <td>{{ task.cost_summary?.cost_units || 0 | number:'1.2-4' }}</td>
-                      <td>{{ task.cost_summary?.tokens_total || 0 }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          } @else {
-            <div class="muted mt-sm">Fuer dieses Goal liegen noch keine taskbezogenen Cost-Summaries vor.</div>
-          }
-        } @else {
-          <div class="muted mt-sm">Noch keine Goals fuer Governance- und Cost-Reporting vorhanden.</div>
-        }
-      </div>
+      <app-dashboard-goal-governance-summary-card
+        [goals]="goalsList"
+        [selectedGoalId]="selectedGoalId"
+        [loading]="goalReportingLoading"
+        [goalDetail]="goalDetail"
+        [goalGovernance]="goalGovernance"
+        [costTasks]="goalCostTasks()"
+        (selectGoal)="refreshGoalReporting($event)"
+        (refresh)="refreshGoalReporting($event)"
+      ></app-dashboard-goal-governance-summary-card>
 
       <app-dashboard-autopilot-panel
         [status]="autopilotStatus"
@@ -1111,6 +899,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  closeDemoPreview(): void {
+    this.demoPreview = null;
+    this.demoError = '';
+  }
+
   goalPresets(): DemoPreviewExample[] {
     return this.demoPreview?.examples?.length ? this.demoPreview.examples : DEFAULT_GOAL_PRESETS;
   }
@@ -1574,6 +1367,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.roles.find(r => r.id === roleId)?.name || roleId;
   }
 
+  activeTeamMembers(): SystemStatusTeamMember[] {
+    return (this.activeTeam?.members || []).map((member: any) => ({
+      agentUrl: String(member.agent_url || ''),
+      roleName: this.getRoleName(String(member.role_id || '')),
+    }));
+  }
+
   submitQuickGoal() {
     if (!this.hub || !this.quickGoalText.trim()) return;
     this.quickGoalBusy = true;
@@ -1611,15 +1411,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   goToGoal(id: string) {
     this.router.navigate(['/goal', id]);
   }
-}
-
-interface DemoPreviewExample {
-  id: string;
-  title: string;
-  goal: string;
-  outcome: string;
-  tasks: string[];
-  starter_context?: string;
 }
 
 interface GoalModeField {
