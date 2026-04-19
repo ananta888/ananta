@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.9.5",
   "created": "2026-04-19",
-  "updated": "2026-04-19T00:00:00Z",
+  "updated": "2026-04-19T11:08:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Discoverability, Reuse-by-Default",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -46,7 +46,7 @@
           "priority": "high",
           "type": "documentation",
           "principle": "Clarity, Boundary-Discipline",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -68,7 +68,7 @@
           "priority": "high",
           "type": "analysis",
           "principle": "Pattern-Extraction, Pragmatic-Refactoring",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/",
@@ -97,7 +97,7 @@
           "priority": "critical",
           "type": "component",
           "principle": "Consistency, Low-Friction-UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -117,7 +117,7 @@
           "priority": "high",
           "type": "component",
           "principle": "Recoverability, UX-Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/",
@@ -688,11 +688,11 @@
     }
   ],
   "meta": {
-    "total_items": 25,
+    "total_items": 29,
     "by_status": {
-      "completed": 0,
+      "completed": 5,
       "partial": 0,
-      "open": 25
+      "open": 24
     },
     "notes": [
       "Diese Todo-Datei fokussiert ausschließlich auf Angular-UI-Reuse und den Aufbau eines echten Shared-Component-Baukastens.",
@@ -706,9 +706,12 @@
       "UI-010",
       "UI-011",
       "UI-012",
+      "UI-013",
       "UI-020",
       "UI-030",
       "UI-031",
+      "UI-032",
+      "UI-033",
       "UI-023",
       "UI-021",
       "UI-022",

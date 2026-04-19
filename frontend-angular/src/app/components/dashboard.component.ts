@@ -41,6 +41,7 @@ import { DashboardTimelinePanelComponent } from './dashboard-timeline-panel.comp
 import { DashboardBenchmarkPanelComponent } from './dashboard-benchmark-panel.component';
 import { DashboardFacade } from './dashboard.facade';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
+import { EmptyStateComponent, ErrorStateComponent } from '../shared/ui/state';
 
 @Component({
   standalone: true,
@@ -54,6 +55,8 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
     DashboardAutopilotPanelComponent,
     DashboardTimelinePanelComponent,
     DashboardBenchmarkPanelComponent,
+    EmptyStateComponent,
+    ErrorStateComponent,
   ],
   template: `
     <section class="start-hero">
@@ -99,24 +102,22 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
       <app-ui-skeleton [count]="1" [lineCount]="1" lineClass="skeleton block"></app-ui-skeleton>
     }
     @if (viewState.error) {
-      <div class="state-banner error">
-        <strong>Dashboard konnte nicht geladen werden.</strong>
-        <p class="muted no-margin mt-sm">{{ viewState.error }}</p>
-        <button class="secondary btn-small mt-sm" (click)="refresh()">Erneut versuchen</button>
-      </div>
+      <app-error-state
+        title="Dashboard konnte nicht geladen werden"
+        [message]="viewState.error"
+        retryLabel="Erneut versuchen"
+        (retry)="refresh()"
+      ></app-error-state>
     }
     @if (!viewState.loading && viewState.empty) {
-      <div class="card empty-state">
-        <h3>Noch keine Arbeit sichtbar</h3>
-        <p class="muted">
-          Starte mit einem Ziel oder oeffne die Demo-Beispiele, um typische Ablaeufe kennenzulernen.
-        </p>
-        <div class="row gap-sm flex-center">
-          <button class="primary" (click)="focusQuickGoal()">Ziel eingeben</button>
-          <button class="secondary" (click)="loadDemoPreview()">Demo ansehen</button>
-          <button class="secondary" [routerLink]="['/board']">Zum Board</button>
-        </div>
-      </div>
+      <app-empty-state
+        title="Noch keine Arbeit sichtbar"
+        description="Starte mit einem Ziel oder oeffne die Demo-Beispiele, um typische Ablaeufe kennenzulernen."
+        primaryLabel="Ziel eingeben"
+        secondaryLabel="Demo ansehen"
+        (primary)="focusQuickGoal()"
+        (secondary)="loadDemoPreview()"
+      ></app-empty-state>
     }
 
     @if (hub) {
@@ -222,11 +223,12 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
           @if (demoLoading) {
             <app-ui-skeleton [count]="3" [columns]="3" [lineCount]="3" lineClass="skeleton line"></app-ui-skeleton>
           } @else if (demoError) {
-            <div class="state-banner error mt-sm">
-              <strong>Demo konnte nicht geladen werden.</strong>
-              <p class="muted no-margin mt-sm">{{ demoError }}</p>
-              <button class="secondary btn-small mt-sm" (click)="loadDemoPreview()">Erneut versuchen</button>
-            </div>
+            <app-error-state
+              title="Demo konnte nicht geladen werden"
+              [message]="demoError"
+              retryLabel="Erneut versuchen"
+              (retry)="loadDemoPreview()"
+            ></app-error-state>
           } @else if (demoPreview?.examples?.length) {
             <div class="grid cols-3 mt-sm">
               @for (example of demoPreview.examples; track example.id) {
