@@ -38,12 +38,14 @@ jobs:
           python-version: "3.11.15"
       - name: Run release gate
         run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
+      - name: Generate release SBOM
+        run: python scripts/generate_release_sbom.py
       - name: Prepare release assets
         run: bash scripts/prepare_release_assets.sh
       - name: Upload release asset bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: github-release-assets
+          name: ananta-github-release-assets
           path: release-assets/
       - name: Publish GitHub release
         env:

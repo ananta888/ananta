@@ -242,9 +242,10 @@ npm run test:e2e:lite
 ```
 
 Artifacts:
-- `frontend-angular/test-results/junit-results.xml`
-- `frontend-angular/test-results/results.json`
-- `frontend-angular/test-results/failure-summary.md`
+- Local path: `frontend-angular/test-results/`
+- CI artifact: `ananta-e2e-compose-results`
+
+The CI artifact contract is documented in `docs/ci-artifacts.md`.
 
 `test:e2e:lite` gibt zusaetzlich bei Fehlern eine kurze Failure-Summary aus `results.json` aus.
 
@@ -347,6 +348,8 @@ In Windows-Umgebungen mit Docker Desktop kann es vorkommen, dass Änderungen im 
 
 ## Flaky Tests
 Einige Tests sind als `@flaky` markiert. Diese sollten in CI-Umgebungen mit speziellen Einstellungen (z.B. `--retries`) ausgeführt werden.
+
+Recurring unstable tests or workflow results are tracked through `docs/ci-flaky-tracking.md` and the `Flaky test / unstable workflow` issue template.
 
 ## Flaky-Haertung / Timeout-Profil (E2E-032)
 
