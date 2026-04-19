@@ -9,6 +9,7 @@ Artifact names use the `ananta-` prefix and describe the diagnostic surface:
 - `ananta-compose-configs`: rendered Docker Compose configurations from the compose validation job.
 - `ananta-release-verification-report`: release-gate evidence for the current commit.
 - `ananta-e2e-compose-results`: Playwright and E2E failure output from the compose-backed E2E job.
+- `ananta-live-llm-smoke-diagnostics`: compact hosted OpenAI Live-LLM smoke summary.
 - `ananta-architecture-diagrams`: rendered architecture diagrams.
 - `ananta-github-release-assets`: prepared GitHub Release asset bundle from the release workflow.
 - `ananta-nightly-rc-validation`: scheduled or manually triggered release-candidate validation evidence.
@@ -21,6 +22,7 @@ New artifacts should follow the same pattern: `ananta-<area>-<content>`.
 Workflow-generated diagnostic files should be written under a stable workspace path before upload:
 
 - `ci-artifacts/compose/` for rendered compose configurations.
+- `ci-artifacts/live-llm-smoke/` for hosted Live-LLM smoke summaries.
 - `frontend-angular/test-results/` for Playwright/E2E reports, screenshots, traces, and summaries.
 - `architektur/rendered/` for generated architecture diagrams.
 
@@ -33,9 +35,10 @@ For a failed run, inspect artifacts in this order:
 1. `ananta-release-verification-report` for release-gate or reproducibility failures.
 2. `ananta-e2e-compose-results` for browser failures, traces, screenshots, and `failure-summary.md`.
 3. `ananta-compose-configs` for rendered service configuration differences.
-4. `ananta-architecture-diagrams` for documentation rendering failures.
-5. `ananta-github-release-assets` for prepared release payload inspection.
-6. `ananta-nightly-rc-validation` for RC validation evidence.
-7. `ananta-container-release-metadata` for release image build provenance.
+4. `ananta-live-llm-smoke-diagnostics` for hosted model, timeout, token-limit and skip/failure reason.
+5. `ananta-architecture-diagrams` for documentation rendering failures.
+6. `ananta-github-release-assets` for prepared release payload inspection.
+7. `ananta-nightly-rc-validation` for RC validation evidence.
+8. `ananta-container-release-metadata` for release image build provenance.
 
 If a workflow creates a new class of diagnostic output, update this document in the same pull request.

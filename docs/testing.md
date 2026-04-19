@@ -124,6 +124,16 @@ Hinweis fuer GitHub Actions:
 - Dieser hosted Smoke fuehrt nur `tests/test_openai_live_smoke.py` aus und ist auf eine kleine Antwort (`LIVE_LLM_MAX_OUTPUT_TOKENS=16`) sowie einen einzelnen Retry-Versuch begrenzt.
 - Der hosted Smoke laeuft auf `main`, nachts, manuell oder bei internen PRs mit Label `live-llm` oder `full-ci`; Fork-PRs erhalten keine Secret-basierte Live-Ausfuehrung.
 - Ohne `OPENAI_API_KEY` wird der hosted Live-Smoke kontrolliert uebersprungen.
+- Bei Provider-Ausfall oder leerer Provider-Antwort kann der hosted Smoke mit `LIVE_LLM_ALLOW_PROVIDER_SKIP=1` kontrolliert skippen; die Diagnose landet in `ananta-live-llm-smoke-diagnostics`.
+
+Kostenrahmen fuer hosted Live-LLM-Smoke:
+- Der GitHub-Smoke macht genau eine OpenAI-Anfrage.
+- Default-Modell: `gpt-4o-mini`, zentral austauschbar ueber `LIVE_LLM_MODEL`.
+- Output-Grenze: `LIVE_LLM_MAX_OUTPUT_TOKENS=16`.
+- Retry-Grenze: `LIVE_LLM_RETRY_ATTEMPTS=1`.
+- Der Prompt ist ein kurzer Marker-Prompt; mit 16 Output-Tokens bleibt ein Lauf typischerweise deutlich unter 1.000 Tokens.
+- Bei den dokumentierten `gpt-4o-mini`-Preisen von ca. 0,15 USD pro 1M Input-Tokens und 0,60 USD pro 1M Output-Tokens liegt ein einzelner Smoke-Lauf damit im Normalfall weit unter einem US-Cent.
+- Mehrere echte Live-Tests sollen nicht in den Standardpfad aufgenommen werden; wenn mehr Abdeckung noetig ist, gehoert sie in Nightly, Release oder manuelle Validierung.
 
 Start:
 ```bash
