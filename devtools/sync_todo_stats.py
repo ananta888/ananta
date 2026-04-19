@@ -18,22 +18,44 @@ def _load_todo() -> dict:
 
 def _recompute(data: dict) -> dict:
     categories = data.get("categories") or []
+
+    items = [
+        item
+        for category in categories
+        for item in category.get("items", [])
+        if isinstance(item, dict)
+    ]
+    if items:
+        by_status: dict[str, int] = {"completed": 0, "partial": 0, "open": 0}
+        for item in items:
+            status = str(item.get("status") or "open").strip().lower()
+            by_status[status] = by_status.get(status, 0) + 1
+
+        meta = data.setdefault("meta", {})
+        meta["total_items"] = len(items)
+        meta["by_status"] = by_status
+        data.pop("statistics", None)
+        return data
+
     completed_in_session = data.get("completed_in_session") or []
     discovered = data.get("newly_discovered_tasks") or []
+    tasks = [
+        task
+        for category in categories
+        for task in category.get("tasks", [])
+        if isinstance(task, dict)
+    ]
+    remaining = sum(
+        1
+        for task in tasks
+        if str(task.get("status") or "").strip().lower() not in {"completed", "cancelled"}
+    )
 
-    remaining = 0
-    for category in categories:
-        for task in category.get("tasks") or []:
-            status = str(task.get("status") or "").strip().lower()
-            if status not in {"completed", "cancelled"}:
-                remaining += 1
-
-    stats = data.get("statistics") or {}
+    stats = data.setdefault("statistics", {})
     stats["completed_this_session"] = len(completed_in_session)
     stats["remaining_tasks"] = remaining
     if "newly_discovered_tasks" in data:
         stats["newly_discovered"] = len(discovered)
-    data["statistics"] = stats
     return data
 
 

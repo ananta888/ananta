@@ -8,7 +8,7 @@ from jsonschema import Draft7Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 TODO_PATH = ROOT / "todo.json"
-SCHEMA_PATH = ROOT / "todo-task-schema.json"
+SCHEMA_PATH = ROOT / "todo.schema.json"
 
 
 def main() -> int:
