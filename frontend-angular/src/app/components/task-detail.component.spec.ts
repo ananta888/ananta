@@ -25,6 +25,8 @@ describe('TaskDetailComponent', () => {
       'taskDiagnosticTerminalConnection',
       'selectedTaskTerminalConnection',
       'taskLiveTerminalLink',
+      'statusExplanation',
+      'taskSafetyNotice',
     ]) {
       if (typeof proto[methodName] === 'function') {
         (cmp as any)[methodName] = proto[methodName].bind(cmp);
@@ -242,5 +244,19 @@ describe('TaskDetailComponent', () => {
       last_proposal: { routing: { session_mode: 'stateful' } },
     };
     expect(cmp.taskSessionReuseLabel()).toBe('unbekannt');
+  });
+
+  it('explains blocked and review-required tasks in user-facing language', () => {
+    const cmp = createComponent();
+    cmp.task = { status: 'blocked' };
+
+    expect(cmp.statusExplanation('blocked')).toContain('wartet bewusst');
+    expect(cmp.taskSafetyNotice()).toEqual({
+      title: 'Wartet auf Klaerung',
+      body: 'Diese Aufgabe wartet bewusst. Pruefe Kontext, Review oder fehlende Eingaben, bevor sie weiterlaeuft.',
+    });
+
+    cmp.task = { status: 'todo', last_proposal: { review: { required: true, status: 'pending' } } };
+    expect(cmp.taskSafetyNotice()?.title).toBe('Freigabe erforderlich');
   });
 });

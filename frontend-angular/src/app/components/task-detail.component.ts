@@ -11,6 +11,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { TerminalComponent } from './terminal.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 
 @Component({
   standalone: true,
@@ -51,6 +52,12 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
       <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{task?.status | taskStatusDisplay}}</span>
     </div>
     <p class="muted title-muted">{{task?.title}}</p>
+    @if (taskSafetyNotice(); as notice) {
+      <div class="state-banner warning mb-md">
+        <strong>{{ notice.title }}</strong>
+        <p class="muted no-margin mt-sm">{{ notice.body }}</p>
+      </div>
+    }
 
     <div class="row tab-row">
       <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
@@ -70,6 +77,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <option value="completed">completed</option>
               <option value="failed">failed</option>
             </select>
+            <small class="muted">{{ statusExplanation(task?.status) }}</small>
           </label>
           <label>Zugewiesener Agent
             <select [(ngModel)]="assignUrl" (ngModelChange)="saveAssign()">
@@ -78,6 +86,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                 <option [ngValue]="a.url">{{a.name}} ({{a.role||'worker'}})</option>
               }
             </select>
+            <small class="muted">{{ decisionExplanation('routing') }}</small>
           </label>
         </div>
         @if (task?.parent_task_id) {
@@ -152,6 +161,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
             @if (reviewState()?.reason) {
               <div class="muted font-sm mt-sm">{{ reviewState()?.reason }}</div>
             }
+            <div class="muted font-sm mt-sm">{{ safetyBoundaryExplanation('pending_review') }}</div>
           </div>
         }
         @if (qualityGateReason()) {
@@ -250,7 +260,10 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
       <div class="grid">
         <div class="card">
           <div class="row space-between">
-            <h3 class="no-margin">Worker-Kontext</h3>
+            <div>
+              <h3 class="no-margin">Worker-Kontext</h3>
+              <p class="muted font-sm mt-5 no-margin">{{ term('routing').label }}: {{ term('routing').hint }}</p>
+            </div>
             <div class="row gap-sm">
               @if (task?.context_bundle_id) {
                 <span class="badge">{{ task.context_bundle_id }}</span>
@@ -275,7 +288,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           }
           @if (allowedTools().length) {
             <div class="mt-10">
-              <strong>Erlaubte Tools</strong>
+              <strong>{{ term('tool-approval').label }}</strong>
+              <p class="muted font-sm mt-5">{{ decisionExplanation('tool-approval') }}</p>
               <div class="row mt-5 flex-wrap-gap">
                 @for (tool of allowedTools(); track tool) {
                   <span class="agent-chip">{{ tool }}</span>
@@ -286,12 +300,14 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           @if (expectedSchema()) {
             <div class="mt-10">
               <strong>Erwartetes Output-Schema</strong>
+              <div class="muted font-sm mt-5">Das Schema begrenzt die erwartete Antwortform, damit Ergebnisse leichter geprueft werden koennen.</div>
               <pre class="log-output">{{ expectedSchema() | json }}</pre>
             </div>
           }
           @if (isAdmin && showAdminDrilldown && routingDecision()) {
             <div class="mt-10">
               <strong>Routing-Entscheidung</strong>
+              <p class="muted font-sm mt-5">{{ decisionExplanation('routing') }}</p>
               <div class="grid cols-2 mt-5">
                 <div>
                   <div class="muted">Strategie</div>
@@ -398,6 +414,10 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
         <div class="card">
           <h3 class="no-margin">Review & Resultate</h3>
           @if (reviewState()) {
+            <div class="state-banner mt-sm">
+              <strong>Warum Review?</strong>
+              <p class="muted no-margin mt-sm">{{ safetyBoundaryExplanation(reviewState()?.status) }}</p>
+            </div>
             <div class="grid cols-2 mt-sm">
               <div>
                 <div class="muted">Review Status</div>
@@ -451,7 +471,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           }
           @if (isAdmin && showAdminDrilldown && researchVerification()) {
             <div class="mt-10">
-              <strong>Research Verification</strong>
+              <strong>Research {{ term('verification').label }}</strong>
+              <div class="muted font-sm mt-5">{{ term('verification').hint }}</div>
               <pre class="log-output">{{ researchVerification() | json }}</pre>
             </div>
           }
@@ -529,7 +550,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                   <pre class="log-output">{{l.output}}</pre>
                 }
                 @if (l.reason) {
-                  <div class="muted log-reason">Reason: {{l.reason}}</div>
+                  <div class="muted log-reason">Grund: {{l.reason}}</div>
                 }
                 @if (l.cost_summary) {
                   <div class="muted log-reason">
@@ -1099,5 +1120,35 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       agentName: connection.panelAgentName,
       queryParams: connection.queryParams,
     };
+  }
+
+  term = userFacingTerm;
+  decisionExplanation = decisionExplanation;
+  safetyBoundaryExplanation = safetyBoundaryExplanation;
+
+  statusExplanation(status?: string | null): string {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'blocked') return safetyBoundaryExplanation('blocked');
+    if (normalized === 'failed') return safetyBoundaryExplanation('failed');
+    if (normalized === 'completed') return 'Die Aufgabe ist abgeschlossen. Pruefe Ergebnisse und Artefakte, falls du sie weiterverwenden willst.';
+    if (normalized === 'in_progress') return 'Ein Worker bearbeitet diese Aufgabe oder sie wartet auf den naechsten Ausfuehrungsschritt.';
+    return 'Noch nicht gestartet. Der Hub kann die Aufgabe einem passenden Worker zuweisen.';
+  }
+
+  taskSafetyNotice(): { title: string; body: string } | null {
+    const status = String(this.task?.status || '').trim().toLowerCase();
+    if (status === 'blocked') {
+      return { title: userFacingTerm('blocked').label, body: safetyBoundaryExplanation('blocked') };
+    }
+    if (status === 'failed') {
+      return { title: 'Ausfuehrung gestoppt', body: safetyBoundaryExplanation('failed') };
+    }
+    if (this.reviewState()?.required) {
+      return { title: 'Freigabe erforderlich', body: safetyBoundaryExplanation('pending_review') };
+    }
+    if (this.qualityGateReason()) {
+      return { title: 'Pruefung hat angehalten', body: this.qualityGateReason() };
+    }
+    return null;
   }
 }

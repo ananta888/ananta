@@ -8,6 +8,7 @@ import { NotificationService } from '../services/notification.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { AdminFacade } from '../features/admin/admin.facade';
 import { AgentApiService } from '../services/agent-api.service';
+import { decisionExplanation, userFacingTerm } from '../models/user-facing-language';
 
 @Component({
   standalone: true,
@@ -52,8 +53,8 @@ import { AgentApiService } from '../services/agent-api.service';
   template: `
     <div class="row title-row">
       <div>
-        <h2>Artifacts & Knowledge</h2>
-        <p class="muted title-muted">Datei-Uploads, Extraktion, Knowledge-Links und Ergebnisartefakte des Hubs.</p>
+        <h2>Ergebnisse & Wissen</h2>
+        <p class="muted title-muted">{{ term('artifact').technicalLabel }} bedeutet hier: {{ term('artifact').hint }}</p>
       </div>
       <button class="secondary" (click)="refresh()" [disabled]="loadingList || uploadBusy">Aktualisieren</button>
     </div>
@@ -88,7 +89,7 @@ import { AgentApiService } from '../services/agent-api.service';
       <div class="row space-between">
         <div>
           <h3 class="no-margin">Knowledge Collections</h3>
-          <p class="muted title-muted">Hub-gesteuerte Gruppierung fuer indexierte Artefakte und gezielte Knowledge-Suche.</p>
+          <p class="muted title-muted">Sammlungen gruppieren Ergebnisse, damit du gezielt in ihnen suchen kannst.</p>
         </div>
         <button class="secondary" (click)="loadCollections()" [disabled]="loadingCollections || collectionBusy">Neu laden</button>
       </div>
@@ -152,7 +153,7 @@ import { AgentApiService } from '../services/agent-api.service';
       <div class="row space-between">
         <div>
           <h3 class="no-margin">Execution Artifact Explorer</h3>
-          <p class="muted title-muted">Transparente Sicht auf Laufzeit-Artefakte pro Task, Worker und Agent/Template-Zuordnung.</p>
+          <p class="muted title-muted">Transparente Sicht auf Ergebnisse pro Aufgabe, Worker und Vorlage. {{ decisionExplanation('routing') }}</p>
         </div>
         <button class="secondary" (click)="loadArtifactFlow()" [disabled]="loadingArtifactFlow">Neu laden</button>
       </div>
@@ -282,7 +283,7 @@ import { AgentApiService } from '../services/agent-api.service';
                     [ngModel]="workspaceTrackedOnly"
                     (ngModelChange)="workspaceTrackedOnly = !!$event; workspaceSelectionChanged()"
                   />
-                  <span>Nur getrackte Dateien (ohne .ananta/artifacts)</span>
+                  <span>Nur Projektdateien zeigen (ohne interne Ergebnisablage)</span>
                 </div>
               </label>
               <button class="secondary" (click)="loadSelectedWorkspaceFiles()" [disabled]="workspaceLoading">
@@ -322,7 +323,7 @@ import { AgentApiService } from '../services/agent-api.service';
     <div class="artifact-layout mt-md">
       <div class="card">
         <div class="row space-between">
-          <h3 class="no-margin">Artifacts</h3>
+          <h3 class="no-margin">Ergebnisse</h3>
           <span class="badge">{{ artifacts.length }}</span>
         </div>
         @if (loadingList) {
@@ -352,7 +353,7 @@ import { AgentApiService } from '../services/agent-api.service';
         @if (loadingDetail) {
           <app-ui-skeleton [count]="1" [lineCount]="6"></app-ui-skeleton>
         } @else if (!selectedArtifact) {
-          <div class="artifact-empty">Waehle links ein Artefakt aus, um Versionen, Dokumente und Knowledge-Links zu sehen.</div>
+          <div class="artifact-empty">Waehle links ein Ergebnis aus, um Versionen, Dokumente und Wissenslinks zu sehen.</div>
         } @else {
           <div class="row space-between">
             <div>
@@ -394,7 +395,7 @@ import { AgentApiService } from '../services/agent-api.service';
               <strong>{{ selectedArtifact.extracted_documents?.length || 0 }}</strong>
             </div>
             <div class="card card-light">
-              <div class="muted">Knowledge-Links</div>
+              <div class="muted">Wissenslinks</div>
               <strong>{{ selectedArtifact.knowledge_links?.length || 0 }}</strong>
             </div>
             <div class="card card-light">
@@ -408,7 +409,7 @@ import { AgentApiService } from '../services/agent-api.service';
           </div>
 
           <div class="artifact-section">
-            <h4>Knowledge Collections</h4>
+            <h4>Wissenssammlungen</h4>
             @if (knowledgeCollectionNames(selectedArtifact).length) {
               <div class="artifact-meta">
                 @for (name of knowledgeCollectionNames(selectedArtifact); track name) {
@@ -610,6 +611,8 @@ export class ArtifactsComponent {
   workspaceLoadError = '';
   workspaceFilePayload: any = null;
   workspaceTreeLineItems: any[] = [];
+  term = userFacingTerm;
+  decisionExplanation = decisionExplanation;
 
   constructor() {
     this.refresh();

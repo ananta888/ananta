@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { USER_FACING_TERMS } from '../models/user-facing-language';
 
 @Component({
   standalone: true,
@@ -25,6 +26,18 @@ import { RouterLink } from '@angular/router';
           <span>Oeffne erzeugte Artefakte und pruefe Resultate.</span>
         </a>
       </div>
+      <section class="mt-lg" aria-label="Begriffe">
+        <h3>Wichtige Begriffe</h3>
+        <div class="grid cols-3 mt-sm">
+          @for (entry of glossaryEntries; track entry.term) {
+            <div class="card card-light help-term">
+              <strong>{{ entry.label }}</strong>
+              <span class="muted">{{ entry.technicalLabel }}</span>
+              <p class="no-margin">{{ entry.hint }}</p>
+            </div>
+          }
+        </div>
+      </section>
     </section>
   `,
   styles: [`
@@ -43,6 +56,21 @@ import { RouterLink } from '@angular/router';
       color: var(--muted);
       line-height: 1.35;
     }
+    .help-term {
+      min-height: 128px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
   `],
 })
-export class HelpComponent {}
+export class HelpComponent {
+  glossaryEntries = [
+    USER_FACING_TERMS.artifact,
+    USER_FACING_TERMS.blueprint,
+    USER_FACING_TERMS.verification,
+    USER_FACING_TERMS['exposure-policy'],
+    USER_FACING_TERMS.federation,
+    USER_FACING_TERMS.routing,
+  ];
+}
