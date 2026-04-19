@@ -4,6 +4,7 @@ import time
 import uuid
 from dataclasses import dataclass
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
@@ -60,6 +61,22 @@ class BlueprintSaveResult:
 
 
 def ensure_default_templates(team_type_name: str, *, team_type_description: str, template_specs: list[TemplateBootstrapSpec], role_specs: list[RoleLinkSpec]) -> None:
+    for attempt in range(2):
+        try:
+            _ensure_default_templates_once(
+                team_type_name,
+                team_type_description=team_type_description,
+                template_specs=template_specs,
+                role_specs=role_specs,
+            )
+            return
+        except IntegrityError:
+            if attempt >= 1:
+                raise
+            time.sleep(0.05)
+
+
+def _ensure_default_templates_once(team_type_name: str, *, team_type_description: str, template_specs: list[TemplateBootstrapSpec], role_specs: list[RoleLinkSpec]) -> None:
     with Session(engine) as session:
         team_type = session.exec(select(TeamTypeDB).where(TeamTypeDB.name == team_type_name)).first()
         if team_type is None:
