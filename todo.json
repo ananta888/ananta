@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "test-unit",
           "principle": "Core-Decision-Confidence, Isolated-Logic-Tests",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -44,7 +44,7 @@
           "priority": "critical",
           "type": "test-unit",
           "principle": "Safe-Context-Building, Deterministic-Construction",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -63,7 +63,7 @@
           "priority": "high",
           "type": "test-unit",
           "principle": "Ordered-Side-Effects, Stable-Core-Writeback",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/",
@@ -82,7 +82,7 @@
           "priority": "high",
           "type": "test-unit",
           "principle": "Model-Contract-Safety, Early-Validation",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/models/",
@@ -308,7 +308,7 @@
           "priority": "medium",
           "type": "test-unit",
           "principle": "Stable-UX-Language, No-Regressive-Jargon",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/**/*.spec.ts",
@@ -510,7 +510,7 @@
           "priority": "critical",
           "type": "test-cli",
           "principle": "Reliable-CLI-Contracts, Product-Entry-Stability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/cli_goals.py",
@@ -549,7 +549,7 @@
           "priority": "medium",
           "type": "test-cli",
           "principle": "Operational-CLI-Robustness, Better-Failure-Messaging",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/cli_goals.py",
@@ -828,11 +828,11 @@
     }
   ],
   "meta": {
-    "total_items": 30,
+    "total_items": 38,
     "by_status": {
-      "completed": 0,
+      "completed": 7,
       "partial": 0,
-      "open": 30
+      "open": 31
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",
