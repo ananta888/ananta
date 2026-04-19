@@ -443,7 +443,7 @@
           "priority": "high",
           "type": "product-ux",
           "principle": "User-Centricity, Less-Control-Center-Feeling",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -463,7 +463,7 @@
           "priority": "medium",
           "type": "product-ux",
           "principle": "Direct-Usefulness, Lower-Explanation-Cost",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -483,7 +483,7 @@
           "priority": "medium",
           "type": "product-ux",
           "principle": "Low-Friction-CLI, Product-Readiness",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/cli_goals.py",
@@ -509,7 +509,7 @@
           "priority": "medium",
           "type": "ux-copy",
           "principle": "Reduced-Jargon, Better-Accessibility",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -530,7 +530,7 @@
           "priority": "medium",
           "type": "ux-copy",
           "principle": "Trust-through-Explainability, Safer-UX",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/shared/ui/display/",
@@ -575,9 +575,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 19,
+      "completed": 24,
       "partial": 0,
-      "open": 5
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei bündelt die wichtigsten nächsten sinnvollen Verbesserungen nach den großen Architektur-, Accessibility- und Release-Runden.",

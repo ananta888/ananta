@@ -49,7 +49,7 @@ import { DashboardQuickGoalPanelComponent, QuickGoalResult } from './dashboard-q
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
 import { DashboardWorkspaceViewModelService } from './dashboard-workspace-view-model.service';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from '../shared/ui/state';
-import { ExplanationNoticeComponent, KeyValueGridComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
+import { DecisionExplanationComponent, ExplanationNoticeComponent, KeyValueGridComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
 import { ModeCardOption, PresetOption } from '../shared/ui/forms';
 
@@ -74,6 +74,7 @@ import { ModeCardOption, PresetOption } from '../shared/ui/forms';
     ErrorStateComponent,
     LoadingStateComponent,
     KeyValueGridComponent,
+    DecisionExplanationComponent,
     ExplanationNoticeComponent,
     SystemStatusSummaryComponent,
     SectionCardComponent,
@@ -153,11 +154,12 @@ import { ModeCardOption, PresetOption } from '../shared/ui/forms';
       }
 
       <div class="start-actions mb-md">
-        <app-action-card title="Ziel planen" description="Ein Satz reicht fuer den ersten Plan." href="#quick-goal"></app-action-card>
-        <app-action-card title="Demo ansehen" description="Beispiele ohne echte Datenmutation." (action)="loadDemoPreview()"></app-action-card>
-        <app-action-card title="Aufgaben verfolgen" description="Board, Status und naechste Schritte." [routerLink]="['/board']"></app-action-card>
-        <app-action-card title="Ergebnisse ansehen" description="Artefakte und Resultate pruefen." [routerLink]="['/artifacts']"></app-action-card>
+        <app-action-card title="Planen" description="Aus einem Ziel konkrete Aufgaben machen." href="#quick-goal"></app-action-card>
+        <app-action-card title="Diagnostizieren" description="Fehler, Logs oder Startprobleme pruefen." (action)="applyShortcutPreset('diagnose')"></app-action-card>
+        <app-action-card title="Reviewen" description="Aenderungen, Risiken und Tests bewerten." (action)="applyShortcutPreset('review')"></app-action-card>
+        <app-action-card title="Ergebnisse ansehen" description="Resultate und Dateien pruefen." [routerLink]="['/artifacts']"></app-action-card>
       </div>
+      <app-decision-explanation class="block mb-md" kind="routing" title="Warum Zuweisung sichtbar bleibt"></app-decision-explanation>
 
       @if (demoPreview || demoLoading || demoError) {
         <app-dashboard-demo-preview
@@ -689,6 +691,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
   applyGoalPresetById(id: string): void {
     const preset = this.goalPresets().find(item => item.id === id);
     if (preset) this.applyGoalPreset(preset);
+  }
+
+  applyShortcutPreset(kind: 'diagnose' | 'review'): void {
+    const presets: Record<'diagnose' | 'review', DemoPreviewExample> = {
+      diagnose: {
+        id: 'diagnose',
+        title: 'Problem diagnostizieren',
+        goal: 'Diagnostiziere das Problem und schlage eine robuste Pruef- oder Reparatursequenz vor.',
+        outcome: 'Ursache, Pruefschritte und naechste Reparatur.',
+        tasks: ['Fehlerbild sammeln', 'Ursachen eingrenzen', 'naechste sichere Schritte planen'],
+        starter_context: 'Fokus: verstaendliche Diagnose, keine riskanten Aenderungen ohne Pruefung.',
+      },
+      review: {
+        id: 'review',
+        title: 'Aenderung reviewen',
+        goal: 'Pruefe eine Aenderung auf Risiken, fehlende Tests und konkrete Verbesserungen.',
+        outcome: 'Priorisierte Findings und klare naechste Schritte.',
+        tasks: ['Risiken suchen', 'Tests bewerten', 'konkrete Review-Hinweise erstellen'],
+        starter_context: 'Fokus: Bugs, Regressionen, Tests und nachvollziehbare Review-Ergebnisse.',
+      },
+    };
+    this.applyGoalPreset(presets[kind]);
   }
 
   quickGoalNextSteps(): NextStepAction[] {

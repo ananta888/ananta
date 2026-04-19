@@ -24,7 +24,7 @@ Ananta hilft dabei, groessere Entwicklungsziele in planbare Aufgaben, Ausfuehrun
    - Passwort: Wert aus `INITIAL_ADMIN_PASSWORD` in `.env`
 
 5. Erstes Ziel starten:
-   - Im Dashboard ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
+   - Im Arbeitsbereich `Planen` waehlen und ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
    - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
 
 Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und die Logs des Hub- und Frontend-Containers.
@@ -59,6 +59,8 @@ Kernaussage:
 CLI-Kurzbefehle fuer typische Einstiege:
 
 ```bash
+python -m agent.cli_goals ask "Was sollte ich als naechstes pruefen?"
+python -m agent.cli_goals plan "Bereite den Release-Abschluss vor"
 python -m agent.cli_goals analyze "Analysiere dieses Repository"
 python -m agent.cli_goals review "Pruefe die Login-Aenderungen"
 python -m agent.cli_goals diagnose "Frontend erreicht den Hub nicht"

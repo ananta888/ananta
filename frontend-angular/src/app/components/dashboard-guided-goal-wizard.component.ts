@@ -34,7 +34,7 @@ interface GoalWizardStep {
   imports: [FormsModule, ExplanationNoticeComponent, FormFieldComponent, ModeCardPickerComponent, WizardShellComponent],
   template: `
     <h3 class="no-margin">Gefuehrter Ziel-Assistent</h3>
-    <p class="muted font-sm mt-sm">Der Assistent fragt nur die Angaben ab, die dem Hub beim Planen, Zuweisen und Pruefen helfen.</p>
+    <p class="muted font-sm mt-sm">Der Assistent fragt nur die Angaben ab, die fuer Planung, Zuweisung und Pruefung noetig sind.</p>
 
     @if (!selectedGoalMode) {
       <app-mode-card-picker
@@ -80,7 +80,7 @@ interface GoalWizardStep {
               }
             </div>
           } @else if (activeGoalWizardStep().id === 'context') {
-            <app-form-field label="Kontext und Eingabedaten" hint="Mehr Kontext reduziert Rueckfragen und hilft dem Hub, Tasks an passende Worker zu geben.">
+            <app-form-field label="Kontext und Eingabedaten" hint="Mehr Kontext reduziert Rueckfragen und hilft, Aufgaben passend zuzuweisen.">
               <textarea [(ngModel)]="goalModeData['context']" class="w-full" rows="5" placeholder="Links, Dateien, Fehlermeldungen, Repo-Bereich oder wichtige Einschraenkungen"></textarea>
             </app-form-field>
           } @else if (activeGoalWizardStep().id === 'execution') {
@@ -102,7 +102,7 @@ interface GoalWizardStep {
               }
             </div>
           } @else {
-            <app-explanation-notice title="Bereit zum Planen" message="Der Hub erstellt daraus planbare Tasks. Worker fuehren die delegierten Schritte aus; Pruefungen und Freigaben bleiben sichtbar."></app-explanation-notice>
+            <app-explanation-notice title="Bereit zum Planen" message="Ananta erstellt daraus planbare Aufgaben. Ausfuehrung, Pruefung und Freigaben bleiben sichtbar."></app-explanation-notice>
             <div class="grid cols-2 gap-sm mt-sm">
               <div class="card card-light">
                 <div class="muted font-sm">Ausfuehrung</div>
@@ -198,7 +198,7 @@ export class DashboardGuidedGoalWizardComponent implements OnChanges {
   fieldHelper(name: string): string {
     const normalized = String(name || '').toLowerCase();
     if (normalized.includes('goal') || normalized.includes('ziel')) return 'Ein klares Ziel hilft dem Hub, daraus pruefbare Tasks zu bilden.';
-    if (normalized.includes('context') || normalized.includes('kontext')) return 'Kontext verhindert falsche Annahmen und hilft bei der Worker-Zuweisung.';
+    if (normalized.includes('context') || normalized.includes('kontext')) return 'Kontext verhindert falsche Annahmen und hilft bei der passenden Zuweisung.';
     if (normalized.includes('team')) return 'Optional: Teams koennen spaeter auch im Board oder in Expertenbereichen gesetzt werden.';
     return 'Diese Angabe strukturiert den Plan und macht das Ergebnis besser pruefbar.';
   }
