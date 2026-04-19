@@ -5,7 +5,7 @@
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16.13
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
@@ -27,7 +27,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.8-alpine
     restart: unless-stopped
     deploy:
       resources:
@@ -65,7 +65,7 @@ services:
         condition: service_healthy
 
   evolver:
-    image: ${EVOLVER_IMAGE:-ghcr.io/ananta/evolver:latest}
+    image: ${EVOLVER_IMAGE:-ghcr.io/ananta/evolver:0.7.0}
     restart: unless-stopped
     profiles: ["evolution"]
     environment:
@@ -106,7 +106,7 @@ services:
         condition: service_healthy
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.29.4-alpine3.23
     restart: unless-stopped
     deploy:
       resources:
@@ -130,7 +130,7 @@ services:
       - ai-agent-hub
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.6.10
     restart: unless-stopped
     profiles: ["observability"]
     ports:
@@ -138,7 +138,7 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:3.6.10
     restart: unless-stopped
     profiles: ["observability"]
     volumes:
@@ -149,7 +149,7 @@ services:
     command: -config.file=/etc/promtail/config.yaml
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.3.0
     restart: unless-stopped
     profiles: ["observability"]
     ports:
@@ -164,7 +164,7 @@ services:
       - prometheus
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.11.2
     restart: unless-stopped
     profiles: ["observability"]
     ports:
@@ -179,7 +179,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
 
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:v5.5.0
     profiles: ["edge"]
     volumes:
       - certbot-etc:/etc/letsencrypt

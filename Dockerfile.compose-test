@@ -1,9 +1,10 @@
-FROM python:3.11-slim
+FROM python:3.11.15-slim-bookworm
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
-    NPM_CONFIG_FUND=false
+    NPM_CONFIG_FUND=false \
+    OPENCODE_AI_VERSION=1.14.18
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -14,7 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm i -g opencode-ai && npm cache clean --force
+RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
+    && opencode --version | grep -F "${OPENCODE_AI_VERSION}" \
+    && npm cache clean --force
 
 WORKDIR /app
 

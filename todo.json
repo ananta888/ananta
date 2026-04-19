@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.0.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T14:28:00Z",
+  "updated": "2026-04-19T15:25:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -155,7 +155,7 @@
           "priority": "high",
           "type": "frontend-locking",
           "principle": "Explicit-Release-Inputs",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/package.json",
@@ -221,7 +221,7 @@
           "priority": "critical",
           "type": "container-pinning",
           "principle": "Deterministic-Container-Inputs",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "Dockerfile",
@@ -286,7 +286,7 @@
           "priority": "medium",
           "type": "container-hardening",
           "principle": "Minimize-Release-Variance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "Dockerfile",
@@ -355,7 +355,7 @@
           "priority": "high",
           "type": "release-documentation",
           "principle": "Reproducible-Environment-Contract",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -420,9 +420,9 @@
   "meta": {
     "total_items": 12,
     "by_status": {
-      "completed": 7,
+      "completed": 11,
       "partial": 0,
-      "open": 5
+      "open": 1
     },
     "notes": [
       "P0-nahe Arbeit beginnt mit Frontend npm ci und der Python-Lockstrategie, weil diese Aenderungen die spaeteren Docker- und CI-Pfade bestimmen.",

@@ -45,7 +45,7 @@ x-agent-defaults: &agent-defaults
 
 services:
   lmstudio-proxy:
-    image: alpine:3.19
+    image: alpine:3.23.4
     restart: unless-stopped
     profiles: ["llm"]
     ports:
@@ -120,7 +120,7 @@ services:
       - "${BETA_PORT:-5002}:5000"
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.20.7
     container_name: ollama
     restart: unless-stopped
     ports:
@@ -136,7 +136,7 @@ services:
       start_period: 40s
 
   autoimport:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.20.7
     container_name: ollama-autoimport
     restart: unless-stopped
     depends_on:

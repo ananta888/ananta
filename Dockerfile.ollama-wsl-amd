@@ -1,4 +1,4 @@
-FROM ollama/ollama:latest
+FROM ollama/ollama:0.20.7
 
 ENV DEBIAN_FRONTEND=noninteractive
 

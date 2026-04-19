@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ollama-wsl-amd
-    image: ollama-wsl-amd:latest
+    image: ollama-wsl-amd:0.20.7-vulkan
     container_name: ollama
     devices:
       - "/dev/dxg:/dev/dxg"
