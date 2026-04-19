@@ -9,11 +9,12 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 import { AdminFacade } from '../features/admin/admin.facade';
 import { AgentApiService } from '../services/agent-api.service';
 import { decisionExplanation, userFacingTerm } from '../models/user-facing-language';
+import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../shared/ui/display';
 
 @Component({
   standalone: true,
   selector: 'app-artifacts',
-  imports: [CommonModule, FormsModule, UiSkeletonComponent],
+  imports: [CommonModule, FormsModule, UiSkeletonComponent, SummaryPanelComponent, TableShellComponent],
   styles: [`
     .artifact-layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 16px; align-items: start; }
     .artifact-list { display: grid; gap: 10px; max-height: 70vh; overflow: auto; }
@@ -385,28 +386,13 @@ import { decisionExplanation, userFacingTerm } from '../models/user-facing-langu
             </div>
           </div>
 
-          <div class="artifact-detail-grid mt-md">
-            <div class="card card-light">
-              <div class="muted">Versionen</div>
-              <strong>{{ selectedArtifact.versions?.length || 0 }}</strong>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Extrahierte Dokumente</div>
-              <strong>{{ selectedArtifact.extracted_documents?.length || 0 }}</strong>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Wissenslinks</div>
-              <strong>{{ selectedArtifact.knowledge_links?.length || 0 }}</strong>
-            </div>
-            <div class="card card-light">
-              <div class="muted">RAG-Status</div>
-              <strong>{{ selectedArtifact.knowledge_index?.status || artifactRagStatus?.knowledge_index?.status || 'nicht indexiert' }}</strong>
-            </div>
-            <div class="card card-light">
-              <div class="muted">Index-Profil</div>
-              <strong>{{ selectedArtifact.knowledge_index?.profile_name || artifactRagStatus?.knowledge_index?.profile_name || 'default' }}</strong>
-            </div>
-          </div>
+          <app-summary-panel
+            class="block mt-md"
+            title="Artifact Summary"
+            summary="Kompakte Sicht auf Versionen, Extraktion, Wissenslinks und RAG-Index."
+            [metrics]="selectedArtifactSummaryMetrics()"
+            [columns]="3"
+          ></app-summary-panel>
 
           <div class="artifact-section">
             <h4>Wissenssammlungen</h4>
@@ -478,9 +464,12 @@ import { decisionExplanation, userFacingTerm } from '../models/user-facing-langu
           </div>
 
           <div class="artifact-section">
-            <h4>Versionen</h4>
-            @if (selectedArtifact.versions?.length) {
-              <div class="table-scroll">
+            <app-table-shell
+              title="Versionen"
+              subtitle="Alle gespeicherten Versionen dieses Artefakts."
+              [empty]="!selectedArtifact.versions?.length"
+              emptyTitle="Keine Versionsdaten vorhanden"
+            >
                 <table class="standard-table table-min-600">
                   <thead>
                     <tr class="card-light">
@@ -501,10 +490,7 @@ import { decisionExplanation, userFacingTerm } from '../models/user-facing-langu
                     }
                   </tbody>
                 </table>
-              </div>
-            } @else {
-              <div class="muted">Keine Versionsdaten vorhanden.</div>
-            }
+            </app-table-shell>
           </div>
         }
       </div>
@@ -619,6 +605,22 @@ export class ArtifactsComponent {
     this.loadCollections();
     this.loadProfiles();
     this.loadArtifactFlow();
+  }
+
+  selectedArtifactSummaryMetrics(): SummaryMetric[] {
+    return [
+      { label: 'Versionen', value: this.selectedArtifact?.versions?.length || 0 },
+      { label: 'Extrahierte Dokumente', value: this.selectedArtifact?.extracted_documents?.length || 0 },
+      { label: 'Wissenslinks', value: this.selectedArtifact?.knowledge_links?.length || 0 },
+      {
+        label: 'RAG-Status',
+        value: this.selectedArtifact?.knowledge_index?.status || this.artifactRagStatus?.knowledge_index?.status || 'nicht indexiert',
+      },
+      {
+        label: 'Index-Profil',
+        value: this.selectedArtifact?.knowledge_index?.profile_name || this.artifactRagStatus?.knowledge_index?.profile_name || 'default',
+      },
+    ];
   }
 
   refresh() {

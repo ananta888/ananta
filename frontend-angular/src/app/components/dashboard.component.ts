@@ -46,7 +46,7 @@ import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-ru
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent, StatusBadgeComponent } from '../shared/ui/state';
 import { KeyValueGridComponent, MetricCardComponent } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
-import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '../shared/ui/forms';
+import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, PresetOption, PresetPickerComponent, WizardShellComponent } from '../shared/ui/forms';
 
 @Component({
   standalone: true,
@@ -69,7 +69,9 @@ import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '.
     SectionCardComponent,
     PageIntroComponent,
     ActionCardComponent,
+    FormFieldComponent,
     ModeCardPickerComponent,
+    PresetPickerComponent,
     WizardShellComponent,
   ],
   template: `
@@ -239,17 +241,16 @@ import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '.
           </div>
         }
 
-        <div class="preset-strip mt-sm" aria-label="Goal-Vorlagen">
-          @for (preset of goalPresets(); track preset.id) {
-            <button class="secondary preset-chip" type="button" (click)="applyGoalPreset(preset)" [attr.aria-label]="'Vorlage einsetzen: ' + preset.title">
-              {{ preset.title }}
-            </button>
-          }
-        </div>
+        <app-preset-picker
+          class="block mt-sm"
+          [presets]="goalPresetOptions()"
+          ariaLabel="Goal-Vorlagen"
+          (selectPreset)="applyGoalPresetById($event.id)"
+        ></app-preset-picker>
 
         <div class="row gap-sm mt-sm flex-end">
           <div class="flex-1">
-            <label class="label-no-margin">
+            <app-form-field label="Quick Goal" hint="Ein Satz reicht fuer den ersten planbaren Hub-Auftrag.">
               <input
                 [(ngModel)]="quickGoalText"
                 placeholder="z.B. Analysiere dieses Repository und schlage die naechsten Schritte vor"
@@ -257,7 +258,7 @@ import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '.
                 aria-label="Quick Goal Beschreibung eingeben"
                 #quickGoalInput
               />
-            </label>
+            </app-form-field>
           </div>
           <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()" aria-label="Goal planen und Tasks generieren">
             @if (quickGoalBusy) {
@@ -320,8 +321,7 @@ import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '.
               @if (activeGoalWizardStep().id === 'goal') {
                 <div class="grid gap-sm">
                   @for (field of requiredGoalFields(); track field.name) {
-                    <label>
-                      {{ field.label }}
+                    <app-form-field [label]="field.label" [hint]="fieldHelper(field.name)" [required]="true">
                       @if (field.type === 'textarea') {
                         <textarea [(ngModel)]="goalModeData[field.name]" class="w-full" rows="3" style="min-height: 88px;" [placeholder]="field.placeholder || 'Beschreibe, was erreicht werden soll.'"></textarea>
                       } @else if (field.type === 'select') {
@@ -333,16 +333,13 @@ import { ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '.
                       } @else {
                         <input [(ngModel)]="goalModeData[field.name]" [type]="field.type" [placeholder]="field.placeholder || ''" class="w-full" />
                       }
-                      <small class="muted">{{ fieldHelper(field.name) }}</small>
-                    </label>
+                    </app-form-field>
                   }
                 </div>
               } @else if (activeGoalWizardStep().id === 'context') {
-                <label>
-                  Kontext und Eingabedaten
+                <app-form-field label="Kontext und Eingabedaten" hint="Mehr Kontext reduziert Rueckfragen und hilft dem Hub, Tasks an passende Worker zu geben.">
                   <textarea [(ngModel)]="goalModeData['context']" class="w-full" rows="5" placeholder="Links, Dateien, Fehlermeldungen, Repo-Bereich oder wichtige Einschraenkungen"></textarea>
-                  <small class="muted">Mehr Kontext reduziert Rueckfragen und hilft dem Hub, Tasks an passende Worker zu geben.</small>
-                </label>
+                </app-form-field>
               } @else if (activeGoalWizardStep().id === 'execution') {
                 <div class="grid cols-3 gap-sm">
                   @for (option of executionDepthOptions; track option.value) {
@@ -1123,10 +1120,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.demoPreview?.examples?.length ? this.demoPreview.examples : DEFAULT_GOAL_PRESETS;
   }
 
+  goalPresetOptions(): PresetOption[] {
+    return this.goalPresets().map(preset => ({
+      id: preset.id,
+      title: preset.title,
+      description: preset.outcome,
+    }));
+  }
+
   applyGoalPreset(preset: DemoPreviewExample): void {
     this.quickGoalText = preset.goal;
     this.quickGoalContext = preset.starter_context || `Vorlage: ${preset.title}`;
     this.focusQuickGoal();
+  }
+
+  applyGoalPresetById(id: string): void {
+    const preset = this.goalPresets().find(item => item.id === id);
+    if (preset) this.applyGoalPreset(preset);
   }
 
   chooseFirstStart(choice: string): void {
