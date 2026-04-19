@@ -101,7 +101,7 @@
           "priority": "high",
           "type": "test-unit",
           "principle": "Mechanized-Governance-Confidence, No-Logic-Guessing",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/",
@@ -746,7 +746,7 @@
           "priority": "medium",
           "type": "security-test",
           "principle": "Safe-Terminal-Interaction, No-Output-Spoofing",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/cli_goals.py",
@@ -771,7 +771,7 @@
           "priority": "medium",
           "type": "test-integration",
           "principle": "Trust-the-Gate-Because-It-Is-Tested",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "scripts/release_gate.py",
@@ -791,7 +791,7 @@
           "priority": "medium",
           "type": "test-integration",
           "principle": "Operational-Robustness, Safer-Lifecycle",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/bootstrap/",
@@ -811,7 +811,7 @@
           "priority": "low",
           "type": "test-infrastructure",
           "principle": "Actionable-Test-Failures, Faster-Feedback",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/",
@@ -830,9 +830,9 @@
   "meta": {
     "total_items": 38,
     "by_status": {
-      "completed": 27,
+      "completed": 32,
       "partial": 0,
-      "open": 11
+      "open": 6
     },
     "notes": [
       "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",

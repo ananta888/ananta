@@ -54,7 +54,9 @@ export default defineConfig({
     reporter: reporters,
     use: {
         baseURL: baseUrl,
-        trace: 'on-first-retry'
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure'
     },
     webServer: reuseExistingServer
         ? undefined

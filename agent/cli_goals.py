@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import requests
 
 from agent.config import settings
+from agent.tui_contract import sanitize_terminal_text
 
 SHORTCUT_GOALS = {
     "ask": {
@@ -110,13 +111,21 @@ def _api_data(response: requests.Response):
     return {}
 
 
+def _terminal(value, *, max_chars: int = 240) -> str:
+    return sanitize_terminal_text(value, max_chars=max_chars)
+
+
+def _print_terminal(template: str, *values) -> None:
+    print(template.format(*(_terminal(value) for value in values)))
+
+
 def _print_error(response: requests.Response):
     payload = _read_json(response)
     message = payload.get("message") if isinstance(payload, dict) else None
     if message:
-        print(f"Error: {response.status_code} - {message}")
+        _print_terminal("Error: {} - {}", response.status_code, message)
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        _print_terminal("Error: {} - {}", response.status_code, response.text)
 
 
 def submit_goal(
@@ -142,12 +151,12 @@ def submit_goal(
         data = _api_data(response)
         goal_payload = data.get("goal", {})
         created_task_ids = data.get("created_task_ids", [])
-        print(f"Goal submitted: {goal_payload.get('goal', goal)}")
-        print(f"Goal ID: {goal_payload.get('id', 'N/A')}")
-        print(f"Status: {goal_payload.get('status', 'N/A')}")
+        _print_terminal("Goal submitted: {}", goal_payload.get("goal", goal))
+        _print_terminal("Goal ID: {}", goal_payload.get("id", "N/A"))
+        _print_terminal("Status: {}", goal_payload.get("status", "N/A"))
         print(f"Tasks created: {len(created_task_ids)}")
         for task_id in created_task_ids:
-            print(f"  - {task_id}")
+            _print_terminal("  - {}", task_id)
         return created_task_ids
     _print_error(response)
     return []
@@ -156,7 +165,7 @@ def submit_goal(
 def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True):
     shortcut = SHORTCUT_GOALS.get(kind)
     if not shortcut:
-        print(f"Error: Unknown shortcut '{kind}'. Available: {', '.join(sorted(SHORTCUT_GOALS))}")
+        _print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(SHORTCUT_GOALS)))
         return []
     return submit_goal(
         goal=f"{shortcut['prefix']} {text.strip()}",
@@ -176,7 +185,7 @@ def show_status():
         print(f"  Happy path ready: {readiness.get('happy_path_ready', False)}")
         print(f"  Planning available: {readiness.get('planning_available', False)}")
         print(f"  Worker available: {readiness.get('worker_available', False)}")
-        print(f"  Active team: {readiness.get('active_team_id') or '-'}")
+        _print_terminal("  Active team: {}", readiness.get("active_team_id") or "-")
     else:
         _print_error(readiness_res)
 
@@ -211,7 +220,7 @@ def list_tasks(status: str = None, limit: int = 20):
             task_id = task.get("id", "N/A")
             title = task.get("title", "N/A")[:50]
             task_status = task.get("status", "N/A")
-            print(f"  [{task_status:12}] {task_id}: {title}")
+            _print_terminal("  [{:12}] {}: {}", task_status, task_id, title)
     else:
         _print_error(response)
 
@@ -227,8 +236,12 @@ def list_goals(limit: int = 20):
     print(f"Goals ({min(limit, len(goals))}/{len(goals)}):")
     for goal in goals[:limit]:
         print(
-            f"  [{goal.get('status', 'N/A'):10}] {goal.get('id', 'N/A')} "
-            f"(team={goal.get('team_id') or '-'}) {str(goal.get('goal', ''))[:90]}"
+            "  [{:10}] {} (team={}) {}".format(
+                _terminal(goal.get("status", "N/A")),
+                _terminal(goal.get("id", "N/A")),
+                _terminal(goal.get("team_id") or "-"),
+                _terminal(str(goal.get("goal", ""))[:90]),
+            )
         )
 
 
@@ -242,14 +255,14 @@ def show_goal_detail(goal_id: str):
     trace = data.get("trace", {})
     artifacts = data.get("artifacts", {})
     summary = artifacts.get("result_summary", {})
-    print(f"Goal: {goal.get('id', goal_id)}")
-    print(f"  Status: {goal.get('status', 'N/A')}")
-    print(f"  Team: {goal.get('team_id') or '-'}")
-    print(f"  Trace: {trace.get('trace_id') or '-'}")
+    _print_terminal("Goal: {}", goal.get("id", goal_id))
+    _print_terminal("  Status: {}", goal.get("status", "N/A"))
+    _print_terminal("  Team: {}", goal.get("team_id") or "-")
+    _print_terminal("  Trace: {}", trace.get("trace_id") or "-")
     print(f"  Tasks: total={summary.get('task_count', 0)} completed={summary.get('completed_tasks', 0)} failed={summary.get('failed_tasks', 0)}")
     headline = artifacts.get("headline_artifact") or {}
     if headline.get("preview"):
-        print(f"  Headline artifact: {headline.get('preview')[:120]}")
+        _print_terminal("  Headline artifact: {}", str(headline.get("preview"))[:120])
 
 
 def list_modes():
@@ -262,7 +275,7 @@ def list_modes():
         modes = []
     print(f"Goal modes ({len(modes)}):")
     for mode in modes:
-        print(f"  - {mode.get('id')}: {mode.get('title')}")
+        _print_terminal("  - {}: {}", mode.get("id"), mode.get("title"))
 
 
 def list_artifacts(limit: int = 20):
@@ -275,10 +288,11 @@ def list_artifacts(limit: int = 20):
         artifacts = []
     print(f"Artifacts ({min(limit, len(artifacts))}/{len(artifacts)}):")
     for artifact in artifacts[:limit]:
-        print(
-            f"  - {artifact.get('id', 'N/A')} "
-            f"[{artifact.get('status', 'N/A')}] "
-            f"{artifact.get('latest_filename') or artifact.get('latest_media_type') or '-'}"
+        _print_terminal(
+            "  - {} [{}] {}",
+            artifact.get("id", "N/A"),
+            artifact.get("status", "N/A"),
+            artifact.get("latest_filename") or artifact.get("latest_media_type") or "-",
         )
 
 
@@ -292,10 +306,10 @@ def analyze_task_followups(task_id: str, output: str | None = None):
         return
     data = _api_data(response)
     followups = data.get("followups_created") or []
-    print(f"Follow-up analysis completed for task {task_id}")
+    _print_terminal("Follow-up analysis completed for task {}", task_id)
     print(f"  Follow-ups created: {len(followups)}")
     for followup in followups:
-        print(f"  - {followup.get('id', 'N/A')}: {followup.get('title', '')[:80]}")
+        _print_terminal("  - {}: {}", followup.get("id", "N/A"), str(followup.get("title", ""))[:80])
 
 
 def _parse_mode_data(raw: str | None) -> dict:
