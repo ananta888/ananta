@@ -75,3 +75,4 @@ jobs:
           name: ananta-live-llm-smoke-diagnostics
           path: ci-artifacts/live-llm-smoke/**
           if-no-files-found: ignore
+          retention-days: 7

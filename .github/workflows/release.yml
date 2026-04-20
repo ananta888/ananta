@@ -48,6 +48,7 @@ jobs:
         with:
           name: ananta-github-release-assets
           path: release-assets/
+          retention-days: 30
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

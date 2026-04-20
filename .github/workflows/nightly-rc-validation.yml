@@ -71,6 +71,7 @@ jobs:
         with:
           name: ananta-nightly-rc-validation
           if-no-files-found: warn
+          retention-days: 14
           path: |
             release-verification-report.json
             release-candidate-verification-report.json
