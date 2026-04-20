@@ -45,6 +45,7 @@ RELEASE_IMAGE_FILES = [
     "docker-compose.base.yml",
     "docker-compose.yml",
     "docker-compose-lite.yml",
+    "docker-compose.github-ci.yml",
     "docker-compose.ollama-wsl.yml",
     "docker-compose.dev-vulkan-live.yml",
 ]
@@ -59,6 +60,8 @@ PINNED_ACTIONS = {
     "actions/setup-python": "a26af69be951a213d495a4c3e4e4022e16d87065",
     "actions/setup-node": "49933ea5288caeca8642d1e84afbd3f7d6820020",
     "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+    "docker/setup-buildx-action": "8d2750c68a42422c14e847fe6c8ac0403b4cbd6f",
+    "docker/build-push-action": "10e90e3645eae34f1e60eeb005ba3a3d33f178e8",
 }
 
 LOCAL_IMAGE_PREFIXES = (
@@ -221,7 +224,14 @@ def check_frontend_manifest() -> CheckResult:
 def check_actions_pinning() -> CheckResult:
     workflow = read_text(RELEASE_CI_FILE)
     problems = []
-    floating = sorted(set(re.findall(r"actions/[A-Za-z0-9_.-]+@v\d+(?:\.\d+)?", workflow)))
+    floating = sorted(
+        set(
+            re.findall(
+                r"uses:\s*([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@v\d+(?:\.\d+)?)",
+                workflow,
+            )
+        )
+    )
     if floating:
         problems.append(f"floating GitHub Actions refs: {floating}")
     for action, sha in PINNED_ACTIONS.items():
