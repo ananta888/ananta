@@ -4,8 +4,9 @@ from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
+from agent.governance_modes import governance_mode_catalog
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
-from agent.runtime_profiles import resolve_runtime_profile
+from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.cli_session_service import get_cli_session_service
@@ -65,7 +66,15 @@ def assistant_editable_settings_inventory() -> list[dict]:
             "path": "config.runtime_profile",
             "type": "enum",
             "editable": True,
-            "allowed_values": ["local-dev", "trusted-lab", "compose-safe", "distributed-strict"],
+            "allowed_values": sorted(list(runtime_profile_catalog().keys())),
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "governance_mode",
+            "path": "config.governance_mode",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": sorted(list(governance_mode_catalog().keys())),
             "endpoint": "POST /config",
         },
         {"key": "templates", "path": "templates", "type": "collection", "editable": True, "endpoint": "/templates"},

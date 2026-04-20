@@ -335,13 +335,17 @@ Examples:
   Submit a goal:
     python -m agent.cli_goals "Implement user login"
 
-  Short human-friendly commands:
+  Golden path (PRD-021): Short human-friendly commands:
     python -m agent.cli_goals ask "What should I do next?"
     python -m agent.cli_goals plan "Prepare a release checklist"
     python -m agent.cli_goals analyze "Find the riskiest frontend areas"
     python -m agent.cli_goals review "Review the auth changes"
     python -m agent.cli_goals diagnose "Docker frontend cannot reach hub"
     python -m agent.cli_goals patch "Fix failing login validation"
+
+  Profile/Governance (GOV-051/PRF-080):
+    python -m agent.cli_goals --config-show
+    python -m agent.cli_goals --set-runtime-profile demo --set-governance-mode safe
 
   Submit guided mode:
     python -m agent.cli_goals --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
@@ -384,8 +388,33 @@ Examples:
     parser.add_argument("--analyze-task", help="Analyze a completed task for follow-up work")
     parser.add_argument("--output", help="Optional output text for --analyze-task")
     parser.add_argument("--limit", "-l", type=int, default=20, help="Limit number of results")
+    parser.add_argument("--config-show", action="store_true", help="Show effective runtime_profile + governance_mode")
+    parser.add_argument("--set-runtime-profile", default="", help="Update runtime_profile via POST /config")
+    parser.add_argument("--set-governance-mode", default="", help="Update governance_mode via POST /config")
 
     args = parser.parse_args()
+
+    if args.config_show or args.set_runtime_profile or args.set_governance_mode:
+        patch = {}
+        if args.set_runtime_profile:
+            patch["runtime_profile"] = str(args.set_runtime_profile).strip()
+        if args.set_governance_mode:
+            patch["governance_mode"] = str(args.set_governance_mode).strip()
+        if patch:
+            res = _request("POST", "/config", body=patch, timeout=10)
+            if res.status_code != 200:
+                _print_error(res)
+                sys.exit(1)
+        res = _request("GET", "/config", timeout=10)
+        if res.status_code != 200:
+            _print_error(res)
+            sys.exit(1)
+        cfg = _api_data(res) or {}
+        runtime = (cfg.get("runtime_profile_effective") or {}).get("effective") or cfg.get("runtime_profile") or "-"
+        governance = (cfg.get("governance_mode_effective") or {}).get("effective") or cfg.get("governance_mode") or "-"
+        _print_terminal("runtime_profile: {}", runtime)
+        _print_terminal("governance_mode: {}", governance)
+        return
 
     if args.status:
         show_status()

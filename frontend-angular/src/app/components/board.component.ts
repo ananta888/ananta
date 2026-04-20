@@ -12,11 +12,22 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { EmptyStateComponent } from '../shared/ui/state';
+import { DecisionExplanationComponent, NextStepsComponent, NextStepAction } from '../shared/ui/display';
 
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [CommonModule, FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe, UiSkeletonComponent, EmptyStateComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    DragDropModule,
+    TaskStatusDisplayPipe,
+    UiSkeletonComponent,
+    EmptyStateComponent,
+    DecisionExplanationComponent,
+    NextStepsComponent,
+  ],
   template: `
     <div class="row flex-between">
       <h2>Board</h2>
@@ -137,6 +148,8 @@ import { EmptyStateComponent } from '../shared/ui/state';
               <div class="state-banner warning mb-sm">
                 <strong>{{ term('blocked').label }}</strong>
                 <p class="muted no-margin mt-sm">{{ safetyBoundaryExplanation('blocked') }}</p>
+                <app-decision-explanation class="block mt-sm" kind="blocked"></app-decision-explanation>
+                <app-next-steps class="block mt-sm" [steps]="blockedNextSteps()" title="Naechste Schritte"></app-next-steps>
               </div>
             }
             @for (t of getRoadmapTasks(); track t) {
@@ -207,6 +220,13 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.taskFacade.reloadTaskCollection();
   }
   normalizeTaskStatus = normalizeTaskStatus;
+  blockedNextSteps(): NextStepAction[] {
+    return [
+      { id: 'open-timeline', label: 'Timeline oeffnen', description: 'Guardrails und Blockierungsgruende ansehen.', routerLink: ['/timeline'] },
+      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Goal neu planen oder Kontext nachreichen.', routerLink: ['/dashboard'] },
+      { id: 'open-settings', label: 'Config pruefen', description: 'Profile und Policies einsehen.', routerLink: ['/settings'] },
+    ];
+  }
 
   persistBoardPrefs() {
     localStorage.setItem('ananta.board.search', this.searchText || '');

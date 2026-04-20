@@ -10,6 +10,8 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config_defaults import sync_runtime_state
 from agent.db_models import ConfigDB
+from agent.governance_modes import governance_mode_catalog
+from agent.governance_modes import resolve_governance_mode
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.exposure_policy_service import get_exposure_policy_service
@@ -50,6 +52,7 @@ def _merge_nested_config_block(current_cfg: dict, new_cfg: dict, key: str) -> di
 def get_config():
     cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
     cfg["runtime_profile_effective"] = resolve_runtime_profile(cfg)
+    cfg["governance_mode_effective"] = resolve_governance_mode(cfg)
     return api_response(data=cfg)
 
 
@@ -73,6 +76,11 @@ def set_config():
         if not governance_service.is_supported_platform_mode(requested_mode):
             return api_response(status="error", message="invalid_platform_mode", code=400)
         new_cfg["platform_mode"] = governance_service.normalize_platform_mode(requested_mode)
+    if "governance_mode" in new_cfg:
+        requested = str(new_cfg.get("governance_mode") or "").strip().lower()
+        if requested and requested not in governance_mode_catalog():
+            return api_response(status="error", message="invalid_governance_mode", code=400)
+        new_cfg["governance_mode"] = requested or "balanced"
     if "execution_fallback_policy" in new_cfg:
         fallback_cfg = new_cfg.get("execution_fallback_policy")
         if not isinstance(fallback_cfg, dict):

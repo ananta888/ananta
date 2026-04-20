@@ -450,6 +450,8 @@ export function buildProjectModelRoutingRecommendationValue(modelIds: string[]):
 
 function createDefaultSettingsConfig(): any {
   return {
+    runtime_profile: 'local-dev',
+    governance_mode: 'balanced',
     hub_copilot: normalizeHubCopilotConfigValue(undefined),
     context_bundle_policy: normalizeContextBundlePolicyConfigValue(undefined),
     artifact_flow: normalizeArtifactFlowConfigValue(undefined),
@@ -1329,6 +1331,35 @@ function createDefaultSettingsConfig(): any {
           </div>
         </div>
         }
+        @if (selectedSection === 'system') {
+        <div class="card card-info mt-lg">
+          <h3>Profile & Governance</h3>
+          <p class="muted">Benannte Profile und Governance-Modi machen Kontrollniveau und Defaults explizit sichtbar. Das aendert nicht die Hub-Worker-Architektur, sondern setzt klare Standardentscheidungen.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>Runtime Profile
+              <select [(ngModel)]="config.runtime_profile">
+                @for (p of getRuntimeProfileOptions(); track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </label>
+            <label>Governance Mode
+              <select [(ngModel)]="config.governance_mode">
+                @for (m of getGovernanceModeOptions(); track m) {
+                  <option [value]="m">{{ m }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="muted font-sm mt-md">
+            Effektiv: runtime_profile={{ config.runtime_profile_effective?.effective || config.runtime_profile || '-' }}
+            · governance_mode={{ config.governance_mode_effective?.effective || config.governance_mode || '-' }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
         @if (selectedSection === 'quality') {
         <div class="card">
           <h3>Qualitaetsregeln <span class="help-icon" [appTooltip]="'Qualitaetspruefungen fuer Task-Ausgaben. Prueft Mindestlaenge und optionale Marker.'" tabindex="0">?</span></h3>
@@ -1512,6 +1543,23 @@ export class SettingsComponent implements OnInit {
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
+  }
+
+  getRuntimeProfileOptions(): string[] {
+    const catalog = this.config?.runtime_profile_effective?.catalog;
+    if (catalog && typeof catalog === 'object') {
+      return Object.keys(catalog).sort();
+    }
+    // Fallback: legacy baseline profiles.
+    return ['local-dev', 'trusted-lab', 'compose-safe', 'distributed-strict'];
+  }
+
+  getGovernanceModeOptions(): string[] {
+    const catalog = this.config?.governance_mode_effective?.catalog;
+    if (catalog && typeof catalog === 'object') {
+      return Object.keys(catalog).sort();
+    }
+    return ['safe', 'balanced', 'strict'];
   }
 
   private bootstrapAgentLlmDrafts() {

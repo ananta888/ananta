@@ -178,6 +178,7 @@ import { ModeCardOption, PresetOption } from '../shared/ui/forms';
           [text]="quickGoalText"
           [busy]="quickGoalBusy"
           [result]="quickGoalResult"
+          [error]="quickGoalError"
           [presets]="goalPresetOptions()"
           [nextSteps]="quickGoalNextSteps()"
           [showHint]="isHintVisible('quick-goal')"
@@ -472,6 +473,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalContext = '';
   quickGoalBusy = false;
   quickGoalResult: QuickGoalResult | null = null;
+  quickGoalError = '';
   demoPreview: { examples?: DemoPreviewExample[] } | null = null;
   demoLoading = false;
   demoError = '';
@@ -1072,6 +1074,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.hub || !this.quickGoalText.trim()) return;
     this.quickGoalBusy = true;
     this.quickGoalResult = null;
+    this.quickGoalError = '';
 
     this.hubApi.planGoal(this.hub.url, {
       goal: this.quickGoalText.trim(),
@@ -1093,6 +1096,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.quickGoalBusy = false;
+        this.quickGoalError = 'Goal-Planung fehlgeschlagen. Pruefe Hub-Verbindung, Login und Governance/Config.';
         this.toast.error('Goal-Planung fehlgeschlagen');
       }
     });
@@ -1131,5 +1135,13 @@ const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [
     outcome: 'Konkrete Startbefehle und naechste Diagnose.',
     tasks: ['Compose-Profile pruefen', 'Ports und Health-Checks auswerten', 'Startpfad dokumentieren'],
     starter_context: 'Fokus: lokaler Start, Compose-Profile, Health-Checks und klare naechste Diagnose.',
+  },
+  {
+    id: 'change-review',
+    title: 'Change Review',
+    goal: 'Fuehre ein Review durch: priorisiere Risiken, benoetigte Tests und mögliche Regressionen.',
+    outcome: 'Findings nach Schweregrad + konkrete naechste Checks.',
+    tasks: ['Diff/Hotspots pruefen', 'Risiken und Regressionen priorisieren', 'Testplan fuer Verifikation'],
+    starter_context: 'Fokus: Review statt Implementierung. Keine automatischen Aenderungen ohne explizite Freigabe.',
   },
 ];

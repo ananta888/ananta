@@ -81,12 +81,17 @@ export interface QuickGoalResult {
       </div>
       <app-next-steps class="block mt-sm" [steps]="nextSteps" (selectStep)="selectNextStep.emit($event)"></app-next-steps>
     }
+    @if (!busy && !result && error) {
+      <app-safety-notice class="block mt-sm" title="Planung fehlgeschlagen" [message]="error" tone="danger"></app-safety-notice>
+      <app-next-steps class="block mt-sm" [steps]="nextSteps" (selectStep)="selectNextStep.emit($event)"></app-next-steps>
+    }
   `,
 })
 export class DashboardQuickGoalPanelComponent {
   @Input() text = '';
   @Input() busy = false;
   @Input() result: QuickGoalResult | null = null;
+  @Input() error = '';
   @Input() presets: PresetOption[] = [];
   @Input() nextSteps: NextStepAction[] = [];
   @Input() showHint = false;
