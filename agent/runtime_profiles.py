@@ -7,6 +7,36 @@ from typing import Any
 _DEFAULT_PROFILE_NAME = "local-dev"
 
 _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {
+    # Product profiles (PRF-080): additiv, ohne bestehende Profile zu entfernen.
+    # Diese Profile sind bewusst benannte Defaults fuer typische Nutzungskontexte.
+    "demo": {
+        "label": "Demo",
+        "security_posture": "balanced",
+        "recommended_compose_profiles": ["lite"],
+        "review_mode": "balanced",
+        "description": "Reproduzierbare Demo- und Erstnutzer-Flows mit klarer Explainability und Golden Paths.",
+    },
+    "developer-local": {
+        "label": "Developer Local",
+        "security_posture": "relaxed_local",
+        "recommended_compose_profiles": ["lite"],
+        "review_mode": "developer_fast_path",
+        "description": "Schneller lokaler Developer-Loop mit Diagnostics; Policies bleiben sichtbar, aber weniger friktional.",
+    },
+    "team-controlled": {
+        "label": "Team Controlled",
+        "security_posture": "strict_compose_defaults",
+        "recommended_compose_profiles": ["lite"],
+        "review_mode": "policy_enforced",
+        "description": "Team-Umgebung mit klaren Defaults fuer Policy, Review und Audit; reproduzierbar via Compose.",
+    },
+    "secure-enterprise": {
+        "label": "Secure Enterprise",
+        "security_posture": "strict_distributed",
+        "recommended_compose_profiles": ["distributed"],
+        "review_mode": "governed",
+        "description": "Strikte Governance und minimierte Flaeche fuer kontrollierte Umgebungen mit hoher Audit-Anforderung.",
+    },
     "local-dev": {
         "label": "Local Development",
         "security_posture": "relaxed_local",
@@ -37,6 +67,16 @@ _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {
     },
 }
 
+_RUNTIME_PROFILE_ALIASES = {
+    # Friendly aliases for docs/UX and backwards-friendly input.
+    "developer local": "developer-local",
+    "team controlled": "team-controlled",
+    "secure enterprise": "secure-enterprise",
+    "dev-local": "developer-local",
+    "team": "team-controlled",
+    "enterprise": "secure-enterprise",
+}
+
 
 def runtime_profile_catalog() -> dict[str, dict[str, Any]]:
     return {key: dict(value) for key, value in _RUNTIME_PROFILE_CATALOG.items()}
@@ -55,12 +95,13 @@ def resolve_runtime_profile(config: dict | None = None) -> dict[str, Any]:
     cfg = dict(config or {})
     catalog = runtime_profile_catalog()
     requested = str(cfg.get("runtime_profile") or "").strip().lower()
+    requested = _RUNTIME_PROFILE_ALIASES.get(requested, requested)
     source = "config.runtime_profile"
 
     if not requested:
         env_name = str(os.environ.get("ANANTA_RUNTIME_PROFILE") or "").strip().lower()
         if env_name:
-            requested = env_name
+            requested = _RUNTIME_PROFILE_ALIASES.get(env_name, env_name)
             source = "env.ANANTA_RUNTIME_PROFILE"
         else:
             requested, source = _infer_profile_from_compose_env()

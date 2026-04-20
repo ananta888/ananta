@@ -5,6 +5,7 @@ import time
 from agent.common.sgpt import resolve_codex_runtime_config
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_profiles import resolve_runtime_profile
+from agent.governance_modes import resolve_governance_mode
 from agent.runtime_policy import review_policy
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
@@ -296,6 +297,7 @@ class ConfigReadModelService:
             "agents": {"count": len(agents), "items": agents},
             "tasks": {"included": include_task_snapshot, "counts": task_counts, "recent": recent_timeline},
             "llm_configuration": {
+                "governance_mode": resolve_governance_mode(cfg),
                 "runtime_profile": resolve_runtime_profile(cfg),
                 "defaults": {
                     "provider": effective_default_provider,

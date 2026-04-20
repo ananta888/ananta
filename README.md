@@ -12,9 +12,24 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | Einstieg | Fuer wen | Link |
 | --- | --- | --- |
 | Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
+| Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
+| Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |
+| Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |
 | Architektur verstehen | technische Reviewer | [Architektur](#architektur) |
 | Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |
 | API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |
+
+## Kern-Use-Cases (offiziell)
+
+Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle (3-5), damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.
+
+- Repository verstehen
+- Bugfix planbar und testbar machen
+- Start/Deploy diagnostizieren (Compose/Health/Logs)
+- Change Review (Risiken, Tests, Governance)
+- Gefuehrte Goal-Erstellung fuer Erstnutzer
+
+Details: `docs/use-cases.md`.
 
 ## Schnellstart in 5 Minuten
 
@@ -42,6 +57,8 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
    - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
 
 Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und die Logs des Hub- und Frontend-Containers.
+
+Offizieller UI-Standardweg: `docs/golden-path-ui.md`.
 
 ## Was Ananta macht
 
@@ -113,6 +130,11 @@ Weitere Beispiele stehen in `api-spec.md`.
 | Mehrere Worker-Nodes testen | Distributed Stack | `docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build` |
 
 Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer konkrete Entwicklungs- oder Betriebsziele gedacht.
+
+## Governance-Modi und Produktprofile
+
+- Governance-Modi (safe/balanced/strict): `docs/governance-modes.md`
+- Produktprofile (demo/developer-local/team-controlled/secure-enterprise): `docs/product-profiles.md`
 
 ## Kanal- und Erweiterungsstrategie (Core First)
 

@@ -3,14 +3,23 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AgentEntry, TeamEntry, TimelineEvent } from '../models/dashboard.models';
-import { SafetyNoticeComponent } from '../shared/ui/display';
+import { DecisionExplanationComponent, NextStepsComponent, NextStepAction, SafetyNoticeComponent } from '../shared/ui/display';
 import { FormFieldComponent } from '../shared/ui/forms';
 import { SectionCardComponent } from '../shared/ui/layout';
 
 @Component({
   standalone: true,
   selector: 'app-dashboard-timeline-panel',
-  imports: [CommonModule, FormsModule, RouterLink, FormFieldComponent, SafetyNoticeComponent, SectionCardComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    FormFieldComponent,
+    SafetyNoticeComponent,
+    SectionCardComponent,
+    DecisionExplanationComponent,
+    NextStepsComponent,
+  ],
   template: `
     <app-section-card class="block mt-md" title="Live Decision Timeline">
       <div class="grid cols-4 mt-sm">
@@ -68,6 +77,8 @@ import { SectionCardComponent } from '../shared/ui/layout';
             }
             @if (isGuardrailEvent(ev)) {
               <app-safety-notice class="block mt-sm" title="Guardrail Block" [message]="'Blockierte Tools: ' + guardrailBlockedToolsCount(ev)"></app-safety-notice>
+              <app-decision-explanation class="block mt-sm" kind="tool-approval" title="Warum wurde das blockiert?"></app-decision-explanation>
+              <app-next-steps class="block mt-sm" [steps]="guardrailNextSteps(ev)" title="Naechste Schritte"></app-next-steps>
             }
             @if (isGuardrailEvent(ev) && guardrailReasonsText(ev)) {
               <div class="muted font-sm mt-sm">
@@ -124,5 +135,14 @@ export class DashboardTimelinePanelComponent {
     const match = this.agents.find(a => a.url === actor);
     if (match?.name) return match.name;
     return actor.replace(/^https?:\/\//, '');
+  }
+
+  guardrailNextSteps(ev: TimelineEvent): NextStepAction[] {
+    const taskId = String(ev?.task_id || '').trim();
+    return [
+      { id: 'open-task', label: 'Task oeffnen', description: 'Details, Status und Kontext pruefen.', routerLink: taskId ? ['/task', taskId] : ['/board'] },
+      { id: 'open-settings', label: 'Policies pruefen', description: 'Exposure/Tool-Grenzen und Governance-Profile einsehen.', routerLink: ['/settings'] },
+      { id: 'open-board', label: 'Board oeffnen', description: 'Blockierte Tasks gesammelt sichten.', routerLink: ['/board'] },
+    ];
   }
 }

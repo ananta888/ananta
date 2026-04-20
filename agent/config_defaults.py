@@ -342,6 +342,10 @@ def build_default_agent_config() -> dict:
             "sandbox_read_only": True,
             "sandbox_tmp_dir": "/tmp/ananta-research",
         },
+        # GOV-050: expliziter Governance-Modus als Produktentscheidung (additiv).
+        # Harte Policy-Durchsetzung bleibt weiterhin in expliziten Policy-Bloecken verankert,
+        # um versteckte Seiteneffekte zu vermeiden.
+        "governance_mode": "balanced",
         "runtime_profile": "local-dev",
         "runtime_profile_catalog": runtime_profile_catalog(),
     }

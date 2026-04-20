@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "6.5.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T00:00:00Z",
+  "updated": "2026-04-20T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Focused-Value, Clear-Use-Case-Identity",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "README.md",
@@ -37,6 +37,9 @@
             "Jeder Use-Case hat einen klaren Nutzen, Scope und Einstieg.",
             "Die Projektkommunikation wirkt weniger diffus und generisch.",
             "Die Use-Cases sind als referenzierbare Produktbasis fuer Schnellstart, Golden Paths, Demo-Flows, Benchmarks und Produktprofile nutzbar."
+          ],
+          "implementation_notes": [
+            "docs/use-cases.md angelegt und im README verlinkt."
           ]
         },
         {
@@ -46,7 +49,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Demonstrable-Value, Reproducible-Showcase",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "README.md",
@@ -61,6 +64,10 @@
             "Jeder Kern-Use-Case ist reproduzierbar vorfuehrbar.",
             "UI-, CLI- und ggf. API-Einstieg sind nachvollziehbar beschrieben.",
             "Demopfad und Realpfad sind klarer voneinander getrennt."
+          ],
+          "implementation_notes": [
+            "docs/demo-flows.md angelegt (Basis fuer reproduzierbare Flows) und in docs/use-cases.md verlinkt.",
+            "Vollabdeckung pro Use-Case (UI+CLI+API) bleibt als naechster Ausbau."
           ]
         },
         {
@@ -70,7 +77,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Coherent-Showcase, Product-Story-Consistency",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -85,6 +92,9 @@
             "Demo-Inhalte stuetzen die definierten Kernfaelle.",
             "Presets wirken wie Produktpfade und nicht wie zufaellige Beispiele.",
             "Die Demo erklaert den Mehrwert von Ananta besser."
+          ],
+          "implementation_notes": [
+            "Dashboard-Presets erweitert/ausgerichtet (Change-Review Preset) in frontend-angular/src/app/components/dashboard.component.ts."
           ]
         },
         {
@@ -124,7 +134,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "One-Obvious-Way-In, Reduced-Choice-Overload",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "README.md",
@@ -135,6 +145,9 @@
             "Alternative Startvarianten sind nachgeordnet und kontextualisiert.",
             "Neue Nutzer muessen nicht zwischen vielen Wegen raten.",
             "Der Schnellstart benennt genau einen Default-Stack, einen ersten UI-Weg und ein klares Erfolgssignal."
+          ],
+          "implementation_notes": [
+            "README Einstieg konsolidiert: Schnellstart (Lite-Stack) als dominanter Default; UI-Golden-Path verlinkt."
           ]
         },
         {
@@ -144,7 +157,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Fast-First-Value, Lower-Entry-Friction",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -160,6 +173,9 @@
             "Der Einstieg fuehlt sich weniger technisch und weniger schwer an.",
             "Die Zeit bis zum ersten Nutzen sinkt deutlich.",
             "Der Zielwert unter einer Minute ist mit einem konkret beschriebenen Messpfad pruefbar."
+          ],
+          "implementation_notes": [
+            "Messpfad dokumentiert in docs/golden-path-ui.md (manuell pruefbar)."
           ]
         },
         {
@@ -247,7 +263,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Official-UI-Path, Reduced-Ambiguity",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "README.md",
@@ -259,6 +275,9 @@
             "Doku und Demo sprechen denselben Standardweg.",
             "Alternative Pfade sind nicht gleichberechtigt chaotisch.",
             "Der UI-Golden-Path beschreibt Startpunkt, primaere Aktion, erwarteten Zwischenzustand und sichtbares Ergebnis."
+          ],
+          "implementation_notes": [
+            "Dokumentiert in docs/golden-path-ui.md und im README verlinkt."
           ]
         },
         {
@@ -268,7 +287,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Official-CLI-Path, Better-Command-Discipline",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "agent/cli_goals.py",
@@ -283,6 +302,10 @@
             "CLI-Nutzer erkennen den offiziellen Arbeitsweg sofort.",
             "Nebenzweige und Spezialkommandos sind klar als solche markiert.",
             "CLI-Doku wirkt fokussierter."
+          ],
+          "implementation_notes": [
+            "docs/golden-path-cli.md angelegt und im README verlinkt.",
+            "agent/cli_goals.py Examples ergaenzt (Golden Path + config show/set)."
           ]
         },
         {
@@ -447,7 +470,7 @@
           "priority": "critical",
           "type": "ux",
           "principle": "Systematic-Explainability, Trust-Through-Reasoning-Visible",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -457,6 +480,10 @@
             "Erklaerungen wirken konsistent statt zufaellig.",
             "Nutzer verstehen Kontrolle besser.",
             "Fuer Blockierung, Review und Sicherheitsgrenze existiert je ein wiederverwendbares Erklaermuster mit naechster sinnvoller Aktion."
+          ],
+          "implementation_notes": [
+            "Wiederverwendbare Display-Komponenten genutzt: app-decision-explanation + app-next-steps.",
+            "Umgesetzt fuer blocked (Board/Scrum) und Guardrail-Blocks (Timeline). Review- und Sicherheitsgrenzen sollten noch konsistent auf weiteren Hauptansichten nachgezogen werden."
           ]
         },
         {
@@ -490,7 +517,7 @@
           "priority": "high",
           "type": "ux",
           "principle": "Actionable-States, Less-Dead-End-UX",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -502,6 +529,10 @@
             "Wichtige Zustände fuehren zu erkennbaren naechsten Aktionen.",
             "Weniger Sackgassen in UI und ggf. CLI.",
             "Nutzer muessen weniger selbst interpretieren."
+          ],
+          "implementation_notes": [
+            "Quick-Goal zeigt Next Steps jetzt auch bei Fehlern (DashboardQuickGoalPanel).",
+            "Board/Timeline nutzen NextSteps fuer blocked/guardrail Events. Weitere Views sollten nachgezogen werden."
           ]
         },
         {
@@ -539,7 +570,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Visible-Control-Profiles, Productized-Governance",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -554,6 +585,11 @@
             "Der Nutzer kann Kontrollniveau bewusst verstehen und waehlen.",
             "Governance wird als staerke sichtbar statt nur als innere Technik.",
             "Die Modi beschreiben Unterschiede bei Tool-Grenzen, Review-Pflichten, Ausfuehrungsfreiheit und Auditierbarkeit."
+          ],
+          "implementation_notes": [
+            "Docs: docs/governance-modes.md.",
+            "Backend: governance_mode als additive Config mit Validation und Read-Model-Ausgabe.",
+            "UI/CLI Auswahl umgesetzt (siehe GOV-051)."
           ]
         },
         {
@@ -563,7 +599,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Selectable-Control, Explainable-Safety-Posture",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -579,6 +615,10 @@
             "Governance-Modi sind in Produktoberflaechen sichtbar waehlbar.",
             "Ihre Unterschiede werden nicht nur intern verstanden.",
             "Nutzer koennen Verhalten besser auf ihren Kontext abstimmen."
+          ],
+          "implementation_notes": [
+            "UI: Settings -> System -> Profile & Governance: governance_mode und runtime_profile als Selects.",
+            "CLI: agent/cli_goals.py: --config-show, --set-runtime-profile, --set-governance-mode."
           ]
         },
         {
@@ -835,7 +875,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Segmented-Product-Clarity, Better-Fit-by-Context",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/",
@@ -852,6 +892,11 @@
             "Profile unterscheiden sich nachvollziehbar.",
             "Ananta wirkt weniger wie ein einziger ueberladener Modus.",
             "Jedes Profil benennt Zielgruppe, Default-Einstieg, Governance-Modus, empfohlene Laufzeit und Nicht-Ziele."
+          ],
+          "implementation_notes": [
+            "Docs: docs/product-profiles.md.",
+            "Backend: runtime_profile um demo/developer-local/team-controlled/secure-enterprise erweitert (additiv, kompatibel).",
+            "UI Auswahl umgesetzt (Settings -> System -> Profile & Governance)."
           ]
         },
         {
@@ -909,9 +954,9 @@
   "meta": {
     "total_items": 36,
     "by_status": {
-      "completed": 0,
-      "partial": 0,
-      "open": 36
+      "completed": 2,
+      "partial": 10,
+      "open": 24
     },
     "notes": [
       "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
