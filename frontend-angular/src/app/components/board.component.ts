@@ -222,8 +222,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   normalizeTaskStatus = normalizeTaskStatus;
   blockedNextSteps(): NextStepAction[] {
     return [
-      { id: 'open-timeline', label: 'Timeline oeffnen', description: 'Guardrails und Blockierungsgruende ansehen.', routerLink: ['/timeline'] },
-      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Goal neu planen oder Kontext nachreichen.', routerLink: ['/dashboard'] },
+      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails ansehen oder neu planen.', routerLink: ['/dashboard'] },
       { id: 'open-settings', label: 'Config pruefen', description: 'Profile und Policies einsehen.', routerLink: ['/settings'] },
     ];
   }
