@@ -69,6 +69,8 @@ describe('DashboardComponent (benchmarks)', () => {
       facade: DashboardFacade;
       taskFacade: any;
       ns: any;
+      goalReporting: any;
+      workspaceViewModel: any;
     };
     cmp.facade = createFacade();
     cmp.hub = { name: 'hub', url: 'http://hub:5000', role: 'hub' } as any;
@@ -78,27 +80,20 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.taskFacade = hubApiMock;
     cmp.ns = { error: vi.fn() } as any;
     cmp.toast = { success: vi.fn(), error: vi.fn() } as any;
+    cmp.goalReporting = {
+      state: { goals: [], selectedGoalId: '', goalDetail: null, goalGovernance: null, loading: false },
+      refresh: vi.fn(),
+      recentGoals: vi.fn((n: number) => (cmp.goalReporting.state.goals || []).slice(0, n)),
+      activeGoalCount: vi.fn(() => (cmp.goalReporting.state.goals || []).filter((g: any) => g.status !== 'completed').length),
+      costTasks: vi.fn(() => []),
+    };
+    cmp.workspaceViewModel = {
+      nextTaskCount: (tasks: any[]) => (Array.isArray(tasks) ? tasks.filter(t => String(t?.status || '').toLowerCase() === 'todo').length : 0),
+      starterProgress: (_: any) => ({ done: 2, total: 3, label: 'stub' }),
+    };
     cmp.showFirstStartWizard = true;
     cmp.showAdvancedDashboard = false;
     cmp.hiddenHints = new Set();
-    cmp.goalWizardStepIndex = 0;
-    cmp.goalWizardSteps = [
-      { id: 'goal', title: 'Ziel', helper: 'Beschreibe, was am Ende anders oder besser sein soll.' },
-      { id: 'context', title: 'Kontext', helper: 'Ergaenze Daten, Grenzen oder Fundstellen, damit weniger Rueckfragen entstehen.' },
-      { id: 'execution', title: 'Tiefe', helper: 'Waehle, wie gruendlich der Hub planen und Tasks erzeugen soll.' },
-      { id: 'safety', title: 'Sicherheit', helper: 'Lege fest, wie vorsichtig Ananta mit Freigaben und Pruefung umgehen soll.' },
-      { id: 'review', title: 'Pruefen', helper: 'Kontrolliere die Angaben, bevor der Hub Tasks erstellt.' },
-    ] as any;
-    cmp.executionDepthOptions = [
-      { value: 'quick', label: 'Schnell', description: 'Kleiner Plan mit wenigen Tasks fuer einfache Ziele.' },
-      { value: 'standard', label: 'Standard', description: 'Ausgewogener Plan mit Kontext, Umsetzung und Pruefung.' },
-      { value: 'deep', label: 'Gruendlich', description: 'Mehr Analyse, klarere Risiken und staerkere Nachweise.' },
-    ];
-    cmp.safetyLevelOptions = [
-      { value: 'safe', label: 'Vorsichtig', description: 'Mehr Review und keine riskanten automatischen Schritte.' },
-      { value: 'balanced', label: 'Ausgewogen', description: 'Normale Freigaben und sichtbare Pruefpunkte.' },
-      { value: 'fast', label: 'Schneller', description: 'Weniger Reibung fuer harmlose lokale Aufgaben.' },
-    ];
     return cmp;
   }
 
@@ -290,42 +285,44 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.focusQuickGoal).toHaveBeenCalled();
   });
 
-  it('guides goal modes through structured wizard steps', () => {
+  it('submits guided goals with wizard metadata defaults', () => {
+    hubApiMock.createGoal = vi.fn(() => of({ created_task_ids: ['T-1'], goal: { id: 'G-1' } }));
     const cmp = createComponent();
-    cmp.setGoalMode({
-      id: 'repo',
-      title: 'Repo analysieren',
-      fields: [{ name: 'goal', label: 'Ziel', type: 'textarea' }],
+    cmp.refresh = vi.fn();
+
+    cmp.submitGuidedGoal({
+      mode: { id: 'repo' } as any,
+      modeData: { goal: 'Analysiere das Repository', context: 'Nur Frontend' },
+    } as any);
+
+    expect(hubApiMock.createGoal).toHaveBeenCalledWith('http://hub:5000', {
+      mode: 'repo',
+      mode_data: {
+        goal: 'Analysiere das Repository',
+        context: 'Nur Frontend',
+        wizard: {
+          execution_depth: 'standard',
+          safety_level: 'balanced',
+          context: 'Nur Frontend',
+        },
+      },
+      create_tasks: true,
     });
-
-    expect(cmp.activeGoalWizardStep().id).toBe('goal');
-    expect(cmp.canContinueGoalWizard()).toBe(false);
-
-    cmp.goalModeData['goal'] = 'Analysiere das Repository';
-    expect(cmp.canContinueGoalWizard()).toBe(true);
-
-    cmp.nextGoalWizardStep();
-    expect(cmp.activeGoalWizardStep().id).toBe('context');
-    cmp.nextGoalWizardStep();
-    expect(cmp.activeGoalWizardStep().id).toBe('execution');
-    expect(cmp.selectedExecutionDepthLabel()).toBe('Standard');
   });
 
   it('submits guided goals with wizard metadata', () => {
     hubApiMock.createGoal = vi.fn(() => of({ created_task_ids: ['T-1', 'T-2'], goal: { id: 'G-42' } }));
     const cmp = createComponent();
     cmp.refresh = vi.fn();
-    cmp.setGoalMode({
-      id: 'repo',
-      title: 'Repo analysieren',
-      fields: [{ name: 'goal', label: 'Ziel', type: 'textarea' }],
-    });
-    cmp.goalModeData['goal'] = 'Analysiere das Repository';
-    cmp.goalModeData['context'] = 'Nur Frontend';
-    cmp.goalModeData['execution_depth'] = 'deep';
-    cmp.goalModeData['safety_level'] = 'safe';
-
-    cmp.submitGuidedGoal();
+    cmp.submitGuidedGoal({
+      mode: { id: 'repo' } as any,
+      modeData: {
+        goal: 'Analysiere das Repository',
+        context: 'Nur Frontend',
+        execution_depth: 'deep',
+        safety_level: 'safe',
+      },
+    } as any);
 
     expect(hubApiMock.createGoal).toHaveBeenCalledWith('http://hub:5000', {
       mode: 'repo',
@@ -343,14 +340,12 @@ describe('DashboardComponent (benchmarks)', () => {
       create_tasks: true,
     });
     expect(cmp.quickGoalResult?.goal_id).toBe('G-42');
-    expect(cmp.selectedGoalMode).toBeNull();
-    expect(cmp.goalWizardStepIndex).toBe(0);
   });
 
   it('summarizes personal home progress from goals and tasks', () => {
     const cmp = createComponent();
     cmp.showFirstStartWizard = false;
-    cmp.goalsList = [
+    cmp.goalReporting.state.goals = [
       { id: 'G-1', goal: 'Open', status: 'running' } as any,
       { id: 'G-2', goal: 'Done', status: 'completed' } as any,
     ];
@@ -483,12 +478,6 @@ describe('DashboardComponent (benchmarks)', () => {
     const cmp = createComponent();
     cmp.refreshGoalReporting();
 
-    expect(hubApiMock.listGoals).toHaveBeenCalledWith('http://hub:5000');
-    expect(hubApiMock.getGoalDetail).toHaveBeenCalledWith('http://hub:5000', 'goal-newer');
-    expect(hubApiMock.getGoalGovernanceSummary).toHaveBeenCalledWith('http://hub:5000', 'goal-newer');
-    expect(cmp.selectedGoalId).toBe('goal-newer');
-    expect(cmp.goalGovernance.cost_summary.total_cost_units).toBe(3.0);
-    expect(cmp.goalCostTasks().map((task: any) => task.id)).toEqual(['task-1', 'task-2']);
-    expect(cmp.goalReportingLoading).toBe(false);
+    expect(cmp.goalReporting.refresh).toHaveBeenCalledWith('http://hub:5000', undefined);
   });
 });

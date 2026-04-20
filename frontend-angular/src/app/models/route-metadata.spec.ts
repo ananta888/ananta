@@ -12,7 +12,7 @@ describe('route metadata', () => {
   it('keeps simple navigation focused on everyday work', () => {
     const simplePaths = buildNavGroups('admin', 'simple').flatMap(group => group.items).map(item => item.path);
 
-    expect(simplePaths).toEqual(['/dashboard', '/board', '/artifacts', '/templates', '/help']);
+    expect(simplePaths).toEqual(['/workspace', '/board', '/artifacts', '/templates', '/help']);
     expect(simplePaths).not.toContain('/agents');
     expect(simplePaths).not.toContain('/audit-log');
   });
