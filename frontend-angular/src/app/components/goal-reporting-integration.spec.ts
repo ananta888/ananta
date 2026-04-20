@@ -11,48 +11,63 @@ describe('goal reporting and governance integration', () => {
     TestBed.configureTestingModule({
       imports: [DashboardGoalGovernanceSummaryCardComponent],
     });
-    const fixture = TestBed.createComponent(DashboardGoalGovernanceSummaryCardComponent);
-    const component = fixture.componentInstance;
+    // Loading state
+    {
+      const fixture = TestBed.createComponent(DashboardGoalGovernanceSummaryCardComponent);
+      const component = fixture.componentInstance;
+      component.loading = true;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Goal Governance & Cost Summary');
+      expect(fixture.debugElement.query(By.css('app-ui-skeleton'))).not.toBeNull();
+      fixture.destroy();
+    }
 
-    component.loading = true;
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Goal Governance & Cost Summary');
-    expect(fixture.debugElement.query(By.css('app-ui-skeleton'))).not.toBeNull();
+    // Empty state
+    {
+      const fixture = TestBed.createComponent(DashboardGoalGovernanceSummaryCardComponent);
+      const component = fixture.componentInstance;
+      component.loading = false;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Noch keine Goals fuer Governance- und Cost-Reporting vorhanden.');
+      fixture.destroy();
+    }
 
-    component.loading = false;
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Noch keine Goals fuer Governance- und Cost-Reporting vorhanden.');
+    // Populated state (fresh fixture to avoid ExpressionChangedAfterItHasBeenCheckedError on ngModel/disabled transitions)
+    {
+      const fixture = TestBed.createComponent(DashboardGoalGovernanceSummaryCardComponent);
+      const component = fixture.componentInstance;
+      component.goals = [{ id: 'goal-1', summary: 'Release Goal', status: 'planned' }] as any;
+      component.selectedGoalId = 'goal-1';
+      component.goalDetail = {
+        goal: { id: 'goal-1', summary: 'Release Goal', status: 'completed' },
+        tasks: [
+          {
+            id: 'task-expensive',
+            title: 'Teure Ausfuehrung',
+            status: 'completed',
+            verification_status: { status: 'passed' },
+            cost_summary: { cost_units: 3.5, tokens_total: 1200 },
+          },
+        ],
+      } as any;
+      component.goalGovernance = {
+        goal_id: 'goal-1',
+        verification: { total: 2, passed: 2, failed: 0, escalated: 0 },
+        policy: { approved: 2, blocked: 0 },
+        cost_summary: { total_cost_units: 3.5, tasks_with_cost: 1, total_tokens: 1200, total_latency_ms: 850 },
+        summary: { task_count: 1 },
+      } as any;
+      component.costTasks = (component.goalDetail as any).tasks || [];
+      fixture.detectChanges();
 
-    component.goals = [{ id: 'goal-1', summary: 'Release Goal', status: 'planned' }];
-    component.selectedGoalId = 'goal-1';
-    component.goalDetail = {
-      goal: { id: 'goal-1', summary: 'Release Goal', status: 'completed' },
-      tasks: [
-        {
-          id: 'task-expensive',
-          title: 'Teure Ausfuehrung',
-          status: 'completed',
-          verification_status: { status: 'passed' },
-          cost_summary: { cost_units: 3.5, tokens_total: 1200 },
-        },
-      ],
-    };
-    component.goalGovernance = {
-      goal_id: 'goal-1',
-      verification: { total: 2, passed: 2, failed: 0, escalated: 0 },
-      policy: { approved: 2, blocked: 0 },
-      cost_summary: { total_cost_units: 3.5, tasks_with_cost: 1, total_tokens: 1200, total_latency_ms: 850 },
-      summary: { task_count: 1 },
-    };
-    component.costTasks = component.goalDetail.tasks || [];
-    fixture.detectChanges();
-
-    const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Release Goal');
-    expect(text).toContain('2/2');
-    expect(text).toContain('Approved');
-    expect(text).toContain('Cost Units');
-    expect(text).toContain('Teure Ausfuehrung');
+      const text = fixture.nativeElement.textContent;
+      expect(text).toContain('Release Goal');
+      expect(text).toContain('2/2');
+      expect(text).toContain('Approved');
+      expect(text).toContain('Cost Units');
+      expect(text).toContain('Teure Ausfuehrung');
+      fixture.destroy();
+    }
   });
 
   it('emits goal selection and refresh events from the governance card controls', () => {

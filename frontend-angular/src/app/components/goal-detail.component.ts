@@ -342,14 +342,14 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
   }
 
   resultHeadline(): string {
-    if (this.goal?.status === 'completed' || (this.tasks.length > 0 && this.completedTasks() === this.tasks.length)) {
-      return 'Goal abgeschlossen';
-    }
     if (this.failedTasks() > 0) {
       return 'Goal braucht Aufmerksamkeit';
     }
     if (this.openTasks() > 0) {
       return 'Goal ist in Arbeit';
+    }
+    if (this.goal?.status === 'completed' || (this.tasks.length > 0 && this.completedTasks() === this.tasks.length)) {
+      return 'Goal abgeschlossen';
     }
     return 'Goal ist vorbereitet';
   }

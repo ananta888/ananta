@@ -12,11 +12,22 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { TerminalComponent } from './terminal.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
+import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
 
 @Component({
   standalone: true,
   selector: 'app-task-detail',
-  imports: [CommonModule, FormsModule, RouterLink, TaskStatusDisplayPipe, TerminalComponent, UiSkeletonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    TaskStatusDisplayPipe,
+    TerminalComponent,
+    UiSkeletonComponent,
+    DecisionExplanationComponent,
+    NextStepsComponent,
+    SafetyNoticeComponent,
+  ],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -57,6 +68,9 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
         <strong>{{ notice.title }}</strong>
         <p class="muted no-margin mt-sm">{{ notice.body }}</p>
       </div>
+    }
+    @if (task && taskNextSteps().length) {
+      <app-next-steps class="block mb-md" [steps]="taskNextSteps()"></app-next-steps>
     }
 
     <div class="row tab-row">
@@ -161,6 +175,7 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
             @if (reviewState()?.reason) {
               <div class="muted font-sm mt-sm">{{ reviewState()?.reason }}</div>
             }
+            <app-decision-explanation class="block mt-sm" kind="tool-approval" title="Warum ist Review erforderlich?"></app-decision-explanation>
             <div class="muted font-sm mt-sm">{{ safetyBoundaryExplanation('pending_review') }}</div>
           </div>
         }
@@ -295,7 +310,7 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
           @if (allowedTools().length) {
             <div class="mt-10">
               <strong>{{ term('tool-approval').label }}</strong>
-              <p class="muted font-sm mt-5">{{ decisionExplanation('tool-approval') }}</p>
+              <app-decision-explanation class="block mt-sm" kind="tool-approval"></app-decision-explanation>
               <div class="row mt-5 flex-wrap-gap">
                 @for (tool of allowedTools(); track tool) {
                   <span class="agent-chip">{{ tool }}</span>
@@ -424,6 +439,8 @@ import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '
               <strong>Warum Review?</strong>
               <p class="muted no-margin mt-sm">{{ safetyBoundaryExplanation(reviewState()?.status) }}</p>
             </div>
+            <app-decision-explanation class="block mt-sm" kind="tool-approval" title="Warum Review sichtbar bleibt"></app-decision-explanation>
+            <app-next-steps class="block mt-sm" [steps]="reviewNextSteps()"></app-next-steps>
             <div class="grid cols-2 mt-sm">
               <div>
                 <div class="muted">Review Status</div>
@@ -1157,6 +1174,46 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       return { title: 'Pruefung hat angehalten', body: this.qualityGateReason() };
     }
     return null;
+  }
+
+  taskNextSteps(): NextStepAction[] {
+    const status = String(this.task?.status || '').trim().toLowerCase();
+    const reviewRequired = Boolean(this.reviewState()?.required);
+
+    // Keep steps concrete and navigable. There is no dedicated /timeline route; the timeline lives on /dashboard.
+    if (status === 'blocked') {
+      return [
+        { id: 'open-board', label: 'Board oeffnen', description: 'Blockierte Tasks gesammelt sichten.', routerLink: ['/board'] },
+        { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Zusammenfassungen ansehen.', routerLink: ['/dashboard'] },
+        { id: 'open-settings', label: 'Policies/Profiles pruefen', description: 'Governance Mode und Runtime Profile abgleichen.', routerLink: ['/settings'] },
+      ];
+    }
+
+    if (reviewRequired) {
+      return [
+        { id: 'open-settings', label: 'Policies/Profiles pruefen', description: 'Review-Pflichten und Grenzen nachvollziehen.', routerLink: ['/settings'] },
+        { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Goal/Timeline Kontext ansehen.', routerLink: ['/dashboard'] },
+        { id: 'open-board', label: 'Board oeffnen', description: 'Abhaengigkeiten und Status anderer Tasks pruefen.', routerLink: ['/board'] },
+      ];
+    }
+
+    if (status === 'failed') {
+      return [
+        { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Gesamtstatus und Timeline-Kontext ansehen.', routerLink: ['/dashboard'] },
+        { id: 'open-board', label: 'Board oeffnen', description: 'Prioritaeten und Folgearbeiten planen.', routerLink: ['/board'] },
+      ];
+    }
+
+    return [];
+  }
+
+  reviewNextSteps(): NextStepAction[] {
+    const reviewRequired = Boolean(this.reviewState()?.required);
+    if (!reviewRequired) return [];
+    return [
+      { id: 'open-settings', label: 'Governance Mode pruefen', description: 'Safe/Balanced/Strict Entscheidung verifizieren.', routerLink: ['/settings'] },
+      { id: 'open-board', label: 'Board oeffnen', description: 'Review-required Tasks zusammen pruefen.', routerLink: ['/board'] },
+    ];
   }
 
   isHintVisible(key: string): boolean {
