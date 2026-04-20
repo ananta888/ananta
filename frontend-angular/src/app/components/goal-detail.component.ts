@@ -6,14 +6,25 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { LoadingStateComponent, StatusBadgeComponent, StatusTone } from '../shared/ui/state';
-import { ExplanationNoticeComponent, MetricCardComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
+import { DecisionExplanationComponent, ExplanationNoticeComponent, MetricCardComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
 import { SectionCardComponent } from '../shared/ui/layout';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
   selector: 'app-goal-detail',
-  imports: [CommonModule, RouterLink, LoadingStateComponent, StatusBadgeComponent, MetricCardComponent, SectionCardComponent, ExplanationNoticeComponent, NextStepsComponent, SafetyNoticeComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    LoadingStateComponent,
+    StatusBadgeComponent,
+    MetricCardComponent,
+    SectionCardComponent,
+    ExplanationNoticeComponent,
+    DecisionExplanationComponent,
+    NextStepsComponent,
+    SafetyNoticeComponent,
+  ],
   template: `
     <div class="container pb-lg">
       @if (loading && !goal) {
@@ -48,9 +59,21 @@ import { interval, Subscription } from 'rxjs';
             <app-metric-card [label]="term('verification').label" [value]="verificationLabel()" [hint]="term('verification').technicalLabel"></app-metric-card>
           </div>
           <div class="grid cols-2 gap-sm mt-md">
-            <app-explanation-notice title="Warum wird geprueft?" [message]="decisionExplanation('verification')"></app-explanation-notice>
+            <app-decision-explanation kind="verification"></app-decision-explanation>
             <app-safety-notice [message]="resultSafetyExplanation()" [tone]="failedTasks() > 0 || openTasks() > 0 ? 'warning' : 'success'"></app-safety-notice>
           </div>
+          @if (blockedTasks() > 0) {
+            <div class="grid cols-2 gap-sm mt-md">
+              <app-decision-explanation kind="blocked"></app-decision-explanation>
+              <app-next-steps [steps]="blockedNextSteps()"></app-next-steps>
+            </div>
+          }
+          @if (reviewRequiredTasks() > 0) {
+            <div class="grid cols-2 gap-sm mt-md">
+              <app-decision-explanation kind="tool-approval" title="Warum ist Review erforderlich?"></app-decision-explanation>
+              <app-next-steps [steps]="reviewNextSteps()"></app-next-steps>
+            </div>
+          }
           @if (isHintVisible('goal-result')) {
             <div class="state-banner mt-md inline-help">
               <p class="muted no-margin">Nutze diese Seite als Abschlussblick: erst offene Punkte pruefen, dann Ergebnis oeffnen oder Folgeaufgabe starten.</p>
@@ -127,6 +150,7 @@ import { interval, Subscription } from 'rxjs';
             <div class="card">
               <h3 class="no-margin">Governance & Kosten</h3>
               <p class="muted font-sm mt-sm">Governance fasst Freigaben, Pruefung und Kosten nachvollziehbar zusammen.</p>
+              <app-decision-explanation class="block mt-sm" kind="tool-approval" title="Warum Policies sichtbar bleiben"></app-decision-explanation>
               @if (costSummary) {
                 <div class="grid cols-2 gap-sm mt-md">
                    <div>
@@ -233,6 +257,30 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
 
   get hub() {
     return this.dir.list().find(a => a.role === 'hub');
+  }
+
+  blockedTasks(): number {
+    return this.tasks.filter(t => String(t?.status || '').toLowerCase() === 'blocked').length;
+  }
+
+  reviewRequiredTasks(): number {
+    const reviewStates = new Set(['review_required', 'pending_review']);
+    return this.tasks.filter(t => reviewStates.has(String(t?.status || '').toLowerCase())).length;
+  }
+
+  blockedNextSteps(): NextStepAction[] {
+    return [
+      { id: 'board', label: 'Board oeffnen', description: 'Blockierte Tasks sammeln und klaeren.', routerLink: ['/board'] },
+      { id: 'dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Governance-Summary ansehen.', routerLink: ['/dashboard'] },
+      { id: 'settings', label: 'Policies/Profiles pruefen', description: 'Governance Mode und Runtime Profile abgleichen.', routerLink: ['/settings'] },
+    ];
+  }
+
+  reviewNextSteps(): NextStepAction[] {
+    return [
+      { id: 'goal', label: 'Plan/Tasks pruefen', description: 'Review-required Tasks identifizieren.', routerLink: ['/board'] },
+      { id: 'settings', label: 'Governance Mode pruefen', description: 'Safe/Balanced/Strict Entscheidung verifizieren.', routerLink: ['/settings'] },
+    ];
   }
 
   ngOnInit() {

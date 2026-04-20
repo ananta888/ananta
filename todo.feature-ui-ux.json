@@ -483,7 +483,8 @@
           ],
           "implementation_notes": [
             "Wiederverwendbare Display-Komponenten genutzt: app-decision-explanation + app-next-steps.",
-            "Umgesetzt fuer blocked (Board/Scrum) und Guardrail-Blocks (Timeline). Review- und Sicherheitsgrenzen sollten noch konsistent auf weiteren Hauptansichten nachgezogen werden."
+            "Umgesetzt fuer blocked (Board/Scrum), Guardrail-Blocks (Dashboard Timeline), Goal Detail (blocked/review Hinweise) und Auto-Planner (Plan-Result + Goal-Detail Panel).",
+            "Weitere Views (Task Detail, Admin Drilldowns) sollten nachgezogen werden, um volle Systematik zu erreichen."
           ]
         },
         {
@@ -532,7 +533,8 @@
           ],
           "implementation_notes": [
             "Quick-Goal zeigt Next Steps jetzt auch bei Fehlern (DashboardQuickGoalPanel).",
-            "Board/Timeline nutzen NextSteps fuer blocked/guardrail Events. Weitere Views sollten nachgezogen werden."
+            "Board/Dashboard-Timeline nutzen NextSteps fuer blocked/guardrail Events.",
+            "Goal Detail und Auto-Planner zeigen Next Steps fuer typische Zustandswechsel (blocked/review/policy)."
           ]
         },
         {
@@ -599,7 +601,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Selectable-Control, Explainable-Safety-Posture",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -954,8 +956,8 @@
   "meta": {
     "total_items": 36,
     "by_status": {
-      "completed": 2,
-      "partial": 10,
+      "completed": 3,
+      "partial": 9,
       "open": 24
     },
     "notes": [

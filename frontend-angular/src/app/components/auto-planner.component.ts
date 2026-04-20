@@ -1,16 +1,18 @@
 import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { UserAuthService } from '../services/user-auth.service';
+import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
 
 @Component({
   standalone: true,
   selector: 'app-auto-planner',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, DecisionExplanationComponent, NextStepsComponent, SafetyNoticeComponent],
   styles: [`
     .ap-subtitle { margin-top: 4px; }
     .ap-grid-top { margin-top: 12px; }
@@ -196,6 +198,10 @@ import { UserAuthService } from '../services/user-auth.service';
                 <div class="muted ap-result-meta">
                   {{ planningResult.goal?.id }} · {{ planningResult.created_task_ids?.length || 0 }} Tasks · Plan {{ planningResult.plan_id || '-' }}
                 </div>
+                <div class="grid cols-2 mt-sm">
+                  <app-decision-explanation kind="routing" title="Warum Routing sichtbar bleibt"></app-decision-explanation>
+                  <app-decision-explanation kind="verification"></app-decision-explanation>
+                </div>
                 <div class="ap-subtask-list" *ngIf="planningResult.subtasks?.length">
                   @for (st of planningResult.subtasks; track $index; let i = $index) {
                     <div class="ap-subtask-item">
@@ -204,6 +210,7 @@ import { UserAuthService } from '../services/user-auth.service';
                     </div>
                   }
                 </div>
+                <app-next-steps class="block mt-sm" [steps]="autoPlannerNextSteps()"></app-next-steps>
               </div>
             }
           </div>
@@ -215,6 +222,8 @@ import { UserAuthService } from '../services/user-auth.service';
               <div class="ap-detail-meta">
                 {{ selectedGoalDetail.goal?.status }} · Trace {{ selectedGoalDetail.trace?.trace_id }} · {{ selectedGoalDetail.tasks?.length || 0 }} Tasks
               </div>
+              <app-safety-notice class="block mt-sm" title="Hinweis" message="Wenn ein Goal blockiert oder review-required ist: Timeline und Settings helfen, den Grund und naechste Schritte zu sehen."></app-safety-notice>
+              <app-next-steps class="block mt-sm" [steps]="goalDetailNextSteps()"></app-next-steps>
 
               <div class="ap-mini-list">
                 <div class="ap-mini-card ap-artifact" data-testid="goal-artifact-summary">
@@ -486,6 +495,25 @@ export class AutoPlannerComponent implements OnInit {
         this.ns.error(this.ns.fromApiError(e, 'Goal-Planung fehlgeschlagen'));
       },
     });
+  }
+
+  autoPlannerNextSteps(): NextStepAction[] {
+    const goalId = String(this.planningResult?.goal?.id || this.selectedGoalId || '').trim();
+    return [
+      { id: 'open-goal', label: 'Goal Detail oeffnen', description: 'Plan, Governance und Artefakte ansehen.', routerLink: goalId ? ['/goal', goalId] : ['/dashboard'] },
+      { id: 'open-board', label: 'Board oeffnen', description: 'Tasks verfolgen und blockierte Punkte klaeren.', routerLink: ['/board'] },
+      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Governance-Summary ansehen.', routerLink: ['/dashboard'] },
+      { id: 'open-settings', label: 'Settings oeffnen', description: 'Profiles & Governance sicht-/waehlbar machen.', routerLink: ['/settings'] },
+    ];
+  }
+
+  goalDetailNextSteps(): NextStepAction[] {
+    const goalId = String(this.selectedGoalId || '').trim();
+    return [
+      { id: 'open-goal', label: 'Goal Detail oeffnen', description: 'Zur Abschluss- und Ergebnisansicht wechseln.', routerLink: goalId ? ['/goal', goalId] : ['/dashboard'] },
+      { id: 'open-board', label: 'Board oeffnen', description: 'Statuses, Blockierungen und Review-Pflichten sehen.', routerLink: ['/board'] },
+      { id: 'open-settings', label: 'Policies/Profiles pruefen', description: 'Governance Mode und Runtime Profile abgleichen.', routerLink: ['/settings'] },
+    ];
   }
 
   selectGoal(goalId: string, announce = false) {
