@@ -265,6 +265,7 @@ button.btn-large, .btn-large {
   .grid.cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .start-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quick-goal-expectation { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 900px) {
   .grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -300,6 +301,7 @@ button.btn-large, .btn-large {
   .shared-mode-picker.cols-3,
   .shared-mode-picker.cols-2 { grid-template-columns: minmax(0, 1fr); }
   .start-actions { grid-template-columns: minmax(0, 1fr); }
+  .first-start-steps { grid-template-columns: minmax(0, 1fr); }
   main { padding: 12px; }
   .card { padding: 10px; }
   header { padding: 10px 12px; }
@@ -929,6 +931,39 @@ body.dark-mode .progress-bar {
 }
 .first-start {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.first-start-steps,
+.quick-goal-expectation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.first-start-steps span,
+.quick-goal-expectation > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+.first-start-steps strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+.quick-goal-expectation > div {
+  display: grid;
+  gap: 4px;
+}
+.quick-goal-expectation strong {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 .wizard-choice {
   display: flex;

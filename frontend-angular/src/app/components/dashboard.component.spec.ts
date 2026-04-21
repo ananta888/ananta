@@ -282,7 +282,37 @@ describe('DashboardComponent (benchmarks)', () => {
 
     expect(cmp.quickGoalText).toBe('Plane einen Bugfix');
     expect(cmp.quickGoalContext).toBe('Kontext');
+    expect(cmp.selectedPresetId).toBe('bugfix-plan');
+    expect(cmp.currentQuickGoalExpectation()?.expectedResult).toContain('Regressionstest');
     expect(cmp.focusQuickGoal).toHaveBeenCalled();
+  });
+
+  it('clears preset expectation when the quick goal text is edited manually', () => {
+    const cmp = createComponent();
+    cmp.focusQuickGoal = vi.fn();
+
+    cmp.applyGoalPreset({
+      id: 'change-review',
+      title: 'Change Review',
+      goal: 'Review changes',
+      outcome: 'Findings',
+      tasks: ['Review'],
+    });
+    cmp.updateQuickGoalText('Bitte nur den Frontend-Teil bewerten');
+
+    expect(cmp.quickGoalText).toBe('Bitte nur den Frontend-Teil bewerten');
+    expect(cmp.selectedPresetId).toBe('');
+  });
+
+  it('turns quick goal failures into actionable user-facing messages', () => {
+    hubApiMock.planGoal = vi.fn(() => throwError(() => ({ message: 'policy blocked' })));
+    const cmp = createComponent();
+    cmp.quickGoalText = 'Plane ein riskantes Ziel';
+
+    cmp.submitQuickGoal();
+
+    expect(cmp.quickGoalError).toContain('Sicherheitsregel');
+    expect(cmp.quickGoalBusy).toBe(false);
   });
 
   it('submits guided goals with wizard metadata defaults', () => {
