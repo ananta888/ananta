@@ -4,7 +4,7 @@ import jwt
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB
-from agent.repository import agent_repo, audit_repo, goal_repo, task_repo
+from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, task_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 
@@ -76,6 +76,7 @@ class TestGoalsAPI:
         assert "Release-Check-Tool" in goal_payload["goal"]
         assert "Maintainer" in goal_payload["goal"]
         assert "Nicht-Ziele" in goal_payload["goal"]
+        assert len(res.get_json()["data"]["created_task_ids"]) >= 5
         workflow = res.get_json()["data"]["workflow"]["effective"]
         assert workflow["planning"]["use_repo_context"] is False
         assert workflow["verification"]["review_required"] is True
@@ -84,6 +85,13 @@ class TestGoalsAPI:
         assert persisted_goal is not None
         assert "Keine unkontrollierte Vollautomatik" in persisted_goal.constraints[0]
         assert "Projekt-Blueprint" in persisted_goal.acceptance_criteria[0]
+        tasks = task_repo.get_by_goal_id(goal_payload["id"])
+        titles = {task.title for task in tasks}
+        assert "Projekt-Blueprint erstellen" in titles
+        assert "Initiales Task-Backlog erzeugen" in titles
+        nodes = plan_node_repo.get_by_plan_id(res.get_json()["data"]["plan_id"])
+        assert any((node.rationale or {}).get("artifact") == "projekt_blueprint" for node in nodes)
+        assert any("Review" in ((node.rationale or {}).get("review_focus") or "") for node in nodes)
 
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
@@ -107,6 +115,7 @@ class TestGoalsAPI:
         assert "feature_ausbau" in goal_payload["goal"]
         assert "frontend-angular" in goal_payload["goal"]
         assert "Keine Worker-zu-Worker-Orchestrierung" in goal_payload["goal"]
+        assert len(res.get_json()["data"]["created_task_ids"]) >= 5
         workflow = res.get_json()["data"]["workflow"]["effective"]
         assert workflow["planning"]["use_repo_context"] is True
         assert workflow["verification"]["mode"] == "risk_and_regression_review"
@@ -116,6 +125,13 @@ class TestGoalsAPI:
         assert "MODUSKONTEXT: Existierendes Softwareprojekt weiterentwickeln" in persisted_goal.context
         assert "frontend-angular, agent/services" in persisted_goal.context
         assert "Keine Worker-zu-Worker-Orchestrierung" in persisted_goal.constraints
+        tasks = task_repo.get_by_goal_id(goal_payload["id"])
+        descriptions = "\n".join(task.description or "" for task in tasks)
+        assert "Risiko-, Diff- und Testsicht" in {task.title for task in tasks}
+        assert "kleine, sequenzierte Tasks" in descriptions
+        nodes = plan_node_repo.get_by_plan_id(res.get_json()["data"]["plan_id"])
+        assert any((node.rationale or {}).get("artifact") == "risiko_test_review_plan" for node in nodes)
+        assert any((node.rationale or {}).get("test_focus") for node in nodes)
 
     def test_project_evolution_high_risk_uses_strict_review_defaults(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)

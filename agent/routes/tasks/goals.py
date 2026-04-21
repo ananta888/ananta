@@ -277,6 +277,8 @@ def create_goal():
         use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
         goal_id=goal_record.id,
         goal_trace_id=goal_record.trace_id,
+        mode=goal_record.mode,
+        mode_data=goal_record.mode_data,
     )
 
     current_app.logger.debug(f"plan result: {result}")
