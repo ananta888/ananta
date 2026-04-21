@@ -50,7 +50,7 @@ describe('dashboard guided goal flow', () => {
     description: 'Fehler strukturiert untersuchen',
     fields: [
       { name: 'goal', label: 'Ziel', type: 'textarea' },
-      { name: 'team_id', label: 'Team', type: 'select', options: ['frontend'], default: 'frontend' },
+      { name: 'team_id', label: 'Team', type: 'select', options: ['frontend'], default: 'frontend', required: false },
       { name: 'hidden_policy', label: 'Policy', type: 'hidden', default: 'safe' },
     ],
   };
@@ -64,7 +64,8 @@ describe('dashboard guided goal flow', () => {
     expect(component.goalModeData['team_id']).toBe('frontend');
     expect(component.goalModeData['execution_depth']).toBe('standard');
     expect(component.goalModeData['safety_level']).toBe('balanced');
-    expect(component.requiredGoalFields().map(field => field.name)).toEqual(['goal', 'team_id']);
+    expect(component.visibleGoalFields().map(field => field.name)).toEqual(['goal', 'team_id']);
+    expect(component.requiredGoalFields().map(field => field.name)).toEqual(['goal']);
     expect(component.canContinueGoalWizard()).toBe(false);
 
     component.goalModeData['goal'] = 'Fehlerbild analysieren';

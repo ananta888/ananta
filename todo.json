@@ -51,7 +51,7 @@
           "priority": "P0",
           "type": "frontend",
           "principle": "SRP, Explicit-Goal-Input",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["frontend-angular/"],
           "tags": ["UC6", "wizard", "goal-input"],
@@ -63,7 +63,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "Wizard nutzt den Guided Mode new_software_project mit strukturierten Pflicht- und optionalen Feldern.",
+            "Optionale Wizard-Felder blockieren den Flow nicht mehr als Pflichtfelder.",
+            "Der Modus erzeugt ein parametriertes Goal statt reinen Freitext."
+          ]
         },
         {
           "id": "UC6-T03",
@@ -186,7 +191,7 @@
           "priority": "P0",
           "type": "governance",
           "principle": "Least-Privilege, Observable-Control",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/", "frontend-angular/", "docs/"],
           "tags": ["UC6", "governance", "safety"],
@@ -197,7 +202,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "new_software_project setzt review_required, bestaetigungspflichtige Schreib-/Runtime-Pfade und keine unkontrollierte Vollautomatik.",
+            "Der Modus nutzt keinen bestehenden Repo-Kontext als stillen Default.",
+            "Governance-Defaults werden im Hub-Goal-Service gesetzt."
+          ]
         },
         {
           "id": "UC6-T09",
@@ -322,7 +332,7 @@
           "priority": "P0",
           "type": "frontend",
           "principle": "SRP, Explicit-Goal-Input",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["frontend-angular/", "agent/"],
           "tags": ["UC7", "wizard", "preset"],
@@ -334,7 +344,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "Wizard nutzt den Guided Mode project_evolution mit Zielaenderung, Weiterentwicklungsart, betroffenen Bereichen, Risiko und Restriktionen.",
+            "Quick-Goal-/Demo-Preset und CLI-Shortcut evolve-project fuehren auf denselben Kernmodus.",
+            "Der Modus erzeugt ein strukturiertes Goal statt freier Analyse."
+          ]
         },
         {
           "id": "UC7-T03",
@@ -343,7 +358,7 @@
           "priority": "P0",
           "type": "backend",
           "principle": "Relevant-Context, SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/"],
           "tags": ["UC7", "context", "repository"],
@@ -354,7 +369,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "project_evolution erzwingt use_repo_context=true im mode-basierten Workflow.",
+            "Mode-Kontext benennt betroffene Bereiche, Restriktionen, Risiko und Weiterentwicklungsart fuer den Planner.",
+            "Der Kontext bevorzugt relevante Projektbereiche gegenueber langer Rohhistorie."
+          ]
         },
         {
           "id": "UC7-T04",
@@ -422,7 +442,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "project_evolution setzt review_required, Risiko-/Regression-Review und Test-/Diff-Artefaktsicht.",
+            "Hohes Risiko hebt den Policy-Level auf strict_review.",
+            "Schreib- und Runtime-Pfade bleiben bestaetigungspflichtig."
+          ]
         },
         {
           "id": "UC7-T07",
@@ -443,7 +468,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "project_evolution setzt review_required, Risiko-/Regression-Review und Test-/Diff-Artefaktsicht.",
+            "Hohes Risiko hebt den Policy-Level auf strict_review.",
+            "Schreib- und Runtime-Pfade bleiben bestaetigungspflichtig."
+          ]
         },
         {
           "id": "UC7-T08",
@@ -536,7 +566,7 @@
           "priority": "P0",
           "type": "governance",
           "principle": "Least-Privilege, Risk-Aware-Defaults",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/", "frontend-angular/", "docs/"],
           "tags": ["UC7", "governance", "safety"],
@@ -547,7 +577,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "project_evolution setzt review_required, Risiko-/Regression-Review und Test-/Diff-Artefaktsicht.",
+            "Hohes Risiko hebt den Policy-Level auf strict_review.",
+            "Schreib- und Runtime-Pfade bleiben bestaetigungspflichtig."
+          ]
         }
       ]
     }
@@ -555,9 +590,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 5,
+      "completed": 10,
       "partial": 0,
-      "open": 19
+      "open": 14
     },
     "notes": [
       "Konvertiert aus dem neuen use_cases-Format in das bestehende categories/items/meta-Format.",
