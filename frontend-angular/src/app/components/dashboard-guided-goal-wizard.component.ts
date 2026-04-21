@@ -11,6 +11,7 @@ export interface GoalModeField {
   options?: string[];
   placeholder?: string;
   default?: unknown;
+  required?: boolean;
 }
 
 export interface GoalModeDefinition extends ModeCardOption {
@@ -63,8 +64,8 @@ interface GoalWizardStep {
         <button wizard-actions class="secondary btn-small" type="button" (click)="setGoalMode(null)">Zurueck</button>
           @if (activeGoalWizardStep().id === 'goal') {
             <div class="grid gap-sm">
-              @for (field of requiredGoalFields(); track field.name) {
-                <app-form-field [label]="field.label" [hint]="fieldHelper(field.name)" [required]="true">
+              @for (field of visibleGoalFields(); track field.name) {
+                <app-form-field [label]="field.label" [hint]="fieldHelper(field.name)" [required]="field.required !== false">
                   @if (field.type === 'textarea') {
                     <textarea [(ngModel)]="goalModeData[field.name]" class="w-full" rows="3" style="min-height: 88px;" [placeholder]="field.placeholder || 'Beschreibe, was erreicht werden soll.'"></textarea>
                   } @else if (field.type === 'select') {
@@ -192,6 +193,10 @@ export class DashboardGuidedGoalWizardComponent implements OnChanges {
   }
 
   requiredGoalFields(): GoalModeField[] {
+    return this.visibleGoalFields().filter(field => field.required !== false);
+  }
+
+  visibleGoalFields(): GoalModeField[] {
     return (this.selectedGoalMode?.fields || []).filter(field => field.type !== 'hidden');
   }
 

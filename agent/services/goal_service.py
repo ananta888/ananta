@@ -76,6 +76,7 @@ class GoalService:
 
     def build_goal_workflow_overrides(self, payload: Any) -> dict[str, Any]:
         overrides = copy.deepcopy(payload.workflow or {})
+        overrides = self.deep_merge(overrides, self.build_mode_workflow_defaults(str(payload.mode or "generic"), payload.mode_data or {}))
         if payload.team_id:
             overrides.setdefault("routing", {})["team_id"] = payload.team_id
         if payload.create_tasks is not None:
@@ -85,6 +86,119 @@ class GoalService:
         if payload.use_repo_context is not None:
             overrides.setdefault("planning", {})["use_repo_context"] = bool(payload.use_repo_context)
         return overrides
+
+    def build_mode_workflow_defaults(self, mode: str, mode_data: dict[str, Any]) -> dict[str, Any]:
+        if mode == "new_software_project":
+            return {
+                "planning": {
+                    "create_tasks": True,
+                    "use_template": True,
+                    "use_repo_context": False,
+                },
+                "verification": {
+                    "enabled": True,
+                    "review_required": True,
+                    "mode": "reviewable_project_start",
+                },
+                "policy": {
+                    "security_level": "review_required",
+                    "write_access": "confirmation_required",
+                    "runtime_execution": "confirmation_required",
+                    "automation": "no_uncontrolled_full_auto",
+                },
+            }
+        if mode == "project_evolution":
+            risk_level = str(mode_data.get("risk_level") or "mittel").strip().lower()
+            security_level = "strict_review" if risk_level == "hoch" else "review_required"
+            return {
+                "planning": {
+                    "create_tasks": True,
+                    "use_template": True,
+                    "use_repo_context": True,
+                },
+                "verification": {
+                    "enabled": True,
+                    "review_required": True,
+                    "mode": "risk_and_regression_review",
+                },
+                "artifacts": {
+                    "include_risk_view": True,
+                    "include_test_plan": True,
+                    "include_diff_scope": True,
+                },
+                "policy": {
+                    "security_level": security_level,
+                    "write_access": "confirmation_required",
+                    "large_change_handling": "split_into_reviewable_steps",
+                    "runtime_execution": "confirmation_required",
+                },
+            }
+        return {}
+
+    def build_mode_context(self, mode: str, mode_data: dict[str, Any], context: str | None) -> str | None:
+        parts = [str(context or "").strip()] if str(context or "").strip() else []
+        if mode == "new_software_project":
+            parts.append(
+                "\n".join(
+                    [
+                        "MODUSKONTEXT: Neues Softwareprojekt anlegen.",
+                        "Nutze sichere Start-Defaults: erst planen, dann reviewen, keine unkontrollierte Vollautomatik.",
+                        "Erzeuge Scope, Architekturvorschlag, initiales Backlog, Tests und naechste reviewbare Schritte.",
+                    ]
+                )
+            )
+        elif mode == "project_evolution":
+            affected_areas = str(mode_data.get("affected_areas") or "").strip()
+            constraints = str(mode_data.get("constraints") or "").strip()
+            risk_level = str(mode_data.get("risk_level") or "mittel").strip()
+            change_type = str(mode_data.get("change_type") or "kleine_erweiterung").strip()
+            lines = [
+                "MODUSKONTEXT: Existierendes Softwareprojekt weiterentwickeln.",
+                "Nutze bestehendes Repo-, Artifact- und Task-Wissen als Startkontext, aber bevorzuge relevante Bereiche gegenueber langer Rohhistorie.",
+                f"Weiterentwicklungsart: {change_type}.",
+                f"Risikoniveau: {risk_level}.",
+                "Zerlege die Aenderung in kleine verifizierbare Schritte mit betroffenen Bereichen, Risiken, Tests und Review-Hinweisen.",
+            ]
+            if affected_areas:
+                lines.append(f"Betroffene Bereiche: {affected_areas}.")
+            if constraints:
+                lines.append(f"Restriktionen: {constraints}.")
+            parts.append("\n".join(lines))
+        return "\n\n".join(parts) if parts else None
+
+    def build_mode_constraints(self, mode: str, mode_data: dict[str, Any]) -> list[str]:
+        if mode == "new_software_project":
+            constraints = [
+                "Keine unkontrollierte Vollautomatik beim Projektstart.",
+                "Schreib- und Runtime-Schritte bleiben bestaetigungspflichtig.",
+            ]
+            non_goals = str(mode_data.get("non_goals") or "").strip()
+            if non_goals:
+                constraints.append(f"Nicht-Ziele: {non_goals}")
+            return constraints
+        if mode == "project_evolution":
+            constraints = [
+                "Keine monolithische Aenderung als Standard.",
+                "Grosse oder riskante Aenderungen in reviewbare Schritte zerlegen.",
+            ]
+            user_constraints = str(mode_data.get("constraints") or "").strip()
+            if user_constraints:
+                constraints.append(user_constraints)
+            return constraints
+        return []
+
+    def build_mode_acceptance_criteria(self, mode: str) -> list[str]:
+        if mode == "new_software_project":
+            return [
+                "Projekt-Blueprint mit Scope, Architekturvorschlag und initialem Backlog ist sichtbar.",
+                "Review- und Verification-Schritte bleiben aktiv.",
+            ]
+        if mode == "project_evolution":
+            return [
+                "Aenderungsplan enthaelt betroffene Bereiche, Risiken, Tests und Review-Hinweise.",
+                "Naechste Schritte sind klein und einzeln verifizierbar.",
+            ]
+        return []
 
     def goal_readiness(self) -> dict[str, Any]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}

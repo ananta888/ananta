@@ -200,6 +200,9 @@ def create_goal():
     overrides = _goal_service().build_goal_workflow_overrides(payload)
     effective = _goal_service().deep_merge(defaults, overrides)
     provenance = _goal_service().build_provenance(defaults, overrides)
+    mode_context = _goal_service().build_mode_context(str(payload.mode or "generic"), payload.mode_data or {}, payload.context)
+    mode_constraints = _goal_service().build_mode_constraints(str(payload.mode or "generic"), payload.mode_data or {})
+    mode_acceptance = _goal_service().build_mode_acceptance_criteria(str(payload.mode or "generic"))
     readiness = _goal_service().goal_readiness()
     precondition_error = _goal_service().enforce_goal_preconditions(
         payload=payload,
@@ -228,9 +231,9 @@ def create_goal():
         source=str(payload.source or "ui"),
         requested_by=_current_username(),
         team_id=payload.team_id,
-        context=payload.context,
-        constraints=list(payload.constraints or []),
-        acceptance_criteria=list(payload.acceptance_criteria or []),
+        context=mode_context,
+        constraints=[*mode_constraints, *list(payload.constraints or [])],
+        acceptance_criteria=[*mode_acceptance, *list(payload.acceptance_criteria or [])],
         execution_preferences=dict(payload.execution_preferences or {}),
         visibility=dict(payload.visibility or {}),
         workflow_defaults=defaults,
@@ -267,7 +270,7 @@ def create_goal():
 
     result = auto_planner.plan_goal(
         goal=goal_text,
-        context=payload.context,
+        context=mode_context,
         team_id=effective.get("routing", {}).get("team_id"),
         create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
         use_template=bool(effective.get("planning", {}).get("use_template", True)),

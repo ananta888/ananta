@@ -76,6 +76,14 @@ class TestGoalsAPI:
         assert "Release-Check-Tool" in goal_payload["goal"]
         assert "Maintainer" in goal_payload["goal"]
         assert "Nicht-Ziele" in goal_payload["goal"]
+        workflow = res.get_json()["data"]["workflow"]["effective"]
+        assert workflow["planning"]["use_repo_context"] is False
+        assert workflow["verification"]["review_required"] is True
+        assert workflow["policy"]["write_access"] == "confirmation_required"
+        persisted_goal = goal_repo.get_by_id(goal_payload["id"])
+        assert persisted_goal is not None
+        assert "Keine unkontrollierte Vollautomatik" in persisted_goal.constraints[0]
+        assert "Projekt-Blueprint" in persisted_goal.acceptance_criteria[0]
 
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
@@ -99,6 +107,32 @@ class TestGoalsAPI:
         assert "feature_ausbau" in goal_payload["goal"]
         assert "frontend-angular" in goal_payload["goal"]
         assert "Keine Worker-zu-Worker-Orchestrierung" in goal_payload["goal"]
+        workflow = res.get_json()["data"]["workflow"]["effective"]
+        assert workflow["planning"]["use_repo_context"] is True
+        assert workflow["verification"]["mode"] == "risk_and_regression_review"
+        assert workflow["artifacts"]["include_risk_view"] is True
+        persisted_goal = goal_repo.get_by_id(goal_payload["id"])
+        assert persisted_goal is not None
+        assert "MODUSKONTEXT: Existierendes Softwareprojekt weiterentwickeln" in persisted_goal.context
+        assert "frontend-angular, agent/services" in persisted_goal.context
+        assert "Keine Worker-zu-Worker-Orchestrierung" in persisted_goal.constraints
+
+    def test_project_evolution_high_risk_uses_strict_review_defaults(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "project_evolution",
+                "mode_data": {
+                    "change_goal": "Persistenzschicht umbauen",
+                    "risk_level": "hoch",
+                },
+            },
+        )
+        assert res.status_code == 201
+        workflow = res.get_json()["data"]["workflow"]["effective"]
+        assert workflow["policy"]["security_level"] == "strict_review"
 
     def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
