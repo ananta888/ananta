@@ -52,11 +52,14 @@ test.describe('Live click critical paths', () => {
   test('clicks dashboard, goal start and result reading path with stable selectors', async ({ page, request }) => {
     await loginFast(page, request);
     await installLiveClickMocks(page);
+    await page.addInitScript(() => {
+      localStorage.setItem('ananta.dashboard.advanced', 'true');
+    });
 
-    await page.goto('/dashboard');
+    await page.goto('/dashboard#quick-goal');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.getByRole('button', { name: /Diagnostizieren/i }).click();
-    await expect(page.locator('#quick-goal').getByLabel('Quick Goal Beschreibung eingeben')).toBeVisible();
+    await expect(page.locator('#quick-goal').getByLabel('Zielbeschreibung eingeben')).toBeVisible();
     await expect(page.getByText(/Goal Governance & Cost Summary/i)).toBeVisible();
     await page.getByRole('combobox', { name: /Goal fuer Governance Summary/i }).selectOption('goal-live-1');
     await page.getByRole('button', { name: /Goal Governance Summary aktualisieren/i }).click();
@@ -74,6 +77,9 @@ test.describe('Live click critical paths', () => {
   test('surfaces blocked quick-goal submission and recovers on retry', async ({ page, request }) => {
     await loginFast(page, request);
     await installLiveClickMocks(page);
+    await page.addInitScript(() => {
+      localStorage.setItem('ananta.dashboard.advanced', 'true');
+    });
     let attempts = 0;
 
     await page.route('**/tasks/auto-planner/plan', async route => {
@@ -101,16 +107,16 @@ test.describe('Live click critical paths', () => {
       });
     });
 
-    await page.goto('/dashboard');
+    await page.goto('/dashboard#quick-goal');
     const quickGoal = page.locator('#quick-goal');
-    await quickGoal.getByLabel('Quick Goal Beschreibung eingeben').fill('Riskanten Pfad mit Review pruefen');
+    await quickGoal.getByLabel('Zielbeschreibung eingeben').fill('Riskanten Pfad mit Review pruefen');
     await quickGoal.getByRole('button', { name: /Goal planen/i }).click();
-    await expect(page.getByText(/Goal-Planung fehlgeschlagen/i)).toBeVisible();
+    await expect(page.getByText(/Planung fehlgeschlagen/i)).toBeVisible();
     await assertErrorOverlaysInViewport(page);
 
     await quickGoal.getByRole('button', { name: /Goal planen/i }).click();
-    await expect(quickGoal).toContainText('Goal wurde geplant');
-    await expect(quickGoal).toContainText('1 Tasks erstellt');
+    await expect(quickGoal).toContainText('Plan steht bereit');
+    await expect(quickGoal).toContainText('1 Aufgaben');
     expect(attempts).toBe(2);
     await assertNoUnhandledBrowserErrors(page);
   });

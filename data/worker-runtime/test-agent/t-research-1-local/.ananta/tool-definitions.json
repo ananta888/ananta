@@ -556,5 +556,222 @@
         "action"
       ]
     }
+  },
+  {
+    "name": "file_read",
+    "description": "Liest den Inhalt einer Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "file_write",
+    "description": "Schreibt Inhalt in eine Datei (ueberschreibt existierende).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "content": {
+          "type": "string",
+          "description": "Inhalt"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "file_list",
+    "description": "Listet Dateien in einem Verzeichnis auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Verzeichnis",
+          "default": "."
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Rekursiv auflisten",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "file_patch",
+    "description": "Wendet einen Patch auf eine Datei an (Search & Replace Modell).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "search": {
+          "type": "string",
+          "description": "Zu suchender Text"
+        },
+        "replace": {
+          "type": "string",
+          "description": "Ersatztext"
+        }
+      },
+      "required": [
+        "path",
+        "search",
+        "replace"
+      ]
+    }
+  },
+  {
+    "name": "git_status",
+    "description": "Zeigt den aktuellen Git-Status.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "git_diff",
+    "description": "Zeigt Diffs von Aenderungen.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Optionaler Pfadfilter"
+        },
+        "cached": {
+          "type": "boolean",
+          "description": "Gestagete Aenderungen zeigen",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "git_log",
+    "description": "Zeigt die Commit-Historie.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Anzahl der Commits",
+          "default": 10
+        }
+      }
+    }
+  },
+  {
+    "name": "git_commit",
+    "description": "Erstellt einen Commit mit den aktuell gestageten Aenderungen.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Commit-Nachricht"
+        }
+      },
+      "required": [
+        "message"
+      ]
+    }
+  },
+  {
+    "name": "shell_execute",
+    "description": "Fuehrt ein Shell-Kommando aus (Hochrisiko, standardmaessig deaktiviert).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Das auszufuehrende Kommando"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Timeout in Sekunden",
+          "default": 30
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  {
+    "name": "web_fetch",
+    "description": "Ruft den Textinhalt einer Webseite ab.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Die abzurufende URL"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "web_search",
+    "description": "Sucht im Web nach Informationen (simuliert/mock).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Suchbegriff"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "doc_extract",
+    "description": "Extrahiert Text aus einem Dokument (PDF, DOCX, XLSX, PPTX).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Dokument"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
   }
 ]
