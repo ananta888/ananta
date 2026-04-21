@@ -45,13 +45,13 @@ import { DashboardGoalReportingFacade } from './dashboard-goal-reporting.facade'
 import { DashboardGoalGovernanceSummaryCardComponent } from './dashboard-goal-governance-summary-card.component';
 import { DashboardGuidedGoalWizardComponent, GoalModeDefinition, GuidedGoalSubmit } from './dashboard-guided-goal-wizard.component';
 import { DashboardPersonalWorkspaceComponent } from './dashboard-personal-workspace.component';
-import { DashboardQuickGoalPanelComponent, QuickGoalResult } from './dashboard-quick-goal-panel.component';
+import { DashboardQuickGoalPanelComponent, QuickGoalExpectation, QuickGoalResult } from './dashboard-quick-goal-panel.component';
 import { DashboardRefreshRuntimeService } from '../services/dashboard-refresh-runtime.service';
 import { DashboardWorkspaceViewModelService } from './dashboard-workspace-view-model.service';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from '../shared/ui/state';
 import { DecisionExplanationComponent, ExplanationNoticeComponent, KeyValueGridComponent, SystemStatusSummaryComponent, SystemStatusTeamMember } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
-import { ModeCardOption, PresetOption } from '../shared/ui/forms';
+import { ModeCardOption, ModeCardPickerComponent, PresetOption } from '../shared/ui/forms';
 
 @Component({
   standalone: true,
@@ -80,6 +80,7 @@ import { ModeCardOption, PresetOption } from '../shared/ui/forms';
     SectionCardComponent,
     PageIntroComponent,
     ActionCardComponent,
+    ModeCardPickerComponent,
   ],
   template: `
     <app-page-intro
@@ -96,11 +97,17 @@ import { ModeCardOption, PresetOption } from '../shared/ui/forms';
       <section class="card first-start mb-md" aria-label="Erststart">
         <div class="row space-between">
           <div>
-            <h3 class="no-margin">Wie moechtest du starten?</h3>
-            <p class="muted mt-sm no-margin">Waehle einen einfachen Einstieg. Du kannst spaeter jederzeit in die tieferen Ansichten wechseln.</p>
+            <h3 class="no-margin">Erster Lauf in drei Schritten</h3>
+            <p class="muted mt-sm no-margin">Waehle einen Einstieg, plane ein Ziel und pruefe danach Aufgaben oder Ergebnis. Governance bleibt dabei sichtbar.</p>
           </div>
           <button class="secondary btn-small" (click)="completeFirstStartWizard()">Ausblenden</button>
         </div>
+        <div class="first-start-steps mt-sm" aria-label="Erststart-Schritte">
+          <span><strong>1</strong> Ziel oder Demo waehlen</span>
+          <span><strong>2</strong> Hub plant Aufgaben</span>
+          <span><strong>3</strong> Pruefen und fortfahren</span>
+        </div>
+        <app-explanation-notice class="block mt-sm inline-help" title="Kontrollierter Start" message="Der Hub bleibt die Steuerungsebene. Ausfuehrung, Review-Bedarf und Sicherheitsgrenzen werden sichtbar, bevor daraus Arbeit entsteht."></app-explanation-notice>
         <app-mode-card-picker
           class="block mt-sm"
           [options]="firstStartOptions"
@@ -182,7 +189,8 @@ import { ModeCardOption, PresetOption } from '../shared/ui/forms';
           [presets]="goalPresetOptions()"
           [nextSteps]="quickGoalNextSteps()"
           [showHint]="isHintVisible('quick-goal')"
-          (textChange)="quickGoalText = $event"
+          [expectation]="currentQuickGoalExpectation()"
+          (textChange)="updateQuickGoalText($event)"
           (dismissHint)="dismissHint('quick-goal')"
           (selectPreset)="applyGoalPresetById($event)"
           (submit)="submitQuickGoal()"
@@ -461,9 +469,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   goalModes: GoalModeDefinition[] = [];
   guidedGoalResetKey = 0;
   firstStartOptions: ModeCardOption[] = [
-    { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und bei Bedarf als echte Goals starten.' },
-    { id: 'goal', title: 'Eigenes Ziel planen', description: 'Mit einem Satz starten und Tasks erzeugen lassen.' },
-    { id: 'board', title: 'Leer starten', description: 'Direkt ins Board und Aufgaben manuell anlegen.' },
+    { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und kontrolliert als echte Ziele starten.' },
+    { id: 'goal', title: 'Eigenes Ziel planen', description: 'Mit einem Satz starten; der Hub erzeugt pruefbare Aufgaben.' },
+    { id: 'board', title: 'Aufgaben ansehen', description: 'Direkt zur Aufgabenliste, wenn bereits Arbeit vorhanden ist.' },
   ];
   timelineTeamId = '';
   timelineAgent = '';
@@ -471,6 +479,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   timelineErrorOnly = false;
   quickGoalText = '';
   quickGoalContext = '';
+  selectedPresetId = '';
   quickGoalBusy = false;
   quickGoalResult: QuickGoalResult | null = null;
   quickGoalError = '';
@@ -687,12 +696,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   applyGoalPreset(preset: DemoPreviewExample): void {
     this.quickGoalText = preset.goal;
     this.quickGoalContext = preset.starter_context || `Vorlage: ${preset.title}`;
+    this.selectedPresetId = preset.id;
     this.focusQuickGoal();
   }
 
   applyGoalPresetById(id: string): void {
     const preset = this.goalPresets().find(item => item.id === id);
     if (preset) this.applyGoalPreset(preset);
+  }
+
+  updateQuickGoalText(value: string): void {
+    this.quickGoalText = value;
+    const selected = this.selectedPresetId ? this.goalPresets().find(preset => preset.id === this.selectedPresetId) : null;
+    if (selected && selected.goal !== value) this.selectedPresetId = '';
   }
 
   applyShortcutPreset(kind: 'diagnose' | 'review'): void {
@@ -721,14 +737,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return [
       {
         id: 'goal',
-        label: 'Goal Detail oeffnen',
+        label: 'Ziel pruefen',
         description: 'Plan, Governance und Ergebnisstatus pruefen.',
         disabled: !this.quickGoalResult?.goal_id,
       },
       {
         id: 'board',
-        label: 'Board oeffnen',
-        description: 'Erzeugte Tasks verfolgen und naechste Arbeit starten.',
+        label: 'Aufgaben verfolgen',
+        description: 'Erzeugte Aufgaben ansehen und naechste Arbeit starten.',
         routerLink: ['/board'],
       },
       {
@@ -742,6 +758,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   handleQuickGoalNextStep(step: NextStepAction): void {
     if (step.id === 'goal' && this.quickGoalResult?.goal_id) this.goToGoal(this.quickGoalResult.goal_id);
+    if (step.id === 'goal' && !this.quickGoalResult?.goal_id) this.focusQuickGoal();
   }
 
   chooseFirstStart(choice: string): void {
@@ -1092,14 +1109,58 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
         this.quickGoalText = '';
         this.quickGoalContext = '';
+        this.selectedPresetId = '';
         this.refresh();
       },
-      error: () => {
+      error: (err) => {
         this.quickGoalBusy = false;
-        this.quickGoalError = 'Goal-Planung fehlgeschlagen. Pruefe Hub-Verbindung, Login und Governance/Config.';
-        this.toast.error('Goal-Planung fehlgeschlagen');
+        this.quickGoalError = this.quickGoalFailureMessage(err);
+        this.toast.error('Ziel konnte nicht geplant werden');
       }
     });
+  }
+
+  currentQuickGoalExpectation(): QuickGoalExpectation | null {
+    const selectedId = this.selectedPresetId || this.detectPresetIdFromGoalText();
+    const preset = this.goalPresets().find(item => item.id === selectedId) || this.goalPresets()[0];
+    if (!preset) return null;
+    return {
+      title: preset.title,
+      goodInput: preset.goal,
+      expectedResult: preset.outcome,
+      nextAction: this.nextActionForPreset(preset.id),
+    };
+  }
+
+  private detectPresetIdFromGoalText(): string {
+    const normalized = this.quickGoalText.trim();
+    if (!normalized) return '';
+    const match = this.goalPresets().find(preset => preset.goal === normalized);
+    return match?.id || '';
+  }
+
+  private nextActionForPreset(id: string): string {
+    const nextActions: Record<string, string> = {
+      'repo-analysis': 'Hotspots im Ziel pruefen und passende Aufgaben starten.',
+      'bugfix-plan': 'Reproduktionsschritt bestaetigen und Regressionstest anlegen.',
+      'compose-diagnosis': 'Startpfad ausfuehren und blockierte Checks sichtbar halten.',
+      'change-review': 'Findings nach Schweregrad durchgehen und Tests priorisieren.',
+    };
+    return nextActions[id] || 'Aufgaben verfolgen und Ergebnisse pruefen.';
+  }
+
+  private quickGoalFailureMessage(err: any): string {
+    const raw = String(err?.error?.message || err?.message || '').toLowerCase();
+    if (raw.includes('401') || raw.includes('unauthorized') || raw.includes('login')) {
+      return 'Deine Sitzung ist nicht mehr gueltig. Melde dich neu an und starte das Ziel erneut.';
+    }
+    if (raw.includes('network') || raw.includes('offline') || raw.includes('failed to fetch')) {
+      return 'Der Hub ist gerade nicht erreichbar. Pruefe den lokalen Start und versuche es danach erneut.';
+    }
+    if (raw.includes('policy') || raw.includes('governance') || raw.includes('blocked')) {
+      return 'Die Planung wurde durch eine Sicherheitsregel gestoppt. Pruefe den Governance-Modus oder formuliere das Ziel enger.';
+    }
+    return 'Das Ziel konnte nicht geplant werden. Pruefe Hub-Verbindung, Anmeldung und Sicherheitsmodus.';
   }
 
   goToBoard() {

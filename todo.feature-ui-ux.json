@@ -104,7 +104,7 @@
           "priority": "medium",
           "type": "product",
           "principle": "Expectation-Setting, Better-User-Success",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -119,6 +119,10 @@
             "Nutzer sehen leichter, wie sie sinnvolle Goals formulieren.",
             "Ergebnisformen sind besser antizipierbar.",
             "Weniger Friktion durch unklare Erwartungen."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Einstieg zeigt pro Preset passenden Input, erwartetes Ergebnis und sinnvolle Folgeaktion in frontend-angular/src/app/components/dashboard-quick-goal-panel.component.ts.",
+            "Dashboard leitet Erwartungsmodelle aus offiziellen Goal-Presets ab."
           ]
         }
       ]
@@ -185,7 +189,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Guided-First-Run, Gentle-Orientation",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -199,6 +203,10 @@
             "Erstnutzer werden knapp aber sinnvoll orientiert.",
             "Das Onboarding wirkt hilfreich statt langatmig.",
             "Sicherheits- und Governance-Charakter werden frueh klar."
+          ],
+          "implementation_notes": [
+            "First-Start-Bereich im Dashboard zeigt nun Drei-Schritt-Orientierung und erklaert den kontrollierten Hub-Start mit sichtbarer Governance.",
+            "Ausbau zu persistenter, mehrseitiger Onboarding-Fuehrung bleibt offen."
           ]
         },
         {
@@ -232,7 +240,7 @@
           "priority": "high",
           "type": "ux",
           "principle": "Recoverable-First-Run, Humane-Failure-Messaging",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -248,6 +256,10 @@
             "Fehler im Ersteinstieg sind fuer Nicht-Insider besser verständlich.",
             "Naechste Schritte werden aktiv vorgeschlagen.",
             "Abbrueche wirken weniger wie technische Sackgassen."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Fehler werden in konkrete Nutzertexte fuer Sitzung, Hub-Erreichbarkeit und Governance-Blockierungen uebersetzt.",
+            "Next-Steps bleiben auch bei Fehlern sichtbar."
           ]
         }
       ]
@@ -339,7 +351,7 @@
           "priority": "medium",
           "type": "ux",
           "principle": "Visible-Preferred-Flow, Product-Led-Guidance",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -353,6 +365,10 @@
             "Bevorzugte Pfade sind im UI klarer sichtbar.",
             "Hauptaktionen konkurrieren weniger miteinander.",
             "Nutzer werden eher auf den stabilen Weg gefuehrt."
+          ],
+          "implementation_notes": [
+            "Quick-Goal zeigt den offiziellen UI-Weg Planen -> Aufgaben verfolgen -> Ergebnisse ansehen direkt vor dem Start.",
+            "First-Start-Bereich und Hauptaktionen priorisieren Zielplanung und Demo vor Expertenpfaden."
           ]
         }
       ]
@@ -494,7 +510,7 @@
           "priority": "high",
           "type": "ux",
           "principle": "Human-Language-First, Less-Internal-Jargon",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -509,6 +525,10 @@
             "Standardansichten wirken weniger nach internem Architekturmodell.",
             "Neue Nutzer verstehen Inhalte schneller.",
             "Fachsprache bleibt auf Expertenkontexte begrenzt."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Sprache von Quick Goal/Tasks/Board stärker auf Zielbeschreibung, Aufgaben und Ergebnisse umgestellt.",
+            "Interne Task-IDs werden in der Erfolgsmeldung nachrangig als interne Referenzen angezeigt."
           ]
         },
         {
@@ -544,7 +564,7 @@
           "priority": "medium",
           "type": "ux",
           "principle": "Value-First-Results, Better-End-User-Orientation",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -557,6 +577,10 @@
             "Ergebnisansichten kommunizieren erst Nutzen, dann Mechanik.",
             "Endnutzer sehen schneller, was sie gewonnen haben.",
             "Interne Prozesssicht bleibt verfuegbar, aber nicht dominant."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Erfolg zeigt zuerst Planwert und erzeugte Aufgaben; technische Referenzen sind nachrangig einklappbar.",
+            "Naechste Schritte fuehren direkt zu Zielpruefung, Aufgabenverfolgung und Ergebnissen."
           ]
         }
       ]
