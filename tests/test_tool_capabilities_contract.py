@@ -3,6 +3,7 @@ from agent.tool_capabilities import (
     resolve_allowed_tools,
     validate_tool_calls_against_contract,
 )
+from agent.tool_contracts import build_tool_contract_catalog
 
 
 def test_capability_contract_blocks_unknown_and_denied_tools():
@@ -95,3 +96,14 @@ def test_capability_contract_blocks_new_admin_tool_for_non_admin():
     )
     assert blocked == ["set_autopilot_state"]
     assert reasons["set_autopilot_state"] == "admin_required_for_mutating_tool"
+
+
+def test_tool_contract_catalog_exposes_stable_contract_fields():
+    catalog = build_tool_contract_catalog({"llm_tool_allowlist": ["list_teams"]})
+
+    assert catalog["version"] == "v1"
+    required = set(catalog["schema"]["required_fields"])
+    list_teams = next(item for item in catalog["tools"] if item["name"] == "list_teams")
+    assert required.issubset(set(list_teams.keys()))
+    assert list_teams["security"]["fail_closed"] is True
+    assert "Hub owns validation" in " ".join(catalog["schema"]["security_rules"])
