@@ -4,6 +4,7 @@ CLI for goals, diagnostics and artifacts in Ananta.
 
 Usage:
     python -m agent.cli_goals "Implement user authentication"
+    python -m agent.cli_goals --first-run
     python -m agent.cli_goals --goal "Add API endpoint" --context "Using Flask" --team dev
     python -m agent.cli_goals --goals
     python -m agent.cli_goals --status
@@ -66,10 +67,16 @@ def get_auth_token(base_url: str) -> str:
     username = os.environ.get("ANANTA_USER", "admin")
     password = os.environ.get("ANANTA_PASSWORD", "admin")
 
-    response = requests.post(f"{base_url}/login", json={"username": username, "password": password}, timeout=10)
+    try:
+        response = requests.post(f"{base_url}/login", json={"username": username, "password": password}, timeout=10)
+    except requests.RequestException as exc:
+        _print_terminal("Error: Hub not reachable at {}", base_url)
+        _print_terminal("Next step: start the hub or set ANANTA_BASE_URL. Details: {}", str(exc))
+        sys.exit(1)
 
     if response.status_code != 200:
-        print(f"Error: Login failed - {response.status_code}")
+        _print_terminal("Error: Login failed - {}", response.status_code)
+        print("Next step: check ANANTA_USER/ANANTA_PASSWORD or reset the local admin password.")
         sys.exit(1)
 
     data = response.json().get("data", {})
@@ -87,14 +94,19 @@ def _request(
     base_url = get_base_url()
     token = get_auth_token(base_url)
     headers = {"Authorization": f"Bearer {token}"}
-    return requests.request(
-        method=method,
-        url=f"{base_url}{path}",
-        headers=headers,
-        json=body,
-        params=params,
-        timeout=timeout,
-    )
+    try:
+        return requests.request(
+            method=method,
+            url=f"{base_url}{path}",
+            headers=headers,
+            json=body,
+            params=params,
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        _print_terminal("Error: Hub request failed for {}", path)
+        _print_terminal("Next step: run `python -m agent.cli_goals --first-run` and verify ANANTA_BASE_URL. Details: {}", str(exc))
+        sys.exit(1)
 
 
 def _read_json(response: requests.Response) -> dict:
@@ -126,6 +138,46 @@ def _print_error(response: requests.Response):
         _print_terminal("Error: {} - {}", response.status_code, message)
     else:
         _print_terminal("Error: {} - {}", response.status_code, response.text)
+    _print_terminal("Next step: {}", _next_step_for_status(response.status_code, message or response.text))
+
+
+def _next_step_for_status(status_code: int, message: str | None = None) -> str:
+    text = str(message or "").lower()
+    if status_code in {401, 403}:
+        return "check ANANTA_USER/ANANTA_PASSWORD and governance permissions."
+    if status_code == 404:
+        return "check that the hub version exposes this endpoint and that ANANTA_BASE_URL points to the hub."
+    if status_code == 409 or "policy" in text or "governance" in text or "blocked" in text:
+        return "review the governance mode or narrow the goal before retrying."
+    if status_code >= 500:
+        return "check hub logs, then run `python -m agent.cli_goals --status` after the hub is healthy."
+    return "retry with a narrower goal or run `python -m agent.cli_goals --status` for readiness."
+
+
+def show_first_run():
+    base_url = get_base_url()
+    print("Ananta CLI First Run")
+    print("=====================")
+    _print_terminal("Hub URL: {}", base_url)
+    print("\n1. Optional environment:")
+    _print_terminal("   export ANANTA_BASE_URL={}", base_url)
+    print("   export ANANTA_USER=admin")
+    print("   export ANANTA_PASSWORD=<password>")
+    print("\n2. Readiness check:")
+    print("   python -m agent.cli_goals --status")
+    print("\n3. Official first goal:")
+    print('   python -m agent.cli_goals plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"')
+    print("\nSuccess signal:")
+    print("   - Goal ID is printed")
+    print("   - Status is printed")
+    print("   - Tasks created is greater than 0 for a planned goal")
+    print("\nAfter success:")
+    print("   python -m agent.cli_goals --tasks --task-status todo")
+    print("   python -m agent.cli_goals --goal-detail <goal_id>")
+    print("\nIf it fails:")
+    print("   - login error: check ANANTA_USER/ANANTA_PASSWORD")
+    print("   - connection error: start the hub or set ANANTA_BASE_URL")
+    print("   - governance/policy block: narrow the goal or inspect the governance mode")
 
 
 def submit_goal(
@@ -157,6 +209,10 @@ def submit_goal(
         print(f"Tasks created: {len(created_task_ids)}")
         for task_id in created_task_ids:
             _print_terminal("  - {}", task_id)
+        goal_id = goal_payload.get("id")
+        if goal_id:
+            _print_terminal("Next step: python -m agent.cli_goals --goal-detail {}", goal_id)
+        print("Success signal: Goal ID, status and task count are visible.")
         return created_task_ids
     _print_error(response)
     return []
@@ -332,8 +388,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  Submit a goal:
-    python -m agent.cli_goals "Implement user login"
+  First run:
+    python -m agent.cli_goals --first-run
+    python -m agent.cli_goals --status
+    python -m agent.cli_goals plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
 
   Golden path (PRD-021): Short human-friendly commands:
     python -m agent.cli_goals ask "What should I do next?"
@@ -379,6 +437,7 @@ Examples:
     parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
     parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
+    parser.add_argument("--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help")
     parser.add_argument("--goals", action="store_true", help="List goals")
     parser.add_argument("--goal-detail", help="Show detail for a goal ID")
     parser.add_argument("--modes", action="store_true", help="List guided goal modes")
@@ -393,6 +452,10 @@ Examples:
     parser.add_argument("--set-governance-mode", default="", help="Update governance_mode via POST /config")
 
     args = parser.parse_args()
+
+    if args.first_run:
+        show_first_run()
+        return
 
     if args.config_show or args.set_runtime_profile or args.set_governance_mode:
         patch = {}
