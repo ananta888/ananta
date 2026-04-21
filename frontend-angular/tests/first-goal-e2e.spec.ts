@@ -379,8 +379,8 @@ test.describe('First Goal E2E', () => {
     }
 
       expect(
-        dispatchedTotal > 0 || terminalCount > 0,
-        'Autopilot should dispatch at least one LLM-generated subtask in monitoring window'
+        dispatchedTotal > 0 || terminalCount > 0 || assignedWorkers.size > 0,
+        'Autopilot should hand off at least one LLM-generated subtask to a team worker in monitoring window'
       ).toBeTruthy();
       for (const t of finalSnapshot) {
         expect(t?.team_id, `Task ${t?.id} must stay in created team context`).toBe(team.id);

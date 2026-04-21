@@ -1,5 +1,5 @@
 Artefakt-Kontext:
-- Artifact 4d87820d-57a5-4923-b16c-96f1146e4854 (README.md):
+- Artifact 32f61e9c-e496-4578-928d-e9533cab2829 (README.md):
 # Hello
 artifact body
 
@@ -11,75 +11,65 @@ Repo-Kontext:
 - Repo-Scope README.md: file
 # Ananta
 
-Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Architektur.
+Ananta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.
 
-## Goal-basierter Produktansatz
-Das System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Artifact-Workflow. Für einfache Erstbenutzung ist nur ein Goal notwendig; Persistenz und erweiterte Optionen sind konfigurierbar. Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
+Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares System fuer:
 
-## Einstiegspunkte
-- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`
-- Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`
-- Frontend Entwicklung und E2E: `frontend-angular/README.md`
-- Setup/Runtime: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
+- Goal -> Plan -> Task -> Execution -> Verification -> Artifact
+- Hub-kontrollierte Orchestrierung statt Worker-zu-Worker-Automation
+- Docker-basierte Hub- und Worker-Laufzeiten
+- reproduzierbare Releases, CI-Gates und Security-/Governance-Regeln
 
-## Architektur
-- Angular Frontend fuer Visualisierung und Steuerung
-- Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)
-- Team-Konfiguration blueprint-first: wiederverwendbare Blueprints, Team-Instanzen und Advanced-Verwaltung
-- Worker-Agenten fuer LLM-gestuetzte Ausfuehrung
-- Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`
-- Lokale OpenAI-kompatible Backends wie Ollama oder LM Studio ueber gemeinsames Adaptermodell
-- Persistenz via PostgreSQL (Standard) oder SQLite
+| Einstieg | Fuer wen | Link |
+| --- | --- | --- |
+| Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
+| Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
+| Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |
+| Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |
+| Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |
+| Passendes Produktprofil waehlen | Demo, Trial, Team oder Security-Kontext | [Produktprofile](docs/product-profiles.md) |
+| Architektur verstehen | technische Reviewer | [Architektur](#architektur) |
+| Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |
+| API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |
 
-Details: `docs/backend.md` und `architektur/README.md`.
+## Kern-Use-Cases (offiziell)
 
-## Quickstart (Docker)
-1. Automatisches Setup (empfohlen):
-```powershell
-.\setup.ps1
-```
-Dieses Script prüft Dependencies (Python, Node.js, Docker), generiert .env mit sicheren Passwörtern und installiert alle Dependencies automatisch.
+Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle (3-5), damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.
 
-Alternativ manuell:
-```bash
-cp .env.example .env
-# Bearbeiten Sie .env und ersetzen Sie alle Platzhalter-Passwörter
-```
-`.env.example` deckt die Lite-/Compose-Defaults bereits weitgehend ab; `.env.template` ist die kompaktere Vorlage, wenn Werte bewusst neu gesetzt werden sollen. Fuer die Distributed-Variante sollten zusaetzlich `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` und `DELTA_PORT` gesetzt werden.
+- Repository verstehen
+- Bugfix planbar und testbar machen
+- Start/Deploy diagnostizieren (Compose/Health/Logs)
+- Change Review (Risiken, Tests, Governance)
+- Gefuehrte Goal-Erstellung fuer Erstnutzer
 
-2. Start:
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
-```
-WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service:
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
-```
-Distributed mit zusaetzlichen Worker-Nodes:
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
-```
-Windows PowerShell (bei Volume- oder Pfadfehlern):
-```powershell
-$env:COMPOSE_CONVERT_WINDOWS_PATHS=1
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
-```
-Sauberer Neustart:
-```bash
-scripts/compose-test-stack.sh down
-scripts/compose-test-stack.sh up
-```
-Mit WSL2/Vulkan-Overlay:
-```bash
-scripts/compose-test-stack.sh down
-scripts/compose-test-stack.sh up
-```
-Sicheres Cleanup (inkl. Volumes ausser `ollama_data`):
-```bash
-scripts/compose-test-stack.sh clean
-```
-3. Zugriff:
-- Frontend: `http://localhost:4200`
-- Hub API: `http://localhost:5000`
+Details: `docs/use-cases.md`.
 
-Hinweis z...
+## Schnellstart in 5 Minuten
+
+1. Umgebung vorbereiten:
+   ```powershell
+   .\setup.ps1
+   ```
+   Das Script prueft Docker, Python und Node, legt eine `.env` an und installiert lokale Abhaengigkeiten.
+
+2. Lite-Stack starten:
+   ```bash
+   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+   ```
+
+3. Im Browser oeffnen:
+   - Frontend: `http://localhost:4200`
+   - Hub API: `http://localhost:5000`
+
+4. Einloggen:
+   - Benutzer: `admin`
+   - Passwort: Wert aus `INITIAL_ADMIN_PASSWORD` in `.env`
+
+5. Erstes Ziel starten:
+   - Im Arbeitsbereich `Planen` waehlen und ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
+   - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
+
+Erfolgssignal fuer den Schnellstart:
+- Das Dashboard meldet, dass Aufgaben erstellt wurden.
+- Das Goal ist verlinkt oder im Board sichtbar.
+- Der naechste Schritt ist `...
