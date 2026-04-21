@@ -1,299 +1,569 @@
 {
-  "version": 1,
-  "owner": "ananta",
-  "purpose": "Canonical task list for the two new primary software use cases: create a new project and continue an existing project.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "use_cases": [
+  "$schema": "./todo.schema.json",
+  "version": "7.0.0",
+  "created": "2026-04-21",
+  "updated": "2026-04-21T00:00:00Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Die zwei neuen primaeren Software-Use-Cases als kompatible, releasefaehige Todo-Liste aufnehmen: ein neues Softwareprojekt guided anlegen und ein existierendes Softwareprojekt kontrolliert weiterentwickeln.",
+    "notes": [
+      "Diese Datei ersetzt das neue use_cases-Format durch das bestehende categories/items/meta-Modell, damit Schema-Validierung, Statistik-Sync und Release-Gate denselben Vertrag verwenden.",
+      "Die IDs UC6 und UC7 bleiben als Produkt-Use-Cases erhalten.",
+      "Alle Tasks starten als open, weil das bestehende Tooling open/partial/completed als primaere Statuszaehlung verwendet."
+    ]
+  },
+  "categories": [
     {
-      "id": "UC6",
-      "title": "Neues Softwareprojekt anlegen",
-      "goal": "Ein neuer Nutzer kann aus einer Idee heraus ein neues Softwareprojekt guided anlegen, strukturieren, planen und in erste umsetzbare Tasks ueberfuehren.",
-      "success_criteria": [
-        "Dashboard und Wizard bieten einen klaren Einstieg fuer neue Projekte.",
-        "Aus einer Idee entsteht ein Goal mit nachvollziehbarem Scope, Architekturvorschlag und initialem Task-Backlog.",
-        "Erster Standard-Flow ist reproduzierbar und dokumentiert.",
-        "Ergebnis ist fuer Erstnutzer sichtbar, pruefbar und ohne Expertenwissen bedienbar."
-      ],
-      "tasks": [
+      "name": "new-software-project-flow",
+      "label": "UC6: Neues Softwareprojekt anlegen",
+      "items": [
         {
           "id": "UC6-T01",
           "title": "Use-Case offiziell in Produktbasis aufnehmen",
-          "status": "todo",
+          "description": "Den offiziellen Use-Case fuer neue Softwareprojekte in Produktdokumentation und Einstiegspfaden sichtbar machen.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "Focused-Value, Product-Story-Consistency",
+          "status": "open",
+          "effort": "small",
+          "files": ["README.md", "docs/use-cases.md", "docs/demo-flows.md"],
+          "tags": ["UC6", "documentation", "golden-path"],
+          "acceptance": [
             "docs/use-cases.md enthaelt den neuen offiziellen Use-Case fuer neue Projekte.",
             "README und Golden Paths verweisen sichtbar auf den neuen Einstieg.",
             "Benennung ist problemorientiert statt toolorientiert."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6",
+            "goal": "Ein neuer Nutzer kann aus einer Idee heraus ein neues Softwareprojekt guided anlegen, strukturieren, planen und in erste umsetzbare Tasks ueberfuehren."
+          }
         },
         {
           "id": "UC6-T02",
           "title": "Guided Goal Wizard fuer neue Projekte ergaenzen",
-          "status": "todo",
+          "description": "Einen klaren Wizard-Einstieg fuer neue Softwareprojekte bereitstellen, der strukturierte Goal-Parameter erzeugt.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "frontend",
+          "principle": "SRP, Explicit-Goal-Input",
+          "status": "open",
+          "effort": "medium",
+          "files": ["frontend-angular/"],
+          "tags": ["UC6", "wizard", "goal-input"],
+          "dependencies": ["UC6-T03", "UC6-T04"],
+          "acceptance": [
             "Wizard enthaelt einen sichtbaren Einstieg 'Neues Projekt anlegen'.",
             "Wizard fragt mindestens Projektidee, Zieltyp, Tech-Umfeld, Sicherheitsniveau und Ausfuehrungstiefe ab.",
             "Wizard erzeugt ein parametriertes Goal statt nur Freitext zu speichern."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T03",
           "title": "Preset fuer neue Softwareprojekte definieren",
-          "status": "todo",
+          "description": "Ein offizielles Preset fuer den Projektstart definieren und fuer UI sowie CLI nutzbar machen.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "OCP, Preset-Registry",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC6", "preset", "goal-mode"],
+          "acceptance": [
             "Es gibt ein offizielles Preset fuer 'Neues Softwareprojekt anlegen'.",
             "Preset ist ueber UI und CLI erreichbar.",
             "Preset nutzt sinnvolle Defaults fuer reviewbare und sichere Erstnutzung."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T04",
           "title": "Input-Schema fuer Projektstart standardisieren",
-          "status": "todo",
+          "description": "Ein testbares Eingabemodell fuer neue Projekte einfuehren, das unklare Angaben explizit behandelt.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "contract",
+          "principle": "DIP, Explicit-Contracts",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC6", "schema", "contract"],
+          "acceptance": [
             "Es existiert ein klares Eingabemodell fuer Name, Problem, Zielgruppe, Plattform, bevorzugten Stack und Nicht-Ziele.",
             "Leere oder unklare Eingaben werden mit gefuehrten Rueckfragen statt stillen Defaults behandelt.",
             "Schema ist dokumentiert und testbar."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T05",
           "title": "Projekt-Blueprint-Generierung anschliessen",
-          "status": "todo",
+          "description": "Aus Wizard- oder Preset-Eingaben einen nachvollziehbaren initialen Projekt-Blueprint erzeugen.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "backend",
+          "principle": "SRP, Goal-to-Plan",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC6", "blueprint", "planning"],
+          "dependencies": ["UC6-T03", "UC6-T04"],
+          "acceptance": [
             "Aus Wizard/Preset entsteht ein brauchbarer initialer Projekt-Blueprint oder Goal-Plan.",
             "Blueprint umfasst mindestens Scope, erste Rollen, erste Artefakte und Initial-Tasks.",
             "Ergebnis bleibt editierbar und nachvollziehbar."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T06",
           "title": "Initiale Aufgabenstruktur fuer neue Projekte erzeugen",
-          "status": "todo",
+          "description": "Aus dem neuen Projektziel kleine, kontrolliert ausfuehrbare und pruefbare Initial-Tasks ableiten.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "backend",
+          "principle": "Hub-Orchestration, Small-Tasks",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC6", "task-generation", "hub"],
+          "dependencies": ["UC6-T05", "UC6-T08"],
+          "acceptance": [
             "Initiale Task-Liste umfasst Problemverstaendnis, Architekturvorschlag, Projektstruktur, erste Implementierungsschritte, Tests und Review.",
             "Tasks sind klein genug fuer kontrollierte Bearbeitung.",
             "Tasks besitzen nachvollziehbare Reihenfolge oder Dependencies."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue und Delegation; Worker fuehren nur delegierte Tasks aus."
+          }
         },
         {
           "id": "UC6-T07",
           "title": "Standard-Artefakte fuer neue Projekte definieren",
-          "status": "todo",
+          "description": "Die erwarteten Ergebnisartefakte fuer neue Projekte festlegen und im UI sichtbar machen.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "Clear-Outputs, Reviewability",
+          "status": "open",
+          "effort": "medium",
+          "files": ["frontend-angular/", "agent/", "docs/"],
+          "tags": ["UC6", "artifacts", "review"],
+          "dependencies": ["UC6-T05"],
+          "acceptance": [
             "Flow erzeugt mindestens Zielzusammenfassung, Architekturvorschlag, initiales Backlog und naechste Schritte.",
             "Artefakte werden im UI sichtbar gemacht.",
             "Artefakte sind reviewbar und exportierbar."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T08",
           "title": "Sichere Standard-Governance fuer Projektstart setzen",
-          "status": "todo",
+          "description": "Neue Projektstarts mit restriktiven, reviewbaren Defaults absichern.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "governance",
+          "principle": "Least-Privilege, Observable-Control",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC6", "governance", "safety"],
+          "acceptance": [
             "Neues-Projekt-Flow startet nicht mit unkontrollierter Vollautomatik.",
             "Review-/Verification-Schritte bleiben sichtbar aktiv.",
             "Gefaehrliche Schreib- oder Runtime-Pfade sind fuer Erstnutzer restriktiv oder bestaetigungspflichtig."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T09",
           "title": "CLI-Einstieg fuer neuen Projekt-Flow ergaenzen",
-          "status": "todo",
+          "description": "Den neuen Projektstart als CLI-Shortcut anbieten und mit dem UI-Kernpfad synchron halten.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "cli",
+          "principle": "Shared-Core-Flow",
+          "status": "open",
+          "effort": "small",
+          "files": ["agent/", "README.md", "docs/"],
+          "tags": ["UC6", "cli", "golden-path"],
+          "dependencies": ["UC6-T03", "UC6-T04"],
+          "acceptance": [
             "Es gibt einen klaren CLI-Befehl oder Goal-Shortcut fuer neue Projekte.",
             "CLI-Flow entspricht funktional dem UI-Flow.",
             "CLI-Beispiel ist in README oder Golden Path dokumentiert."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T10",
           "title": "Demo-Flow fuer neues Projekt dokumentieren",
-          "status": "todo",
+          "description": "Einen reproduzierbaren Demo-Ablauf vom Problem zur ersten Task-Struktur dokumentieren.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "documentation",
+          "principle": "Reproducible-Showcase",
+          "status": "open",
+          "effort": "small",
+          "files": ["docs/demo-flows.md", "README.md"],
+          "tags": ["UC6", "demo", "docs"],
+          "dependencies": ["UC6-T01", "UC6-T03", "UC6-T06"],
+          "acceptance": [
             "Es gibt einen reproduzierbaren Demo-Flow vom Problem zur ersten Task-Struktur.",
             "Beispielinput und erwartetes Ergebnis sind dokumentiert.",
             "Flow ist fuer Reviewer in wenigen Minuten nachvollziehbar."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T11",
           "title": "Vertragstests fuer Goal-to-Project-Flow ergaenzen",
-          "status": "todo",
+          "description": "Den neuen Goal-to-Project-Flow durch Contract-, UI- oder Smoke-Tests regressionssicher machen.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "test",
+          "principle": "Contract-Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": ["tests/", "frontend-angular/tests/"],
+          "tags": ["UC6", "tests", "contract"],
+          "dependencies": ["UC6-T02", "UC6-T05", "UC6-T06"],
+          "acceptance": [
             "API- und/oder UI-Tests pruefen den neuen Projekt-Flow stabil ab.",
             "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher.",
             "Mindestens ein positiver End-to-End-Smoke-Test existiert."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         },
         {
           "id": "UC6-T12",
           "title": "Erstnutzer-Onboarding auf 'one obvious way in' trimmen",
-          "status": "todo",
+          "description": "Den Einstieg fuer neue Nutzer so reduzieren, dass ein klarer Projektstartpfad dominiert.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "frontend",
+          "principle": "User-Focused-Simplicity",
+          "status": "open",
+          "effort": "small",
+          "files": ["frontend-angular/", "README.md"],
+          "tags": ["UC6", "onboarding", "first-run"],
+          "dependencies": ["UC6-T01", "UC6-T02"],
+          "acceptance": [
             "Ein neuer Nutzer erkennt ohne Code-Studium, wie ein neues Projekt gestartet wird.",
             "UI benennt den Einstieg klar und sichtbar.",
             "Der Flow ist mit wenigen Entscheidungen startbar."
-          ]
+          ],
+          "context": {
+            "use_case": "UC6"
+          }
         }
       ]
     },
     {
-      "id": "UC7",
-      "title": "Existierendes Softwareprojekt weiterentwickeln",
-      "goal": "Ein bestehendes Repository oder Projekt kann analysiert, verstanden und in kleinen pruefbaren Schritten gezielt weiterentwickelt werden.",
-      "success_criteria": [
-        "Ein Nutzer kann ein bestehendes Projekt als Weiterentwicklungsfall statt als generische Analyse starten.",
-        "Das System erzeugt nachvollziehbare Aenderungsplaene statt unstrukturierter Sammelantworten.",
-        "Risiken, betroffene Bereiche, Tests und Review-Schritte bleiben sichtbar.",
-        "Weiterentwicklung funktioniert fuer kleine Features, Umbauten und kontrollierte Erweiterungen."
-      ],
-      "tasks": [
+      "name": "existing-software-project-evolution",
+      "label": "UC7: Existierendes Softwareprojekt weiterentwickeln",
+      "items": [
         {
           "id": "UC7-T01",
           "title": "Use-Case offiziell in Produktbasis aufnehmen",
-          "status": "todo",
+          "description": "Den offiziellen Use-Case fuer kontrollierte Weiterentwicklung bestehender Projekte dokumentieren und sichtbar verlinken.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "Focused-Value, Product-Story-Consistency",
+          "status": "open",
+          "effort": "small",
+          "files": ["README.md", "docs/use-cases.md", "docs/demo-flows.md"],
+          "tags": ["UC7", "documentation", "golden-path"],
+          "acceptance": [
             "docs/use-cases.md enthaelt den offiziellen Use-Case fuer Weiterentwicklung bestehender Projekte.",
             "README und relevante Einstiegspfade zeigen den Fall explizit an.",
             "Formulierung ist problemorientiert und nicht nur repo-analytisch."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7",
+            "goal": "Ein bestehendes Repository oder Projekt kann analysiert, verstanden und in kleinen pruefbaren Schritten gezielt weiterentwickelt werden."
+          }
         },
         {
           "id": "UC7-T02",
           "title": "Wizard/Preset fuer Weiterentwicklung bestehender Projekte ergaenzen",
-          "status": "todo",
+          "description": "Einen sichtbaren Einstieg fuer bestehende Projekte bereitstellen, der strukturierte Aenderungsziele erzeugt.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "frontend",
+          "principle": "SRP, Explicit-Goal-Input",
+          "status": "open",
+          "effort": "medium",
+          "files": ["frontend-angular/", "agent/"],
+          "tags": ["UC7", "wizard", "preset"],
+          "dependencies": ["UC7-T04"],
+          "acceptance": [
             "Es gibt einen sichtbaren Einstieg 'Existierendes Projekt weiterentwickeln'.",
             "Wizard fragt mindestens Zielaenderung, betroffene Bereiche, Restriktionen und Risikoniveau ab.",
             "Flow erzeugt ein strukturiertes Goal statt nur freie Analyse."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T03",
           "title": "Projektkontext fuer Weiterentwicklung schaerfen",
-          "status": "todo",
+          "description": "Bestehendes Repo-, Artifact- und Task-Wissen gezielt als Startkontext fuer Weiterentwicklung nutzbar machen.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "backend",
+          "principle": "Relevant-Context, SRP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC7", "context", "repository"],
+          "acceptance": [
             "Flow nutzt bestehendes Repo-/Artifact-/Task-Wissen als Startkontext.",
             "Ist-Zustand, relevante Dateien und angrenzende Aufgaben werden erkennbar einbezogen.",
             "Lange Rohhistorie wird nicht blind bevorzugt."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T04",
           "title": "Weiterentwicklungsarten als klare Modi anbieten",
-          "status": "todo",
+          "description": "Unterschiedliche Arten von Weiterentwicklung als einfache Modi oder Presets modellieren.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "OCP, Mode-Strategy",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC7", "mode", "preset"],
+          "acceptance": [
             "Mindestens kleine Erweiterung, Refactoring, Feature-Ausbau und technische Verbesserung sind als Modus oder Preset unterscheidbar.",
             "Die Modi beeinflussen Planungstiefe und Sicherheitsstandard sichtbar.",
             "Modi bleiben einfach erklaert."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T05",
           "title": "Aenderungsplanung in kleine verifizierbare Schritte zerlegen",
-          "status": "todo",
+          "description": "Weiterentwicklungsziele in kleine, risikobewusste und pruefbare Tasks zerlegen.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "backend",
+          "principle": "Hub-Orchestration, Small-Tasks",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC7", "planning", "task-generation"],
+          "dependencies": ["UC7-T03", "UC7-T06", "UC7-T12"],
+          "acceptance": [
             "Aus der gewuenschten Weiterentwicklung entsteht ein planbarer Task-Baum.",
             "Tasks enthalten betroffene Bereiche, Ziel der Aenderung, Risiken und Pruefhinweise.",
             "Keine monolithische 'mach alles'-Aufgabe als Standard."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue und Delegation; Worker fuehren nur delegierte Tasks aus."
+          }
         },
         {
           "id": "UC7-T06",
           "title": "Diff-, Risiko- und Testsicht fuer Weiterentwicklung verankern",
-          "status": "todo",
+          "description": "Risiken, betroffene Tests und Review-Schritte als feste Ergebnisbestandteile des Weiterentwicklungsflows ausgeben.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "governance",
+          "principle": "Observable-Risk, Reviewability",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/"],
+          "tags": ["UC7", "risk", "tests", "review"],
+          "dependencies": ["UC7-T03"],
+          "acceptance": [
             "Flow erzeugt sichtbar eine Risikoanalyse, betroffene Tests und moegliche Regressionen.",
             "Review ist integraler Teil des Pfads.",
             "Artefakte enthalten nicht nur Aenderungswunsch, sondern auch Begruendung und Pruefschritte."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T07",
           "title": "Standard-Artefakte fuer Weiterentwicklung definieren",
-          "status": "todo",
+          "description": "Die erwarteten Artefakte fuer aktive Weiterentwicklung bestehender Projekte definieren und verknuepfen.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "Clear-Outputs, Reusable-Artifacts",
+          "status": "open",
+          "effort": "medium",
+          "files": ["frontend-angular/", "agent/", "docs/"],
+          "tags": ["UC7", "artifacts", "review"],
+          "dependencies": ["UC7-T05", "UC7-T06"],
+          "acceptance": [
             "Flow erzeugt mindestens Ist-Analyse, Aenderungsplan, Test-/Review-Plan und naechste Schritte.",
             "Artefakte sind im UI sichtbar und nachvollziehbar verknuepft.",
             "Ergebnisse koennen spaeter wiederverwendet werden."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T08",
           "title": "Kleine Feature-Weiterentwicklung als Standarddemo dokumentieren",
-          "status": "todo",
+          "description": "Eine reproduzierbare Demo fuer Analyse, Plan, Task und Review bei bestehendem Projekt dokumentieren.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "documentation",
+          "principle": "Reproducible-Showcase",
+          "status": "open",
+          "effort": "small",
+          "files": ["docs/demo-flows.md", "README.md"],
+          "tags": ["UC7", "demo", "docs"],
+          "dependencies": ["UC7-T01", "UC7-T05", "UC7-T06"],
+          "acceptance": [
             "Es gibt ein reproduzierbares Beispiel fuer kontrollierte Weiterentwicklung eines bestehenden Projekts.",
             "Beispiel zeigt Analyse -> Plan -> Task -> Review statt nur Chat-Antwort.",
             "Der Demo-Flow ist fuer neue Nutzer verstaendlich."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T09",
           "title": "CLI-Einstieg fuer Weiterentwicklungsfall ergaenzen",
-          "status": "todo",
+          "description": "Den Weiterentwicklungsfall als CLI-Shortcut anbieten und dokumentieren.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "cli",
+          "principle": "Shared-Core-Flow",
+          "status": "open",
+          "effort": "small",
+          "files": ["agent/", "README.md", "docs/"],
+          "tags": ["UC7", "cli", "golden-path"],
+          "dependencies": ["UC7-T02", "UC7-T04"],
+          "acceptance": [
             "CLI bietet einen klaren Shortcut fuer Weiterentwicklung bestehender Projekte.",
             "CLI-Beispiele sind dokumentiert.",
             "CLI und UI fuehren funktional auf denselben Kernpfad."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T10",
           "title": "Regressionstests fuer Weiterentwicklungs-Flow ergaenzen",
-          "status": "todo",
+          "description": "Den Weiterentwicklungsflow durch Contract- oder E2E-Tests gegen Regressionen absichern.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "test",
+          "principle": "Contract-Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": ["tests/", "frontend-angular/tests/"],
+          "tags": ["UC7", "tests", "contract"],
+          "dependencies": ["UC7-T02", "UC7-T05", "UC7-T06"],
+          "acceptance": [
             "Contract- oder E2E-Tests decken den Weiterentwicklungs-Flow ab.",
             "Task-Generierung und Artefaktstruktur sind stabil pruefbar.",
             "Mindestens ein positiver Testfall fuer bestehendes Repo ist vorhanden."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T11",
           "title": "Weiterentwicklung klar von 'Repository verstehen' abgrenzen",
-          "status": "todo",
+          "description": "Den aktiven Weiterentwicklungsflow klar vom rein analytischen Repository-Verstehen abgrenzen.",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "product",
+          "principle": "Clear-Use-Case-Identity",
+          "status": "open",
+          "effort": "small",
+          "files": ["frontend-angular/", "docs/use-cases.md", "README.md"],
+          "tags": ["UC7", "positioning", "docs"],
+          "dependencies": ["UC7-T01", "UC7-T02"],
+          "acceptance": [
             "UI und Dokumentation unterscheiden Analyse eines Repos klar von aktiver Weiterentwicklung.",
             "Nutzer landet nicht versehentlich in rein beschreibender Analyse.",
             "Flow fuehrt sichtbar zu konkreten Aenderungsaufgaben."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         },
         {
           "id": "UC7-T12",
           "title": "Sichere Defaults fuer kontrollierte Weiterentwicklung setzen",
-          "status": "todo",
+          "description": "Weiterentwicklung bestehender Projekte mit reviewbaren, risikobewussten Governance-Defaults absichern.",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "governance",
+          "principle": "Least-Privilege, Risk-Aware-Defaults",
+          "status": "open",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC7", "governance", "safety"],
+          "acceptance": [
             "Review- und Verification-Schritte bleiben standardmaessig aktiv.",
             "Grosse oder riskante Aenderungen werden nicht wie kleine Standardfixes behandelt.",
             "Schreib- und Ausfuehrungspfade bleiben governance-konform."
-          ]
+          ],
+          "context": {
+            "use_case": "UC7"
+          }
         }
       ]
     }
-  ]
+  ],
+  "meta": {
+    "total_items": 24,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 24
+    },
+    "notes": [
+      "Konvertiert aus dem neuen use_cases-Format in das bestehende categories/items/meta-Format.",
+      "UC6 und UC7 sind als Kategorien modelliert; die Use-Case-Zuordnung bleibt zusaetzlich in tags und context erhalten.",
+      "Die empfohlene Umsetzung fuehrt erst Produktbasis, Presets, Schema und Governance ein, bevor tiefere Automatisierung angeschlossen wird."
+    ],
+    "recommended_order": [
+      "UC6-T01",
+      "UC7-T01",
+      "UC6-T03",
+      "UC7-T04",
+      "UC6-T04",
+      "UC6-T08",
+      "UC7-T12",
+      "UC6-T02",
+      "UC7-T02",
+      "UC7-T03",
+      "UC6-T05",
+      "UC6-T06",
+      "UC7-T06",
+      "UC7-T05",
+      "UC6-T07",
+      "UC7-T07",
+      "UC6-T09",
+      "UC7-T09",
+      "UC6-T10",
+      "UC7-T08",
+      "UC6-T11",
+      "UC7-T10",
+      "UC6-T12",
+      "UC7-T11"
+    ]
+  }
 }
