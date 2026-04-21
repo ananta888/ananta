@@ -35,3 +35,21 @@ Hinweis: Der Modus ist eine **Policy-/Profilentscheidung**. Er aendert nicht die
 
 Im Code wird `governance_mode` als additive Config-Eigenschaft gefuehrt und im Read-Model sichtbar gemacht. Die harte Policy-Durchsetzung bleibt weiterhin in expliziten Policy-/Config-Bloecken (z.B. `exposure_policy`, `terminal_policy`, `action_packs`) verankert, damit keine versteckten Seiteneffekte entstehen.
 
+## Exportierbares Policy-Profil
+
+Das Backend stellt ein lesbares effektives Policy-Profil bereit:
+
+- `GET /config` liefert `effective_policy_profile`.
+- Das Dashboard-Read-Model liefert `llm_configuration.effective_policy_profile`.
+- Das Profil fasst Runtime-Profil, Governance-Modus, Review-Regeln, Execution-Risk, Terminal-Grenzen, Exposure und Action-Pack-Defaults zusammen.
+
+Dieses Profil ist ein Read Model fuer Admins und Betreiber. Es ersetzt nicht die einzelnen Policy-Bloecke, sondern macht deren effektive Wirkung in einer zusammenhaengenden Form lesbar.
+
+## Praktische Betriebsprofile
+
+Zwei konkrete Profilzuschnitte sind als Produktmodi benannt:
+
+- `local-first`: lokale Ausfuehrung und schnelle Diagnose zuerst, Default Governance `safe`, Metrik-Kontext `trial`.
+- `review-first`: manuelle Kontrolle zuerst, Default Governance `strict`, Metrik-Kontext `production`.
+
+Beide Profile bleiben additive Runtime-Profile. Sie aendern keine Hub-Worker-Verantwortung und erzeugen keine worker-seitige Orchestrierung.

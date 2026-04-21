@@ -57,3 +57,17 @@ Abort/failure:
 ## Interpretation
 
 Product metrics should count these events separately from technical logs. Technical logs explain how the system behaved; product events explain what users experienced in the official flows.
+
+## Operational Aggregates
+
+The dashboard read model exposes product-event aggregates under:
+
+`llm_configuration.runtime_telemetry.operations.product_events`
+
+The aggregate separates:
+
+- friction: blocked goals, review-required states, planning failures and success counts/rates
+- channels: UI, CLI, API, demo or trigger source counts and source-specific friction
+- usage contexts: demo, trial and production counts with context-specific friction
+
+This keeps product improvement signals separate from low-level technical logs while still using the audit stream as the durable source.
