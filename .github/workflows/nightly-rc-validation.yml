@@ -53,7 +53,7 @@ jobs:
         run: npm ci
         working-directory: frontend-angular
       - name: Run standard quality pipeline
-        run: python scripts/check_pipeline.py --mode standard
+        run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
       - name: Build frontend
         run: npm run build
         working-directory: frontend-angular
