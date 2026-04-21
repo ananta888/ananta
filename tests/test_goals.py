@@ -335,6 +335,7 @@ class TestGoalsAPI:
     def test_goal_first_run_happy_path_uses_default_configuration(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
         monkeypatch.setattr(settings, "hub_can_be_worker", True)
+        monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Bootstrap first run"})
         assert res.status_code == 201
         payload = res.get_json()["data"]
