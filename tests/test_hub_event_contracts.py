@@ -2,6 +2,7 @@ from agent.common.audit import log_audit
 from agent.db_models import GoalDB, TaskDB
 from agent.repository import audit_repo, goal_repo, task_repo
 from agent.services.hub_event_service import build_hub_event_catalog
+from agent.services.product_event_service import record_product_event
 from agent.services.task_runtime_service import append_task_history_event
 
 
@@ -11,6 +12,8 @@ def test_hub_event_catalog_exposes_versioned_channels():
     assert catalog["version"] == "v1"
     assert "task_history" in catalog["channels"]
     assert "governance" in catalog["channels"]
+    assert "product" in catalog["channels"]
+    assert "goal_planning_succeeded" in catalog["channels"]["product"]
     assert catalog["channels"]["audit"] == ["*"]
 
 
@@ -45,9 +48,31 @@ def test_audit_log_persists_hub_event_metadata():
     logs = audit_repo.get_all(limit=5)
     assert logs
     details = logs[0].details or {}
-    assert details["token"] == "***REDACTED***"
+    assert details["token"] == "***REDACTED_TOKEN***"
     assert details["_event"]["version"] == "v1"
     assert details["_event"]["kind"] == "hub_event"
     assert details["_event"]["channel"] == "audit"
     assert details["_event"]["event_type"] == "policy_decision_recorded"
     assert details["_event"]["context"]["task_id"] == "audit-event-task"
+
+
+def test_product_event_is_persisted_with_product_envelope():
+    goal = goal_repo.save(GoalDB(goal="Product event goal", summary="Product event goal", status="planned"))
+
+    event = record_product_event(
+        "goal_planning_succeeded",
+        actor="auto_planner",
+        details={"source": "ui", "created_task_count": 2},
+        goal_id=goal.id,
+        trace_id=goal.trace_id,
+        plan_id="plan-product",
+    )
+
+    assert event["channel"] == "product"
+    assert event["event_type"] == "goal_planning_succeeded"
+    logs = audit_repo.get_all(limit=5)
+    product_log = next(log for log in logs if log.action == "product_goal_planning_succeeded")
+    product_event = (product_log.details or {})["product_event"]
+    assert product_event["channel"] == "product"
+    assert product_event["context"]["goal_id"] == goal.id
+    assert product_event["details"]["created_task_count"] == 2

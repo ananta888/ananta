@@ -8,6 +8,7 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
+from agent.services.product_event_service import record_product_event
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
@@ -188,6 +189,11 @@ def create_goal():
         goal_text = _goal_service().build_goal_from_mode(payload.mode, payload.mode_data or {})
 
     if not goal_text:
+        record_product_event(
+            "goal_blocked",
+            actor=_current_username(),
+            details={"reason": "goal_required", "source": str(payload.source or "ui"), "mode": str(payload.mode or "generic")},
+        )
         return api_response(status="error", message="goal_required", code=400)
 
     defaults = _goal_service().default_workflow_config()
@@ -203,6 +209,16 @@ def create_goal():
     )
     if precondition_error:
         status_code = 403 if precondition_error == "policy_override_requires_admin" else 412
+        record_product_event(
+            "goal_blocked",
+            actor=_current_username(),
+            details={
+                "reason": precondition_error,
+                "source": str(payload.source or "ui"),
+                "mode": str(payload.mode or "generic"),
+                "status_code": status_code,
+            },
+        )
         return api_response(status="error", message=precondition_error, code=status_code)
 
     goal_record = GoalDB(
@@ -226,6 +242,20 @@ def create_goal():
         mode_data=dict(payload.mode_data or {}),
     )
     goal_record = _repos().goal_repo.save(goal_record)
+    record_product_event(
+        "product_flow_started",
+        actor=_current_username(),
+        details={"flow": "goal_planning", "source": goal_record.source, "mode": goal_record.mode},
+        goal_id=goal_record.id,
+        trace_id=goal_record.trace_id,
+    )
+    record_product_event(
+        "goal_created",
+        actor=_current_username(),
+        details={"source": goal_record.source, "mode": goal_record.mode, "team_id": goal_record.team_id},
+        goal_id=goal_record.id,
+        trace_id=goal_record.trace_id,
+    )
     goal_record = _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planning",
@@ -255,6 +285,14 @@ def create_goal():
             reason=str(result.get("error") or "planning_failed"),
             readiness=readiness,
         )
+        record_product_event(
+            "goal_planning_failed",
+            actor="auto_planner",
+            details={"reason": str(result.get("error") or "planning_failed"), "source": goal_record.source, "mode": goal_record.mode},
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
+            plan_id=result.get("plan_id"),
+        )
         return api_response(status="error", message=result["error"], code=400)
 
     goal_record = _services().goal_lifecycle_service.transition_goal(
@@ -274,6 +312,19 @@ def create_goal():
             "workflow_overrides": overrides,
             "readiness_happy_path": readiness["happy_path_ready"],
         },
+    )
+    record_product_event(
+        "goal_planning_succeeded",
+        actor="auto_planner",
+        details={
+            "source": goal_record.source,
+            "mode": goal_record.mode,
+            "created_task_count": len(result.get("created_task_ids") or []),
+            "has_plan": bool(result.get("plan_id")),
+        },
+        goal_id=goal_record.id,
+        trace_id=goal_record.trace_id,
+        plan_id=result.get("plan_id"),
     )
 
     return api_response(
