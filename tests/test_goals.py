@@ -368,7 +368,9 @@ class TestGoalsAPI:
         assert res.status_code == 412
         assert res.get_json()["message"] == "planning_backend_unavailable"
 
-    def test_non_admin_cannot_override_policy_security(self, client, admin_auth_header):
+    def test_non_admin_cannot_override_policy_security(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
         base_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Base"})
         assert base_res.status_code == 201
 
