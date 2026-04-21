@@ -57,13 +57,15 @@ Details: `docs/use-cases.md`. Strukturierte Eingaben fuer die neuen Softwarepfad
    - Passwort: Wert aus `INITIAL_ADMIN_PASSWORD` in `.env`
 
 5. Erstes Ziel starten:
-   - Im Arbeitsbereich `Planen` waehlen und ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
-   - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
+   - Im Erststart `Neues Projekt anlegen` waehlen oder im Arbeitsbereich `Planen` das Preset `Neues Projekt anlegen` nutzen.
+   - Beispiel: `Baue ein kleines Release-Check-Tool fuer Maintainer`.
+   - Fuer bestehende Repositories danach `Projekt weiterentwickeln` waehlen.
 
 Erfolgssignal fuer den Schnellstart:
 - Das Dashboard meldet, dass Aufgaben erstellt wurden.
 - Das Goal ist verlinkt oder im Board sichtbar.
 - Der naechste Schritt ist `Ziel pruefen`, `Aufgaben verfolgen` oder `Ergebnisse ansehen`.
+- Bei `Neues Projekt anlegen` sind Blueprint, initiales Backlog und naechste sichere Schritte im Goal sichtbar.
 
 Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und die Logs des Hub- und Frontend-Containers.
 
@@ -123,6 +125,8 @@ python -m agent.cli_goals patch "Plane einen kleinen Fix fuer die Validierung"
 python -m agent.cli_goals new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
 python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
 ```
+
+Die beiden Produkt-Shortcuts nutzen dieselben Kernmodi wie der UI-Wizard: `new_software_project` fuer neue Projekte und `project_evolution` fuer aktive Weiterentwicklung bestehender Projekte.
 
 Minimaler API-Start:
 

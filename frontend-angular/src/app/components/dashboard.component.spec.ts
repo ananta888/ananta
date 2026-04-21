@@ -267,6 +267,25 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.loadDemoPreview).toHaveBeenCalled();
   });
 
+  it('uses new project as the obvious first-start path', () => {
+    const cmp = createComponent();
+    cmp.focusQuickGoal = vi.fn();
+
+    expect(cmp.firstStartOptions.map(option => option.id)).toEqual([
+      'new-software-project',
+      'project-evolution',
+      'demo',
+    ]);
+
+    cmp.chooseFirstStart('new-software-project');
+
+    expect(cmp.showFirstStartWizard).toBe(false);
+    expect(cmp.selectedPresetId).toBe('new-software-project');
+    expect(cmp.quickGoalText).toContain('Lege ein neues Softwareprojekt');
+    expect(cmp.currentQuickGoalExpectation()?.expectedResult).toContain('Projekt-Blueprint');
+    expect(cmp.focusQuickGoal).toHaveBeenCalled();
+  });
+
   it('applies goal presets to the quick goal form', () => {
     const cmp = createComponent();
     cmp.focusQuickGoal = vi.fn();

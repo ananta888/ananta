@@ -85,7 +85,7 @@ import { ModeCardOption, ModeCardPickerComponent, PresetOption } from '../shared
   template: `
     <app-page-intro
       title="Ananta starten"
-      subtitle="Beschreibe ein Ziel, pruefe ein Beispiel oder gehe direkt zu Aufgaben und Ergebnissen."
+      subtitle="Starte ein neues Projekt, entwickle ein bestehendes weiter oder pruefe Aufgaben und Ergebnisse."
     >
       <div intro-actions class="row gap-sm">
         <button class="primary" (click)="focusQuickGoal()">Ziel eingeben</button>
@@ -98,12 +98,12 @@ import { ModeCardOption, ModeCardPickerComponent, PresetOption } from '../shared
         <div class="row space-between">
           <div>
             <h3 class="no-margin">Erster Lauf in drei Schritten</h3>
-            <p class="muted mt-sm no-margin">Waehle einen Einstieg, plane ein Ziel und pruefe danach Aufgaben oder Ergebnis. Governance bleibt dabei sichtbar.</p>
+            <p class="muted mt-sm no-margin">Starte mit einem neuen Projekt, lasse den Hub Aufgaben planen und pruefe danach Blueprint, Tasks oder Ergebnisse.</p>
           </div>
           <button class="secondary btn-small" (click)="completeFirstStartWizard()">Ausblenden</button>
         </div>
         <div class="first-start-steps mt-sm" aria-label="Erststart-Schritte">
-          <span><strong>1</strong> Ziel oder Demo waehlen</span>
+          <span><strong>1</strong> Neues Projekt waehlen</span>
           <span><strong>2</strong> Hub plant Aufgaben</span>
           <span><strong>3</strong> Pruefen und fortfahren</span>
         </div>
@@ -469,9 +469,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   goalModes: GoalModeDefinition[] = [];
   guidedGoalResetKey = 0;
   firstStartOptions: ModeCardOption[] = [
+    { id: 'new-software-project', title: 'Neues Projekt anlegen', description: 'Aus einer Idee Blueprint, Backlog und erste pruefbare Tasks erzeugen.' },
+    { id: 'project-evolution', title: 'Projekt weiterentwickeln', description: 'Ein bestehendes Projekt in kleinen reviewbaren Schritten veraendern.' },
     { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und kontrolliert als echte Ziele starten.' },
-    { id: 'goal', title: 'Eigenes Ziel planen', description: 'Mit einem Satz starten; der Hub erzeugt pruefbare Aufgaben.' },
-    { id: 'board', title: 'Aufgaben ansehen', description: 'Direkt zur Aufgabenliste, wenn bereits Arbeit vorhanden ist.' },
   ];
   timelineTeamId = '';
   timelineAgent = '';
@@ -767,8 +767,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadDemoPreview();
       return;
     }
-    if (choice === 'board') {
-      this.router.navigate(['/board']);
+    if (choice === 'new-software-project' || choice === 'project-evolution') {
+      this.applyGoalPresetById(choice);
       return;
     }
     this.focusQuickGoal();
