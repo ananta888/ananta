@@ -27,6 +27,7 @@ Goal: release candidates, final releases and operator communication follow one p
    - SBOM
    - checksums
    - relevant CI run links
+7. Record workflow-run and artifact references in `docs/release-evidence-register.md`.
 
 Exit criterion: the candidate is only valid when gates are green and release evidence is attached to the candidate decision.
 

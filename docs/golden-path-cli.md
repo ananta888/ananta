@@ -38,3 +38,5 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 - Status/Readiness: `python -m agent.cli_goals --status`
 - Task-Liste: `python -m agent.cli_goals --tasks --task-status todo`
 - Diagnose-Fokus: `python -m agent.cli_goals diagnose "..."`
+
+Der CLI-Pfad ist abgeschlossen, wenn `--first-run` den Einstieg erklaert, `--status` die Bereitschaft prueft und ein Shortcut-Goal Goal-ID, Status, Task-Anzahl und naechstes Detailkommando ausgibt.

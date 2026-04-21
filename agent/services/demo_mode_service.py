@@ -56,6 +56,22 @@ class DemoModeService:
                 tasks=("Compose-Profile pruefen", "Ports und Health-Checks auswerten", "Startpfad dokumentieren"),
                 starter_context="Fokus: lokaler Start, Compose-Profile, Health-Checks und klare naechste Diagnose.",
             ),
+            DemoExample(
+                id="change-review",
+                title="Change Review",
+                goal="Pruefe eine Aenderung auf Risiken, fehlende Tests und moegliche Regressionen.",
+                outcome="Priorisierte Findings, Testbedarf und Governance-Hinweise.",
+                tasks=("Diff-Hotspots pruefen", "Risiken priorisieren", "Test- und Review-Plan erstellen"),
+                starter_context="Fokus: Review statt Implementierung. Keine automatischen Aenderungen ohne Freigabe.",
+            ),
+            DemoExample(
+                id="guided-first-run",
+                title="Gefuehrter erster Lauf",
+                goal="Erstelle ein erstes kontrolliertes Goal mit Kontext, Ausfuehrungstiefe und Sicherheitsniveau.",
+                outcome="Ein parametrisiertes Goal mit sichtbaren Safety- und Review-Entscheidungen.",
+                tasks=("Ziel klaeren", "Kontext sammeln", "Sicherheitsniveau pruefen"),
+                starter_context="Fokus: Erstnutzerfuehrung, sichtbare Governance und klarer naechster Schritt.",
+            ),
         )
         return {
             "mode": "preview",

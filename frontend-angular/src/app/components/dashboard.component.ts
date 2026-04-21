@@ -1145,6 +1145,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'bugfix-plan': 'Reproduktionsschritt bestaetigen und Regressionstest anlegen.',
       'compose-diagnosis': 'Startpfad ausfuehren und blockierte Checks sichtbar halten.',
       'change-review': 'Findings nach Schweregrad durchgehen und Tests priorisieren.',
+      'guided-first-run': 'Goal pruefen und danach Aufgaben oder Artefakte oeffnen.',
     };
     return nextActions[id] || 'Aufgaben verfolgen und Ergebnisse pruefen.';
   }
@@ -1204,5 +1205,13 @@ const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [
     outcome: 'Findings nach Schweregrad + konkrete naechste Checks.',
     tasks: ['Diff/Hotspots pruefen', 'Risiken und Regressionen priorisieren', 'Testplan fuer Verifikation'],
     starter_context: 'Fokus: Review statt Implementierung. Keine automatischen Aenderungen ohne explizite Freigabe.',
+  },
+  {
+    id: 'guided-first-run',
+    title: 'Gefuehrter erster Lauf',
+    goal: 'Erstelle ein erstes kontrolliertes Goal mit Kontext, Ausfuehrungstiefe und Sicherheitsniveau.',
+    outcome: 'Parametrisiertes Goal mit sichtbaren Safety- und Review-Entscheidungen.',
+    tasks: ['Ziel klaeren', 'Kontext sammeln', 'Sicherheitsniveau pruefen'],
+    starter_context: 'Fokus: Erstnutzerfuehrung, sichtbare Governance und klarer naechster Schritt.',
   },
 ];
