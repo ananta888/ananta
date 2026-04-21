@@ -6,6 +6,7 @@ This checklist verifies that a v1.0.0 release candidate can be rebuilt from a cl
 
 Before creating or publishing a release tag:
 
+0. Follow the official phase path in `docs/release-golden-path.md`.
 1. Confirm the release scope, version, and tag name follow `docs/release-process.md`.
 2. Confirm all required branch-protection checks are green on the release commit.
 3. Run the standard release gate and keep `release-verification-report.json`.

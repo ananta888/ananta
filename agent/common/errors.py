@@ -18,13 +18,69 @@ def _restore_auth_response_tokens(original: Any, redacted: Any) -> Any:
     return restored
 
 
+def user_error_guidance(*, code: int, message: str | None = None) -> dict[str, Any]:
+    """Return user-facing recovery help for common API error classes."""
+    text = str(message or "").lower()
+    if code in {401, 403}:
+        return {
+            "summary": "Zugriff nicht moeglich.",
+            "next_steps": [
+                "Melde dich erneut an oder pruefe den verwendeten Token.",
+                "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat.",
+            ],
+        }
+    if code == 404:
+        return {
+            "summary": "Die angefragte Ressource wurde nicht gefunden.",
+            "next_steps": [
+                "Pruefe die ID oder aktualisiere die Ansicht.",
+                "Lege das Ziel erneut an, falls es noch nicht existiert.",
+            ],
+        }
+    if code in {409, 412, 422} or "policy" in text or "governance" in text or "blocked" in text:
+        return {
+            "summary": "Die Anfrage wurde durch Validierung oder Governance gestoppt.",
+            "next_steps": [
+                "Formuliere das Ziel enger und beschreibe klare Grenzen.",
+                "Pruefe Governance-Modus, Review-Pflicht oder fehlende Bereitschaftssignale.",
+            ],
+        }
+    if code >= 500:
+        return {
+            "summary": "Der Hub konnte die Anfrage gerade nicht verarbeiten.",
+            "next_steps": [
+                "Pruefe Hub-Logs und Systemstatus.",
+                "Wiederhole die Aktion, sobald der Hub wieder gesund ist.",
+            ],
+        }
+    return {
+        "summary": "Die Anfrage konnte nicht verarbeitet werden.",
+        "next_steps": [
+            "Pruefe Eingaben und Pflichtfelder.",
+            "Starte mit einem kleineren Ziel oder pruefe den Systemstatus.",
+        ],
+    }
+
+
+def _with_error_guidance(data: Any, *, status: str, message: str | None, code: int) -> Any:
+    if status != "error":
+        return data
+    guidance = user_error_guidance(code=code, message=message)
+    if isinstance(data, dict):
+        enriched = dict(data)
+        enriched.setdefault("error_help", guidance)
+        return enriched
+    return {"error_help": guidance}
+
+
 def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int = 200) -> Response:
     """
     Erzeugt eine standardisierte API-Antwort.
     Format: { "status": "success/error/...", "data": ..., "message": ... }
     """
     response_body = {"status": status}
-    if data is not None:
+    response_data = _with_error_guidance(data, status=status, message=message, code=code)
+    if response_data is not None:
         # Automatisches Redacting basierend auf dem aktuellen Kontext
         visibility = VisibilityLevel.USER
         try:
@@ -37,7 +93,7 @@ def api_response(data: Any = None, status: str = "success", message: Optional[st
             # Außerhalb eines Request-Kontexts
             pass
 
-        response_body["data"] = _restore_auth_response_tokens(data, redact(data, visibility=visibility))
+        response_body["data"] = _restore_auth_response_tokens(response_data, redact(response_data, visibility=visibility))
     if message is not None:
         response_body["message"] = message
 

@@ -24,6 +24,8 @@ def test_policy_blocking_error_format(client, user_auth_header):
     assert "forbidden" in error_data.message.lower()
     assert "data" in response.json
     assert "details" in response.json["data"]
+    assert "error_help" in response.json["data"]
+    assert response.json["data"]["error_help"]["next_steps"]
 
 def test_not_found_error_format(client, auth_header):
     """Prüft das Format von 404 Fehlern."""
@@ -34,6 +36,8 @@ def test_not_found_error_format(client, auth_header):
         error_data = ApiErrorResponseContract(**response.json)
         assert error_data.status == "error"
         assert "not_found" in error_data.message.lower()
+        assert "error_help" in response.json["data"]
+        assert "ID" in " ".join(response.json["data"]["error_help"]["next_steps"]) or "Ziel" in " ".join(response.json["data"]["error_help"]["next_steps"])
 
 def test_validation_error_format(client, auth_header):
     """Prüft das Format von Validierungsfehlern (400/422)."""
@@ -44,3 +48,5 @@ def test_validation_error_format(client, auth_header):
 
     error_data = ApiErrorResponseContract(**response.json)
     assert error_data.status == "error"
+    assert "error_help" in response.json["data"]
+    assert response.json["data"]["error_help"]["summary"]

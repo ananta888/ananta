@@ -264,7 +264,8 @@
           ],
           "implementation_notes": [
             "Quick-Goal-Fehler werden in konkrete Nutzertexte fuer Sitzung, Hub-Erreichbarkeit und Governance-Blockierungen uebersetzt.",
-            "Next-Steps bleiben auch bei Fehlern sichtbar."
+            "Next-Steps bleiben auch bei Fehlern sichtbar.",
+            "API-Fehlerantworten enthalten zentral `data.error_help` mit Summary und naechsten Schritten fuer Auth, Not Found, Validierung/Governance und Serverfehler."
           ]
         }
       ]
@@ -332,7 +333,7 @@
           "priority": "high",
           "type": "operations",
           "principle": "Official-Release-Flow, No-Improvised-Ship-Path",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "docs/",
@@ -347,6 +348,11 @@
             "Release-, RC- und finale Freigabe sind klar getrennt.",
             "Das Team oder spaetere Mitwirkende koennen dem Standardprozess folgen.",
             "Release-Entscheidungen werden weniger improvisiert."
+          ],
+          "implementation_notes": [
+            "docs/release-golden-path.md definiert Phasen fuer RC, finale Freigabe und Operations-Handoff.",
+            "docs/release-process.md, docs/release-checklist.md und README verlinken den offiziellen Release-Standardweg.",
+            "Bestehende Workflows release.yml und nightly-rc-validation.yml werden als operative Gates referenziert."
           ]
         },
         {
