@@ -1,1327 +1,689 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "6.5.0",
-  "created": "2026-04-19",
-  "updated": "2026-04-20T00:00:00Z",
+  "version": "7.0.0",
+  "created": "2026-04-21",
+  "updated": "2026-04-21T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Nach weitgehend abgeschlossener Test-, Security-, GitHub- und Release-Reife die naechste Entwicklungsstufe definieren: von einer sehr starken kontrollierten Agentenplattform zu einem klarer nutzbaren, besser positionierten, benchmarkbaren und produktfoermigeren System.",
+    "review_goal": "Die zwei neuen primaeren Software-Use-Cases als kompatible, releasefaehige Todo-Liste aufnehmen: ein neues Softwareprojekt guided anlegen und ein existierendes Softwareprojekt kontrolliert weiterentwickeln.",
     "notes": [
-      "Die technische und sicherheitsbezogene Reife ist bereits hoch; der groesste Hebel liegt nun weniger im Kernumbau als in produktklaren Nutzpfaden, Betriebsprofilen, sichtbarerer Governance, besserer Explainability und vergleichbarer Leistung.",
-      "Diese Todo-Datei setzt bewusst nicht bei weiteren generischen Features an, sondern bei den Punkten, die Ananta zugänglicher, schaerfer positioniert und im Betrieb besser steuerbar machen.",
-      "Die Datei deckt die priorisierten Post-Release-Verbesserungsfelder 2 bis 9 ab: Use-Cases, Onboarding, Golden Paths, Observability, Explainability, Governance-Produktisierung, Integrations-Contracts, Benchmarking und Produktprofile."
+      "Diese Datei ersetzt das neue use_cases-Format durch das bestehende categories/items/meta-Modell, damit Schema-Validierung, Statistik-Sync und Release-Gate denselben Vertrag verwenden.",
+      "Die IDs UC6 und UC7 bleiben als Produkt-Use-Cases erhalten.",
+      "Alle Tasks starten als open, weil das bestehende Tooling open/partial/completed als primaere Statuszaehlung verwendet."
     ]
   },
   "categories": [
     {
-      "name": "real-user-paths-and-use-cases",
-      "label": "Reale Nutzerpfade und Kern Use Cases",
+      "name": "new-software-project-flow",
+      "label": "UC6: Neues Softwareprojekt anlegen",
       "items": [
         {
-          "id": "PRD-001",
-          "title": "Drei bis fuenf offizielle Kern-Use-Cases fuer Ananta definieren",
-          "description": "Eine kleine feste Menge offizieller, reproduzierbarer Kernanwendungsfaelle definieren, die Ananta nach aussen und intern repraesentieren, statt alles gleichzeitig sein zu wollen.",
-          "priority": "critical",
+          "id": "UC6-T01",
+          "title": "Use-Case offiziell in Produktbasis aufnehmen",
+          "description": "Den offiziellen Use-Case fuer neue Softwareprojekte in Produktdokumentation und Einstiegspfaden sichtbar machen.",
+          "priority": "P0",
           "type": "product",
-          "principle": "Focused-Value, Clear-Use-Case-Identity",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "README.md",
-            "docs/",
-            "frontend-angular/"
-          ],
-          "acceptance": [
-            "Es gibt drei bis fuenf klar benannte Kern-Use-Cases.",
-            "Jeder Use-Case hat einen klaren Nutzen, Scope und Einstieg.",
-            "Die Projektkommunikation wirkt weniger diffus und generisch.",
-            "Die Use-Cases sind als referenzierbare Produktbasis fuer Schnellstart, Golden Paths, Demo-Flows, Benchmarks und Produktprofile nutzbar."
-          ],
-          "implementation_notes": [
-            "docs/use-cases.md angelegt und im README verlinkt.",
-            "Alle fuenf offiziellen Use-Cases benennen Nutzen, Einstieg, Scope, guten Input, erwartetes Ergebnis und naechsten Schritt."
-          ]
-        },
-        {
-          "id": "PRD-002",
-          "title": "Jeden Kern-Use-Case als reproduzierbaren Demo-Flow dokumentieren",
-          "description": "Fuer jeden offiziellen Use-Case einen klaren Ablauf mit Beispielgoal, erwarteten Ergebnissen, UI-Weg, CLI-Weg und API-Weg dokumentieren.",
-          "priority": "high",
-          "type": "product",
-          "principle": "Demonstrable-Value, Reproducible-Showcase",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "README.md",
-            "docs/",
-            "agent/cli_goals.py"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "PRD-020"
-          ],
-          "acceptance": [
-            "Jeder Kern-Use-Case ist reproduzierbar vorfuehrbar.",
-            "UI-, CLI- und ggf. API-Einstieg sind nachvollziehbar beschrieben.",
-            "Demopfad und Realpfad sind klarer voneinander getrennt."
-          ],
-          "implementation_notes": [
-            "docs/demo-flows.md deckt alle fuenf offiziellen Use-Cases mit Demo-Pfad, UI-Realpfad, CLI-Einstieg, API-Einstieg, Erfolgssignal und erwartetem Ergebnis ab."
-          ]
-        },
-        {
-          "id": "PRD-003",
-          "title": "Demo-Daten und Beispielziele systematisch an Kern-Use-Cases ausrichten",
-          "description": "Vorhandene Demo-Beispiele, Goal-Presets und Einstiegsszenarien so umbauen, dass sie die offiziellen Kern-Use-Cases repraesentieren statt lose Einzelideen zu sein.",
-          "priority": "high",
-          "type": "product",
-          "principle": "Coherent-Showcase, Product-Story-Consistency",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "PRD-002"
-          ],
-          "acceptance": [
-            "Demo-Inhalte stuetzen die definierten Kernfaelle.",
-            "Presets wirken wie Produktpfade und nicht wie zufaellige Beispiele.",
-            "Die Demo erklaert den Mehrwert von Ananta besser."
-          ],
-          "implementation_notes": [
-            "Dashboard-Presets erweitert/ausgerichtet in frontend-angular/src/app/components/dashboard.component.ts.",
-            "Backend-Demo-Preview in agent/services/demo_mode_service.py deckt alle fuenf offiziellen Kern-Use-Cases ab.",
-            "Demo-Flows und Presets nutzen dieselben Produktpfade statt loser Einzelideen."
-          ]
-        },
-        {
-          "id": "PRD-004",
-          "title": "Pro Kern-Use-Case ein Erwartungsmodell fuer Eingabe und Ergebnis einfuehren",
-          "description": "Beschreiben und spaeter auch im UI andeuten, was ein guter Input fuer den jeweiligen Use-Case ist und welche Art Ergebnis der Nutzer erwarten darf.",
-          "priority": "medium",
-          "type": "product",
-          "principle": "Expectation-Setting, Better-User-Success",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "README.md",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "PRD-002"
-          ],
-          "acceptance": [
-            "Nutzer sehen leichter, wie sie sinnvolle Goals formulieren.",
-            "Ergebnisformen sind besser antizipierbar.",
-            "Weniger Friktion durch unklare Erwartungen."
-          ],
-          "implementation_notes": [
-            "Quick-Goal-Einstieg zeigt pro Preset passenden Input, erwartetes Ergebnis und sinnvolle Folgeaktion in frontend-angular/src/app/components/dashboard-quick-goal-panel.component.ts.",
-            "Dashboard leitet Erwartungsmodelle aus offiziellen Goal-Presets ab.",
-            "docs/use-cases.md dokumentiert pro Kern-Use-Case guten Input, erwartetes Ergebnis und naechsten Schritt."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "onboarding-and-first-run-simplification",
-      "label": "Onboarding und First Run Vereinfachung",
-      "items": [
-        {
-          "id": "PRD-010",
-          "title": "Einen einzigen offiziell empfohlenen Schnellstartpfad festlegen",
-          "description": "Einen klaren, dominanten Default-Pfad fuer neue Nutzer definieren, damit nicht mehrere gleichwertige Startvarianten miteinander konkurrieren.",
-          "priority": "critical",
-          "type": "product",
-          "principle": "One-Obvious-Way-In, Reduced-Choice-Overload",
+          "principle": "Focused-Value, Product-Story-Consistency",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "README.md",
-            "docs/"
-          ],
+          "files": ["README.md", "docs/use-cases.md", "docs/demo-flows.md"],
+          "tags": ["UC6", "documentation", "golden-path"],
           "acceptance": [
-            "Es gibt einen klar bevorzugten Einstieg.",
-            "Alternative Startvarianten sind nachgeordnet und kontextualisiert.",
-            "Neue Nutzer muessen nicht zwischen vielen Wegen raten.",
-            "Der Schnellstart benennt genau einen Default-Stack, einen ersten UI-Weg und ein klares Erfolgssignal."
+            "docs/use-cases.md enthaelt den neuen offiziellen Use-Case fuer neue Projekte.",
+            "README und Golden Paths verweisen sichtbar auf den neuen Einstieg.",
+            "Benennung ist problemorientiert statt toolorientiert."
           ],
+          "context": {
+            "use_case": "UC6",
+            "goal": "Ein neuer Nutzer kann aus einer Idee heraus ein neues Softwareprojekt guided anlegen, strukturieren, planen und in erste umsetzbare Tasks ueberfuehren."
+          },
           "implementation_notes": [
-            "README Einstieg konsolidiert: Schnellstart (Lite-Stack) als dominanter Default; UI-Golden-Path verlinkt.",
-            "Schnellstart benennt Default-Stack, ersten UI-Weg und konkrete Erfolgssignale."
+            "UC6 in docs/use-cases.md dokumentiert.",
+            "README und docs/demo-flows.md verweisen auf den neuen Projektstartpfad.",
+            "Die Benennung bleibt problemorientiert: neues Softwareprojekt anlegen."
           ]
         },
         {
-          "id": "PRD-011",
-          "title": "First Run bis zum ersten sichtbaren Ergebnis auf unter eine Minute trimmen",
-          "description": "Den ersten Produktkontakt so zuspitzen, dass ein neuer Nutzer schnell in einen sichtbaren Goal->Result-Pfad kommt, statt erst Architektur und Modi verstehen zu muessen.",
-          "priority": "critical",
-          "type": "product",
-          "principle": "Fast-First-Value, Lower-Entry-Friction",
+          "id": "UC6-T02",
+          "title": "Guided Goal Wizard fuer neue Projekte ergaenzen",
+          "description": "Einen klaren Wizard-Einstieg fuer neue Softwareprojekte bereitstellen, der strukturierte Goal-Parameter erzeugt.",
+          "priority": "P0",
+          "type": "frontend",
+          "principle": "SRP, Explicit-Goal-Input",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "README.md",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-010",
-            "PRD-020"
-          ],
+          "files": ["frontend-angular/"],
+          "tags": ["UC6", "wizard", "goal-input"],
+          "dependencies": ["UC6-T03", "UC6-T04"],
           "acceptance": [
-            "Ein neuer Nutzer kann sehr schnell ein erstes sinnvolles Ergebnis sehen.",
-            "Der Einstieg fuehlt sich weniger technisch und weniger schwer an.",
-            "Die Zeit bis zum ersten Nutzen sinkt deutlich.",
-            "Der Zielwert unter einer Minute ist mit einem konkret beschriebenen Messpfad pruefbar."
+            "Wizard enthaelt einen sichtbaren Einstieg 'Neues Projekt anlegen'.",
+            "Wizard fragt mindestens Projektidee, Zieltyp, Tech-Umfeld, Sicherheitsniveau und Ausfuehrungstiefe ab.",
+            "Wizard erzeugt ein parametriertes Goal statt nur Freitext zu speichern."
           ],
+          "context": {
+            "use_case": "UC6"
+          },
           "implementation_notes": [
-            "Messpfad dokumentiert in docs/golden-path-ui.md (manuell pruefbar).",
-            "README und UI-Golden-Path fuehren direkt vom Lite-Stack zum ersten sichtbaren Goal-/Task-Ergebnis."
+            "Wizard nutzt den Guided Mode new_software_project mit strukturierten Pflicht- und optionalen Feldern.",
+            "Optionale Wizard-Felder blockieren den Flow nicht mehr als Pflichtfelder.",
+            "Der Modus erzeugt ein parametriertes Goal statt reinen Freitext."
           ]
         },
         {
-          "id": "PRD-012",
-          "title": "Ersten Start im UI mit gefuehrtem Mini-Onboarding ausbauen",
-          "description": "Den UI-Einstieg mit einem knappen, produktorientierten Mini-Onboarding ausbauen, das Modus, Sicherheitscharakter und erste Aktion erklaert, ohne zu ueberfrachten.",
-          "priority": "high",
+          "id": "UC6-T03",
+          "title": "Preset fuer neue Softwareprojekte definieren",
+          "description": "Ein offizielles Preset fuer den Projektstart definieren und fuer UI sowie CLI nutzbar machen.",
+          "priority": "P0",
           "type": "product",
-          "principle": "Guided-First-Run, Gentle-Orientation",
+          "principle": "OCP, Preset-Registry",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "frontend-angular/"
-          ],
-          "dependencies": [
-            "PRD-010",
-            "PRD-011",
-            "PRD-020"
-          ],
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC6", "preset", "goal-mode"],
           "acceptance": [
-            "Erstnutzer werden knapp aber sinnvoll orientiert.",
-            "Das Onboarding wirkt hilfreich statt langatmig.",
-            "Sicherheits- und Governance-Charakter werden frueh klar."
+            "Es gibt ein offizielles Preset fuer 'Neues Softwareprojekt anlegen'.",
+            "Preset ist ueber UI und CLI erreichbar.",
+            "Preset nutzt sinnvolle Defaults fuer reviewbare und sichere Erstnutzung."
           ],
+          "context": {
+            "use_case": "UC6"
+          },
           "implementation_notes": [
-            "First-Start-Bereich im Dashboard zeigt Drei-Schritt-Orientierung und erklaert den kontrollierten Hub-Start mit sichtbarer Governance.",
-            "Quick-Goal und Assistent bleiben direkt aus dem ersten Dashboard-Zustand erreichbar."
+            "Guided Mode new_software_project in agent/services/goal_service.py ergaenzt.",
+            "Quick-Goal-/Demo-Preset in Frontend und Demo-Service ergaenzt.",
+            "CLI-Shortcut new-project in agent/cli_goals.py ergaenzt."
           ]
         },
         {
-          "id": "PRD-013",
-          "title": "CLI-Ersteinstieg mit klaren Einstiegskommandos und Erfolgssignalen zuspitzen",
-          "description": "Fuer die CLI einen klaren ersten Arbeitsweg definieren, inklusive Beispielkommandos, Erfolgssignalen und Fehlerhilfe fuer den ersten Kontakt.",
-          "priority": "medium",
+          "id": "UC6-T04",
+          "title": "Input-Schema fuer Projektstart standardisieren",
+          "description": "Ein testbares Eingabemodell fuer neue Projekte einfuehren, das unklare Angaben explizit behandelt.",
+          "priority": "P1",
+          "type": "contract",
+          "principle": "DIP, Explicit-Contracts",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC6", "schema", "contract"],
+          "acceptance": [
+            "Es existiert ein klares Eingabemodell fuer Name, Problem, Zielgruppe, Plattform, bevorzugten Stack und Nicht-Ziele.",
+            "Leere oder unklare Eingaben werden mit gefuehrten Rueckfragen statt stillen Defaults behandelt.",
+            "Schema ist dokumentiert und testbar."
+          ],
+          "context": {
+            "use_case": "UC6"
+          },
+          "implementation_notes": [
+            "docs/goal-input-schemas.md dokumentiert Pflicht- und optionale Felder fuer new_software_project.",
+            "Backend-Mode nutzt project_idea, target_users, platform, preferred_stack und non_goals.",
+            "Wizard-Felder bleiben strukturiert und testbar ueber /goals/modes."
+          ]
+        },
+        {
+          "id": "UC6-T05",
+          "title": "Projekt-Blueprint-Generierung anschliessen",
+          "description": "Aus Wizard- oder Preset-Eingaben einen nachvollziehbaren initialen Projekt-Blueprint erzeugen.",
+          "priority": "P1",
+          "type": "backend",
+          "principle": "SRP, Goal-to-Plan",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC6", "blueprint", "planning"],
+          "dependencies": ["UC6-T03", "UC6-T04"],
+          "acceptance": [
+            "Aus Wizard/Preset entsteht ein brauchbarer initialer Projekt-Blueprint oder Goal-Plan.",
+            "Blueprint umfasst mindestens Scope, erste Rollen, erste Artefakte und Initial-Tasks.",
+            "Ergebnis bleibt editierbar und nachvollziehbar."
+          ],
+          "context": {
+            "use_case": "UC6"
+          },
+          "implementation_notes": [
+            "new_software_project nutzt ein mode-basiertes Template fuer Projektidee, Blueprint, Artefakte, Backlog und sichere naechste Schritte.",
+            "Plan-Nodes tragen Artefakt- und Review-Fokus im Rationale-Modell.",
+            "Der Blueprint bleibt als reviewbarer Plan aus dem Hub-Planungspfad editierbar."
+          ]
+        },
+        {
+          "id": "UC6-T06",
+          "title": "Initiale Aufgabenstruktur fuer neue Projekte erzeugen",
+          "description": "Aus dem neuen Projektziel kleine, kontrolliert ausfuehrbare und pruefbare Initial-Tasks ableiten.",
+          "priority": "P0",
+          "type": "backend",
+          "principle": "Hub-Orchestration, Small-Tasks",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC6", "task-generation", "hub"],
+          "dependencies": ["UC6-T05", "UC6-T08"],
+          "acceptance": [
+            "Initiale Task-Liste umfasst Problemverstaendnis, Architekturvorschlag, Projektstruktur, erste Implementierungsschritte, Tests und Review.",
+            "Tasks sind klein genug fuer kontrollierte Bearbeitung.",
+            "Tasks besitzen nachvollziehbare Reihenfolge oder Dependencies."
+          ],
+          "context": {
+            "use_case": "UC6",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue und Delegation; Worker fuehren nur delegierte Tasks aus."
+          },
+          "implementation_notes": [
+            "new_software_project erzeugt kleine Initial-Tasks mit Dependencies fuer Scope, Blueprint, Artefakte, Backlog, Governance und erste Umsetzungsscheibe.",
+            "Tasks enthalten Review- und Testfokus, ohne Worker-Orchestrierung zu veraendern.",
+            "Der Modus wird an den Auto-Planner durchgereicht, sodass der Hub die Task-Struktur kontrolliert erzeugt."
+          ]
+        },
+        {
+          "id": "UC6-T07",
+          "title": "Standard-Artefakte fuer neue Projekte definieren",
+          "description": "Die erwarteten Ergebnisartefakte fuer neue Projekte festlegen und im UI sichtbar machen.",
+          "priority": "P1",
           "type": "product",
-          "principle": "Low-Friction-CLI-Onboarding, Immediate-Confidence",
+          "principle": "Clear-Outputs, Reviewability",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["frontend-angular/", "agent/", "docs/"],
+          "tags": ["UC6", "artifacts", "review"],
+          "dependencies": ["UC6-T05"],
+          "acceptance": [
+            "Flow erzeugt mindestens Zielzusammenfassung, Architekturvorschlag, initiales Backlog und naechste Schritte.",
+            "Artefakte werden im UI sichtbar gemacht.",
+            "Artefakte sind reviewbar und exportierbar."
+          ],
+          "context": {
+            "use_case": "UC6"
+          },
+          "implementation_notes": [
+            "Goal-Detail zeigt geplante Artefakte aus Plan-Nodes sichtbar an.",
+            "new_software_project liefert Zielzusammenfassung, Blueprint, Initial-Backlog und naechste Schritte als reusable planned_artifacts.",
+            "Artefakte bleiben ueber plan_node_id, artifact key und Fokusfelder reviewbar."
+          ]
+        },
+        {
+          "id": "UC6-T08",
+          "title": "Sichere Standard-Governance fuer Projektstart setzen",
+          "description": "Neue Projektstarts mit restriktiven, reviewbaren Defaults absichern.",
+          "priority": "P0",
+          "type": "governance",
+          "principle": "Least-Privilege, Observable-Control",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC6", "governance", "safety"],
+          "acceptance": [
+            "Neues-Projekt-Flow startet nicht mit unkontrollierter Vollautomatik.",
+            "Review-/Verification-Schritte bleiben sichtbar aktiv.",
+            "Gefaehrliche Schreib- oder Runtime-Pfade sind fuer Erstnutzer restriktiv oder bestaetigungspflichtig."
+          ],
+          "context": {
+            "use_case": "UC6"
+          },
+          "implementation_notes": [
+            "new_software_project setzt review_required, bestaetigungspflichtige Schreib-/Runtime-Pfade und keine unkontrollierte Vollautomatik.",
+            "Der Modus nutzt keinen bestehenden Repo-Kontext als stillen Default.",
+            "Governance-Defaults werden im Hub-Goal-Service gesetzt."
+          ]
+        },
+        {
+          "id": "UC6-T09",
+          "title": "CLI-Einstieg fuer neuen Projekt-Flow ergaenzen",
+          "description": "Den neuen Projektstart als CLI-Shortcut anbieten und mit dem UI-Kernpfad synchron halten.",
+          "priority": "P1",
+          "type": "cli",
+          "principle": "Shared-Core-Flow",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "agent/cli_goals.py",
-            "README.md",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-010",
-            "PRD-021"
-          ],
+          "files": ["agent/", "README.md", "docs/"],
+          "tags": ["UC6", "cli", "golden-path"],
+          "dependencies": ["UC6-T03", "UC6-T04"],
           "acceptance": [
-            "CLI-Nutzer verstehen sofort den ersten sinnvollen Befehl.",
-            "Typische Ersteinstiegsfehler sind besser abgefangen oder erklaert.",
-            "CLI fuehlt sich wie offizieller Produktzugang an."
+            "Es gibt einen klaren CLI-Befehl oder Goal-Shortcut fuer neue Projekte.",
+            "CLI-Flow entspricht funktional dem UI-Flow.",
+            "CLI-Beispiel ist in README oder Golden Path dokumentiert."
           ],
+          "context": {
+            "use_case": "UC6"
+          },
           "implementation_notes": [
-            "CLI hat nun `python -m agent.cli_goals --first-run` fuer offiziellen Ersteinstieg, Erfolgssignale und Fehlerhilfe.",
-            "Goal-Erfolg nennt Goal-ID, Status, Task-Anzahl und das naechste Detailkommando.",
-            "docs/golden-path-cli.md und README listen den offiziellen Erstpfad.",
-            "Manueller CLI-Check bestaetigt `--first-run`; `--status` und `plan` zeigen bei fehlendem Hub klare Fehlerhilfe."
+            "CLI-Shortcut new-project fuehrt auf den Kernmodus new_software_project.",
+            "README und CLI-Golden-Path dokumentieren den offiziellen Produkt-Shortcut.",
+            "CLI-Contract-Tests sichern den Shortcut gegen Drift zum UI-Kernpfad ab."
           ]
         },
         {
-          "id": "PRD-014",
-          "title": "Fehlertexte und Abbruchzustände im ersten Run deutlich menschlicher machen",
-          "description": "Gerade in den ersten Schritten klare, untechnische Fehlermeldungen und naechste Schritte zeigen, statt Nutzer mit interner Sprache und Statusmodellen allein zu lassen.",
-          "priority": "high",
-          "type": "ux",
-          "principle": "Recoverable-First-Run, Humane-Failure-Messaging",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/cli_goals.py",
-            "agent/routes/"
-          ],
-          "dependencies": [
-            "PRD-011",
-            "UX-040",
-            "UX-042"
-          ],
-          "acceptance": [
-            "Fehler im Ersteinstieg sind fuer Nicht-Insider besser verständlich.",
-            "Naechste Schritte werden aktiv vorgeschlagen.",
-            "Abbrueche wirken weniger wie technische Sackgassen."
-          ],
-          "implementation_notes": [
-            "Quick-Goal-Fehler werden in konkrete Nutzertexte fuer Sitzung, Hub-Erreichbarkeit und Governance-Blockierungen uebersetzt.",
-            "Next-Steps bleiben auch bei Fehlern sichtbar.",
-            "API-Fehlerantworten enthalten zentral `data.error_help` mit Summary und naechsten Schritten fuer Auth, Not Found, Validierung/Governance und Serverfehler.",
-            "tests/test_error_contracts.py verifiziert die Fehlerhilfe im API-Contract."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "golden-paths-and-official-flows",
-      "label": "Golden Paths und offizielle Arbeitswege",
-      "items": [
-        {
-          "id": "PRD-020",
-          "title": "Offiziellen Golden Path fuer UI-Nutzung definieren",
-          "description": "Den bevorzugten Standardarbeitsweg im Web-UI festlegen und in Doku, Demo und Produktfuehrung sichtbar als den offiziellen Weg behandeln.",
-          "priority": "critical",
-          "type": "product",
-          "principle": "Official-UI-Path, Reduced-Ambiguity",
+          "id": "UC6-T10",
+          "title": "Demo-Flow fuer neues Projekt dokumentieren",
+          "description": "Einen reproduzierbaren Demo-Ablauf vom Problem zur ersten Task-Struktur dokumentieren.",
+          "priority": "P1",
+          "type": "documentation",
+          "principle": "Reproducible-Showcase",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "README.md",
-            "docs/",
-            "frontend-angular/"
-          ],
+          "files": ["docs/demo-flows.md", "README.md"],
+          "tags": ["UC6", "demo", "docs"],
+          "dependencies": ["UC6-T01", "UC6-T03", "UC6-T06"],
           "acceptance": [
-            "Der bevorzugte UI-Weg ist explizit benannt.",
-            "Doku und Demo sprechen denselben Standardweg.",
-            "Alternative Pfade sind nicht gleichberechtigt chaotisch.",
-            "Der UI-Golden-Path beschreibt Startpunkt, primaere Aktion, erwarteten Zwischenzustand und sichtbares Ergebnis."
+            "Es gibt einen reproduzierbaren Demo-Flow vom Problem zur ersten Task-Struktur.",
+            "Beispielinput und erwartetes Ergebnis sind dokumentiert.",
+            "Flow ist fuer Reviewer in wenigen Minuten nachvollziehbar."
           ],
+          "context": {
+            "use_case": "UC6"
+          },
           "implementation_notes": [
-            "Dokumentiert in docs/golden-path-ui.md und im README verlinkt.",
-            "UI-Golden-Path benennt Startpunkt, primaere Aktion, Zwischenzustand, sichtbares Ergebnis und priorisierte Hauptaktionen."
+            "docs/demo-flows.md beschreibt den reproduzierbaren UC6-Demoablauf mit UI, CLI, API und Review-Check.",
+            "README benennt den neuen Projektstart als Schnellstartpfad.",
+            "Reviewer-Schnellpruefung deckt Blueprint, planned_artifacts und kleine Initial-Tasks ab."
           ]
         },
         {
-          "id": "PRD-021",
-          "title": "Offiziellen Golden Path fuer CLI-Nutzung definieren",
-          "description": "Den bevorzugten Standardarbeitsweg fuer die CLI festlegen und ihn von Nebenpfaden, Diagnosekommandos oder Expertenoptionen klar abgrenzen.",
-          "priority": "high",
-          "type": "product",
-          "principle": "Official-CLI-Path, Better-Command-Discipline",
+          "id": "UC6-T11",
+          "title": "Vertragstests fuer Goal-to-Project-Flow ergaenzen",
+          "description": "Den neuen Goal-to-Project-Flow durch Contract-, UI- oder Smoke-Tests regressionssicher machen.",
+          "priority": "P1",
+          "type": "test",
+          "principle": "Contract-Testability",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["tests/", "frontend-angular/tests/"],
+          "tags": ["UC6", "tests", "contract"],
+          "dependencies": ["UC6-T02", "UC6-T05", "UC6-T06"],
+          "acceptance": [
+            "API- und/oder UI-Tests pruefen den neuen Projekt-Flow stabil ab.",
+            "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher.",
+            "Mindestens ein positiver End-to-End-Smoke-Test existiert."
+          ],
+          "context": {
+            "use_case": "UC6"
+          },
+          "implementation_notes": [
+            "tests/test_goals.py prueft den Goal-to-Project-Flow inklusive Tasks, Plan-Nodes und planned_artifacts.",
+            "goal-detail.component.spec.ts prueft die UI-Helfer fuer reusable planned artifacts.",
+            "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher abgedeckt."
+          ]
+        },
+        {
+          "id": "UC6-T12",
+          "title": "Erstnutzer-Onboarding auf 'one obvious way in' trimmen",
+          "description": "Den Einstieg fuer neue Nutzer so reduzieren, dass ein klarer Projektstartpfad dominiert.",
+          "priority": "P1",
+          "type": "frontend",
+          "principle": "User-Focused-Simplicity",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "agent/cli_goals.py",
-            "README.md",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "PRD-010"
-          ],
+          "files": ["frontend-angular/", "README.md"],
+          "tags": ["UC6", "onboarding", "first-run"],
+          "dependencies": ["UC6-T01", "UC6-T02"],
           "acceptance": [
-            "CLI-Nutzer erkennen den offiziellen Arbeitsweg sofort.",
-            "Nebenzweige und Spezialkommandos sind klar als solche markiert.",
-            "CLI-Doku wirkt fokussierter."
+            "Ein neuer Nutzer erkennt ohne Code-Studium, wie ein neues Projekt gestartet wird.",
+            "UI benennt den Einstieg klar und sichtbar.",
+            "Der Flow ist mit wenigen Entscheidungen startbar."
           ],
+          "context": {
+            "use_case": "UC6"
+          },
           "implementation_notes": [
-            "docs/golden-path-cli.md angelegt und im README verlinkt.",
-            "agent/cli_goals.py Examples ergaenzt (Golden Path + config show/set).",
-            "CLI-Golden-Path grenzt Status, Task-Liste und Diagnose als Nebenpfade ab."
+            "Der First-Start-Wizard fuehrt primaer auf Neues Projekt anlegen.",
+            "Dashboard-Test prueft die Priorisierung des neuen Projektstarts als offensichtlichen Einstieg.",
+            "README-Schnellstart nutzt denselben Pfad und nennt Blueprint, Backlog und naechste Schritte als Erfolgssignal."
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "existing-software-project-evolution",
+      "label": "UC7: Existierendes Softwareprojekt weiterentwickeln",
+      "items": [
         {
-          "id": "PRD-022",
-          "title": "Offiziellen Golden Path fuer Release und Betriebsfreigabe definieren",
-          "description": "Einen glasklaren Standardweg fuer Release-Kandidaten, finale Freigabe und Betriebskommunikation dokumentieren und operationalisieren.",
-          "priority": "high",
-          "type": "operations",
-          "principle": "Official-Release-Flow, No-Improvised-Ship-Path",
+          "id": "UC7-T01",
+          "title": "Use-Case offiziell in Produktbasis aufnehmen",
+          "description": "Den offiziellen Use-Case fuer kontrollierte Weiterentwicklung bestehender Projekte dokumentieren und sichtbar verlinken.",
+          "priority": "P0",
+          "type": "product",
+          "principle": "Focused-Value, Product-Story-Consistency",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "docs/",
-            ".github/workflows/"
-          ],
-          "dependencies": [
-            "GOV-050",
-            "BMK-070",
-            "BMK-071"
-          ],
+          "files": ["README.md", "docs/use-cases.md", "docs/demo-flows.md"],
+          "tags": ["UC7", "documentation", "golden-path"],
           "acceptance": [
-            "Release-, RC- und finale Freigabe sind klar getrennt.",
-            "Das Team oder spaetere Mitwirkende koennen dem Standardprozess folgen.",
-            "Release-Entscheidungen werden weniger improvisiert."
+            "docs/use-cases.md enthaelt den offiziellen Use-Case fuer Weiterentwicklung bestehender Projekte.",
+            "README und relevante Einstiegspfade zeigen den Fall explizit an.",
+            "Formulierung ist problemorientiert und nicht nur repo-analytisch."
           ],
+          "context": {
+            "use_case": "UC7",
+            "goal": "Ein bestehendes Repository oder Projekt kann analysiert, verstanden und in kleinen pruefbaren Schritten gezielt weiterentwickelt werden."
+          },
           "implementation_notes": [
-            "docs/release-golden-path.md definiert Phasen fuer RC, finale Freigabe und Operations-Handoff.",
-            "docs/release-process.md, docs/release-checklist.md und README verlinken den offiziellen Release-Standardweg.",
-            "Bestehende Workflows release.yml und nightly-rc-validation.yml werden als operative Gates referenziert.",
-            "docs/release-evidence-register.md definiert die Pflichtreferenzen fuer RC-Workflow-Run, Release-Workflow-Run und Artefakte."
+            "UC7 in docs/use-cases.md dokumentiert.",
+            "README und docs/demo-flows.md verweisen auf den Weiterentwicklungspfad.",
+            "Die Abgrenzung zur reinen Repository-Analyse ist beschrieben."
           ]
         },
         {
-          "id": "PRD-023",
-          "title": "Golden Paths im UI mit visuellen Hauptaktionen und Step-Hinweisen sichtbar machen",
-          "description": "Die offiziellen Hauptpfade im UI nicht nur dokumentieren, sondern direkt mit Handlungshinweisen, CTA-Reihenfolge und Statusfuehrung sichtbar bevorzugen.",
-          "priority": "medium",
-          "type": "ux",
-          "principle": "Visible-Preferred-Flow, Product-Led-Guidance",
+          "id": "UC7-T02",
+          "title": "Wizard/Preset fuer Weiterentwicklung bestehender Projekte ergaenzen",
+          "description": "Einen sichtbaren Einstieg fuer bestehende Projekte bereitstellen, der strukturierte Aenderungsziele erzeugt.",
+          "priority": "P0",
+          "type": "frontend",
+          "principle": "SRP, Explicit-Goal-Input",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "frontend-angular/"
-          ],
-          "dependencies": [
-            "PRD-020",
-            "PRD-012",
-            "UX-042"
-          ],
+          "files": ["frontend-angular/", "agent/"],
+          "tags": ["UC7", "wizard", "preset"],
+          "dependencies": ["UC7-T04"],
           "acceptance": [
-            "Bevorzugte Pfade sind im UI klarer sichtbar.",
-            "Hauptaktionen konkurrieren weniger miteinander.",
-            "Nutzer werden eher auf den stabilen Weg gefuehrt."
+            "Es gibt einen sichtbaren Einstieg 'Existierendes Projekt weiterentwickeln'.",
+            "Wizard fragt mindestens Zielaenderung, betroffene Bereiche, Restriktionen und Risikoniveau ab.",
+            "Flow erzeugt ein strukturiertes Goal statt nur freie Analyse."
           ],
+          "context": {
+            "use_case": "UC7"
+          },
           "implementation_notes": [
-            "Quick-Goal zeigt den offiziellen UI-Weg Planen -> Aufgaben verfolgen -> Ergebnisse ansehen direkt vor dem Start.",
-            "First-Start-Bereich und Hauptaktionen priorisieren Zielplanung und Demo vor Expertenpfaden.",
-            "docs/golden-path-ui.md dokumentiert die sichtbare CTA-Reihenfolge und grenzt Diagnose/Review/Demo als Use-Case-Einstiege ab."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "operational-observability-and-real-usage-insight",
-      "label": "Operative Observability und reale Nutzungsdaten",
-      "items": [
-        {
-          "id": "OPS-030",
-          "title": "Produktnahe Nutzungsereignisse fuer Kernflows definieren",
-          "description": "Nicht nur technische Logs, sondern produktnahe Ereignisse fuer Start, Goal-Erstellung, Blockierung, Review-Bedarf, Erfolg und Abbruch definieren.",
-          "priority": "high",
-          "type": "operations",
-          "principle": "Product-Event-Visibility, Real-Usage-Insight",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "PRD-020",
-            "PRD-021"
-          ],
-          "acceptance": [
-            "Wichtige Produktaktionen sind als Ereignisse modelliert.",
-            "Es ist klar messbar, welche Flows wirklich genutzt werden.",
-            "Technische Logs und Produktsicht sind besser getrennt."
-          ],
-          "implementation_notes": [
-            "docs/product-events.md definiert den Produktkanal, Kernereignisse und Pflichtdimensionen fuer Start, Goal-Erstellung, Blockierung, Review-Bedarf, Erfolg und Abbruch.",
-            "agent/services/hub_event_service.py fuehrt den versionierten product-Kanal im Hub-Event-Katalog und build_product_event ein.",
-            "agent/services/product_event_service.py persistiert Produkt-Events ueber den Audit-Stream mit product_-Prefix und details.product_event Envelope.",
-            "POST /goals erzeugt Product Events fuer Flow-Start, Goal-Erstellung, Planning-Erfolg, Planning-Fehler und blockierte Goal-Eingaben."
+            "Wizard nutzt den Guided Mode project_evolution mit Zielaenderung, Weiterentwicklungsart, betroffenen Bereichen, Risiko und Restriktionen.",
+            "Quick-Goal-/Demo-Preset und CLI-Shortcut evolve-project fuehren auf denselben Kernmodus.",
+            "Der Modus erzeugt ein strukturiertes Goal statt freier Analyse."
           ]
         },
         {
-          "id": "OPS-031",
-          "title": "Goal-Abbruch-, Blockierungs- und Review-Raten sichtbar machen",
-          "description": "Im operativen Blick systematisch sichtbar machen, wie oft Goals blockiert werden, wann Review benoetigt wird und an welchen Stellen Nutzer haengen bleiben.",
-          "priority": "high",
-          "type": "operations",
-          "principle": "Friction-Visibility, Better-Improvement-Signals",
+          "id": "UC7-T03",
+          "title": "Projektkontext fuer Weiterentwicklung schaerfen",
+          "description": "Bestehendes Repo-, Artifact- und Task-Wissen gezielt als Startkontext fuer Weiterentwicklung nutzbar machen.",
+          "priority": "P0",
+          "type": "backend",
+          "principle": "Relevant-Context, SRP",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "OPS-030",
-            "UX-040"
-          ],
+          "files": ["agent/"],
+          "tags": ["UC7", "context", "repository"],
           "acceptance": [
-            "Blockierungs- und Review-Muster werden sichtbar.",
-            "Produktverbesserung kann sich auf echte Friktion stuetzen.",
-            "Nicht nur erfolgreiche Faelle werden gemessen."
+            "Flow nutzt bestehendes Repo-/Artifact-/Task-Wissen als Startkontext.",
+            "Ist-Zustand, relevante Dateien und angrenzende Aufgaben werden erkennbar einbezogen.",
+            "Lange Rohhistorie wird nicht blind bevorzugt."
           ],
+          "context": {
+            "use_case": "UC7"
+          },
           "implementation_notes": [
-            "OperationsObservabilityService aggregiert Product Events aus dem Audit-Stream unter runtime_telemetry.operations.product_events.",
-            "Friktionsmetriken enthalten blocked, review_required, failed, succeeded sowie Blockierungs-, Review- und Failure-Raten.",
-            "Top-Reasons fuer blockierte, fehlgeschlagene und Review-pflichtige Goal-Flows werden separat ausgewiesen."
+            "project_evolution erzwingt use_repo_context=true im mode-basierten Workflow.",
+            "Mode-Kontext benennt betroffene Bereiche, Restriktionen, Risiko und Weiterentwicklungsart fuer den Planner.",
+            "Der Kontext bevorzugt relevante Projektbereiche gegenueber langer Rohhistorie."
           ]
         },
         {
-          "id": "OPS-032",
-          "title": "Nutzung von UI, CLI und API als getrennte Perspektiven auswertbar machen",
-          "description": "Sichtbar machen, welche Zugangsschicht wie genutzt wird und welche Probleme pro Kanal dominieren, statt alles in eine undifferenzierte Gesamtsicht zu werfen.",
-          "priority": "medium",
-          "type": "operations",
-          "principle": "Channel-Aware-Insight, Smarter-Prioritization",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "OPS-030"
-          ],
-          "acceptance": [
-            "UI-, CLI- und API-Nutzung lassen sich getrennt bewerten.",
-            "Kanal-spezifische Schwächen werden sichtbar.",
-            "Verbesserungen koennen gezielter priorisiert werden."
-          ],
-          "implementation_notes": [
-            "Product Event Details enthalten source und werden im Dashboard nach channels.counts und channels.friction_by_source aggregiert.",
-            "UI, CLI, API, Demo und Trigger bleiben analytisch getrennt, ohne technische Logs zu vermischen.",
-            "docs/product-events.md dokumentiert die channel-aware Produktmetriken."
-          ]
-        },
-        {
-          "id": "OPS-033",
-          "title": "Produktmetriken fuer Demo, Trial und produktive Nutzung unterscheiden",
-          "description": "Demo-, Evaluations- und echte produktive Nutzung in Metriken unterscheiden, damit Beobachtungen nicht durch Showcase-Traffic verfälscht werden.",
-          "priority": "medium",
-          "type": "operations",
-          "principle": "Meaningful-Metrics, Better-Signal-Quality",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "OPS-030",
-            "PRF-080"
-          ],
-          "acceptance": [
-            "Demo- und Produktnutzung sind analytisch trennbar.",
-            "Metriken sind aussagekraeftiger.",
-            "Produktentscheidungen beruhen weniger auf verrauschten Daten."
-          ],
-          "implementation_notes": [
-            "Product Events werden mit runtime_profile, governance_mode und usage_context angereichert.",
-            "OperationsObservabilityService unterscheidet usage_contexts demo, trial und production inklusive Friktionsraten.",
-            "Runtime-Profile definieren usage_context Defaults fuer Demo, Trial und produktive Betriebsprofile."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "explainability-and-user-facing-language",
-      "label": "Explainability und Endnutzer Sprache",
-      "items": [
-        {
-          "id": "UX-040",
-          "title": "Warum-blockiert-Warum-review-Warum-sicher Hinweise im gesamten UI systematisieren",
-          "description": "Erklaerungen fuer Blockierungen, Review-Pflichten und Sicherheitsgrenzen als wiederkehrendes, konsistentes UX-Muster ueber Hauptansichten hinweg etablieren.",
-          "priority": "critical",
-          "type": "ux",
-          "principle": "Systematic-Explainability, Trust-Through-Reasoning-Visible",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/"
-          ],
-          "acceptance": [
-            "Blockierungen und Review-Pflichten werden ueberall erklaerbar dargestellt.",
-            "Erklaerungen wirken konsistent statt zufaellig.",
-            "Nutzer verstehen Kontrolle besser.",
-            "Fuer Blockierung, Review und Sicherheitsgrenze existiert je ein wiederverwendbares Erklaermuster mit naechster sinnvoller Aktion."
-          ],
-          "implementation_notes": [
-            "Wiederverwendbare Display-Komponenten genutzt: app-decision-explanation + app-next-steps.",
-            "Umgesetzt fuer blocked (Board/Scrum), Guardrail-Blocks (Dashboard Timeline), Goal Detail (blocked/review Hinweise), Auto-Planner (Plan-Result + Goal-Detail Panel) und Task Detail (blocked/review/tool approval + Next Steps).",
-            "docs/ui-state-language-patterns.md definiert das uebergreifende Muster fuer Blockierung, Review, Sicherheitsgrenzen und Erfolg inklusive naechster sinnvoller Aktion."
-          ]
-        },
-        {
-          "id": "UX-041",
-          "title": "Technische Systemsprache in Standardansichten weiter reduzieren",
-          "description": "Interne Begriffe, Statusmodelle und Architekturvokabular in Standardansichten weiter in klare, alltagstaugliche Produktsprache uebersetzen.",
-          "priority": "high",
-          "type": "ux",
-          "principle": "Human-Language-First, Less-Internal-Jargon",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "README.md",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "UX-040"
-          ],
-          "acceptance": [
-            "Standardansichten wirken weniger nach internem Architekturmodell.",
-            "Neue Nutzer verstehen Inhalte schneller.",
-            "Fachsprache bleibt auf Expertenkontexte begrenzt."
-          ],
-          "implementation_notes": [
-            "Quick-Goal-Sprache von Quick Goal/Tasks/Board stärker auf Zielbeschreibung, Aufgaben und Ergebnisse umgestellt.",
-            "Interne Task-IDs werden in der Erfolgsmeldung nachrangig als interne Referenzen angezeigt.",
-            "docs/ui-state-language-patterns.md trennt Endnutzer-Zusammenfassung von technischen Details und begrenzt Architekturvokabular auf Expertenkontexte."
-          ]
-        },
-        {
-          "id": "UX-042",
-          "title": "Naechste sinnvolle Schritte konsequent als Handlungshilfe einblenden",
-          "description": "Nach Blockierung, Fehler, Erfolg oder Review nicht nur Zustand anzeigen, sondern den naechsten sinnvollen Schritt sichtbar und klickbar vorschlagen.",
-          "priority": "high",
-          "type": "ux",
-          "principle": "Actionable-States, Less-Dead-End-UX",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/"
-          ],
-          "dependencies": [
-            "UX-040"
-          ],
-          "acceptance": [
-            "Wichtige Zustände fuehren zu erkennbaren naechsten Aktionen.",
-            "Weniger Sackgassen in UI und ggf. CLI.",
-            "Nutzer muessen weniger selbst interpretieren."
-          ],
-          "implementation_notes": [
-            "Quick-Goal zeigt Next Steps jetzt auch bei Fehlern (DashboardQuickGoalPanel).",
-            "Board/Dashboard-Timeline nutzen NextSteps fuer blocked/guardrail Events.",
-            "Goal Detail, Auto-Planner und Task Detail zeigen Next Steps fuer typische Zustandswechsel (blocked/review/policy).",
-            "docs/ui-state-language-patterns.md macht Next Steps fuer Blockierung, Fehler, Review und Erfolg zum verbindlichen Standardmuster."
-          ]
-        },
-        {
-          "id": "UX-043",
-          "title": "Ergebnisdarstellung staerker auf Wert statt auf internen Ablauf fokussieren",
-          "description": "Resultate zuerst nach Nutzen, Ergebnisqualitaet und naechstem Schritt strukturieren und den internen Prozess darunter oder getrennt darstellen.",
-          "priority": "medium",
-          "type": "ux",
-          "principle": "Value-First-Results, Better-End-User-Orientation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/"
-          ],
-          "dependencies": [
-            "PRD-002",
-            "UX-040"
-          ],
-          "acceptance": [
-            "Ergebnisansichten kommunizieren erst Nutzen, dann Mechanik.",
-            "Endnutzer sehen schneller, was sie gewonnen haben.",
-            "Interne Prozesssicht bleibt verfuegbar, aber nicht dominant."
-          ],
-          "implementation_notes": [
-            "Quick-Goal-Erfolg zeigt zuerst Planwert und erzeugte Aufgaben; technische Referenzen sind nachrangig einklappbar.",
-            "Naechste Schritte fuehren direkt zu Zielpruefung, Aufgabenverfolgung und Ergebnissen.",
-            "docs/ui-state-language-patterns.md definiert value-first Ergebniszusammenfassungen mit sekundaeren technischen Details."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "governance-as-product-feature",
-      "label": "Governance als Produktfeature",
-      "items": [
-        {
-          "id": "GOV-050",
-          "title": "Explizite Governance Modi wie safe, balanced und strict definieren",
-          "description": "Governance nicht nur als implizite Konfiguration, sondern als klar benannte, nutzbare Produktmodi mit unterschiedlichem Kontrollniveau anbieten.",
-          "priority": "critical",
+          "id": "UC7-T04",
+          "title": "Weiterentwicklungsarten als klare Modi anbieten",
+          "description": "Unterschiedliche Arten von Weiterentwicklung als einfache Modi oder Presets modellieren.",
+          "priority": "P1",
           "type": "product",
-          "principle": "Visible-Control-Profiles, Productized-Governance",
+          "principle": "OCP, Mode-Strategy",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRD-001"
-          ],
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC7", "mode", "preset"],
           "acceptance": [
-            "Es gibt klar benannte Governance-Modi.",
-            "Der Nutzer kann Kontrollniveau bewusst verstehen und waehlen.",
-            "Governance wird als staerke sichtbar statt nur als innere Technik.",
-            "Die Modi beschreiben Unterschiede bei Tool-Grenzen, Review-Pflichten, Ausfuehrungsfreiheit und Auditierbarkeit."
+            "Mindestens kleine Erweiterung, Refactoring, Feature-Ausbau und technische Verbesserung sind als Modus oder Preset unterscheidbar.",
+            "Die Modi beeinflussen Planungstiefe und Sicherheitsstandard sichtbar.",
+            "Modi bleiben einfach erklaert."
           ],
+          "context": {
+            "use_case": "UC7"
+          },
           "implementation_notes": [
-            "Docs: docs/governance-modes.md.",
-            "Backend: governance_mode als additive Config mit Validation und Read-Model-Ausgabe.",
-            "UI/CLI Auswahl umgesetzt (siehe GOV-051)."
+            "Guided Mode project_evolution bietet kleine_erweiterung, refactoring, feature_ausbau und technische_verbesserung.",
+            "Risikoniveau und Restriktionen werden als strukturierte Felder abgefragt.",
+            "CLI-Shortcut evolve-project und UI-/Demo-Preset machen den Modus erreichbar."
           ]
         },
         {
-          "id": "GOV-051",
-          "title": "Governance Modi im UI und CLI erklaerbar auswählbar machen",
-          "description": "Die gewaehlten Modi nicht nur intern verwenden, sondern im UI und in der CLI klar erklaeren und kontrollierbar machen.",
-          "priority": "high",
+          "id": "UC7-T05",
+          "title": "Aenderungsplanung in kleine verifizierbare Schritte zerlegen",
+          "description": "Weiterentwicklungsziele in kleine, risikobewusste und pruefbare Tasks zerlegen.",
+          "priority": "P0",
+          "type": "backend",
+          "principle": "Hub-Orchestration, Small-Tasks",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["agent/"],
+          "tags": ["UC7", "planning", "task-generation"],
+          "dependencies": ["UC7-T03", "UC7-T06", "UC7-T12"],
+          "acceptance": [
+            "Aus der gewuenschten Weiterentwicklung entsteht ein planbarer Task-Baum.",
+            "Tasks enthalten betroffene Bereiche, Ziel der Aenderung, Risiken und Pruefhinweise.",
+            "Keine monolithische 'mach alles'-Aufgabe als Standard."
+          ],
+          "context": {
+            "use_case": "UC7",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue und Delegation; Worker fuehren nur delegierte Tasks aus."
+          },
+          "implementation_notes": [
+            "project_evolution nutzt ein mode-basiertes Template fuer Ist-Kontext, Scope, Risiko-/Testsicht, Aenderungsschritte und Review.",
+            "Aenderungen werden sequenziert und mit Dependencies materialisiert.",
+            "Task-Beschreibungen enthalten betroffene Bereiche, Risiken und Pruefhinweise statt monolithischer Umsetzung."
+          ]
+        },
+        {
+          "id": "UC7-T06",
+          "title": "Diff-, Risiko- und Testsicht fuer Weiterentwicklung verankern",
+          "description": "Risiken, betroffene Tests und Review-Schritte als feste Ergebnisbestandteile des Weiterentwicklungsflows ausgeben.",
+          "priority": "P0",
+          "type": "governance",
+          "principle": "Observable-Risk, Reviewability",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["agent/", "frontend-angular/"],
+          "tags": ["UC7", "risk", "tests", "review"],
+          "dependencies": ["UC7-T03"],
+          "acceptance": [
+            "Flow erzeugt sichtbar eine Risikoanalyse, betroffene Tests und moegliche Regressionen.",
+            "Review ist integraler Teil des Pfads.",
+            "Artefakte enthalten nicht nur Aenderungswunsch, sondern auch Begruendung und Pruefschritte."
+          ],
+          "context": {
+            "use_case": "UC7"
+          },
+          "implementation_notes": [
+            "project_evolution erzeugt einen eigenen Risiko-, Diff- und Testplan-Schritt.",
+            "Plan-Nodes speichern risk_focus und test_focus fuer Review- und Verifikationssicht.",
+            "Artefakte enthalten Aenderungsplan, Risiko-/Test-/Review-Plan und Rueckfallhinweise als planbare Schritte."
+          ]
+        },
+        {
+          "id": "UC7-T07",
+          "title": "Standard-Artefakte fuer Weiterentwicklung definieren",
+          "description": "Die erwarteten Artefakte fuer aktive Weiterentwicklung bestehender Projekte definieren und verknuepfen.",
+          "priority": "P1",
           "type": "product",
-          "principle": "Selectable-Control, Explainable-Safety-Posture",
+          "principle": "Clear-Outputs, Reusable-Artifacts",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "agent/cli_goals.py",
-            "docs/"
-          ],
-          "dependencies": [
-            "GOV-050",
-            "PRD-020",
-            "PRD-021"
-          ],
+          "files": ["frontend-angular/", "agent/", "docs/"],
+          "tags": ["UC7", "artifacts", "review"],
+          "dependencies": ["UC7-T05", "UC7-T06"],
           "acceptance": [
-            "Governance-Modi sind in Produktoberflaechen sichtbar waehlbar.",
-            "Ihre Unterschiede werden nicht nur intern verstanden.",
-            "Nutzer koennen Verhalten besser auf ihren Kontext abstimmen."
+            "Flow erzeugt mindestens Ist-Analyse, Aenderungsplan, Test-/Review-Plan und naechste Schritte.",
+            "Artefakte sind im UI sichtbar und nachvollziehbar verknuepft.",
+            "Ergebnisse koennen spaeter wiederverwendet werden."
           ],
+          "context": {
+            "use_case": "UC7"
+          },
           "implementation_notes": [
-            "UI: Settings -> System -> Profile & Governance: governance_mode und runtime_profile als Selects.",
-            "CLI: agent/cli_goals.py: --config-show, --set-runtime-profile, --set-governance-mode."
+            "project_evolution liefert Ist-Analyse, Aenderungsplan, Risiko-/Test-/Review-Plan und Review-/Rollback-Plan als planned_artifacts.",
+            "Goal-Detail macht diese Artefakte sichtbar und reusable, auch bevor Tasks ausgefuehrt wurden.",
+            "Artefakte sind ueber Plan-Nodes und Fokusfelder nachvollziehbar verknuepft."
           ]
         },
         {
-          "id": "GOV-052",
-          "title": "Governance-Entscheidungen als lesbares Policy-Profil exportierbar machen",
-          "description": "Die effektiven Kontrollregeln, Tool-Grenzen und Review-Bedingungen als zusammenhaengendes lesbares Profil sichtbar oder exportierbar machen.",
-          "priority": "medium",
+          "id": "UC7-T08",
+          "title": "Kleine Feature-Weiterentwicklung als Standarddemo dokumentieren",
+          "description": "Eine reproduzierbare Demo fuer Analyse, Plan, Task und Review bei bestehendem Projekt dokumentieren.",
+          "priority": "P1",
+          "type": "documentation",
+          "principle": "Reproducible-Showcase",
+          "status": "completed",
+          "effort": "small",
+          "files": ["docs/demo-flows.md", "README.md"],
+          "tags": ["UC7", "demo", "docs"],
+          "dependencies": ["UC7-T01", "UC7-T05", "UC7-T06"],
+          "acceptance": [
+            "Es gibt ein reproduzierbares Beispiel fuer kontrollierte Weiterentwicklung eines bestehenden Projekts.",
+            "Beispiel zeigt Analyse -> Plan -> Task -> Review statt nur Chat-Antwort.",
+            "Der Demo-Flow ist fuer neue Nutzer verstaendlich."
+          ],
+          "context": {
+            "use_case": "UC7"
+          },
+          "implementation_notes": [
+            "docs/demo-flows.md beschreibt den UC7-Demoablauf mit Analyse, Plan, Task und Review.",
+            "Der Flow benennt aktive Weiterentwicklung, Risiko-/Testsicht und kleine reviewbare Schritte.",
+            "Reviewer-Schnellpruefung deckt Goal-Detail-Artefakte und Board-Tasks ab."
+          ]
+        },
+        {
+          "id": "UC7-T09",
+          "title": "CLI-Einstieg fuer Weiterentwicklungsfall ergaenzen",
+          "description": "Den Weiterentwicklungsfall als CLI-Shortcut anbieten und dokumentieren.",
+          "priority": "P1",
+          "type": "cli",
+          "principle": "Shared-Core-Flow",
+          "status": "completed",
+          "effort": "small",
+          "files": ["agent/", "README.md", "docs/"],
+          "tags": ["UC7", "cli", "golden-path"],
+          "dependencies": ["UC7-T02", "UC7-T04"],
+          "acceptance": [
+            "CLI bietet einen klaren Shortcut fuer Weiterentwicklung bestehender Projekte.",
+            "CLI-Beispiele sind dokumentiert.",
+            "CLI und UI fuehren funktional auf denselben Kernpfad."
+          ],
+          "context": {
+            "use_case": "UC7"
+          },
+          "implementation_notes": [
+            "CLI-Shortcut evolve-project fuehrt auf den Kernmodus project_evolution.",
+            "README und CLI-Golden-Path dokumentieren den offiziellen Weiterentwicklungs-Shortcut.",
+            "CLI-Contract-Tests sichern den Shortcut gegen Drift zum UI-Kernpfad ab."
+          ]
+        },
+        {
+          "id": "UC7-T10",
+          "title": "Regressionstests fuer Weiterentwicklungs-Flow ergaenzen",
+          "description": "Den Weiterentwicklungsflow durch Contract- oder E2E-Tests gegen Regressionen absichern.",
+          "priority": "P1",
+          "type": "test",
+          "principle": "Contract-Testability",
+          "status": "completed",
+          "effort": "medium",
+          "files": ["tests/", "frontend-angular/tests/"],
+          "tags": ["UC7", "tests", "contract"],
+          "dependencies": ["UC7-T02", "UC7-T05", "UC7-T06"],
+          "acceptance": [
+            "Contract- oder E2E-Tests decken den Weiterentwicklungs-Flow ab.",
+            "Task-Generierung und Artefaktstruktur sind stabil pruefbar.",
+            "Mindestens ein positiver Testfall fuer bestehendes Repo ist vorhanden."
+          ],
+          "context": {
+            "use_case": "UC7"
+          },
+          "implementation_notes": [
+            "tests/test_goals.py prueft project_evolution inklusive Task-Generierung, Risiko-/Testsicht und planned_artifacts.",
+            "Der positive Testfall nutzt ein bestehendes Projektziel mit betroffenen Bereichen und Restriktionen.",
+            "Die Artefaktstruktur fuer Aenderungsplan und Risiko-/Test-/Review-Plan ist regressionssicher."
+          ]
+        },
+        {
+          "id": "UC7-T11",
+          "title": "Weiterentwicklung klar von 'Repository verstehen' abgrenzen",
+          "description": "Den aktiven Weiterentwicklungsflow klar vom rein analytischen Repository-Verstehen abgrenzen.",
+          "priority": "P1",
           "type": "product",
-          "principle": "Readable-Effective-Policy, Auditable-Controls",
+          "principle": "Clear-Use-Case-Identity",
+          "status": "completed",
+          "effort": "small",
+          "files": ["frontend-angular/", "docs/use-cases.md", "README.md"],
+          "tags": ["UC7", "positioning", "docs"],
+          "dependencies": ["UC7-T01", "UC7-T02"],
+          "acceptance": [
+            "UI und Dokumentation unterscheiden Analyse eines Repos klar von aktiver Weiterentwicklung.",
+            "Nutzer landet nicht versehentlich in rein beschreibender Analyse.",
+            "Flow fuehrt sichtbar zu konkreten Aenderungsaufgaben."
+          ],
+          "context": {
+            "use_case": "UC7"
+          },
+          "implementation_notes": [
+            "project_evolution ist in /goals/modes als aktive Weiterentwicklung statt Repository-Analyse beschrieben.",
+            "Dashboard-Preset-Kontext benennt aktive Weiterentwicklung statt Repository verstehen.",
+            "Contract-Test prueft diese Abgrenzung in der Mode-Beschreibung."
+          ]
+        },
+        {
+          "id": "UC7-T12",
+          "title": "Sichere Defaults fuer kontrollierte Weiterentwicklung setzen",
+          "description": "Weiterentwicklung bestehender Projekte mit reviewbaren, risikobewussten Governance-Defaults absichern.",
+          "priority": "P0",
+          "type": "governance",
+          "principle": "Least-Privilege, Risk-Aware-Defaults",
           "status": "completed",
           "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "GOV-050",
-            "GOV-051"
-          ],
+          "files": ["agent/", "frontend-angular/", "docs/"],
+          "tags": ["UC7", "governance", "safety"],
           "acceptance": [
-            "Effektive Governance kann als Profil eingesehen werden.",
-            "Nutzer oder Admins muessen nicht viele Einzelstellen lesen.",
-            "Kontrolllogik wird transparenter."
+            "Review- und Verification-Schritte bleiben standardmaessig aktiv.",
+            "Grosse oder riskante Aenderungen werden nicht wie kleine Standardfixes behandelt.",
+            "Schreib- und Ausfuehrungspfade bleiben governance-konform."
           ],
+          "context": {
+            "use_case": "UC7"
+          },
           "implementation_notes": [
-            "agent/services/governance_profile_service.py baut ein lesbares effective_policy_profile aus Runtime-Profil, Governance-Modus und Policy-Bloecken.",
-            "GET /config liefert effective_policy_profile fuer Admin-/Operator-Export.",
-            "Dashboard Read Model liefert llm_configuration.effective_policy_profile fuer UI- und Betriebsansichten."
-          ]
-        },
-        {
-          "id": "GOV-053",
-          "title": "Review-first und local-first Betriebsmodi als klar erkennbare Profile ausarbeiten",
-          "description": "Praktisch relevante Sicherheits- und Betriebsprofile wie review-first oder local-first als echte Produktmodi mit passender Sprache und Standardkonfiguration ausarbeiten.",
-          "priority": "medium",
-          "type": "product",
-          "principle": "Meaningful-Operational-Profiles, Safer-Default-Choices",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "GOV-050",
-            "PRF-080"
-          ],
-          "acceptance": [
-            "Wichtige Sicherheits- und Betriebsprofile sind konkret nutzbar.",
-            "Die Profile kommunizieren echten Mehrwert statt nur Namen.",
-            "Betriebsszenarien lassen sich sinnvoller abbilden."
-          ],
-          "implementation_notes": [
-            "Runtime-Profilkatalog enthaelt local-first und review-first als konkrete Betriebsprofile.",
-            "local-first ist auf lokale Diagnose und Trial-Kontext ausgerichtet; review-first auf kontrollierte produktive Nutzung.",
-            "docs/governance-modes.md dokumentiert beide Profile und ihre Governance-Intention."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "plugin-tool-worker-contracts",
-      "label": "Plugin Tool und Worker Contracts",
-      "items": [
-        {
-          "id": "ARC-060",
-          "title": "Stabile Tool-Contract-Spezifikation fuer externe oder spaetere Integrationen definieren",
-          "description": "Ein formales, nachvollziehbares Contract-Modell fuer Tools definieren, damit Erweiterungen und Integrationen nicht auf impliziten Annahmen beruhen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Stable-Extension-Contracts, Less-Implicit-Coupling",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "docs/",
-            "agent/"
-          ],
-          "dependencies": [
-            "GOV-050"
-          ],
-          "acceptance": [
-            "Tools folgen einem klaren Contract-Modell.",
-            "Erweiterungen sind besser validierbar.",
-            "Integrationen werden weniger fragil."
-          ],
-          "implementation_notes": [
-            "agent/tool_contracts.py definiert einen versionierten v1 Tool-Contract-Katalog mit Pflichtfeldern, Security-Regeln, Audit- und Output-Contract.",
-            "docs/tool-contracts.md dokumentiert Contract-Felder, Fail-Closed-Regeln und Erweiterungsanforderungen.",
-            "tests/test_tool_capabilities_contract.py prueft, dass Tools die stabilen Contract-Felder liefern."
-          ]
-        },
-        {
-          "id": "ARC-061",
-          "title": "Worker-Capability-Profile formal definieren und dokumentieren",
-          "description": "Worker-Faehigkeiten als explizite Profile mit erlaubten Scopes, Toolklassen, Rollen und Grenzen modellieren, statt sie nur aus verstreuten Konfigurationen abzuleiten.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Explicit-Worker-Boundaries, Scalable-Governed-Delegation",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/",
-            "docs/"
-          ],
-          "dependencies": [
-            "GOV-050",
-            "PRF-080"
-          ],
-          "acceptance": [
-            "Worker-Profile sind formal beschrieben.",
-            "Capabilities und Grenzen sind besser vergleichbar.",
-            "Skalierung und Austauschbarkeit werden realistischer."
-          ],
-          "implementation_notes": [
-            "WorkerCapabilityService liefert versionierte Worker-Capability-Profile fuer planner, coder, reviewer und operator.",
-            "docs/worker-capability-profiles.md dokumentiert Scopes, Toolklassen, Grenzen und Hub-Owned-Task-Queue-Boundary.",
-            "tests/test_worker_capability_profiles.py prueft Profile und Worker-Regel execute_delegated_work_only."
-          ]
-        },
-        {
-          "id": "ARC-062",
-          "title": "Remote und local backend/provider Contracts vereinheitlichen",
-          "description": "Die Schnittstellen fuer lokale und entfernte Backends weiter harmonisieren, damit Austauschbarkeit und Routinglogik weniger Spezialfaelle enthalten.",
-          "priority": "medium",
-          "type": "architecture",
-          "principle": "Backend-Interchangeability, Lower-Integration-Friction",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/",
-            "docs/"
-          ],
-          "dependencies": [
-            "ARC-060",
-            "ARC-061"
-          ],
-          "acceptance": [
-            "Lokale und entfernte Provider wirken konsistenter.",
-            "Routing und Governance haben weniger Sonderfaelle.",
-            "Integrationen werden austauschbarer."
-          ],
-          "implementation_notes": [
-            "agent/backend_provider_contracts.py definiert einen gemeinsamen v1 Contract-Katalog fuer lokale, gehostete, CLI- und Remote-Ananta-Provider.",
-            "docs/backend-provider-contracts.md dokumentiert Pflichtfelder fuer provider_type, location, transport, capabilities, routing, governance und health.",
-            "tests/test_backend_provider_contracts.py prueft, dass lokale, remote, hosted und CLI-Provider dieselbe Contract-Form verwenden."
-          ]
-        },
-        {
-          "id": "ARC-063",
-          "title": "Integrationsrichtlinien fuer Dritttools und Worker-Adapter schreiben",
-          "description": "Fuer spaetere externe Integrationen klare Richtlinien definieren: welche Sicherheits-, Audit-, Contract- und Testing-Anforderungen ein Adapter oder Tool erfuellen muss.",
-          "priority": "medium",
-          "type": "architecture",
-          "principle": "Governed-Extensibility, No-Random-Plugin-Surface",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/"
-          ],
-          "dependencies": [
-            "ARC-060",
-            "ARC-061"
-          ],
-          "acceptance": [
-            "Drittintegrationen haben definierte Mindestanforderungen.",
-            "Erweiterbarkeit unterlaeuft nicht die Sicherheitsidee.",
-            "Externe Mitwirkende bekommen klare Leitplanken."
-          ],
-          "implementation_notes": [
-            "agent/integration_guidelines.py definiert v1 Mindestanforderungen fuer contract_first, least_privilege, auditability, fail_closed, hub_boundary und test_evidence.",
-            "docs/third-party-integration-guidelines.md dokumentiert Adapter-Checklist und Review-Regel.",
-            "tests/test_integration_guidelines.py prueft die Mindestanforderungen inklusive Hub-Boundary gegen Worker-to-Worker-Orchestrierung."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "benchmarking-and-competitive-evaluation",
-      "label": "Benchmarking und Vergleichsbewertung",
-      "items": [
-        {
-          "id": "BMK-070",
-          "title": "Kleine feste Benchmark-Suite aus realistischen Aufgaben definieren",
-          "description": "Eine kleine, aber ernstzunehmende Suite aus realistischen Aufgaben definieren, mit der Ananta gegen sich selbst und spaeter gegen Vergleichsprojekte bewertet werden kann.",
-          "priority": "high",
-          "type": "benchmark",
-          "principle": "Comparable-Progress, Reality-Based-Evaluation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/",
-            "tests/",
-            "agent/"
-          ],
-          "dependencies": [
-            "PRD-001"
-          ],
-          "acceptance": [
-            "Es gibt eine feste Benchmark-Aufgabenliste.",
-            "Die Aufgaben repräsentieren echte Ananta-Staerken.",
-            "Fortschritt kann spaeter vergleichbar gemessen werden."
-          ],
-          "implementation_notes": [
-            "agent/product_benchmark_suite.py definiert eine feste v1 Suite mit fuenf Kernaufgaben.",
-            "docs/product-benchmark-suite.md dokumentiert Aufgabenliste, erwartete Staerken und Vergleichsregel.",
-            "tests/test_product_benchmark_suite.py prueft die feste Aufgabenmenge."
-          ]
-        },
-        {
-          "id": "BMK-071",
-          "title": "Bewertungskriterien fuer Benchmarking formal definieren",
-          "description": "Nicht nur Erfolg oder Fehler messen, sondern Zeit, Nachvollziehbarkeit, Blockierungsqualitaet, Review-Bedarf, Sicherheit und Ergebniswert formal bewerten.",
-          "priority": "high",
-          "type": "benchmark",
-          "principle": "Multi-Dimensional-Evaluation, Fairer-Comparison",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/"
-          ],
-          "dependencies": [
-            "BMK-070",
-            "GOV-050"
-          ],
-          "acceptance": [
-            "Benchmarking bewertet mehr als nur ob etwas lief.",
-            "Governance- und Sicherheitsstaerken werden mitgemessen.",
-            "Vergleiche werden aussagekraeftiger."
-          ],
-          "implementation_notes": [
-            "agent/product_benchmark_suite.py definiert gewichtete Kriterien fuer Erfolg, Zeit, Traceability, Governance, Blockqualitaet, Ergebniswert und Reproduzierbarkeit.",
-            "docs/product-benchmark-suite.md dokumentiert die 100-Punkte-Bewertung.",
-            "Governance Quality und Block Quality sind eigene Kriterien statt nachrangige technische Details."
-          ]
-        },
-        {
-          "id": "BMK-072",
-          "title": "Ananta gegen OpenHands, OpenDevin und OpenClaw-artige Flows in ausgewählten Aufgaben vergleichen",
-          "description": "Fuer einige repräsentative Aufgaben dokumentiert vergleichen, wie Ananta gegen relevante Vergleichssysteme oder deren typische Arbeitslogik abschneidet.",
-          "priority": "medium",
-          "type": "benchmark",
-          "principle": "Contextual-Competitive-Understanding, Sharper-Positioning",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "docs/"
-          ],
-          "dependencies": [
-            "BMK-070",
-            "BMK-071"
-          ],
-          "acceptance": [
-            "Es gibt dokumentierte Vergleichsfaelle gegen relevante Projektklassen.",
-            "Anantas Staerken und Schwächen werden belastbarer greifbar.",
-            "Positionierung kann spaeter auf Fakten statt Gefuehl beruhen."
-          ],
-          "implementation_notes": [
-            "agent/product_benchmark_suite.py definiert Vergleichsziele fuer openhands-like, opendevin-like und openclaw-like Flows.",
-            "docs/product-benchmark-suite.md dokumentiert Vergleichsfokus und erwarteten Ananta-Kontrast.",
-            "tests/test_product_benchmark_suite.py prueft die Vergleichsziele."
-          ]
-        },
-        {
-          "id": "BMK-073",
-          "title": "Benchmark-Ergebnisse fuer Produktkommunikation und Release-Retros nutzen",
-          "description": "Die Benchmarkdaten nicht nur intern sammeln, sondern auch fuer Release-Retrospektiven und spaetere oeffentliche Positionierung verwertbar strukturieren.",
-          "priority": "medium",
-          "type": "benchmark",
-          "principle": "Reusable-Evidence, Better-Product-Narrative",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/",
-            "CHANGELOG.md"
-          ],
-          "dependencies": [
-            "BMK-070",
-            "BMK-071",
-            "BMK-072"
-          ],
-          "acceptance": [
-            "Benchmark-Ergebnisse koennen intern und extern sinnvoll genutzt werden.",
-            "Releases lassen sich sachlicher bewerten.",
-            "Produktkommunikation wird glaubwuerdiger."
-          ],
-          "implementation_notes": [
-            "agent/product_benchmark_suite.py definiert release_narrative_fields fuer Headline, Best Signal, Governance Signal, Regression Watch und Evidence Links.",
-            "docs/product-benchmark-suite.md enthaelt ein Release-Retro-Template fuer Benchmark Evidence.",
-            "README.md verlinkt die Produkt-Benchmark-Suite fuer Produkt- und Release-Bewertung."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "product-profiles-and-operating-modes",
-      "label": "Produktprofile und Betriebsmodi",
-      "items": [
-        {
-          "id": "PRF-080",
-          "title": "Klare Produktprofile wie demo, developer local, team controlled und secure enterprise definieren",
-          "description": "Ananta in einige klare Betriebs- oder Produktprofile schneiden, damit nicht alles fuer alle gleichzeitig optimiert werden muss.",
-          "priority": "high",
-          "type": "product",
-          "principle": "Segmented-Product-Clarity, Better-Fit-by-Context",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/",
-            "README.md",
-            "frontend-angular/",
-            "agent/"
-          ],
-          "dependencies": [
-            "PRD-001",
-            "GOV-050"
-          ],
-          "acceptance": [
-            "Es gibt klar benannte Produkt- oder Betriebsprofile.",
-            "Profile unterscheiden sich nachvollziehbar.",
-            "Ananta wirkt weniger wie ein einziger ueberladener Modus.",
-            "Jedes Profil benennt Zielgruppe, Default-Einstieg, Governance-Modus, empfohlene Laufzeit und Nicht-Ziele."
-          ],
-          "implementation_notes": [
-            "Docs: docs/product-profiles.md.",
-            "Backend: runtime_profile um demo/developer-local/team-controlled/secure-enterprise erweitert (additiv, kompatibel).",
-            "UI Auswahl umgesetzt (Settings -> System -> Profile & Governance)."
-          ]
-        },
-        {
-          "id": "PRF-081",
-          "title": "Profile auf konkrete Defaults, Konfigurationen und Einstiegspfade abbilden",
-          "description": "Die definierten Produktprofile nicht nur benennen, sondern mit sinnvollen Default-Einstellungen, Demo-Pfaden, Governance-Modi und Dokumentationswegen unterlegen.",
-          "priority": "high",
-          "type": "product",
-          "principle": "Actionable-Profiles, Config-Backed-Product-Modes",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/",
-            "frontend-angular/",
-            "docs/"
-          ],
-          "dependencies": [
-            "PRF-080",
-            "GOV-050",
-            "ARC-061"
-          ],
-          "acceptance": [
-            "Produktprofile haben echte technische und UX-seitige Wirkung.",
-            "Defaults passen zum jeweiligen Zielprofil.",
-            "Profile sind mehr als nur Marketingnamen."
-          ],
-          "implementation_notes": [
-            "Runtime-Profile enthalten default_governance_mode, usage_context und entry_paths als konkrete Default-Signale.",
-            "docs/product-profiles.md beschreibt Defaults und Einstiegspfade je Profil.",
-            "GET /config und Dashboard Read Model machen die effektiven Profil-Defaults sichtbar."
-          ]
-        },
-        {
-          "id": "PRF-082",
-          "title": "README, Schnellstart und Release-Kommunikation an Produktprofile anpassen",
-          "description": "Die oeffentliche Kommunikation so ordnen, dass unterschiedliche Nutzer sofort erkennen, welcher Modus oder welches Profil fuer sie gedacht ist.",
-          "priority": "medium",
-          "type": "presentation",
-          "principle": "Audience-Fit-Communication, Less-Misleading-Entry",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "README.md",
-            "docs/",
-            "CHANGELOG.md"
-          ],
-          "dependencies": [
-            "PRF-080",
-            "PRF-081"
-          ],
-          "acceptance": [
-            "Kommunikation passt besser zu unterschiedlichen Nutzergruppen.",
-            "Neue Nutzer finden schneller den fuer sie passenden Pfad.",
-            "Das Projekt wirkt zielgerichteter."
-          ],
-          "implementation_notes": [
-            "README.md verlinkt Produktprofile bereits im Einstieg und ordnet Startvarianten konkreten Profilen zu.",
-            "README.md nennt effective_policy_profile, Tool-Contracts, Worker-Capability-Profile und die Produkt-Benchmark-Suite.",
-            "docs/product-profiles.md bleibt die Detailquelle fuer Profile, Defaults und Einstiegspfade."
+            "project_evolution setzt review_required, Risiko-/Regression-Review und Test-/Diff-Artefaktsicht.",
+            "Hohes Risiko hebt den Policy-Level auf strict_review.",
+            "Schreib- und Runtime-Pfade bleiben bestaetigungspflichtig."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 36,
+    "total_items": 24,
     "by_status": {
-      "completed": 36,
+      "completed": 24,
       "partial": 0,
       "open": 0
     },
-    "archive": {
-      "status": "completed",
-      "archived_on": "2026-04-21",
-      "archived_in": "docs/todo-feature-ui-ux-archive.md",
-      "completion_summary": "Alle 36 UI/UX-, Produktreife-, Governance-, Contract- und Benchmark-Items sind abgeschlossen; es gibt keine partial oder open Items mehr."
-    },
     "notes": [
-      "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
-      "Der Fokus liegt auf dem Ausbau von Ananta als klar verstehbare kontrollierte Agentenplattform mit besserem Einstieg, staerkerer Explainability, sichtbarer Governance und besserer Positionierung.",
-      "Ein Teil der Punkte wird UI-, CLI-, Doku- und Config-seitige Aenderungen kombinieren muessen; reine Einzelmassnahmen werden den groessten Effekt nicht erreichen."
+      "Konvertiert aus dem neuen use_cases-Format in das bestehende categories/items/meta-Format.",
+      "UC6 und UC7 sind als Kategorien modelliert; die Use-Case-Zuordnung bleibt zusaetzlich in tags und context erhalten.",
+      "Die empfohlene Umsetzung fuehrt erst Produktbasis, Presets, Schema und Governance ein, bevor tiefere Automatisierung angeschlossen wird."
     ],
     "recommended_order": [
-      "PRD-001",
-      "PRD-010",
-      "PRD-020",
-      "PRD-021",
-      "PRD-011",
-      "UX-040",
-      "GOV-050",
-      "PRF-080",
-      "PRD-002",
-      "PRD-003",
-      "PRD-012",
-      "UX-042",
-      "PRD-023",
-      "PRD-013",
-      "PRD-014",
-      "OPS-030",
-      "OPS-031",
-      "UX-041",
-      "UX-043",
-      "GOV-051",
-      "GOV-052",
-      "GOV-053",
-      "ARC-060",
-      "ARC-061",
-      "PRF-081",
-      "PRF-082",
-      "OPS-032",
-      "OPS-033",
-      "PRD-004",
-      "ARC-062",
-      "ARC-063",
-      "BMK-070",
-      "BMK-071",
-      "BMK-072",
-      "BMK-073",
-      "PRD-022"
-    ],
-    "foundation_slice": {
-      "name": "product-foundation-slice",
-      "goal": "Zuerst die gemeinsame Produktbasis klaeren, bevor UI, CLI, Demos, Observability und Benchmarks breiter umgesetzt werden.",
-      "items": [
-        "PRD-001",
-        "PRD-010",
-        "PRD-020",
-        "PRD-011",
-        "UX-040",
-        "GOV-050",
-        "PRF-080"
-      ],
-      "done_when": [
-        "Drei bis fuenf Kern-Use-Cases sind benannt und als Grundlage fuer Demo, Doku, Benchmark und Profile verwendbar.",
-        "Ein einziger offizieller Schnellstart und ein offizieller UI-Golden-Path sind festgelegt.",
-        "Der First-Run-Zielwert unter einer Minute ist als pruefbarer Messpfad beschrieben.",
-        "Governance-Modi und Produktprofile sind so definiert, dass spaetere UI-, CLI- und Config-Arbeiten nicht widerspruechlich laufen.",
-        "Explainability-Grundmuster fuer Blockierung, Review und Sicherheitsgrenzen sind definiert."
-      ],
-      "architecture_guardrails": [
-        "Der Hub bleibt zentrale Kontroll- und Orchestrierungsebene.",
-        "Worker-Profile und Tool-Contracts duerfen Faehigkeiten beschreiben, aber keine Worker-zu-Worker-Orchestrierung einfuehren.",
-        "Produktprofile duerfen Defaults und Einstiegspfade setzen, aber keine implizite gemeinsame Runtime oder globalen Zustand voraussetzen.",
-        "Governance-Modi muessen als explizite Policy-/Profilentscheidung modellierbar bleiben, nicht als verstreute Spezialfaelle."
-      ],
-      "solid_guardrails": [
-        "SRP: Use-Cases, Governance-Modi, Produktprofile, Observability und Benchmarks bleiben getrennte Verantwortungsbereiche.",
-        "OCP: Neue Profile oder Modi sollen ergaenzbar sein, ohne zentrale Flows wiederholt umzuschreiben.",
-        "ISP: Capability- und Tool-Contracts bleiben klein und auf konkrete Verbraucher zugeschnitten.",
-        "DIP: UI, CLI und API sollen gegen explizite Profile und Policies arbeiten, nicht gegen konkrete interne Implementierungsdetails."
-      ]
-    },
-    "milestones": [
-      {
-        "id": "M1",
-        "name": "Produktfundament, Governance und Einstieg",
-        "intent": "Klaert, wofuer Ananta zuerst steht und wie neue Nutzer zum ersten sichtbaren Ergebnis kommen.",
-        "depends_on": [],
-        "decision_focus": [
-          "Welche Kern-Use-Cases repraesentieren Ananta offiziell?",
-          "Welcher Schnellstart und welcher UI-Golden-Path sind der Default?",
-          "Welche Governance-Modi und Produktprofile bilden die erste Produktlogik?"
-        ],
-        "items": [
-          "PRD-001",
-          "PRD-010",
-          "PRD-020",
-          "PRD-011",
-          "UX-040",
-          "GOV-050",
-          "PRF-080"
-        ],
-        "exit_criteria": [
-          "Kern-Use-Cases, Schnellstart, UI-Golden-Path, First-Run-Messpfad, Governance-Modi und Produktprofile widersprechen sich nicht.",
-          "Die Foundation-Entscheidungen sind konkret genug, um UI-, CLI-, Demo- und Doku-Arbeiten daran auszurichten."
-        ]
-      },
-      {
-        "id": "M2",
-        "name": "Gefuehrte Demo-, UI- und CLI-Einstiege",
-        "intent": "Macht die Produktbasis fuer Erstnutzer, Reviewer und Demos praktisch nachvollziehbar.",
-        "depends_on": [
-          "M1"
-        ],
-        "decision_focus": [
-          "Wie wird jeder Kern-Use-Case reproduzierbar gezeigt?",
-          "Welche Einstiegshilfen braucht UI und CLI wirklich?",
-          "Welche Fehl- und Blockierungszustaende brauchen konkrete naechste Schritte?"
-        ],
-        "items": [
-          "PRD-002",
-          "PRD-003",
-          "PRD-012",
-          "UX-042",
-          "PRD-013",
-          "PRD-014",
-          "PRD-021",
-          "PRD-023"
-        ],
-        "exit_criteria": [
-          "UI-, CLI- und Demo-Einstiege fuehren auf dieselben Kern-Use-Cases zurueck.",
-          "Fehler, Blockierungen, Review-Zustaende und Erfolge haben klare naechste Schritte."
-        ]
-      },
-      {
-        "id": "M3",
-        "name": "Operative Sichtbarkeit und Governance-Produktisierung",
-        "intent": "Macht reale Nutzung, Friktion und effektive Kontrollregeln sichtbar und steuerbar.",
-        "depends_on": [
-          "M1",
-          "M2"
-        ],
-        "decision_focus": [
-          "Welche Produkt-Events bilden die Kernflows ab?",
-          "Welche Friktionssignale sollen UI, CLI und API getrennt sichtbar machen?",
-          "Wie wird Governance als waehlbare, erklaerbare Produktfunktion dargestellt?"
-        ],
-        "items": [
-          "OPS-030",
-          "OPS-031",
-          "UX-041",
-          "UX-043",
-          "GOV-051",
-          "GOV-052",
-          "GOV-053",
-          "OPS-032",
-          "OPS-033"
-        ],
-        "exit_criteria": [
-          "Produktnahe Ereignisse trennen technische Logs von Nutzungs- und Friktionssignalen.",
-          "Governance ist in UI, CLI und Profilen als verstaendliche Produktfunktion sichtbar."
-        ]
-      },
-      {
-        "id": "M4",
-        "name": "Contracts, Profil-Defaults und kontrollierte Erweiterbarkeit",
-        "intent": "Stabilisiert die Erweiterungspunkte, ohne die Hub-Worker-Verantwortlichkeiten aufzuweichen.",
-        "depends_on": [
-          "M1",
-          "M3"
-        ],
-        "decision_focus": [
-          "Welche Tool-, Worker- und Provider-Contracts muessen stabil werden?",
-          "Welche Defaults machen Produktprofile technisch nutzbar?",
-          "Welche Integrationsregeln verhindern implizite Kopplung und unkontrollierte Ausfuehrungspfade?"
-        ],
-        "items": [
-          "ARC-060",
-          "ARC-061",
-          "PRF-081",
-          "PRF-082",
-          "PRD-004",
-          "ARC-062",
-          "ARC-063"
-        ],
-        "exit_criteria": [
-          "Tool-, Worker- und Provider-Contracts sind dokumentiert und an Governance-/Profilentscheidungen anschliessbar.",
-          "Produktprofile haben konkrete Defaults, ohne hart an einzelne Implementierungen gekoppelt zu sein."
-        ]
-      },
-      {
-        "id": "M5",
-        "name": "Benchmarking und Release-Nachweis",
-        "intent": "Macht Fortschritt und Positionierung ueber reproduzierbare Aufgaben bewertbar.",
-        "depends_on": [
-          "M1",
-          "M4"
-        ],
-        "decision_focus": [
-          "Welche realistischen Aufgaben beweisen Anantas Staerken?",
-          "Welche Kriterien bewerten neben Erfolg auch Sicherheit, Review-Qualitaet und Nachvollziehbarkeit?",
-          "Wie fliessen Benchmark- und Governance-Signale in Release-Freigaben ein?"
-        ],
-        "items": [
-          "BMK-070",
-          "BMK-071",
-          "BMK-072",
-          "BMK-073",
-          "PRD-022"
-        ],
-        "exit_criteria": [
-          "Benchmark-Aufgaben und Bewertungskriterien sind stabil genug fuer Release-Retrospektiven.",
-          "Release- und Freigabepfade nutzen die Benchmark- und Governance-Signale nachvollziehbar."
-        ]
-      }
-    ],
-    "dependency_model": {
-      "meaning": "dependencies benennt fachliche oder planerische Vorbedingungen innerhalb dieser Todo-Datei, nicht zwingend technische Build-Abhaengigkeiten.",
-      "rules": [
-        "Foundation-Items duerfen wenige oder keine dependencies haben, muessen aber in M1 gemeinsam abgestimmt werden.",
-        "Ein Item soll nur dependencies nennen, die fuer sinnvolle Umsetzung oder konsistente Produktentscheidungen wirklich benoetigt werden.",
-        "Dependencies duerfen nicht genutzt werden, um Worker-zu-Worker-Orchestrierung oder implizite gemeinsame Runtime-Annahmen einzufuehren.",
-        "Wenn eine dependency erledigt ist, muss das abhaengige Item trotzdem separat gegen seine Acceptance-Kriterien geprueft werden."
-      ]
-    },
-    "review_checks": [
-      "Zaehlt die Datei weiterhin exakt so viele Items, wie meta.total_items angibt?",
-      "Sind alle offenen Items in recommended_order und genau einem Milestone enthalten?",
-      "Verweisen alle dependencies auf existierende Todo-IDs und erzeugen keine Zyklen?",
-      "Sind Milestone-depends_on-Werte azyklisch und nachvollziehbar?",
-      "Hat jedes Foundation-Item mindestens ein pruefbares Acceptance-Kriterium statt nur Wirkungssprache?",
-      "Bleiben Hub-Orchestrierung, Worker-Ausfuehrung und Container-Grenzen explizit gewahrt?",
-      "Entstehen durch neue Profile, Modi oder Contracts keine SRP-, OCP-, ISP- oder DIP-Konflikte?"
+      "UC6-T01",
+      "UC7-T01",
+      "UC6-T03",
+      "UC7-T04",
+      "UC6-T04",
+      "UC6-T08",
+      "UC7-T12",
+      "UC6-T02",
+      "UC7-T02",
+      "UC7-T03",
+      "UC6-T05",
+      "UC6-T06",
+      "UC7-T06",
+      "UC7-T05",
+      "UC6-T07",
+      "UC7-T07",
+      "UC6-T09",
+      "UC7-T09",
+      "UC6-T10",
+      "UC7-T08",
+      "UC6-T11",
+      "UC7-T10",
+      "UC6-T12",
+      "UC7-T11"
     ]
   }
 }
