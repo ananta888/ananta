@@ -2,6 +2,8 @@
 
 This document defines the v1.0.0 release process for Ananta.
 
+The official phase-by-phase release and operations approval path is documented in `docs/release-golden-path.md`.
+
 ## Release Gate
 
 Every release candidate must pass the release gate from a clean checkout:

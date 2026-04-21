@@ -15,6 +15,7 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
 | Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |
 | Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |
+| Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |
 | Architektur verstehen | technische Reviewer | [Architektur](#architektur) |
 | Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |
 | API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |
