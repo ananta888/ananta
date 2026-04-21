@@ -57,6 +57,11 @@ Details: `docs/use-cases.md`.
    - Im Arbeitsbereich `Planen` waehlen und ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
    - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
 
+Erfolgssignal fuer den Schnellstart:
+- Das Dashboard meldet, dass Aufgaben erstellt wurden.
+- Das Goal ist verlinkt oder im Board sichtbar.
+- Der naechste Schritt ist `Ziel pruefen`, `Aufgaben verfolgen` oder `Ergebnisse ansehen`.
+
 Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und die Logs des Hub- und Frontend-Containers.
 
 Offizieller UI-Standardweg: `docs/golden-path-ui.md`.
@@ -70,6 +75,7 @@ Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 ## Release und Governance
 
 - Release-Prozess: `docs/release-process.md`
+- Release-Golden-Path und Evidence Register: `docs/release-golden-path.md`, `docs/release-evidence-register.md`
 - Release-Checklist: `docs/release-checklist.md`
 - Changelog-Strategie: `CHANGELOG.md`
 - Secrets-Inventar fuer GitHub Actions: `docs/github-secrets-inventory.md`

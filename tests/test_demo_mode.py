@@ -11,6 +11,8 @@ def test_demo_mode_preview_is_read_only_and_use_case_oriented():
         "repo-analysis",
         "bugfix-plan",
         "compose-diagnosis",
+        "change-review",
+        "guided-first-run",
     }
     assert all(example["goal"] and example["tasks"] for example in preview["examples"])
     assert all(example["starter_context"] for example in preview["examples"])

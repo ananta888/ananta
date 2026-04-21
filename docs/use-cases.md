@@ -18,7 +18,11 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Einstieg:** Web UI Dashboard -> "Planen" (Quick Goal) oder Preset "Repository verstehen".
 
+**Guter Input:** `Analysiere dieses Repository und schlage die wichtigsten naechsten Schritte vor.`
+
 **Erwartetes Ergebnis:** ein kurzer, nachvollziehbarer Bericht mit Hotspots, Risiken und naechsten Schritten.
+
+**Naechster Schritt:** Goal-Detail oeffnen, Hotspots pruefen, danach konkrete Tasks starten.
 
 **Scope:** Lesen/Analysieren, keine automatischen Codeaenderungen ohne explizite Freigabe.
 
@@ -28,7 +32,11 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Einstieg:** Web UI Dashboard -> "Planen" (Goal: Bug beschreiben) oder Preset "Bugfix planen".
 
+**Guter Input:** `Login bricht bei leerem Passwort ab; reproduziere den Fehler und plane einen kleinen Fix.`
+
 **Erwartetes Ergebnis:** Reproduktionspfad, Ursache, Fix-Vorschlag, Regressionstest-Plan.
+
+**Naechster Schritt:** Reproduktion bestaetigen, Regressionstest priorisieren, dann kleine Korrektur planen.
 
 **Scope:** kleine, testbare Aenderung; keine grossen Refactors.
 
@@ -38,7 +46,11 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Einstieg:** Dashboard -> "Diagnostizieren" (Shortcut) oder Goal mit konkreter Fehlermeldung.
 
+**Guter Input:** `Frontend erreicht den Hub nicht; pruefe Compose, Ports und Health-Checks.`
+
 **Erwartetes Ergebnis:** klare Diagnosekette (was pruefen, wo schauen, naechster Befehl) und ein stabiler Startpfad.
+
+**Naechster Schritt:** vorgeschlagene Diagnosebefehle ausfuehren und blockierte Checks sichtbar halten.
 
 **Scope:** Operative Klarheit und Reproduzierbarkeit, kein "Trial-and-Error" ohne Audit-Spur.
 
@@ -48,7 +60,11 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Einstieg:** Dashboard -> "Reviewen" (Shortcut) oder Goal mit PR/Commit/Dateiliste.
 
+**Guter Input:** `Pruefe diese Aenderung auf Risiken, fehlende Tests und moegliche Regressionen.`
+
 **Erwartetes Ergebnis:** Risikoanalyse, benoetigte Tests, ggf. Governance- oder Policy-Checks als nachvollziehbare Punkte.
+
+**Naechster Schritt:** Findings nach Schweregrad abarbeiten und fehlende Tests nachziehen.
 
 **Scope:** bewertend und verifizierend, nicht automatisch mergeend.
 
@@ -58,6 +74,10 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Einstieg:** Dashboard -> Guided Goal Wizard.
 
+**Guter Input:** Ziel, Kontext, gewuenschte Ausfuehrungstiefe und Sicherheitsniveau im Wizard ausfuellen.
+
 **Erwartetes Ergebnis:** ein sinnvoll parametrisiertes Goal (inkl. Safety/Review Einstellungen), das zu einem sichtbaren Zwischen- oder Endergebnis fuehrt.
+
+**Naechster Schritt:** erzeugtes Goal pruefen, danach Aufgaben oder Artefakte oeffnen.
 
 **Scope:** "One obvious way in" fuer den First Run.

@@ -25,7 +25,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Focused-Value, Clear-Use-Case-Identity",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "README.md",
@@ -39,7 +39,8 @@
             "Die Use-Cases sind als referenzierbare Produktbasis fuer Schnellstart, Golden Paths, Demo-Flows, Benchmarks und Produktprofile nutzbar."
           ],
           "implementation_notes": [
-            "docs/use-cases.md angelegt und im README verlinkt."
+            "docs/use-cases.md angelegt und im README verlinkt.",
+            "Alle fuenf offiziellen Use-Cases benennen Nutzen, Einstieg, Scope, guten Input, erwartetes Ergebnis und naechsten Schritt."
           ]
         },
         {
@@ -49,7 +50,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Demonstrable-Value, Reproducible-Showcase",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "README.md",
@@ -66,8 +67,7 @@
             "Demopfad und Realpfad sind klarer voneinander getrennt."
           ],
           "implementation_notes": [
-            "docs/demo-flows.md angelegt (Basis fuer reproduzierbare Flows) und in docs/use-cases.md verlinkt.",
-            "Vollabdeckung pro Use-Case (UI+CLI+API) bleibt als naechster Ausbau."
+            "docs/demo-flows.md deckt alle fuenf offiziellen Use-Cases mit Demo-Pfad, UI-Realpfad, CLI-Einstieg, API-Einstieg, Erfolgssignal und erwartetem Ergebnis ab."
           ]
         },
         {
@@ -77,7 +77,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Coherent-Showcase, Product-Story-Consistency",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -94,7 +94,9 @@
             "Die Demo erklaert den Mehrwert von Ananta besser."
           ],
           "implementation_notes": [
-            "Dashboard-Presets erweitert/ausgerichtet (Change-Review Preset) in frontend-angular/src/app/components/dashboard.component.ts."
+            "Dashboard-Presets erweitert/ausgerichtet in frontend-angular/src/app/components/dashboard.component.ts.",
+            "Backend-Demo-Preview in agent/services/demo_mode_service.py deckt alle fuenf offiziellen Kern-Use-Cases ab.",
+            "Demo-Flows und Presets nutzen dieselben Produktpfade statt loser Einzelideen."
           ]
         },
         {
@@ -104,7 +106,7 @@
           "priority": "medium",
           "type": "product",
           "principle": "Expectation-Setting, Better-User-Success",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -122,7 +124,8 @@
           ],
           "implementation_notes": [
             "Quick-Goal-Einstieg zeigt pro Preset passenden Input, erwartetes Ergebnis und sinnvolle Folgeaktion in frontend-angular/src/app/components/dashboard-quick-goal-panel.component.ts.",
-            "Dashboard leitet Erwartungsmodelle aus offiziellen Goal-Presets ab."
+            "Dashboard leitet Erwartungsmodelle aus offiziellen Goal-Presets ab.",
+            "docs/use-cases.md dokumentiert pro Kern-Use-Case guten Input, erwartetes Ergebnis und naechsten Schritt."
           ]
         }
       ]
@@ -138,7 +141,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "One-Obvious-Way-In, Reduced-Choice-Overload",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -151,7 +154,8 @@
             "Der Schnellstart benennt genau einen Default-Stack, einen ersten UI-Weg und ein klares Erfolgssignal."
           ],
           "implementation_notes": [
-            "README Einstieg konsolidiert: Schnellstart (Lite-Stack) als dominanter Default; UI-Golden-Path verlinkt."
+            "README Einstieg konsolidiert: Schnellstart (Lite-Stack) als dominanter Default; UI-Golden-Path verlinkt.",
+            "Schnellstart benennt Default-Stack, ersten UI-Weg und konkrete Erfolgssignale."
           ]
         },
         {
@@ -161,7 +165,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Fast-First-Value, Lower-Entry-Friction",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -179,7 +183,8 @@
             "Der Zielwert unter einer Minute ist mit einem konkret beschriebenen Messpfad pruefbar."
           ],
           "implementation_notes": [
-            "Messpfad dokumentiert in docs/golden-path-ui.md (manuell pruefbar)."
+            "Messpfad dokumentiert in docs/golden-path-ui.md (manuell pruefbar).",
+            "README und UI-Golden-Path fuehren direkt vom Lite-Stack zum ersten sichtbaren Goal-/Task-Ergebnis."
           ]
         },
         {
@@ -189,7 +194,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Guided-First-Run, Gentle-Orientation",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -205,8 +210,8 @@
             "Sicherheits- und Governance-Charakter werden frueh klar."
           ],
           "implementation_notes": [
-            "First-Start-Bereich im Dashboard zeigt nun Drei-Schritt-Orientierung und erklaert den kontrollierten Hub-Start mit sichtbarer Governance.",
-            "Ausbau zu persistenter, mehrseitiger Onboarding-Fuehrung bleibt offen."
+            "First-Start-Bereich im Dashboard zeigt Drei-Schritt-Orientierung und erklaert den kontrollierten Hub-Start mit sichtbarer Governance.",
+            "Quick-Goal und Assistent bleiben direkt aus dem ersten Dashboard-Zustand erreichbar."
           ]
         },
         {
@@ -216,7 +221,7 @@
           "priority": "medium",
           "type": "product",
           "principle": "Low-Friction-CLI-Onboarding, Immediate-Confidence",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/cli_goals.py",
@@ -235,7 +240,8 @@
           "implementation_notes": [
             "CLI hat nun `python -m agent.cli_goals --first-run` fuer offiziellen Ersteinstieg, Erfolgssignale und Fehlerhilfe.",
             "Goal-Erfolg nennt Goal-ID, Status, Task-Anzahl und das naechste Detailkommando.",
-            "docs/golden-path-cli.md und README listen den offiziellen Erstpfad."
+            "docs/golden-path-cli.md und README listen den offiziellen Erstpfad.",
+            "Manueller CLI-Check bestaetigt `--first-run`; `--status` und `plan` zeigen bei fehlendem Hub klare Fehlerhilfe."
           ]
         },
         {
@@ -245,7 +251,7 @@
           "priority": "high",
           "type": "ux",
           "principle": "Recoverable-First-Run, Humane-Failure-Messaging",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -265,7 +271,8 @@
           "implementation_notes": [
             "Quick-Goal-Fehler werden in konkrete Nutzertexte fuer Sitzung, Hub-Erreichbarkeit und Governance-Blockierungen uebersetzt.",
             "Next-Steps bleiben auch bei Fehlern sichtbar.",
-            "API-Fehlerantworten enthalten zentral `data.error_help` mit Summary und naechsten Schritten fuer Auth, Not Found, Validierung/Governance und Serverfehler."
+            "API-Fehlerantworten enthalten zentral `data.error_help` mit Summary und naechsten Schritten fuer Auth, Not Found, Validierung/Governance und Serverfehler.",
+            "tests/test_error_contracts.py verifiziert die Fehlerhilfe im API-Contract."
           ]
         }
       ]
@@ -281,7 +288,7 @@
           "priority": "critical",
           "type": "product",
           "principle": "Official-UI-Path, Reduced-Ambiguity",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "README.md",
@@ -295,7 +302,8 @@
             "Der UI-Golden-Path beschreibt Startpunkt, primaere Aktion, erwarteten Zwischenzustand und sichtbares Ergebnis."
           ],
           "implementation_notes": [
-            "Dokumentiert in docs/golden-path-ui.md und im README verlinkt."
+            "Dokumentiert in docs/golden-path-ui.md und im README verlinkt.",
+            "UI-Golden-Path benennt Startpunkt, primaere Aktion, Zwischenzustand, sichtbares Ergebnis und priorisierte Hauptaktionen."
           ]
         },
         {
@@ -305,7 +313,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Official-CLI-Path, Better-Command-Discipline",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/cli_goals.py",
@@ -323,7 +331,8 @@
           ],
           "implementation_notes": [
             "docs/golden-path-cli.md angelegt und im README verlinkt.",
-            "agent/cli_goals.py Examples ergaenzt (Golden Path + config show/set)."
+            "agent/cli_goals.py Examples ergaenzt (Golden Path + config show/set).",
+            "CLI-Golden-Path grenzt Status, Task-Liste und Diagnose als Nebenpfade ab."
           ]
         },
         {
@@ -333,7 +342,7 @@
           "priority": "high",
           "type": "operations",
           "principle": "Official-Release-Flow, No-Improvised-Ship-Path",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "docs/",
@@ -352,7 +361,8 @@
           "implementation_notes": [
             "docs/release-golden-path.md definiert Phasen fuer RC, finale Freigabe und Operations-Handoff.",
             "docs/release-process.md, docs/release-checklist.md und README verlinken den offiziellen Release-Standardweg.",
-            "Bestehende Workflows release.yml und nightly-rc-validation.yml werden als operative Gates referenziert."
+            "Bestehende Workflows release.yml und nightly-rc-validation.yml werden als operative Gates referenziert.",
+            "docs/release-evidence-register.md definiert die Pflichtreferenzen fuer RC-Workflow-Run, Release-Workflow-Run und Artefakte."
           ]
         },
         {
@@ -362,7 +372,7 @@
           "priority": "medium",
           "type": "ux",
           "principle": "Visible-Preferred-Flow, Product-Led-Guidance",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -379,7 +389,8 @@
           ],
           "implementation_notes": [
             "Quick-Goal zeigt den offiziellen UI-Weg Planen -> Aufgaben verfolgen -> Ergebnisse ansehen direkt vor dem Start.",
-            "First-Start-Bereich und Hauptaktionen priorisieren Zielplanung und Demo vor Expertenpfaden."
+            "First-Start-Bereich und Hauptaktionen priorisieren Zielplanung und Demo vor Expertenpfaden.",
+            "docs/golden-path-ui.md dokumentiert die sichtbare CTA-Reihenfolge und grenzt Diagnose/Review/Demo als Use-Case-Einstiege ab."
           ]
         }
       ]
