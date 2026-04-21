@@ -92,6 +92,11 @@ class TestGoalsAPI:
         nodes = plan_node_repo.get_by_plan_id(res.get_json()["data"]["plan_id"])
         assert any((node.rationale or {}).get("artifact") == "projekt_blueprint" for node in nodes)
         assert any("Review" in ((node.rationale or {}).get("review_focus") or "") for node in nodes)
+        detail = client.get(f"/goals/{goal_payload['id']}/detail", headers=admin_auth_header).get_json()["data"]
+        planned_artifacts = detail["artifacts"]["planned_artifacts"]
+        artifact_keys = {item["artifact"] for item in planned_artifacts}
+        assert {"projekt_blueprint", "initial_backlog", "naechste_schritte"}.issubset(artifact_keys)
+        assert detail["artifacts"]["reusable_artifacts"] == planned_artifacts
 
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
@@ -127,11 +132,18 @@ class TestGoalsAPI:
         assert "Keine Worker-zu-Worker-Orchestrierung" in persisted_goal.constraints
         tasks = task_repo.get_by_goal_id(goal_payload["id"])
         descriptions = "\n".join(task.description or "" for task in tasks)
-        assert "Risiko-, Diff- und Testsicht" in {task.title for task in tasks}
+        assert "Risiko-, Diff- und Testsicht erstellen" in {task.title for task in tasks}
         assert "kleine, sequenzierte Tasks" in descriptions
         nodes = plan_node_repo.get_by_plan_id(res.get_json()["data"]["plan_id"])
         assert any((node.rationale or {}).get("artifact") == "risiko_test_review_plan" for node in nodes)
         assert any((node.rationale or {}).get("test_focus") for node in nodes)
+        detail = client.get(f"/goals/{goal_payload['id']}/detail", headers=admin_auth_header).get_json()["data"]
+        planned_artifacts = detail["artifacts"]["planned_artifacts"]
+        assert any(item["artifact"] == "risiko_test_review_plan" and item["test_focus"] for item in planned_artifacts)
+        assert any(item["artifact"] == "aenderungsplan" for item in planned_artifacts)
+        assert "aktive Weiterentwicklung" in next(
+            item for item in client.get("/goals/modes", headers=admin_auth_header).get_json()["data"] if item["id"] == "project_evolution"
+        )["description"]
 
     def test_project_evolution_high_risk_uses_strict_review_defaults(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)

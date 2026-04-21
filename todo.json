@@ -180,7 +180,7 @@
           "priority": "P1",
           "type": "product",
           "principle": "Clear-Outputs, Reviewability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["frontend-angular/", "agent/", "docs/"],
           "tags": ["UC6", "artifacts", "review"],
@@ -192,7 +192,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "Goal-Detail zeigt geplante Artefakte aus Plan-Nodes sichtbar an.",
+            "new_software_project liefert Zielzusammenfassung, Blueprint, Initial-Backlog und naechste Schritte als reusable planned_artifacts.",
+            "Artefakte bleiben ueber plan_node_id, artifact key und Fokusfelder reviewbar."
+          ]
         },
         {
           "id": "UC6-T08",
@@ -226,7 +231,7 @@
           "priority": "P1",
           "type": "cli",
           "principle": "Shared-Core-Flow",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["agent/", "README.md", "docs/"],
           "tags": ["UC6", "cli", "golden-path"],
@@ -238,7 +243,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "tests/test_goals.py prueft den Goal-to-Project-Flow inklusive Tasks, Plan-Nodes und planned_artifacts.",
+            "goal-detail.component.spec.ts prueft die UI-Helfer fuer reusable planned artifacts.",
+            "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher abgedeckt."
+          ]
         },
         {
           "id": "UC6-T10",
@@ -247,7 +257,7 @@
           "priority": "P1",
           "type": "documentation",
           "principle": "Reproducible-Showcase",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["docs/demo-flows.md", "README.md"],
           "tags": ["UC6", "demo", "docs"],
@@ -485,9 +495,9 @@
             "use_case": "UC7"
           },
           "implementation_notes": [
-            "project_evolution setzt review_required, Risiko-/Regression-Review und Test-/Diff-Artefaktsicht.",
-            "Hohes Risiko hebt den Policy-Level auf strict_review.",
-            "Schreib- und Runtime-Pfade bleiben bestaetigungspflichtig."
+            "project_evolution liefert Ist-Analyse, Aenderungsplan, Risiko-/Test-/Review-Plan und Review-/Rollback-Plan als planned_artifacts.",
+            "Goal-Detail macht diese Artefakte sichtbar und reusable, auch bevor Tasks ausgefuehrt wurden.",
+            "Artefakte sind ueber Plan-Nodes und Fokusfelder nachvollziehbar verknuepft."
           ]
         },
         {
@@ -497,7 +507,7 @@
           "priority": "P1",
           "type": "documentation",
           "principle": "Reproducible-Showcase",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["docs/demo-flows.md", "README.md"],
           "tags": ["UC7", "demo", "docs"],
@@ -509,7 +519,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "tests/test_goals.py prueft project_evolution inklusive Task-Generierung, Risiko-/Testsicht und planned_artifacts.",
+            "Der positive Testfall nutzt ein bestehendes Projektziel mit betroffenen Bereichen und Restriktionen.",
+            "Die Artefaktstruktur fuer Aenderungsplan und Risiko-/Test-/Review-Plan ist regressionssicher."
+          ]
         },
         {
           "id": "UC7-T09",
@@ -518,7 +533,7 @@
           "priority": "P1",
           "type": "cli",
           "principle": "Shared-Core-Flow",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["agent/", "README.md", "docs/"],
           "tags": ["UC7", "cli", "golden-path"],
@@ -530,7 +545,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "project_evolution ist in /goals/modes als aktive Weiterentwicklung statt Repository-Analyse beschrieben.",
+            "Dashboard-Preset-Kontext benennt aktive Weiterentwicklung statt Repository verstehen.",
+            "Contract-Test prueft diese Abgrenzung in der Mode-Beschreibung."
+          ]
         },
         {
           "id": "UC7-T10",
@@ -605,9 +625,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 14,
+      "completed": 19,
       "partial": 0,
-      "open": 10
+      "open": 5
     },
     "notes": [
       "Konvertiert aus dem neuen use_cases-Format in das bestehende categories/items/meta-Format.",

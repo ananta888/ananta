@@ -306,6 +306,7 @@ class GoalService:
     def build_artifact_summary(self, goal: GoalDB) -> dict[str, Any]:
         repos = get_repository_registry()
         tasks = repos.task_repo.get_by_goal_id(goal.id)
+        plan, nodes = get_planning_service().get_latest_plan_for_goal(goal.id)
         verification_records = repos.verification_record_repo.get_by_goal_id(goal.id)
         memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
         task_outputs = [
@@ -321,6 +322,7 @@ class GoalService:
             if task.last_output
         ]
         latest_output = next((item for item in task_outputs if item.get("preview")), None)
+        planned_artifacts = self.build_planned_artifacts(nodes)
         return {
             "goal_id": goal.id,
             "trace_id": goal.trace_id,
@@ -335,6 +337,8 @@ class GoalService:
             },
             "headline_artifact": latest_output,
             "artifacts": task_outputs[:10],
+            "planned_artifacts": planned_artifacts,
+            "reusable_artifacts": planned_artifacts,
             "memory_entries": [
                 {
                     "id": entry.id,
@@ -347,6 +351,30 @@ class GoalService:
                 for entry in memory_entries[:10]
             ],
         }
+
+    def build_planned_artifacts(self, nodes: list[Any]) -> list[dict[str, Any]]:
+        planned: list[dict[str, Any]] = []
+        for node in nodes or []:
+            rationale = dict(node.rationale or {})
+            artifact_key = str(rationale.get("artifact") or "").strip()
+            if not artifact_key:
+                continue
+            planned.append(
+                {
+                    "artifact": artifact_key,
+                    "title": node.title,
+                    "description": node.description,
+                    "plan_node_id": node.id,
+                    "node_key": node.node_key,
+                    "position": node.position,
+                    "status": node.status,
+                    "risk_focus": rationale.get("risk_focus"),
+                    "test_focus": rationale.get("test_focus"),
+                    "review_focus": rationale.get("review_focus"),
+                    "reusable": True,
+                }
+            )
+        return planned[:12]
 
     def goal_detail(self, goal: GoalDB, *, is_admin: bool) -> dict[str, Any]:
         repos = get_repository_registry()
@@ -473,7 +501,7 @@ class GoalService:
             {
                 "id": "project_evolution",
                 "title": "Existierendes Projekt weiterentwickeln",
-                "description": "Plant kleine, reviewbare Aenderungen fuer ein bestehendes Projekt.",
+                "description": "Plant aktive Weiterentwicklung mit kleinen, reviewbaren Aenderungen statt reiner Repository-Analyse.",
                 "icon": "upgrade",
                 "fields": [
                     {"name": "change_goal", "label": "Zielaenderung", "type": "textarea", "required": True},

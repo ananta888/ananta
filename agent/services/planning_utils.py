@@ -188,7 +188,7 @@ GOAL_TEMPLATES = {
                 "priority": "Medium",
                 "depends_on": ["2"],
                 "artifact": "standard_artefakte",
-                "review_focus": "Ergebnisse bleiben editierbar und nachvollziehbar",
+                "review_focus": "Ergebnisse bleiben fuer Review editierbar und nachvollziehbar",
             },
             {
                 "title": "Initiales Task-Backlog erzeugen",
