@@ -42,16 +42,19 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       gap: 10px;
       pointer-events: none;
       max-height: calc(100vh - 24px - env(safe-area-inset-top));
+      max-width: calc(100vw - 40px);
       overflow-y: auto;
       padding-right: 4px;
     }
     .notification {
+      box-sizing: border-box;
+      width: min(400px, calc(100vw - 40px));
       padding: 12px 20px;
       border-radius: 4px;
       color: white;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
       min-width: 200px;
-      max-width: min(400px, calc(100vw - 40px));
+      max-width: 100%;
       animation: slideIn 0.3s ease-out;
       position: relative;
       overflow: hidden;
@@ -115,6 +118,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
         max-height: calc(100vh - 16px - env(safe-area-inset-top));
       }
       .notification {
+        width: 100%;
         max-width: none;
       }
     }
