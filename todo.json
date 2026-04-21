@@ -1,288 +1,773 @@
 {
-  "version": 1,
-  "owner": "ananta",
-  "purpose": "Roadmap for productionizing evolution/evolver integration and creating one standard blueprint path that uses both DeerFlow and Evolver in a meaningful, controlled way.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "tracks": [
+  "$schema": "./todo.schema.json",
+  "version": "8.0.0",
+  "created": "2026-04-21",
+  "updated": "2026-04-21T00:00:00Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Roadmap for productionizing evolution/evolver integration and creating one standard blueprint path that uses both DeerFlow and Evolver in a meaningful, controlled way.",
+    "notes": [
+      "Konvertiert aus tracks/tasks in das bestehende categories/items/meta-Modell.",
+      "Originale Track-Ziele und Success Criteria bleiben pro Item im context erhalten.",
+      "Statuswerte wurden auf open/partial/completed normalisiert: todo->open, in_progress->partial, done->completed, blocked->open."
+    ]
+  },
+  "categories": [
     {
-      "id": "EVOLVER",
-      "title": "Evolver besser integrieren und nahezu fertig machen",
-      "goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-      "success_criteria": [
-        "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-        "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-        "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-        "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-      ],
-      "tasks": [
+      "name": "evolver",
+      "label": "Evolver besser integrieren und nahezu fertig machen",
+      "items": [
         {
           "id": "EVOLVER-T01",
           "title": "Evolver Capability-Matrix vervollstaendigen",
-          "status": "todo",
+          "description": "Evolver Capability-Matrix vervollstaendigen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Evolver ist als eigener Evolution-Provider mit klaren Capabilities dokumentiert.",
             "Analyze, Validate und Apply-Faehigkeiten sind getrennt sichtbar.",
             "Fehlende Provider-Capabilities werden fail-closed behandelt."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T02",
           "title": "Provider-Konfiguration fuer Evolver haerten",
-          "status": "todo",
+          "description": "Provider-Konfiguration fuer Evolver haerten",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "allowed_hosts, timeouts, response limits und retry policy sind sauber konfigurierbar.",
             "Unsichere oder unvollstaendige Konfiguration blockiert den Provider sinnvoll.",
             "Evolver bleibt in unsicheren Umgebungen analyze-only oder disabled."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T03",
           "title": "Evolution Analyze API-Endpunkte produktreif machen",
-          "status": "todo",
+          "description": "Evolution Analyze API-Endpunkte produktreif machen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Analyze kann ueber REST und MCP sauber aufgerufen werden.",
             "Responses enthalten trace_id, provider metadata, review status und proposal links.",
             "Fehlerfaelle sind strukturiert und auditierbar."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T04",
           "title": "Validation-Pfad fuer Evolver integrieren",
-          "status": "todo",
+          "description": "Validation-Pfad fuer Evolver integrieren",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Validate ist als eigener Pfad verfuegbar, sofern Provider und Policy dies erlauben.",
             "Validation-Ergebnisse werden von Analyze-/Proposal-Ergebnissen getrennt gespeichert.",
             "Validation blockiert unsichere oder inkonsistente Proposals sichtbar."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T05",
           "title": "Kontrollierten Apply-Pfad vorbereiten",
-          "status": "todo",
+          "description": "Kontrollierten Apply-Pfad vorbereiten",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Apply bleibt standardmaessig deaktiviert.",
             "Bei Aktivierung sind Review, Approval, Provenance und Rollback-Hinweise Pflicht.",
             "Apply wird nie als impliziter Standardpfad verwendet."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T06",
           "title": "Evolution-Proposals als echte Artefakte im Hub sichtbar machen",
-          "status": "todo",
+          "description": "Evolution-Proposals als echte Artefakte im Hub sichtbar machen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Proposals sind im UI und ueber APIs als strukturierte Artefakte sichtbar.",
             "Jedes Proposal zeigt Quelle, Provider, Risiken, Diff-/Patch-Infos und Status.",
             "Proposal-Historie ist nachvollziehbar."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T07",
           "title": "Review- und Approval-Flow fuer Evolution-Proposals fertig anschliessen",
-          "status": "todo",
+          "description": "Review- und Approval-Flow fuer Evolution-Proposals fertig anschliessen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Evolution-Proposals koennen explizit approved oder rejected werden.",
             "Review-Status ist im Read-Model sichtbar.",
             "Ohne Review kein kontrolliertes Apply."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T08",
           "title": "Observability fuer Evolver vervollstaendigen",
-          "status": "todo",
+          "description": "Observability fuer Evolver vervollstaendigen",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Metriken fuer analyses, validations, applies, retries und provider failures sind sichtbar.",
             "Audit-Events zeigen provider, task, trace_id, policy_version und outcome.",
             "Operatoren koennen Evolver-Laufprobleme schnell erkennen."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T09",
           "title": "Settings- und Dashboard-UI fuer Evolution ergaenzen",
-          "status": "todo",
+          "description": "Settings- und Dashboard-UI fuer Evolution ergaenzen",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "UI zeigt Evolution-Modus, Provider-Status, Analyze-only/Apply-Zustand und Review-Anforderungen.",
             "Operator kann Evolver-Konfiguration pruefen, ohne Roh-JSON lesen zu muessen.",
             "Warnings fuer riskante Konfigurationen sind sichtbar."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T10",
           "title": "Golden Path und Demo fuer Evolver dokumentieren",
-          "status": "todo",
+          "description": "Golden Path und Demo fuer Evolver dokumentieren",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Es gibt einen klaren Demo-Flow fuer Analyze -> Proposal -> Review.",
             "Doku erklaert, wann Evolver sinnvoll ist und wann nicht.",
             "Rollout-Phasen sind praxisnah dokumentiert."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "EVOLVER-T11",
           "title": "Contract- und E2E-Tests fuer Evolver-Pfaede ergaenzen",
-          "status": "todo",
+          "description": "Contract- und E2E-Tests fuer Evolver-Pfaede ergaenzen",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "evolution-provider",
+          "principle": "Hub-Governed-Evolution",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "EVOLVER"
+          ],
+          "acceptance": [
             "Analyze-Flow ist per Tests abgesichert.",
             "Review-/Validation-Statuswechsel sind regressionssicher.",
             "Policy-Blockierungen und Providerfehler sind testbar."
-          ]
+          ],
+          "context": {
+            "track_id": "EVOLVER",
+            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+            "track_success_criteria": [
+              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         }
       ]
     },
     {
-      "id": "BLUEPRINT-STANDARD-PATH",
-      "title": "Standard-Blueprint-Pfad mit DeerFlow und Evolver",
-      "goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-      "success_criteria": [
-        "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-        "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-        "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-        "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-      ],
-      "tasks": [
+      "name": "blueprint-standard-path",
+      "label": "Standard-Blueprint-Pfad mit DeerFlow und Evolver",
+      "items": [
         {
           "id": "BP-T01",
           "title": "Einen offiziellen Standardfall festlegen",
-          "status": "todo",
+          "description": "Einen offiziellen Standardfall festlegen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Ein konkreter Standardfall ist benannt, z. B. 'bestehendes Projekt um Feature erweitern' oder 'kleinen Bugfix kontrolliert vorbereiten'.",
             "Der Fall ist klein genug fuer Demo und gross genug fuer echten Mehrwert.",
             "Use-Case ist offiziell in Doku und Demo-Flows verankert."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T02",
           "title": "Rollenverteilung DeerFlow vs Evolver fest definieren",
-          "status": "todo",
+          "description": "Rollenverteilung DeerFlow vs Evolver fest definieren",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "DeerFlow ist klar fuer Research, Vergleich, Quellen, Bericht und Kontextanreicherung zustaendig.",
             "Evolver ist klar fuer Evolutionsanalyse, Proposal, validierte Aenderungsvorschlaege und spaetere kontrollierte Apply-Pfade zustaendig.",
             "Keine unklare Doppelrolle beider Systeme."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T03",
           "title": "Blueprint fuer den Standardpfad modellieren",
-          "status": "todo",
+          "description": "Blueprint fuer den Standardpfad modellieren",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Es gibt einen Team-/Task-Blueprint fuer den offiziellen Standardpfad.",
             "Blueprint enthaelt initiale Rollen, Artefakte und Start-Tasks.",
             "Blueprint ist per API und UI instanziierbar."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T04",
           "title": "DeerFlow als erster Stage im Blueprint-Pfad einbauen",
-          "status": "todo",
+          "description": "DeerFlow als erster Stage im Blueprint-Pfad einbauen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Der Blueprint startet fuer geeignete Teilaufgaben mit Research/Context-Aufbau ueber DeerFlow.",
             "Research-Bericht wird als Artefakt gespeichert.",
             "Quellen, Summary und Report sind spaeter im Pfad referenzierbar."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T05",
           "title": "Evolver als zweite Stage im Blueprint-Pfad einbauen",
-          "status": "todo",
+          "description": "Evolver als zweite Stage im Blueprint-Pfad einbauen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Nach Research kann Evolver aus dem vorhandenen Kontext Proposals oder Evolutionsanalysen erzeugen.",
             "Evolver verwendet nicht losgeloeste Rohprompts, sondern den vorherigen kontrollierten Task-/Artifact-Kontext.",
             "Proposal ist reviewbar und mit DeerFlow-Artefakten verknuepft."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T06",
           "title": "Task- und Artifact-Uebergabe zwischen DeerFlow und Evolver standardisieren",
-          "status": "todo",
+          "description": "Task- und Artifact-Uebergabe zwischen DeerFlow und Evolver standardisieren",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Es gibt ein klares Datenmodell fuer Uebergabe von summary, sources, report_markdown und research metadata an den Evolver-Pfad.",
             "Trace- und Provenance-Daten bleiben erhalten.",
             "Zwischenergebnisse sind nicht nur im Prompt versteckt."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T07",
           "title": "Review-Gates im Standardpfad sichtbar machen",
-          "status": "todo",
+          "description": "Review-Gates im Standardpfad sichtbar machen",
           "priority": "P0",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Research-Artefakte und Evolution-Proposals haben klaren Review-Status.",
             "Der Standardpfad zeigt, wo Mensch freigibt, ablehnt oder nachschaerft.",
             "UI stellt diese Gates sichtbar dar."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T08",
           "title": "Beispiel-Input und Erwartungsbild fuer den Standardpfad definieren",
-          "status": "todo",
+          "description": "Beispiel-Input und Erwartungsbild fuer den Standardpfad definieren",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Es gibt einen festen Demo-Input.",
             "Es ist dokumentiert, welche Zwischenartefakte und Endergebnisse erwartet werden.",
             "Reviewer koennen beurteilen, ob der Pfad sinnvoll funktioniert."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T09",
           "title": "Preset und Wizard-Einstieg fuer den Standardpfad bauen",
-          "status": "todo",
+          "description": "Preset und Wizard-Einstieg fuer den Standardpfad bauen",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Es gibt einen sichtbaren UI-Einstieg fuer diesen Beispielpfad.",
             "Preset ist auch fuer Erstnutzer verstaendlich benannt.",
             "Wizard erklaert nicht Tools, sondern den Problemfluss."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T10",
           "title": "Read-Model fuer zusammengesetzten Pfad erweitern",
-          "status": "todo",
+          "description": "Read-Model fuer zusammengesetzten Pfad erweitern",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Dashboard/Assistant zeigt klar Research-Artefakte, Evolution-Proposals und naechste Schritte.",
             "Der Nutzer sieht nicht nur Logs, sondern den fachlichen Fortschritt.",
             "Trace und Policy-Entscheidungen bleiben fuer Admins nachvollziehbar."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T11",
           "title": "Demo-Flow und Golden Path dokumentieren",
-          "status": "todo",
+          "description": "Demo-Flow und Golden Path dokumentieren",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Es gibt einen offiziellen Demo-Flow fuer den zusammengesetzten DeerFlow+Evolver-Pfad.",
             "README/use-cases/demo-flows referenzieren diesen Pfad.",
             "Der Mehrwert beider Komponenten wird problemorientiert erklaert."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         },
         {
           "id": "BP-T12",
           "title": "E2E-Test fuer den Standard-Blueprint-Pfad bauen",
-          "status": "todo",
+          "description": "E2E-Test fuer den Standard-Blueprint-Pfad bauen",
           "priority": "P1",
-          "acceptance_criteria": [
+          "type": "blueprint-flow",
+          "principle": "Controlled-Blueprint-Orchestration",
+          "status": "open",
+          "effort": "medium",
+          "tags": [
+            "BLUEPRINT-STANDARD-PATH"
+          ],
+          "acceptance": [
             "Ein automatisierter Test prueft den Blueprint-Flow mindestens als Smoke-Test.",
             "Research-Stage und Evolution-Stage werden beide sichtbar durchlaufen oder simuliert.",
             "Artefakte, Status und Review-Gates sind regressionssicher."
-          ]
+          ],
+          "context": {
+            "track_id": "BLUEPRINT-STANDARD-PATH",
+            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+            "track_success_criteria": [
+              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+            ],
+            "original_status": "todo",
+            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
+          }
         }
       ]
     }
-  ]
+  ],
+  "meta": {
+    "total_items": 23,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 23
+    },
+    "notes": [
+      "Diese Roadmap beschreibt die kontrollierte Evolver-Integration und den Standard-Blueprint-Pfad mit DeerFlow und Evolver.",
+      "Alle Eintraege bleiben Hub-governed: Research, Proposal, Review, Validation und Apply duerfen keine Worker-zu-Worker-Orchestrierung einfuehren.",
+      "Apply-Pfade sind nur vorbereitet und bleiben ohne explizite Review-/Approval-Gates deaktiviert."
+    ],
+    "recommended_order": [
+      "EVOLVER-T01",
+      "EVOLVER-T02",
+      "EVOLVER-T03",
+      "EVOLVER-T04",
+      "EVOLVER-T05",
+      "EVOLVER-T06",
+      "EVOLVER-T07",
+      "EVOLVER-T08",
+      "EVOLVER-T09",
+      "EVOLVER-T10",
+      "EVOLVER-T11",
+      "BP-T01",
+      "BP-T02",
+      "BP-T03",
+      "BP-T04",
+      "BP-T05",
+      "BP-T06",
+      "BP-T07",
+      "BP-T08",
+      "BP-T09",
+      "BP-T10",
+      "BP-T11",
+      "BP-T12"
+    ]
+  },
+  "source_format": {
+    "version": 1,
+    "status_scale": [
+      "todo",
+      "in_progress",
+      "blocked",
+      "done"
+    ],
+    "priority_scale": [
+      "P0",
+      "P1",
+      "P2",
+      "P3"
+    ]
+  }
 }
