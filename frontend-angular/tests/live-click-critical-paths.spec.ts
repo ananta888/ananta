@@ -17,6 +17,29 @@ async function installLiveClickMocks(page: Page): Promise<void> {
     status: 'in_progress',
   }];
 
+  await page.route('**/dashboard/read-model*', route => ok(route, {
+    context_timestamp: Math.floor(Date.now() / 1000),
+    system_health: { agent: 'hub', status: 'ok', checks: {} },
+    contracts: { task_statuses: { canonical_values: ['todo', 'in_progress', 'completed'] } },
+    agents: { count: 1, items: [{ name: 'hub', status: 'online' }] },
+    teams: { items: [] },
+    roles: { items: [] },
+    benchmarks: { items: [], task_kind: 'analysis' },
+    llm_configuration: {},
+  }));
+  await page.route('**/api/system/stats/history*', route => ok(route, []));
+  await page.route('**/teams/roles*', route => ok(route, []));
+  await page.route('**/teams', route => ok(route, []));
+  await page.route('**/teams?*', route => ok(route, []));
+  await page.route('**/api/system/agents*', route => ok(route, [{ name: 'hub', status: 'online' }]));
+  await page.route('**/tasks', route => route.request().method() === 'GET'
+    ? ok(route, [{ id: 'task-live-1', title: 'Analyse', status: 'completed' }])
+    : route.fallback()
+  );
+  await page.route('**/tasks?*', route => route.request().method() === 'GET'
+    ? ok(route, [{ id: 'task-live-1', title: 'Analyse', status: 'completed' }])
+    : route.fallback()
+  );
   await page.route('**/tasks/auto-planner/status*', route => ok(route, {
     enabled: true,
     stats: { goals_processed: 1, tasks_created: 2, followups_created: 0 },
@@ -45,16 +68,41 @@ async function installLiveClickMocks(page: Page): Promise<void> {
       { id: 'task-live-2', title: 'Review erforderlich', status: 'todo', verification_status: { status: 'review_required' } },
     ],
   }));
-  await page.route('**/goals', route => ok(route, goals));
+  await page.route('**/goals', route => route.request().method() === 'GET' ? ok(route, goals) : route.fallback());
+  await page.route(/\/goals\/goal-live-1\/governance-summary(?:\?.*)?$/, route => ok(route, {
+    goal_id: 'goal-live-1',
+    verification: { total: 2, passed: 1, failed: 0, escalated: 1 },
+    policy: { approved: 1, blocked: 1 },
+    cost_summary: { total_cost_units: 1.5, tasks_with_cost: 1, total_tokens: 512, total_latency_ms: 420 },
+    summary: { task_count: 2 },
+  }));
+  await page.route(/\/goals\/goal-live-1\/detail(?:\?.*)?$/, route => ok(route, {
+    goal: { id: 'goal-live-1', summary: 'Live Click Goal', goal: 'Live Click Goal', status: 'in_progress' },
+    artifacts: {
+      artifacts: [{ task_id: 'task-live-1', title: 'Zwischenstand', preview: 'Teilweise geprueft' }],
+      result_summary: { completed_tasks: 1, failed_tasks: 0 },
+    },
+    governance: {
+      verification: { total: 2, passed: 1, failed: 0, escalated: 1 },
+      policy: { approved: 1, blocked: 1 },
+    },
+    cost_summary: { total_cost_units: 1.5, total_tokens: 512 },
+    tasks: [
+      { id: 'task-live-1', title: 'Analyse', status: 'completed', verification_status: { status: 'passed' } },
+      { id: 'task-live-2', title: 'Review erforderlich', status: 'todo', verification_status: { status: 'review_required' } },
+    ],
+  }));
 }
 
 test.describe('Live click critical paths', () => {
   test('clicks dashboard, goal start and result reading path with stable selectors', async ({ page, request }) => {
     await page.addInitScript(() => {
       localStorage.setItem('ananta.dashboard.advanced', 'true');
+      localStorage.setItem('ananta.first-start.completed', 'true');
+      localStorage.setItem('ananta.ai-assistant.minimized.v1', 'true');
     });
-    await loginFast(page, request);
     await installLiveClickMocks(page);
+    await loginFast(page, request);
 
     await page.goto('/dashboard#quick-goal');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
@@ -63,7 +111,7 @@ test.describe('Live click critical paths', () => {
     await expect(page.getByText(/Goal Governance & Cost Summary/i)).toBeVisible();
     await page.getByRole('combobox', { name: /Goal fuer Governance Summary/i }).selectOption('goal-live-1');
     await page.getByRole('button', { name: /Goal Governance Summary aktualisieren/i }).click();
-    await expect(page.getByText(/Live Click Goal/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Live Click Goal in_progress/i })).toBeVisible();
     await expect(page.getByText(/Blocked: 1/i)).toBeVisible();
 
     await page.goto('/goal/goal-live-1');
@@ -77,9 +125,11 @@ test.describe('Live click critical paths', () => {
   test('surfaces blocked quick-goal submission and recovers on retry', async ({ page, request }) => {
     await page.addInitScript(() => {
       localStorage.setItem('ananta.dashboard.advanced', 'true');
+      localStorage.setItem('ananta.first-start.completed', 'true');
+      localStorage.setItem('ananta.ai-assistant.minimized.v1', 'true');
     });
-    await loginFast(page, request);
     await installLiveClickMocks(page);
+    await loginFast(page, request);
     let attempts = 0;
 
     await page.route('**/tasks/auto-planner/plan', async route => {
