@@ -1090,6 +1090,12 @@
       "partial": 0,
       "open": 0
     },
+    "archive": {
+      "status": "completed",
+      "archived_on": "2026-04-21",
+      "archived_in": "docs/todo-feature-ui-ux-archive.md",
+      "completion_summary": "Alle 36 UI/UX-, Produktreife-, Governance-, Contract- und Benchmark-Items sind abgeschlossen; es gibt keine partial oder open Items mehr."
+    },
     "notes": [
       "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
       "Der Fokus liegt auf dem Ausbau von Ananta als klar verstehbare kontrollierte Agentenplattform mit besserem Einstieg, staerkerer Explainability, sichtbarer Governance und besserer Positionierung.",
