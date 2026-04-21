@@ -17,6 +17,7 @@ export interface GoalReportingState {
 export class DashboardGoalReportingFacade {
   private hubApi = inject(ControlPlaneFacade);
   private ns = inject(NotificationService);
+  private refreshSequence = 0;
 
   readonly state: GoalReportingState = {
     goals: [],
@@ -27,14 +28,16 @@ export class DashboardGoalReportingFacade {
   };
 
   refresh(hubUrl: string, goalId?: string): void {
+    const sequence = ++this.refreshSequence;
     if (goalId) {
       this.state.selectedGoalId = goalId;
     }
     this.state.loading = true;
 
     this.hubApi.listGoals(hubUrl).subscribe({
-      next: goals => this.loadSelectedGoal(hubUrl, this.normalizeGoals(goals)),
+      next: goals => this.loadSelectedGoal(hubUrl, this.normalizeGoals(goals), sequence),
       error: () => {
+        if (!this.isCurrent(sequence)) return;
         this.reset();
         this.ns.error('Goals konnten nicht geladen werden');
       },
@@ -59,7 +62,8 @@ export class DashboardGoalReportingFacade {
       .slice(0, 5);
   }
 
-  private loadSelectedGoal(hubUrl: string, goals: GoalListEntry[]): void {
+  private loadSelectedGoal(hubUrl: string, goals: GoalListEntry[], sequence: number): void {
+    if (!this.isCurrent(sequence)) return;
     this.state.goals = goals;
     const selectedId = this.resolveSelectedGoalId(goals);
     if (!selectedId) {
@@ -85,10 +89,15 @@ export class DashboardGoalReportingFacade {
         })
       ),
     }).subscribe(({ detail, governance }) => {
+      if (!this.isCurrent(sequence)) return;
       this.state.goalDetail = detail as GoalDetail | null;
       this.state.goalGovernance = governance as GoalGovernanceSummary | null;
       this.state.loading = false;
     });
+  }
+
+  private isCurrent(sequence: number): boolean {
+    return sequence === this.refreshSequence;
   }
 
   private reset(): void {
