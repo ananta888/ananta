@@ -343,6 +343,48 @@ class GoalService:
                 "recommended_capabilities": ["shell_exec", "file_read", "file_patch"]
             },
             {
+                "id": "new_software_project",
+                "title": "Neues Softwareprojekt anlegen",
+                "description": "Erstellt aus einer Projektidee einen kontrollierten Blueprint mit initialem Backlog.",
+                "icon": "add_box",
+                "fields": [
+                    {"name": "project_idea", "label": "Projektidee", "type": "textarea", "required": True},
+                    {"name": "target_users", "label": "Zielgruppe", "type": "text", "required": True},
+                    {"name": "platform", "label": "Plattform", "type": "text", "placeholder": "z.B. Web, CLI, API", "required": True},
+                    {"name": "preferred_stack", "label": "Bevorzugter Stack (optional)", "type": "text", "required": False},
+                    {"name": "non_goals", "label": "Nicht-Ziele (optional)", "type": "textarea", "required": False},
+                ],
+                "recommended_capabilities": ["file_read", "file_write", "file_patch"]
+            },
+            {
+                "id": "project_evolution",
+                "title": "Existierendes Projekt weiterentwickeln",
+                "description": "Plant kleine, reviewbare Aenderungen fuer ein bestehendes Projekt.",
+                "icon": "upgrade",
+                "fields": [
+                    {"name": "change_goal", "label": "Zielaenderung", "type": "textarea", "required": True},
+                    {
+                        "name": "change_type",
+                        "label": "Weiterentwicklungsart",
+                        "type": "select",
+                        "options": ["kleine_erweiterung", "refactoring", "feature_ausbau", "technische_verbesserung"],
+                        "default": "kleine_erweiterung",
+                        "required": True,
+                    },
+                    {"name": "affected_areas", "label": "Betroffene Bereiche (optional)", "type": "text", "required": False},
+                    {
+                        "name": "risk_level",
+                        "label": "Risikoniveau",
+                        "type": "select",
+                        "options": ["niedrig", "mittel", "hoch"],
+                        "default": "mittel",
+                        "required": True,
+                    },
+                    {"name": "constraints", "label": "Restriktionen (optional)", "type": "textarea", "required": False},
+                ],
+                "recommended_capabilities": ["file_read", "git_diff", "file_patch"]
+            },
+            {
                 "id": "runtime_repair",
                 "title": "Laufzeit-Reparatur",
                 "description": "Analysiert Runtime-Ausfaelle und erstellt reproduzierbare, reviewbare Reparaturschritte.",
@@ -407,6 +449,40 @@ class GoalService:
                 goal += f" Nutze bevorzugt die Compose-Datei: {compose_file}."
             if service:
                 goal += f" Fokus-Service: {service}."
+            return goal
+        if mode == "new_software_project":
+            project_idea = str(mode_data.get("project_idea", "")).strip()
+            target_users = str(mode_data.get("target_users", "")).strip()
+            platform = str(mode_data.get("platform", "")).strip()
+            preferred_stack = str(mode_data.get("preferred_stack", "")).strip()
+            non_goals = str(mode_data.get("non_goals", "")).strip()
+            goal = (
+                f"Lege ein neues Softwareprojekt an: {project_idea}. "
+                f"Zielgruppe: {target_users or 'noch zu klaeren'}. Plattform: {platform or 'noch zu klaeren'}. "
+                "Erstelle einen reviewbaren Projekt-Blueprint mit Scope, Architekturvorschlag, "
+                "initialem Backlog, Tests und sicheren naechsten Schritten."
+            )
+            if preferred_stack:
+                goal += f" Bevorzugter Stack: {preferred_stack}."
+            if non_goals:
+                goal += f" Nicht-Ziele: {non_goals}."
+            return goal
+        if mode == "project_evolution":
+            change_goal = str(mode_data.get("change_goal", "")).strip()
+            change_type = str(mode_data.get("change_type", "kleine_erweiterung")).strip()
+            affected_areas = str(mode_data.get("affected_areas", "")).strip()
+            risk_level = str(mode_data.get("risk_level", "mittel")).strip()
+            constraints = str(mode_data.get("constraints", "")).strip()
+            goal = (
+                f"Plane eine kontrollierte Weiterentwicklung eines bestehenden Projekts: {change_goal}. "
+                f"Art der Weiterentwicklung: {change_type}. Risikoniveau: {risk_level}. "
+                "Zerlege die Aenderung in kleine verifizierbare Schritte mit Risikoanalyse, betroffenen Tests "
+                "und Review-Plan."
+            )
+            if affected_areas:
+                goal += f" Betroffene Bereiche: {affected_areas}."
+            if constraints:
+                goal += f" Restriktionen: {constraints}."
             return goal
         if mode == "runtime_repair":
             runtime_target = str(mode_data.get("runtime_target", "")).strip()

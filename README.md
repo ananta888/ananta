@@ -23,15 +23,17 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 
 ## Kern-Use-Cases (offiziell)
 
-Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle (3-5), damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.
+Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle, damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.
 
 - Repository verstehen
 - Bugfix planbar und testbar machen
 - Start/Deploy diagnostizieren (Compose/Health/Logs)
 - Change Review (Risiken, Tests, Governance)
 - Gefuehrte Goal-Erstellung fuer Erstnutzer
+- Neues Softwareprojekt anlegen
+- Existierendes Softwareprojekt weiterentwickeln
 
-Details: `docs/use-cases.md`.
+Details: `docs/use-cases.md`. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
 
 ## Schnellstart in 5 Minuten
 
@@ -118,6 +120,8 @@ python -m agent.cli_goals analyze "Analysiere dieses Repository"
 python -m agent.cli_goals review "Pruefe die Login-Aenderungen"
 python -m agent.cli_goals diagnose "Frontend erreicht den Hub nicht"
 python -m agent.cli_goals patch "Plane einen kleinen Fix fuer die Validierung"
+python -m agent.cli_goals new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
+python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
 ```
 
 Minimaler API-Start:

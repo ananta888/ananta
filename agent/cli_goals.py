@@ -53,6 +53,16 @@ SHORTCUT_GOALS = {
         "prefix": "Plane einen kleinen, testbaren Patch fuer:",
         "context": "Kurzkommando: Patch. Fokus auf kleine Aenderung, Regressionstest und minimale Nebenwirkungen.",
     },
+    "new-project": {
+        "mode": "new_software_project",
+        "prefix": "Lege ein neues Softwareprojekt kontrolliert an aus dieser Idee:",
+        "context": "Kurzkommando: Neues Projekt. Fokus auf Scope, Architekturvorschlag, initiales Backlog, Tests und sichere Defaults.",
+    },
+    "evolve-project": {
+        "mode": "project_evolution",
+        "prefix": "Plane eine kontrollierte Weiterentwicklung fuer ein bestehendes Projekt:",
+        "context": "Kurzkommando: Projekt weiterentwickeln. Fokus auf betroffene Bereiche, Risiken, Tests und kleine reviewbare Schritte.",
+    },
 }
 
 
@@ -223,14 +233,32 @@ def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_
     if not shortcut:
         _print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(SHORTCUT_GOALS)))
         return []
+    shortcut_text = text.strip()
     return submit_goal(
-        goal=f"{shortcut['prefix']} {text.strip()}",
+        goal=f"{shortcut['prefix']} {shortcut_text}",
         context=shortcut["context"],
         team_id=team_id,
         create_tasks=create_tasks,
         mode=shortcut.get("mode"),
-        mode_data={"shortcut": kind},
+        mode_data=_shortcut_mode_data(kind, shortcut_text),
     )
+
+
+def _shortcut_mode_data(kind: str, text: str) -> dict:
+    data = {"shortcut": kind, "shortcut_text": text}
+    if kind == "patch":
+        data["issue_description"] = text
+    elif kind == "review":
+        data["scope"] = text
+    elif kind == "diagnose":
+        data["issue_symptom"] = text
+    elif kind == "analyze":
+        data["scope"] = text
+    elif kind == "new-project":
+        data["project_idea"] = text
+    elif kind == "evolve-project":
+        data["change_goal"] = text
+    return data
 
 
 def show_status():
@@ -400,6 +428,8 @@ Examples:
     python -m agent.cli_goals review "Review the auth changes"
     python -m agent.cli_goals diagnose "Docker frontend cannot reach hub"
     python -m agent.cli_goals patch "Fix failing login validation"
+    python -m agent.cli_goals new-project "Build a small release-check tool for maintainers"
+    python -m agent.cli_goals evolve-project "Add a guided project-start mode to the dashboard"
 
   Profile/Governance (GOV-051/PRF-080):
     python -m agent.cli_goals --config-show

@@ -1146,6 +1146,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'compose-diagnosis': 'Startpfad ausfuehren und blockierte Checks sichtbar halten.',
       'change-review': 'Findings nach Schweregrad durchgehen und Tests priorisieren.',
       'guided-first-run': 'Goal pruefen und danach Aufgaben oder Artefakte oeffnen.',
+      'new-software-project': 'Blueprint und Initial-Tasks pruefen, danach den kleinsten Startschritt waehlen.',
+      'project-evolution': 'Risiken und betroffene Tests pruefen, dann die kleinste Aenderung starten.',
     };
     return nextActions[id] || 'Aufgaben verfolgen und Ergebnisse pruefen.';
   }
@@ -1213,5 +1215,21 @@ const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [
     outcome: 'Parametrisiertes Goal mit sichtbaren Safety- und Review-Entscheidungen.',
     tasks: ['Ziel klaeren', 'Kontext sammeln', 'Sicherheitsniveau pruefen'],
     starter_context: 'Fokus: Erstnutzerfuehrung, sichtbare Governance und klarer naechster Schritt.',
+  },
+  {
+    id: 'new-software-project',
+    title: 'Neues Projekt anlegen',
+    goal: 'Lege ein neues Softwareprojekt aus einer Idee an und erstelle Scope, Architekturvorschlag, initiales Backlog und sichere naechste Schritte.',
+    outcome: 'Reviewbarer Projekt-Blueprint mit kleinen Initial-Tasks.',
+    tasks: ['Projektidee klaeren', 'Blueprint erstellen', 'Initial-Tasks priorisieren'],
+    starter_context: 'Fokus: neuer Projektstart, sichere Defaults, keine Vollautomatik ohne Review.',
+  },
+  {
+    id: 'project-evolution',
+    title: 'Projekt weiterentwickeln',
+    goal: 'Plane eine kontrollierte Weiterentwicklung eines bestehenden Projekts mit betroffenen Bereichen, Risiken, Tests und Review-Schritten.',
+    outcome: 'Kleiner, verifizierbarer Aenderungsplan fuer ein bestehendes Repository.',
+    tasks: ['Ist-Kontext schaerfen', 'Aenderungsschritte zerlegen', 'Tests und Risiken pruefen'],
+    starter_context: 'Fokus: aktive Weiterentwicklung statt reiner Analyse, kleine pruefbare Schritte.',
   },
 ];

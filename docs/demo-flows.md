@@ -136,3 +136,57 @@ POST /goals
 ```
 
 Erwartetes Ergebnis: ein parametrisiertes Goal mit nachvollziehbaren Planungs-, Safety- und Review-Signalen.
+
+## Flow F: Neues Softwareprojekt anlegen (UC6)
+
+Demo-Pfad:
+1. Dashboard -> `Demo ansehen`.
+2. Beispiel `Neues Projekt anlegen` lesen oder als Goal starten.
+
+Realpfad UI:
+1. Dashboard -> `Assistent`.
+2. Modus `Neues Softwareprojekt anlegen` waehlen.
+3. Projektidee, Zielgruppe, Plattform, bevorzugten Stack und Nicht-Ziele ausfuellen.
+4. Erfolgssignal: Projekt-Blueprint, initiales Backlog und Review-Schritte sind sichtbar.
+
+CLI:
+
+```bash
+python -m agent.cli_goals new-project "Baue ein kleines Tool fuer teaminterne Release-Checks"
+```
+
+API:
+
+```http
+POST /goals
+{"mode":"new_software_project","mode_data":{"project_idea":"Baue ein kleines Tool fuer teaminterne Release-Checks","target_users":"Maintainer","platform":"Web","preferred_stack":"Python + Angular","non_goals":"Keine Vollautomatik ohne Review"},"create_tasks":true}
+```
+
+Erwartetes Ergebnis: Scope, Architekturvorschlag, erste Artefakte und kleine Initial-Tasks.
+
+## Flow G: Existierendes Softwareprojekt weiterentwickeln (UC7)
+
+Demo-Pfad:
+1. Dashboard -> `Demo ansehen`.
+2. Beispiel `Projekt weiterentwickeln` lesen oder als Goal starten.
+
+Realpfad UI:
+1. Dashboard -> `Assistent`.
+2. Modus `Existierendes Projekt weiterentwickeln` waehlen.
+3. Zielaenderung, betroffene Bereiche, Restriktionen, Risikoniveau und Weiterentwicklungsart angeben.
+4. Erfolgssignal: Aenderungsplan, Risiko-/Testsicht und naechste reviewbare Tasks sind sichtbar.
+
+CLI:
+
+```bash
+python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+```
+
+API:
+
+```http
+POST /goals
+{"mode":"project_evolution","mode_data":{"change_goal":"Erweitere den Dashboard-Flow um einen Projektstartmodus","change_type":"feature_ausbau","affected_areas":"frontend-angular, agent/services","risk_level":"mittel","constraints":"Keine Worker-zu-Worker-Orchestrierung"},"create_tasks":true}
+```
+
+Erwartetes Ergebnis: kleine Aenderungsschritte mit betroffenen Bereichen, Risiken, Testbedarf und Review-Plan.

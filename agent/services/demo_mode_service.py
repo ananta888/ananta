@@ -72,6 +72,28 @@ class DemoModeService:
                 tasks=("Ziel klaeren", "Kontext sammeln", "Sicherheitsniveau pruefen"),
                 starter_context="Fokus: Erstnutzerfuehrung, sichtbare Governance und klarer naechster Schritt.",
             ),
+            DemoExample(
+                id="new-software-project",
+                title="Neues Projekt anlegen",
+                goal=(
+                    "Lege ein neues Softwareprojekt aus einer Idee an und erstelle Scope, "
+                    "Architekturvorschlag, initiales Backlog und sichere naechste Schritte."
+                ),
+                outcome="Ein reviewbarer Projekt-Blueprint mit kleinen Initial-Tasks.",
+                tasks=("Projektidee klaeren", "Blueprint erstellen", "Initial-Tasks priorisieren"),
+                starter_context="Fokus: neuer Projektstart, sichere Defaults, keine Vollautomatik ohne Review.",
+            ),
+            DemoExample(
+                id="project-evolution",
+                title="Projekt weiterentwickeln",
+                goal=(
+                    "Plane eine kontrollierte Weiterentwicklung eines bestehenden Projekts "
+                    "mit betroffenen Bereichen, Risiken, Tests und Review-Schritten."
+                ),
+                outcome="Ein kleiner, verifizierbarer Aenderungsplan fuer ein bestehendes Repository.",
+                tasks=("Ist-Kontext schaerfen", "Aenderungsschritte zerlegen", "Tests und Risiken pruefen"),
+                starter_context="Fokus: aktive Weiterentwicklung statt reiner Analyse, kleine pruefbare Schritte.",
+            ),
         )
         return {
             "mode": "preview",

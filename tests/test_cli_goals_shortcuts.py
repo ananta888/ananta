@@ -7,9 +7,11 @@ import agent.cli_goals as cli
 
 
 def test_cli_shortcuts_cover_product_entry_commands():
-    assert {"ask", "plan", "analyze", "review", "diagnose", "patch"}.issubset(cli.SHORTCUT_GOALS)
+    assert {"ask", "plan", "analyze", "review", "diagnose", "patch", "new-project", "evolve-project"}.issubset(cli.SHORTCUT_GOALS)
     assert cli.SHORTCUT_GOALS["review"]["mode"] == "code_review"
     assert cli.SHORTCUT_GOALS["diagnose"]["mode"] == "docker_compose_repair"
+    assert cli.SHORTCUT_GOALS["new-project"]["mode"] == "new_software_project"
+    assert cli.SHORTCUT_GOALS["evolve-project"]["mode"] == "project_evolution"
     assert cli.SHORTCUT_GOALS["ask"]["mode"] is None
     assert cli.SHORTCUT_GOALS["plan"]["mode"] is None
 
@@ -23,6 +25,8 @@ def test_cli_shortcuts_cover_product_entry_commands():
         ("review", "code_review"),
         ("diagnose", "docker_compose_repair"),
         ("patch", "code_fix"),
+        ("new-project", "new_software_project"),
+        ("evolve-project", "project_evolution"),
     ],
 )
 def test_submit_shortcut_maps_to_goal_model(monkeypatch, shortcut, mode):
@@ -40,9 +44,28 @@ def test_submit_shortcut_maps_to_goal_model(monkeypatch, shortcut, mode):
     assert captured["mode"] == mode
     assert captured["team_id"] == "team-a"
     assert captured["create_tasks"] is True
-    assert captured["mode_data"] == {"shortcut": shortcut}
+    assert captured["mode_data"]["shortcut"] == shortcut
+    assert captured["mode_data"]["shortcut_text"] == "check login flow"
     assert "check login flow" in captured["goal"]
     assert "Kurzkommando" in captured["context"]
+
+
+def test_product_shortcuts_pass_structured_mode_data(monkeypatch):
+    captured = {}
+
+    def fake_submit_goal(**kwargs):
+        captured.update(kwargs)
+        return ["task-1"]
+
+    monkeypatch.setattr(cli, "submit_goal", fake_submit_goal)
+
+    cli.submit_shortcut("new-project", "Release-Check-Tool bauen")
+    assert captured["mode"] == "new_software_project"
+    assert captured["mode_data"]["project_idea"] == "Release-Check-Tool bauen"
+
+    cli.submit_shortcut("evolve-project", "Dashboard erweitern")
+    assert captured["mode"] == "project_evolution"
+    assert captured["mode_data"]["change_goal"] == "Dashboard erweitern"
 
 
 def test_main_routes_shortcut_words_to_submit_shortcut(monkeypatch):

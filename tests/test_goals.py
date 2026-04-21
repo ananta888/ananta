@@ -31,6 +31,7 @@ class TestGoalsAPI:
         assert res.status_code == 200
         mode_ids = {item["id"] for item in res.get_json()["data"]}
         assert {"docker_compose_repair", "runtime_repair"}.issubset(mode_ids)
+        assert {"new_software_project", "project_evolution"}.issubset(mode_ids)
 
     def test_create_goal_from_docker_compose_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
@@ -52,6 +53,52 @@ class TestGoalsAPI:
         assert "Container restart loop on boot" in goal_payload["goal"]
         assert "docker-compose.yml" in goal_payload["goal"]
         assert "Fokus-Service: hub" in goal_payload["goal"]
+
+    def test_create_goal_from_new_software_project_mode(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "new_software_project",
+                "mode_data": {
+                    "project_idea": "Release-Check-Tool fuer Maintainer",
+                    "target_users": "Maintainer",
+                    "platform": "Web",
+                    "preferred_stack": "Python + Angular",
+                    "non_goals": "Keine Vollautomatik ohne Review",
+                },
+            },
+        )
+        assert res.status_code == 201
+        goal_payload = res.get_json()["data"]["goal"]
+        assert "neues Softwareprojekt" in goal_payload["goal"]
+        assert "Release-Check-Tool" in goal_payload["goal"]
+        assert "Maintainer" in goal_payload["goal"]
+        assert "Nicht-Ziele" in goal_payload["goal"]
+
+    def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "project_evolution",
+                "mode_data": {
+                    "change_goal": "Dashboard um Projektstartmodus erweitern",
+                    "change_type": "feature_ausbau",
+                    "affected_areas": "frontend-angular, agent/services",
+                    "risk_level": "mittel",
+                    "constraints": "Keine Worker-zu-Worker-Orchestrierung",
+                },
+            },
+        )
+        assert res.status_code == 201
+        goal_payload = res.get_json()["data"]["goal"]
+        assert "kontrollierte Weiterentwicklung" in goal_payload["goal"]
+        assert "feature_ausbau" in goal_payload["goal"]
+        assert "frontend-angular" in goal_payload["goal"]
+        assert "Keine Worker-zu-Worker-Orchestrierung" in goal_payload["goal"]
 
     def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)

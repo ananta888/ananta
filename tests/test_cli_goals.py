@@ -126,5 +126,6 @@ def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
     assert created == ["task-review"]
     payload = calls[0]["json"]
     assert payload["mode"] == "code_review"
-    assert payload["mode_data"] == {"shortcut": "review"}
+    assert payload["mode_data"]["shortcut"] == "review"
+    assert payload["mode_data"]["scope"] == "Pruefe die Login-Aenderungen"
     assert "Pruefe die Login-Aenderungen" in payload["goal"]
