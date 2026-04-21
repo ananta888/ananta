@@ -55,6 +55,11 @@ Release retrospectives and product communication should reuse the same evidence 
 - `regression_watch`: weakest benchmark dimension or follow-up risk
 - `evidence_links`: CI, artifact, run log or release evidence links
 
+## Evidence Runs
+
+- First local contract validation baseline: `docs/product-benchmark-first-run.md`
+- Release evidence slots: `docs/release-evidence-register.md`
+
 ## Release Retro Template
 
 ```markdown

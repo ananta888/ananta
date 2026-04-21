@@ -15,6 +15,10 @@ Use this register to reference release-candidate and final-release evidence. It 
 | Checksums | yes | yes | `release-assets/SHA256SUMS` |
 | Release notes | no | yes | GitHub Release notes or `CHANGELOG.md` entry |
 | Operations handoff | yes | yes | Release decision record |
+| Product benchmark suite version | yes | yes | `docs/product-benchmark-suite.md` and `agent.product_benchmark_suite.build_product_benchmark_suite` |
+| Product benchmark evidence run | yes | yes | `docs/product-benchmark-first-run.md` or CI/release benchmark artifact |
+| Benchmark narrative fields | yes | yes | `headline`, `best_signal`, `governance_signal`, `regression_watch`, `evidence_links` from the product benchmark suite |
+| Comparative target notes | no | yes | `openhands-like`, `opendevin-like` and `openclaw-like` comparison targets in `docs/product-benchmark-suite.md` |
 
 ## Decision Record Template
 
@@ -29,6 +33,13 @@ Release candidate verification report artifact:
 SBOM artifact:
 Checksum artifact:
 Release notes:
+Product benchmark suite version:
+Product benchmark evidence run:
+Benchmark headline:
+Benchmark best signal:
+Benchmark governance signal:
+Benchmark regression watch:
+Benchmark evidence links:
 Rollback path:
 Decision:
 ```
