@@ -1,883 +1,1327 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "6.3.0",
+  "version": "6.5.0",
   "created": "2026-04-19",
-  "updated": "2026-04-19T00:00:00Z",
+  "updated": "2026-04-20T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
-    "review_goal": "Nach den Architektur-, Accessibility-, Release- und Hotspot-Runden eine große Test- und Security-Offensive aufbauen, damit Ananta nicht nur stark gebaut, sondern auch systematisch gegen Regressionen, feindliche Modellantworten, äußere Angriffe und UI-/CLI-/Runtime-Fehler abgesichert ist.",
+    "review_goal": "Nach weitgehend abgeschlossener Test-, Security-, GitHub- und Release-Reife die naechste Entwicklungsstufe definieren: von einer sehr starken kontrollierten Agentenplattform zu einem klarer nutzbaren, besser positionierten, benchmarkbaren und produktfoermigeren System.",
     "notes": [
-      "Diese Todo-Datei ergänzt die bestehende 6.2.0-Runde um eine bewusst breite Teststrategie über Backend, Frontend, E2E, Live-Click, CLI/TUI und adversarial Security.",
-      "Der Schwerpunkt liegt nicht auf kosmetischer Testabdeckung, sondern auf verlässlicher Validierung zentraler Arbeitsflüsse, Governance-Grenzen, Capability-Enforcement, hostile-input-Resistenz und crazy-LLM-Verhalten.",
-      "Die Tests sollen nicht nur Happy Paths sichern, sondern gezielt Fehlverhalten, Manipulation, Umgehungsversuche, Scope-Verletzungen, inkonsistente Zustände und Missbrauchspfade provozieren."
+      "Die technische und sicherheitsbezogene Reife ist bereits hoch; der groesste Hebel liegt nun weniger im Kernumbau als in produktklaren Nutzpfaden, Betriebsprofilen, sichtbarerer Governance, besserer Explainability und vergleichbarer Leistung.",
+      "Diese Todo-Datei setzt bewusst nicht bei weiteren generischen Features an, sondern bei den Punkten, die Ananta zugänglicher, schaerfer positioniert und im Betrieb besser steuerbar machen.",
+      "Die Datei deckt die priorisierten Post-Release-Verbesserungsfelder 2 bis 9 ab: Use-Cases, Onboarding, Golden Paths, Observability, Explainability, Governance-Produktisierung, Integrations-Contracts, Benchmarking und Produktprofile."
     ]
   },
   "categories": [
     {
-      "name": "backend-unit-core-services",
-      "label": "Backend Unit Tests Core Services",
+      "name": "real-user-paths-and-use-cases",
+      "label": "Reale Nutzerpfade und Kern Use Cases",
       "items": [
         {
-          "id": "TST-001",
-          "title": "TaskDelegationPlanner mit isolierten Unit Tests absichern",
-          "description": "Die Delegationsplanung gegen verschiedene Worker-Lagen, Capability-Kombinationen, Policy-Entscheidungen, manuelle Overrides und fehlende Routing-Hints in gezielten Unit Tests absichern.",
+          "id": "PRD-001",
+          "title": "Drei bis fuenf offizielle Kern-Use-Cases fuer Ananta definieren",
+          "description": "Eine kleine feste Menge offizieller, reproduzierbarer Kernanwendungsfaelle definieren, die Ananta nach aussen und intern repraesentieren, statt alles gleichzeitig sein zu wollen.",
           "priority": "critical",
-          "type": "test-unit",
-          "principle": "Core-Decision-Confidence, Isolated-Logic-Tests",
+          "type": "product",
+          "principle": "Focused-Value, Clear-Use-Case-Identity",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/services/",
-            "tests/"
+            "README.md",
+            "docs/",
+            "frontend-angular/"
           ],
           "acceptance": [
-            "Worker-Wahl und Policy-Vorbereitung sind isoliert testbar.",
-            "Mehrere positive und negative Routing-Szenarien sind abgedeckt.",
-            "Fehlende oder widersprüchliche Eingaben erzeugen klar erwartbare Ergebnisse."
+            "Es gibt drei bis fuenf klar benannte Kern-Use-Cases.",
+            "Jeder Use-Case hat einen klaren Nutzen, Scope und Einstieg.",
+            "Die Projektkommunikation wirkt weniger diffus und generisch.",
+            "Die Use-Cases sind als referenzierbare Produktbasis fuer Schnellstart, Golden Paths, Demo-Flows, Benchmarks und Produktprofile nutzbar."
+          ],
+          "implementation_notes": [
+            "docs/use-cases.md angelegt und im README verlinkt.",
+            "Alle fuenf offiziellen Use-Cases benennen Nutzen, Einstieg, Scope, guten Input, erwartetes Ergebnis und naechsten Schritt."
           ]
         },
         {
-          "id": "TST-002",
-          "title": "WorkerExecutionContextFactory gegen Scope- und Context-Build-Fehler testen",
-          "description": "Workspace-Scope, Worker-Workspace, Context Bundle und Execution Context mit Unit Tests gegen inkonsistente oder lückenhafte Eingaben absichern.",
+          "id": "PRD-002",
+          "title": "Jeden Kern-Use-Case als reproduzierbaren Demo-Flow dokumentieren",
+          "description": "Fuer jeden offiziellen Use-Case einen klaren Ablauf mit Beispielgoal, erwarteten Ergebnissen, UI-Weg, CLI-Weg und API-Weg dokumentieren.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Demonstrable-Value, Reproducible-Showcase",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "README.md",
+            "docs/",
+            "agent/cli_goals.py"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-020"
+          ],
+          "acceptance": [
+            "Jeder Kern-Use-Case ist reproduzierbar vorfuehrbar.",
+            "UI-, CLI- und ggf. API-Einstieg sind nachvollziehbar beschrieben.",
+            "Demopfad und Realpfad sind klarer voneinander getrennt."
+          ],
+          "implementation_notes": [
+            "docs/demo-flows.md deckt alle fuenf offiziellen Use-Cases mit Demo-Pfad, UI-Realpfad, CLI-Einstieg, API-Einstieg, Erfolgssignal und erwartetem Ergebnis ab."
+          ]
+        },
+        {
+          "id": "PRD-003",
+          "title": "Demo-Daten und Beispielziele systematisch an Kern-Use-Cases ausrichten",
+          "description": "Vorhandene Demo-Beispiele, Goal-Presets und Einstiegsszenarien so umbauen, dass sie die offiziellen Kern-Use-Cases repraesentieren statt lose Einzelideen zu sein.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Coherent-Showcase, Product-Story-Consistency",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-002"
+          ],
+          "acceptance": [
+            "Demo-Inhalte stuetzen die definierten Kernfaelle.",
+            "Presets wirken wie Produktpfade und nicht wie zufaellige Beispiele.",
+            "Die Demo erklaert den Mehrwert von Ananta besser."
+          ],
+          "implementation_notes": [
+            "Dashboard-Presets erweitert/ausgerichtet in frontend-angular/src/app/components/dashboard.component.ts.",
+            "Backend-Demo-Preview in agent/services/demo_mode_service.py deckt alle fuenf offiziellen Kern-Use-Cases ab.",
+            "Demo-Flows und Presets nutzen dieselben Produktpfade statt loser Einzelideen."
+          ]
+        },
+        {
+          "id": "PRD-004",
+          "title": "Pro Kern-Use-Case ein Erwartungsmodell fuer Eingabe und Ergebnis einfuehren",
+          "description": "Beschreiben und spaeter auch im UI andeuten, was ein guter Input fuer den jeweiligen Use-Case ist und welche Art Ergebnis der Nutzer erwarten darf.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Expectation-Setting, Better-User-Success",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "README.md",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-002"
+          ],
+          "acceptance": [
+            "Nutzer sehen leichter, wie sie sinnvolle Goals formulieren.",
+            "Ergebnisformen sind besser antizipierbar.",
+            "Weniger Friktion durch unklare Erwartungen."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Einstieg zeigt pro Preset passenden Input, erwartetes Ergebnis und sinnvolle Folgeaktion in frontend-angular/src/app/components/dashboard-quick-goal-panel.component.ts.",
+            "Dashboard leitet Erwartungsmodelle aus offiziellen Goal-Presets ab.",
+            "docs/use-cases.md dokumentiert pro Kern-Use-Case guten Input, erwartetes Ergebnis und naechsten Schritt."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "onboarding-and-first-run-simplification",
+      "label": "Onboarding und First Run Vereinfachung",
+      "items": [
+        {
+          "id": "PRD-010",
+          "title": "Einen einzigen offiziell empfohlenen Schnellstartpfad festlegen",
+          "description": "Einen klaren, dominanten Default-Pfad fuer neue Nutzer definieren, damit nicht mehrere gleichwertige Startvarianten miteinander konkurrieren.",
           "priority": "critical",
-          "type": "test-unit",
-          "principle": "Safe-Context-Building, Deterministic-Construction",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Execution-Context-Build ist in mehreren Szenarien deterministisch getestet.",
-            "Fehlende optionalen Daten brechen nicht unkontrolliert.",
-            "Workspace- und Kontextgrenzen bleiben nachvollziehbar erhalten."
-          ]
-        },
-        {
-          "id": "TST-003",
-          "title": "TaskDelegationResultWriter auf Seiteneffekt-Reihenfolge testen",
-          "description": "Parent-Task-Update, Event-Details, Subtask-Fortschreibung und API-Rückgabemodell gegen falsche Reihenfolgen, fehlende Felder und Statusinkonsistenzen absichern.",
-          "priority": "high",
-          "type": "test-unit",
-          "principle": "Ordered-Side-Effects, Stable-Core-Writeback",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Die Reihenfolge zentraler Seiteneffekte ist explizit getestet.",
-            "Parent-Task-Updates bleiben konsistent.",
-            "Fehlerfälle im Writeback lassen sich reproduzierbar erkennen."
-          ]
-        },
-        {
-          "id": "TST-004",
-          "title": "CompletionOutcome und RoutingDecision Modelle mit strengen Validierungstests abdecken",
-          "description": "Die neuen typisierten Kernmodelle gegen fehlende Felder, falsche Typen, inkonsistente Zustände und Erweiterungsfälle absichern.",
-          "priority": "high",
-          "type": "test-unit",
-          "principle": "Model-Contract-Safety, Early-Validation",
+          "type": "product",
+          "principle": "One-Obvious-Way-In, Reduced-Choice-Overload",
           "status": "completed",
           "effort": "small",
           "files": [
-            "agent/models/",
-            "tests/"
+            "README.md",
+            "docs/"
           ],
           "acceptance": [
-            "Modelle validieren positive und negative Fälle strikt.",
-            "Schema-Drift oder inkonsistente Rückgaben werden früh sichtbar.",
-            "Fehlermeldungen bleiben für Entwickler nutzbar."
+            "Es gibt einen klar bevorzugten Einstieg.",
+            "Alternative Startvarianten sind nachgeordnet und kontextualisiert.",
+            "Neue Nutzer muessen nicht zwischen vielen Wegen raten.",
+            "Der Schnellstart benennt genau einen Default-Stack, einen ersten UI-Weg und ein klares Erfolgssignal."
+          ],
+          "implementation_notes": [
+            "README Einstieg konsolidiert: Schnellstart (Lite-Stack) als dominanter Default; UI-Golden-Path verlinkt.",
+            "Schnellstart benennt Default-Stack, ersten UI-Weg und konkrete Erfolgssignale."
           ]
         },
         {
-          "id": "TST-005",
-          "title": "Policy-, Capability- und Exposure-Helfer breit per Unit Tests absichern",
-          "description": "Zentrale Hilfsfunktionen für Capability-Ableitung, Exposure-Policies, Tool-Normalisierung und Governance-Entscheidung gezielt isoliert testen.",
+          "id": "PRD-011",
+          "title": "First Run bis zum ersten sichtbaren Ergebnis auf unter eine Minute trimmen",
+          "description": "Den ersten Produktkontakt so zuspitzen, dass ein neuer Nutzer schnell in einen sichtbaren Goal->Result-Pfad kommt, statt erst Architektur und Modi verstehen zu muessen.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Fast-First-Value, Lower-Entry-Friction",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "README.md",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-010",
+            "PRD-020"
+          ],
+          "acceptance": [
+            "Ein neuer Nutzer kann sehr schnell ein erstes sinnvolles Ergebnis sehen.",
+            "Der Einstieg fuehlt sich weniger technisch und weniger schwer an.",
+            "Die Zeit bis zum ersten Nutzen sinkt deutlich.",
+            "Der Zielwert unter einer Minute ist mit einem konkret beschriebenen Messpfad pruefbar."
+          ],
+          "implementation_notes": [
+            "Messpfad dokumentiert in docs/golden-path-ui.md (manuell pruefbar).",
+            "README und UI-Golden-Path fuehren direkt vom Lite-Stack zum ersten sichtbaren Goal-/Task-Ergebnis."
+          ]
+        },
+        {
+          "id": "PRD-012",
+          "title": "Ersten Start im UI mit gefuehrtem Mini-Onboarding ausbauen",
+          "description": "Den UI-Einstieg mit einem knappen, produktorientierten Mini-Onboarding ausbauen, das Modus, Sicherheitscharakter und erste Aktion erklaert, ohne zu ueberfrachten.",
           "priority": "high",
-          "type": "test-unit",
-          "principle": "Mechanized-Governance-Confidence, No-Logic-Guessing",
+          "type": "product",
+          "principle": "Guided-First-Run, Gentle-Orientation",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
+            "frontend-angular/"
+          ],
+          "dependencies": [
+            "PRD-010",
+            "PRD-011",
+            "PRD-020"
           ],
           "acceptance": [
-            "Governance-Helfer sind nicht nur indirekt über Integrationstests abgedeckt.",
-            "Regeländerungen können auf Unit-Ebene sicher angepasst werden.",
-            "Edge-Cases wie leere Capability-Sets oder Konflikte sind getestet."
+            "Erstnutzer werden knapp aber sinnvoll orientiert.",
+            "Das Onboarding wirkt hilfreich statt langatmig.",
+            "Sicherheits- und Governance-Charakter werden frueh klar."
+          ],
+          "implementation_notes": [
+            "First-Start-Bereich im Dashboard zeigt Drei-Schritt-Orientierung und erklaert den kontrollierten Hub-Start mit sichtbarer Governance.",
+            "Quick-Goal und Assistent bleiben direkt aus dem ersten Dashboard-Zustand erreichbar."
           ]
         },
         {
-          "id": "TST-006",
-          "title": "Result-Memory-, Verification- und Evolution-Helfer auf Grenzfälle testen",
-          "description": "Result Memory, Verification-Status und Evolution-Trigger auf Nullfälle, doppelte Writes, Fehlerfortpflanzung und fehlende optionalen Daten testen.",
+          "id": "PRD-013",
+          "title": "CLI-Ersteinstieg mit klaren Einstiegskommandos und Erfolgssignalen zuspitzen",
+          "description": "Fuer die CLI einen klaren ersten Arbeitsweg definieren, inklusive Beispielkommandos, Erfolgssignalen und Fehlerhilfe fuer den ersten Kontakt.",
           "priority": "medium",
-          "type": "test-unit",
-          "principle": "Durable-State-Transitions, Safer-Progress-Tracking",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Kernzustände rund um Result Memory, Verification und Evolution sind gezielt abgesichert.",
-            "Fehlende oder doppelte Daten führen nicht zu stillen Inkonsistenzen.",
-            "Service-Fehler propagieren kontrolliert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "backend-integration-flows",
-      "label": "Backend Integration Tests Flows",
-      "items": [
-        {
-          "id": "TST-010",
-          "title": "Goal zu Task zu Delegation zu Completion als End-to-End-Backend-Integrationspfad absichern",
-          "description": "Den wichtigsten Hub-Arbeitsfluss ohne Frontend über echte API- und Service-Integration testen, inklusive Task-Erzeugung, Delegation, Verification und Abschlussstatus.",
-          "priority": "critical",
-          "type": "test-integration",
-          "principle": "Core-Flow-Confidence, Realistic-Backend-Wiring",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Ein kompletter Kernpfad läuft als Integrationstest durch.",
-            "Goal-, Task-, Delegation- und Completion-Zustände bleiben konsistent.",
-            "Die wichtigsten Event- und Statusübergänge werden verifiziert."
-          ]
-        },
-        {
-          "id": "TST-011",
-          "title": "Verification-failed und Review-required Pfade als Integrationsszenarien abdecken",
-          "description": "Nicht nur erfolgreiche, sondern bewusst geblockte, eskalierte oder verification-failed Pfade gegen echte Persistenz und Statusübergänge testen.",
-          "priority": "critical",
-          "type": "test-integration",
-          "principle": "Failure-Path-Confidence, Safer-Governance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Verification-failed und Review-required Flows sind als echte Integrationstests vorhanden.",
-            "Status und Event-Historie verhalten sich nachvollziehbar.",
-            "Blocked/failed Pfade sind kein ungetesteter Nebenfall."
-          ]
-        },
-        {
-          "id": "TST-012",
-          "title": "Policy- und Capability-Grenzen über echte API-Pfade testen",
-          "description": "Über echte Requests absichern, dass Capability-Grenzen, Exposure-Policies und Governance-Regeln nicht nur logisch existieren, sondern praktisch greifen.",
-          "priority": "critical",
-          "type": "test-integration",
-          "principle": "Real-Enforcement-Validation, No-Policy-Illusions",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Verbotene Aktionen werden über reale API-Pfade blockiert.",
-            "Capability- und Exposure-Entscheidungen sind außen sichtbar korrekt.",
-            "Integrationstests bestätigen echte Enforcement-Wirkung."
-          ]
-        },
-        {
-          "id": "TST-013",
-          "title": "Read-Model- und Contract-Regressionen als Integrationssuites ausbauen",
-          "description": "Assistant-, Dashboard-, Goal-, Governance- und Task-Readmodels mit stärkeren Integrations- und Contract-Tests gegen Strukturdrift absichern.",
-          "priority": "high",
-          "type": "test-integration",
-          "principle": "Stable-Contracts, Frontend-Safe-Backend-Changes",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Zentrale Readmodels sind über Integrations- und Contract-Tests abgesichert.",
-            "Strukturelle Änderungen sind sichtbar und reviewpflichtig.",
-            "Frontend- und API-Regressionen werden früher erkannt."
-          ]
-        },
-        {
-          "id": "TST-014",
-          "title": "Multi-Worker und verteilte Delegationsszenarien über Integrationstests erweitern",
-          "description": "Mehrere Worker, Routing-Auswahl, manuelle Overrides und fehlende Worker-Situationen in realistischeren Integrationsszenarien prüfen.",
-          "priority": "medium",
-          "type": "test-integration",
-          "principle": "Distributed-Flow-Confidence, Safer-Routing",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Delegation mit mehreren Workern ist nicht nur theoretisch, sondern getestet.",
-            "Fallbacks und No-worker-Fälle sind abgedeckt.",
-            "Routing bleibt nachvollziehbar und robust."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "frontend-unit-and-component-tests",
-      "label": "Frontend Unit und Component Tests",
-      "items": [
-        {
-          "id": "TST-020",
-          "title": "Shared UI Komponenten mit systematischen Component Tests absichern",
-          "description": "MetricCard, KeyValueGrid, SectionCard, EmptyState, ErrorState, StatusBadge, LoadingState, ActionCard, WizardShell, ExplanationNotice, SafetyNotice und NextSteps mit Host- und Render-Tests absichern.",
-          "priority": "critical",
-          "type": "test-unit",
-          "principle": "Reusable-UI-Confidence, Stable-Baukasten",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/src/app/shared/ui/",
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/**/*.spec.ts"
-          ],
-          "acceptance": [
-            "Zentrale Shared Components haben aussagekräftige Component Tests.",
-            "Inputs, Outputs, Slots und Varianten sind abgedeckt.",
-            "Spätere UI-Refactors am Baukasten sind sicherer."
-          ]
-        },
-        {
-          "id": "TST-021",
-          "title": "Dashboard-Panels und ViewModel-Services gezielt unit-testen",
-          "description": "Die entkoppelten Dashboard-Teilkomponenten und ViewModel-/Facade-Services gegen State-Übergänge, Ladefehler, Datenmapping und User-Events absichern.",
-          "priority": "critical",
-          "type": "test-unit",
-          "principle": "UI-Hotspot-Confidence, Safer-Refactors",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/services/",
-            "frontend-angular/src/app/features/"
-          ],
-          "acceptance": [
-            "Dashboard-nahe Logik ist nicht nur indirekt über E2E abgesichert.",
-            "State-Wechsel und Event-Weitergabe sind explizit getestet.",
-            "Die größten UI-Hotspots erhalten echte Regressionsnetze."
-          ]
-        },
-        {
-          "id": "TST-022",
-          "title": "AuthResolver, AgentJwtService und AuthRefreshCoordinator mit gezielten Unit Tests absichern",
-          "description": "Die entdichtete Auth-Schicht über feingranulare Tests gegen Zielklassifikation, Refresh-Sperre, Warteschlangenverhalten und Fehlerpfade absichern.",
-          "priority": "critical",
-          "type": "test-unit",
-          "principle": "Critical-Auth-Testability, No-Silent-Breakage",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/services/",
-            "frontend-angular/src/app/**/*.spec.ts"
-          ],
-          "acceptance": [
-            "Auth-Zielauflösung, Refresh und Agent-JWT sind separat getestet.",
-            "Fehler- und Konkurrenzfälle sind abgedeckt.",
-            "Sicherheitskritische Frontend-Logik ist nicht nur manuell verifiziert."
-          ]
-        },
-        {
-          "id": "TST-023",
-          "title": "User-facing-language und Explainability-Helfer vollständig testen",
-          "description": "Mapping-Helfer für nutzerfreundliche Sprache, Glossartexte, Sicherheitsnotices und Erklärungslayer gegen inkonsistente oder fehlende Begriffe absichern.",
-          "priority": "medium",
-          "type": "test-unit",
-          "principle": "Stable-UX-Language, No-Regressive-Jargon",
+          "type": "product",
+          "principle": "Low-Friction-CLI-Onboarding, Immediate-Confidence",
           "status": "completed",
           "effort": "small",
-          "files": [
-            "frontend-angular/src/app/**/*.spec.ts",
-            "frontend-angular/src/app/**/user-facing-language*"
-          ],
-          "acceptance": [
-            "Zentrale Sprach- und Erklärungshilfen sind konsistent getestet.",
-            "Neue oder geänderte Begriffe verursachen keine stillen UX-Brüche.",
-            "Explainability-Texte bleiben systematisch statt ad hoc."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "frontend-integration-and-flow-tests",
-      "label": "Frontend Integration und Flow Tests",
-      "items": [
-        {
-          "id": "TST-030",
-          "title": "Quick Goal und Guided Goal Flows als Integrationstests absichern",
-          "description": "Die beiden Haupt-Goal-Pfade mit realistischeren Service-Mocks und mehreren UI-Schritten testen, statt nur einzelne Komponenten isoliert zu prüfen.",
-          "priority": "critical",
-          "type": "test-integration",
-          "principle": "Workflow-Confidence, Realistic-UI-State",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/features/",
-            "frontend-angular/src/app/**/*.spec.ts"
-          ],
-          "acceptance": [
-            "Quick Goal und Guided Goal laufen als mehrschrittige Integrationstests.",
-            "Validierung, Step-Wechsel und Submit-Pfade sind abgedeckt.",
-            "UI-Flows brechen nicht unbemerkt bei Refactors."
-          ]
-        },
-        {
-          "id": "TST-031",
-          "title": "Goal Reporting, Governance Summary und Result Summary im UI über Integrationsszenarien absichern",
-          "description": "Goal-Liste, Goal-Detail, Governance-Summary und Result Summary im Zusammenspiel testen, inklusive Ladefehlern, leeren Zuständen und Success-Pfaden.",
-          "priority": "high",
-          "type": "test-integration",
-          "principle": "Composite-UI-Stability, End-User-Visible-Confidence",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/features/",
-            "frontend-angular/src/app/**/*.spec.ts"
-          ],
-          "acceptance": [
-            "Wichtige Ergebnis- und Governance-Sichten sind als Integrationsfluss getestet.",
-            "Loading, Error und Empty State sind im Kontext abgesichert.",
-            "Zusammenspiel mehrerer UI-Bausteine bleibt stabil."
-          ]
-        },
-        {
-          "id": "TST-032",
-          "title": "Persönliche Arbeitsfläche und Start-Hauptaktionen über Integrationstests absichern",
-          "description": "Den persönlichen Einstieg, meine Goals, Demo-Pfade und Start-Hauptaktionen mit mehreren Benutzerwegen und Zustandskonstellationen testen.",
-          "priority": "medium",
-          "type": "test-integration",
-          "principle": "Product-Entry-Confidence, Safer-Onboarding",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/features/",
-            "frontend-angular/src/app/**/*.spec.ts"
-          ],
-          "acceptance": [
-            "Einstieg und persönliche Arbeitsfläche sind nicht nur manuell geklickt.",
-            "Leere, befüllte und Demo-Szenarien sind abgedeckt.",
-            "Produktzugang bleibt nach Refactors verständlich."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "e2e-and-compose-smoke-tests",
-      "label": "E2E und Compose Smoke Tests",
-      "items": [
-        {
-          "id": "TST-040",
-          "title": "Kritische Happy-Path-E2E-Suite für Login, erstes Goal und Ergebnisansicht aufbauen",
-          "description": "Die wichtigsten Endnutzerpfade als stabile E2E-Suite gegen den Compose-Stack absichern, inklusive Login, Goal-Erstellung, Ergebnisanzeige und grundlegender Navigation.",
-          "priority": "critical",
-          "type": "test-e2e",
-          "principle": "True-User-Path-Coverage, Release-Safety",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/",
-            "tests/",
-            "docker-compose*.yml"
-          ],
-          "acceptance": [
-            "Login, erstes Goal und Ergebnisansicht laufen reproduzierbar als E2E.",
-            "Die Suite ist für Release-Smoke geeignet.",
-            "Flaky-Verhalten bleibt unter Kontrolle."
-          ]
-        },
-        {
-          "id": "TST-041",
-          "title": "E2E-Suite für Guided Goal, Review-Hinweise und Sicherheitsnotices erweitern",
-          "description": "Geführte Goal-Erstellung, Sicherheitsnotices, Blockierungen und Review-/Verification-Hinweise in echte UI-End-to-End-Szenarien überführen.",
-          "priority": "high",
-          "type": "test-e2e",
-          "principle": "Governance-UX-Validation, No-Only-Happy-Paths",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Guided Goal und Sicherheits-/Review-Hinweise sind als E2E vorhanden.",
-            "Blockierungen und Explainability werden auf UI-Ebene sichtbar validiert.",
-            "Nicht nur Erfolgsfälle, sondern auch kontrollierte Stopps sind abgedeckt."
-          ]
-        },
-        {
-          "id": "TST-042",
-          "title": "Compose-Smoke-Matrix für Lite, Distributed und Ollama-Overlay pflegen",
-          "description": "Für die wichtigsten Betriebsvarianten kleine, verlässliche Smoke-Suiten aufbauen, damit zentrale Features nicht nur im Standard-Lite-Stack als getestet gelten.",
-          "priority": "high",
-          "type": "test-e2e",
-          "principle": "Deployment-Variant-Confidence, Wider-Operational-Safety",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docker-compose*.yml",
-            "scripts/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Lite-, Distributed- und Ollama-nahe Varianten haben definierte Smokes.",
-            "Wichtige Unterschiede im Stack werden nicht still ungetestet gelassen.",
-            "Release- und Betriebsvarianten bleiben nachvollziehbar abgesichert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "live-click-and-browser-runtime-tests",
-      "label": "Live Click und Browser Runtime Tests",
-      "items": [
-        {
-          "id": "TST-050",
-          "title": "Live-Click-Suite für Dashboard, Goal-Start und Ergebnisleseweg stabilisieren",
-          "description": "Die vorhandenen Live-Browser-/Firefox-/noVNC-Nähe nutzen, um reale Klickpfade mit robuster Selektorstrategie und Screenshot-/Fehlerdiagnostik abzusichern.",
-          "priority": "high",
-          "type": "test-live-click",
-          "principle": "Real-Browser-Confidence, Human-Like-Validation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "scripts/",
-            "frontend-angular/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Wichtige Klickpfade laufen reproduzierbar in Live-Browser-Nähe.",
-            "Fehlschläge liefern brauchbare Diagnoseartefakte.",
-            "Selektoren sind robust genug gegen kleinere UI-Änderungen."
-          ]
-        },
-        {
-          "id": "TST-051",
-          "title": "Live-Click-Szenarien für Sicherheitsnotices, Blockierungen und Recovery-Pfade ergänzen",
-          "description": "Nicht nur Happy Paths, sondern auch reale Browser-Szenarien für Blockierungen, Review-Pflichten, Fehlerzustände und Wiederaufnahme ergänzen.",
-          "priority": "medium",
-          "type": "test-live-click",
-          "principle": "Visible-Safety-Validation, Real-Recovery-Confidence",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "scripts/",
-            "frontend-angular/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Sicherheits- und Recovery-Pfade sind auch in Live-Klicktests vertreten.",
-            "UI reagiert nachvollziehbar auf Blockierungen und Fehler.",
-            "Recovery-Pfade werden realistisch validiert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "cli-and-tui-tests",
-      "label": "CLI und TUI Tests",
-      "items": [
-        {
-          "id": "TST-060",
-          "title": "CLI-Kurzbefehle analyze, review, diagnose und patch mit Unit- und Integrationssuites absichern",
-          "description": "Die produktnahen CLI-Kommandos gegen Parsing, Exit-Codes, Fehlerpfade, Ausgabeformat und Umgebungsvariablen testen.",
-          "priority": "critical",
-          "type": "test-cli",
-          "principle": "Reliable-CLI-Contracts, Product-Entry-Stability",
-          "status": "completed",
-          "effort": "medium",
           "files": [
             "agent/cli_goals.py",
-            "tests/",
-            "scripts/"
+            "README.md",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-010",
+            "PRD-021"
           ],
           "acceptance": [
-            "Die Kernkommandos haben aussagekräftige Tests auf Parsing und Ergebnisform.",
-            "Fehlerpfade und Exit-Codes sind explizit abgesichert.",
-            "CLI-Verhalten bleibt nach Refactors stabil."
+            "CLI-Nutzer verstehen sofort den ersten sinnvollen Befehl.",
+            "Typische Ersteinstiegsfehler sind besser abgefangen oder erklaert.",
+            "CLI fuehlt sich wie offizieller Produktzugang an."
+          ],
+          "implementation_notes": [
+            "CLI hat nun `python -m agent.cli_goals --first-run` fuer offiziellen Ersteinstieg, Erfolgssignale und Fehlerhilfe.",
+            "Goal-Erfolg nennt Goal-ID, Status, Task-Anzahl und das naechste Detailkommando.",
+            "docs/golden-path-cli.md und README listen den offiziellen Erstpfad.",
+            "Manueller CLI-Check bestaetigt `--first-run`; `--status` und `plan` zeigen bei fehlendem Hub klare Fehlerhilfe."
           ]
         },
         {
-          "id": "TST-061",
-          "title": "Interaktive TUI-Bausteine mit Snapshot- und Verhaltenstests einführen",
-          "description": "Falls oder sobald die CLI interaktive Text-UI-Elemente enthält, diese mit Snapshot- und Verhaltenstests gegen Prompts, Navigation, Abbruch und Fehlerdarstellung absichern.",
+          "id": "PRD-014",
+          "title": "Fehlertexte und Abbruchzustände im ersten Run deutlich menschlicher machen",
+          "description": "Gerade in den ersten Schritten klare, untechnische Fehlermeldungen und naechste Schritte zeigen, statt Nutzer mit interner Sprache und Statusmodellen allein zu lassen.",
+          "priority": "high",
+          "type": "ux",
+          "principle": "Recoverable-First-Run, Humane-Failure-Messaging",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/",
+            "agent/cli_goals.py",
+            "agent/routes/"
+          ],
+          "dependencies": [
+            "PRD-011",
+            "UX-040",
+            "UX-042"
+          ],
+          "acceptance": [
+            "Fehler im Ersteinstieg sind fuer Nicht-Insider besser verständlich.",
+            "Naechste Schritte werden aktiv vorgeschlagen.",
+            "Abbrueche wirken weniger wie technische Sackgassen."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Fehler werden in konkrete Nutzertexte fuer Sitzung, Hub-Erreichbarkeit und Governance-Blockierungen uebersetzt.",
+            "Next-Steps bleiben auch bei Fehlern sichtbar.",
+            "API-Fehlerantworten enthalten zentral `data.error_help` mit Summary und naechsten Schritten fuer Auth, Not Found, Validierung/Governance und Serverfehler.",
+            "tests/test_error_contracts.py verifiziert die Fehlerhilfe im API-Contract."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "golden-paths-and-official-flows",
+      "label": "Golden Paths und offizielle Arbeitswege",
+      "items": [
+        {
+          "id": "PRD-020",
+          "title": "Offiziellen Golden Path fuer UI-Nutzung definieren",
+          "description": "Den bevorzugten Standardarbeitsweg im Web-UI festlegen und in Doku, Demo und Produktfuehrung sichtbar als den offiziellen Weg behandeln.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Official-UI-Path, Reduced-Ambiguity",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "README.md",
+            "docs/",
+            "frontend-angular/"
+          ],
+          "acceptance": [
+            "Der bevorzugte UI-Weg ist explizit benannt.",
+            "Doku und Demo sprechen denselben Standardweg.",
+            "Alternative Pfade sind nicht gleichberechtigt chaotisch.",
+            "Der UI-Golden-Path beschreibt Startpunkt, primaere Aktion, erwarteten Zwischenzustand und sichtbares Ergebnis."
+          ],
+          "implementation_notes": [
+            "Dokumentiert in docs/golden-path-ui.md und im README verlinkt.",
+            "UI-Golden-Path benennt Startpunkt, primaere Aktion, Zwischenzustand, sichtbares Ergebnis und priorisierte Hauptaktionen."
+          ]
+        },
+        {
+          "id": "PRD-021",
+          "title": "Offiziellen Golden Path fuer CLI-Nutzung definieren",
+          "description": "Den bevorzugten Standardarbeitsweg fuer die CLI festlegen und ihn von Nebenpfaden, Diagnosekommandos oder Expertenoptionen klar abgrenzen.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Official-CLI-Path, Better-Command-Discipline",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/cli_goals.py",
+            "README.md",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-010"
+          ],
+          "acceptance": [
+            "CLI-Nutzer erkennen den offiziellen Arbeitsweg sofort.",
+            "Nebenzweige und Spezialkommandos sind klar als solche markiert.",
+            "CLI-Doku wirkt fokussierter."
+          ],
+          "implementation_notes": [
+            "docs/golden-path-cli.md angelegt und im README verlinkt.",
+            "agent/cli_goals.py Examples ergaenzt (Golden Path + config show/set).",
+            "CLI-Golden-Path grenzt Status, Task-Liste und Diagnose als Nebenpfade ab."
+          ]
+        },
+        {
+          "id": "PRD-022",
+          "title": "Offiziellen Golden Path fuer Release und Betriebsfreigabe definieren",
+          "description": "Einen glasklaren Standardweg fuer Release-Kandidaten, finale Freigabe und Betriebskommunikation dokumentieren und operationalisieren.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Official-Release-Flow, No-Improvised-Ship-Path",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "docs/",
+            ".github/workflows/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "BMK-070",
+            "BMK-071"
+          ],
+          "acceptance": [
+            "Release-, RC- und finale Freigabe sind klar getrennt.",
+            "Das Team oder spaetere Mitwirkende koennen dem Standardprozess folgen.",
+            "Release-Entscheidungen werden weniger improvisiert."
+          ],
+          "implementation_notes": [
+            "docs/release-golden-path.md definiert Phasen fuer RC, finale Freigabe und Operations-Handoff.",
+            "docs/release-process.md, docs/release-checklist.md und README verlinken den offiziellen Release-Standardweg.",
+            "Bestehende Workflows release.yml und nightly-rc-validation.yml werden als operative Gates referenziert.",
+            "docs/release-evidence-register.md definiert die Pflichtreferenzen fuer RC-Workflow-Run, Release-Workflow-Run und Artefakte."
+          ]
+        },
+        {
+          "id": "PRD-023",
+          "title": "Golden Paths im UI mit visuellen Hauptaktionen und Step-Hinweisen sichtbar machen",
+          "description": "Die offiziellen Hauptpfade im UI nicht nur dokumentieren, sondern direkt mit Handlungshinweisen, CTA-Reihenfolge und Statusfuehrung sichtbar bevorzugen.",
           "priority": "medium",
-          "type": "test-tui",
-          "principle": "Terminal-UX-Stability, Reproducible-Interactive-Flows",
+          "type": "ux",
+          "principle": "Visible-Preferred-Flow, Product-Led-Guidance",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "dependencies": [
+            "PRD-020",
+            "PRD-012",
+            "UX-042"
+          ],
+          "acceptance": [
+            "Bevorzugte Pfade sind im UI klarer sichtbar.",
+            "Hauptaktionen konkurrieren weniger miteinander.",
+            "Nutzer werden eher auf den stabilen Weg gefuehrt."
+          ],
+          "implementation_notes": [
+            "Quick-Goal zeigt den offiziellen UI-Weg Planen -> Aufgaben verfolgen -> Ergebnisse ansehen direkt vor dem Start.",
+            "First-Start-Bereich und Hauptaktionen priorisieren Zielplanung und Demo vor Expertenpfaden.",
+            "docs/golden-path-ui.md dokumentiert die sichtbare CTA-Reihenfolge und grenzt Diagnose/Review/Demo als Use-Case-Einstiege ab."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "operational-observability-and-real-usage-insight",
+      "label": "Operative Observability und reale Nutzungsdaten",
+      "items": [
+        {
+          "id": "OPS-030",
+          "title": "Produktnahe Nutzungsereignisse fuer Kernflows definieren",
+          "description": "Nicht nur technische Logs, sondern produktnahe Ereignisse fuer Start, Goal-Erstellung, Blockierung, Review-Bedarf, Erfolg und Abbruch definieren.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Product-Event-Visibility, Real-Usage-Insight",
           "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
-            "tests/"
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "PRD-020",
+            "PRD-021"
           ],
           "acceptance": [
-            "Interaktive TUI-Flows sind nicht nur manuell testbar.",
-            "Navigation, Abbruch und Statusdarstellung bleiben stabil.",
-            "Golden- oder Snapshot-Baselines sind pflegbar gehalten."
+            "Wichtige Produktaktionen sind als Ereignisse modelliert.",
+            "Es ist klar messbar, welche Flows wirklich genutzt werden.",
+            "Technische Logs und Produktsicht sind besser getrennt."
+          ],
+          "implementation_notes": [
+            "docs/product-events.md definiert den Produktkanal, Kernereignisse und Pflichtdimensionen fuer Start, Goal-Erstellung, Blockierung, Review-Bedarf, Erfolg und Abbruch.",
+            "agent/services/hub_event_service.py fuehrt den versionierten product-Kanal im Hub-Event-Katalog und build_product_event ein.",
+            "agent/services/product_event_service.py persistiert Produkt-Events ueber den Audit-Stream mit product_-Prefix und details.product_event Envelope.",
+            "POST /goals erzeugt Product Events fuer Flow-Start, Goal-Erstellung, Planning-Erfolg, Planning-Fehler und blockierte Goal-Eingaben."
           ]
         },
         {
-          "id": "TST-062",
-          "title": "CLI-Konfigurations- und Environment-Fehlerszenarien systematisch testen",
-          "description": "Fehlende Tokens, kaputte Configs, nicht erreichbare Endpunkte, falsche Modelle oder Runtime-Umgebungen gezielt über CLI-Testfälle absichern.",
+          "id": "OPS-031",
+          "title": "Goal-Abbruch-, Blockierungs- und Review-Raten sichtbar machen",
+          "description": "Im operativen Blick systematisch sichtbar machen, wie oft Goals blockiert werden, wann Review benoetigt wird und an welchen Stellen Nutzer haengen bleiben.",
+          "priority": "high",
+          "type": "operations",
+          "principle": "Friction-Visibility, Better-Improvement-Signals",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "OPS-030",
+            "UX-040"
+          ],
+          "acceptance": [
+            "Blockierungs- und Review-Muster werden sichtbar.",
+            "Produktverbesserung kann sich auf echte Friktion stuetzen.",
+            "Nicht nur erfolgreiche Faelle werden gemessen."
+          ],
+          "implementation_notes": [
+            "OperationsObservabilityService aggregiert Product Events aus dem Audit-Stream unter runtime_telemetry.operations.product_events.",
+            "Friktionsmetriken enthalten blocked, review_required, failed, succeeded sowie Blockierungs-, Review- und Failure-Raten.",
+            "Top-Reasons fuer blockierte, fehlgeschlagene und Review-pflichtige Goal-Flows werden separat ausgewiesen."
+          ]
+        },
+        {
+          "id": "OPS-032",
+          "title": "Nutzung von UI, CLI und API als getrennte Perspektiven auswertbar machen",
+          "description": "Sichtbar machen, welche Zugangsschicht wie genutzt wird und welche Probleme pro Kanal dominieren, statt alles in eine undifferenzierte Gesamtsicht zu werfen.",
           "priority": "medium",
-          "type": "test-cli",
-          "principle": "Operational-CLI-Robustness, Better-Failure-Messaging",
+          "type": "operations",
+          "principle": "Channel-Aware-Insight, Smarter-Prioritization",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
-            "agent/cli_goals.py",
-            "tests/"
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "OPS-030"
           ],
           "acceptance": [
-            "CLI reagiert kontrolliert auf fehlende oder defekte Umgebung.",
-            "Fehlermeldungen sind für Nutzer brauchbar.",
-            "Config- und Runtimefehler führen nicht zu chaotischen Ausgaben."
+            "UI-, CLI- und API-Nutzung lassen sich getrennt bewerten.",
+            "Kanal-spezifische Schwächen werden sichtbar.",
+            "Verbesserungen koennen gezielter priorisiert werden."
+          ],
+          "implementation_notes": [
+            "Product Event Details enthalten source und werden im Dashboard nach channels.counts und channels.friction_by_source aggregiert.",
+            "UI, CLI, API, Demo und Trigger bleiben analytisch getrennt, ohne technische Logs zu vermischen.",
+            "docs/product-events.md dokumentiert die channel-aware Produktmetriken."
+          ]
+        },
+        {
+          "id": "OPS-033",
+          "title": "Produktmetriken fuer Demo, Trial und produktive Nutzung unterscheiden",
+          "description": "Demo-, Evaluations- und echte produktive Nutzung in Metriken unterscheiden, damit Beobachtungen nicht durch Showcase-Traffic verfälscht werden.",
+          "priority": "medium",
+          "type": "operations",
+          "principle": "Meaningful-Metrics, Better-Signal-Quality",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "OPS-030",
+            "PRF-080"
+          ],
+          "acceptance": [
+            "Demo- und Produktnutzung sind analytisch trennbar.",
+            "Metriken sind aussagekraeftiger.",
+            "Produktentscheidungen beruhen weniger auf verrauschten Daten."
+          ],
+          "implementation_notes": [
+            "Product Events werden mit runtime_profile, governance_mode und usage_context angereichert.",
+            "OperationsObservabilityService unterscheidet usage_contexts demo, trial und production inklusive Friktionsraten.",
+            "Runtime-Profile definieren usage_context Defaults fuer Demo, Trial und produktive Betriebsprofile."
           ]
         }
       ]
     },
     {
-      "name": "security-adversarial-llm-misbehavior",
-      "label": "Security Adversarial und LLM Misbehavior",
+      "name": "explainability-and-user-facing-language",
+      "label": "Explainability und Endnutzer Sprache",
       "items": [
         {
-          "id": "SEC-100",
-          "title": "Prompt-Injection und Tool-Override-Versuche gegen Kernpfade testen",
-          "description": "Gezielte adversarial Tests für Prompt-Injection, Regelumgehung, versteckte Instruktionen und Tool-Override-Muster aufbauen, um Governance und Capability-Grenzen gegen feindliche Modellantworten zu validieren.",
+          "id": "UX-040",
+          "title": "Warum-blockiert-Warum-review-Warum-sicher Hinweise im gesamten UI systematisieren",
+          "description": "Erklaerungen fuer Blockierungen, Review-Pflichten und Sicherheitsgrenzen als wiederkehrendes, konsistentes UX-Muster ueber Hauptansichten hinweg etablieren.",
           "priority": "critical",
-          "type": "security-test",
-          "principle": "Adversarial-Resilience, No-Blind-Trust-in-Model",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "tests/",
-            "agent/services/",
-            "agent/routes/"
-          ],
-          "acceptance": [
-            "Mehrere Prompt-Injection- und Regelumgehungs-Muster sind als automatisierte Tests vorhanden.",
-            "Verbotene Tool- oder Scope-Eskalationen werden blockiert.",
-            "Die Tests belegen, dass Policies nicht nur sprachlich, sondern mechanisch greifen."
-          ]
-        },
-        {
-          "id": "SEC-101",
-          "title": "Crazy-LLM-Antworten als hostile model suite simulieren",
-          "description": "Eine Test-Suite aufbauen, in der Modellantworten absichtlich lügen, Strukturen verletzen, unerlaubte Tool-Argumente liefern, Status fälschen oder Output-Schemas ignorieren.",
-          "priority": "critical",
-          "type": "security-test",
-          "principle": "Hostile-Model-Assumption, Defensive-Parsing",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "tests/",
-            "agent/services/",
-            "agent/common/"
-          ],
-          "acceptance": [
-            "Feindliche Modellantworten werden nicht als vertrauenswürdig behandelt.",
-            "Schema-Verletzungen und manipulative Antworten werden kontrolliert erkannt.",
-            "Kernpfade bleiben bei hostile model behavior sicher begrenzt."
-          ]
-        },
-        {
-          "id": "SEC-102",
-          "title": "Kontextvergiftung und Artefakt-getriebene Instruktionsangriffe testen",
-          "description": "Markdown, Tickets, Dateien, Diff-Kommentare oder andere Artefakte mit versteckten oder überschreibenden Instruktionen als Angriffsmaterial in Retrieval- und Kontextpfaden testen.",
-          "priority": "high",
-          "type": "security-test",
-          "principle": "Context-Poisoning-Resistance, Safe-Retrieval-Usage",
+          "type": "ux",
+          "principle": "Systematic-Explainability, Trust-Through-Reasoning-Visible",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "tests/",
-            "agent/services/",
-            "agent/research_backend*"
-          ],
-          "acceptance": [
-            "Kontextvergiftung ist als eigener Angriffstyp automatisiert testbar.",
-            "Gefährliche Artefaktinhalte führen nicht zu stillen Policy-Umgehungen.",
-            "Retrieval und Kontextnutzung bleiben kontrolliert."
-          ]
-        },
-        {
-          "id": "SEC-103",
-          "title": "Multi-Hop und Subtask-Eskalationsversuche gegen Governance testen",
-          "description": "Tests aufbauen, in denen ein Subtask versucht, Scope, Tools, Credentials oder Zuständigkeiten über mehrstufige Anfragen schleichend zu erweitern.",
-          "priority": "high",
-          "type": "security-test",
-          "principle": "No-Escalation-by-Chaining, Delegation-Boundary-Enforcement",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/",
-            "agent/services/",
-            "agent/routes/tasks/"
-          ],
-          "acceptance": [
-            "Mehrstufige Eskalationsversuche sind als Testfälle vorhanden.",
-            "Subtasks können ihre Grenzen nicht schleichend erweitern.",
-            "Delegationsketten bleiben capability- und scope-gebunden."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "security-api-auth-and-boundary-tests",
-      "label": "Security API Auth und Boundary Tests",
-      "items": [
-        {
-          "id": "SEC-110",
-          "title": "Auth- und Boundary-Security über negative API-Tests massiv ausbauen",
-          "description": "Replay-artige Requests, Header-Spoofing, Hub-/Worker-Verwechslung, JWT-Missbrauch, Token-Refresh-Missbrauch und verbotene Tenant-/Workspace-Zugriffe automatisiert prüfen.",
-          "priority": "critical",
-          "type": "security-test",
-          "principle": "Boundary-Trust-Validation, Hostile-Caller-Assumption",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "tests/",
-            "agent/auth/",
-            "agent/routes/",
-            "frontend-angular/src/app/services/"
-          ],
-          "acceptance": [
-            "Negative Auth- und Boundary-Tests decken Spoofing, Replay und Scope-Verletzung ab.",
-            "Hub- und Worker-Grenzen sind praktisch validiert.",
-            "Kritische Header- und Token-Pfade sind gegen Missbrauch getestet."
-          ]
-        },
-        {
-          "id": "SEC-111",
-          "title": "API-Fuzzing-nahe Payload-Tests für invalide, oversized und verschachtelte Inputs einführen",
-          "description": "Requests mit kaputten, riesigen, tief verschachtelten oder semantisch manipulativen Payloads gezielt gegen zentrale Endpunkte testen.",
-          "priority": "high",
-          "type": "security-test",
-          "principle": "Input-Hardening, Robust-Rejection",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/",
-            "agent/routes/"
-          ],
-          "acceptance": [
-            "Mehrere Kernendpunkte sind gegen bösartige oder pathologische Inputs getestet.",
-            "Das System lehnt solche Inputs kontrolliert ab.",
-            "Serverfehler oder unklare Zustandsfolgen werden vermieden."
-          ]
-        },
-        {
-          "id": "SEC-112",
-          "title": "Statuswechsel- und Race-Condition-Angriffe gegen Task- und Goal-Endpunkte testen",
-          "description": "Parallele Requests, doppelte Completion, verspätete Callback-Nachrichten und unerwartete Statuswechsel als Angriffs- und Robustheitsszenarien prüfen.",
-          "priority": "high",
-          "type": "security-test",
-          "principle": "State-Integrity, Race-Resistance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/",
-            "agent/routes/",
-            "agent/services/"
-          ],
-          "acceptance": [
-            "Parallele und verspätete Zustandsmanipulationen sind als Tests vorhanden.",
-            "Task- und Goal-Status bleiben konsistent.",
-            "Race-Condition-Risiken werden sichtbar und überprüfbar reduziert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "security-artifact-repository-and-output-tests",
-      "label": "Security Artefakt Repository und Output Tests",
-      "items": [
-        {
-          "id": "SEC-120",
-          "title": "Artefakt-, Diff- und Repository-Eingaben gegen bösartige Inhaltsformen testen",
-          "description": "Markdown, Diffs, Patch-Dateien, Dateinamen, Unicode-/Homoglyph-Tricks, Terminal-Escapes und manipulierte technische Inhalte als hostile inputs automatisiert prüfen.",
-          "priority": "high",
-          "type": "security-test",
-          "principle": "Hostile-Artifact-Handling, Safe-Rendering-and-Parsing",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/",
-            "agent/services/",
             "frontend-angular/"
           ],
           "acceptance": [
-            "Bösartige Artefakt- und Repository-Inhalte sind als Testklasse vorhanden.",
-            "Anzeige-, Parsing- und Weiterverarbeitungspfade reagieren kontrolliert.",
-            "Unicode- und Escape-Tricks führen nicht zu stillen Sicherheitsbrüchen."
+            "Blockierungen und Review-Pflichten werden ueberall erklaerbar dargestellt.",
+            "Erklaerungen wirken konsistent statt zufaellig.",
+            "Nutzer verstehen Kontrolle besser.",
+            "Fuer Blockierung, Review und Sicherheitsgrenze existiert je ein wiederverwendbares Erklaermuster mit naechster sinnvoller Aktion."
+          ],
+          "implementation_notes": [
+            "Wiederverwendbare Display-Komponenten genutzt: app-decision-explanation + app-next-steps.",
+            "Umgesetzt fuer blocked (Board/Scrum), Guardrail-Blocks (Dashboard Timeline), Goal Detail (blocked/review Hinweise), Auto-Planner (Plan-Result + Goal-Detail Panel) und Task Detail (blocked/review/tool approval + Next Steps).",
+            "docs/ui-state-language-patterns.md definiert das uebergreifende Muster fuer Blockierung, Review, Sicherheitsgrenzen und Erfolg inklusive naechster sinnvoller Aktion."
           ]
         },
         {
-          "id": "SEC-121",
-          "title": "CLI- und TUI-Ausgabe gegen ANSI-, Escape- und Terminal-Missbrauch testen",
-          "description": "Terminalbezogene Angriffe wie ANSI-Escape-Sequenzen, kaputte Newlines, Hyperlink-Escapes und irreführende Prompt-Ausgaben gegen die CLI-/TUI-Ausgabe testen.",
-          "priority": "medium",
-          "type": "security-test",
-          "principle": "Safe-Terminal-Interaction, No-Output-Spoofing",
+          "id": "UX-041",
+          "title": "Technische Systemsprache in Standardansichten weiter reduzieren",
+          "description": "Interne Begriffe, Statusmodelle und Architekturvokabular in Standardansichten weiter in klare, alltagstaugliche Produktsprache uebersetzen.",
+          "priority": "high",
+          "type": "ux",
+          "principle": "Human-Language-First, Less-Internal-Jargon",
           "status": "completed",
-          "effort": "small",
+          "effort": "medium",
           "files": [
-            "agent/cli_goals.py",
-            "tests/"
+            "frontend-angular/",
+            "README.md",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "UX-040"
           ],
           "acceptance": [
-            "CLI-/TUI-Ausgaben sind gegen typische Terminal-Missbrauchsmuster getestet.",
-            "Feindliche Inhalte können den Nutzer nicht leicht täuschen oder die Darstellung kapern.",
-            "Terminal-Relevante Sanitization bleibt nachweisbar."
+            "Standardansichten wirken weniger nach internem Architekturmodell.",
+            "Neue Nutzer verstehen Inhalte schneller.",
+            "Fachsprache bleibt auf Expertenkontexte begrenzt."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Sprache von Quick Goal/Tasks/Board stärker auf Zielbeschreibung, Aufgaben und Ergebnisse umgestellt.",
+            "Interne Task-IDs werden in der Erfolgsmeldung nachrangig als interne Referenzen angezeigt.",
+            "docs/ui-state-language-patterns.md trennt Endnutzer-Zusammenfassung von technischen Details und begrenzt Architekturvokabular auf Expertenkontexte."
+          ]
+        },
+        {
+          "id": "UX-042",
+          "title": "Naechste sinnvolle Schritte konsequent als Handlungshilfe einblenden",
+          "description": "Nach Blockierung, Fehler, Erfolg oder Review nicht nur Zustand anzeigen, sondern den naechsten sinnvollen Schritt sichtbar und klickbar vorschlagen.",
+          "priority": "high",
+          "type": "ux",
+          "principle": "Actionable-States, Less-Dead-End-UX",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "dependencies": [
+            "UX-040"
+          ],
+          "acceptance": [
+            "Wichtige Zustände fuehren zu erkennbaren naechsten Aktionen.",
+            "Weniger Sackgassen in UI und ggf. CLI.",
+            "Nutzer muessen weniger selbst interpretieren."
+          ],
+          "implementation_notes": [
+            "Quick-Goal zeigt Next Steps jetzt auch bei Fehlern (DashboardQuickGoalPanel).",
+            "Board/Dashboard-Timeline nutzen NextSteps fuer blocked/guardrail Events.",
+            "Goal Detail, Auto-Planner und Task Detail zeigen Next Steps fuer typische Zustandswechsel (blocked/review/policy).",
+            "docs/ui-state-language-patterns.md macht Next Steps fuer Blockierung, Fehler, Review und Erfolg zum verbindlichen Standardmuster."
+          ]
+        },
+        {
+          "id": "UX-043",
+          "title": "Ergebnisdarstellung staerker auf Wert statt auf internen Ablauf fokussieren",
+          "description": "Resultate zuerst nach Nutzen, Ergebnisqualitaet und naechstem Schritt strukturieren und den internen Prozess darunter oder getrennt darstellen.",
+          "priority": "medium",
+          "type": "ux",
+          "principle": "Value-First-Results, Better-End-User-Orientation",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/"
+          ],
+          "dependencies": [
+            "PRD-002",
+            "UX-040"
+          ],
+          "acceptance": [
+            "Ergebnisansichten kommunizieren erst Nutzen, dann Mechanik.",
+            "Endnutzer sehen schneller, was sie gewonnen haben.",
+            "Interne Prozesssicht bleibt verfuegbar, aber nicht dominant."
+          ],
+          "implementation_notes": [
+            "Quick-Goal-Erfolg zeigt zuerst Planwert und erzeugte Aufgaben; technische Referenzen sind nachrangig einklappbar.",
+            "Naechste Schritte fuehren direkt zu Zielpruefung, Aufgabenverfolgung und Ergebnissen.",
+            "docs/ui-state-language-patterns.md definiert value-first Ergebniszusammenfassungen mit sekundaeren technischen Details."
           ]
         }
       ]
     },
     {
-      "name": "observability-release-and-chaos-validation",
-      "label": "Observability Release und Chaos Validation",
+      "name": "governance-as-product-feature",
+      "label": "Governance als Produktfeature",
       "items": [
         {
-          "id": "TST-130",
-          "title": "Release-Gate, Strict-Mode und Build-Validation als eigene Testklasse absichern",
-          "description": "Die Release- und Strict-Mode-Prüfungen selbst gegen positive und negative Repository-Zustände testen, damit die Sicherungslogik nicht ungetestet bleibt.",
-          "priority": "medium",
-          "type": "test-integration",
-          "principle": "Trust-the-Gate-Because-It-Is-Tested",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "scripts/release_gate.py",
-            "tests/",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Release-Gate und Strict-Mode werden selbst automatisiert geprüft.",
-            "Negative Fälle führen erwartbar zum Scheitern.",
-            "Die Build-Sicherungslogik bleibt nicht nur implizit vertraut."
-          ]
-        },
-        {
-          "id": "TST-131",
-          "title": "Startup-, Shutdown- und Background-Service-Chaos-Szenarien testen",
-          "description": "Start-/Stop-/Reload-Pfade, partielle Fehler im Bootstrap, Background-Service-Ausfälle und Wiederanlauf-Szenarien über gezielte Chaos-ähnliche Tests absichern.",
-          "priority": "medium",
-          "type": "test-integration",
-          "principle": "Operational-Robustness, Safer-Lifecycle",
+          "id": "GOV-050",
+          "title": "Explizite Governance Modi wie safe, balanced und strict definieren",
+          "description": "Governance nicht nur als implizite Konfiguration, sondern als klar benannte, nutzbare Produktmodi mit unterschiedlichem Kontrollniveau anbieten.",
+          "priority": "critical",
+          "type": "product",
+          "principle": "Visible-Control-Profiles, Productized-Governance",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/bootstrap/",
-            "agent/lifecycle.py",
-            "tests/"
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRD-001"
           ],
           "acceptance": [
-            "Lifecycle-Pfade sind gegen partielle Störungen getestet.",
-            "Background-Ausfälle führen nicht zu unklaren Zwischenzuständen.",
-            "Start- und Shutdown-Robustheit wird praktisch validiert."
+            "Es gibt klar benannte Governance-Modi.",
+            "Der Nutzer kann Kontrollniveau bewusst verstehen und waehlen.",
+            "Governance wird als staerke sichtbar statt nur als innere Technik.",
+            "Die Modi beschreiben Unterschiede bei Tool-Grenzen, Review-Pflichten, Ausfuehrungsfreiheit und Auditierbarkeit."
+          ],
+          "implementation_notes": [
+            "Docs: docs/governance-modes.md.",
+            "Backend: governance_mode als additive Config mit Validation und Read-Model-Ausgabe.",
+            "UI/CLI Auswahl umgesetzt (siehe GOV-051)."
           ]
         },
         {
-          "id": "TST-132",
-          "title": "Testmetriken, Flaky-Tracking und Failure-Diagnostik ausbauen",
-          "description": "Für E2E-, Live-Click- und Security-Suiten Diagnoseartefakte, Flaky-Kennzahlen, Screenshots, Logs und strukturierte Failure-Metadaten systematischer erfassen.",
-          "priority": "low",
-          "type": "test-infrastructure",
-          "principle": "Actionable-Test-Failures, Faster-Feedback",
+          "id": "GOV-051",
+          "title": "Governance Modi im UI und CLI erklaerbar auswählbar machen",
+          "description": "Die gewaehlten Modi nicht nur intern verwenden, sondern im UI und in der CLI klar erklaeren und kontrollierbar machen.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Selectable-Control, Explainable-Safety-Posture",
           "status": "completed",
           "effort": "medium",
           "files": [
-            "tests/",
-            "scripts/",
-            ".github/workflows/"
+            "frontend-angular/",
+            "agent/cli_goals.py",
+            "docs/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "PRD-020",
+            "PRD-021"
           ],
           "acceptance": [
-            "Schwere Testfehler liefern gute Diagnoseartefakte.",
-            "Flaky-Verhalten wird messbarer und sichtbarer.",
-            "Testinfrastruktur verbessert Debugbarkeit statt nur Anzahl von Tests."
+            "Governance-Modi sind in Produktoberflaechen sichtbar waehlbar.",
+            "Ihre Unterschiede werden nicht nur intern verstanden.",
+            "Nutzer koennen Verhalten besser auf ihren Kontext abstimmen."
+          ],
+          "implementation_notes": [
+            "UI: Settings -> System -> Profile & Governance: governance_mode und runtime_profile als Selects.",
+            "CLI: agent/cli_goals.py: --config-show, --set-runtime-profile, --set-governance-mode."
+          ]
+        },
+        {
+          "id": "GOV-052",
+          "title": "Governance-Entscheidungen als lesbares Policy-Profil exportierbar machen",
+          "description": "Die effektiven Kontrollregeln, Tool-Grenzen und Review-Bedingungen als zusammenhaengendes lesbares Profil sichtbar oder exportierbar machen.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Readable-Effective-Policy, Auditable-Controls",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "GOV-051"
+          ],
+          "acceptance": [
+            "Effektive Governance kann als Profil eingesehen werden.",
+            "Nutzer oder Admins muessen nicht viele Einzelstellen lesen.",
+            "Kontrolllogik wird transparenter."
+          ],
+          "implementation_notes": [
+            "agent/services/governance_profile_service.py baut ein lesbares effective_policy_profile aus Runtime-Profil, Governance-Modus und Policy-Bloecken.",
+            "GET /config liefert effective_policy_profile fuer Admin-/Operator-Export.",
+            "Dashboard Read Model liefert llm_configuration.effective_policy_profile fuer UI- und Betriebsansichten."
+          ]
+        },
+        {
+          "id": "GOV-053",
+          "title": "Review-first und local-first Betriebsmodi als klar erkennbare Profile ausarbeiten",
+          "description": "Praktisch relevante Sicherheits- und Betriebsprofile wie review-first oder local-first als echte Produktmodi mit passender Sprache und Standardkonfiguration ausarbeiten.",
+          "priority": "medium",
+          "type": "product",
+          "principle": "Meaningful-Operational-Profiles, Safer-Default-Choices",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "PRF-080"
+          ],
+          "acceptance": [
+            "Wichtige Sicherheits- und Betriebsprofile sind konkret nutzbar.",
+            "Die Profile kommunizieren echten Mehrwert statt nur Namen.",
+            "Betriebsszenarien lassen sich sinnvoller abbilden."
+          ],
+          "implementation_notes": [
+            "Runtime-Profilkatalog enthaelt local-first und review-first als konkrete Betriebsprofile.",
+            "local-first ist auf lokale Diagnose und Trial-Kontext ausgerichtet; review-first auf kontrollierte produktive Nutzung.",
+            "docs/governance-modes.md dokumentiert beide Profile und ihre Governance-Intention."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "plugin-tool-worker-contracts",
+      "label": "Plugin Tool und Worker Contracts",
+      "items": [
+        {
+          "id": "ARC-060",
+          "title": "Stabile Tool-Contract-Spezifikation fuer externe oder spaetere Integrationen definieren",
+          "description": "Ein formales, nachvollziehbares Contract-Modell fuer Tools definieren, damit Erweiterungen und Integrationen nicht auf impliziten Annahmen beruhen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Stable-Extension-Contracts, Less-Implicit-Coupling",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "docs/",
+            "agent/"
+          ],
+          "dependencies": [
+            "GOV-050"
+          ],
+          "acceptance": [
+            "Tools folgen einem klaren Contract-Modell.",
+            "Erweiterungen sind besser validierbar.",
+            "Integrationen werden weniger fragil."
+          ],
+          "implementation_notes": [
+            "agent/tool_contracts.py definiert einen versionierten v1 Tool-Contract-Katalog mit Pflichtfeldern, Security-Regeln, Audit- und Output-Contract.",
+            "docs/tool-contracts.md dokumentiert Contract-Felder, Fail-Closed-Regeln und Erweiterungsanforderungen.",
+            "tests/test_tool_capabilities_contract.py prueft, dass Tools die stabilen Contract-Felder liefern."
+          ]
+        },
+        {
+          "id": "ARC-061",
+          "title": "Worker-Capability-Profile formal definieren und dokumentieren",
+          "description": "Worker-Faehigkeiten als explizite Profile mit erlaubten Scopes, Toolklassen, Rollen und Grenzen modellieren, statt sie nur aus verstreuten Konfigurationen abzuleiten.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "Explicit-Worker-Boundaries, Scalable-Governed-Delegation",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "docs/"
+          ],
+          "dependencies": [
+            "GOV-050",
+            "PRF-080"
+          ],
+          "acceptance": [
+            "Worker-Profile sind formal beschrieben.",
+            "Capabilities und Grenzen sind besser vergleichbar.",
+            "Skalierung und Austauschbarkeit werden realistischer."
+          ],
+          "implementation_notes": [
+            "WorkerCapabilityService liefert versionierte Worker-Capability-Profile fuer planner, coder, reviewer und operator.",
+            "docs/worker-capability-profiles.md dokumentiert Scopes, Toolklassen, Grenzen und Hub-Owned-Task-Queue-Boundary.",
+            "tests/test_worker_capability_profiles.py prueft Profile und Worker-Regel execute_delegated_work_only."
+          ]
+        },
+        {
+          "id": "ARC-062",
+          "title": "Remote und local backend/provider Contracts vereinheitlichen",
+          "description": "Die Schnittstellen fuer lokale und entfernte Backends weiter harmonisieren, damit Austauschbarkeit und Routinglogik weniger Spezialfaelle enthalten.",
+          "priority": "medium",
+          "type": "architecture",
+          "principle": "Backend-Interchangeability, Lower-Integration-Friction",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "docs/"
+          ],
+          "dependencies": [
+            "ARC-060",
+            "ARC-061"
+          ],
+          "acceptance": [
+            "Lokale und entfernte Provider wirken konsistenter.",
+            "Routing und Governance haben weniger Sonderfaelle.",
+            "Integrationen werden austauschbarer."
+          ],
+          "implementation_notes": [
+            "agent/backend_provider_contracts.py definiert einen gemeinsamen v1 Contract-Katalog fuer lokale, gehostete, CLI- und Remote-Ananta-Provider.",
+            "docs/backend-provider-contracts.md dokumentiert Pflichtfelder fuer provider_type, location, transport, capabilities, routing, governance und health.",
+            "tests/test_backend_provider_contracts.py prueft, dass lokale, remote, hosted und CLI-Provider dieselbe Contract-Form verwenden."
+          ]
+        },
+        {
+          "id": "ARC-063",
+          "title": "Integrationsrichtlinien fuer Dritttools und Worker-Adapter schreiben",
+          "description": "Fuer spaetere externe Integrationen klare Richtlinien definieren: welche Sicherheits-, Audit-, Contract- und Testing-Anforderungen ein Adapter oder Tool erfuellen muss.",
+          "priority": "medium",
+          "type": "architecture",
+          "principle": "Governed-Extensibility, No-Random-Plugin-Surface",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docs/"
+          ],
+          "dependencies": [
+            "ARC-060",
+            "ARC-061"
+          ],
+          "acceptance": [
+            "Drittintegrationen haben definierte Mindestanforderungen.",
+            "Erweiterbarkeit unterlaeuft nicht die Sicherheitsidee.",
+            "Externe Mitwirkende bekommen klare Leitplanken."
+          ],
+          "implementation_notes": [
+            "agent/integration_guidelines.py definiert v1 Mindestanforderungen fuer contract_first, least_privilege, auditability, fail_closed, hub_boundary und test_evidence.",
+            "docs/third-party-integration-guidelines.md dokumentiert Adapter-Checklist und Review-Regel.",
+            "tests/test_integration_guidelines.py prueft die Mindestanforderungen inklusive Hub-Boundary gegen Worker-to-Worker-Orchestrierung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "benchmarking-and-competitive-evaluation",
+      "label": "Benchmarking und Vergleichsbewertung",
+      "items": [
+        {
+          "id": "BMK-070",
+          "title": "Kleine feste Benchmark-Suite aus realistischen Aufgaben definieren",
+          "description": "Eine kleine, aber ernstzunehmende Suite aus realistischen Aufgaben definieren, mit der Ananta gegen sich selbst und spaeter gegen Vergleichsprojekte bewertet werden kann.",
+          "priority": "high",
+          "type": "benchmark",
+          "principle": "Comparable-Progress, Reality-Based-Evaluation",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "tests/",
+            "agent/"
+          ],
+          "dependencies": [
+            "PRD-001"
+          ],
+          "acceptance": [
+            "Es gibt eine feste Benchmark-Aufgabenliste.",
+            "Die Aufgaben repräsentieren echte Ananta-Staerken.",
+            "Fortschritt kann spaeter vergleichbar gemessen werden."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert eine feste v1 Suite mit fuenf Kernaufgaben.",
+            "docs/product-benchmark-suite.md dokumentiert Aufgabenliste, erwartete Staerken und Vergleichsregel.",
+            "tests/test_product_benchmark_suite.py prueft die feste Aufgabenmenge."
+          ]
+        },
+        {
+          "id": "BMK-071",
+          "title": "Bewertungskriterien fuer Benchmarking formal definieren",
+          "description": "Nicht nur Erfolg oder Fehler messen, sondern Zeit, Nachvollziehbarkeit, Blockierungsqualitaet, Review-Bedarf, Sicherheit und Ergebniswert formal bewerten.",
+          "priority": "high",
+          "type": "benchmark",
+          "principle": "Multi-Dimensional-Evaluation, Fairer-Comparison",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docs/"
+          ],
+          "dependencies": [
+            "BMK-070",
+            "GOV-050"
+          ],
+          "acceptance": [
+            "Benchmarking bewertet mehr als nur ob etwas lief.",
+            "Governance- und Sicherheitsstaerken werden mitgemessen.",
+            "Vergleiche werden aussagekraeftiger."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert gewichtete Kriterien fuer Erfolg, Zeit, Traceability, Governance, Blockqualitaet, Ergebniswert und Reproduzierbarkeit.",
+            "docs/product-benchmark-suite.md dokumentiert die 100-Punkte-Bewertung.",
+            "Governance Quality und Block Quality sind eigene Kriterien statt nachrangige technische Details."
+          ]
+        },
+        {
+          "id": "BMK-072",
+          "title": "Ananta gegen OpenHands, OpenDevin und OpenClaw-artige Flows in ausgewählten Aufgaben vergleichen",
+          "description": "Fuer einige repräsentative Aufgaben dokumentiert vergleichen, wie Ananta gegen relevante Vergleichssysteme oder deren typische Arbeitslogik abschneidet.",
+          "priority": "medium",
+          "type": "benchmark",
+          "principle": "Contextual-Competitive-Understanding, Sharper-Positioning",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "docs/"
+          ],
+          "dependencies": [
+            "BMK-070",
+            "BMK-071"
+          ],
+          "acceptance": [
+            "Es gibt dokumentierte Vergleichsfaelle gegen relevante Projektklassen.",
+            "Anantas Staerken und Schwächen werden belastbarer greifbar.",
+            "Positionierung kann spaeter auf Fakten statt Gefuehl beruhen."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert Vergleichsziele fuer openhands-like, opendevin-like und openclaw-like Flows.",
+            "docs/product-benchmark-suite.md dokumentiert Vergleichsfokus und erwarteten Ananta-Kontrast.",
+            "tests/test_product_benchmark_suite.py prueft die Vergleichsziele."
+          ]
+        },
+        {
+          "id": "BMK-073",
+          "title": "Benchmark-Ergebnisse fuer Produktkommunikation und Release-Retros nutzen",
+          "description": "Die Benchmarkdaten nicht nur intern sammeln, sondern auch fuer Release-Retrospektiven und spaetere oeffentliche Positionierung verwertbar strukturieren.",
+          "priority": "medium",
+          "type": "benchmark",
+          "principle": "Reusable-Evidence, Better-Product-Narrative",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "CHANGELOG.md"
+          ],
+          "dependencies": [
+            "BMK-070",
+            "BMK-071",
+            "BMK-072"
+          ],
+          "acceptance": [
+            "Benchmark-Ergebnisse koennen intern und extern sinnvoll genutzt werden.",
+            "Releases lassen sich sachlicher bewerten.",
+            "Produktkommunikation wird glaubwuerdiger."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert release_narrative_fields fuer Headline, Best Signal, Governance Signal, Regression Watch und Evidence Links.",
+            "docs/product-benchmark-suite.md enthaelt ein Release-Retro-Template fuer Benchmark Evidence.",
+            "README.md verlinkt die Produkt-Benchmark-Suite fuer Produkt- und Release-Bewertung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "product-profiles-and-operating-modes",
+      "label": "Produktprofile und Betriebsmodi",
+      "items": [
+        {
+          "id": "PRF-080",
+          "title": "Klare Produktprofile wie demo, developer local, team controlled und secure enterprise definieren",
+          "description": "Ananta in einige klare Betriebs- oder Produktprofile schneiden, damit nicht alles fuer alle gleichzeitig optimiert werden muss.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Segmented-Product-Clarity, Better-Fit-by-Context",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "docs/",
+            "README.md",
+            "frontend-angular/",
+            "agent/"
+          ],
+          "dependencies": [
+            "PRD-001",
+            "GOV-050"
+          ],
+          "acceptance": [
+            "Es gibt klar benannte Produkt- oder Betriebsprofile.",
+            "Profile unterscheiden sich nachvollziehbar.",
+            "Ananta wirkt weniger wie ein einziger ueberladener Modus.",
+            "Jedes Profil benennt Zielgruppe, Default-Einstieg, Governance-Modus, empfohlene Laufzeit und Nicht-Ziele."
+          ],
+          "implementation_notes": [
+            "Docs: docs/product-profiles.md.",
+            "Backend: runtime_profile um demo/developer-local/team-controlled/secure-enterprise erweitert (additiv, kompatibel).",
+            "UI Auswahl umgesetzt (Settings -> System -> Profile & Governance)."
+          ]
+        },
+        {
+          "id": "PRF-081",
+          "title": "Profile auf konkrete Defaults, Konfigurationen und Einstiegspfade abbilden",
+          "description": "Die definierten Produktprofile nicht nur benennen, sondern mit sinnvollen Default-Einstellungen, Demo-Pfaden, Governance-Modi und Dokumentationswegen unterlegen.",
+          "priority": "high",
+          "type": "product",
+          "principle": "Actionable-Profiles, Config-Backed-Product-Modes",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "frontend-angular/",
+            "docs/"
+          ],
+          "dependencies": [
+            "PRF-080",
+            "GOV-050",
+            "ARC-061"
+          ],
+          "acceptance": [
+            "Produktprofile haben echte technische und UX-seitige Wirkung.",
+            "Defaults passen zum jeweiligen Zielprofil.",
+            "Profile sind mehr als nur Marketingnamen."
+          ],
+          "implementation_notes": [
+            "Runtime-Profile enthalten default_governance_mode, usage_context und entry_paths als konkrete Default-Signale.",
+            "docs/product-profiles.md beschreibt Defaults und Einstiegspfade je Profil.",
+            "GET /config und Dashboard Read Model machen die effektiven Profil-Defaults sichtbar."
+          ]
+        },
+        {
+          "id": "PRF-082",
+          "title": "README, Schnellstart und Release-Kommunikation an Produktprofile anpassen",
+          "description": "Die oeffentliche Kommunikation so ordnen, dass unterschiedliche Nutzer sofort erkennen, welcher Modus oder welches Profil fuer sie gedacht ist.",
+          "priority": "medium",
+          "type": "presentation",
+          "principle": "Audience-Fit-Communication, Less-Misleading-Entry",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "README.md",
+            "docs/",
+            "CHANGELOG.md"
+          ],
+          "dependencies": [
+            "PRF-080",
+            "PRF-081"
+          ],
+          "acceptance": [
+            "Kommunikation passt besser zu unterschiedlichen Nutzergruppen.",
+            "Neue Nutzer finden schneller den fuer sie passenden Pfad.",
+            "Das Projekt wirkt zielgerichteter."
+          ],
+          "implementation_notes": [
+            "README.md verlinkt Produktprofile bereits im Einstieg und ordnet Startvarianten konkreten Profilen zu.",
+            "README.md nennt effective_policy_profile, Tool-Contracts, Worker-Capability-Profile und die Produkt-Benchmark-Suite.",
+            "docs/product-profiles.md bleibt die Detailquelle fuer Profile, Defaults und Einstiegspfade."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 38,
+    "total_items": 36,
     "by_status": {
-      "completed": 38,
+      "completed": 36,
       "partial": 0,
       "open": 0
     },
+    "archive": {
+      "status": "completed",
+      "archived_on": "2026-04-21",
+      "archived_in": "docs/todo-feature-ui-ux-archive.md",
+      "completion_summary": "Alle 36 UI/UX-, Produktreife-, Governance-, Contract- und Benchmark-Items sind abgeschlossen; es gibt keine partial oder open Items mehr."
+    },
     "notes": [
-      "Diese Todo-Datei ist bewusst groß und breit, weil sie Ananta nicht nur funktional, sondern auch regressions-, angriffs- und missbrauchsresistenter machen soll.",
-      "Der wichtigste Unterschied zu gewöhnlichen Testplänen ist der adversarial Schwerpunkt: hostile model, hostile input, hostile external caller und hostile artifact werden explizit als eigene Testachsen behandelt.",
-      "Der Kernanspruch ist: Ananta soll nicht nur mit gutwilligen Eingaben und vernünftigen Modellen funktionieren, sondern auch unter feindlichen, chaotischen und irreführenden Bedingungen kontrolliert bleiben."
+      "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
+      "Der Fokus liegt auf dem Ausbau von Ananta als klar verstehbare kontrollierte Agentenplattform mit besserem Einstieg, staerkerer Explainability, sichtbarer Governance und besserer Positionierung.",
+      "Ein Teil der Punkte wird UI-, CLI-, Doku- und Config-seitige Aenderungen kombinieren muessen; reine Einzelmassnahmen werden den groessten Effekt nicht erreichen."
     ],
     "recommended_order": [
-      "TST-010",
-      "TST-011",
-      "TST-012",
-      "TST-020",
-      "TST-022",
-      "SEC-100",
-      "SEC-101",
-      "SEC-110",
-      "TST-040",
-      "TST-041",
-      "TST-060",
-      "TST-021",
-      "TST-030",
-      "TST-031",
-      "TST-001",
-      "TST-002",
-      "TST-005",
-      "TST-013",
-      "TST-014",
-      "SEC-102",
-      "SEC-103",
-      "SEC-111",
-      "SEC-112",
-      "SEC-120",
-      "TST-042",
-      "TST-050",
-      "TST-051",
-      "TST-061",
-      "TST-062",
-      "TST-003",
-      "TST-004",
-      "TST-006",
-      "TST-023",
-      "TST-032",
-      "SEC-121",
-      "TST-130",
-      "TST-131",
-      "TST-132"
+      "PRD-001",
+      "PRD-010",
+      "PRD-020",
+      "PRD-021",
+      "PRD-011",
+      "UX-040",
+      "GOV-050",
+      "PRF-080",
+      "PRD-002",
+      "PRD-003",
+      "PRD-012",
+      "UX-042",
+      "PRD-023",
+      "PRD-013",
+      "PRD-014",
+      "OPS-030",
+      "OPS-031",
+      "UX-041",
+      "UX-043",
+      "GOV-051",
+      "GOV-052",
+      "GOV-053",
+      "ARC-060",
+      "ARC-061",
+      "PRF-081",
+      "PRF-082",
+      "OPS-032",
+      "OPS-033",
+      "PRD-004",
+      "ARC-062",
+      "ARC-063",
+      "BMK-070",
+      "BMK-071",
+      "BMK-072",
+      "BMK-073",
+      "PRD-022"
+    ],
+    "foundation_slice": {
+      "name": "product-foundation-slice",
+      "goal": "Zuerst die gemeinsame Produktbasis klaeren, bevor UI, CLI, Demos, Observability und Benchmarks breiter umgesetzt werden.",
+      "items": [
+        "PRD-001",
+        "PRD-010",
+        "PRD-020",
+        "PRD-011",
+        "UX-040",
+        "GOV-050",
+        "PRF-080"
+      ],
+      "done_when": [
+        "Drei bis fuenf Kern-Use-Cases sind benannt und als Grundlage fuer Demo, Doku, Benchmark und Profile verwendbar.",
+        "Ein einziger offizieller Schnellstart und ein offizieller UI-Golden-Path sind festgelegt.",
+        "Der First-Run-Zielwert unter einer Minute ist als pruefbarer Messpfad beschrieben.",
+        "Governance-Modi und Produktprofile sind so definiert, dass spaetere UI-, CLI- und Config-Arbeiten nicht widerspruechlich laufen.",
+        "Explainability-Grundmuster fuer Blockierung, Review und Sicherheitsgrenzen sind definiert."
+      ],
+      "architecture_guardrails": [
+        "Der Hub bleibt zentrale Kontroll- und Orchestrierungsebene.",
+        "Worker-Profile und Tool-Contracts duerfen Faehigkeiten beschreiben, aber keine Worker-zu-Worker-Orchestrierung einfuehren.",
+        "Produktprofile duerfen Defaults und Einstiegspfade setzen, aber keine implizite gemeinsame Runtime oder globalen Zustand voraussetzen.",
+        "Governance-Modi muessen als explizite Policy-/Profilentscheidung modellierbar bleiben, nicht als verstreute Spezialfaelle."
+      ],
+      "solid_guardrails": [
+        "SRP: Use-Cases, Governance-Modi, Produktprofile, Observability und Benchmarks bleiben getrennte Verantwortungsbereiche.",
+        "OCP: Neue Profile oder Modi sollen ergaenzbar sein, ohne zentrale Flows wiederholt umzuschreiben.",
+        "ISP: Capability- und Tool-Contracts bleiben klein und auf konkrete Verbraucher zugeschnitten.",
+        "DIP: UI, CLI und API sollen gegen explizite Profile und Policies arbeiten, nicht gegen konkrete interne Implementierungsdetails."
+      ]
+    },
+    "milestones": [
+      {
+        "id": "M1",
+        "name": "Produktfundament, Governance und Einstieg",
+        "intent": "Klaert, wofuer Ananta zuerst steht und wie neue Nutzer zum ersten sichtbaren Ergebnis kommen.",
+        "depends_on": [],
+        "decision_focus": [
+          "Welche Kern-Use-Cases repraesentieren Ananta offiziell?",
+          "Welcher Schnellstart und welcher UI-Golden-Path sind der Default?",
+          "Welche Governance-Modi und Produktprofile bilden die erste Produktlogik?"
+        ],
+        "items": [
+          "PRD-001",
+          "PRD-010",
+          "PRD-020",
+          "PRD-011",
+          "UX-040",
+          "GOV-050",
+          "PRF-080"
+        ],
+        "exit_criteria": [
+          "Kern-Use-Cases, Schnellstart, UI-Golden-Path, First-Run-Messpfad, Governance-Modi und Produktprofile widersprechen sich nicht.",
+          "Die Foundation-Entscheidungen sind konkret genug, um UI-, CLI-, Demo- und Doku-Arbeiten daran auszurichten."
+        ]
+      },
+      {
+        "id": "M2",
+        "name": "Gefuehrte Demo-, UI- und CLI-Einstiege",
+        "intent": "Macht die Produktbasis fuer Erstnutzer, Reviewer und Demos praktisch nachvollziehbar.",
+        "depends_on": [
+          "M1"
+        ],
+        "decision_focus": [
+          "Wie wird jeder Kern-Use-Case reproduzierbar gezeigt?",
+          "Welche Einstiegshilfen braucht UI und CLI wirklich?",
+          "Welche Fehl- und Blockierungszustaende brauchen konkrete naechste Schritte?"
+        ],
+        "items": [
+          "PRD-002",
+          "PRD-003",
+          "PRD-012",
+          "UX-042",
+          "PRD-013",
+          "PRD-014",
+          "PRD-021",
+          "PRD-023"
+        ],
+        "exit_criteria": [
+          "UI-, CLI- und Demo-Einstiege fuehren auf dieselben Kern-Use-Cases zurueck.",
+          "Fehler, Blockierungen, Review-Zustaende und Erfolge haben klare naechste Schritte."
+        ]
+      },
+      {
+        "id": "M3",
+        "name": "Operative Sichtbarkeit und Governance-Produktisierung",
+        "intent": "Macht reale Nutzung, Friktion und effektive Kontrollregeln sichtbar und steuerbar.",
+        "depends_on": [
+          "M1",
+          "M2"
+        ],
+        "decision_focus": [
+          "Welche Produkt-Events bilden die Kernflows ab?",
+          "Welche Friktionssignale sollen UI, CLI und API getrennt sichtbar machen?",
+          "Wie wird Governance als waehlbare, erklaerbare Produktfunktion dargestellt?"
+        ],
+        "items": [
+          "OPS-030",
+          "OPS-031",
+          "UX-041",
+          "UX-043",
+          "GOV-051",
+          "GOV-052",
+          "GOV-053",
+          "OPS-032",
+          "OPS-033"
+        ],
+        "exit_criteria": [
+          "Produktnahe Ereignisse trennen technische Logs von Nutzungs- und Friktionssignalen.",
+          "Governance ist in UI, CLI und Profilen als verstaendliche Produktfunktion sichtbar."
+        ]
+      },
+      {
+        "id": "M4",
+        "name": "Contracts, Profil-Defaults und kontrollierte Erweiterbarkeit",
+        "intent": "Stabilisiert die Erweiterungspunkte, ohne die Hub-Worker-Verantwortlichkeiten aufzuweichen.",
+        "depends_on": [
+          "M1",
+          "M3"
+        ],
+        "decision_focus": [
+          "Welche Tool-, Worker- und Provider-Contracts muessen stabil werden?",
+          "Welche Defaults machen Produktprofile technisch nutzbar?",
+          "Welche Integrationsregeln verhindern implizite Kopplung und unkontrollierte Ausfuehrungspfade?"
+        ],
+        "items": [
+          "ARC-060",
+          "ARC-061",
+          "PRF-081",
+          "PRF-082",
+          "PRD-004",
+          "ARC-062",
+          "ARC-063"
+        ],
+        "exit_criteria": [
+          "Tool-, Worker- und Provider-Contracts sind dokumentiert und an Governance-/Profilentscheidungen anschliessbar.",
+          "Produktprofile haben konkrete Defaults, ohne hart an einzelne Implementierungen gekoppelt zu sein."
+        ]
+      },
+      {
+        "id": "M5",
+        "name": "Benchmarking und Release-Nachweis",
+        "intent": "Macht Fortschritt und Positionierung ueber reproduzierbare Aufgaben bewertbar.",
+        "depends_on": [
+          "M1",
+          "M4"
+        ],
+        "decision_focus": [
+          "Welche realistischen Aufgaben beweisen Anantas Staerken?",
+          "Welche Kriterien bewerten neben Erfolg auch Sicherheit, Review-Qualitaet und Nachvollziehbarkeit?",
+          "Wie fliessen Benchmark- und Governance-Signale in Release-Freigaben ein?"
+        ],
+        "items": [
+          "BMK-070",
+          "BMK-071",
+          "BMK-072",
+          "BMK-073",
+          "PRD-022"
+        ],
+        "exit_criteria": [
+          "Benchmark-Aufgaben und Bewertungskriterien sind stabil genug fuer Release-Retrospektiven.",
+          "Release- und Freigabepfade nutzen die Benchmark- und Governance-Signale nachvollziehbar."
+        ]
+      }
+    ],
+    "dependency_model": {
+      "meaning": "dependencies benennt fachliche oder planerische Vorbedingungen innerhalb dieser Todo-Datei, nicht zwingend technische Build-Abhaengigkeiten.",
+      "rules": [
+        "Foundation-Items duerfen wenige oder keine dependencies haben, muessen aber in M1 gemeinsam abgestimmt werden.",
+        "Ein Item soll nur dependencies nennen, die fuer sinnvolle Umsetzung oder konsistente Produktentscheidungen wirklich benoetigt werden.",
+        "Dependencies duerfen nicht genutzt werden, um Worker-zu-Worker-Orchestrierung oder implizite gemeinsame Runtime-Annahmen einzufuehren.",
+        "Wenn eine dependency erledigt ist, muss das abhaengige Item trotzdem separat gegen seine Acceptance-Kriterien geprueft werden."
+      ]
+    },
+    "review_checks": [
+      "Zaehlt die Datei weiterhin exakt so viele Items, wie meta.total_items angibt?",
+      "Sind alle offenen Items in recommended_order und genau einem Milestone enthalten?",
+      "Verweisen alle dependencies auf existierende Todo-IDs und erzeugen keine Zyklen?",
+      "Sind Milestone-depends_on-Werte azyklisch und nachvollziehbar?",
+      "Hat jedes Foundation-Item mindestens ein pruefbares Acceptance-Kriterium statt nur Wirkungssprache?",
+      "Bleiben Hub-Orchestrierung, Worker-Ausfuehrung und Container-Grenzen explizit gewahrt?",
+      "Entstehen durch neue Profile, Modi oder Contracts keine SRP-, OCP-, ISP- oder DIP-Konflikte?"
     ]
   }
 }

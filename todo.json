@@ -1,834 +1,299 @@
 {
-  "$schema": "./todo.schema.json",
-  "version": "6.4.0",
-  "created": "2026-04-19",
-  "updated": "2026-04-19T00:00:00Z",
-  "project": "ananta",
-  "review_basis": {
-    "reviewed_commit_range": "HEAD",
-    "review_goal": "Nach Abschluss der großen Test- und Security-Offensive das GitHub-Setup, die CI/CD-Pipeline, Release-Abläufe, Repository-Governance, Artefakt-Strategie, Secrets-Verwaltung und die öffentliche Veröffentlichungsreife des Projekts systematisch vorbereiten.",
-    "notes": [
-      "Die bestehende Actions-Basis ist bereits stark und umfasst Backend-Checks, Frontend-Build, Compose-Validation, Release-Gate, E2E-Compose, Todo-/Docs- und Diagramm-Jobs.",
-      "Diese Todo-Datei ergänzt nicht funktionale Tests, sondern die organisatorische, technische und betriebliche GitHub-Reife für saubere Releases, kontrollierte Zusammenarbeit und reproduzierbare Veröffentlichung.",
-      "Der Fokus liegt auf Branch-Protection, Release-Workflows, GitHub Environments, Secrets-Hygiene, CI-Qualität, Artefakten, Permissions, SBOM/Signierung, Copilot-Governance und sauberer Außenwirkung im Repository."
-    ]
-  },
-  "categories": [
+  "version": 1,
+  "owner": "ananta",
+  "purpose": "Canonical task list for the two new primary software use cases: create a new project and continue an existing project.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "use_cases": [
     {
-      "name": "repository-governance-and-protection",
-      "label": "Repository Governance und Protection",
-      "items": [
+      "id": "UC6",
+      "title": "Neues Softwareprojekt anlegen",
+      "goal": "Ein neuer Nutzer kann aus einer Idee heraus ein neues Softwareprojekt guided anlegen, strukturieren, planen und in erste umsetzbare Tasks ueberfuehren.",
+      "success_criteria": [
+        "Dashboard und Wizard bieten einen klaren Einstieg fuer neue Projekte.",
+        "Aus einer Idee entsteht ein Goal mit nachvollziehbarem Scope, Architekturvorschlag und initialem Task-Backlog.",
+        "Erster Standard-Flow ist reproduzierbar und dokumentiert.",
+        "Ergebnis ist fuer Erstnutzer sichtbar, pruefbar und ohne Expertenwissen bedienbar."
+      ],
+      "tasks": [
         {
-          "id": "GIT-001",
-          "title": "Branch Protection fuer main mit required checks verbindlich setzen",
-          "description": "Den Hauptbranch so absichern, dass kein Direktpush mehr moeglich ist und ein Merge nur mit erfolgreichen Pflichtchecks zugelassen wird.",
-          "priority": "critical",
-          "type": "repo-governance",
-          "principle": "No-Bypass-Merges, Protected-Mainline",
-          "status": "partial",
-          "effort": "small",
-          "files": [
-            ".github/workflows/quality-and-docs.yml",
-            "GitHub repository settings"
-          ],
-          "acceptance": [
-            "main ist gegen Direktpushes geschuetzt.",
-            "Wichtige Actions-Jobs sind als required checks konfiguriert.",
-            "Merges ohne gruene Pipeline sind nicht mehr moeglich."
+          "id": "UC6-T01",
+          "title": "Use-Case offiziell in Produktbasis aufnehmen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "docs/use-cases.md enthaelt den neuen offiziellen Use-Case fuer neue Projekte.",
+            "README und Golden Paths verweisen sichtbar auf den neuen Einstieg.",
+            "Benennung ist problemorientiert statt toolorientiert."
           ]
         },
         {
-          "id": "GIT-002",
-          "title": "Pull-Request-Only-Flow als Team-Standard festlegen",
-          "description": "Den Standardablauf fuer Aenderungen ueber Pull Requests, Reviews und gruene Checks schriftlich und in den Repo-Einstellungen fest verankern.",
-          "priority": "high",
-          "type": "repo-governance",
-          "principle": "Controlled-Change-Flow, Auditable-Delivery",
-          "status": "partial",
-          "effort": "small",
-          "files": [
-            "README.md",
-            "docs/",
-            "GitHub repository settings"
-          ],
-          "acceptance": [
-            "Normale Aenderungen laufen standardmaessig ueber PRs.",
-            "Review- und Merge-Flow sind dokumentiert.",
-            "Es existiert kein stiller Zweitprozess fuer ungeschuetzte Aenderungen."
+          "id": "UC6-T02",
+          "title": "Guided Goal Wizard fuer neue Projekte ergaenzen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Wizard enthaelt einen sichtbaren Einstieg 'Neues Projekt anlegen'.",
+            "Wizard fragt mindestens Projektidee, Zieltyp, Tech-Umfeld, Sicherheitsniveau und Ausfuehrungstiefe ab.",
+            "Wizard erzeugt ein parametriertes Goal statt nur Freitext zu speichern."
           ]
         },
         {
-          "id": "GIT-003",
-          "title": "Mindestens eine verpflichtende Review-Regel definieren",
-          "description": "Mindestanzahl an Reviews, stale review dismissal und Code-Owner-Review dort erzwingen, wo sicherheits- oder releasekritische Bereiche betroffen sind.",
-          "priority": "high",
-          "type": "repo-governance",
-          "principle": "Human-Review-on-Critical-Changes, Safer-Merges",
-          "status": "partial",
-          "effort": "small",
-          "files": [
-            ".github/CODEOWNERS",
-            "GitHub repository settings"
-          ],
-          "acceptance": [
-            "Mindestens eine Review ist fuer PR-Merges erforderlich.",
-            "Stale Reviews werden bei relevanten Aenderungen nicht still weiterverwendet.",
-            "Kritische Pfade koennen gezielt Review-Verantwortung erzwingen."
+          "id": "UC6-T03",
+          "title": "Preset fuer neue Softwareprojekte definieren",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Es gibt ein offizielles Preset fuer 'Neues Softwareprojekt anlegen'.",
+            "Preset ist ueber UI und CLI erreichbar.",
+            "Preset nutzt sinnvolle Defaults fuer reviewbare und sichere Erstnutzung."
           ]
         },
         {
-          "id": "GIT-004",
-          "title": "CODEOWNERS fuer kritische Bereiche einfuehren oder verfeinern",
-          "description": "Backend-Kern, Security, Workflows, Docker, Release-Skripte und Frontend-Core ueber CODEOWNERS mit klaren Review-Verantwortungen versehen.",
-          "priority": "high",
-          "type": "repo-governance",
-          "principle": "Explicit-Ownership, Review-Boundaries",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/CODEOWNERS"
-          ],
-          "acceptance": [
-            "Kritische Verzeichnisse haben definierte Owner.",
-            "Security- und Release-nahe Aenderungen triggern gezielte Review-Zustaendigkeit.",
-            "Ownership ist fuer Mitwirkende nachvollziehbar."
+          "id": "UC6-T04",
+          "title": "Input-Schema fuer Projektstart standardisieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es existiert ein klares Eingabemodell fuer Name, Problem, Zielgruppe, Plattform, bevorzugten Stack und Nicht-Ziele.",
+            "Leere oder unklare Eingaben werden mit gefuehrten Rueckfragen statt stillen Defaults behandelt.",
+            "Schema ist dokumentiert und testbar."
+          ]
+        },
+        {
+          "id": "UC6-T05",
+          "title": "Projekt-Blueprint-Generierung anschliessen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Aus Wizard/Preset entsteht ein brauchbarer initialer Projekt-Blueprint oder Goal-Plan.",
+            "Blueprint umfasst mindestens Scope, erste Rollen, erste Artefakte und Initial-Tasks.",
+            "Ergebnis bleibt editierbar und nachvollziehbar."
+          ]
+        },
+        {
+          "id": "UC6-T06",
+          "title": "Initiale Aufgabenstruktur fuer neue Projekte erzeugen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Initiale Task-Liste umfasst Problemverstaendnis, Architekturvorschlag, Projektstruktur, erste Implementierungsschritte, Tests und Review.",
+            "Tasks sind klein genug fuer kontrollierte Bearbeitung.",
+            "Tasks besitzen nachvollziehbare Reihenfolge oder Dependencies."
+          ]
+        },
+        {
+          "id": "UC6-T07",
+          "title": "Standard-Artefakte fuer neue Projekte definieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Flow erzeugt mindestens Zielzusammenfassung, Architekturvorschlag, initiales Backlog und naechste Schritte.",
+            "Artefakte werden im UI sichtbar gemacht.",
+            "Artefakte sind reviewbar und exportierbar."
+          ]
+        },
+        {
+          "id": "UC6-T08",
+          "title": "Sichere Standard-Governance fuer Projektstart setzen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Neues-Projekt-Flow startet nicht mit unkontrollierter Vollautomatik.",
+            "Review-/Verification-Schritte bleiben sichtbar aktiv.",
+            "Gefaehrliche Schreib- oder Runtime-Pfade sind fuer Erstnutzer restriktiv oder bestaetigungspflichtig."
+          ]
+        },
+        {
+          "id": "UC6-T09",
+          "title": "CLI-Einstieg fuer neuen Projekt-Flow ergaenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt einen klaren CLI-Befehl oder Goal-Shortcut fuer neue Projekte.",
+            "CLI-Flow entspricht funktional dem UI-Flow.",
+            "CLI-Beispiel ist in README oder Golden Path dokumentiert."
+          ]
+        },
+        {
+          "id": "UC6-T10",
+          "title": "Demo-Flow fuer neues Projekt dokumentieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt einen reproduzierbaren Demo-Flow vom Problem zur ersten Task-Struktur.",
+            "Beispielinput und erwartetes Ergebnis sind dokumentiert.",
+            "Flow ist fuer Reviewer in wenigen Minuten nachvollziehbar."
+          ]
+        },
+        {
+          "id": "UC6-T11",
+          "title": "Vertragstests fuer Goal-to-Project-Flow ergaenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "API- und/oder UI-Tests pruefen den neuen Projekt-Flow stabil ab.",
+            "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher.",
+            "Mindestens ein positiver End-to-End-Smoke-Test existiert."
+          ]
+        },
+        {
+          "id": "UC6-T12",
+          "title": "Erstnutzer-Onboarding auf 'one obvious way in' trimmen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Ein neuer Nutzer erkennt ohne Code-Studium, wie ein neues Projekt gestartet wird.",
+            "UI benennt den Einstieg klar und sichtbar.",
+            "Der Flow ist mit wenigen Entscheidungen startbar."
           ]
         }
       ]
     },
     {
-      "name": "workflow-structure-and-ci-hardening",
-      "label": "Workflow Struktur und CI Hardening",
-      "items": [
+      "id": "UC7",
+      "title": "Existierendes Softwareprojekt weiterentwickeln",
+      "goal": "Ein bestehendes Repository oder Projekt kann analysiert, verstanden und in kleinen pruefbaren Schritten gezielt weiterentwickelt werden.",
+      "success_criteria": [
+        "Ein Nutzer kann ein bestehendes Projekt als Weiterentwicklungsfall statt als generische Analyse starten.",
+        "Das System erzeugt nachvollziehbare Aenderungsplaene statt unstrukturierter Sammelantworten.",
+        "Risiken, betroffene Bereiche, Tests und Review-Schritte bleiben sichtbar.",
+        "Weiterentwicklung funktioniert fuer kleine Features, Umbauten und kontrollierte Erweiterungen."
+      ],
+      "tasks": [
         {
-          "id": "GIT-010",
-          "title": "Vorhandene Quality-Workflow-Jobs in klare Pflicht- und Zusatzjobs aufteilen",
-          "description": "Die bestehende Pipeline in streng notwendige Merge-Gates und optionale oder nachgelagerte Zusatzjobs aufteilen, damit Schutz und Laufzeit in Balance bleiben.",
-          "priority": "high",
-          "type": "ci-cd",
-          "principle": "Fast-Required-Gates, Separated-Heavy-Jobs",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/quality-and-docs.yml"
-          ],
-          "acceptance": [
-            "Es ist klar getrennt, welche Jobs fuer Merges zwingend erfolgreich sein muessen.",
-            "Schwere Jobs blockieren nicht unnoetig jeden kleinen PR.",
-            "CI bleibt nachvollziehbar und wirtschaftlich."
+          "id": "UC7-T01",
+          "title": "Use-Case offiziell in Produktbasis aufnehmen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "docs/use-cases.md enthaelt den offiziellen Use-Case fuer Weiterentwicklung bestehender Projekte.",
+            "README und relevante Einstiegspfade zeigen den Fall explizit an.",
+            "Formulierung ist problemorientiert und nicht nur repo-analytisch."
           ]
         },
         {
-          "id": "GIT-011",
-          "title": "Eigenen Release-Workflow fuer Tags und GitHub Releases einfuehren",
-          "description": "Einen dedizierten Release-Workflow aufsetzen, der bei Versionstags Build, Release-Gate, Artefaktbau und GitHub-Release-Erstellung kontrolliert ausfuehrt.",
-          "priority": "critical",
-          "type": "ci-cd",
-          "principle": "Explicit-Release-Pipeline, No-Adhoc-Releases",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/",
-            "scripts/release_gate.py",
-            "docs/release-*.md"
-          ],
-          "acceptance": [
-            "Es gibt einen separaten Release-Workflow fuer Tags wie vX.Y.Z.",
-            "Release-Gate laeuft vor der Release-Erstellung verbindlich.",
-            "GitHub Releases werden nicht mehr manuell-chaotisch gebaut."
+          "id": "UC7-T02",
+          "title": "Wizard/Preset fuer Weiterentwicklung bestehender Projekte ergaenzen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Es gibt einen sichtbaren Einstieg 'Existierendes Projekt weiterentwickeln'.",
+            "Wizard fragt mindestens Zielaenderung, betroffene Bereiche, Restriktionen und Risikoniveau ab.",
+            "Flow erzeugt ein strukturiertes Goal statt nur freie Analyse."
           ]
         },
         {
-          "id": "GIT-012",
-          "title": "CI-Jobs mit Concurrency und Cancel-Strategie absichern",
-          "description": "Workflows mit concurrency groups und cancel-in-progress konfigurieren, damit bei schnellen Push-Serien keine unnötigen parallelen Altlaeufe Ressourcen verbrennen.",
-          "priority": "medium",
-          "type": "ci-cd",
-          "principle": "Efficient-CI-Usage, Fewer-Wasted-Minutes",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/workflows/*.yml"
-          ],
-          "acceptance": [
-            "Push-Serien erzeugen keine unkontrollierte Job-Flut.",
-            "Veraltete Zwischenlaeufe werden fuer PRs sauber abgebrochen.",
-            "CI-Minuten werden besser genutzt."
+          "id": "UC7-T03",
+          "title": "Projektkontext fuer Weiterentwicklung schaerfen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Flow nutzt bestehendes Repo-/Artifact-/Task-Wissen als Startkontext.",
+            "Ist-Zustand, relevante Dateien und angrenzende Aufgaben werden erkennbar einbezogen.",
+            "Lange Rohhistorie wird nicht blind bevorzugt."
           ]
         },
         {
-          "id": "GIT-013",
-          "title": "Job-Matrix fuer unterschiedliche Testtiefen bewusst strukturieren",
-          "description": "Leichte, mittlere und schwere Testlaeufe bewusst trennen, z. B. PR-Gates, nightly validation und release candidate validation.",
-          "priority": "high",
-          "type": "ci-cd",
-          "principle": "Right-Depth-at-Right-Time, Sustainable-Validation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Es gibt eine klare Strategie fuer PR-, nightly- und release-nahe Validierung.",
-            "Nicht jede Testtiefe laeuft fuer jeden kleinen Commit.",
-            "Schwere Tests werden trotzdem regelmaessig und kontrolliert ausgefuehrt."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "release-assets-and-artifacts",
-      "label": "Release Assets und Artifacts",
-      "items": [
-        {
-          "id": "GIT-020",
-          "title": "Release-Artefakte fuer GitHub Releases definieren",
-          "description": "Festlegen, welche Dateien als offizielle Release-Artefakte hochgeladen werden sollen, z. B. Release-Report, Checksums, Compose-Configs, Diagramm-Bundles oder Dokumentationspakete.",
-          "priority": "high",
-          "type": "release-prep",
-          "principle": "Explicit-Release-Outputs, Better-Consumer-Trust",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/workflows/",
-            "docs/",
-            "architektur/rendered/"
-          ],
-          "acceptance": [
-            "Release-Artefakte sind bewusst definiert und nicht zufaellig.",
-            "GitHub Releases enthalten nachvollziehbare Zusatzartefakte.",
-            "Release-Konsumenten erhalten mehr als nur Quellcode."
+          "id": "UC7-T04",
+          "title": "Weiterentwicklungsarten als klare Modi anbieten",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Mindestens kleine Erweiterung, Refactoring, Feature-Ausbau und technische Verbesserung sind als Modus oder Preset unterscheidbar.",
+            "Die Modi beeinflussen Planungstiefe und Sicherheitsstandard sichtbar.",
+            "Modi bleiben einfach erklaert."
           ]
         },
         {
-          "id": "GIT-021",
-          "title": "Checksums und Integritaetsdateien fuer Release-Artefakte erzeugen",
-          "description": "Sha256- oder vergleichbare Integritaetsdateien fuer hochgeladene Artefakte erzeugen und mit dem Release veroeffentlichen.",
-          "priority": "medium",
-          "type": "release-prep",
-          "principle": "Artifact-Integrity, Verifiable-Downloads",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/workflows/",
-            "scripts/"
-          ],
-          "acceptance": [
-            "Release-Artefakte haben veroeffentlichte Checksums.",
-            "Nutzer koennen Downloads auf Integritaet pruefen.",
-            "Release-Assets sind besser absicherbar."
+          "id": "UC7-T05",
+          "title": "Aenderungsplanung in kleine verifizierbare Schritte zerlegen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Aus der gewuenschten Weiterentwicklung entsteht ein planbarer Task-Baum.",
+            "Tasks enthalten betroffene Bereiche, Ziel der Aenderung, Risiken und Pruefhinweise.",
+            "Keine monolithische 'mach alles'-Aufgabe als Standard."
           ]
         },
         {
-          "id": "GIT-022",
-          "title": "Release-Verification-Report als offizielles Release-Asset publizieren",
-          "description": "Den bereits vorhandenen Release-Verification-Report nicht nur als Workflow-Artefakt, sondern auch als bewusstes offizielles Release-Asset bereitstellen.",
-          "priority": "medium",
-          "type": "release-prep",
-          "principle": "Transparent-Releases, Auditable-Verification",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/workflows/quality-and-docs.yml",
-            ".github/workflows/",
-            "release-verification-report.json"
-          ],
-          "acceptance": [
-            "Der Verifikationsreport wird fuer Releases sichtbar publiziert.",
-            "Release-Nutzer koennen Pruefergebnisse direkt nachvollziehen.",
-            "Release-Vertrauen steigt durch Transparenz."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "secrets-environments-and-credentials",
-      "label": "Secrets Environments und Credentials",
-      "items": [
-        {
-          "id": "GIT-030",
-          "title": "GitHub Environments fuer staging und release anlegen",
-          "description": "GitHub Environments mit klaren Schutzregeln, Freigaben und getrennten Secrets fuer mindestens staging und production/release vorbereiten.",
-          "priority": "critical",
-          "type": "release-prep",
-          "principle": "Scoped-Secrets, Protected-Deploy-Contexts",
-          "status": "partial",
-          "effort": "small",
-          "files": [
-            "GitHub repository settings",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Es existieren getrennte Environments fuer mindestens staging und release.",
-            "Environment-Secrets liegen nicht nur global im Repo herum.",
-            "Release-nahe Jobs koennen an geschuetzte Environments gebunden werden."
+          "id": "UC7-T06",
+          "title": "Diff-, Risiko- und Testsicht fuer Weiterentwicklung verankern",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Flow erzeugt sichtbar eine Risikoanalyse, betroffene Tests und moegliche Regressionen.",
+            "Review ist integraler Teil des Pfads.",
+            "Artefakte enthalten nicht nur Aenderungswunsch, sondern auch Begruendung und Pruefschritte."
           ]
         },
         {
-          "id": "GIT-031",
-          "title": "Secrets-Inventar fuer GitHub Actions und Release-Prozesse dokumentieren",
-          "description": "Alle benoetigten Repository- oder Environment-Secrets in einer internen Doku inventarisieren, inkl. Zweck, Besitzer, Rotation und betroffener Workflows.",
-          "priority": "high",
-          "type": "security",
-          "principle": "Secret-Hygiene, Explicit-Credential-Ownership",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "docs/",
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Es gibt eine klare Liste benoetigter Secrets.",
-            "Zweck und Besitzer jedes Secrets sind dokumentiert.",
-            "Veraltete oder tote Secrets werden sichtbar."
+          "id": "UC7-T07",
+          "title": "Standard-Artefakte fuer Weiterentwicklung definieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Flow erzeugt mindestens Ist-Analyse, Aenderungsplan, Test-/Review-Plan und naechste Schritte.",
+            "Artefakte sind im UI sichtbar und nachvollziehbar verknuepft.",
+            "Ergebnisse koennen spaeter wiederverwendet werden."
           ]
         },
         {
-          "id": "GIT-032",
-          "title": "Secrets-Rotation und Minimalberechtigungen fuer GitHub-Automation vorbereiten",
-          "description": "Zugriffe fuer Tokens, Deploy-Credentials oder Registry-Secrets auf Minimalrechte trimmen und eine pragmatische Rotationsstrategie vorbereiten.",
-          "priority": "high",
-          "type": "security",
-          "principle": "Least-Privilege-for-Automation, Reduced-Blast-Radius",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "GitHub repository settings",
-            ".github/workflows/",
-            "docs/"
-          ],
-          "acceptance": [
-            "Automation-Credentials haben nicht unnoetig breite Rechte.",
-            "Rotation ist nicht rein ad hoc, sondern vorbereitet.",
-            "Kompromittierte Secrets waeren schneller ersetzbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "permissions-and-supply-chain",
-      "label": "Permissions und Supply Chain",
-      "items": [
-        {
-          "id": "GIT-040",
-          "title": "Workflow permissions pro Job minimalisieren",
-          "description": "Jeder Workflow oder Job soll nur die GitHub-Token-Rechte bekommen, die er wirklich braucht, statt pauschal mit unnötig breiten Standardrechten zu laufen.",
-          "priority": "critical",
-          "type": "security",
-          "principle": "Least-Privilege-GHA, Safer-Automation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/*.yml"
-          ],
-          "acceptance": [
-            "Workflows definieren explizite permissions.",
-            "Unnoetig breite Schreibrechte werden reduziert.",
-            "Artifact-, PR- und Release-Jobs haben nur passende Rechte."
+          "id": "UC7-T08",
+          "title": "Kleine Feature-Weiterentwicklung als Standarddemo dokumentieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt ein reproduzierbares Beispiel fuer kontrollierte Weiterentwicklung eines bestehenden Projekts.",
+            "Beispiel zeigt Analyse -> Plan -> Task -> Review statt nur Chat-Antwort.",
+            "Der Demo-Flow ist fuer neue Nutzer verstaendlich."
           ]
         },
         {
-          "id": "GIT-041",
-          "title": "Dependency- und Supply-Chain-Checks in GitHub vorbereiten",
-          "description": "Abhaengigkeits- und Security-Scans wie Dependabot, dependency review oder aehnliche Mechanismen vorbereiten, damit externe Komponenten nicht nur lokal, sondern auch repo-seitig sichtbar ueberwacht werden.",
-          "priority": "high",
-          "type": "security",
-          "principle": "Supply-Chain-Visibility, Earlier-Risk-Signals",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/",
-            ".github/workflows/",
-            "package-lock.json",
-            "requirements.lock"
-          ],
-          "acceptance": [
-            "Abhaengigkeitsrisiken werden ueber GitHub sichtbar.",
-            "Updates koennen kontrollierter bewertet werden.",
-            "Supply-Chain-Themen bleiben nicht rein manuell."
+          "id": "UC7-T09",
+          "title": "CLI-Einstieg fuer Weiterentwicklungsfall ergaenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "CLI bietet einen klaren Shortcut fuer Weiterentwicklung bestehender Projekte.",
+            "CLI-Beispiele sind dokumentiert.",
+            "CLI und UI fuehren funktional auf denselben Kernpfad."
           ]
         },
         {
-          "id": "GIT-042",
-          "title": "SBOM fuer Releases vorbereiten",
-          "description": "Fuer Release-Kandidaten oder offizielle Releases eine Software Bill of Materials erzeugen oder vorbereiten, damit verwendete Komponenten nachvollziehbar dokumentiert werden.",
-          "priority": "medium",
-          "type": "release-prep",
-          "principle": "Component-Transparency, Better-Auditability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/",
-            "scripts/",
-            "docs/"
-          ],
-          "acceptance": [
-            "Es gibt einen planbaren SBOM-Pfad fuer Releases.",
-            "Wesentliche Komponenten koennen maschinenlesbar dokumentiert werden.",
-            "Audit- und Compliance-Faehigkeit steigt."
+          "id": "UC7-T10",
+          "title": "Regressionstests fuer Weiterentwicklungs-Flow ergaenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Contract- oder E2E-Tests decken den Weiterentwicklungs-Flow ab.",
+            "Task-Generierung und Artefaktstruktur sind stabil pruefbar.",
+            "Mindestens ein positiver Testfall fuer bestehendes Repo ist vorhanden."
           ]
         },
         {
-          "id": "GIT-043",
-          "title": "Release-Signierung oder Attestation vorbereiten",
-          "description": "Pruefen und vorbereiten, ob Release-Artefakte, Container oder Build-Attestations signiert oder anderweitig verifizierbar publiziert werden koennen.",
-          "priority": "medium",
-          "type": "release-prep",
-          "principle": "Trustworthy-Artifacts, Stronger-Provenance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/",
-            "scripts/",
-            "docs/"
-          ],
-          "acceptance": [
-            "Es gibt eine klare Entscheidung fuer oder gegen Signierung/Attestation.",
-            "Falls genutzt, ist der Prozess reproduzierbar vorbereitet.",
-            "Release-Provenance ist staerker belegbar."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "release-process-and-versioning",
-      "label": "Release Prozess und Versionierung",
-      "items": [
-        {
-          "id": "GIT-050",
-          "title": "SemVer- und Tagging-Regeln verbindlich dokumentieren",
-          "description": "Versionierung, Tag-Namensschema, Release-Kandidaten und stabile Releases klar dokumentieren, damit nicht situativ jedes Mal neu entschieden wird.",
-          "priority": "high",
-          "type": "release-prep",
-          "principle": "Predictable-Versioning, Cleaner-Release-History",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "README.md",
-            "docs/release-*.md"
-          ],
-          "acceptance": [
-            "Version- und Tag-Regeln sind fuer Mitwirkende klar.",
-            "Release-Kandidaten und stabile Releases sind unterscheidbar.",
-            "Release-Historie bleibt nachvollziehbar."
+          "id": "UC7-T11",
+          "title": "Weiterentwicklung klar von 'Repository verstehen' abgrenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "UI und Dokumentation unterscheiden Analyse eines Repos klar von aktiver Weiterentwicklung.",
+            "Nutzer landet nicht versehentlich in rein beschreibender Analyse.",
+            "Flow fuehrt sichtbar zu konkreten Aenderungsaufgaben."
           ]
         },
         {
-          "id": "GIT-051",
-          "title": "Release-Checklist fuer finalen GitHub Release vorbereiten",
-          "description": "Eine kurze, harte Release-Checklist definieren, die vor Tag-Erstellung und Release-Publikation zwingend abgearbeitet wird.",
-          "priority": "critical",
-          "type": "release-prep",
-          "principle": "Repeatable-Releases, No-Forgotten-Steps",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "docs/release-*.md",
-            "README.md"
-          ],
-          "acceptance": [
-            "Es gibt eine kurze, verlässliche Release-Checklist.",
-            "Tests, Reports, Doku und Versionierung werden vor Release bewusst geprueft.",
-            "Release-Ablauf ist nicht rein erinnerungsbasiert."
-          ]
-        },
-        {
-          "id": "GIT-052",
-          "title": "Automatisierte Release Notes vorbereiten oder standardisieren",
-          "description": "Entscheiden, ob GitHub automatisch Release Notes generiert oder ob ein eigenes changelog-/release-notes-Format genutzt wird, und den gewuenschten Weg konsistent machen.",
-          "priority": "medium",
-          "type": "release-prep",
-          "principle": "Readable-Releases, Better-Consumer-Communication",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/",
-            "README.md",
-            "docs/"
-          ],
-          "acceptance": [
-            "Release Notes folgen einem klaren Standard.",
-            "Aenderungen sind fuer Nutzer lesbar aufbereitet.",
-            "Release-Kommunikation wirkt nicht improvisiert."
-          ]
-        },
-        {
-          "id": "GIT-053",
-          "title": "Changelog-Strategie fuer GitHub und README abstimmen",
-          "description": "Festlegen, ob ein CHANGELOG.md, GitHub Releases oder beides die primare Aenderungskommunikation ist, und die Quellen sauber aufeinander abstimmen.",
-          "priority": "medium",
-          "type": "release-prep",
-          "principle": "Single-Source-or-Clearly-Split-Change-Communication",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "CHANGELOG.md",
-            "README.md",
-            "docs/"
-          ],
-          "acceptance": [
-            "Aenderungskommunikation ist nicht widerspruechlich.",
-            "Nutzer finden schnell die richtige Quelle fuer Neuerungen.",
-            "Release- und Changelog-Pfade sind abgestimmt."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "issue-pr-and-collaboration-hygiene",
-      "label": "Issue PR und Collaboration Hygiene",
-      "items": [
-        {
-          "id": "GIT-060",
-          "title": "Issue Templates fuer Bugs, Security und Feature Requests vorbereiten",
-          "description": "GitHub Issue Templates anlegen, damit Rueckmeldungen strukturierter eingehen und kritische Informationen fuer Reproduktion oder Sicherheitsbewertung nicht fehlen.",
-          "priority": "medium",
-          "type": "repo-governance",
-          "principle": "Structured-Feedback, Faster-Triage",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/ISSUE_TEMPLATE/"
-          ],
-          "acceptance": [
-            "Bug-, Feature- und Security-Meldungen koennen strukturiert eingereicht werden.",
-            "Wichtige Angaben werden frueher abgefragt.",
-            "Triage wird einfacher."
-          ]
-        },
-        {
-          "id": "GIT-061",
-          "title": "Pull-Request-Template fuer Release-, Test- und Risk-Checks einfuehren",
-          "description": "Ein PR-Template mit Fokus auf Tests, Security-Auswirkungen, Breaking Changes, Doku und Release-Folgen einfuehren.",
-          "priority": "high",
-          "type": "repo-governance",
-          "principle": "Visible-Change-Risk, Better-Review-Inputs",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/pull_request_template.md"
-          ],
-          "acceptance": [
-            "PRs enthalten strukturierte Angaben zu Tests und Risiken.",
-            "Security- und Breaking-Change-Fragen werden nicht vergessen.",
-            "Reviews erhalten bessere Entscheidungsgrundlagen."
-          ]
-        },
-        {
-          "id": "GIT-062",
-          "title": "Labels und Milestones fuer Releases und Sicherheitsarbeit scharfziehen",
-          "description": "Ein sinnvolles Label-Set fuer release-blocker, security, ci, docs, frontend, backend, regression, flaky und aehnliche Kernfaelle definieren.",
-          "priority": "medium",
-          "type": "repo-governance",
-          "principle": "Clear-Triage-Taxonomy, Better-Planning",
-          "status": "partial",
-          "effort": "small",
-          "files": [
-            "GitHub repository settings"
-          ],
-          "acceptance": [
-            "Labels unterstuetzen echte Triage statt Chaos.",
-            "Release-Blocker und Security-Themen sind leicht filterbar.",
-            "Milestones koennen sinnvoll genutzt werden."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "copilot-and-ai-governance",
-      "label": "Copilot und AI Governance",
-      "items": [
-        {
-          "id": "GIT-070",
-          "title": "Copilot-Nutzungsregeln fuer kritische Bereiche schriftlich festhalten",
-          "description": "Dokumentieren, wo Copilot hilfreich ist und wo generated code zwingend staerkere menschliche Pruefung braucht, z. B. Security, Auth, Release, CI, Tool-Guardrails oder Governance-Kern.",
-          "priority": "high",
-          "type": "repo-governance",
-          "principle": "AI-Assisted-But-Human-Controlled, No-Blind-Generation",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "docs/",
-            "README.md"
-          ],
-          "acceptance": [
-            "Es gibt klare Regeln fuer Copilot-Einsatz in kritischen Bereichen.",
-            "Generated Code in Sicherheits- oder Release-Pfaden gilt nicht als automatisch vertrauenswuerdig.",
-            "Team oder Spaeter-Mitwirkende verstehen die Grenze zwischen Hilfe und Freigabe."
-          ]
-        },
-        {
-          "id": "GIT-071",
-          "title": "KI-generierte Aenderungen in Review-Hinweisen kenntlich machen",
-          "description": "Einen pragmatischen Standard schaffen, wie AI-assisted Aenderungen in PRs oder Commits transparent gemacht werden koennen, ohne die Historie mit Formalismus zu ueberladen.",
-          "priority": "low",
-          "type": "repo-governance",
-          "principle": "Transparent-AI-Assistance, Better-Review-Awareness",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/pull_request_template.md",
-            "docs/"
-          ],
-          "acceptance": [
-            "Reviewende koennen leichter erkennen, wenn stark KI-unterstuetzte Aenderungen vorliegen.",
-            "Kritische Bereiche werden dadurch bewusster gelesen.",
-            "Der Standard bleibt praktikabel."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "repository-presentation-and-public-readiness",
-      "label": "Repository Presentation und Public Readiness",
-      "items": [
-        {
-          "id": "GIT-080",
-          "title": "GitHub Repository-About, Topics und Beschreibung final schaerfen",
-          "description": "Die oeffentliche Kurzbeschreibung, GitHub Topics und den sichtbaren Projektclaim so einstellen, dass Ananta klar als kontrollierte Agentenplattform statt bloß als generisches KI-Projekt erkennbar ist.",
-          "priority": "medium",
-          "type": "presentation",
-          "principle": "Clear-Positioning, Better-Discovery",
-          "status": "partial",
-          "effort": "small",
-          "files": [
-            "GitHub repository settings",
-            "README.md"
-          ],
-          "acceptance": [
-            "Repo-About ist klar und nicht verwirrend generisch.",
-            "Topics verbessern Auffindbarkeit und Positionierung.",
-            "Die GitHub-Startansicht erklaert das Projekt sauber."
-          ]
-        },
-        {
-          "id": "GIT-081",
-          "title": "README fuer Release-Besucher und Erstnutzer nochmals auf GitHub-Schaufensterwirkung trimmen",
-          "description": "README-Einstieg, Schnellstart, Positionierung, Architekturhinweise und verantwortliche Agentenentwicklung so ordnen, dass neue GitHub-Besucher in 30 Sekunden verstehen, worum es geht.",
-          "priority": "high",
-          "type": "presentation",
-          "principle": "GitHub-First-Clarity, Stronger-First-Impression",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "README.md",
-            "docs/responsible-agent-development-manifesto.md"
-          ],
-          "acceptance": [
-            "Neue Besucher verstehen Projektzweck und Besonderheit sehr schnell.",
-            "Schnellstart, Manifest und Architektur konkurrieren nicht chaotisch miteinander.",
-            "README ist sowohl fuer Nutzer als auch fuer technische Reviewer stark."
-          ]
-        },
-        {
-          "id": "GIT-082",
-          "title": "Security Policy und Responsible Disclosure fuer GitHub sichtbar machen",
-          "description": "Eine sichtbare Security Policy fuer das Repo vorbereiten, damit Schwachstellenmeldungen nicht über normale Issues chaotisch laufen muessen.",
-          "priority": "high",
-          "type": "security",
-          "principle": "Responsible-Disclosure, Safer-Reporting-Path",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/SECURITY.md"
-          ],
-          "acceptance": [
-            "Es gibt einen klaren Pfad fuer Sicherheitsmeldungen.",
-            "Nutzer oder Forscher wissen, wie sie Probleme verantwortungsvoll melden.",
-            "Security-Themen werden nicht ueber beliebige Bug-Issues vermischt."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "observability-artifacts-and-ci-feedback",
-      "label": "Observability Artifacts und CI Feedback",
-      "items": [
-        {
-          "id": "GIT-090",
-          "title": "CI-Artefakte fuer Fehlerdiagnose noch besser standardisieren",
-          "description": "Testreports, E2E-Screenshots, Failure-Summaries, release verification reports und wichtige Logs in GitHub Actions konsistent benennen und strukturiert publizieren.",
-          "priority": "medium",
-          "type": "ci-cd",
-          "principle": "Actionable-CI-Failures, Faster-Debugging",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/quality-and-docs.yml",
-            "scripts/",
-            "frontend-angular/test-results/"
-          ],
-          "acceptance": [
-            "Fehlschlaege liefern schnell lesbare Diagnoseartefakte.",
-            "Artefaktnamen und Speicherorte sind konsistent.",
-            "CI-Fehler lassen sich schneller bearbeiten."
-          ]
-        },
-        {
-          "id": "GIT-091",
-          "title": "Flaky-Test- und instabile Workflow-Ergebnisse als eigene Beobachtungsachse vorbereiten",
-          "description": "Eine einfache Strategie fuer das Sichtbarmachen instabiler Tests oder wiederkehrender CI-Aussetzer vorbereiten, statt diese nur situativ zu bemerken.",
-          "priority": "medium",
-          "type": "ci-cd",
-          "principle": "Flaky-Visibility, More-Honest-CI",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            ".github/workflows/",
-            "docs/",
-            "tests/"
-          ],
-          "acceptance": [
-            "Instabile Tests koennen sichtbarer verfolgt werden.",
-            "CI-Zuverlaessigkeit wird bewusst gemessen statt nur gefuehlt.",
-            "Release-Entscheidungen koennen realistischer getroffen werden."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "release-deployment-and-packaging-extensions",
-      "label": "Release Deployment und Packaging Extensions",
-      "items": [
-        {
-          "id": "GIT-100",
-          "title": "Container-Builds fuer Release-Tags sauber anbinden",
-          "description": "Falls Release-Container Teil des Vorhabens sind, den Build fuer Tag-Releases sauber in GitHub Actions anbinden, inklusive kontrollierter Tags, optionaler Digests und nachvollziehbarer Herkunft.",
-          "priority": "high",
-          "type": "release-prep",
-          "principle": "Reproducible-Container-Releases, Explicit-Image-Flow",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/",
-            "Dockerfile*",
-            "docker-compose*.yml"
-          ],
-          "acceptance": [
-            "Release-Tags koennen kontrolliert zu Container-Builds fuehren.",
-            "Image-Tags und Herkunft sind nachvollziehbar.",
-            "Container-Releases sind kein manueller Sonderpfad."
-          ]
-        },
-        {
-          "id": "GIT-101",
-          "title": "Optionalen Nightly- oder RC-Workflow fuer Vorabvalidierung einfuehren",
-          "description": "Einen separaten Workflow fuer nightly oder release candidate validation aufbauen, um schwere Tests oder Vorab-Builds nicht nur am finalen Release-Tag auszufuehren.",
-          "priority": "medium",
-          "type": "ci-cd",
-          "principle": "Earlier-Release-Signals, Fewer-Surprises-on-Tag-Day",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            ".github/workflows/"
-          ],
-          "acceptance": [
-            "Es gibt einen Vorabpfad fuer schwerere oder release-nahe Validierung.",
-            "Release-Ueberraschungen werden frueher sichtbar.",
-            "Tag-Day ist weniger riskant."
+          "id": "UC7-T12",
+          "title": "Sichere Defaults fuer kontrollierte Weiterentwicklung setzen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Review- und Verification-Schritte bleiben standardmaessig aktiv.",
+            "Grosse oder riskante Aenderungen werden nicht wie kleine Standardfixes behandelt.",
+            "Schreib- und Ausfuehrungspfade bleiben governance-konform."
           ]
         }
       ]
     }
-  ],
-  "meta": {
-    "total_items": 34,
-    "by_status": {
-      "completed": 28,
-      "partial": 6,
-      "open": 0
-    },
-    "notes": [
-      "Diese Todo-Datei baut nicht weitere Produktfeatures, sondern die GitHub-, Release- und Betriebsreife des Projekts aus.",
-      "Sie setzt auf der bereits vorhandenen starken Actions-Basis auf und fokussiert die letzten organisatorischen, sicherheitsrelevanten und veröffentlichungsnahen Schichten.",
-      "Das Ziel ist: ein Projekt, das nicht nur gut gebaut ist, sondern auch sauber geführt, kontrolliert freigegeben, nachvollziehbar ausgerollt und glaubwürdig veröffentlicht werden kann.",
-      "Einige Einträge betreffen GitHub-Repository-Settings, Environments, Branch Protection, Labels, Topics oder Secrets. Diese können im Repository vorbereitet werden, gelten aber erst nach tatsächlicher GitHub-Admin-Konfiguration als vollständig abgeschlossen.",
-      "Lokal abschließbare Tasks werden nur dann auf completed gesetzt, wenn die zugehörigen Repository-Dateien oder Dokumente konkret angelegt oder aktualisiert wurden."
-    ],
-    "execution_model": {
-      "local_complete": [
-        "GIT-004",
-        "GIT-010",
-        "GIT-011",
-        "GIT-012",
-        "GIT-013",
-        "GIT-020",
-        "GIT-021",
-        "GIT-022",
-        "GIT-031",
-        "GIT-032",
-        "GIT-041",
-        "GIT-042",
-        "GIT-043",
-        "GIT-040",
-        "GIT-050",
-        "GIT-051",
-        "GIT-052",
-        "GIT-053",
-        "GIT-060",
-        "GIT-061",
-        "GIT-070",
-        "GIT-071",
-        "GIT-081",
-        "GIT-082",
-        "GIT-090",
-        "GIT-091",
-        "GIT-100",
-        "GIT-101"
-      ],
-      "local_prepared_requires_admin_activation": [
-        "GIT-001",
-        "GIT-002",
-        "GIT-003",
-        "GIT-030",
-        "GIT-062",
-        "GIT-080"
-      ],
-      "requires_github_admin_action": [
-        "GIT-001",
-        "GIT-002",
-        "GIT-003",
-        "GIT-030",
-        "GIT-062",
-        "GIT-080"
-      ],
-      "requires_release_strategy_decision": []
-    },
-    "recommended_order": [
-      "GIT-001",
-      "GIT-003",
-      "GIT-004",
-      "GIT-010",
-      "GIT-011",
-      "GIT-030",
-      "GIT-040",
-      "GIT-051",
-      "GIT-020",
-      "GIT-022",
-      "GIT-050",
-      "GIT-060",
-      "GIT-061",
-      "GIT-082",
-      "GIT-031",
-      "GIT-032",
-      "GIT-012",
-      "GIT-013",
-      "GIT-041",
-      "GIT-042",
-      "GIT-043",
-      "GIT-090",
-      "GIT-091",
-      "GIT-080",
-      "GIT-081",
-      "GIT-100",
-      "GIT-101",
-      "GIT-052",
-      "GIT-053",
-      "GIT-002",
-      "GIT-021",
-      "GIT-062",
-      "GIT-070",
-      "GIT-071"
-    ]
-  }
+  ]
 }
