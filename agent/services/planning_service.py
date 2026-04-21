@@ -288,6 +288,10 @@ class PlanningService:
                         "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
                         "required_capabilities": required_capabilities,
                         "source_depends_on": raw_depends_on,
+                        "artifact": subtask.get("artifact"),
+                        "risk_focus": subtask.get("risk_focus"),
+                        "test_focus": subtask.get("test_focus"),
+                        "review_focus": subtask.get("review_focus"),
                     },
                     verification_spec=default_verification_spec(
                         {"task_kind": task_kind, "title": subtask.get("title"), "description": subtask.get("description")}

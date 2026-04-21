@@ -163,6 +163,114 @@ GOAL_TEMPLATES = {
             {"title": "Verifikation", "description": "Sicherstellen, dass der Fix das Problem loest.", "priority": "Medium"},
             {"title": "Review-Vorschlag", "description": "Aenderungen als Patch-Vorschlag zur Freigabe einreichen.", "priority": "Low"},
         ]
+    },
+    "new_software_project": {
+        "keywords": ["new_software_project", "neues softwareprojekt", "neues projekt anlegen", "projektstart"],
+        "subtasks": [
+            {
+                "title": "Projektidee und Grenzen klaeren",
+                "description": "Problem, Zielgruppe, Plattform, bevorzugten Stack und Nicht-Ziele als pruefbaren Projektscope zusammenfassen.",
+                "priority": "High",
+                "artifact": "zielzusammenfassung",
+                "review_focus": "unklare oder leere Eingaben sichtbar machen",
+            },
+            {
+                "title": "Projekt-Blueprint erstellen",
+                "description": "Einen initialen Blueprint mit Scope, Kernrollen, Modulgrenzen, Datenfluesse, Sicherheitsannahmen und Architekturvorschlag erstellen.",
+                "priority": "High",
+                "depends_on": ["1"],
+                "artifact": "projekt_blueprint",
+                "review_focus": "Architektur bleibt hub-worker-kompatibel und vermeidet implizite Vollautomatik",
+            },
+            {
+                "title": "Initiale Artefakte definieren",
+                "description": "Zielzusammenfassung, Architekturvorschlag, initiales Backlog und naechste Schritte als reviewbare Artefakte festlegen.",
+                "priority": "Medium",
+                "depends_on": ["2"],
+                "artifact": "standard_artefakte",
+                "review_focus": "Ergebnisse bleiben editierbar und nachvollziehbar",
+            },
+            {
+                "title": "Initiales Task-Backlog erzeugen",
+                "description": "Kleine Initial-Tasks fuer Problemverstaendnis, Projektstruktur, erste Umsetzung, Tests, Review und Dokumentation erzeugen.",
+                "priority": "High",
+                "depends_on": ["2"],
+                "artifact": "initial_backlog",
+                "review_focus": "Tasks sind klein genug fuer kontrollierte Bearbeitung",
+            },
+            {
+                "title": "Governance und sichere Startpfade pruefen",
+                "description": "Review-, Verification-, Schreib- und Runtime-Pfade pruefen und riskante Schritte bestaetigungspflichtig halten.",
+                "priority": "High",
+                "depends_on": ["4"],
+                "test_focus": "Governance-Defaults und Reviewpflicht sichtbar",
+                "review_focus": "keine unkontrollierte Vollautomatik",
+            },
+            {
+                "title": "Erste Umsetzungsscheibe planen",
+                "description": "Den kleinsten nutzbaren Startschritt mit Abnahmekriterien, Testbedarf und naechstem Reviewpunkt festlegen.",
+                "priority": "Medium",
+                "depends_on": ["5"],
+                "test_focus": "Smoke- oder Contract-Test fuer den ersten Flow",
+                "artifact": "naechste_schritte",
+            },
+        ]
+    },
+    "project_evolution": {
+        "keywords": ["project_evolution", "existierendes projekt weiterentwickeln", "weiterentwicklung", "bestehendes projekt"],
+        "subtasks": [
+            {
+                "title": "Ist-Kontext und betroffene Bereiche schaerfen",
+                "description": "Repo-, Artifact- und Task-Wissen auf relevante Dateien, Module, Schnittstellen und angrenzende Aufgaben verdichten.",
+                "priority": "High",
+                "artifact": "ist_analyse",
+                "risk_focus": "falscher oder zu breiter Kontext",
+                "test_focus": "betroffene Tests und fehlende Testsignale identifizieren",
+            },
+            {
+                "title": "Aenderungsziel und Restriktionen abgrenzen",
+                "description": "Zielaenderung, Weiterentwicklungsart, Nicht-Ziele, Kompatibilitaetsregeln und Governance-Grenzen klar festhalten.",
+                "priority": "High",
+                "depends_on": ["1"],
+                "artifact": "aenderungsscope",
+                "risk_focus": "Scope-Creep und brechende API-/UX-Aenderungen",
+            },
+            {
+                "title": "Risiko-, Diff- und Testsicht erstellen",
+                "description": "Moegliche Diffs, Regressionen, betroffene Tests, fehlende Tests und Review-Schwerpunkte fuer die Aenderung benennen.",
+                "priority": "High",
+                "depends_on": ["2"],
+                "artifact": "risiko_test_review_plan",
+                "risk_focus": "Regressionen, Datenverlust, Sicherheits- oder Governance-Verletzungen",
+                "test_focus": "Unit-, Integration-, E2E- oder Smoke-Tests je nach betroffenem Bereich",
+            },
+            {
+                "title": "Aenderung in kleine Schritte zerlegen",
+                "description": "Die Weiterentwicklung in kleine, sequenzierte Tasks mit Ziel, betroffenen Bereichen, Risiken und Pruefhinweisen zerlegen.",
+                "priority": "High",
+                "depends_on": ["3"],
+                "artifact": "aenderungsplan",
+                "risk_focus": "monolithische Umsetzung vermeiden",
+                "test_focus": "pro Schritt mindestens ein Verifikationssignal",
+            },
+            {
+                "title": "Kleinste verifizierbare Aenderung vorbereiten",
+                "description": "Den ersten umsetzbaren Schritt mit Eingrenzung, Akzeptanzkriterien und konkretem Test-/Review-Plan vorbereiten.",
+                "priority": "Medium",
+                "depends_on": ["4"],
+                "artifact": "erste_umsetzungsscheibe",
+                "test_focus": "Regressionstest oder gezielter Smoke-Test vorsehen",
+            },
+            {
+                "title": "Review- und Rollback-Plan festlegen",
+                "description": "Review-Checkliste, notwendige Tests und Rueckfallstrategie fuer riskante Aenderungen dokumentieren.",
+                "priority": "Medium",
+                "depends_on": ["5"],
+                "artifact": "review_rollback_plan",
+                "risk_focus": "fehlende Review-Gates und unklare Ruecknahme",
+                "test_focus": "Tests vor und nach der Aenderung benennen",
+            },
+        ]
     }
 }
 

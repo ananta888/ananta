@@ -127,7 +127,7 @@
           "priority": "P1",
           "type": "backend",
           "principle": "SRP, Goal-to-Plan",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/"],
           "tags": ["UC6", "blueprint", "planning"],
@@ -139,7 +139,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "new_software_project nutzt ein mode-basiertes Template fuer Projektidee, Blueprint, Artefakte, Backlog und sichere naechste Schritte.",
+            "Plan-Nodes tragen Artefakt- und Review-Fokus im Rationale-Modell.",
+            "Der Blueprint bleibt als reviewbarer Plan aus dem Hub-Planungspfad editierbar."
+          ]
         },
         {
           "id": "UC6-T06",
@@ -148,7 +153,7 @@
           "priority": "P0",
           "type": "backend",
           "principle": "Hub-Orchestration, Small-Tasks",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/"],
           "tags": ["UC6", "task-generation", "hub"],
@@ -161,7 +166,12 @@
           "context": {
             "use_case": "UC6",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue und Delegation; Worker fuehren nur delegierte Tasks aus."
-          }
+          },
+          "implementation_notes": [
+            "new_software_project erzeugt kleine Initial-Tasks mit Dependencies fuer Scope, Blueprint, Artefakte, Backlog, Governance und erste Umsetzungsscheibe.",
+            "Tasks enthalten Review- und Testfokus, ohne Worker-Orchestrierung zu veraendern.",
+            "Der Modus wird an den Auto-Planner durchgereicht, sodass der Hub die Task-Struktur kontrolliert erzeugt."
+          ]
         },
         {
           "id": "UC6-T07",
@@ -408,7 +418,7 @@
           "priority": "P0",
           "type": "backend",
           "principle": "Hub-Orchestration, Small-Tasks",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/"],
           "tags": ["UC7", "planning", "task-generation"],
@@ -421,7 +431,12 @@
           "context": {
             "use_case": "UC7",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue und Delegation; Worker fuehren nur delegierte Tasks aus."
-          }
+          },
+          "implementation_notes": [
+            "project_evolution nutzt ein mode-basiertes Template fuer Ist-Kontext, Scope, Risiko-/Testsicht, Aenderungsschritte und Review.",
+            "Aenderungen werden sequenziert und mit Dependencies materialisiert.",
+            "Task-Beschreibungen enthalten betroffene Bereiche, Risiken und Pruefhinweise statt monolithischer Umsetzung."
+          ]
         },
         {
           "id": "UC7-T06",
@@ -430,7 +445,7 @@
           "priority": "P0",
           "type": "governance",
           "principle": "Observable-Risk, Reviewability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/", "frontend-angular/"],
           "tags": ["UC7", "risk", "tests", "review"],
@@ -444,9 +459,9 @@
             "use_case": "UC7"
           },
           "implementation_notes": [
-            "project_evolution setzt review_required, Risiko-/Regression-Review und Test-/Diff-Artefaktsicht.",
-            "Hohes Risiko hebt den Policy-Level auf strict_review.",
-            "Schreib- und Runtime-Pfade bleiben bestaetigungspflichtig."
+            "project_evolution erzeugt einen eigenen Risiko-, Diff- und Testplan-Schritt.",
+            "Plan-Nodes speichern risk_focus und test_focus fuer Review- und Verifikationssicht.",
+            "Artefakte enthalten Aenderungsplan, Risiko-/Test-/Review-Plan und Rueckfallhinweise als planbare Schritte."
           ]
         },
         {
@@ -590,9 +605,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 10,
+      "completed": 14,
       "partial": 0,
-      "open": 14
+      "open": 10
     },
     "notes": [
       "Konvertiert aus dem neuen use_cases-Format in das bestehende categories/items/meta-Format.",
