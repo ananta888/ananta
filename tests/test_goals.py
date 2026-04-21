@@ -14,6 +14,7 @@ def _mock_goal_planning_llm(monkeypatch):
         "agent.routes.tasks.auto_planner.generate_text",
         lambda **kwargs: '[{"title":"Plan release","description":"Prepare release artifacts","priority":"High"}]',
     )
+    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
 
 
 class TestGoalsAPI:
@@ -144,7 +145,9 @@ class TestGoalsAPI:
         assert patched["title"] == "Adjusted step"
         assert patched["status"] == "edited"
 
-    def test_non_admin_goal_access_is_team_scoped(self, client, admin_auth_header):
+    def test_non_admin_goal_access_is_team_scoped(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
         open_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Public goal"})
         scoped_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Scoped goal", "team_id": "team-a"})
 
