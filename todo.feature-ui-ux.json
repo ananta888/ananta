@@ -777,6 +777,11 @@
             "Tools folgen einem klaren Contract-Modell.",
             "Erweiterungen sind besser validierbar.",
             "Integrationen werden weniger fragil."
+          ],
+          "implementation_notes": [
+            "agent/tool_contracts.py definiert einen versionierten v1 Tool-Contract-Katalog mit Pflichtfeldern, Security-Regeln, Audit- und Output-Contract.",
+            "docs/tool-contracts.md dokumentiert Contract-Felder, Fail-Closed-Regeln und Erweiterungsanforderungen.",
+            "tests/test_tool_capabilities_contract.py prueft, dass Tools die stabilen Contract-Felder liefern."
           ]
         },
         {
@@ -786,7 +791,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Explicit-Worker-Boundaries, Scalable-Governed-Delegation",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/",
@@ -800,6 +805,11 @@
             "Worker-Profile sind formal beschrieben.",
             "Capabilities und Grenzen sind besser vergleichbar.",
             "Skalierung und Austauschbarkeit werden realistischer."
+          ],
+          "implementation_notes": [
+            "WorkerCapabilityService liefert versionierte Worker-Capability-Profile fuer planner, coder, reviewer und operator.",
+            "docs/worker-capability-profiles.md dokumentiert Scopes, Toolklassen, Grenzen und Hub-Owned-Task-Queue-Boundary.",
+            "tests/test_worker_capability_profiles.py prueft Profile und Worker-Regel execute_delegated_work_only."
           ]
         },
         {
@@ -809,7 +819,7 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "Backend-Interchangeability, Lower-Integration-Friction",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/",
@@ -832,7 +842,7 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "Governed-Extensibility, No-Random-Plugin-Surface",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/"
@@ -874,6 +884,11 @@
             "Es gibt eine feste Benchmark-Aufgabenliste.",
             "Die Aufgaben repräsentieren echte Ananta-Staerken.",
             "Fortschritt kann spaeter vergleichbar gemessen werden."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert eine feste v1 Suite mit fuenf Kernaufgaben.",
+            "docs/product-benchmark-suite.md dokumentiert Aufgabenliste, erwartete Staerken und Vergleichsregel.",
+            "tests/test_product_benchmark_suite.py prueft die feste Aufgabenmenge."
           ]
         },
         {
@@ -883,7 +898,7 @@
           "priority": "high",
           "type": "benchmark",
           "principle": "Multi-Dimensional-Evaluation, Fairer-Comparison",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/"
@@ -896,6 +911,11 @@
             "Benchmarking bewertet mehr als nur ob etwas lief.",
             "Governance- und Sicherheitsstaerken werden mitgemessen.",
             "Vergleiche werden aussagekraeftiger."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert gewichtete Kriterien fuer Erfolg, Zeit, Traceability, Governance, Blockqualitaet, Ergebniswert und Reproduzierbarkeit.",
+            "docs/product-benchmark-suite.md dokumentiert die 100-Punkte-Bewertung.",
+            "Governance Quality und Block Quality sind eigene Kriterien statt nachrangige technische Details."
           ]
         },
         {
@@ -905,7 +925,7 @@
           "priority": "medium",
           "type": "benchmark",
           "principle": "Contextual-Competitive-Understanding, Sharper-Positioning",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "docs/"
@@ -927,7 +947,7 @@
           "priority": "medium",
           "type": "benchmark",
           "principle": "Reusable-Evidence, Better-Product-Narrative",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/",
@@ -1033,6 +1053,11 @@
             "Kommunikation passt besser zu unterschiedlichen Nutzergruppen.",
             "Neue Nutzer finden schneller den fuer sie passenden Pfad.",
             "Das Projekt wirkt zielgerichteter."
+          ],
+          "implementation_notes": [
+            "README.md verlinkt Produktprofile bereits im Einstieg und ordnet Startvarianten konkreten Profilen zu.",
+            "README.md nennt effective_policy_profile, Tool-Contracts, Worker-Capability-Profile und die Produkt-Benchmark-Suite.",
+            "docs/product-profiles.md bleibt die Detailquelle fuer Profile, Defaults und Einstiegspfade."
           ]
         }
       ]
@@ -1041,9 +1066,9 @@
   "meta": {
     "total_items": 36,
     "by_status": {
-      "completed": 27,
+      "completed": 33,
       "partial": 0,
-      "open": 9
+      "open": 3
     },
     "notes": [
       "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",

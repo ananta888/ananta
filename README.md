@@ -16,6 +16,7 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |
 | Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |
 | Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |
+| Passendes Produktprofil waehlen | Demo, Trial, Team oder Security-Kontext | [Produktprofile](docs/product-profiles.md) |
 | Architektur verstehen | technische Reviewer | [Architektur](#architektur) |
 | Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |
 | API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |
@@ -132,24 +133,28 @@ Weitere Beispiele stehen in `api-spec.md`.
 
 | Ziel | Empfohlen | Befehl |
 | --- | --- | --- |
-| Schnell ausprobieren oder Demo ansehen | Lite-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
-| Alltagliche lokale Nutzung | Lite-Stack mit `.env` aus `setup.ps1` | `.\setup.ps1`, dann Lite-Stack starten |
-| Frontend/Backend live entwickeln | Live-Code-Stack | `scripts/compose-test-stack.sh up-live` |
-| Lokale LLM-Runtime mit WSL2/Vulkan nutzen | Lite + Ollama-WSL Overlay | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build` |
-| Mehrere Worker-Nodes testen | Distributed Stack | `docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build` |
+| Schnell ausprobieren oder Demo ansehen | Profil `demo`, Lite-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
+| Alltagliche lokale Nutzung | Profil `local-first` oder `developer-local`, Lite-Stack mit `.env` aus `setup.ps1` | `.\setup.ps1`, dann Lite-Stack starten |
+| Frontend/Backend live entwickeln | Profil `developer-local`, Live-Code-Stack | `scripts/compose-test-stack.sh up-live` |
+| Kontrollierte Team-Nutzung | Profil `team-controlled` oder `review-first`, Lite-/Compose-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
+| Lokale LLM-Runtime mit WSL2/Vulkan nutzen | Profil `local-first`, Lite + Ollama-WSL Overlay | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build` |
+| Mehrere Worker-Nodes testen | Profil `secure-enterprise` oder `distributed-strict`, Distributed Stack | `docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build` |
 
 Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer konkrete Entwicklungs- oder Betriebsziele gedacht.
 
 ## Governance-Modi und Produktprofile
 
 - Governance-Modi (safe/balanced/strict): `docs/governance-modes.md`
-- Produktprofile (demo/developer-local/team-controlled/secure-enterprise): `docs/product-profiles.md`
+- Produktprofile (demo/local-first/developer-local/review-first/team-controlled/secure-enterprise): `docs/product-profiles.md`
+- Effektives Policy-Profil fuer Betreiber: `GET /config` -> `effective_policy_profile`
+- Benchmarks fuer Produkt- und Release-Bewertung: `docs/product-benchmark-suite.md`
 
 ## Kanal- und Erweiterungsstrategie (Core First)
 
 - Kernzugang zuerst: Web UI, CLI und API/Webhook sind die priorisierten Nutzflaechen.
 - Externe Messaging-/Kanaladapter werden erst nach stabilem Kernzugang erweitert.
 - Erweiterungen bleiben capability-gebunden und muessen Governance, Policy und Audit respektieren.
+- Tool-Contracts und Worker-Capability-Profile: `docs/tool-contracts.md`, `docs/worker-capability-profiles.md`
 - Oekosystem-/Marktplatz-Ideen sind bewusst nachgelagert und setzen reife Kern-Contracts voraus.
 
 ## Architektur
