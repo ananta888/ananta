@@ -487,6 +487,33 @@ RELEASE_PREP_INITIAL_TASKS = [
     },
 ]
 
+RESEARCH_EVOLUTION_INITIAL_TASKS = [
+    {
+        "title": "Standardfall Scope",
+        "description": "Define the official demo case: extend an existing project with one small feature, including constraints, affected areas, and expected evidence.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "DeerFlow Research Stage",
+        "description": "Use DeerFlow for research, source comparison, repository context enrichment, and a decision-ready research report artifact.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Evolver Proposal Stage",
+        "description": "Use Evolver only after research to produce reviewable evolution proposals linked to the DeerFlow report and hub-owned task context.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Review Gate",
+        "description": "Review research artifacts, proposal risk, validation needs, and next tasks before any controlled apply path is considered.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
 
 def _task_artifacts(tasks: list[dict]) -> list[dict]:
     return [
@@ -789,6 +816,69 @@ SEED_BLUEPRINTS = {
             )
         ],
     },
+    "Research-Evolution": {
+        "description": "Official DeerFlow+Evolver blueprint for extending an existing project with a small feature through research, proposal, review, and next tasks.",
+        "base_team_type_name": "Research-Evolution",
+        "roles": [
+            {
+                "name": "Research Lead",
+                "description": "Owns DeerFlow research scope, source quality, and the decision-ready context report.",
+                "template_name": "Research Evolution - Research Lead",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {
+                    "responsibility": "deerflow_research",
+                    "preferred_backend": "deerflow",
+                    "execution_mode": "research",
+                },
+            },
+            {
+                "name": "Evolution Strategist",
+                "description": "Owns Evolver analysis and reviewable proposal generation from approved research context.",
+                "template_name": "Research Evolution - Evolution Strategist",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {
+                    "responsibility": "evolver_proposal",
+                    "preferred_backend": "evolver",
+                    "execution_mode": "proposal",
+                },
+            },
+            {
+                "name": "Review Gate Owner",
+                "description": "Owns human review gates, validation expectations, risk sign-off, and next task selection.",
+                "template_name": "Research Evolution - Review Gate Owner",
+                "sort_order": 30,
+                "is_required": True,
+                "config": {
+                    "responsibility": "review_gate",
+                    "preferred_backend": "hub",
+                    "execution_mode": "review",
+                },
+            },
+        ],
+        "artifacts": _task_artifacts(RESEARCH_EVOLUTION_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="Research Evolution Default Policy",
+                sort_order=100,
+                policy={
+                    "standard_case": "existing_project_small_feature_extension",
+                    "deerflow_role": "research_sources_report_context",
+                    "evolver_role": "analysis_proposal_validation_prepare_only",
+                    "task_kind": "research_evolution",
+                    "security_level": "strict",
+                    "verification_required": True,
+                    "review_required": True,
+                    "apply_allowed": False,
+                    "handoff_contract": {
+                        "from_deerflow": ["summary", "sources", "report_markdown", "research_metadata"],
+                        "to_evolver": ["approved_research_artifact", "task_context", "constraints"],
+                    },
+                },
+            )
+        ],
+    },
 }
 
 SCRUM_SOLID_TEMPLATE_APPENDIX = """
@@ -850,6 +940,10 @@ def normalize_team_type_name(team_type_name: str) -> str:
         "security review": "Security-Review",
         "release-prep": "Release-Prep",
         "release prep": "Release-Prep",
+        "research-evolution": "Research-Evolution",
+        "research evolution": "Research-Evolution",
+        "deerflow-evolver": "Research-Evolution",
+        "deerflow evolver": "Research-Evolution",
     }
     return mapping.get(normalized.lower(), normalized)
 
@@ -938,6 +1032,23 @@ ROLE_PROFILE_DEFAULTS = {
             "capability_defaults": ["ops", "rollback"],
             "risk_profile": "high",
             "verification_defaults": {"required": True, "gates": ["rollback_readiness"]},
+        },
+    },
+    "Research-Evolution": {
+        "Research Lead": {
+            "capability_defaults": ["research", "deerflow", "source_synthesis"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["source_traceability", "research_report_reviewed"]},
+        },
+        "Evolution Strategist": {
+            "capability_defaults": ["evolution", "proposal", "risk_scoring"],
+            "risk_profile": "high",
+            "verification_defaults": {"required": True, "gates": ["proposal_linked_to_research", "validation_plan_defined"]},
+        },
+        "Review Gate Owner": {
+            "capability_defaults": ["review", "governance", "verification"],
+            "risk_profile": "strict",
+            "verification_defaults": {"required": True, "gates": ["human_review", "apply_blocked_by_default"]},
         },
     },
 }
@@ -1159,6 +1270,33 @@ def ensure_default_templates(team_type_name: str):
                 RoleLinkSpec("Operations Liaison", "Prepares deployment and rollback operations.", "Release Prep - Operations"),
             ]
         )
+    if team_type_name == "Research-Evolution":
+        template_specs.extend(
+            [
+                TemplateBootstrapSpec(
+                    "Research Evolution - Research Lead",
+                    "Prompt template for DeerFlow-backed research lead.",
+                    "You are the Research Lead. Use DeerFlow-style research to produce sources, context, and a decision-ready report for {{team_goal}}.",
+                ),
+                TemplateBootstrapSpec(
+                    "Research Evolution - Evolution Strategist",
+                    "Prompt template for Evolver-backed proposal strategist.",
+                    "You are the Evolution Strategist. Use approved research context to prepare reviewable Evolver proposals for {{team_goal}} without applying changes.",
+                ),
+                TemplateBootstrapSpec(
+                    "Research Evolution - Review Gate Owner",
+                    "Prompt template for review gate owner.",
+                    "You are the Review Gate Owner. Verify research evidence, proposal risk, validation needs, and human approval gates for {{team_goal}}.",
+                ),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Research Lead", "Owns DeerFlow research scope and synthesis.", "Research Evolution - Research Lead"),
+                RoleLinkSpec("Evolution Strategist", "Owns Evolver proposal preparation.", "Research Evolution - Evolution Strategist"),
+                RoleLinkSpec("Review Gate Owner", "Owns review gates and validation decisions.", "Research Evolution - Review Gate Owner"),
+            ]
+        )
     ensure_default_templates_service(
         team_type_name,
         team_type_description=f"Standard {team_type_name} Team",
@@ -1183,6 +1321,8 @@ def _serialize_blueprint(
 def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
     name = str(blueprint.name or "").strip().lower()
     team_type = str(blueprint.base_team_type_name or "").strip().lower()
+    if "research-evolution" in name or "research-evolution" in team_type:
+        return ["project_evolution", "repo_analysis", "doc_summary", "code_review"]
     if "repair" in name:
         return ["code_fix", "docker_compose_repair", "runtime_repair", "sys_diag"]
     if "research" in name:
@@ -1200,6 +1340,8 @@ def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
 
 def _suggest_playbooks_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
     name = str(blueprint.name or "").strip().lower()
+    if "research-evolution" in name:
+        return ["architecture_review", "refactoring", "bugfix"]
     if "repair" in name:
         return ["incident", "bugfix"]
     if "security" in name:

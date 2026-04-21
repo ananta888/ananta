@@ -28,6 +28,30 @@ def _evolution_config() -> dict:
     return dict((current_app.config.get("AGENT_CONFIG", {}) or {}).get("evolution") or {})
 
 
+def _public_evolution_config() -> dict:
+    return _sanitize_evolution_config(_evolution_config())
+
+
+def _sanitize_evolution_config(value):
+    if isinstance(value, dict):
+        sanitized = {}
+        for key, item in value.items():
+            normalized = str(key).strip().lower()
+            if normalized in {"bearer_token", "token", "secret", "password", "api_key", "apikey"}:
+                sanitized[key] = "***REDACTED***" if item else item
+            elif normalized == "headers" and isinstance(item, dict):
+                sanitized[key] = {
+                    str(header_name): "***REDACTED***"
+                    for header_name in item.keys()
+                }
+            else:
+                sanitized[key] = _sanitize_evolution_config(item)
+        return sanitized
+    if isinstance(value, list):
+        return [_sanitize_evolution_config(item) for item in value]
+    return value
+
+
 def _actor() -> str:
     user = getattr(g, "user", {}) or {}
     return str(user.get("sub") or user.get("username") or "system")
@@ -71,11 +95,12 @@ def _evolution_http_status(exc: Exception, default_code: int) -> int:
 @evolution_bp.route("/evolution/providers", methods=["GET"])
 @check_auth
 def list_evolution_providers():
+    cfg = _evolution_config()
     return api_response(
         data={
-            "providers": _services().evolution_service.list_providers(),
-            "health": _services().evolution_service.provider_health(),
-            "config": _evolution_config(),
+            "providers": _services().evolution_service.list_providers_with_config({"evolution": cfg}),
+            "health": _services().evolution_service.provider_health_with_config(config={"evolution": cfg}),
+            "config": _public_evolution_config(),
         }
     )
 
@@ -84,7 +109,8 @@ def list_evolution_providers():
 @check_auth
 def get_evolution_provider(provider_name: str):
     try:
-        return api_response(data=_services().evolution_service.provider_health(provider_name))
+        cfg = _evolution_config()
+        return api_response(data=_services().evolution_service.provider_health_with_config(provider_name, config={"evolution": cfg}))
     except Exception as exc:
         return api_response(status="error", message=str(exc), code=404)
 
@@ -157,8 +183,44 @@ def analyze_task_evolution(task_id: str):
             "status": result.status,
             "proposal_ids": result.proposal_ids,
             "summary": result.result.summary,
+            "trace_id": (_repos().evolution_run_repo.get_by_id(result.run_id).trace_id if _repos().evolution_run_repo.get_by_id(result.run_id) else None),
+            "provider_metadata": result.result.provider_metadata,
+            "review_status": _analysis_review_status(result),
+            "proposals": _analysis_proposal_links(task_id, result),
         }
     )
+
+
+def _analysis_review_status(result) -> dict:
+    proposals = list(result.result.proposals or [])
+    review_required = any(bool(proposal.requires_review) for proposal in proposals)
+    return {
+        "required": review_required,
+        "status": "review_required" if review_required else "not_required",
+        "proposal_count": len(proposals),
+    }
+
+
+def _analysis_proposal_links(task_id: str, result) -> list[dict]:
+    proposals = list(result.result.proposals or [])
+    proposal_ids = list(result.proposal_ids or [])
+    linked = []
+    for index, proposal_id in enumerate(proposal_ids):
+        proposal = proposals[index] if index < len(proposals) else None
+        linked.append(
+            {
+                "proposal_id": proposal_id,
+                "title": proposal.title if proposal is not None else "",
+                "risk_level": proposal.risk_level if proposal is not None else "unknown",
+                "requires_review": bool(proposal.requires_review) if proposal is not None else True,
+                "links": {
+                    "read_model": f"/tasks/{task_id}/evolution",
+                    "validate": f"/tasks/{task_id}/evolution/proposals/{proposal_id}/validate",
+                    "apply": f"/tasks/{task_id}/evolution/proposals/{proposal_id}/apply",
+                },
+            }
+        )
+    return linked
 
 
 @evolution_bp.route("/tasks/<task_id>/evolution/proposals/<proposal_id>/validate", methods=["POST"])
