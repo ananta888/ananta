@@ -44,6 +44,21 @@ def test_set_config_rejects_invalid_runtime_profile(client, admin_token):
     assert response.json["message"] == "invalid_runtime_profile"
 
 
+def test_set_config_accepts_actionable_runtime_profiles(client, admin_token):
+    response = client.post(
+        "/config",
+        json={"runtime_profile": "review-first", "governance_mode": "strict"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+
+    config_res = client.get("/config", headers={"Authorization": f"Bearer {admin_token}"})
+    runtime = config_res.json["data"]["runtime_profile_effective"]
+    assert runtime["effective"] == "review-first"
+    assert runtime["profile"]["default_governance_mode"] == "strict"
+    assert runtime["profile"]["usage_context"] == "production"
+
+
 def test_set_config_rejects_invalid_execution_fallback_policy(client, admin_token):
     response = client.post(
         "/config",
@@ -626,6 +641,7 @@ def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
 def test_dashboard_read_model_exposes_operations_observability(client, admin_token):
     from agent.db_models import ContextBundleDB, PolicyDecisionDB, TaskDB, VerificationRecordDB
     from agent.repository import context_bundle_repo, policy_decision_repo, task_repo, verification_record_repo
+    from agent.services.product_event_service import record_product_event
 
     task_repo.save(
         TaskDB(
@@ -667,6 +683,24 @@ def test_dashboard_read_model_exposes_operations_observability(client, admin_tok
             escalation_code="missing_test_evidence",
         )
     )
+    record_product_event(
+        "goal_blocked",
+        details={"source": "ui", "mode": "generic", "reason": "policy_override_requires_admin"},
+        goal_id="goal-obs-1",
+        trace_id="trace-obs-1",
+    )
+    record_product_event(
+        "review_required",
+        details={"source": "cli", "mode": "runtime_repair", "reason": "high_risk_action", "usage_context": "trial"},
+        goal_id="goal-obs-2",
+        trace_id="trace-obs-2",
+    )
+    record_product_event(
+        "goal_planning_succeeded",
+        details={"source": "api", "mode": "generic", "usage_context": "production"},
+        goal_id="goal-obs-3",
+        trace_id="trace-obs-3",
+    )
 
     headers = {"Authorization": f"Bearer {admin_token}"}
     res = client.get("/dashboard/read-model?include_task_snapshot=1", headers=headers)
@@ -678,6 +712,28 @@ def test_dashboard_read_model_exposes_operations_observability(client, admin_tok
     assert {"key": "missing_test_evidence", "count": 1} in (operations.get("root_causes") or {}).get("verification_failures", [])
     assert {"key": "provider_unavailable", "count": 1} in (operations.get("root_causes") or {}).get("routing_reasons", [])
     assert ((operations.get("context_efficiency") or {}).get("by_task_kind") or {}).get("coding", {}).get("avg_budget_utilization") == 0.75
+    product_events = operations.get("product_events") or {}
+    assert product_events.get("sample_size", 0) >= 3
+    assert (product_events.get("friction") or {}).get("blocked", 0) >= 1
+    assert ((product_events.get("channels") or {}).get("counts") or {}).get("ui", 0) >= 1
+    assert ((product_events.get("usage_contexts") or {}).get("counts") or {}).get("production", 0) >= 1
+
+
+def test_config_read_models_expose_effective_policy_profile(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    config_res = client.get("/config", headers=headers)
+    assert config_res.status_code == 200
+    profile = config_res.json["data"].get("effective_policy_profile") or {}
+    assert profile.get("version") == "v1"
+    assert profile.get("controls", {}).get("review", {}).get("enabled") in {True, False}
+
+    dashboard_res = client.get("/dashboard/read-model", headers=headers)
+    assert dashboard_res.status_code == 200
+    llm_configuration = dashboard_res.json["data"].get("llm_configuration") or {}
+    dashboard_profile = llm_configuration.get("effective_policy_profile") or {}
+    assert dashboard_profile.get("governance_mode", {}).get("effective") in {"safe", "balanced", "strict"}
+    assert "summary" in dashboard_profile
 
 
 def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token):

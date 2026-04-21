@@ -20,7 +20,95 @@ def _safe_float(value: Any) -> float:
 class OperationsObservabilityService:
     """Builds structured operational aggregates for dashboard and tuning views."""
 
-    def build_dashboard_summary(self, *, tasks: list[dict], max_records: int = 300) -> dict[str, Any]:
+    def _usage_context(self, event_details: dict[str, Any], config: dict[str, Any] | None) -> str:
+        explicit = str(event_details.get("usage_context") or "").strip().lower()
+        if explicit in {"demo", "trial", "production"}:
+            return explicit
+
+        runtime_profile = str(event_details.get("runtime_profile") or (config or {}).get("runtime_profile") or "").strip().lower()
+        source = str(event_details.get("source") or "").strip().lower()
+        mode = str(event_details.get("mode") or "").strip().lower()
+        if source == "demo" or mode in {"guided-first-run", "demo"} or runtime_profile == "demo":
+            return "demo"
+        if runtime_profile in {"team-controlled", "secure-enterprise", "distributed-strict"} or source == "api":
+            return "production"
+        return "trial"
+
+    def _product_event_summary(self, *, max_records: int, config: dict[str, Any] | None) -> dict[str, Any]:
+        repos = get_repository_registry()
+        logs = repos.audit_repo.get_all(limit=max_records)
+        events: list[dict[str, Any]] = []
+        for log in logs:
+            if not str(log.action or "").startswith("product_"):
+                continue
+            details = dict(log.details or {})
+            product_event = details.get("product_event")
+            if isinstance(product_event, dict):
+                events.append(product_event)
+
+        counts = Counter(str(event.get("event_type") or "unknown") for event in events)
+        total = max(1, len(events))
+        blocked = counts.get("goal_blocked", 0)
+        review = counts.get("review_required", 0)
+        failed = counts.get("goal_planning_failed", 0)
+        succeeded = counts.get("goal_planning_succeeded", 0)
+
+        reasons = Counter()
+        channel_counts = Counter()
+        context_counts = Counter()
+        friction_by_channel: dict[str, Counter] = defaultdict(Counter)
+        friction_by_context: dict[str, Counter] = defaultdict(Counter)
+
+        for event in events:
+            event_type = str(event.get("event_type") or "unknown")
+            details = dict(event.get("details") or {})
+            source = str(details.get("source") or "unknown").strip().lower() or "unknown"
+            usage_context = self._usage_context(details, config)
+            channel_counts[source] += 1
+            context_counts[usage_context] += 1
+            friction_by_channel[source][event_type] += 1
+            friction_by_context[usage_context][event_type] += 1
+            reason = str(details.get("reason") or "").strip()
+            if reason and event_type in {"goal_blocked", "goal_planning_failed", "review_required"}:
+                reasons[reason] += 1
+
+        def _rates(counter: Counter) -> dict[str, Any]:
+            subtotal = max(1, sum(counter.values()))
+            return {
+                "total": sum(counter.values()),
+                "blocked": counter.get("goal_blocked", 0),
+                "review_required": counter.get("review_required", 0),
+                "failed": counter.get("goal_planning_failed", 0),
+                "succeeded": counter.get("goal_planning_succeeded", 0),
+                "blocked_rate": round(counter.get("goal_blocked", 0) / subtotal, 4),
+                "review_rate": round(counter.get("review_required", 0) / subtotal, 4),
+                "failure_rate": round(counter.get("goal_planning_failed", 0) / subtotal, 4),
+            }
+
+        return {
+            "sample_size": len(events),
+            "counts_by_event": dict(counts),
+            "friction": {
+                "blocked": blocked,
+                "review_required": review,
+                "failed": failed,
+                "succeeded": succeeded,
+                "blocked_rate": round(blocked / total, 4),
+                "review_rate": round(review / total, 4),
+                "failure_rate": round(failed / total, 4),
+                "top_reasons": _top(reasons),
+            },
+            "channels": {
+                "counts": dict(channel_counts),
+                "friction_by_source": {source: _rates(counter) for source, counter in sorted(friction_by_channel.items())},
+            },
+            "usage_contexts": {
+                "counts": dict(context_counts),
+                "friction_by_context": {context: _rates(counter) for context, counter in sorted(friction_by_context.items())},
+            },
+        }
+
+    def build_dashboard_summary(self, *, tasks: list[dict], max_records: int = 300, config: dict[str, Any] | None = None) -> dict[str, Any]:
         repos = get_repository_registry()
         recent_tasks = sorted(
             tasks,
@@ -124,6 +212,7 @@ class OperationsObservabilityService:
                 "sample_size": len(context_rows),
                 "by_task_kind": context_by_kind,
             },
+            "product_events": self._product_event_summary(max_records=max_records, config=config),
         }
 
 

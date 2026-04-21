@@ -14,6 +14,9 @@ _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {
         "security_posture": "balanced",
         "recommended_compose_profiles": ["lite"],
         "review_mode": "balanced",
+        "default_governance_mode": "balanced",
+        "usage_context": "demo",
+        "entry_paths": ["ui:first-run", "cli:first-run", "docs:golden-path-ui"],
         "description": "Reproduzierbare Demo- und Erstnutzer-Flows mit klarer Explainability und Golden Paths.",
     },
     "developer-local": {
@@ -21,6 +24,9 @@ _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {
         "security_posture": "relaxed_local",
         "recommended_compose_profiles": ["lite"],
         "review_mode": "developer_fast_path",
+        "default_governance_mode": "safe",
+        "usage_context": "trial",
+        "entry_paths": ["cli:first-run", "docs:golden-path-cli", "docs:product-profiles"],
         "description": "Schneller lokaler Developer-Loop mit Diagnostics; Policies bleiben sichtbar, aber weniger friktional.",
     },
     "team-controlled": {
@@ -28,6 +34,9 @@ _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {
         "security_posture": "strict_compose_defaults",
         "recommended_compose_profiles": ["lite"],
         "review_mode": "policy_enforced",
+        "default_governance_mode": "balanced",
+        "usage_context": "production",
+        "entry_paths": ["ui:dashboard", "docs:release-golden-path", "docs:governance-modes"],
         "description": "Team-Umgebung mit klaren Defaults fuer Policy, Review und Audit; reproduzierbar via Compose.",
     },
     "secure-enterprise": {
@@ -35,7 +44,30 @@ _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {
         "security_posture": "strict_distributed",
         "recommended_compose_profiles": ["distributed"],
         "review_mode": "governed",
+        "default_governance_mode": "strict",
+        "usage_context": "production",
+        "entry_paths": ["docs:governance-modes", "docs:release-golden-path"],
         "description": "Strikte Governance und minimierte Flaeche fuer kontrollierte Umgebungen mit hoher Audit-Anforderung.",
+    },
+    "local-first": {
+        "label": "Local First",
+        "security_posture": "relaxed_local",
+        "recommended_compose_profiles": ["lite"],
+        "review_mode": "developer_fast_path",
+        "default_governance_mode": "safe",
+        "usage_context": "trial",
+        "entry_paths": ["cli:first-run", "docs:golden-path-cli"],
+        "description": "Lokale Ausfuehrung und schnelle Diagnose zuerst; Governance bleibt sichtbar und auditierbar.",
+    },
+    "review-first": {
+        "label": "Review First",
+        "security_posture": "strict_compose_defaults",
+        "recommended_compose_profiles": ["lite"],
+        "review_mode": "review_required",
+        "default_governance_mode": "strict",
+        "usage_context": "production",
+        "entry_paths": ["ui:goal-detail", "docs:governance-modes", "docs:release-golden-path"],
+        "description": "Manuelle Kontrolle zuerst: riskante Schritte werden erklaert, reviewbar und auditierbar gemacht.",
     },
     "local-dev": {
         "label": "Local Development",
@@ -75,6 +107,8 @@ _RUNTIME_PROFILE_ALIASES = {
     "dev-local": "developer-local",
     "team": "team-controlled",
     "enterprise": "secure-enterprise",
+    "local first": "local-first",
+    "review first": "review-first",
 }
 
 

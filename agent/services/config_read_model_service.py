@@ -9,6 +9,7 @@ from agent.governance_modes import resolve_governance_mode
 from agent.runtime_policy import review_policy
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.integration_registry_service import get_integration_registry_service
 from agent.services.operations_observability_service import get_operations_observability_service
 from agent.services.repository_registry import get_repository_registry
@@ -183,7 +184,8 @@ class ConfigReadModelService:
         runtime_preflight = (get_integration_registry_service().list_execution_backends(include_preflight=True).get("preflight") or {})
         retrieval_telemetry = self._build_retrieval_bundle_telemetry(tasks if include_task_snapshot else [])
         operations_observability = get_operations_observability_service().build_dashboard_summary(
-            tasks=tasks if include_task_snapshot else []
+            tasks=tasks if include_task_snapshot else [],
+            config=cfg,
         )
         contract_catalog = contract_catalog_builder()
         task_status_contract = build_task_status_contract()
@@ -396,6 +398,7 @@ class ConfigReadModelService:
                     "retrieval_bundles": retrieval_telemetry,
                     "operations": operations_observability,
                 },
+                "effective_policy_profile": build_effective_policy_profile(cfg),
             },
             "benchmarks": {
                 "task_kind": valid_task_kind,

@@ -437,7 +437,7 @@
           "priority": "high",
           "type": "operations",
           "principle": "Friction-Visibility, Better-Improvement-Signals",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -452,6 +452,11 @@
             "Blockierungs- und Review-Muster werden sichtbar.",
             "Produktverbesserung kann sich auf echte Friktion stuetzen.",
             "Nicht nur erfolgreiche Faelle werden gemessen."
+          ],
+          "implementation_notes": [
+            "OperationsObservabilityService aggregiert Product Events aus dem Audit-Stream unter runtime_telemetry.operations.product_events.",
+            "Friktionsmetriken enthalten blocked, review_required, failed, succeeded sowie Blockierungs-, Review- und Failure-Raten.",
+            "Top-Reasons fuer blockierte, fehlgeschlagene und Review-pflichtige Goal-Flows werden separat ausgewiesen."
           ]
         },
         {
@@ -461,7 +466,7 @@
           "priority": "medium",
           "type": "operations",
           "principle": "Channel-Aware-Insight, Smarter-Prioritization",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -475,6 +480,11 @@
             "UI-, CLI- und API-Nutzung lassen sich getrennt bewerten.",
             "Kanal-spezifische Schwächen werden sichtbar.",
             "Verbesserungen koennen gezielter priorisiert werden."
+          ],
+          "implementation_notes": [
+            "Product Event Details enthalten source und werden im Dashboard nach channels.counts und channels.friction_by_source aggregiert.",
+            "UI, CLI, API, Demo und Trigger bleiben analytisch getrennt, ohne technische Logs zu vermischen.",
+            "docs/product-events.md dokumentiert die channel-aware Produktmetriken."
           ]
         },
         {
@@ -484,7 +494,7 @@
           "priority": "medium",
           "type": "operations",
           "principle": "Meaningful-Metrics, Better-Signal-Quality",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -499,6 +509,11 @@
             "Demo- und Produktnutzung sind analytisch trennbar.",
             "Metriken sind aussagekraeftiger.",
             "Produktentscheidungen beruhen weniger auf verrauschten Daten."
+          ],
+          "implementation_notes": [
+            "Product Events werden mit runtime_profile, governance_mode und usage_context angereichert.",
+            "OperationsObservabilityService unterscheidet usage_contexts demo, trial und production inklusive Friktionsraten.",
+            "Runtime-Profile definieren usage_context Defaults fuer Demo, Trial und produktive Betriebsprofile."
           ]
         }
       ]
@@ -685,7 +700,7 @@
           "priority": "medium",
           "type": "product",
           "principle": "Readable-Effective-Policy, Auditable-Controls",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -700,6 +715,11 @@
             "Effektive Governance kann als Profil eingesehen werden.",
             "Nutzer oder Admins muessen nicht viele Einzelstellen lesen.",
             "Kontrolllogik wird transparenter."
+          ],
+          "implementation_notes": [
+            "agent/services/governance_profile_service.py baut ein lesbares effective_policy_profile aus Runtime-Profil, Governance-Modus und Policy-Bloecken.",
+            "GET /config liefert effective_policy_profile fuer Admin-/Operator-Export.",
+            "Dashboard Read Model liefert llm_configuration.effective_policy_profile fuer UI- und Betriebsansichten."
           ]
         },
         {
@@ -709,7 +729,7 @@
           "priority": "medium",
           "type": "product",
           "principle": "Meaningful-Operational-Profiles, Safer-Default-Choices",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -724,6 +744,11 @@
             "Wichtige Sicherheits- und Betriebsprofile sind konkret nutzbar.",
             "Die Profile kommunizieren echten Mehrwert statt nur Namen.",
             "Betriebsszenarien lassen sich sinnvoller abbilden."
+          ],
+          "implementation_notes": [
+            "Runtime-Profilkatalog enthaelt local-first und review-first als konkrete Betriebsprofile.",
+            "local-first ist auf lokale Diagnose und Trial-Kontext ausgerichtet; review-first auf kontrollierte produktive Nutzung.",
+            "docs/governance-modes.md dokumentiert beide Profile und ihre Governance-Intention."
           ]
         }
       ]
@@ -739,7 +764,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Stable-Extension-Contracts, Less-Implicit-Coupling",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "docs/",
@@ -979,6 +1004,11 @@
             "Produktprofile haben echte technische und UX-seitige Wirkung.",
             "Defaults passen zum jeweiligen Zielprofil.",
             "Profile sind mehr als nur Marketingnamen."
+          ],
+          "implementation_notes": [
+            "Runtime-Profile enthalten default_governance_mode, usage_context und entry_paths als konkrete Default-Signale.",
+            "docs/product-profiles.md beschreibt Defaults und Einstiegspfade je Profil.",
+            "GET /config und Dashboard Read Model machen die effektiven Profil-Defaults sichtbar."
           ]
         },
         {
@@ -1011,9 +1041,9 @@
   "meta": {
     "total_items": 36,
     "by_status": {
-      "completed": 3,
-      "partial": 9,
-      "open": 24
+      "completed": 27,
+      "partial": 0,
+      "open": 9
     },
     "notes": [
       "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",

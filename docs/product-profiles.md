@@ -16,6 +16,9 @@ Wichtig:
 
 - Fokus auf UI-Golden-Path und Presets.
 - Explainability sichtbar, technische Drilldowns nachrangig.
+- Default Governance: `balanced`.
+- Nutzungskontext fuer Metriken: `demo`.
+- Einstiegspfade: UI First Run, CLI First Run, `docs/golden-path-ui.md`.
 
 ### developer-local
 
@@ -23,6 +26,9 @@ Wichtig:
 
 - Diagnostik und lokale Runtimes sichtbar.
 - Review/Governance bleibt vorhanden, aber mit developer-fast-path Defaults.
+- Default Governance: `safe`.
+- Nutzungskontext fuer Metriken: `trial`.
+- Einstiegspfade: CLI First Run, `docs/golden-path-cli.md`.
 
 ### team-controlled
 
@@ -30,6 +36,9 @@ Wichtig:
 
 - Explizite Governance-/Review-Defaults.
 - Wiederholbare Compose-/Test-Setups.
+- Default Governance: `balanced`.
+- Nutzungskontext fuer Metriken: `production`.
+- Einstiegspfade: Dashboard, Release Golden Path, Governance-Modi.
 
 ### secure-enterprise
 
@@ -37,8 +46,38 @@ Wichtig:
 
 - Minimierte Exposure, konservative Tool- und Execution-Grenzen.
 - Governance wird als Produktentscheidung sichtbar gemacht.
+- Default Governance: `strict`.
+- Nutzungskontext fuer Metriken: `production`.
+- Einstiegspfade: Governance-Modi, Release Golden Path.
+
+### local-first
+
+**Ziel:** lokale Ausfuehrung und schnelle Diagnose zuerst.
+
+- Geeignet fuer lokale Entwicklung, Trial und Debugging.
+- Default Governance: `safe`.
+- Nutzungskontext fuer Metriken: `trial`.
+- Einstiegspfade: CLI First Run, CLI Golden Path.
+
+### review-first
+
+**Ziel:** manuelle Kontrolle zuerst, bevor riskante Schritte ausgefuehrt werden.
+
+- Geeignet fuer Teams und kontrollierte Umgebungen.
+- Default Governance: `strict`.
+- Nutzungskontext fuer Metriken: `production`.
+- Einstiegspfade: Goal Detail, Governance-Modi, Release Golden Path.
+
+## Effektive Defaults
+
+Die Runtime-Profile liefern inzwischen konkrete Default-Signale:
+
+- `default_governance_mode`: empfohlener Governance-Modus fuer das Profil.
+- `usage_context`: analytische Trennung fuer `demo`, `trial` und `production`.
+- `entry_paths`: konkrete UI-, CLI- oder Doku-Pfade fuer den Einstieg.
+
+Diese Felder sind Read-Model-Signale. Harte Policy-Durchsetzung bleibt in den expliziten Policy-Bloecken, damit Profile keine versteckten Seiteneffekte erzeugen.
 
 ## Implementierungs-Hinweis
 
 Im Code werden diese Profile derzeit als zusaetzliche `runtime_profile`-Eintraege modelliert (additiv, kompatibel). Die bestehenden Profile (`local-dev`, `trusted-lab`, `compose-safe`, `distributed-strict`) bleiben erhalten.
-

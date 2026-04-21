@@ -15,6 +15,7 @@ from agent.governance_modes import resolve_governance_mode
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 from agent.services.result_memory_service import normalize_result_memory_policy
@@ -53,6 +54,7 @@ def get_config():
     cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
     cfg["runtime_profile_effective"] = resolve_runtime_profile(cfg)
     cfg["governance_mode_effective"] = resolve_governance_mode(cfg)
+    cfg["effective_policy_profile"] = build_effective_policy_profile(cfg)
     return api_response(data=cfg)
 
 
