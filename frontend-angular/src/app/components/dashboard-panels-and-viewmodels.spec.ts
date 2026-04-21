@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { GoalDetail, GoalGovernanceSummary, GoalListEntry } from '../models/dashboard.models';
@@ -128,5 +128,35 @@ describe('dashboard goal reporting facade', () => {
       loading: false,
     });
     expect(notifications.error).toHaveBeenCalledWith('Goals konnten nicht geladen werden');
+  });
+
+  it('ignores stale goal detail responses from older refreshes', () => {
+    const oldDetail$ = new Subject<GoalDetail>();
+    const oldGovernance$ = new Subject<GoalGovernanceSummary>();
+    const currentDetail: GoalDetail = { goal: { id: 'created', summary: 'Created goal' }, tasks: [] };
+    const currentGovernance: GoalGovernanceSummary = { goal_id: 'created', summary: { task_count: 0 } };
+    const { facade } = setup({
+      getGoalDetail: vi.fn((_: string, goalId: string) => goalId === 'new' ? oldDetail$ : of(currentDetail)),
+      getGoalGovernanceSummary: vi.fn((_: string, goalId: string) => goalId === 'new' ? oldGovernance$ : of(currentGovernance)),
+    });
+
+    facade.refresh('http://hub:5000', 'new');
+    expect(facade.state.loading).toBe(true);
+
+    facade.refresh('http://hub:5000', 'created');
+    expect(facade.state.selectedGoalId).toBe('created');
+    expect(facade.state.goalDetail).toEqual(currentDetail);
+    expect(facade.state.goalGovernance).toEqual(currentGovernance);
+    expect(facade.state.loading).toBe(false);
+
+    oldDetail$.next(detail);
+    oldGovernance$.next(governance);
+    oldDetail$.complete();
+    oldGovernance$.complete();
+
+    expect(facade.state.selectedGoalId).toBe('created');
+    expect(facade.state.goalDetail).toEqual(currentDetail);
+    expect(facade.state.goalGovernance).toEqual(currentGovernance);
+    expect(facade.state.loading).toBe(false);
   });
 });
