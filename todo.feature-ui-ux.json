@@ -406,7 +406,7 @@
           "priority": "high",
           "type": "operations",
           "principle": "Product-Event-Visibility, Real-Usage-Insight",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/",
@@ -422,6 +422,12 @@
             "Wichtige Produktaktionen sind als Ereignisse modelliert.",
             "Es ist klar messbar, welche Flows wirklich genutzt werden.",
             "Technische Logs und Produktsicht sind besser getrennt."
+          ],
+          "implementation_notes": [
+            "docs/product-events.md definiert den Produktkanal, Kernereignisse und Pflichtdimensionen fuer Start, Goal-Erstellung, Blockierung, Review-Bedarf, Erfolg und Abbruch.",
+            "agent/services/hub_event_service.py fuehrt den versionierten product-Kanal im Hub-Event-Katalog und build_product_event ein.",
+            "agent/services/product_event_service.py persistiert Produkt-Events ueber den Audit-Stream mit product_-Prefix und details.product_event Envelope.",
+            "POST /goals erzeugt Product Events fuer Flow-Start, Goal-Erstellung, Planning-Erfolg, Planning-Fehler und blockierte Goal-Eingaben."
           ]
         },
         {
@@ -508,7 +514,7 @@
           "priority": "critical",
           "type": "ux",
           "principle": "Systematic-Explainability, Trust-Through-Reasoning-Visible",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -522,7 +528,7 @@
           "implementation_notes": [
             "Wiederverwendbare Display-Komponenten genutzt: app-decision-explanation + app-next-steps.",
             "Umgesetzt fuer blocked (Board/Scrum), Guardrail-Blocks (Dashboard Timeline), Goal Detail (blocked/review Hinweise), Auto-Planner (Plan-Result + Goal-Detail Panel) und Task Detail (blocked/review/tool approval + Next Steps).",
-            "Weitere Views (Task Detail, Admin Drilldowns) sollten nachgezogen werden, um volle Systematik zu erreichen."
+            "docs/ui-state-language-patterns.md definiert das uebergreifende Muster fuer Blockierung, Review, Sicherheitsgrenzen und Erfolg inklusive naechster sinnvoller Aktion."
           ]
         },
         {
@@ -532,7 +538,7 @@
           "priority": "high",
           "type": "ux",
           "principle": "Human-Language-First, Less-Internal-Jargon",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/",
@@ -550,7 +556,8 @@
           ],
           "implementation_notes": [
             "Quick-Goal-Sprache von Quick Goal/Tasks/Board stärker auf Zielbeschreibung, Aufgaben und Ergebnisse umgestellt.",
-            "Interne Task-IDs werden in der Erfolgsmeldung nachrangig als interne Referenzen angezeigt."
+            "Interne Task-IDs werden in der Erfolgsmeldung nachrangig als interne Referenzen angezeigt.",
+            "docs/ui-state-language-patterns.md trennt Endnutzer-Zusammenfassung von technischen Details und begrenzt Architekturvokabular auf Expertenkontexte."
           ]
         },
         {
@@ -560,7 +567,7 @@
           "priority": "high",
           "type": "ux",
           "principle": "Actionable-States, Less-Dead-End-UX",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -576,7 +583,8 @@
           "implementation_notes": [
             "Quick-Goal zeigt Next Steps jetzt auch bei Fehlern (DashboardQuickGoalPanel).",
             "Board/Dashboard-Timeline nutzen NextSteps fuer blocked/guardrail Events.",
-            "Goal Detail, Auto-Planner und Task Detail zeigen Next Steps fuer typische Zustandswechsel (blocked/review/policy)."
+            "Goal Detail, Auto-Planner und Task Detail zeigen Next Steps fuer typische Zustandswechsel (blocked/review/policy).",
+            "docs/ui-state-language-patterns.md macht Next Steps fuer Blockierung, Fehler, Review und Erfolg zum verbindlichen Standardmuster."
           ]
         },
         {
@@ -586,7 +594,7 @@
           "priority": "medium",
           "type": "ux",
           "principle": "Value-First-Results, Better-End-User-Orientation",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/"
@@ -602,7 +610,8 @@
           ],
           "implementation_notes": [
             "Quick-Goal-Erfolg zeigt zuerst Planwert und erzeugte Aufgaben; technische Referenzen sind nachrangig einklappbar.",
-            "Naechste Schritte fuehren direkt zu Zielpruefung, Aufgabenverfolgung und Ergebnissen."
+            "Naechste Schritte fuehren direkt zu Zielpruefung, Aufgabenverfolgung und Ergebnissen.",
+            "docs/ui-state-language-patterns.md definiert value-first Ergebniszusammenfassungen mit sekundaeren technischen Details."
           ]
         }
       ]

@@ -4,7 +4,7 @@ import jwt
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB
-from agent.repository import agent_repo, goal_repo, task_repo
+from agent.repository import agent_repo, audit_repo, goal_repo, task_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 
@@ -348,6 +348,10 @@ class TestGoalsAPI:
         detail = detail_res.get_json()["data"]
         assert detail["trace"]["trace_id"].startswith("goal-")
         assert detail["plan"]["plan"]["goal_id"] == goal_id
+        product_actions = [log.action for log in audit_repo.get_all(limit=20)]
+        assert "product_product_flow_started" in product_actions
+        assert "product_goal_created" in product_actions
+        assert "product_goal_planning_succeeded" in product_actions
 
     def test_create_goal_requires_planning_backend_when_templates_disabled(self, client, admin_auth_header, monkeypatch):
         cfg = dict(client.application.config.get("AGENT_CONFIG", {}) or {})

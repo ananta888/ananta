@@ -33,6 +33,15 @@ GOVERNANCE_EVENT_TYPES = [
     "verification_record_updated",
 ]
 
+PRODUCT_EVENT_TYPES = [
+    "product_flow_started",
+    "goal_created",
+    "goal_planning_succeeded",
+    "goal_planning_failed",
+    "goal_blocked",
+    "review_required",
+]
+
 
 def build_hub_event(
     *,
@@ -70,11 +79,33 @@ def build_hub_event_catalog() -> HubEventCatalogContract:
             "task_history": TASK_HISTORY_EVENT_TYPES,
             "audit": ["*"],  # AuditLogDB.action is the canonical event_type source.
             "governance": GOVERNANCE_EVENT_TYPES,
+            "product": PRODUCT_EVENT_TYPES,
         },
         notes={
             "audit": "For audit events, `AuditLogDB.action` is the canonical event_type and the envelope is stored in `details._event`.",
             "governance": "Governance summaries expose versioned envelope metadata and optional latest event envelopes for policy/verification entries.",
+            "product": "Product events track user-visible flow milestones separately from low-level technical logs.",
         },
+    )
+
+
+def build_product_event(
+    event_type: str,
+    *,
+    actor: str = "system",
+    details: dict[str, Any] | None = None,
+    goal_id: str | None = None,
+    trace_id: str | None = None,
+    plan_id: str | None = None,
+) -> dict[str, Any]:
+    return build_hub_event(
+        channel="product",
+        event_type=event_type,
+        actor=actor,
+        details=details,
+        goal_id=goal_id,
+        trace_id=trace_id,
+        plan_id=plan_id,
     )
 
 

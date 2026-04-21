@@ -778,7 +778,7 @@ class ScheduledTaskCreateRequest(SQLModel):
 
 
 class GoalCreateRequest(SQLModel):
-    goal: str
+    goal: Optional[str] = None
     context: Optional[str] = None
     source: Optional[str] = "ui"
     team_id: Optional[str] = None
