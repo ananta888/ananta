@@ -43,8 +43,8 @@ import { Subscription } from 'rxjs';
       animation: slideIn 0.2s ease-out;
     }
     @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      from { transform: translateY(-8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
     .toast-success { border-left: 4px solid #22c55e; }
     .toast-error { border-left: 4px solid #ef4444; }
