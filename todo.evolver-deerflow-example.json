@@ -1,0 +1,288 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "purpose": "Roadmap for productionizing evolution/evolver integration and creating one standard blueprint path that uses both DeerFlow and Evolver in a meaningful, controlled way.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "tracks": [
+    {
+      "id": "EVOLVER",
+      "title": "Evolver besser integrieren und nahezu fertig machen",
+      "goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
+      "success_criteria": [
+        "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
+        "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
+        "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
+        "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
+      ],
+      "tasks": [
+        {
+          "id": "EVOLVER-T01",
+          "title": "Evolver Capability-Matrix vervollstaendigen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Evolver ist als eigener Evolution-Provider mit klaren Capabilities dokumentiert.",
+            "Analyze, Validate und Apply-Faehigkeiten sind getrennt sichtbar.",
+            "Fehlende Provider-Capabilities werden fail-closed behandelt."
+          ]
+        },
+        {
+          "id": "EVOLVER-T02",
+          "title": "Provider-Konfiguration fuer Evolver haerten",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "allowed_hosts, timeouts, response limits und retry policy sind sauber konfigurierbar.",
+            "Unsichere oder unvollstaendige Konfiguration blockiert den Provider sinnvoll.",
+            "Evolver bleibt in unsicheren Umgebungen analyze-only oder disabled."
+          ]
+        },
+        {
+          "id": "EVOLVER-T03",
+          "title": "Evolution Analyze API-Endpunkte produktreif machen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Analyze kann ueber REST und MCP sauber aufgerufen werden.",
+            "Responses enthalten trace_id, provider metadata, review status und proposal links.",
+            "Fehlerfaelle sind strukturiert und auditierbar."
+          ]
+        },
+        {
+          "id": "EVOLVER-T04",
+          "title": "Validation-Pfad fuer Evolver integrieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Validate ist als eigener Pfad verfuegbar, sofern Provider und Policy dies erlauben.",
+            "Validation-Ergebnisse werden von Analyze-/Proposal-Ergebnissen getrennt gespeichert.",
+            "Validation blockiert unsichere oder inkonsistente Proposals sichtbar."
+          ]
+        },
+        {
+          "id": "EVOLVER-T05",
+          "title": "Kontrollierten Apply-Pfad vorbereiten",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Apply bleibt standardmaessig deaktiviert.",
+            "Bei Aktivierung sind Review, Approval, Provenance und Rollback-Hinweise Pflicht.",
+            "Apply wird nie als impliziter Standardpfad verwendet."
+          ]
+        },
+        {
+          "id": "EVOLVER-T06",
+          "title": "Evolution-Proposals als echte Artefakte im Hub sichtbar machen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Proposals sind im UI und ueber APIs als strukturierte Artefakte sichtbar.",
+            "Jedes Proposal zeigt Quelle, Provider, Risiken, Diff-/Patch-Infos und Status.",
+            "Proposal-Historie ist nachvollziehbar."
+          ]
+        },
+        {
+          "id": "EVOLVER-T07",
+          "title": "Review- und Approval-Flow fuer Evolution-Proposals fertig anschliessen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Evolution-Proposals koennen explizit approved oder rejected werden.",
+            "Review-Status ist im Read-Model sichtbar.",
+            "Ohne Review kein kontrolliertes Apply."
+          ]
+        },
+        {
+          "id": "EVOLVER-T08",
+          "title": "Observability fuer Evolver vervollstaendigen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Metriken fuer analyses, validations, applies, retries und provider failures sind sichtbar.",
+            "Audit-Events zeigen provider, task, trace_id, policy_version und outcome.",
+            "Operatoren koennen Evolver-Laufprobleme schnell erkennen."
+          ]
+        },
+        {
+          "id": "EVOLVER-T09",
+          "title": "Settings- und Dashboard-UI fuer Evolution ergaenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "UI zeigt Evolution-Modus, Provider-Status, Analyze-only/Apply-Zustand und Review-Anforderungen.",
+            "Operator kann Evolver-Konfiguration pruefen, ohne Roh-JSON lesen zu muessen.",
+            "Warnings fuer riskante Konfigurationen sind sichtbar."
+          ]
+        },
+        {
+          "id": "EVOLVER-T10",
+          "title": "Golden Path und Demo fuer Evolver dokumentieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt einen klaren Demo-Flow fuer Analyze -> Proposal -> Review.",
+            "Doku erklaert, wann Evolver sinnvoll ist und wann nicht.",
+            "Rollout-Phasen sind praxisnah dokumentiert."
+          ]
+        },
+        {
+          "id": "EVOLVER-T11",
+          "title": "Contract- und E2E-Tests fuer Evolver-Pfaede ergaenzen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Analyze-Flow ist per Tests abgesichert.",
+            "Review-/Validation-Statuswechsel sind regressionssicher.",
+            "Policy-Blockierungen und Providerfehler sind testbar."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "BLUEPRINT-STANDARD-PATH",
+      "title": "Standard-Blueprint-Pfad mit DeerFlow und Evolver",
+      "goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
+      "success_criteria": [
+        "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
+        "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
+        "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
+        "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
+      ],
+      "tasks": [
+        {
+          "id": "BP-T01",
+          "title": "Einen offiziellen Standardfall festlegen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Ein konkreter Standardfall ist benannt, z. B. 'bestehendes Projekt um Feature erweitern' oder 'kleinen Bugfix kontrolliert vorbereiten'.",
+            "Der Fall ist klein genug fuer Demo und gross genug fuer echten Mehrwert.",
+            "Use-Case ist offiziell in Doku und Demo-Flows verankert."
+          ]
+        },
+        {
+          "id": "BP-T02",
+          "title": "Rollenverteilung DeerFlow vs Evolver fest definieren",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "DeerFlow ist klar fuer Research, Vergleich, Quellen, Bericht und Kontextanreicherung zustaendig.",
+            "Evolver ist klar fuer Evolutionsanalyse, Proposal, validierte Aenderungsvorschlaege und spaetere kontrollierte Apply-Pfade zustaendig.",
+            "Keine unklare Doppelrolle beider Systeme."
+          ]
+        },
+        {
+          "id": "BP-T03",
+          "title": "Blueprint fuer den Standardpfad modellieren",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Es gibt einen Team-/Task-Blueprint fuer den offiziellen Standardpfad.",
+            "Blueprint enthaelt initiale Rollen, Artefakte und Start-Tasks.",
+            "Blueprint ist per API und UI instanziierbar."
+          ]
+        },
+        {
+          "id": "BP-T04",
+          "title": "DeerFlow als erster Stage im Blueprint-Pfad einbauen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Der Blueprint startet fuer geeignete Teilaufgaben mit Research/Context-Aufbau ueber DeerFlow.",
+            "Research-Bericht wird als Artefakt gespeichert.",
+            "Quellen, Summary und Report sind spaeter im Pfad referenzierbar."
+          ]
+        },
+        {
+          "id": "BP-T05",
+          "title": "Evolver als zweite Stage im Blueprint-Pfad einbauen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Nach Research kann Evolver aus dem vorhandenen Kontext Proposals oder Evolutionsanalysen erzeugen.",
+            "Evolver verwendet nicht losgeloeste Rohprompts, sondern den vorherigen kontrollierten Task-/Artifact-Kontext.",
+            "Proposal ist reviewbar und mit DeerFlow-Artefakten verknuepft."
+          ]
+        },
+        {
+          "id": "BP-T06",
+          "title": "Task- und Artifact-Uebergabe zwischen DeerFlow und Evolver standardisieren",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Es gibt ein klares Datenmodell fuer Uebergabe von summary, sources, report_markdown und research metadata an den Evolver-Pfad.",
+            "Trace- und Provenance-Daten bleiben erhalten.",
+            "Zwischenergebnisse sind nicht nur im Prompt versteckt."
+          ]
+        },
+        {
+          "id": "BP-T07",
+          "title": "Review-Gates im Standardpfad sichtbar machen",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Research-Artefakte und Evolution-Proposals haben klaren Review-Status.",
+            "Der Standardpfad zeigt, wo Mensch freigibt, ablehnt oder nachschaerft.",
+            "UI stellt diese Gates sichtbar dar."
+          ]
+        },
+        {
+          "id": "BP-T08",
+          "title": "Beispiel-Input und Erwartungsbild fuer den Standardpfad definieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt einen festen Demo-Input.",
+            "Es ist dokumentiert, welche Zwischenartefakte und Endergebnisse erwartet werden.",
+            "Reviewer koennen beurteilen, ob der Pfad sinnvoll funktioniert."
+          ]
+        },
+        {
+          "id": "BP-T09",
+          "title": "Preset und Wizard-Einstieg fuer den Standardpfad bauen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt einen sichtbaren UI-Einstieg fuer diesen Beispielpfad.",
+            "Preset ist auch fuer Erstnutzer verstaendlich benannt.",
+            "Wizard erklaert nicht Tools, sondern den Problemfluss."
+          ]
+        },
+        {
+          "id": "BP-T10",
+          "title": "Read-Model fuer zusammengesetzten Pfad erweitern",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Dashboard/Assistant zeigt klar Research-Artefakte, Evolution-Proposals und naechste Schritte.",
+            "Der Nutzer sieht nicht nur Logs, sondern den fachlichen Fortschritt.",
+            "Trace und Policy-Entscheidungen bleiben fuer Admins nachvollziehbar."
+          ]
+        },
+        {
+          "id": "BP-T11",
+          "title": "Demo-Flow und Golden Path dokumentieren",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Es gibt einen offiziellen Demo-Flow fuer den zusammengesetzten DeerFlow+Evolver-Pfad.",
+            "README/use-cases/demo-flows referenzieren diesen Pfad.",
+            "Der Mehrwert beider Komponenten wird problemorientiert erklaert."
+          ]
+        },
+        {
+          "id": "BP-T12",
+          "title": "E2E-Test fuer den Standard-Blueprint-Pfad bauen",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Ein automatisierter Test prueft den Blueprint-Flow mindestens als Smoke-Test.",
+            "Research-Stage und Evolution-Stage werden beide sichtbar durchlaufen oder simuliert.",
+            "Artefakte, Status und Review-Gates sind regressionssicher."
+          ]
+        }
+      ]
+    }
+  ]
+}
