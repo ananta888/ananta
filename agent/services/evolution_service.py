@@ -17,6 +17,7 @@ from agent.metrics import (
 from agent.services.evolution.context_builder import EvolutionContextBuilder, EvolutionContextBuildOptions
 from agent.services.evolution.models import (
     ApplyResult,
+    EvolutionCapability,
     EvolutionContext,
     EvolutionPolicy,
     EvolutionProposal,
@@ -48,10 +49,16 @@ class EvolutionService:
         self._audit_fn = audit_fn or log_audit
 
     def list_providers(self) -> list[dict[str, Any]]:
-        return self._registry.list_descriptors()
+        return [self._with_capability_matrix(item, config=None) for item in self._registry.list_descriptors()]
+
+    def list_providers_with_config(self, config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        return [self._with_capability_matrix(item, config=config) for item in self._registry.list_descriptors()]
 
     def provider_health(self, provider_name: str | None = None) -> dict[str, Any]:
-        return self._registry.health(provider_name)
+        return self._with_health_capability_matrix(self._registry.health(provider_name), config=None)
+
+    def provider_health_with_config(self, provider_name: str | None = None, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._with_health_capability_matrix(self._registry.health(provider_name), config=config)
 
     def resolve_policy(self, config: dict[str, Any] | None = None) -> EvolutionPolicy:
         raw = dict((config or {}).get("evolution") or config or {})
@@ -317,6 +324,103 @@ class EvolutionService:
         provider_cfg = self._provider_config(provider_name, config=config)
         if bool(provider_cfg.get("force_analyze_only", False)) and operation != "analyze":
             raise PermissionError("evolution_provider_analyze_only")
+
+    def _with_health_capability_matrix(self, health: dict[str, Any], *, config: dict[str, Any] | None) -> dict[str, Any]:
+        payload = dict(health or {})
+        payload["providers"] = [
+            self._with_capability_matrix(dict(provider), config=config)
+            for provider in payload.get("providers", [])
+            if isinstance(provider, dict)
+        ]
+        return payload
+
+    def _with_capability_matrix(self, descriptor: dict[str, Any], *, config: dict[str, Any] | None) -> dict[str, Any]:
+        provider_name = str(descriptor.get("provider_name") or "").strip()
+        capabilities = set()
+        for item in descriptor.get("capabilities") or []:
+            try:
+                capabilities.add(EvolutionCapability(str(item)))
+            except ValueError:
+                continue
+        policy = self.resolve_policy(config)
+        provider_cfg = self._provider_config(provider_name, config=config)
+        force_analyze_only = bool(provider_cfg.get("force_analyze_only", False))
+        matrix = {
+            "analyze": self._capability_entry(
+                EvolutionCapability.ANALYZE,
+                supported=EvolutionCapability.ANALYZE in capabilities,
+                policy_allowed=policy.enabled,
+                configured=True,
+            ),
+            "propose": self._capability_entry(
+                EvolutionCapability.PROPOSE,
+                supported=EvolutionCapability.PROPOSE in capabilities,
+                policy_allowed=policy.enabled,
+                configured=True,
+                note="Analyze may still return reviewable proposals when provider supports provider-specific proposal output.",
+            ),
+            "validate": self._capability_entry(
+                EvolutionCapability.VALIDATE,
+                supported=EvolutionCapability.VALIDATE in capabilities,
+                policy_allowed=policy.enabled and policy.validate_allowed and not force_analyze_only,
+                configured=not force_analyze_only,
+                fail_closed_reason="evolution_provider_analyze_only" if force_analyze_only else None,
+            ),
+            "apply": self._capability_entry(
+                EvolutionCapability.APPLY,
+                supported=EvolutionCapability.APPLY in capabilities,
+                policy_allowed=policy.enabled and policy.apply_allowed and not force_analyze_only,
+                configured=not force_analyze_only,
+                fail_closed_reason=(
+                    "evolution_provider_analyze_only"
+                    if force_analyze_only
+                    else ("evolution_apply_disabled" if not policy.apply_allowed else None)
+                ),
+            ),
+            "risk_scoring": self._capability_entry(
+                EvolutionCapability.RISK_SCORING,
+                supported=EvolutionCapability.RISK_SCORING in capabilities,
+                policy_allowed=policy.enabled,
+                configured=True,
+            ),
+            "review_hints": self._capability_entry(
+                EvolutionCapability.REVIEW_HINTS,
+                supported=EvolutionCapability.REVIEW_HINTS in capabilities,
+                policy_allowed=policy.enabled,
+                configured=True,
+            ),
+        }
+        enriched = dict(descriptor)
+        enriched["capability_matrix"] = matrix
+        enriched["fail_closed"] = any(
+            entry["supported"] and not entry["available"]
+            for entry in matrix.values()
+        )
+        return enriched
+
+    @staticmethod
+    def _capability_entry(
+        capability: EvolutionCapability,
+        *,
+        supported: bool,
+        policy_allowed: bool,
+        configured: bool,
+        fail_closed_reason: str | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        available = bool(supported and policy_allowed and configured)
+        payload = {
+            "capability": capability.value,
+            "supported": bool(supported),
+            "policy_allowed": bool(policy_allowed),
+            "configured": bool(configured),
+            "available": available,
+        }
+        if fail_closed_reason and not available:
+            payload["fail_closed_reason"] = fail_closed_reason
+        if note:
+            payload["note"] = note
+        return payload
 
     @staticmethod
     def _provider_config(provider_name: str, *, config: dict[str, Any] | None) -> dict[str, Any]:

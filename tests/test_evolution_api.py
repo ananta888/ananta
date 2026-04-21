@@ -66,6 +66,19 @@ class AnalyzeOnlyEvolverTransport:
 
 
 def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
+    old_cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    cfg = dict(app.config.get("AGENT_CONFIG") or {})
+    cfg["evolution"] = {
+        **dict(cfg.get("evolution") or {}),
+        "provider_overrides": {
+            "api-evolution": {
+                "force_analyze_only": True,
+                "bearer_token": "secret-token",
+                "headers": {"Authorization": "Bearer secret"},
+            }
+        },
+    }
+    app.config["AGENT_CONFIG"] = cfg
     registry = get_evolution_provider_registry()
     registry.clear()
     registry.register(ApiEvolutionEngine(), default=True)
@@ -74,6 +87,7 @@ def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
         detail_response = client.get("/evolution/providers/api-evolution", headers=admin_auth_header)
     finally:
         registry.clear()
+        app.config["AGENT_CONFIG"] = old_cfg
 
     assert response.status_code == 200
     payload = response.json["data"]
@@ -82,6 +96,14 @@ def test_evolution_provider_discovery_endpoint(client, app, admin_auth_header):
     assert payload["health"]["status"] == "available"
     assert payload["config"]["analyze_only"] is True
     assert payload["config"]["apply_allowed"] is False
+    assert payload["config"]["provider_overrides"]["api-evolution"]["bearer_token"] == "***REDACTED_TOKEN***"
+    assert payload["config"]["provider_overrides"]["api-evolution"]["headers"]["Authorization"] == "***REDACTED_CREDENTIAL***"
+    matrix = payload["providers"][0]["capability_matrix"]
+    assert matrix["analyze"]["available"] is True
+    assert matrix["validate"]["supported"] is True
+    assert matrix["validate"]["available"] is False
+    assert matrix["validate"]["fail_closed_reason"] == "evolution_provider_analyze_only"
+    assert matrix["apply"]["fail_closed_reason"] == "evolution_provider_analyze_only"
 
     assert detail_response.status_code == 200
     assert detail_response.json["data"]["providers"][0]["provider_name"] == "api-evolution"
@@ -115,6 +137,16 @@ def test_task_evolution_analyze_and_read_model_endpoints(client, app, admin_auth
     assert analyze_payload["provider_name"] == "api-evolution"
     assert analyze_payload["status"] == "completed"
     assert len(analyze_payload["proposal_ids"]) == 1
+    assert analyze_payload["trace_id"] == "trace-api"
+    assert analyze_payload["provider_metadata"]["source"] == "api-test"
+    assert analyze_payload["review_status"] == {
+        "required": True,
+        "status": "review_required",
+        "proposal_count": 1,
+    }
+    assert analyze_payload["proposals"][0]["proposal_id"] == analyze_payload["proposal_ids"][0]
+    assert analyze_payload["proposals"][0]["links"]["read_model"] == "/tasks/T-EVO-API/evolution"
+    assert analyze_payload["proposals"][0]["links"]["validate"].endswith("/validate")
 
     assert read_response.status_code == 200
     read_payload = read_response.json["data"]
@@ -308,6 +340,8 @@ def test_task_evolution_validate_and_apply_fail_closed_for_analyze_only_evolver(
 
     assert analyze_response.status_code == 200
     assert validate_response.status_code == 403
-    assert validate_response.json["data"]["error_code"] == "provider_operation_not_supported"
+    assert validate_response.json["data"]["error_code"] == "evolution_policy_blocked"
+    assert validate_response.json["message"] == "evolution_provider_analyze_only"
     assert apply_response.status_code == 403
-    assert apply_response.json["data"]["error_code"] == "provider_operation_not_supported"
+    assert apply_response.json["data"]["error_code"] == "evolution_policy_blocked"
+    assert apply_response.json["message"] == "evolution_provider_analyze_only"

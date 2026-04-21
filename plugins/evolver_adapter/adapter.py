@@ -320,6 +320,13 @@ class EvolverAdapter(EvolutionEngine):
                 "retry_count": retry_policy.max_attempts - 1,
                 "retry_backoff_seconds": retry_policy.backoff_seconds,
                 "configured_header_names": sorted(headers.keys()),
+                "allowed_hosts": list(config.get("allowed_hosts") or []),
+                "force_analyze_only": bool(config.get("force_analyze_only", True)),
+                "capability_policy": {
+                    "analyze": "enabled",
+                    "validate": "fail_closed",
+                    "apply": "fail_closed",
+                },
             },
         )
 

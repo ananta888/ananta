@@ -210,3 +210,33 @@ Reviewer-Schnellpruefung:
 1. Demo- oder CLI-Flow starten.
 2. Goal-Detail oeffnen und geplante Artefakte fuer Aenderungsplan und Risiko-/Testsicht pruefen.
 3. Board oeffnen und kontrollieren, dass zuerst kleine, reviewbare Aenderungsschritte entstehen.
+
+## Flow H: Research -> Proposal -> Review mit DeerFlow und Evolver (UC8)
+
+Standardfall:
+- Ein bestehendes Projekt soll um ein kleines Feature erweitert werden.
+- DeerFlow sammelt Recherche, Quellen, Vergleich und Kontextbericht.
+- Evolver erzeugt danach aus dem geprueften Research-Kontext reviewbare Evolution-Proposals.
+- Der Hub besitzt Planung, Queue, Review-Gates und naechste Tasks; Apply bleibt standardmaessig deaktiviert.
+
+Realpfad UI:
+1. Teams -> Blueprints.
+2. Blueprint `Research-Evolution` auswaehlen.
+3. Als Team instanziieren und die Starter-Tasks `Standardfall Scope`, `DeerFlow Research Stage`, `Evolver Proposal Stage` und `Review Gate` pruefen.
+4. Erfolgssignal: Research-Artefakt, Evolver-Proposal und Review-Gate sind als getrennte Schritte sichtbar.
+
+API:
+
+```http
+GET /teams/blueprints
+POST /teams/blueprints/<research-evolution-blueprint-id>/instantiate
+{"name":"Research Evolution Demo","members":[],"activate":false}
+```
+
+Erwartetes Ergebnis: ein instanziierbarer Team-/Task-Blueprint mit klarer Rollenverteilung.
+
+Review-Check:
+- `Research Lead` nutzt DeerFlow fuer Quellen, Summary, Report und Research-Metadaten.
+- `Evolution Strategist` nutzt Evolver fuer Analyse, Proposal und Validation-Vorbereitung.
+- `Review Gate Owner` blockiert Apply ohne explizite Review-/Approval-Gates.
+- Das Policy-Artefakt definiert die Uebergabe von `summary`, `sources`, `report_markdown` und `research_metadata` an den Evolver-Pfad.

@@ -25,7 +25,7 @@
           "priority": "P0",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "tags": [
             "EVOLVER"
@@ -46,7 +46,12 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "implementation_notes": [
+            "Evolution Provider Discovery liefert eine capability_matrix fuer analyze, propose, validate, apply, risk_scoring und review_hints.",
+            "Validate und Apply werden getrennt nach Provider-Support, Policy und Provider-Konfiguration als available oder fail-closed ausgewiesen.",
+            "Tests pruefen die Matrix und den analyze-only Fail-Closed-Zustand."
+          ]
         },
         {
           "id": "EVOLVER-T02",
@@ -55,7 +60,7 @@
           "priority": "P0",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "tags": [
             "EVOLVER"
@@ -76,7 +81,12 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "implementation_notes": [
+            "Evolver Provider-Metadaten zeigen allowed_hosts, Timeout-/Response-Limits, Retry-Policy und force_analyze_only.",
+            "Provider-Konfiguration wird in Discovery-Antworten redigiert, sodass Tokens und Header nicht offengelegt werden.",
+            "force_analyze_only blockiert Validate/Apply vor Provider-Aufruf als Policy-Entscheidung."
+          ]
         },
         {
           "id": "EVOLVER-T03",
@@ -85,7 +95,7 @@
           "priority": "P0",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "tags": [
             "EVOLVER"
@@ -106,7 +116,12 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "implementation_notes": [
+            "Analyze REST liefert trace_id, provider_metadata, review_status und Proposal-Links fuer Read-Model, Validate und Apply.",
+            "MCP nutzt weiterhin denselben Hub-Service-Pfad fuer Analyze und Proposal-Read-Model.",
+            "Providerfehler bleiben strukturiert mit error_code, error_type, Retryable-Hinweisen und Audit-Events."
+          ]
         },
         {
           "id": "EVOLVER-T04",
@@ -361,7 +376,7 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
@@ -382,7 +397,12 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "implementation_notes": [
+            "UC8 und Demo-Flow H definieren den offiziellen Standardfall: bestehendes Projekt um ein kleines Feature erweitern.",
+            "Der Fall ist klein genug fuer Demo/Smoke und zeigt Research -> Proposal -> Review -> naechste Tasks.",
+            "docs/use-cases.md und docs/demo-flows.md verankern den Use-Case offiziell."
+          ]
         },
         {
           "id": "BP-T02",
@@ -391,7 +411,7 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
@@ -412,7 +432,12 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "implementation_notes": [
+            "Der Research-Evolution-Blueprint trennt Research Lead (DeerFlow), Evolution Strategist (Evolver) und Review Gate Owner.",
+            "Das Policy-Artefakt definiert DeerFlow als Quelle fuer summary, sources, report_markdown und research_metadata.",
+            "Evolver ist auf Analyse, Proposal und Validation-Vorbereitung begrenzt; Apply bleibt ohne Review-Gates deaktiviert."
+          ]
         },
         {
           "id": "BP-T03",
@@ -421,7 +446,7 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
@@ -442,7 +467,12 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "implementation_notes": [
+            "Seed-Blueprint Research-Evolution enthaelt Rollen, Policy-Artefakt und Starter-Tasks fuer Scope, DeerFlow Research, Evolver Proposal und Review Gate.",
+            "Der Blueprint wird ueber die bestehende /teams/blueprints API reconciled und ist instanziierbar.",
+            "Tests pruefen Seed-Inhalt, Rollenverteilung, Handoff-Contract und Materialisierung der Starter-Tasks."
+          ]
         },
         {
           "id": "BP-T04",
@@ -720,9 +750,9 @@
   "meta": {
     "total_items": 23,
     "by_status": {
-      "completed": 0,
+      "completed": 6,
       "partial": 0,
-      "open": 23
+      "open": 17
     },
     "notes": [
       "Diese Roadmap beschreibt die kontrollierte Evolver-Integration und den Standard-Blueprint-Pfad mit DeerFlow und Evolver.",

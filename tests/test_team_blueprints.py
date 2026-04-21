@@ -21,7 +21,15 @@ def test_seed_blueprints_are_listed(client):
     assert response.status_code == 200
     blueprints = response.json["data"]
     names = {blueprint["name"] for blueprint in blueprints}
-    assert {"Scrum", "Kanban", "Research", "Code-Repair", "Security-Review", "Release-Prep"}.issubset(names)
+    assert {
+        "Scrum",
+        "Kanban",
+        "Research",
+        "Code-Repair",
+        "Security-Review",
+        "Release-Prep",
+        "Research-Evolution",
+    }.issubset(names)
 
     scrum_blueprint = next(blueprint for blueprint in blueprints if blueprint["name"] == "Scrum")
     assert scrum_blueprint["is_seed"] is True
@@ -52,6 +60,27 @@ def test_seed_blueprints_are_listed(client):
     )
     assert opencode_policy is not None
     assert (opencode_policy.get("payload") or {}).get("artifact_flow_expected") is True
+
+    research_evolution = next(blueprint for blueprint in blueprints if blueprint["name"] == "Research-Evolution")
+    assert research_evolution["is_seed"] is True
+    assert research_evolution["base_team_type_name"] == "Research-Evolution"
+    assert {role["name"] for role in research_evolution["roles"]} == {
+        "Research Lead",
+        "Evolution Strategist",
+        "Review Gate Owner",
+    }
+    role_by_name = {role["name"]: role for role in research_evolution["roles"]}
+    assert (role_by_name["Research Lead"]["config"] or {})["preferred_backend"] == "deerflow"
+    assert (role_by_name["Evolution Strategist"]["config"] or {})["preferred_backend"] == "evolver"
+    assert (role_by_name["Review Gate Owner"]["config"] or {})["risk_profile"] == "strict"
+    policy = next(artifact for artifact in research_evolution["artifacts"] if artifact["title"] == "Research Evolution Default Policy")
+    assert policy["payload"]["standard_case"] == "existing_project_small_feature_extension"
+    assert policy["payload"]["handoff_contract"]["from_deerflow"] == [
+        "summary",
+        "sources",
+        "report_markdown",
+        "research_metadata",
+    ]
 
 
 def test_blueprint_crud_and_instantiate(client):
@@ -406,6 +435,48 @@ def test_seed_research_blueprint_instantiation_materializes_tasks(client):
         persisted_tasks = session.exec(select(TaskDB).where(TaskDB.team_id == team["id"])).all()
 
     assert any(task.title == "Research Pod Alpha: Research Intake" for task in persisted_tasks)
+
+
+def test_seed_research_evolution_blueprint_instantiates_standard_path(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    assert blueprints_response.status_code == 200
+    blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Research-Evolution")
+    evolution_role = next(role for role in blueprint["roles"] if role["name"] == "Evolution Strategist")
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{blueprint['id']}/instantiate",
+        json={
+            "name": "Research Evolution Alpha",
+            "activate": False,
+            "members": [
+                {
+                    "agent_url": "http://worker-evolver",
+                    "blueprint_role_id": evolution_role["id"],
+                }
+            ],
+        },
+        headers=auth_header,
+    )
+
+    assert instantiate_response.status_code == 201
+    team = instantiate_response.json["data"]["team"]
+    assert team["blueprint_id"] == blueprint["id"]
+    assert team["blueprint_snapshot"]["name"] == "Research-Evolution"
+    assert any(
+        artifact["title"] == "Research Evolution Default Policy"
+        for artifact in team["blueprint_snapshot"].get("artifacts", [])
+    )
+
+    with Session(engine) as session:
+        persisted_tasks = session.exec(select(TaskDB).where(TaskDB.team_id == team["id"])).all()
+
+    task_titles = {task.title for task in persisted_tasks}
+    assert "Research Evolution Alpha: DeerFlow Research Stage" in task_titles
+    assert "Research Evolution Alpha: Evolver Proposal Stage" in task_titles
+    assert "Research Evolution Alpha: Review Gate" in task_titles
 
 
 def test_delete_blueprint_blocks_when_team_references_it(client):

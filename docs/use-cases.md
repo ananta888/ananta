@@ -109,3 +109,17 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 **Naechster Schritt:** betroffene Bereiche und Risiken pruefen, dann die kleinste verifizierbare Aenderung starten.
 
 **Scope:** aktive Weiterentwicklung statt reiner Repository-Beschreibung; grosse oder riskante Aenderungen werden in reviewbare Schritte zerlegt.
+
+## UC8: Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver
+
+**Fuer wen:** Teams, die eine bestehende Codebasis mit externer Recherche, Review und kontrollierten Evolutionsvorschlaegen weiterentwickeln wollen.
+
+**Einstieg:** Team-Blueprint `Research-Evolution` instanziieren oder den Demo-Flow `Research -> Proposal -> Review` nutzen.
+
+**Guter Input:** `Erweitere ein bestehendes Projekt um ein kleines Feature; recherchiere zuerst relevante Quellen und erstelle danach reviewbare Evolver-Proposals.`
+
+**Erwartetes Ergebnis:** DeerFlow liefert Research-Bericht, Quellen und Kontext; Evolver erzeugt daraus reviewbare Proposals; der Hub zeigt Review-Gates, Validation-Bedarf und naechste Tasks.
+
+**Naechster Schritt:** Research-Artefakt pruefen, Proposal-Risiko bewerten, Validation planen und erst danach kleine Folge-Tasks starten.
+
+**Scope:** DeerFlow ist fuer Research, Quellen und Bericht zustaendig; Evolver ist fuer Analyse, Proposal und spaetere kontrollierte Validation zustaendig. Apply bleibt ohne explizite Review-/Approval-Gates deaktiviert.
