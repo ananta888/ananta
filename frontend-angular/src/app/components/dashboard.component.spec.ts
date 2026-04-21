@@ -93,6 +93,11 @@ describe('DashboardComponent (benchmarks)', () => {
     };
     cmp.showFirstStartWizard = true;
     cmp.showAdvancedDashboard = false;
+    cmp.firstStartOptions = [
+      { id: 'new-software-project', title: 'Neues Projekt anlegen', description: 'Aus einer Idee Blueprint, Backlog und erste pruefbare Tasks erzeugen.' },
+      { id: 'project-evolution', title: 'Projekt weiterentwickeln', description: 'Ein bestehendes Projekt in kleinen reviewbaren Schritten veraendern.' },
+      { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und kontrolliert als echte Ziele starten.' },
+    ];
     cmp.hiddenHints = new Set();
     return cmp;
   }
