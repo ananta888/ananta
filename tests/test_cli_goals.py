@@ -75,6 +75,33 @@ def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
     assert request_payload["mode_data"] == {"service": "hub"}
 
 
+def test_submit_goal_prints_first_run_success_signal(monkeypatch, capsys):
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+
+    def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
+        return _FakeResponse(
+            201,
+            {
+                "data": {
+                    "goal": {"id": "goal-1", "goal": json["goal"], "status": "planned"},
+                    "created_task_ids": ["task-1"],
+                }
+            },
+        )
+
+    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+
+    cli_goals.submit_goal(goal="first run")
+
+    out = capsys.readouterr().out
+    assert "Goal ID: goal-1" in out
+    assert "Status: planned" in out
+    assert "Tasks created: 1" in out
+    assert "Next step: python -m agent.cli_goals --goal-detail goal-1" in out
+    assert "Success signal:" in out
+
+
 def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
     calls: list[dict] = []
 

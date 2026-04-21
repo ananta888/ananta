@@ -102,6 +102,8 @@ Kernaussage:
 CLI-Kurzbefehle fuer typische Einstiege:
 
 ```bash
+python -m agent.cli_goals --first-run
+python -m agent.cli_goals --status
 python -m agent.cli_goals ask "Was sollte ich als naechstes pruefen?"
 python -m agent.cli_goals plan "Bereite den Release-Abschluss vor"
 python -m agent.cli_goals analyze "Analysiere dieses Repository"

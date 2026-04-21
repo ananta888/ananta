@@ -20,6 +20,14 @@ def test_cli_error_output_strips_terminal_escape_sequences(capsys):
     assert "clickFAIL" in output
 
 
+def test_cli_error_output_adds_human_next_step(capsys):
+    cli_goals._print_error(_response(status_code=409, payload={"message": "policy blocked"}))
+
+    output = capsys.readouterr().out
+    assert "Next step:" in output
+    assert "governance mode" in output
+
+
 def test_cli_task_listing_sanitizes_hostile_ids_status_and_titles(monkeypatch, capsys):
     monkeypatch.setattr(
         cli_goals,

@@ -6,12 +6,23 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 
 ## Golden Path: Goal planen (Standard)
 
-1. Base URL setzen (optional):
-   - `ANANTA_BASE_URL=http://localhost:5000`
-2. Ein Goal als Shortcut planen:
+1. Offiziellen Ersteinstieg anzeigen:
+   - `python -m agent.cli_goals --first-run`
+2. Readiness pruefen:
+   - `python -m agent.cli_goals --status`
+3. Ein Goal als Shortcut planen:
    - `python -m agent.cli_goals plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"`
-3. Erfolgssignal:
-   - CLI gibt Goal-ID und erstellte Task-IDs aus.
+4. Erfolgssignal:
+   - CLI gibt Goal-ID, Status, Task-Anzahl und das naechste Detailkommando aus.
+5. Danach:
+   - `python -m agent.cli_goals --tasks --task-status todo`
+   - `python -m agent.cli_goals --goal-detail <goal_id>`
+
+## Erste Hilfe bei typischen Startfehlern
+
+- Login-Fehler: `ANANTA_USER` und `ANANTA_PASSWORD` pruefen.
+- Verbindungsfehler: Hub starten oder `ANANTA_BASE_URL` auf den Hub setzen.
+- Governance-/Policy-Blockierung: Goal enger formulieren oder Governance-Modus pruefen.
 
 ## Offizielle Shortcuts
 
@@ -24,7 +35,6 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 
 ## Nebenpfade (nicht Golden Path)
 
-- Status/Readiness: `python -m agent.cli_goals status`
-- Task-Liste: `python -m agent.cli_goals tasks --status todo`
+- Status/Readiness: `python -m agent.cli_goals --status`
+- Task-Liste: `python -m agent.cli_goals --tasks --task-status todo`
 - Diagnose-Fokus: `python -m agent.cli_goals diagnose "..."`
-

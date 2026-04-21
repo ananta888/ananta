@@ -55,6 +55,19 @@ def test_main_routes_shortcut_words_to_submit_shortcut(monkeypatch):
     assert calls == [(("review", "auth changes"), {"team_id": "team-a", "create_tasks": True})]
 
 
+def test_main_routes_first_run_to_guidance(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["cli_goals", "--first-run"])
+    monkeypatch.setattr(cli, "get_base_url", lambda: "http://hub:5000")
+
+    cli.main()
+
+    out = capsys.readouterr().out
+    assert "Ananta CLI First Run" in out
+    assert "python -m agent.cli_goals --status" in out
+    assert "Success signal:" in out
+    assert "ANANTA_BASE_URL" in out
+
+
 def test_main_requires_text_for_shortcut(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["cli_goals", "diagnose"])
 
@@ -78,7 +91,9 @@ def test_get_auth_token_exits_with_clear_error_when_login_fails(monkeypatch, cap
         cli.get_auth_token("http://hub:5000")
 
     assert exc.value.code == 1
-    assert "Login failed - 401" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Login failed - 401" in out
+    assert "ANANTA_USER/ANANTA_PASSWORD" in out
 
 
 def test_request_uses_base_url_env_and_bearer_token(monkeypatch):

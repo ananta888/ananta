@@ -216,7 +216,7 @@
           "priority": "medium",
           "type": "product",
           "principle": "Low-Friction-CLI-Onboarding, Immediate-Confidence",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
             "agent/cli_goals.py",
@@ -231,6 +231,11 @@
             "CLI-Nutzer verstehen sofort den ersten sinnvollen Befehl.",
             "Typische Ersteinstiegsfehler sind besser abgefangen oder erklaert.",
             "CLI fuehlt sich wie offizieller Produktzugang an."
+          ],
+          "implementation_notes": [
+            "CLI hat nun `python -m agent.cli_goals --first-run` fuer offiziellen Ersteinstieg, Erfolgssignale und Fehlerhilfe.",
+            "Goal-Erfolg nennt Goal-ID, Status, Task-Anzahl und das naechste Detailkommando.",
+            "docs/golden-path-cli.md und README listen den offiziellen Erstpfad."
           ]
         },
         {
