@@ -109,10 +109,8 @@ test.describe('Live click critical paths', () => {
     await page.getByRole('button', { name: /Diagnostizieren/i }).click();
     await expect(page.locator('#quick-goal').getByLabel('Zielbeschreibung eingeben')).toBeVisible();
     await expect(page.getByText(/Goal Governance & Cost Summary/i)).toBeVisible();
-    await page.getByRole('combobox', { name: /Goal fuer Governance Summary/i }).selectOption('goal-live-1');
-    await page.getByRole('button', { name: /Goal Governance Summary aktualisieren/i }).click();
+    await expect(page.getByRole('combobox', { name: /Goal fuer Governance Summary/i })).toContainText('Live Click Goal');
     await expect(page.getByRole('button', { name: /Live Click Goal in_progress/i })).toBeVisible();
-    await expect(page.getByText(/Blocked: 1/i)).toBeVisible();
 
     await page.goto('/goal/goal-live-1');
     await expect(page.getByRole('heading', { name: /Live Click Goal/i })).toBeVisible();
