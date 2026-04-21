@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { assertErrorOverlaysInViewport, assertNoUnhandledBrowserErrors, loginFast } from './utils';
+import { assertErrorOverlaysInViewport, assertNoUnhandledBrowserErrors, clearBrowserErrorGuards, loginFast } from './utils';
 
 function body(data: unknown): string {
   return JSON.stringify({ status: 'success', data });
@@ -50,11 +50,11 @@ async function installLiveClickMocks(page: Page): Promise<void> {
 
 test.describe('Live click critical paths', () => {
   test('clicks dashboard, goal start and result reading path with stable selectors', async ({ page, request }) => {
-    await loginFast(page, request);
-    await installLiveClickMocks(page);
     await page.addInitScript(() => {
       localStorage.setItem('ananta.dashboard.advanced', 'true');
     });
+    await loginFast(page, request);
+    await installLiveClickMocks(page);
 
     await page.goto('/dashboard#quick-goal');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
@@ -75,11 +75,11 @@ test.describe('Live click critical paths', () => {
   });
 
   test('surfaces blocked quick-goal submission and recovers on retry', async ({ page, request }) => {
-    await loginFast(page, request);
-    await installLiveClickMocks(page);
     await page.addInitScript(() => {
       localStorage.setItem('ananta.dashboard.advanced', 'true');
     });
+    await loginFast(page, request);
+    await installLiveClickMocks(page);
     let attempts = 0;
 
     await page.route('**/tasks/auto-planner/plan', async route => {
@@ -113,6 +113,7 @@ test.describe('Live click critical paths', () => {
     await quickGoal.getByRole('button', { name: /Goal planen/i }).click();
     await expect(page.getByText(/Planung fehlgeschlagen/i)).toBeVisible();
     await assertErrorOverlaysInViewport(page);
+    clearBrowserErrorGuards(page);
 
     await quickGoal.getByRole('button', { name: /Goal planen/i }).click();
     await expect(quickGoal).toContainText('Plan steht bereit');

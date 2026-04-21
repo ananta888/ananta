@@ -27,9 +27,11 @@ import { Subscription } from 'rxjs';
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-width: 400px;
+      max-width: calc(100vw - 32px);
     }
     .toast {
+      box-sizing: border-box;
+      width: min(400px, calc(100vw - 32px));
       display: flex;
       align-items: center;
       gap: 10px;
@@ -55,6 +57,8 @@ import { Subscription } from 'rxjs';
     .toast-message {
       flex: 1;
       font-size: 14px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .toast-close {
       background: none;
@@ -72,6 +76,9 @@ import { Subscription } from 'rxjs';
         left: 8px;
         right: 8px;
         max-width: none;
+      }
+      .toast {
+        width: 100%;
       }
     }
   `]
