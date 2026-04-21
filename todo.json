@@ -25,7 +25,7 @@
           "priority": "P0",
           "type": "product",
           "principle": "Focused-Value, Product-Story-Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["README.md", "docs/use-cases.md", "docs/demo-flows.md"],
           "tags": ["UC6", "documentation", "golden-path"],
@@ -37,7 +37,12 @@
           "context": {
             "use_case": "UC6",
             "goal": "Ein neuer Nutzer kann aus einer Idee heraus ein neues Softwareprojekt guided anlegen, strukturieren, planen und in erste umsetzbare Tasks ueberfuehren."
-          }
+          },
+          "implementation_notes": [
+            "UC6 in docs/use-cases.md dokumentiert.",
+            "README und docs/demo-flows.md verweisen auf den neuen Projektstartpfad.",
+            "Die Benennung bleibt problemorientiert: neues Softwareprojekt anlegen."
+          ]
         },
         {
           "id": "UC6-T02",
@@ -67,7 +72,7 @@
           "priority": "P0",
           "type": "product",
           "principle": "OCP, Preset-Registry",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/", "frontend-angular/", "docs/"],
           "tags": ["UC6", "preset", "goal-mode"],
@@ -78,7 +83,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "Guided Mode new_software_project in agent/services/goal_service.py ergaenzt.",
+            "Quick-Goal-/Demo-Preset in Frontend und Demo-Service ergaenzt.",
+            "CLI-Shortcut new-project in agent/cli_goals.py ergaenzt."
+          ]
         },
         {
           "id": "UC6-T04",
@@ -87,7 +97,7 @@
           "priority": "P1",
           "type": "contract",
           "principle": "DIP, Explicit-Contracts",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/", "frontend-angular/", "docs/"],
           "tags": ["UC6", "schema", "contract"],
@@ -98,7 +108,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "docs/goal-input-schemas.md dokumentiert Pflicht- und optionale Felder fuer new_software_project.",
+            "Backend-Mode nutzt project_idea, target_users, platform, preferred_stack und non_goals.",
+            "Wizard-Felder bleiben strukturiert und testbar ueber /goals/modes."
+          ]
         },
         {
           "id": "UC6-T05",
@@ -281,7 +296,7 @@
           "priority": "P0",
           "type": "product",
           "principle": "Focused-Value, Product-Story-Consistency",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["README.md", "docs/use-cases.md", "docs/demo-flows.md"],
           "tags": ["UC7", "documentation", "golden-path"],
@@ -293,7 +308,12 @@
           "context": {
             "use_case": "UC7",
             "goal": "Ein bestehendes Repository oder Projekt kann analysiert, verstanden und in kleinen pruefbaren Schritten gezielt weiterentwickelt werden."
-          }
+          },
+          "implementation_notes": [
+            "UC7 in docs/use-cases.md dokumentiert.",
+            "README und docs/demo-flows.md verweisen auf den Weiterentwicklungspfad.",
+            "Die Abgrenzung zur reinen Repository-Analyse ist beschrieben."
+          ]
         },
         {
           "id": "UC7-T02",
@@ -343,7 +363,7 @@
           "priority": "P1",
           "type": "product",
           "principle": "OCP, Mode-Strategy",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["agent/", "frontend-angular/", "docs/"],
           "tags": ["UC7", "mode", "preset"],
@@ -354,7 +374,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "Guided Mode project_evolution bietet kleine_erweiterung, refactoring, feature_ausbau und technische_verbesserung.",
+            "Risikoniveau und Restriktionen werden als strukturierte Felder abgefragt.",
+            "CLI-Shortcut evolve-project und UI-/Demo-Preset machen den Modus erreichbar."
+          ]
         },
         {
           "id": "UC7-T05",
@@ -530,9 +555,9 @@
   "meta": {
     "total_items": 24,
     "by_status": {
-      "completed": 0,
+      "completed": 5,
       "partial": 0,
-      "open": 24
+      "open": 19
     },
     "notes": [
       "Konvertiert aus dem neuen use_cases-Format in das bestehende categories/items/meta-Format.",

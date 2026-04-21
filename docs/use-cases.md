@@ -8,7 +8,7 @@ Diese Seite definiert die offiziell priorisierten Kern-Use-Cases fuer Ananta. Si
 - Benchmarking-Aufgaben
 - Produktprofile (z.B. Demo vs. Team-Controlled)
 
-Die Use-Cases sind bewusst klein und klar geschnitten, damit Ananta nicht "alles gleichzeitig" sein muss.
+Die Use-Cases sind bewusst klein und klar geschnitten, damit Ananta nicht "alles gleichzeitig" sein muss. UC6 und UC7 erweitern diese Basis um die zwei primaeren Softwarepfade: ein neues Projekt starten und ein bestehendes Projekt kontrolliert weiterentwickeln.
 
 Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
@@ -81,3 +81,31 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 **Naechster Schritt:** erzeugtes Goal pruefen, danach Aufgaben oder Artefakte oeffnen.
 
 **Scope:** "One obvious way in" fuer den First Run.
+
+## UC6: Neues Softwareprojekt anlegen
+
+**Fuer wen:** Erstnutzer, Gruender, Teams vor dem ersten Repository oder Maintainer, die aus einer Idee ein neues Projekt strukturieren wollen.
+
+**Einstieg:** Dashboard -> Guided Goal Wizard -> "Neues Softwareprojekt anlegen", Quick-Goal-Preset "Neues Projekt anlegen" oder CLI-Shortcut `new-project`.
+
+**Guter Input:** Projektidee, Zielgruppe, Plattform, bevorzugter Stack, Sicherheitsniveau, Ausfuehrungstiefe und klare Nicht-Ziele.
+
+**Erwartetes Ergebnis:** ein parametrisiertes Goal mit Scope, Architekturvorschlag, initialem Backlog, sichtbaren Review-Schritten und naechsten umsetzbaren Tasks.
+
+**Naechster Schritt:** erzeugtes Goal pruefen, Blueprint und Initial-Tasks reviewen, danach kleine Startaufgaben priorisieren.
+
+**Scope:** Projektstrukturierung und planbarer Start; keine unkontrollierte Vollautomatik und keine Schreibpfade ohne sichtbare Governance.
+
+## UC7: Existierendes Softwareprojekt weiterentwickeln
+
+**Fuer wen:** Entwickler, Maintainer und Teams, die ein bestehendes Repository mit kleinen, pruefbaren Aenderungen weiterentwickeln wollen.
+
+**Einstieg:** Dashboard -> Guided Goal Wizard -> "Existierendes Projekt weiterentwickeln", Quick-Goal-Preset "Projekt weiterentwickeln" oder CLI-Shortcut `evolve-project`.
+
+**Guter Input:** gewuenschte Zielaenderung, betroffene Bereiche, Restriktionen, Risikoniveau und Art der Weiterentwicklung.
+
+**Erwartetes Ergebnis:** ein strukturierter Aenderungsplan mit Ist-Kontext, Risiken, betroffenen Tests, Review-Punkten und kleinen Folge-Tasks.
+
+**Naechster Schritt:** betroffene Bereiche und Risiken pruefen, dann die kleinste verifizierbare Aenderung starten.
+
+**Scope:** aktive Weiterentwicklung statt reiner Repository-Beschreibung; grosse oder riskante Aenderungen werden in reviewbare Schritte zerlegt.
