@@ -34,3 +34,35 @@ This suite defines a small fixed benchmark set for Ananta's core product strengt
 ## Comparison Rule
 
 Compare only runs with the same task id, profile, governance mode and evidence level. Demo runs, local trial runs and production-like runs should not be mixed.
+
+## Comparative Targets
+
+The suite can be used for contextual comparison against project classes without pretending that all systems optimize for the same product shape.
+
+| Target | Focus | Expected Ananta contrast |
+| --- | --- | --- |
+| `openhands-like` | autonomous coding, tool execution, developer loop | hub-owned governance, traceability and review signals |
+| `opendevin-like` | issue-to-code flow, sandbox execution, iteration speed | task ownership, policy visibility and artifact traceability |
+| `openclaw-like` | agent tool use, task execution, local workflow | visible safety boundaries, blocked states and next actions |
+
+## Release Narrative Fields
+
+Release retrospectives and product communication should reuse the same evidence fields:
+
+- `headline`: one-sentence benchmark outcome
+- `best_signal`: strongest measured improvement or preserved strength
+- `governance_signal`: review, block or safety evidence worth highlighting
+- `regression_watch`: weakest benchmark dimension or follow-up risk
+- `evidence_links`: CI, artifact, run log or release evidence links
+
+## Release Retro Template
+
+```markdown
+### Benchmark Evidence
+
+- Headline:
+- Best signal:
+- Governance signal:
+- Regression watch:
+- Evidence links:
+```

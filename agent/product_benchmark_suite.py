@@ -58,12 +58,43 @@ BENCHMARK_CRITERIA: list[dict[str, Any]] = [
     {"id": "reproducibility", "label": "Reproducibility", "weight": 10, "description": "Can be repeated with comparable inputs, outputs and evidence."},
 ]
 
+COMPARISON_TARGETS: list[dict[str, Any]] = [
+    {
+        "id": "openhands-like",
+        "label": "OpenHands-like",
+        "comparison_focus": ["autonomous_coding", "tool_execution", "developer_loop"],
+        "expected_contrast": "Ananta should emphasize hub-owned governance, traceability and review signals.",
+    },
+    {
+        "id": "opendevin-like",
+        "label": "OpenDevin-like",
+        "comparison_focus": ["issue_to_code_flow", "sandbox_execution", "iteration_speed"],
+        "expected_contrast": "Ananta should show stronger task ownership, policy visibility and artifact traceability.",
+    },
+    {
+        "id": "openclaw-like",
+        "label": "OpenClaw-like",
+        "comparison_focus": ["agent_tool_use", "task_execution", "local_workflow"],
+        "expected_contrast": "Ananta should make safety boundaries, blocked states and next actions more visible.",
+    },
+]
+
+RELEASE_NARRATIVE_FIELDS: list[dict[str, Any]] = [
+    {"id": "headline", "description": "One-sentence release benchmark outcome."},
+    {"id": "best_signal", "description": "Strongest measured improvement or preserved strength."},
+    {"id": "governance_signal", "description": "Review, block or safety evidence worth highlighting."},
+    {"id": "regression_watch", "description": "Weakest benchmark dimension or follow-up risk."},
+    {"id": "evidence_links", "description": "CI, artifact, run log or release evidence links."},
+]
+
 
 def build_product_benchmark_suite() -> dict[str, Any]:
     return {
         "version": BENCHMARK_SUITE_VERSION,
         "tasks": [dict(task) for task in BENCHMARK_TASKS],
         "criteria": [dict(criterion) for criterion in BENCHMARK_CRITERIA],
+        "comparison_targets": [dict(target) for target in COMPARISON_TARGETS],
+        "release_narrative_fields": [dict(field) for field in RELEASE_NARRATIVE_FIELDS],
         "score_total": sum(int(criterion["weight"]) for criterion in BENCHMARK_CRITERIA),
         "comparison_rule": "Compare only runs with the same task id, profile, governance mode and evidence level.",
     }

@@ -155,6 +155,7 @@ Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer 
 - Externe Messaging-/Kanaladapter werden erst nach stabilem Kernzugang erweitert.
 - Erweiterungen bleiben capability-gebunden und muessen Governance, Policy und Audit respektieren.
 - Tool-Contracts und Worker-Capability-Profile: `docs/tool-contracts.md`, `docs/worker-capability-profiles.md`
+- Backend-/Provider-Contracts und Drittintegrationsregeln: `docs/backend-provider-contracts.md`, `docs/third-party-integration-guidelines.md`
 - Oekosystem-/Marktplatz-Ideen sind bewusst nachgelagert und setzen reife Kern-Contracts voraus.
 
 ## Architektur

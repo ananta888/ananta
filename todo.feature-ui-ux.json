@@ -833,6 +833,11 @@
             "Lokale und entfernte Provider wirken konsistenter.",
             "Routing und Governance haben weniger Sonderfaelle.",
             "Integrationen werden austauschbarer."
+          ],
+          "implementation_notes": [
+            "agent/backend_provider_contracts.py definiert einen gemeinsamen v1 Contract-Katalog fuer lokale, gehostete, CLI- und Remote-Ananta-Provider.",
+            "docs/backend-provider-contracts.md dokumentiert Pflichtfelder fuer provider_type, location, transport, capabilities, routing, governance und health.",
+            "tests/test_backend_provider_contracts.py prueft, dass lokale, remote, hosted und CLI-Provider dieselbe Contract-Form verwenden."
           ]
         },
         {
@@ -855,6 +860,11 @@
             "Drittintegrationen haben definierte Mindestanforderungen.",
             "Erweiterbarkeit unterlaeuft nicht die Sicherheitsidee.",
             "Externe Mitwirkende bekommen klare Leitplanken."
+          ],
+          "implementation_notes": [
+            "agent/integration_guidelines.py definiert v1 Mindestanforderungen fuer contract_first, least_privilege, auditability, fail_closed, hub_boundary und test_evidence.",
+            "docs/third-party-integration-guidelines.md dokumentiert Adapter-Checklist und Review-Regel.",
+            "tests/test_integration_guidelines.py prueft die Mindestanforderungen inklusive Hub-Boundary gegen Worker-to-Worker-Orchestrierung."
           ]
         }
       ]
@@ -870,7 +880,7 @@
           "priority": "high",
           "type": "benchmark",
           "principle": "Comparable-Progress, Reality-Based-Evaluation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "docs/",
@@ -938,6 +948,11 @@
             "Es gibt dokumentierte Vergleichsfaelle gegen relevante Projektklassen.",
             "Anantas Staerken und Schwächen werden belastbarer greifbar.",
             "Positionierung kann spaeter auf Fakten statt Gefuehl beruhen."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert Vergleichsziele fuer openhands-like, opendevin-like und openclaw-like Flows.",
+            "docs/product-benchmark-suite.md dokumentiert Vergleichsfokus und erwarteten Ananta-Kontrast.",
+            "tests/test_product_benchmark_suite.py prueft die Vergleichsziele."
           ]
         },
         {
@@ -962,6 +977,11 @@
             "Benchmark-Ergebnisse koennen intern und extern sinnvoll genutzt werden.",
             "Releases lassen sich sachlicher bewerten.",
             "Produktkommunikation wird glaubwuerdiger."
+          ],
+          "implementation_notes": [
+            "agent/product_benchmark_suite.py definiert release_narrative_fields fuer Headline, Best Signal, Governance Signal, Regression Watch und Evidence Links.",
+            "docs/product-benchmark-suite.md enthaelt ein Release-Retro-Template fuer Benchmark Evidence.",
+            "README.md verlinkt die Produkt-Benchmark-Suite fuer Produkt- und Release-Bewertung."
           ]
         }
       ]
@@ -1008,7 +1028,7 @@
           "priority": "high",
           "type": "product",
           "principle": "Actionable-Profiles, Config-Backed-Product-Modes",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/",
@@ -1038,7 +1058,7 @@
           "priority": "medium",
           "type": "presentation",
           "principle": "Audience-Fit-Communication, Less-Misleading-Entry",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "README.md",
@@ -1066,9 +1086,9 @@
   "meta": {
     "total_items": 36,
     "by_status": {
-      "completed": 33,
+      "completed": 36,
       "partial": 0,
-      "open": 3
+      "open": 0
     },
     "notes": [
       "Diese Todo-Datei ist bewusst post-release-orientiert: nicht noch mehr Kernmechanik, sondern die naechste Reifestufe fuer Produktklarheit, operative Nutzbarkeit, Vergleichbarkeit und kontrollierte Erweiterbarkeit.",
