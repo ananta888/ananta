@@ -178,12 +178,19 @@
         "max_raw_payload_bytes": "int",
         "provider_overrides": {
           "evolver": {
+            "allowed_hosts": [],
             "analyze_path": "str",
             "base_url": "NoneType",
+            "connect_timeout_seconds": "NoneType",
             "default": "bool",
             "enabled": "bool",
+            "force_analyze_only": "bool",
+            "max_response_bytes": "int",
             "provider_name": "str",
+            "read_timeout_seconds": "NoneType",
             "replace": "bool",
+            "retry_backoff_seconds": "float",
+            "retry_count": "int",
             "timeout_seconds": "float",
             "version": "str"
           }
@@ -238,6 +245,7 @@
         "max_plan_depth": "int",
         "max_plan_nodes": "int"
       },
+      "governance_mode": "str",
       "llm_config": {
         "base_url": "str",
         "lmstudio_api_mode": "str",
@@ -392,6 +400,34 @@
           "review_mode": "str",
           "security_posture": "str"
         },
+        "demo": {
+          "default_governance_mode": "str",
+          "description": "str",
+          "entry_paths": [
+            "str"
+          ],
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str",
+          "usage_context": "str"
+        },
+        "developer-local": {
+          "default_governance_mode": "str",
+          "description": "str",
+          "entry_paths": [
+            "str"
+          ],
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str",
+          "usage_context": "str"
+        },
         "distributed-strict": {
           "description": "str",
           "label": "str",
@@ -409,6 +445,62 @@
           ],
           "review_mode": "str",
           "security_posture": "str"
+        },
+        "local-first": {
+          "default_governance_mode": "str",
+          "description": "str",
+          "entry_paths": [
+            "str"
+          ],
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str",
+          "usage_context": "str"
+        },
+        "review-first": {
+          "default_governance_mode": "str",
+          "description": "str",
+          "entry_paths": [
+            "str"
+          ],
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str",
+          "usage_context": "str"
+        },
+        "secure-enterprise": {
+          "default_governance_mode": "str",
+          "description": "str",
+          "entry_paths": [
+            "str"
+          ],
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str",
+          "usage_context": "str"
+        },
+        "team-controlled": {
+          "default_governance_mode": "str",
+          "description": "str",
+          "entry_paths": [
+            "str"
+          ],
+          "label": "str",
+          "recommended_compose_profiles": [
+            "str"
+          ],
+          "review_mode": "str",
+          "security_posture": "str",
+          "usage_context": "str"
         },
         "trusted-lab": {
           "description": "str",
@@ -1057,6 +1149,34 @@
               "review_mode": "str",
               "security_posture": "str"
             },
+            "demo": {
+              "default_governance_mode": "str",
+              "description": "str",
+              "entry_paths": [
+                "str"
+              ],
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str",
+              "usage_context": "str"
+            },
+            "developer-local": {
+              "default_governance_mode": "str",
+              "description": "str",
+              "entry_paths": [
+                "str"
+              ],
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str",
+              "usage_context": "str"
+            },
             "distributed-strict": {
               "description": "str",
               "label": "str",
@@ -1074,6 +1194,62 @@
               ],
               "review_mode": "str",
               "security_posture": "str"
+            },
+            "local-first": {
+              "default_governance_mode": "str",
+              "description": "str",
+              "entry_paths": [
+                "str"
+              ],
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str",
+              "usage_context": "str"
+            },
+            "review-first": {
+              "default_governance_mode": "str",
+              "description": "str",
+              "entry_paths": [
+                "str"
+              ],
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str",
+              "usage_context": "str"
+            },
+            "secure-enterprise": {
+              "default_governance_mode": "str",
+              "description": "str",
+              "entry_paths": [
+                "str"
+              ],
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str",
+              "usage_context": "str"
+            },
+            "team-controlled": {
+              "default_governance_mode": "str",
+              "description": "str",
+              "entry_paths": [
+                "str"
+              ],
+              "label": "str",
+              "recommended_compose_profiles": [
+                "str"
+              ],
+              "review_mode": "str",
+              "security_posture": "str",
+              "usage_context": "str"
             },
             "trusted-lab": {
               "description": "str",
