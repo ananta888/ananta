@@ -231,7 +231,7 @@
           "priority": "P1",
           "type": "cli",
           "principle": "Shared-Core-Flow",
-          "status": "completed",
+          "status": "open",
           "effort": "small",
           "files": ["agent/", "README.md", "docs/"],
           "tags": ["UC6", "cli", "golden-path"],
@@ -243,12 +243,7 @@
           ],
           "context": {
             "use_case": "UC6"
-          },
-          "implementation_notes": [
-            "tests/test_goals.py prueft den Goal-to-Project-Flow inklusive Tasks, Plan-Nodes und planned_artifacts.",
-            "goal-detail.component.spec.ts prueft die UI-Helfer fuer reusable planned artifacts.",
-            "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher abgedeckt."
-          ]
+          }
         },
         {
           "id": "UC6-T10",
@@ -257,7 +252,7 @@
           "priority": "P1",
           "type": "documentation",
           "principle": "Reproducible-Showcase",
-          "status": "completed",
+          "status": "open",
           "effort": "small",
           "files": ["docs/demo-flows.md", "README.md"],
           "tags": ["UC6", "demo", "docs"],
@@ -278,7 +273,7 @@
           "priority": "P1",
           "type": "test",
           "principle": "Contract-Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["tests/", "frontend-angular/tests/"],
           "tags": ["UC6", "tests", "contract"],
@@ -290,7 +285,12 @@
           ],
           "context": {
             "use_case": "UC6"
-          }
+          },
+          "implementation_notes": [
+            "tests/test_goals.py prueft den Goal-to-Project-Flow inklusive Tasks, Plan-Nodes und planned_artifacts.",
+            "goal-detail.component.spec.ts prueft die UI-Helfer fuer reusable planned artifacts.",
+            "Response-Strukturen fuer Goal, Tasks und Artefakte sind regressionssicher abgedeckt."
+          ]
         },
         {
           "id": "UC6-T12",
@@ -481,7 +481,7 @@
           "priority": "P1",
           "type": "product",
           "principle": "Clear-Outputs, Reusable-Artifacts",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["frontend-angular/", "agent/", "docs/"],
           "tags": ["UC7", "artifacts", "review"],
@@ -507,7 +507,7 @@
           "priority": "P1",
           "type": "documentation",
           "principle": "Reproducible-Showcase",
-          "status": "completed",
+          "status": "open",
           "effort": "small",
           "files": ["docs/demo-flows.md", "README.md"],
           "tags": ["UC7", "demo", "docs"],
@@ -519,12 +519,7 @@
           ],
           "context": {
             "use_case": "UC7"
-          },
-          "implementation_notes": [
-            "tests/test_goals.py prueft project_evolution inklusive Task-Generierung, Risiko-/Testsicht und planned_artifacts.",
-            "Der positive Testfall nutzt ein bestehendes Projektziel mit betroffenen Bereichen und Restriktionen.",
-            "Die Artefaktstruktur fuer Aenderungsplan und Risiko-/Test-/Review-Plan ist regressionssicher."
-          ]
+          }
         },
         {
           "id": "UC7-T09",
@@ -533,7 +528,7 @@
           "priority": "P1",
           "type": "cli",
           "principle": "Shared-Core-Flow",
-          "status": "completed",
+          "status": "open",
           "effort": "small",
           "files": ["agent/", "README.md", "docs/"],
           "tags": ["UC7", "cli", "golden-path"],
@@ -545,12 +540,7 @@
           ],
           "context": {
             "use_case": "UC7"
-          },
-          "implementation_notes": [
-            "project_evolution ist in /goals/modes als aktive Weiterentwicklung statt Repository-Analyse beschrieben.",
-            "Dashboard-Preset-Kontext benennt aktive Weiterentwicklung statt Repository verstehen.",
-            "Contract-Test prueft diese Abgrenzung in der Mode-Beschreibung."
-          ]
+          }
         },
         {
           "id": "UC7-T10",
@@ -559,7 +549,7 @@
           "priority": "P1",
           "type": "test",
           "principle": "Contract-Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["tests/", "frontend-angular/tests/"],
           "tags": ["UC7", "tests", "contract"],
@@ -571,7 +561,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "tests/test_goals.py prueft project_evolution inklusive Task-Generierung, Risiko-/Testsicht und planned_artifacts.",
+            "Der positive Testfall nutzt ein bestehendes Projektziel mit betroffenen Bereichen und Restriktionen.",
+            "Die Artefaktstruktur fuer Aenderungsplan und Risiko-/Test-/Review-Plan ist regressionssicher."
+          ]
         },
         {
           "id": "UC7-T11",
@@ -580,7 +575,7 @@
           "priority": "P1",
           "type": "product",
           "principle": "Clear-Use-Case-Identity",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["frontend-angular/", "docs/use-cases.md", "README.md"],
           "tags": ["UC7", "positioning", "docs"],
@@ -592,7 +587,12 @@
           ],
           "context": {
             "use_case": "UC7"
-          }
+          },
+          "implementation_notes": [
+            "project_evolution ist in /goals/modes als aktive Weiterentwicklung statt Repository-Analyse beschrieben.",
+            "Dashboard-Preset-Kontext benennt aktive Weiterentwicklung statt Repository verstehen.",
+            "Contract-Test prueft diese Abgrenzung in der Mode-Beschreibung."
+          ]
         },
         {
           "id": "UC7-T12",
