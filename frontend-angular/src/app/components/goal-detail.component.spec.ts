@@ -48,4 +48,21 @@ describe('GoalDetailComponent result summary', () => {
     cmp.tasks = [{ status: 'completed' }];
     expect(cmp.resultSafetyExplanation()).toContain('Pruefhinweise');
   });
+
+  it('surfaces reusable planned artifacts from goal detail summaries', () => {
+    const cmp = component();
+    cmp.artifactSummary = {
+      planned_artifacts: [
+        {
+          artifact: 'projekt_blueprint',
+          title: 'Projekt-Blueprint erstellen',
+          description: 'Scope und Architekturvorschlag',
+          review_focus: 'Review bleibt sichtbar',
+        },
+      ],
+    };
+
+    expect(cmp.plannedArtifacts()).toHaveLength(1);
+    expect(cmp.artifactLabel(cmp.plannedArtifacts()[0])).toBe('projekt blueprint');
+  });
 });

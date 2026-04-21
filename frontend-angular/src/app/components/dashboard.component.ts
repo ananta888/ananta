@@ -1230,6 +1230,6 @@ const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [
     goal: 'Plane eine kontrollierte Weiterentwicklung eines bestehenden Projekts mit betroffenen Bereichen, Risiken, Tests und Review-Schritten.',
     outcome: 'Kleiner, verifizierbarer Aenderungsplan fuer ein bestehendes Repository.',
     tasks: ['Ist-Kontext schaerfen', 'Aenderungsschritte zerlegen', 'Tests und Risiken pruefen'],
-    starter_context: 'Fokus: aktive Weiterentwicklung statt reiner Analyse, kleine pruefbare Schritte.',
+    starter_context: 'Fokus: aktive Weiterentwicklung statt Repository verstehen, kleine pruefbare Aenderungen mit Review.',
   },
 ];

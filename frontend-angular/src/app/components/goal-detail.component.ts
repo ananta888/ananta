@@ -134,6 +134,24 @@ import { interval, Subscription } from 'rxjs';
             <div class="card">
               <h3 class="no-margin">Erzeugte Ergebnisse</h3>
               <p class="muted font-sm mt-sm">{{ term('artifact').technicalLabel }} bedeutet hier: {{ term('artifact').hint }}</p>
+              @if (plannedArtifacts().length) {
+                <div class="artifact-list mt-md">
+                  @for (artifact of plannedArtifacts(); track artifact.plan_node_id || artifact.artifact) {
+                    <div class="artifact-item list-item">
+                      <div class="row space-between">
+                        <div class="font-weight-medium">{{ artifactLabel(artifact) }}</div>
+                        <span class="badge font-xs">geplant</span>
+                      </div>
+                      <div class="muted font-sm mt-xs line-clamp-2">{{ artifact.description }}</div>
+                      @if (artifact.risk_focus || artifact.test_focus || artifact.review_focus) {
+                        <div class="muted font-sm mt-xs">
+                          {{ artifact.risk_focus || artifact.test_focus || artifact.review_focus }}
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
               <div class="artifact-list mt-md">
                 @for (art of artifacts; track art.task_id) {
                   <div class="artifact-item list-item clickable" [routerLink]="['/task', art.task_id]">
@@ -142,7 +160,7 @@ import { interval, Subscription } from 'rxjs';
                   </div>
                 }
                 @if (!artifacts.length) {
-                  <p class="muted p-md text-center">Keine Artefakte vorhanden.</p>
+                  <p class="muted p-md text-center">{{ plannedArtifacts().length ? 'Noch keine ausgefuehrten Ergebnisartefakte vorhanden.' : 'Keine Artefakte vorhanden.' }}</p>
                 }
               </div>
             </div>
@@ -332,6 +350,14 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
 
   headlineArtifact(): any | null {
     return this.artifactSummary?.headline_artifact || this.artifacts[0] || null;
+  }
+
+  plannedArtifacts(): any[] {
+    return Array.isArray(this.artifactSummary?.planned_artifacts) ? this.artifactSummary.planned_artifacts : [];
+  }
+
+  artifactLabel(artifact: any): string {
+    return String(artifact?.artifact || artifact?.title || 'Geplantes Artefakt').replace(/_/g, ' ');
   }
 
   verificationLabel(): string {
