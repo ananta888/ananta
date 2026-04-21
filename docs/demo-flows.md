@@ -164,6 +164,16 @@ POST /goals
 
 Erwartetes Ergebnis: Scope, Architekturvorschlag, erste Artefakte und kleine Initial-Tasks.
 
+Review-Check:
+- Goal-Detail zeigt geplante Artefakte wie Zielzusammenfassung, Projekt-Blueprint, initiales Backlog und naechste Schritte.
+- Tasks bleiben klein und sequenziert; der Hub besitzt Planung und Queue, Worker fuehren nur delegierte Schritte aus.
+- Governance-Hinweise zeigen Review-Bedarf und sichere Defaults, bevor daraus Umsetzung wird.
+
+Reviewer-Schnellpruefung:
+1. Demo- oder CLI-Flow starten.
+2. Goal-Detail oeffnen und `planned_artifacts` pruefen.
+3. Board oeffnen und kontrollieren, dass die Initial-Tasks nicht als monolithische "mach alles"-Aufgabe erzeugt wurden.
+
 ## Flow G: Existierendes Softwareprojekt weiterentwickeln (UC7)
 
 Demo-Pfad:
@@ -190,3 +200,13 @@ POST /goals
 ```
 
 Erwartetes Ergebnis: kleine Aenderungsschritte mit betroffenen Bereichen, Risiken, Testbedarf und Review-Plan.
+
+Review-Check:
+- Goal-Detail zeigt Ist-Analyse, Aenderungsplan, Risiko-/Test-/Review-Plan und naechste Schritte.
+- Tasks nennen betroffene Bereiche, Risiken und Pruefhinweise.
+- Der Flow fuehrt zu aktiver Weiterentwicklung und bleibt klar von reinem Repository-Verstehen getrennt.
+
+Reviewer-Schnellpruefung:
+1. Demo- oder CLI-Flow starten.
+2. Goal-Detail oeffnen und geplante Artefakte fuer Aenderungsplan und Risiko-/Testsicht pruefen.
+3. Board oeffnen und kontrollieren, dass zuerst kleine, reviewbare Aenderungsschritte entstehen.

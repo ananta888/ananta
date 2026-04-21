@@ -32,6 +32,26 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 - `review`: Aenderungen bewerten
 - `diagnose`: Start-/Compose-/Health-Diagnose
 - `patch`: kleinen Patch planen
+- `new-project`: neues Softwareprojekt aus einer Idee anlegen
+- `evolve-project`: bestehendes Projekt kontrolliert weiterentwickeln
+
+## Produktpfade per CLI
+
+Neues Softwareprojekt anlegen:
+
+```bash
+python -m agent.cli_goals new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
+```
+
+Erwartetes Erfolgssignal: ein Goal mit Modus `new_software_project`, erstellten Tasks, Projekt-Blueprint, initialem Backlog und sichtbaren Review-/Governance-Hinweisen.
+
+Existierendes Projekt weiterentwickeln:
+
+```bash
+python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+```
+
+Erwartetes Erfolgssignal: ein Goal mit Modus `project_evolution`, kleinen Aenderungsschritten, Risiko-/Testsicht und Review-Plan.
 
 ## Nebenpfade (nicht Golden Path)
 
