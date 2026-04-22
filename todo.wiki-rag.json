@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "offline_wiki_helper",
+  "purpose": "Build a local Wikipedia-backed helper similar to codecompass/rag_helper for offline knowledge retrieval, citations and controlled use inside Ananta.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "Ananta can use a local offline Wikipedia knowledge base as a controlled, citeable retrieval source for research, explanations, documentation and domain assistance.",
+  "success_criteria": [
+    "Wikipedia-derived content can be imported locally without cloud dependency.",
+    "Content is chunked, indexed and retrievable with titles, sections and source metadata.",
+    "Retrieved knowledge is citeable and distinguishable from repo/task/artifact context.",
+    "The wiki knowledge path can be enabled as a controlled additional retrieval source in Ananta.",
+    "A small curated MVP works first before scaling to larger dumps."
+  ],
+  "tasks": [
+    {
+      "id": "WIKI-T01",
+      "title": "Use-case and scope for offline wiki helper define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Document what the wiki helper is for and what it is not for.",
+        "Initial scope is a local knowledge source, not a full internet replacement.",
+        "MVP explicitly prefers curated subsets over full Wikipedia ingestion."
+      ]
+    },
+    {
+      "id": "WIKI-T02",
+      "title": "Data model for wiki knowledge entries define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A structured schema exists for article, section, chunk text and metadata.",
+        "Metadata includes at least source_title, section_title, source_id, language and chunk_id.",
+        "Schema supports later citations and provenance tracking."
+      ]
+    },
+    {
+      "id": "WIKI-T03",
+      "title": "Local importer for curated wiki content implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The system can import a small local offline wiki corpus from files.",
+        "Importer supports at least one stable input format such as JSON, markdown export or parsed dump subset.",
+        "Importer logs rejected or malformed pages cleanly."
+      ]
+    },
+    {
+      "id": "WIKI-T04",
+      "title": "Section-aware chunker implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Article content is split into stable chunks by section/subsection where possible.",
+        "Chunking preserves enough structure for later citations.",
+        "Chunk size is bounded and compatible with the existing retrieval pipeline."
+      ]
+    },
+    {
+      "id": "WIKI-T05",
+      "title": "Local embedding and indexing path implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Chunks can be embedded locally without cloud requirement.",
+        "A vector index is persisted locally.",
+        "Index build can be repeated deterministically."
+      ]
+    },
+    {
+      "id": "WIKI-T06",
+      "title": "Keyword or BM25 fallback retrieval add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A lexical fallback exists when embeddings are unavailable or weak.",
+        "Hybrid retrieval can combine semantic and keyword matches.",
+        "Fallback behavior is documented and visible in diagnostics."
+      ]
+    },
+    {
+      "id": "WIKI-T07",
+      "title": "Wiki retrieval service implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Queries can retrieve top matching wiki chunks with scores.",
+        "Results include chunk text plus citation metadata.",
+        "Service is separate from repo-specific code retrieval."
+      ]
+    },
+    {
+      "id": "WIKI-T08",
+      "title": "Citation metadata format for wiki results define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Each result includes a stable citeable source reference.",
+        "Citation includes at least article title, section title and local source identifier.",
+        "Citation format is reusable in UI, reports and artifacts."
+      ]
+    },
+    {
+      "id": "WIKI-T09",
+      "title": "Knowledge source separation in retrieval layer add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Wiki knowledge is distinguishable from repo, artifact and task memory retrieval.",
+        "Callers can request wiki-only, repo-only or mixed retrieval.",
+        "Mixed retrieval preserves source origin in returned context."
+      ]
+    },
+    {
+      "id": "WIKI-T10",
+      "title": "Config surface for offline wiki helper add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "AGENT_CONFIG or equivalent supports enabling/disabling the wiki helper.",
+        "Config includes local storage path, language, retrieval limits and embedding/index options.",
+        "Unsafe or incomplete config fails closed."
+      ]
+    },
+    {
+      "id": "WIKI-T11",
+      "title": "Preflight and health diagnostics for wiki helper add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is a preflight signal showing whether local wiki knowledge is available.",
+        "Diagnostics show corpus size, index status and embedding readiness.",
+        "Operator can quickly tell why retrieval is unavailable."
+      ]
+    },
+    {
+      "id": "WIKI-T12",
+      "title": "API endpoints for wiki indexing and querying add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is an API to trigger indexing/import of local wiki content.",
+        "There is an API to query the wiki helper directly.",
+        "Responses include source metadata and traceability."
+      ]
+    },
+    {
+      "id": "WIKI-T13",
+      "title": "Read-model visibility for wiki knowledge add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Dashboard or assistant read model can show that wiki knowledge contributed to a result.",
+        "Source summaries are visible at summary level.",
+        "Admin/operator views retain deeper provenance when needed."
+      ]
+    },
+    {
+      "id": "WIKI-T14",
+      "title": "UI controls for enabling wiki knowledge add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Settings UI exposes wiki helper on/off and key limits.",
+        "UI can show whether corpus and index are present.",
+        "The feature does not require raw JSON editing for normal use."
+      ]
+    },
+    {
+      "id": "WIKI-T15",
+      "title": "Integrate wiki helper into research flow",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Research tasks can use local wiki knowledge as an additional controlled source.",
+        "Results keep wiki citations distinct from external or repo sources.",
+        "The integration does not break existing DeerFlow-style research paths."
+      ]
+    },
+    {
+      "id": "WIKI-T16",
+      "title": "Integrate wiki helper into documentation and explanation flow",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Documentation or explanation tasks can draw on local wiki context.",
+        "Generated output can reference local wiki sources cleanly.",
+        "Wiki context remains optional and policy-driven."
+      ]
+    },
+    {
+      "id": "WIKI-T17",
+      "title": "Optional mixed retrieval policy define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A policy exists for combining repo context, task memory, artifacts and wiki knowledge.",
+        "The order and budget of mixed retrieval are explicit.",
+        "The policy avoids context bloat and source confusion."
+      ]
+    },
+    {
+      "id": "WIKI-T18",
+      "title": "Redaction and provenance review for wiki content add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Wiki helper output goes through the same redaction/provenance rules where needed.",
+        "Stored metadata remains safe for non-admin views.",
+        "No hidden source blending occurs."
+      ]
+    },
+    {
+      "id": "WIKI-T19",
+      "title": "MVP curated corpus build",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A small curated offline corpus exists for initial testing.",
+        "Corpus is relevant to at least one concrete Ananta demo path.",
+        "Import, indexing and retrieval work on this corpus end-to-end."
+      ]
+    },
+    {
+      "id": "WIKI-T20",
+      "title": "First golden-path demo for offline wiki helper document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one official example showing local wiki retrieval in action.",
+        "Example demonstrates query, retrieved context and citeable output.",
+        "The demo is reproducible by another developer."
+      ]
+    },
+    {
+      "id": "WIKI-T21",
+      "title": "Contract and smoke tests for wiki helper add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Importer, indexer and retriever each have at least basic tests.",
+        "A smoke test proves import -> index -> query works.",
+        "Returned citations and source metadata are regression-safe."
+      ]
+    },
+    {
+      "id": "WIKI-T22",
+      "title": "Performance and storage limits define",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "MVP documents approximate storage needs and indexing time.",
+        "Chunk count and query latency are observable.",
+        "Limits for small laptop-friendly setups are documented."
+      ]
+    },
+    {
+      "id": "WIKI-T23",
+      "title": "Larger corpus rollout plan prepare",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "There is a documented path from curated MVP corpus to larger offline corpora.",
+        "The plan covers reindexing, storage growth and retrieval quality risks.",
+        "No full-scale rollout is attempted before MVP validation."
+      ]
+    }
+  ]
+}
