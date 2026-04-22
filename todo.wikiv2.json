@@ -1,0 +1,305 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "codecompass_multisource_rag",
+  "purpose": "Extend codecompass/rag_helper from code-focused retrieval into a controlled multi-source retrieval core that also supports local offline wiki knowledge.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "A single retrieval core can index and retrieve repo/code content, artifacts/task memory and offline wiki knowledge with clear source separation, provenance and citations.",
+  "success_criteria": [
+    "codecompass remains stable for existing repo/code retrieval.",
+    "wiki content can be imported and queried through the same retrieval core.",
+    "results preserve source type and citation metadata.",
+    "mixed retrieval across repo, artifacts and wiki is possible but controlled.",
+    "the system stays understandable and does not collapse into one unstructured blob index."
+  ],
+  "tasks": [
+    {
+      "id": "MSR-T01",
+      "title": "Multi-source target model for codecompass define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A short design note explains that codecompass evolves into a multi-source retrieval core.",
+        "Source classes are explicitly separated into at least repo, artifact/task and wiki.",
+        "The design states what remains shared and what stays source-specific."
+      ]
+    },
+    {
+      "id": "MSR-T02",
+      "title": "Common source interface define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A shared source interface or contract exists for all retrieval sources.",
+        "Interface covers import, chunk emission, metadata and stable source identifiers.",
+        "Existing repo/code path can be adapted without behavioral regression."
+      ]
+    },
+    {
+      "id": "MSR-T03",
+      "title": "Common document and chunk metadata model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A normalized metadata schema exists for all chunks.",
+        "Metadata includes source_type, source_id, chunk_id and provenance fields.",
+        "Wiki-specific metadata can be added without breaking repo/code metadata."
+      ]
+    },
+    {
+      "id": "MSR-T04",
+      "title": "Repo/code retrieval path isolate behind source adapter",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Current repo/code behavior is encapsulated as an explicit source adapter.",
+        "Existing code retrieval tests still pass.",
+        "The repo/code path no longer assumes it is the only retrieval source."
+      ]
+    },
+    {
+      "id": "MSR-T05",
+      "title": "Artifact/task memory retrieval path isolate behind source adapter",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Artifacts/task memory can be treated as a distinct retrieval source.",
+        "Returned chunks preserve task/artifact provenance.",
+        "This source can be enabled or disabled independently."
+      ]
+    },
+    {
+      "id": "MSR-T06",
+      "title": "Wiki source adapter design define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A dedicated wiki source adapter is designed for local knowledge documents.",
+        "Wiki metadata includes article_title, section_title, language and import/revision metadata.",
+        "The adapter conforms to the shared source interface."
+      ]
+    },
+    {
+      "id": "MSR-T07",
+      "title": "Offline wiki importer implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A local importer can read curated wiki content from one supported offline format.",
+        "Import failures are logged without corrupting the index.",
+        "Imported records are normalized into the shared document model."
+      ]
+    },
+    {
+      "id": "MSR-T08",
+      "title": "Wiki-aware chunker implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Wiki documents are chunked by article and section structure where possible.",
+        "Chunks remain small enough for retrieval but preserve context.",
+        "Chunk metadata supports later citations."
+      ]
+    },
+    {
+      "id": "MSR-T09",
+      "title": "Shared indexing pipeline refactor",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The indexing pipeline works for multiple source types.",
+        "Indexes remain deterministic and rebuildable.",
+        "Source-specific fields do not break the shared index format."
+      ]
+    },
+    {
+      "id": "MSR-T10",
+      "title": "Per-source storage layout define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Storage layout distinguishes repo/code, artifact and wiki content cleanly.",
+        "Reindexing one source type does not require destructive rebuild of all others unless explicitly requested.",
+        "Storage paths are configurable and laptop-friendly."
+      ]
+    },
+    {
+      "id": "MSR-T11",
+      "title": "Shared retrieval service support source filters",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Queries can target repo-only, wiki-only, artifact-only or mixed retrieval.",
+        "Source filters are explicit in the query API.",
+        "Returned results preserve source origin."
+      ]
+    },
+    {
+      "id": "MSR-T12",
+      "title": "Hybrid ranking across sources design",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A ranking strategy exists for comparing chunks across different source types.",
+        "The design avoids repo code being drowned by wiki text or vice versa.",
+        "Per-source weighting is configurable."
+      ]
+    },
+    {
+      "id": "MSR-T13",
+      "title": "Citations and provenance format unify",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "All retrieval results return unified provenance fields.",
+        "Wiki citations include article and section references.",
+        "Repo citations include file/path references.",
+        "Artifact citations include task/artifact references."
+      ]
+    },
+    {
+      "id": "MSR-T14",
+      "title": "Read-model output include source summaries",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Assistant/dashboard summaries can show which source classes contributed.",
+        "Source contributions are understandable at a glance.",
+        "Admin views retain deeper provenance detail."
+      ]
+    },
+    {
+      "id": "MSR-T15",
+      "title": "Configuration surface for source enabling add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Config can enable or disable individual source types.",
+        "Wiki-specific config includes corpus path and indexing options.",
+        "Unsafe or broken source config fails closed."
+      ]
+    },
+    {
+      "id": "MSR-T16",
+      "title": "Preflight diagnostics for all source types add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Preflight can report whether repo, artifact and wiki sources are available.",
+        "Diagnostics expose corpus/index presence and obvious problems.",
+        "Operators can understand why retrieval quality is degraded."
+      ]
+    },
+    {
+      "id": "MSR-T17",
+      "title": "API for source-aware retrieval extend",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Retrieval endpoints accept source selection or source policy parameters.",
+        "Responses contain source type and citation metadata.",
+        "Backward compatibility for existing callers is preserved where needed."
+      ]
+    },
+    {
+      "id": "MSR-T18",
+      "title": "Context-bundle policy extend for multi-source retrieval",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Context assembly can budget chunks per source type.",
+        "Policies prevent one source from flooding the context window.",
+        "The effective retrieval mix is visible in diagnostics."
+      ]
+    },
+    {
+      "id": "MSR-T19",
+      "title": "Wiki-only MVP corpus prepare",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A small curated local wiki corpus exists for initial validation.",
+        "Corpus is sufficient to prove end-to-end import, index and query.",
+        "MVP corpus is documented and reproducible."
+      ]
+    },
+    {
+      "id": "MSR-T20",
+      "title": "Mixed retrieval demo define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is a demo where repo context and wiki context are both retrieved intentionally.",
+        "The demo shows why mixed retrieval is useful.",
+        "The output clearly distinguishes source origins."
+      ]
+    },
+    {
+      "id": "MSR-T21",
+      "title": "Golden path for offline wiki-backed help document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A first official workflow explains how to enable and use wiki-backed retrieval.",
+        "The flow is reproducible for another developer.",
+        "The flow includes citations in the result."
+      ]
+    },
+    {
+      "id": "MSR-T22",
+      "title": "Regression tests for repo/code behavior add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Existing codecompass behavior is protected by tests before refactor completion.",
+        "Repo retrieval quality does not silently regress.",
+        "Tests cover source separation assumptions."
+      ]
+    },
+    {
+      "id": "MSR-T23",
+      "title": "Importer, indexer and retriever tests for wiki source add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Wiki importer has basic tests.",
+        "Wiki chunking/indexing has deterministic tests.",
+        "Wiki retrieval returns stable source metadata."
+      ]
+    },
+    {
+      "id": "MSR-T24",
+      "title": "Smoke test for end-to-end multi-source retrieval add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A smoke test covers import/index/query across at least repo and wiki sources.",
+        "Returned citations are validated.",
+        "The system proves source separation under mixed retrieval."
+      ]
+    },
+    {
+      "id": "MSR-T25",
+      "title": "Performance and storage limits for laptop setups document",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "There is a documented small-scale recommended corpus size for laptops.",
+        "Storage and indexing costs are roughly described.",
+        "The initial rollout avoids trying to ingest too much at once."
+      ]
+    },
+    {
+      "id": "MSR-T26",
+      "title": "Future source roadmap prepare",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "The design leaves room for future FreeCAD, KiCad, Blender or handbook sources.",
+        "Roadmap does not require immediate implementation.",
+        "Source extensibility is documented without overcomplicating the MVP."
+      ]
+    }
+  ]
+}
