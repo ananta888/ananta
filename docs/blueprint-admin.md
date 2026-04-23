@@ -1,12 +1,13 @@
-# Blueprint- und Template-Admin
+# Blueprint- und Rollen-Template-Admin
 
-Diese Notiz beschreibt den aktuellen Admin-Ist-Zustand fuer Blueprints, Templates und blueprint-basierte Team-Erstellung.
+Diese Notiz beschreibt den aktuellen Admin-Ist-Zustand fuer Blueprints, Rollen-Templates (API: `templates`) und blueprint-basierte Team-Erstellung.
 
 ## Zielbild
 
 - **Blueprint-first** bleibt der bevorzugte Pfad fuer Team-Aufbau.
 - Der Hub bleibt Orchestrator; Blueprints definieren nur wiederverwendbare Struktur, keine eigene Worker-Orchestrierung.
 - Seed-Blueprints werden beim Lesen deterministisch mit den Code-Definitionen abgeglichen.
+- Public Model (Standard Mode): **Role Template -> Blueprint -> Team**.
 
 ## Blueprints
 
@@ -51,11 +52,11 @@ Fuer Create/Update/Reconcile enthalten die Audit-Details jetzt:
 
 Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit nachvollziehen.
 
-## Templates
+## Rollen-Templates (API: Templates)
 
 ### Namensregeln
 
-- Template-Namen werden getrimmt gespeichert.
+- Rollen-Template-Namen werden getrimmt gespeichert.
 - Mehrdeutige Namen sind ausgeschlossen.
 - API und DB erzwingen die Eindeutigkeit ueber `uq_templates_name`.
 - Konflikte antworten mit `409 template_name_exists`.
@@ -93,6 +94,8 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 
 ## Passende Referenzen
 
+- Public model: `docs/blueprint-product-model.md`
+- Standard blueprint catalog: `docs/standard-blueprints.md`
 - API: `api-spec.md`
 - Bundle-Import/Export: `docs/blueprint-bundle-import-export.md`
 - Testbetrieb: `docs/testing.md`

@@ -36,9 +36,9 @@ type BlueprintArtifactForm = {
       <div class="teams-hero">
         <div>
           <div class="teams-kicker">Blueprint-first Teams</div>
-          <h2 class="teams-title">Teams werden ueber Blueprints erstellt und danach gezielt verfeinert.</h2>
+          <h2 class="teams-title">Starte mit einem Blueprint und instanziiere daraus ein Team.</h2>
           <p class="teams-copy">
-            Rollen, Start-Artefakte und Basistypen leben im Blueprint. Low-level Pflege bleibt im Advanced-Modus erhalten.
+            Der Standardweg bleibt kompakt: Blueprint waehlen, Team starten, dann bei Bedarf im Advanced-Modus vertiefen.
           </p>
         </div>
       <div class="teams-hero-actions">
@@ -64,24 +64,29 @@ type BlueprintArtifactForm = {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-primary teams-list-panel">
             <div class="row flex-between">
-              <h3 class="no-margin">Blueprints</h3>
+              <h3 class="no-margin">Standard-Blueprint-Katalog</h3>
               <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin">Neu</button>
             </div>
-            <p class="muted no-margin">Seed-Blueprints fuer Scrum und Kanban sind automatisch vorhanden.</p>
+            <p class="muted no-margin">
+              {{ blueprintCatalogModel?.default_entry_path || 'Standardweg: Blueprint waehlen und Team instanziieren.' }}
+            </p>
 
             <div class="teams-blueprint-list">
-              @for (blueprint of blueprints; track blueprint.id) {
-                <button type="button" class="teams-blueprint-card" [class.selected]="selectedBlueprintId === blueprint.id" (click)="selectBlueprint(blueprint)">
+              @for (blueprint of catalogBlueprintCards(); track blueprint.id) {
+                <button type="button" class="teams-blueprint-card" [class.selected]="selectedBlueprintId === blueprint.id" (click)="selectBlueprintFromCatalog(blueprint)">
                   <div class="row flex-between">
                     <strong>{{ blueprint.name }}</strong>
-                    @if (blueprint.is_seed) {
-                      <span class="teams-pill teams-pill-seed">Seed</span>
+                    @if (blueprint.is_standard_blueprint || blueprint.is_seed) {
+                      <span class="teams-pill teams-pill-seed">Standard</span>
                     }
                   </div>
+                  <p class="muted teams-blueprint-desc">{{ blueprint.short_description || blueprint.description || 'Keine Beschreibung' }}</p>
                   <div class="muted teams-blueprint-meta">
-                    {{ blueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ blueprint.roles?.length || 0 }} Rollen · {{ blueprint.artifacts?.length || 0 }} Artefakte
+                    Einsatzzweck: {{ blueprint.intended_use || 'Wiederverwendbare Team-Initialisierung' }}
                   </div>
-                  <p class="muted teams-blueprint-desc">{{ blueprint.description || 'Keine Beschreibung' }}</p>
+                  <div class="muted teams-blueprint-meta">Wann nutzen: {{ blueprint.when_to_use || 'Bei wiederholbaren Team-Starts' }}</div>
+                  <div class="muted teams-blueprint-meta">Erwartete Outputs: {{ formatExpectedOutputs(blueprint.expected_outputs) }}</div>
+                  <div class="muted teams-blueprint-meta">Sicherheits-/Review-Stance: {{ blueprint.safety_review_stance || 'balanced security, standard verification' }}</div>
                 </button>
               }
             </div>
@@ -91,7 +96,7 @@ type BlueprintArtifactForm = {
             <div class="row flex-between">
               <div>
                 <h3 class="no-margin">{{ blueprintForm.id ? 'Blueprint bearbeiten' : 'Neuen Blueprint anlegen' }}</h3>
-                <div class="muted">Master-Detail Editor fuer Rollen, Templates und Artefakte.</div>
+                <div class="muted">Advanced-Editor fuer Rollen, Rollen-Templates und Starter-Artefakte.</div>
               </div>
               @if (isSelectedSeedBlueprint()) {
                 <span class="teams-pill teams-pill-seed">Seed</span>
@@ -124,9 +129,9 @@ type BlueprintArtifactForm = {
                 <div class="teams-inline-card">
                   <div class="grid cols-2">
                     <label>Rollenname <input [(ngModel)]="role.name" [disabled]="!isAdmin"></label>
-                    <label>Template
+                    <label>Rollen-Template
                       <select [(ngModel)]="role.template_id" [disabled]="!isAdmin">
-                        <option value="">-- Kein Template --</option>
+                        <option value="">-- Kein Rollen-Template --</option>
                         @for (template of templates; track template.id) {
                           <option [value]="template.id">{{ template.name }}</option>
                         }
@@ -249,9 +254,9 @@ type BlueprintArtifactForm = {
                           }
                         </select>
                       </label>
-                      <label>Custom Template
+                      <label>Rollen-Template Override
                         <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
-                          <option value="">-- Standard --</option>
+                          <option value="">-- Standard Rollen-Template --</option>
                           @for (template of templates; track template.id) {
                             <option [value]="template.id">{{ template.name }}</option>
                           }
@@ -373,9 +378,9 @@ type BlueprintArtifactForm = {
                             }
                           </select>
                         </label>
-                        <label>Custom Template
+                        <label>Rollen-Template Override
                           <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
-                            <option value="">-- Standard --</option>
+                            <option value="">-- Standard Rollen-Template --</option>
                             @for (template of templates; track template.id) {
                               <option [value]="template.id">{{ template.name }}</option>
                             }
@@ -442,7 +447,7 @@ type BlueprintArtifactForm = {
                         </label>
                         @if (isRoleLinked(type, role.id)) {
                           <select class="select-sm" [ngModel]="getRoleTemplateMapping(type.id, role.id)" (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" [disabled]="!isAdmin">
-                            <option value="">-- Template --</option>
+                            <option value="">-- Rollen-Template --</option>
                             @for (template of templates; track template.id) {
                               <option [value]="template.id">{{ template.name }}</option>
                             }
@@ -463,9 +468,9 @@ type BlueprintArtifactForm = {
                 <div class="grid cols-3 mt-md">
                   <label>Name <input [(ngModel)]="newRole.name" [disabled]="!isAdmin"></label>
                   <label>Beschreibung <input [(ngModel)]="newRole.description" [disabled]="!isAdmin"></label>
-                  <label>Standard Template
+                  <label>Standard Rollen-Template
                     <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
-                      <option value="">-- Kein Template --</option>
+                      <option value="">-- Kein Rollen-Template --</option>
                       @for (template of templates; track template.id) {
                         <option [value]="template.id">{{ template.name }}</option>
                       }
@@ -510,6 +515,8 @@ export class TeamsComponent implements OnInit {
   busy = false;
   loading = false;
   blueprints: any[] = [];
+  blueprintCatalog: any[] = [];
+  blueprintCatalogModel: any = null;
   teams: any[] = [];
   templates: any[] = [];
   teamTypesList: any[] = [];
@@ -549,7 +556,7 @@ export class TeamsComponent implements OnInit {
       this.refreshSafetyTimer = undefined;
       this.ns.info('Teams-Ansicht wurde mit Safe-Timeout entsperrt. Sie koennen weiterarbeiten.');
     }, 20000);
-    let pending = 6;
+    let pending = 7;
     const done = () => {
       pending -= 1;
       if (pending <= 0) {
@@ -569,6 +576,20 @@ export class TeamsComponent implements OnInit {
       error: () => this.ns.error('Blueprints konnten nicht geladen werden'),
     });
 
+    this.hubApi.listBlueprintCatalog(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => {
+        const payload = r && typeof r === 'object' ? r : {};
+        this.blueprintCatalog = Array.isArray((payload as any).items)
+          ? (payload as any).items
+          : [];
+        this.blueprintCatalogModel = (payload as any).public_model || null;
+      },
+      error: () => {
+        this.blueprintCatalog = [];
+        this.blueprintCatalogModel = null;
+      },
+    });
+
     this.hubApi.listTeams(this.hub.url).pipe(finalize(done)).subscribe({
       next: r => {
         this.teams = this.normalizeListResponse(r);
@@ -579,7 +600,7 @@ export class TeamsComponent implements OnInit {
 
     this.hubApi.listTemplates(this.hub.url).pipe(finalize(done)).subscribe({
       next: r => (this.templates = this.normalizeListResponse(r)),
-      error: () => this.ns.error('Templates konnten nicht geladen werden'),
+      error: () => this.ns.error('Rollen-Templates konnten nicht geladen werden'),
     });
 
     this.hubApi.listTeamTypes(this.hub.url).pipe(finalize(done)).subscribe({
@@ -661,6 +682,41 @@ export class TeamsComponent implements OnInit {
         },
       })),
     };
+  }
+
+  selectBlueprintFromCatalog(blueprint: any) {
+    const fullBlueprint = this.blueprints.find(item => item.id === blueprint.id);
+    if (!fullBlueprint) {
+      this.selectedBlueprintId = blueprint.id || '';
+      return;
+    }
+    this.selectBlueprint(fullBlueprint);
+  }
+
+  catalogBlueprintCards(): any[] {
+    if (this.blueprintCatalog.length > 0) return this.blueprintCatalog;
+    return this.blueprints.map(blueprint => ({
+      id: blueprint.id,
+      name: blueprint.name,
+      short_description: blueprint.description || '',
+      intended_use: 'Reusable team definition with role setup and starter artifacts.',
+      when_to_use: 'Use for repeatable team startup instead of manual assembly.',
+      expected_outputs: (blueprint.artifacts || [])
+        .filter((artifact: any) => String(artifact?.kind || '').toLowerCase() === 'task')
+        .slice(0, 3)
+        .map((artifact: any) => artifact.title)
+        .filter(Boolean),
+      safety_review_stance: 'balanced security, standard verification',
+      is_standard_blueprint: !!blueprint.is_seed,
+      entry_recommended: !!blueprint.is_seed,
+    }));
+  }
+
+  formatExpectedOutputs(outputs: any): string {
+    const values = Array.isArray(outputs)
+      ? outputs.map(item => String(item || '').trim()).filter(Boolean)
+      : [];
+    return values.length ? values.join(', ') : 'Starter tasks and role-ready execution context';
   }
 
   prepareInstantiateFromEditor() {
@@ -955,7 +1011,7 @@ export class TeamsComponent implements OnInit {
     if (!this.hub) return;
     this.hubApi.updateRoleTemplateMapping(this.hub.url, typeId, roleId, templateId || null).subscribe({
       next: () => this.refresh(),
-      error: () => this.ns.error('Template-Zuordnung konnte nicht gespeichert werden'),
+      error: () => this.ns.error('Rollen-Template-Zuordnung konnte nicht gespeichert werden'),
     });
   }
 
@@ -1068,7 +1124,7 @@ export class TeamsComponent implements OnInit {
       team_type_not_found: 'Team-Typ nicht gefunden.',
       role_not_found: data.role_id ? `Rolle nicht gefunden: ${data.role_id}` : 'Rolle nicht gefunden.',
       invalid_role_for_team_type: data.role_id ? `Rolle nicht erlaubt: ${data.role_id}` : 'Rolle nicht fuer Team-Typ erlaubt.',
-      template_not_found: data.template_id ? `Template nicht gefunden: ${data.template_id}` : 'Template nicht gefunden.',
+      template_not_found: data.template_id ? `Rollen-Template nicht gefunden: ${data.template_id}` : 'Rollen-Template nicht gefunden.',
       role_id_required: 'Rollen-ID erforderlich.',
       blueprint_in_use: data.team_count ? `Blueprint wird noch von ${data.team_count} Team(s) verwendet.` : 'Blueprint wird noch verwendet.',
       blueprint_name_exists: 'Ein Blueprint mit diesem Namen existiert bereits.',

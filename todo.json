@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "blueprint_template_team_simplification",
-  "updated_at": "2026-04-23T22:19:36+02:00",
+  "updated_at": "2026-04-23T22:52:57+02:00",
   "purpose": "Simplify the outward-facing blueprint/template/team model without losing the strong internal structure, auditability and blueprint-first architecture.",
   "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -45,7 +45,7 @@
     {
       "id": "BTS-T01",
       "title": "Outward mental model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation_model",
       "depends_on": [],
@@ -58,7 +58,7 @@
     {
       "id": "BTS-T02",
       "title": "Terminology cleanup for templates define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation_model",
       "depends_on": ["BTS-T01"],
@@ -71,7 +71,7 @@
     {
       "id": "BTS-T03",
       "title": "Blueprints as the default product entry path promote",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation_model",
       "depends_on": ["BTS-T01"],
@@ -84,7 +84,7 @@
     {
       "id": "BTS-T04",
       "title": "Standard seed blueprints define as product-grade entries",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T03"],
@@ -97,7 +97,7 @@
     {
       "id": "BTS-T05",
       "title": "Blueprint card/view model simplify",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T04"],
@@ -356,16 +356,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T22:19:36+02:00",
+    "updated_at": "2026-04-23T22:52:57+02:00",
     "total": 24,
     "by_status": {
-      "todo": 24,
+      "todo": 19,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 0
+      "done": 5
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 20.8,
     "by_priority": {
       "P0": 12,
       "P1": 11,
@@ -375,15 +375,15 @@
     "by_phase": {
       "foundation_model": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
-        "todo": 3
+        "todo": 0
       },
       "blueprint_catalog": {
         "total": 7,
-        "done": 0,
+        "done": 2,
         "partial": 0,
-        "todo": 7
+        "todo": 5
       },
       "ux_simplification": {
         "total": 9,
@@ -405,6 +405,13 @@
       "BTS-T04",
       "BTS-T05",
       "BTS-T06"
+    ],
+    "first_bundle_completed_tasks": [
+      "BTS-T01",
+      "BTS-T02",
+      "BTS-T03",
+      "BTS-T04",
+      "BTS-T05"
     ]
   }
 }

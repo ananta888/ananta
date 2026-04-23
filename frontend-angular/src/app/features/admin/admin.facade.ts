@@ -39,6 +39,7 @@ export class AdminFacade {
   listTeamRoles(baseUrl: string, token?: string) { return this.hubApi.listTeamRoles(baseUrl, token); }
   listAgents(baseUrl: string, token?: string) { return this.hubApi.listAgents(baseUrl, token); }
   listBlueprints(baseUrl: string, token?: string) { return this.hubApi.listBlueprints(baseUrl, token); }
+  listBlueprintCatalog(baseUrl: string, token?: string) { return this.hubApi.listBlueprintCatalog(baseUrl, token); }
   createBlueprint(baseUrl: string, body: any, token?: string) { return this.hubApi.createBlueprint(baseUrl, body, token); }
   patchBlueprint(baseUrl: string, id: string, patch: any, token?: string) { return this.hubApi.patchBlueprint(baseUrl, id, patch, token); }
   deleteBlueprint(baseUrl: string, id: string, token?: string) { return this.hubApi.deleteBlueprint(baseUrl, id, token); }

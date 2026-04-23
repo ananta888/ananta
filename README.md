@@ -169,7 +169,7 @@ Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer 
 
 ## Architektur
 - Angular Frontend fuer Visualisierung und Steuerung
-- Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)
+- Hub-Agent fuer Orchestrierung (Tasks, Teams, Role Templates)
 - Team-Konfiguration blueprint-first: wiederverwendbare Blueprints, Team-Instanzen und Advanced-Verwaltung
 - Worker-Agenten fuer LLM-gestuetzte Ausfuehrung
 - Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`
@@ -320,7 +320,8 @@ Wichtige Security-Policy:
 - Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte oder kontext-ungueltige `{{variablen}}` mit 4xx blockieren (optional mit `template_variable_validation.context_scope`).
 - Template-Namen sind eindeutig; API und Datenbank antworten bei Konflikten mit `409 template_name_exists`.
 - Seed-Blueprints werden beim Lesen deterministisch reconciled; referenzierte Blueprints koennen nicht geloescht werden und antworten mit `409 blueprint_in_use`.
-- Admin-/Rollout-Details fuer Blueprints und Templates: `docs/blueprint-admin.md`, `docs/blueprint-migration-rollout.md`
+- Public model und Standard-Blueprints: `docs/blueprint-product-model.md`, `docs/standard-blueprints.md`
+- Admin-/Rollout-Details fuer Blueprints und Role-Template-Interna: `docs/blueprint-admin.md`, `docs/blueprint-migration-rollout.md`
 
 Hinweis Redis (Host-Tuning):
 - Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:
