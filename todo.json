@@ -1,11 +1,22 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "blueprint_template_team_simplification",
+  "updated_at": "2026-04-23T22:19:36+02:00",
   "purpose": "Simplify the outward-facing blueprint/template/team model without losing the strong internal structure, auditability and blueprint-first architecture.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "goal": "Users should understand and use the blueprint/template/team system through a few clear product concepts, while internal drift, snapshot, reconcile and admin complexity remain available but mostly hidden.",
+  "non_goals": [
+    "Do not remove internal lifecycle mechanics like snapshot, drift and reconcile.",
+    "Do not force a big-bang migration of internal APIs or persistence model.",
+    "Do not reduce governance, auditability or safety controls for convenience."
+  ],
+  "architecture_constraints": [
+    "Keep blueprint-first orchestration semantics compatible with existing hub-worker architecture.",
+    "UI simplification must stay additive and keep admin-depth behavior available behind explicit advanced surfaces.",
+    "Prefer read-model and presentation-layer simplification over destructive domain model rewrites."
+  ],
   "success_criteria": [
     "The outward model is reduced to a few understandable concepts.",
     "Blueprints become the obvious primary product entry for structured work.",
@@ -13,12 +24,31 @@
     "Teams are easy to understand as instantiated running work structures.",
     "Advanced/admin-only lifecycle details remain available without polluting the main UX."
   ],
+  "milestones": [
+    {
+      "id": "BTS-M1",
+      "title": "Core model and wording clarity",
+      "target_outcome": "Public model and terminology are consistent across UX and docs."
+    },
+    {
+      "id": "BTS-M2",
+      "title": "Blueprint productization",
+      "target_outcome": "Standard blueprint catalog, profile summaries and default recommendations are user-ready."
+    },
+    {
+      "id": "BTS-M3",
+      "title": "UX simplification and rollout safety",
+      "target_outcome": "Guided setup, simplified flows, documentation split and regression safety are in place."
+    }
+  ],
   "tasks": [
     {
       "id": "BTS-T01",
       "title": "Outward mental model define",
       "status": "todo",
       "priority": "P0",
+      "phase": "foundation_model",
+      "depends_on": [],
       "acceptance_criteria": [
         "A short product note defines the public-facing model as Template, Blueprint and Team.",
         "Internal concepts like snapshot, drift and reconcile are explicitly treated as advanced/admin concepts.",
@@ -30,6 +60,8 @@
       "title": "Terminology cleanup for templates define",
       "status": "todo",
       "priority": "P0",
+      "phase": "foundation_model",
+      "depends_on": ["BTS-T01"],
       "acceptance_criteria": [
         "A decision is made whether 'Template' stays public or becomes 'Role Template' or 'Agent Template' in the UI.",
         "The chosen wording reduces ambiguity with prompt snippets or generic text templates.",
@@ -41,6 +73,8 @@
       "title": "Blueprints as the default product entry path promote",
       "status": "todo",
       "priority": "P0",
+      "phase": "foundation_model",
+      "depends_on": ["BTS-T01"],
       "acceptance_criteria": [
         "UI and docs clearly present blueprint selection as the default path for starting structured work.",
         "Users are not pushed to manually assemble teams or templates first.",
@@ -52,6 +86,8 @@
       "title": "Standard seed blueprints define as product-grade entries",
       "status": "todo",
       "priority": "P0",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T03"],
       "acceptance_criteria": [
         "A small official set of standard blueprints is defined and visible.",
         "Each standard blueprint has a name, short description, intended use, safety/review stance and expected outputs.",
@@ -63,6 +99,8 @@
       "title": "Blueprint card/view model simplify",
       "status": "todo",
       "priority": "P0",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T04"],
       "acceptance_criteria": [
         "Blueprint list/detail views show only product-relevant information by default.",
         "Default blueprint presentation includes what it is for, when to use it and what it produces.",
@@ -74,6 +112,8 @@
       "title": "Work-profile surface move to the front",
       "status": "todo",
       "priority": "P0",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T03", "BTS-T04"],
       "acceptance_criteria": [
         "Blueprint work-profile becomes a visible first-class summary in UI or read model.",
         "The work-profile shows recommended goal modes, playbook hints, capability hints and governance profile in plain language.",
@@ -85,6 +125,8 @@
       "title": "Role and artifact language soften for normal users",
       "status": "todo",
       "priority": "P1",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T02", "BTS-T03"],
       "acceptance_criteria": [
         "User-facing text shifts from internal object names toward understandable labels like work roles, start tasks and expected outputs.",
         "Internal API/data model naming can remain unchanged.",
@@ -96,6 +138,8 @@
       "title": "Admin and standard modes separate in UI",
       "status": "todo",
       "priority": "P0",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T03"],
       "acceptance_criteria": [
         "A standard mode focuses on choosing a blueprint and starting work.",
         "An admin/studio mode exposes blueprint/template editing and lifecycle details.",
@@ -107,6 +151,8 @@
       "title": "Snapshot, drift and reconcile visibility demote",
       "status": "todo",
       "priority": "P0",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T08"],
       "acceptance_criteria": [
         "Snapshot/drift/reconcile are hidden or summarized in the normal user flow.",
         "Normal users see only simple state labels such as standard, customized or outdated when helpful.",
@@ -118,6 +164,8 @@
       "title": "Team concept explain as running instance only",
       "status": "todo",
       "priority": "P1",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T03"],
       "acceptance_criteria": [
         "The UI and docs explain teams as instantiated running work structures derived from blueprints.",
         "The distinction between blueprint and team is visually obvious.",
@@ -129,6 +177,8 @@
       "title": "Guided setup on blueprint level add",
       "status": "todo",
       "priority": "P0",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T03"],
       "acceptance_criteria": [
         "A guided setup helps users choose the right blueprint based on what they want to do.",
         "The setup asks about goal type, strictness, domain and execution style rather than internal model details.",
@@ -140,6 +190,8 @@
       "title": "Template editing and blueprint editing responsibilities separate",
       "status": "todo",
       "priority": "P1",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T02", "BTS-T03"],
       "acceptance_criteria": [
         "The system makes clear whether the user is editing a reusable role template or a blueprint structure.",
         "Users do not accidentally confuse role behavior changes with structural team composition changes.",
@@ -151,6 +203,8 @@
       "title": "Default blueprint selection for main use cases wire up",
       "status": "todo",
       "priority": "P0",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T04", "BTS-T11"],
       "acceptance_criteria": [
         "Main use cases can map to a recommended default blueprint.",
         "The system can surface this recommendation in first-run and wizard flows.",
@@ -162,6 +216,8 @@
       "title": "Blueprint instantiation flow simplify",
       "status": "todo",
       "priority": "P1",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T11", "BTS-T13"],
       "acceptance_criteria": [
         "Instantiating a blueprint into a team becomes understandable from one screen or one concise flow.",
         "Users can see what start tasks and roles will be created before confirming.",
@@ -173,6 +229,8 @@
       "title": "Default outputs for standard blueprints define",
       "status": "todo",
       "priority": "P1",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T04", "BTS-T06"],
       "acceptance_criteria": [
         "Each standard blueprint declares expected initial outputs such as analysis summary, backlog, review checklist or plan.",
         "These outputs are visible in blueprint summaries and post-instantiation screens.",
@@ -184,6 +242,8 @@
       "title": "Read-model for blueprint summaries refine",
       "status": "todo",
       "priority": "P1",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T05", "BTS-T06"],
       "acceptance_criteria": [
         "Assistant/dashboard read-models expose compact blueprint summaries suitable for standard users.",
         "The summary includes purpose, recommended use, governance stance and expected outputs.",
@@ -195,6 +255,8 @@
       "title": "Seed blueprint lifecycle messaging improve",
       "status": "todo",
       "priority": "P1",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T04", "BTS-T09"],
       "acceptance_criteria": [
         "Seed/default blueprint behavior is described in plain language for product users.",
         "Users can tell whether a blueprint is standard, customized or drifting without reading backend jargon.",
@@ -206,6 +268,8 @@
       "title": "Documentation rewrite for public blueprint usage add",
       "status": "todo",
       "priority": "P0",
+      "phase": "documentation_rollout",
+      "depends_on": ["BTS-T01", "BTS-T02", "BTS-T03", "BTS-T10"],
       "acceptance_criteria": [
         "There is a concise user-facing guide explaining when to use blueprints, templates and teams.",
         "The guide avoids overwhelming admin and migration details.",
@@ -217,6 +281,8 @@
       "title": "Keep admin rollout and migration docs separate",
       "status": "todo",
       "priority": "P1",
+      "phase": "documentation_rollout",
+      "depends_on": ["BTS-T18"],
       "acceptance_criteria": [
         "Migration/rollout/constraint docs remain available but clearly separated from product-facing usage docs.",
         "Standard users do not land on rollout content first.",
@@ -228,6 +294,8 @@
       "title": "Standard blueprint examples package",
       "status": "todo",
       "priority": "P1",
+      "phase": "blueprint_catalog",
+      "depends_on": ["BTS-T04", "BTS-T15"],
       "acceptance_criteria": [
         "Each standard blueprint includes one concrete example input and one expected result sketch.",
         "Examples are short and directly useful in demos and first-run guidance.",
@@ -239,6 +307,8 @@
       "title": "UI copy audit for internal jargon reduce",
       "status": "todo",
       "priority": "P1",
+      "phase": "ux_simplification",
+      "depends_on": ["BTS-T07", "BTS-T10"],
       "acceptance_criteria": [
         "Visible UI labels and descriptions are reviewed for unnecessary internal jargon.",
         "The audit reduces cognitive load without hiding useful meaning.",
@@ -250,6 +320,8 @@
       "title": "Behavior regression tests for blueprint/template internals keep",
       "status": "todo",
       "priority": "P0",
+      "phase": "documentation_rollout",
+      "depends_on": ["BTS-T08", "BTS-T09", "BTS-T12"],
       "acceptance_criteria": [
         "Simplification work does not remove or weaken auditability, reconciliation or validation behavior.",
         "Existing backend guarantees remain protected by tests.",
@@ -261,6 +333,8 @@
       "title": "Smoke tests for standard blueprint onboarding add",
       "status": "todo",
       "priority": "P1",
+      "phase": "documentation_rollout",
+      "depends_on": ["BTS-T13", "BTS-T14", "BTS-T15"],
       "acceptance_criteria": [
         "A smoke path verifies that a user can choose a standard blueprint and instantiate it successfully.",
         "The test confirms visibility of expected outputs and next steps.",
@@ -272,11 +346,65 @@
       "title": "Future advanced studio roadmap isolate",
       "status": "todo",
       "priority": "P3",
+      "phase": "documentation_rollout",
+      "depends_on": ["BTS-T08", "BTS-T19"],
       "acceptance_criteria": [
         "More powerful admin/studio editing ideas are documented separately.",
         "They do not block the main simplification work.",
         "The main user experience remains intentionally compact."
       ]
     }
-  ]
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-23T22:19:36+02:00",
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "blocked": 0,
+      "partial": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 12,
+      "P1": 11,
+      "P2": 0,
+      "P3": 1
+    },
+    "by_phase": {
+      "foundation_model": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "todo": 3
+      },
+      "blueprint_catalog": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "todo": 7
+      },
+      "ux_simplification": {
+        "total": 9,
+        "done": 0,
+        "partial": 0,
+        "todo": 9
+      },
+      "documentation_rollout": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "todo": 5
+      }
+    },
+    "recommended_first_bundle": [
+      "BTS-T01",
+      "BTS-T02",
+      "BTS-T03",
+      "BTS-T04",
+      "BTS-T05",
+      "BTS-T06"
+    ]
+  }
 }
