@@ -60,85 +60,187 @@
     {
       "id": "MSR-T01",
       "title": "Multi-source target model for codecompass define",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": [],
+      "files": [
+        "agent/services/retrieval_service.py",
+        "agent/services/knowledge_index_retrieval_service.py",
+        "agent/routes/knowledge.py",
+        "docs/hybrid_rag_developer_guide.md",
+        "docs/hybrid_rag_runbook.md"
+      ],
       "acceptance_criteria": [
         "A short design note explains that codecompass evolves into a multi-source retrieval core.",
         "Source classes are explicitly separated into at least repo, artifact/task and wiki.",
         "The design states what remains shared and what stays source-specific.",
         "The design explicitly preserves backward-compatible repo/code behavior during migration."
+      ],
+      "notes": [
+        "Im Code existiert bereits ein faktischer Multi-Source-Kern: `repository_map`, `semantic_search`, `agentic_search`, `knowledge_index` und `result_memory` werden gemeinsam fusioniert.",
+        "Die Trennung zwischen shared orchestration und source-spezifischer Retrieval-Logik ist technisch angelegt, aber noch nicht als explizites CodeCompass-Target-Model dokumentiert.",
+        "Ein eigener Architektur- oder Design-Note fuer den angestrebten typed multi-source retrieval core fehlt noch."
+      ],
+      "implementation_notes": [
+        "`agent/services/retrieval_service.py` zeigt bereits die gemeinsame Retrieval-Seam und Fusion mehrerer Quellen.",
+        "`agent/services/knowledge_index_retrieval_service.py` und `agent/routes/knowledge.py` behandeln artefakt-/knowledge-basierte Retrieval-Pfade als additive Quelle.",
+        "Die vorhandene Doku beschreibt Hybrid-RAG und Knowledge-Indexing, aber noch nicht sauber die neue Zielarchitektur `repo + artifact/task + wiki` als ein kontrolliertes Source-Modell."
       ]
     },
     {
       "id": "MSR-T02",
       "title": "Common source interface define",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T01"],
+      "files": [
+        "agent/hybrid_orchestrator.py",
+        "agent/services/retrieval_service.py",
+        "agent/services/knowledge_index_retrieval_service.py",
+        "docs/hybrid_rag_developer_guide.md"
+      ],
       "acceptance_criteria": [
         "A shared source interface or contract exists for all retrieval sources.",
         "Interface covers import, chunk emission, metadata and stable source identifiers.",
         "Existing repo/code path can be adapted without behavioral regression.",
         "The interface is narrow enough that sources do not depend on methods they do not need."
+      ],
+      "notes": [
+        "Es gibt bereits einen de-facto gemeinsamen Retrieval-Contract ueber `ContextChunk` und serialisierte Chunk-Payloads.",
+        "Dieser Contract deckt Chunk-Emission, Score, Source und Metadaten gut ab, aber Import-/Index-Lifecycle und stabile Source-Identifier sind noch nicht als eigenes Interface modelliert.",
+        "Die Quelle `knowledge_index` haengt noch ueber konkrete Service-Kopplung am Retrieval-Service statt ueber eine formale Source-Registry oder Port."
+      ],
+      "implementation_notes": [
+        "`agent/hybrid_orchestrator.py` etabliert `ContextChunk` als gemeinsame Evidence-Struktur.",
+        "`agent/services/retrieval_service.py` kann bestehende und additive Quellen ueber denselben Chunk-/Fusion-Pfad zusammenfuehren.",
+        "Fertig ist der Task erst, wenn daraus ein bewusst schmales Interface fuer import/index/search/metadata mit klaren Source-IDs wird."
       ]
     },
     {
       "id": "MSR-T03",
       "title": "Common document and chunk metadata model define",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T01", "MSR-T02"],
+      "files": [
+        "agent/services/knowledge_index_retrieval_service.py",
+        "agent/services/retrieval_service.py",
+        "agent/services/context_bundle_service.py",
+        "tests/test_retrieval_service.py",
+        "docs/artifacts_and_routing.md"
+      ],
       "acceptance_criteria": [
         "A normalized metadata schema exists for all chunks.",
         "Metadata includes source_type, source_id, chunk_id and provenance fields.",
         "Wiki-specific metadata can be added without breaking repo/code metadata.",
         "Metadata supports read-model summaries, diagnostics and later citation rendering."
+      ],
+      "notes": [
+        "Ein Teil des Metadatenmodells ist schon da: `knowledge_index_id`, `artifact_id`, `collection_names`, `source_scope`, `record_kind`, `retrieval_intent` und Fusion-/Explainability-Felder.",
+        "Das Modell ist aber noch engine-zentriert statt source-zentriert; Felder wie `source_type`, `source_id` und ein stabiler universeller `chunk_id` fehlen als Pflichtschema.",
+        "Fuer spaetere Wiki-Integration ist das kritisch, weil sonst wieder source-spezifische Spezialfaelle im Core landen."
+      ],
+      "implementation_notes": [
+        "`agent/services/knowledge_index_retrieval_service.py` erzeugt bereits reichhaltige Provenance-Metadaten fuer additive Retrieval-Quellen.",
+        "`agent/services/context_bundle_service.py` und die zugehoerigen Tests konsumieren Explainability- und Provenance-Felder bereits weiter.",
+        "Der Task ist erst abgeschlossen, wenn diese Felder in ein normales chunk/document metadata schema ueberfuehrt und fuer alle Quellen vereinheitlicht sind."
       ]
     },
     {
       "id": "MSR-T04",
       "title": "Hub-owned orchestration contract for import, index and query flows define",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T01"],
+      "files": [
+        "agent/routes/knowledge.py",
+        "agent/routes/artifacts.py",
+        "agent/services/knowledge_index_job_service.py",
+        "agent/services/ingestion_service.py",
+        "tests/test_task_orchestration_api.py"
+      ],
       "acceptance_criteria": [
         "The design states which workflow steps are hub-owned and which are worker-executed.",
         "Import, reindex and retrieval flows do not introduce worker-to-worker orchestration.",
         "Task payloads and state transitions are explicit enough to remain auditable across containers.",
         "Failure handling and retries remain coordinated by the hub rather than embedded in source workers."
+      ],
+      "notes": [
+        "Die HTTP-Einstiege fuer Upload, Collection-Indexing und Search laufen bereits hub-zentriert ueber Routen und Job-Services.",
+        "Asynchrone Laeufe sind observable und statusbehaftet, aber noch nicht als expliziter allgemeiner Hub-Orchestrierungsvertrag fuer alle Retrieval-Sources beschrieben.",
+        "Fuer die geplante Wiki-Quelle fehlt noch die klare Festlegung, welche Import-, Reindex- und Query-Schritte als Hub-Tasks materialisiert werden."
+      ],
+      "implementation_notes": [
+        "`agent/routes/artifacts.py` und `agent/routes/knowledge.py` zeigen bereits additive API-Einstiege fuer Ingest, Index und Search.",
+        "`agent/services/knowledge_index_job_service.py` verschiebt laengere Index-Laeufe aus dem Request-Thread in beobachtbare Jobs, bleibt aber noch source-spezifisch.",
+        "Zum Abschluss braucht es einen source-uebergreifenden Orchestrierungsvertrag mit expliziten Task-States statt nur route-/service-spezifischen Pfaden."
       ]
     },
     {
       "id": "MSR-T05",
       "title": "Repo/code retrieval path isolate behind source adapter",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T02", "MSR-T03"],
+      "files": [
+        "agent/services/retrieval_service.py",
+        "agent/hybrid_orchestrator.py",
+        "tests/test_retrieval_service.py",
+        "docs/hybrid_rag_developer_guide.md",
+        "docs/hybrid_rag_runbook.md"
+      ],
       "acceptance_criteria": [
         "Current repo/code behavior is encapsulated as an explicit source adapter.",
         "Existing code retrieval tests still pass.",
         "The repo/code path no longer assumes it is the only retrieval source.",
         "The adapter boundary reduces direct coupling between repo retrieval and shared orchestration."
+      ],
+      "notes": [
+        "Der Repo-/Code-Pfad ist bereits weitgehend vom API-Layer entkoppelt und wird ueber `RetrievalService` plus `HybridOrchestrator` konsumiert.",
+        "Er ist aber noch kein expliziter Source-Adapter; `HybridOrchestrator` kapselt mehrere Engines zusammen und mischt damit Orchestrierung und konkrete Repo-Implementierung.",
+        "Regressionstests fuer das additive Verhalten gegen `knowledge_index` existieren bereits."
+      ],
+      "implementation_notes": [
+        "`agent/services/retrieval_service.py` stellt den stabilen Retrieval-Seam fuer bestehende Caller bereit.",
+        "`agent/hybrid_orchestrator.py` kapselt `RepositoryMapEngine`, `SemanticSearchEngine` und `AgenticSearchEngine`, nimmt dem Repo-Pfad also schon die Alleinstellung.",
+        "Der Task ist fertig, wenn der Repo-/Code-Pfad explizit als typed source adapter hinter der shared core orchestration steht."
       ]
     },
     {
       "id": "MSR-T06",
       "title": "Artifact/task memory retrieval path isolate behind source adapter",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "phase": "foundation",
       "depends_on": ["MSR-T02", "MSR-T03"],
+      "files": [
+        "agent/services/retrieval_service.py",
+        "agent/services/knowledge_index_retrieval_service.py",
+        "agent/services/ingestion_service.py",
+        "agent/routes/knowledge.py",
+        "tests/test_retrieval_service.py",
+        "tests/test_artifacts_route.py"
+      ],
       "acceptance_criteria": [
         "Artifacts/task memory can be treated as a distinct retrieval source.",
         "Returned chunks preserve task/artifact provenance.",
         "This source can be enabled or disabled independently.",
         "Task-memory specific behavior does not leak into repo or wiki adapters."
+      ],
+      "notes": [
+        "Artefakt- und Task-Memory sind bereits als additive Retrieval-Pfade sichtbar: `knowledge_index` fuer Artefaktwissen und `result_memory` fuer Worker-/Task-Ergebnisse.",
+        "Provenance ist vorhanden, inklusive `artifact_id`, `knowledge_index_id`, `collection_names`, `source_task_id` und `relation`.",
+        "Unabhaengiges Enabling/Disabling und eine wirklich saubere Adaptergrenze fehlen noch; `RetrievalService` kennt beide Quellen noch direkt."
+      ],
+      "implementation_notes": [
+        "`agent/services/knowledge_index_retrieval_service.py` liefert artefaktbezogene Retrieval-Chunks mit Provenance.",
+        "`agent/services/retrieval_service.py` baut `result_memory` als separaten Kandidatenstrom aus Task-/Goal-Nachbarschaft auf.",
+        "`agent/services/ingestion_service.py` und `agent/routes/knowledge.py` verankern den artefaktbezogenen Ingest-/Collection-Pfad bereits im System, aber noch nicht als allgemeines typed source adapter model."
       ]
     },
     {
