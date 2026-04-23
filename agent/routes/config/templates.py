@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-
 from flask import Blueprint, current_app, g, request
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -13,29 +11,16 @@ from agent.database import engine
 from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
 from agent.models import TemplateCreateRequest
 from agent.services.repository_registry import get_repository_registry
+from agent.services.template_variable_registry import (
+    build_template_runtime_contract_payload,
+    build_template_variable_registry_payload,
+    find_unknown_template_variables,
+    resolve_allowed_template_variables,
+)
 from agent.services.team_definition_version_service import serialize_template_with_version
 from agent.utils import validate_request
 
 templates_bp = Blueprint("config_templates", __name__)
-
-ALLOWED_TEMPLATE_VARIABLES = {
-    "agent_name",
-    "task_title",
-    "task_description",
-    "team_name",
-    "role_name",
-    "team_goal",
-    "anforderungen",
-    "funktion",
-    "feature_name",
-    "title",
-    "description",
-    "task",
-    "endpoint_name",
-    "beschreibung",
-    "sprache",
-    "api_details",
-}
 
 
 def _template_repo():
@@ -43,11 +28,8 @@ def _template_repo():
 
 
 def _get_template_allowlist() -> set:
-    cfg = current_app.config.get("AGENT_CONFIG", {})
-    allowlist_cfg = cfg.get("template_variables_allowlist")
-    if isinstance(allowlist_cfg, list) and allowlist_cfg:
-        return set(allowlist_cfg)
-    return ALLOWED_TEMPLATE_VARIABLES
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return set(resolve_allowed_template_variables(cfg))
 
 
 def _template_validation_config() -> dict:
@@ -59,11 +41,8 @@ def _template_validation_config() -> dict:
 
 
 def validate_template_variables(template_text: str) -> list[str]:
-    if not template_text:
-        return []
-    found_vars = re.findall(r"\{\{([a-zA-Z0-9_]+)\}\}", template_text)
-    allowlist = _get_template_allowlist()
-    return [value for value in found_vars if value not in allowlist]
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return find_unknown_template_variables(template_text, agent_cfg=cfg)
 
 
 def _template_warnings(prompt_template: str) -> list[dict]:
@@ -74,7 +53,7 @@ def _template_warnings(prompt_template: str) -> list[dict]:
         {
             "type": "unknown_variables",
             "details": f"Unknown variables: {', '.join(unknown)}",
-            "allowed": list(_get_template_allowlist()),
+            "allowed": sorted(_get_template_allowlist()),
         }
     ]
 
@@ -94,6 +73,19 @@ def _template_strict_validation_error(prompt_template: str):
         },
         code=400,
     )
+
+
+@templates_bp.route("/templates/variable-registry", methods=["GET"])
+@check_auth
+def template_variable_registry_read_model():
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return api_response(data=build_template_variable_registry_payload(agent_cfg=cfg))
+
+
+@templates_bp.route("/templates/runtime-contract", methods=["GET"])
+@check_auth
+def template_runtime_contract_read_model():
+    return api_response(data=build_template_runtime_contract_payload())
 
 
 @templates_bp.route("/templates", methods=["GET"])

@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "template_variables_improvement",
-  "updated_at": "2026-04-23T21:23:20+02:00",
+  "updated_at": "2026-04-23T21:28:04+02:00",
   "purpose": "Improve template variable handling so it becomes clearer, more scalable, better documented and safer across templates, blueprints, teams and future work profiles.",
   "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -45,7 +45,7 @@
     {
       "id": "TVI-T01",
       "title": "Current variable model document",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "discovery",
       "depends_on": [],
@@ -58,7 +58,7 @@
     {
       "id": "TVI-T02",
       "title": "Canonical variable registry introduce",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "model_design",
       "depends_on": ["TVI-T01", "TVI-T12"],
@@ -71,7 +71,7 @@
     {
       "id": "TVI-T03",
       "title": "Variable scopes define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "model_design",
       "depends_on": ["TVI-T02"],
@@ -84,7 +84,7 @@
     {
       "id": "TVI-T04",
       "title": "Naming scheme clean up",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "model_design",
       "depends_on": ["TVI-T02"],
@@ -97,7 +97,7 @@
     {
       "id": "TVI-T05",
       "title": "Legacy alias strategy define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "model_design",
       "depends_on": ["TVI-T04"],
@@ -123,7 +123,7 @@
     {
       "id": "TVI-T07",
       "title": "Explain variable meaning and origin",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "model_design",
       "depends_on": ["TVI-T02", "TVI-T03"],
@@ -136,7 +136,7 @@
     {
       "id": "TVI-T08",
       "title": "Expose registry through API",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "implementation",
       "depends_on": ["TVI-T02", "TVI-T03"],
@@ -188,7 +188,7 @@
     {
       "id": "TVI-T12",
       "title": "Blueprint and team integration audit",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "discovery",
       "depends_on": ["TVI-T01"],
@@ -201,7 +201,7 @@
     {
       "id": "TVI-T13",
       "title": "Runtime rendering contract define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "discovery",
       "depends_on": ["TVI-T12"],
@@ -214,7 +214,7 @@
     {
       "id": "TVI-T14",
       "title": "Tests for canonical variable registry add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "quality_and_rollout",
       "depends_on": ["TVI-T02", "TVI-T03", "TVI-T08"],
@@ -278,34 +278,34 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T21:23:20+02:00",
+    "updated_at": "2026-04-23T21:28:04+02:00",
     "total": 18,
     "by_status": {
-      "todo": 18,
+      "todo": 8,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 55.6,
     "by_phase": {
       "discovery": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
-        "todo": 3
+        "todo": 0
       },
       "model_design": {
         "total": 5,
-        "done": 0,
+        "done": 5,
         "partial": 0,
-        "todo": 5
+        "todo": 0
       },
       "implementation": {
         "total": 4,
-        "done": 0,
+        "done": 1,
         "partial": 0,
-        "todo": 4
+        "todo": 3
       },
       "frontend_experience": {
         "total": 1,
@@ -315,9 +315,9 @@
       },
       "quality_and_rollout": {
         "total": 5,
-        "done": 0,
+        "done": 1,
         "partial": 0,
-        "todo": 5
+        "todo": 4
       }
     },
     "recommended_first_bundle": [
@@ -326,6 +326,18 @@
       "TVI-T13",
       "TVI-T02",
       "TVI-T03"
+    ],
+    "first_bundle_completed_tasks": [
+      "TVI-T01",
+      "TVI-T02",
+      "TVI-T03",
+      "TVI-T04",
+      "TVI-T05",
+      "TVI-T12",
+      "TVI-T13",
+      "TVI-T07",
+      "TVI-T08",
+      "TVI-T14"
     ]
   }
 }

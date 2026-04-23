@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import typing
 from typing import Any, Callable, Dict, List, Optional
 
@@ -19,6 +18,10 @@ from agent.repository import (
     team_type_repo,
     team_type_role_link_repo,
     template_repo,
+)
+from agent.services.template_variable_registry import (
+    find_unknown_template_variables,
+    resolve_allowed_template_variables,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,41 +75,14 @@ class ToolRegistry:
 
 registry = ToolRegistry()
 
-TEMPLATE_VAR_PATTERN = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
-DEFAULT_TEMPLATE_VARS = {
-    "agent_name",
-    "task_title",
-    "task_description",
-    "team_name",
-    "role_name",
-    "team_goal",
-    "anforderungen",
-    "funktion",
-    "feature_name",
-    "title",
-    "description",
-    "task",
-    "endpoint_name",
-    "beschreibung",
-    "sprache",
-    "api_details",
-}
-
-
 def _get_template_allowlist() -> set:
-    cfg = current_app.config.get("AGENT_CONFIG", {})
-    allowlist_cfg = cfg.get("template_variables_allowlist")
-    if isinstance(allowlist_cfg, list) and allowlist_cfg:
-        return set(allowlist_cfg)
-    return DEFAULT_TEMPLATE_VARS
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return set(resolve_allowed_template_variables(cfg))
 
 
 def _unknown_template_vars(template_text: str) -> list[str]:
-    if not template_text:
-        return []
-    found_vars = TEMPLATE_VAR_PATTERN.findall(template_text)
-    allowlist = _get_template_allowlist()
-    return [v for v in found_vars if v not in allowlist]
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return find_unknown_template_variables(template_text, agent_cfg=cfg)
 
 
 @registry.register(

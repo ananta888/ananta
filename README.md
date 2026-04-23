@@ -354,4 +354,5 @@ Linting:
 - `docs/smart-dumb-components-guide.md`
 - `docs/blueprint-admin.md`
 - `docs/blueprint-migration-rollout.md`
+- `docs/template-variable-registry.md`
 - `docs/responsible-agent-development-manifesto.md`
