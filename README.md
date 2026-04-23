@@ -109,7 +109,8 @@ Kernaussage:
 
 ## Wichtige Einstiegspunkte
 - Erster Start und Betrieb: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
-- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`
+- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`, `docs/generic-control-layer.md`
+- Control-Layer Vertiefung: `docs/loop-correction-pattern.md`, `docs/tool-router-target-architecture.md`, `docs/unified-approval-model.md`, `docs/context-manager-target-model.md`
 - Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
 - Frontend Entwicklung: `frontend-angular/README.md`
 - CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`

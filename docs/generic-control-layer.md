@@ -69,3 +69,11 @@ Default outcome ladder:
 5. `abort`
 
 By default, pause/abort are diagnostic recommendations unless explicit enforcement is enabled. Loop detections are emitted to execution history and audit logs.
+
+## Companion design notes
+
+- Loop correction injection: `docs/loop-correction-pattern.md`
+- ToolRouter target architecture: `docs/tool-router-target-architecture.md`
+- Unified approval model: `docs/unified-approval-model.md`
+- ContextManager target model: `docs/context-manager-target-model.md`
+- Optional ml-intern fit assessment: `docs/ml-intern-fit-assessment.md`
