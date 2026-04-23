@@ -49,6 +49,37 @@ Retrieval-Endpunkte akzeptieren optional `source_types`:
 
 Felder sind optional und brechen Legacy-Clients nicht.
 
+## Hybrid ranking across source types
+Die Fusion bewertet nicht nur Engines, sondern auch Source-Typen:
+
+- `engine_weights`
+- `source_type_weights`
+- Source-Typ-Diversitaet via `max_per_source_type`
+
+Selection traces enthalten:
+- `source_type_contributions_before`
+- `source_type_contributions_after_dedupe`
+- `source_type_contributions_final`
+
+Damit bleibt Ranking-Policy evolvierbar, ohne Source-Adapter umzubauen (OCP).
+
+## Context policy for source budgets
+Die Context-Policy begrenzt Retrieval nun auf mehreren Ebenen:
+
+- pro konkreter Source (`max_per_source`)
+- pro Source-Typ (`max_per_source_type`)
+- pro Engine (`max_per_engine`)
+
+So verhindert der Core, dass einzelne Source-Klassen den Kontext ueberfluten.
+
+## Preflight diagnostics
+Source-Readiness kann hub-seitig abgefragt werden:
+
+- `GET /artifacts/retrieval-preflight`
+- `GET /knowledge/retrieval-preflight`
+
+Die Ausgabe trennt source-spezifische Probleme von globalen Orchestrierungs-/Policy-Signalen.
+
 ## Neue Sprache fuer Repo-Adapter
 1. Datei-Erweiterung in `RepositoryMapEngine.CODE_EXTENSIONS` aufnehmen.
 2. Mapping in `TREE_SITTER_LANGUAGE_BY_EXT` ergaenzen.

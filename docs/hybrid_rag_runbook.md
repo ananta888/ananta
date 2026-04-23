@@ -66,6 +66,17 @@ Beispiele:
   - `wiki`
 - Ungueltige Source-Typen oder komplett deaktivierte Source-Matrix werden fail-closed behandelt.
 
+## Source Preflight Diagnostics
+Hub-Endpunkte fuer Source-Readiness:
+
+- `GET /artifacts/retrieval-preflight`
+- `GET /knowledge/retrieval-preflight`
+
+Diagnostik trennt:
+- Source-spezifische Issues (`repo`, `artifact`, `wiki`, `task_memory`)
+- globale Source-Policy (`enabled/requested/effective`)
+- Gesamtstatus (`ok|degraded|error`)
+
 ## Rebuild-Strategie
 - Code-Symbolindex:
   - Rebuild erfolgt inkrementell bei Dateiaenderungen.
@@ -106,3 +117,18 @@ Zu beobachten:
 - Agentische Shell-Suche nur ueber Allowlist (`rg`, `ls`, `cat`).
 - Query-Sanitizing entfernt kritische Shell-Metazeichen.
 - Kontext-Redaction ersetzt typische Secrets/PII durch `[REDACTED]`.
+
+## Laptop-basierte Limits (empfohlene Startwerte)
+- `RAG_MAX_CHUNKS=12` (nicht sofort erhoehen, zuerst Qualität messen)
+- `RAG_MAX_CONTEXT_TOKENS=3000`
+- `RAG_MAX_CONTEXT_CHARS=12000`
+- Knowledge-Index-Profil zuerst `fast_docs`, danach `default`, erst zuletzt `deep_code`
+- Fuer erste Rollouts pro Collection nur wenige Artefakte indexieren (z. B. 10-30 Dateien), dann schrittweise erweitern
+
+## Container- und Runtime-Annahmen
+- Hub und Worker laufen in getrennten Containern; Orchestrierung bleibt im Hub.
+- Persistente Pfade muessen container-uebergreifend stabil gemountet sein:
+  - Repo-Semantikindex: `.rag/llamaindex`
+  - Knowledge-Indizes: `<DATA_DIR>/knowledge_indices`
+- Retrieval darf nicht von implizitem In-Memory-Shared-State zwischen Hub/Worker abhaengen.
+- Reindex und Recovery werden ueber Hub-APIs/Jobruns gesteuert, nicht ueber direkte Worker-zu-Worker-Pfade.

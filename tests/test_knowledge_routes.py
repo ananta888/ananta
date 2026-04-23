@@ -225,3 +225,42 @@ def test_knowledge_collection_search_route_accepts_source_type_policy(client, ad
     payload = response.get_json()["data"]
     assert payload["source_policy"]["requested"] == ["artifact"]
     assert payload["source_policy"]["effective_scopes"] == ["artifact"]
+
+
+def test_knowledge_collection_search_route_rejects_invalid_source_type(client, admin_auth_header):
+    create_res = client.post(
+        "/knowledge/collections",
+        headers=admin_auth_header,
+        json={"name": "team-docs"},
+    )
+    collection_id = create_res.get_json()["data"]["id"]
+    response = client.post(
+        f"/knowledge/collections/{collection_id}/search",
+        headers=admin_auth_header,
+        json={"query": "timeout", "source_types": ["repo"]},
+    )
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "invalid_source_types"
+
+
+def test_knowledge_retrieval_preflight_route_returns_source_diagnostics(client, admin_auth_header, monkeypatch):
+    class StubRetrievalService:
+        def get_source_preflight(self):
+            return {
+                "status": "ok",
+                "source_policy": {"enabled": ["repo", "artifact", "task_memory"], "requested": [], "effective": ["repo", "artifact"]},
+                "sources": {
+                    "repo": {"enabled": True, "status": "ok", "issues": []},
+                    "artifact": {"enabled": True, "status": "ok", "issues": []},
+                    "wiki": {"enabled": False, "status": "degraded", "issues": ["no_completed_indices"]},
+                    "task_memory": {"enabled": True, "status": "ok", "issues": []},
+                },
+            }
+
+    monkeypatch.setattr("agent.routes.knowledge.get_retrieval_service", lambda: StubRetrievalService())
+    response = client.get("/knowledge/retrieval-preflight", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["status"] == "ok"
+    assert payload["sources"]["artifact"]["status"] == "ok"

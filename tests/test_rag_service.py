@@ -60,6 +60,9 @@ def test_rag_service_exposes_knowledge_index_explainability():
                     "artifact_id": "artifact-1",
                     "knowledge_index_id": "idx-1",
                     "record_kind": "md_section",
+                    "source_type": "artifact",
+                    "source_id": "artifact-1",
+                    "chunk_id": "artifact:chunk-1",
                     "collection_ids": ["collection-1"],
                     "collection_names": ["payments-docs"],
                 },
@@ -75,6 +78,8 @@ def test_rag_service_exposes_knowledge_index_explainability():
     assert bundle["explainability"]["collection_names"] == ["payments-docs"]
     assert bundle["explainability"]["artifact_ids"] == ["artifact-1"]
     assert bundle["explainability"]["chunk_types"] == ["md_section"]
+    assert bundle["explainability"]["source_types"] == ["artifact"]
+    assert bundle["explainability"]["source_type_counts"] == {"artifact": 1}
 
 
 def test_rag_service_compact_policy_trims_chunks_and_hides_context_text():

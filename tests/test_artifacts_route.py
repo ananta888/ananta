@@ -325,3 +325,27 @@ def test_artifact_rag_index_route_supports_async_jobs(client, admin_auth_header,
     status_res = client.get(f"/artifacts/{artifact_id}/rag-jobs/job-1", headers=admin_auth_header)
     assert status_res.status_code == 200
     assert status_res.get_json()["data"]["job"]["status"] == "completed"
+
+
+def test_artifact_retrieval_preflight_route_returns_source_diagnostics(client, admin_auth_header, monkeypatch):
+    class StubRetrievalService:
+        def get_source_preflight(self):
+            return {
+                "status": "degraded",
+                "source_policy": {"enabled": ["repo", "artifact"], "requested": [], "effective": ["repo", "artifact"]},
+                "sources": {
+                    "repo": {"enabled": True, "status": "ok", "issues": []},
+                    "artifact": {"enabled": True, "status": "degraded", "issues": ["no_completed_indices"]},
+                    "wiki": {"enabled": False, "status": "degraded", "issues": ["disabled"]},
+                    "task_memory": {"enabled": False, "status": "ok", "issues": []},
+                },
+            }
+
+    monkeypatch.setattr("agent.routes.artifacts.get_retrieval_service", lambda: StubRetrievalService())
+    response = client.get("/artifacts/retrieval-preflight", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["status"] == "degraded"
+    assert payload["sources"]["repo"]["status"] == "ok"
+    assert payload["sources"]["artifact"]["issues"] == ["no_completed_indices"]

@@ -65,6 +65,85 @@ class RetrievalService:
             requested_source_types=source_types,
         ).as_dict()
 
+    def get_source_preflight(self) -> dict[str, object]:
+        repo_root = Path(settings.rag_repo_root).resolve()
+        data_roots = [repo_root / p.strip() for p in settings.rag_data_roots.split(",") if p.strip()]
+        semantic_dir = repo_root / settings.rag_semantic_persist_dir
+        try:
+            source_policy = self._source_selection_policy(None)
+        except ValueError:
+            source_policy = {
+                "enabled": [],
+                "requested": [],
+                "effective": [],
+            }
+        effective = set(source_policy.get("effective") or [])
+
+        repo_status = "ok"
+        repo_issues: list[str] = []
+        if not repo_root.exists():
+            repo_status = "error"
+            repo_issues.append("repo_root_missing")
+        elif not repo_root.is_dir():
+            repo_status = "error"
+            repo_issues.append("repo_root_not_directory")
+        elif not any(root.exists() and root.is_dir() for root in data_roots):
+            repo_status = "degraded"
+            repo_issues.append("rag_data_roots_missing")
+
+        knowledge_preflight = {}
+        if hasattr(self._knowledge_index_retrieval_service, "get_source_preflight"):
+            knowledge_preflight = dict(self._knowledge_index_retrieval_service.get_source_preflight() or {})
+        artifact_status = str((knowledge_preflight.get("artifact") or {}).get("status") or "unknown")
+        wiki_status = str((knowledge_preflight.get("wiki") or {}).get("status") or "unknown")
+
+        task_memory_status = "ok"
+        task_memory_issues: list[str] = []
+        if not hasattr(self._memory_entry_repository, "get_by_task"):
+            task_memory_status = "error"
+            task_memory_issues.append("memory_repo_missing_get_by_task")
+
+        sources = {
+            "repo": {
+                "enabled": "repo" in effective,
+                "status": repo_status,
+                "issues": repo_issues,
+                "repo_root": str(repo_root),
+                "data_roots": [str(item) for item in data_roots],
+                "semantic_persist_dir": str(semantic_dir),
+                "semantic_index_present": semantic_dir.exists(),
+            },
+            "artifact": {
+                "enabled": "artifact" in effective,
+                "status": artifact_status,
+                "issues": list((knowledge_preflight.get("artifact") or {}).get("issues") or []),
+                "completed_indices": int((knowledge_preflight.get("artifact") or {}).get("completed_indices") or 0),
+            },
+            "wiki": {
+                "enabled": "wiki" in effective,
+                "status": wiki_status,
+                "issues": list((knowledge_preflight.get("wiki") or {}).get("issues") or []),
+                "completed_indices": int((knowledge_preflight.get("wiki") or {}).get("completed_indices") or 0),
+            },
+            "task_memory": {
+                "enabled": "task_memory" in effective,
+                "status": task_memory_status,
+                "issues": task_memory_issues,
+                "notes": ["task_memory availability is contextual and depends on task/goal neighborhood"],
+            },
+        }
+        source_statuses = [str((item or {}).get("status") or "unknown") for item in sources.values() if bool((item or {}).get("enabled"))]
+        global_status = "ok"
+        if any(status == "error" for status in source_statuses):
+            global_status = "error"
+        elif any(status in {"degraded", "unknown"} for status in source_statuses):
+            global_status = "degraded"
+        return {
+            "status": global_status,
+            "source_policy": source_policy,
+            "sources": sources,
+        }
+
     def _knowledge_index_plan(self, query: str, *, task_kind: str | None, retrieval_intent: str | None) -> tuple[int, str]:
         normalized = str(query or "").lower()
         normalized_kind = self._normalize_task_kind(task_kind)
@@ -112,7 +191,14 @@ class RetrievalService:
                 "knowledge_index": 1.0,
                 "result_memory": 1.05,
             },
+            "source_type_weights": {
+                "repo": 1.0,
+                "artifact": 1.08,
+                "task_memory": 1.1,
+                "wiki": 1.06,
+            },
             "max_per_source": 2,
+            "max_per_source_type": max(1, settings.rag_max_chunks // 2),
             "max_per_engine": max(2, settings.rag_max_chunks),
         }
         if normalized_kind in {"bugfix", "testing", "test"}:
@@ -123,6 +209,7 @@ class RetrievalService:
                 "knowledge_index": 1.25,
                 "result_memory": 1.2,
             }
+            profile["source_type_weights"] = {"repo": 1.1, "artifact": 1.15, "task_memory": 1.2, "wiki": 1.0}
         elif normalized_kind in {"refactor", "implement", "coding"}:
             profile["engine_weights"] = {
                 "repository_map": 1.25,
@@ -131,6 +218,7 @@ class RetrievalService:
                 "knowledge_index": 1.1,
                 "result_memory": 1.15,
             }
+            profile["source_type_weights"] = {"repo": 1.15, "artifact": 1.1, "task_memory": 1.15, "wiki": 1.0}
         elif normalized_kind in {"architecture", "analysis", "doc", "research"}:
             profile["engine_weights"] = {
                 "repository_map": 0.85,
@@ -139,6 +227,7 @@ class RetrievalService:
                 "knowledge_index": 1.3,
                 "result_memory": 1.1,
             }
+            profile["source_type_weights"] = {"repo": 0.9, "artifact": 1.2, "task_memory": 1.0, "wiki": 1.25}
             profile["max_per_source"] = 1
         elif normalized_kind in {"config", "xml", "ops"}:
             profile["engine_weights"] = {
@@ -148,17 +237,27 @@ class RetrievalService:
                 "knowledge_index": 1.2,
                 "result_memory": 1.15,
             }
+            profile["source_type_weights"] = {"repo": 1.05, "artifact": 1.15, "task_memory": 1.1, "wiki": 1.0}
 
         if "architecture" in normalized_intent:
             engine_weights = dict(profile["engine_weights"] or {})
             engine_weights["knowledge_index"] = max(1.35, float(engine_weights.get("knowledge_index", 1.0)))
             profile["engine_weights"] = engine_weights
+            source_weights = dict(profile.get("source_type_weights") or {})
+            source_weights["wiki"] = max(1.3, float(source_weights.get("wiki", 1.0)))
+            source_weights["artifact"] = max(1.2, float(source_weights.get("artifact", 1.0)))
+            profile["source_type_weights"] = source_weights
         if "bug" in normalized_intent or "error" in normalized_intent:
             engine_weights = dict(profile["engine_weights"] or {})
             engine_weights["repository_map"] = max(1.2, float(engine_weights.get("repository_map", 1.0)))
             engine_weights["knowledge_index"] = max(1.25, float(engine_weights.get("knowledge_index", 1.0)))
             engine_weights["result_memory"] = max(1.25, float(engine_weights.get("result_memory", 1.0)))
             profile["engine_weights"] = engine_weights
+            source_weights = dict(profile.get("source_type_weights") or {})
+            source_weights["repo"] = max(1.15, float(source_weights.get("repo", 1.0)))
+            source_weights["artifact"] = max(1.15, float(source_weights.get("artifact", 1.0)))
+            source_weights["task_memory"] = max(1.2, float(source_weights.get("task_memory", 1.0)))
+            profile["source_type_weights"] = source_weights
         return profile
 
     def _score_memory_entry(self, query_tokens: list[str], title: str, summary: str, content: str, tags: list[str]) -> float:
@@ -400,10 +499,13 @@ class RetrievalService:
     ) -> tuple[list[ContextChunk], dict[str, object]]:
         query_tokens = [token.lower() for token in re.findall(r"[A-Za-z0-9_]+", query or "") if len(token) > 2]
         engine_weights = dict(profile.get("engine_weights") or {})
+        source_type_weights = dict(profile.get("source_type_weights") or {})
         reranked: list[ContextChunk] = []
         for chunk in chunks:
             metadata = dict(chunk.metadata or {})
             engine_weight = float(engine_weights.get(chunk.engine, 1.0))
+            source_type = str(metadata.get("source_type") or "repo").strip().lower() or "repo"
+            source_type_weight = float(source_type_weights.get(source_type, 1.0))
             source_l = str(chunk.source or "").lower()
             content_l = str(chunk.content or "").lower()
             overlap = 0.0
@@ -419,10 +521,12 @@ class RetrievalService:
             if metadata.get("artifact_id"):
                 relation_bonus += 0.05
 
-            fused_score = (chunk.score * engine_weight) + overlap + relation_bonus
+            fused_score = (chunk.score * engine_weight * source_type_weight) + overlap + relation_bonus
             metadata["fusion"] = {
                 "base_score": round(float(chunk.score), 4),
                 "engine_weight": round(engine_weight, 4),
+                "source_type": source_type,
+                "source_type_weight": round(source_type_weight, 4),
                 "query_overlap": round(overlap, 4),
                 "relation_bonus": round(relation_bonus, 4),
                 "fused_score": round(fused_score, 4),
@@ -437,7 +541,7 @@ class RetrievalService:
                 )
             )
         reranked.sort(key=lambda chunk: (-chunk.score, chunk.engine, chunk.source, chunk.content[:80]))
-        return reranked, {"engine_weights": engine_weights}
+        return reranked, {"engine_weights": engine_weights, "source_type_weights": source_type_weights}
 
     def _diversity_cut(
         self,
@@ -447,20 +551,28 @@ class RetrievalService:
         max_candidates: int,
     ) -> tuple[list[ContextChunk], dict[str, int]]:
         max_per_source = max(1, int(profile.get("max_per_source") or 2))
+        max_per_source_type = max(1, int(profile.get("max_per_source_type") or max_per_source))
         max_per_engine = max(1, int(profile.get("max_per_engine") or max(2, settings.rag_max_chunks)))
         per_source: dict[str, int] = defaultdict(int)
+        per_source_type: dict[str, int] = defaultdict(int)
         per_engine: dict[str, int] = defaultdict(int)
         selected: list[ContextChunk] = []
         skipped: list[ContextChunk] = []
         for chunk in chunks:
             source_key = str(chunk.source or "").lower()
             engine_key = str(chunk.engine or "").lower()
-            if per_source[source_key] >= max_per_source or per_engine[engine_key] >= max_per_engine:
+            source_type_key = str((dict(chunk.metadata or {})).get("source_type") or "repo").strip().lower() or "repo"
+            if (
+                per_source[source_key] >= max_per_source
+                or per_engine[engine_key] >= max_per_engine
+                or per_source_type[source_type_key] >= max_per_source_type
+            ):
                 skipped.append(chunk)
                 continue
             selected.append(chunk)
             per_source[source_key] += 1
             per_engine[engine_key] += 1
+            per_source_type[source_type_key] += 1
             if len(selected) >= max_candidates:
                 break
         if len(selected) < max_candidates:
@@ -470,6 +582,7 @@ class RetrievalService:
                 selected.append(chunk)
         return selected[:max_candidates], {
             "max_per_source": max_per_source,
+            "max_per_source_type": max_per_source_type,
             "max_per_engine": max_per_engine,
             "selected": len(selected[:max_candidates]),
         }

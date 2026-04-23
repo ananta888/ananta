@@ -6,6 +6,7 @@ from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
 from agent.services.repository_registry import get_repository_registry
+from agent.services.retrieval_service import get_retrieval_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 from agent.services.service_registry import get_core_services
 
@@ -261,3 +262,9 @@ def get_artifact_rag_job(artifact_id: str, job_id: str):
     if job is None or str(job.get("scope_id")) != artifact_id:
         raise NotFoundError("rag_job_not_found")
     return api_response(data={"job": job})
+
+
+@artifacts_bp.route("/artifacts/retrieval-preflight", methods=["GET"])
+@check_auth
+def get_retrieval_preflight():
+    return api_response(data=get_retrieval_service().get_source_preflight())

@@ -83,6 +83,56 @@ class KnowledgeIndexRetrievalService:
     def _iter_completed_indices(self):
         return self._knowledge_index_repository.list_completed()
 
+    def get_source_preflight(self) -> dict[str, object]:
+        by_scope: dict[str, dict[str, object]] = {
+            "artifact": {"status": "degraded", "completed_indices": 0, "issues": []},
+            "wiki": {"status": "degraded", "completed_indices": 0, "issues": []},
+        }
+        for knowledge_index in self._iter_completed_indices():
+            scope = str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
+            if scope not in by_scope:
+                by_scope[scope] = {"status": "degraded", "completed_indices": 0, "issues": []}
+            bucket = by_scope[scope]
+            bucket["completed_indices"] = int(bucket.get("completed_indices") or 0) + 1
+
+            output_dir_raw = getattr(knowledge_index, "output_dir", None)
+            if not output_dir_raw:
+                issues = list(bucket.get("issues") or [])
+                issues.append("missing_output_dir")
+                bucket["issues"] = issues
+                continue
+            output_dir = Path(output_dir_raw)
+            if not output_dir.exists() or not output_dir.is_dir():
+                issues = list(bucket.get("issues") or [])
+                issues.append("output_dir_missing")
+                bucket["issues"] = issues
+                continue
+            if not any((output_dir / name).exists() for name in self.OUTPUT_FILENAMES):
+                issues = list(bucket.get("issues") or [])
+                issues.append("no_index_outputs")
+                bucket["issues"] = issues
+
+        for scope, bucket in by_scope.items():
+            issues = list(bucket.get("issues") or [])
+            completed = int(bucket.get("completed_indices") or 0)
+            if completed <= 0:
+                bucket["status"] = "degraded"
+                issues.append("no_completed_indices")
+            elif issues:
+                bucket["status"] = "degraded"
+            else:
+                bucket["status"] = "ok"
+            # de-duplicate while keeping order
+            seen: set[str] = set()
+            unique_issues: list[str] = []
+            for issue in issues:
+                if issue not in seen:
+                    seen.add(issue)
+                    unique_issues.append(issue)
+            bucket["issues"] = unique_issues
+            by_scope[scope] = bucket
+        return by_scope
+
     def _iter_output_records(self, output_dir: Path) -> Iterable[tuple[str, dict[str, Any]]]:
         for filename in self.OUTPUT_FILENAMES:
             path = output_dir / filename
