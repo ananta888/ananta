@@ -124,6 +124,79 @@ def test_blueprint_catalog_exposes_standard_product_cards(client):
     assert work_profile_summary["governance_profile"]["hint"]
 
 
+def test_blueprint_catalog_compact_read_model_hides_admin_child_details(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    response = client.get("/teams/blueprints/catalog", headers=auth_header)
+    assert response.status_code == 200
+    items = response.json["data"]["items"]
+    assert items
+
+    for item in items:
+        assert item["intended_use"]
+        assert item["when_to_use"]
+        assert item["expected_outputs"]
+        assert item["safety_review_stance"]
+        assert "roles" not in item
+        assert "artifacts" not in item
+        assert "version_metadata" not in item
+
+        summary = item["work_profile_summary"]
+        assert summary["recommended_goal_modes"]
+        assert isinstance(summary["playbook_hints"], list)
+        assert isinstance(summary["capability_hints"], list)
+        assert summary["governance_profile"]["label"]
+        assert summary["governance_profile"]["hint"]
+
+
+def test_standard_blueprint_onboarding_smoke_path_from_catalog(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    catalog_response = client.get("/teams/blueprints/catalog", headers=auth_header)
+    assert catalog_response.status_code == 200
+    catalog_items = catalog_response.json["data"]["items"]
+    recommended = next(
+        item for item in catalog_items if item.get("entry_recommended") and item.get("is_standard_blueprint")
+    )
+    assert recommended["expected_outputs"]
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{recommended['id']}/instantiate",
+        json={"name": "Catalog Onboarding Smoke Team", "activate": False, "members": []},
+        headers=auth_header,
+    )
+    assert instantiate_response.status_code == 201
+    team = instantiate_response.json["data"]["team"]
+    assert team["blueprint_id"] == recommended["id"]
+    assert team["blueprint_snapshot"]["name"] == recommended["name"]
+
+    snapshot_task_titles = {
+        artifact["title"]
+        for artifact in (team["blueprint_snapshot"].get("artifacts") or [])
+        if str(artifact.get("kind", "")).lower() == "task"
+    }
+    assert snapshot_task_titles
+    assert set(recommended["expected_outputs"]).intersection(snapshot_task_titles)
+
+    teams_response = client.get("/teams", headers=auth_header)
+    assert teams_response.status_code == 200
+    listed_team = next(item for item in teams_response.json["data"] if item["id"] == team["id"])
+    lifecycle = listed_team.get("user_lifecycle_state") or {}
+    assert lifecycle.get("label") in {"Standard", "Angepasst", "Aktualisierbar"}
+    assert lifecycle.get("hint")
+
+    profile_response = client.get(f"/teams/blueprints/{recommended['id']}/work-profile", headers=auth_header)
+    assert profile_response.status_code == 200
+    profile = profile_response.json["data"]
+    assert profile["goal_modes"] or profile["playbooks"]
+
+    with Session(engine) as session:
+        persisted_tasks = session.exec(select(TaskDB).where(TaskDB.team_id == team["id"])).all()
+    assert persisted_tasks
+
+
 def test_blueprint_crud_and_instantiate(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
@@ -350,6 +423,18 @@ def test_team_list_exposes_simplified_lifecycle_state(client):
     drifted_team = next(item for item in list_after_drift.json["data"] if item["id"] == team_id)
     assert drifted_team["user_lifecycle_state"]["code"] == "outdated"
     assert drifted_team["user_lifecycle_state"]["label"] == "Aktualisierbar"
+    assert (drifted_team.get("definition_metadata") or {}).get("drift_status") == "drifted"
+
+    diff_response = client.get(f"/teams/{team_id}/blueprint-diff", headers=auth_header)
+    assert diff_response.status_code == 200
+    assert (diff_response.json["data"].get("definition_metadata") or {}).get("drift_status") == "drifted"
+
+    update_log = next(
+        log
+        for log in audit_repo.get_all(limit=100)
+        if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == scrum_blueprint["id"]
+    )
+    assert update_log.details["changes"]["roles"]["created"] == [{"name": "Lifecycle Drift Role"}]
 
 
 def test_setup_scrum_uses_seed_blueprint(client):
