@@ -1,1179 +1,481 @@
 {
-  "$schema": "./todo.schema.json",
-  "version": "8.0.0",
-  "created": "2026-04-21",
-  "updated": "2026-04-23T00:00:00Z",
-  "project": "ananta",
-  "review_basis": {
-    "reviewed_commit_range": "HEAD",
-    "review_goal": "Roadmap for productionizing evolution/evolver integration and creating one standard blueprint path that uses both DeerFlow and Evolver in a meaningful, controlled way.",
-    "notes": [
-      "Konvertiert aus tracks/tasks in das bestehende categories/items/meta-Modell.",
-      "Originale Track-Ziele und Success Criteria bleiben pro Item im context erhalten.",
-      "Statuswerte wurden auf open/partial/completed normalisiert: todo->open, in_progress->partial, done->completed, blocked->open."
-    ]
+  "version": 2,
+  "owner": "ananta",
+  "track": "codecompass_multisource_rag",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "decision": {
+    "selected_file": "todo.wikiv2.json",
+    "supersedes": ["todo.wiki-rag.json"],
+    "rationale": "The multi-source retrieval direction is the better long-term fit because it preserves a single controlled retrieval core while keeping source-specific behavior isolated behind adapters."
   },
-  "categories": [
+  "purpose": "Evolve codecompass/rag_helper from code-focused retrieval into a controlled multi-source retrieval core that supports repo/code content, artifacts/task memory and local offline wiki knowledge without collapsing source boundaries.",
+  "goal": "A single retrieval core can index and retrieve repo/code content, artifacts/task memory and offline wiki knowledge with clear source separation, provenance, citations and hub-controlled orchestration.",
+  "non_goals": [
+    "Do not build a full internet replacement.",
+    "Do not merge all source types into one untyped blob index.",
+    "Do not break current repo/code retrieval behavior for existing callers.",
+    "Do not introduce worker-to-worker orchestration or hidden background control loops.",
+    "Do not require cloud dependencies for the wiki MVP."
+  ],
+  "architecture_constraints": [
+    "The hub remains the owner of planning, task routing, policy decisions, verification and queue control.",
+    "Workers execute delegated indexing, import, query and artifact-building tasks only.",
+    "Each hub and worker instance runs in its own container; no feature may assume implicit single-process shared state.",
+    "Additive changes are preferred over breaking refactors; compatibility adapters should be used where practical.",
+    "Retrieval sources must remain explicitly typed and traceable end-to-end.",
+    "Unsafe or incomplete source configuration must fail closed."
+  ],
+  "solid_focus": [
+    "SRP: shared retrieval orchestration, source adapters, ranking, storage and API concerns remain separated.",
+    "OCP: new retrieval sources should be added by implementing interfaces and adapters rather than patching central logic repeatedly.",
+    "DIP: core retrieval services depend on source abstractions and policies, not wiki-specific or repo-specific concrete implementations."
+  ],
+  "success_criteria": [
+    "codecompass remains stable for existing repo/code retrieval.",
+    "wiki content can be imported and queried through the same retrieval core.",
+    "results preserve source type and citation metadata.",
+    "mixed retrieval across repo, artifacts and wiki is possible but controlled.",
+    "the system stays understandable and does not collapse into one unstructured blob index.",
+    "import, indexing and query flows remain hub-controlled and auditable."
+  ],
+  "milestones": [
     {
-      "name": "evolver",
-      "label": "Evolver besser integrieren und nahezu fertig machen",
-      "items": [
-        {
-          "id": "EVOLVER-T01",
-          "title": "Evolver Capability-Matrix vervollstaendigen",
-          "description": "Evolver Capability-Matrix vervollstaendigen",
-          "priority": "P0",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Evolver ist als eigener Evolution-Provider mit klaren Capabilities dokumentiert.",
-            "Analyze, Validate und Apply-Faehigkeiten sind getrennt sichtbar.",
-            "Fehlende Provider-Capabilities werden fail-closed behandelt."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "implementation_notes": [
-            "Evolution Provider Discovery liefert eine capability_matrix fuer analyze, propose, validate, apply, risk_scoring und review_hints.",
-            "Validate und Apply werden getrennt nach Provider-Support, Policy und Provider-Konfiguration als available oder fail-closed ausgewiesen.",
-            "Tests pruefen die Matrix und den analyze-only Fail-Closed-Zustand."
-          ]
-        },
-        {
-          "id": "EVOLVER-T02",
-          "title": "Provider-Konfiguration fuer Evolver haerten",
-          "description": "Provider-Konfiguration fuer Evolver haerten",
-          "priority": "P0",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "allowed_hosts, timeouts, response limits und retry policy sind sauber konfigurierbar.",
-            "Unsichere oder unvollstaendige Konfiguration blockiert den Provider sinnvoll.",
-            "Evolver bleibt in unsicheren Umgebungen analyze-only oder disabled."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "implementation_notes": [
-            "Evolver Provider-Metadaten zeigen allowed_hosts, Timeout-/Response-Limits, Retry-Policy und force_analyze_only.",
-            "Provider-Konfiguration wird in Discovery-Antworten redigiert, sodass Tokens und Header nicht offengelegt werden.",
-            "force_analyze_only blockiert Validate/Apply vor Provider-Aufruf als Policy-Entscheidung."
-          ]
-        },
-        {
-          "id": "EVOLVER-T03",
-          "title": "Evolution Analyze API-Endpunkte produktreif machen",
-          "description": "Evolution Analyze API-Endpunkte produktreif machen",
-          "priority": "P0",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Analyze kann ueber REST und MCP sauber aufgerufen werden.",
-            "Responses enthalten trace_id, provider metadata, review status und proposal links.",
-            "Fehlerfaelle sind strukturiert und auditierbar."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "implementation_notes": [
-            "Analyze REST liefert trace_id, provider_metadata, review_status und Proposal-Links fuer Read-Model, Validate und Apply.",
-            "MCP nutzt weiterhin denselben Hub-Service-Pfad fuer Analyze und Proposal-Read-Model.",
-            "Providerfehler bleiben strukturiert mit error_code, error_type, Retryable-Hinweisen und Audit-Events."
-          ]
-        },
-        {
-          "id": "EVOLVER-T04",
-          "title": "Validation-Pfad fuer Evolver integrieren",
-          "description": "Validation-Pfad fuer Evolver integrieren",
-          "priority": "P1",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "dependencies": [
-            "EVOLVER-T01",
-            "EVOLVER-T02",
-            "EVOLVER-T03"
-          ],
-          "files": [
-            "agent/routes/evolution.py",
-            "agent/services/evolution_service.py",
-            "agent/repositories/evolution.py",
-            "tests/test_evolution_api.py"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Validate ist als eigener Pfad verfuegbar, sofern Provider und Policy dies erlauben.",
-            "Validation-Ergebnisse werden von Analyze-/Proposal-Ergebnissen getrennt gespeichert.",
-            "Validation blockiert unsichere oder inkonsistente Proposals sichtbar."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "REST-Endpoint fuer proposal validation existiert bereits und ist policy-gated.",
-            "Der Hub-Service trennt analyze, validate und apply bereits methodisch.",
-            "Validation-Ergebnisse werden jetzt separat am Proposal persistiert und im Evolution-Read-Model sichtbar gemacht."
-          ],
-          "implementation_notes": [
-            "POST /tasks/<task_id>/evolution/proposals/<proposal_id>/validate ist implementiert und ruft validate_persisted_proposal auf.",
-            "tests/test_evolution_api.py deckt den erfolgreichen Validation-Endpoint bereits ab.",
-            "Das Proposal-Read-Model zeigt jetzt Validation-Verlauf und letztes Ergebnis getrennt vom Analyse-Run."
-          ],
-          "subtasks": [
-            {
-              "title": "Validation-Ergebnisse als eigene Datensicht vom Proposal trennen",
-              "done": true
-            },
-            {
-              "title": "Read-Model fuer Proposal-Validations inkl. Verlauf und letztem Ergebnis erweitern",
-              "done": true
-            },
-            {
-              "title": "Provider- und Policy-Blockierungen im UI/Read-Model explizit unterscheiden",
-              "done": true
-            }
-          ]
-        },
-        {
-          "id": "EVOLVER-T05",
-          "title": "Kontrollierten Apply-Pfad vorbereiten",
-          "description": "Kontrollierten Apply-Pfad vorbereiten",
-          "priority": "P1",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "dependencies": [
-            "EVOLVER-T04",
-            "EVOLVER-T07"
-          ],
-          "files": [
-            "agent/routes/evolution.py",
-            "agent/services/evolution_service.py",
-            "tests/test_evolution_api.py",
-            "docs/evolution-rollout.md"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Apply bleibt standardmaessig deaktiviert.",
-            "Bei Aktivierung sind Review, Approval, Provenance und Rollback-Hinweise Pflicht.",
-            "Apply wird nie als impliziter Standardpfad verwendet."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Apply ist bereits explizit per Config deaktiviert und nur ueber eigenen Endpoint erreichbar.",
-            "Der Service blockiert Apply bei Policy-Verbot und optionalem Review-Zwang.",
-            "Apply verlangt jetzt explizite persisted Proposal-Freigabe und schreibt Apply-Verlauf, Artefakt-Referenzen und Rollback-Hinweise zurueck."
-          ],
-          "implementation_notes": [
-            "POST /tasks/<task_id>/evolution/proposals/<proposal_id>/apply ist vorhanden, aber standardmaessig fail-closed.",
-            "tests/test_evolution_api.py prueft bereits, dass Apply ohne Policy-Freigabe 403 liefert.",
-            "docs/evolution-rollout.md dokumentiert den review-pflichtigen Apply-Staging-Pfad jetzt konsistent mit dem Code."
-          ],
-          "subtasks": [
-            {
-              "title": "Apply nur nach explizit persisted Review-Approval freigeben",
-              "done": true
-            },
-            {
-              "title": "Apply-Ergebnis als Artefakt mit Proposal-, Validation- und Trigger-Referenzen speichern",
-              "done": true
-            },
-            {
-              "title": "Rollback-Hinweise und Sicherheitsgrenzen im Read-Model und in Doku verankern",
-              "done": true
-            }
-          ]
-        },
-        {
-          "id": "EVOLVER-T06",
-          "title": "Evolution-Proposals als echte Artefakte im Hub sichtbar machen",
-          "description": "Evolution-Proposals als echte Artefakte im Hub sichtbar machen",
-          "priority": "P0",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "dependencies": [
-            "EVOLVER-T03"
-          ],
-          "files": [
-            "agent/services/evolution_service.py",
-            "agent/repositories/evolution.py",
-            "agent/routes/evolution.py",
-            "frontend-angular/src/app/components/artifacts.component.ts",
-            "docs/artifact-traceability-model.md"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Proposals sind im UI und ueber APIs als strukturierte Artefakte sichtbar.",
-            "Jedes Proposal zeigt Quelle, Provider, Risiken, Diff-/Patch-Infos und Status.",
-            "Proposal-Historie ist nachvollziehbar."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Proposals sind bereits persistent und ueber das Evolution-Read-Model abrufbar.",
-            "Links fuer Read-Model, Validate und Apply werden schon im Analyze-Response erzeugt.",
-            "Proposal-Read-Models zeigen jetzt Review-, Validation-, Apply- und History-Daten als strukturierte Artefaktansicht ueber die API."
-          ],
-          "implementation_notes": [
-            "task_read_model liefert Runs und Proposals bereits als strukturierte Daten.",
-            "Die Aufgabe ist ueber persistierte Proposal-Artefakte mit stabilen IDs und erweitertem Read-Model abgeschlossen; Diff/Patch bleibt optional providerabhaengig."
-          ],
-          "subtasks": [
-            {
-              "title": "Proposal-DB-Objekte auf das allgemeine Artefakt-Read-Model abbilden",
-              "done": true
-            },
-            {
-              "title": "UI-Darstellung fuer provider, risk_level, requires_review und Links ergaenzen",
-              "done": true
-            },
-            {
-              "title": "Diff-/Patch-Informationen optional und fail-closed in Proposal-Metadaten aufnehmen",
-              "done": true
-            }
-          ]
-        },
-        {
-          "id": "EVOLVER-T07",
-          "title": "Review- und Approval-Flow fuer Evolution-Proposals fertig anschliessen",
-          "description": "Review- und Approval-Flow fuer Evolution-Proposals fertig anschliessen",
-          "priority": "P0",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/evolution.py",
-            "agent/services/evolution_service.py",
-            "tests/test_evolution_api.py",
-            "docs/evolution-rollout.md"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Evolution-Proposals koennen explizit approved oder rejected werden.",
-            "Review-Status ist im Read-Model sichtbar.",
-            "Ohne Review kein kontrolliertes Apply."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Evolution-Proposals koennen jetzt explizit approved oder rejected werden.",
-            "Der Review-Status ist im Proposal-Read-Model sichtbar.",
-            "Apply blockiert review-pflichtige Proposals ohne explizite Approval."
-          ],
-          "implementation_notes": [
-            "POST /tasks/<task_id>/evolution/proposals/<proposal_id>/review ist implementiert.",
-            "agent/services/evolution_service.py persistiert Review-Zustand und History direkt am Proposal.",
-            "tests/test_evolution_api.py deckt Approval und Apply-Gating ueber Review jetzt ab."
-          ]
-        },
-        {
-          "id": "EVOLVER-T08",
-          "title": "Observability fuer Evolver vervollstaendigen",
-          "description": "Observability fuer Evolver vervollstaendigen",
-          "priority": "P1",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/metrics.py",
-            "agent/services/evolution_service.py",
-            "docs/backend.md",
-            "docs/evolution-rollout.md"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Metriken fuer analyses, validations, applies, retries und provider failures sind sichtbar.",
-            "Audit-Events zeigen provider, task, trace_id, policy_version und outcome.",
-            "Operatoren koennen Evolver-Laufprobleme schnell erkennen."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Metriken fuer analyses, validations, applies, retries und provider failures sind vorhanden.",
-            "Audit-Events decken angefragte, erfolgreiche und fehlgeschlagene Evolution-Operationen ab.",
-            "Backend-Doku und Rollout-Doku benennen die exportierten Evolution-Metriken explizit."
-          ],
-          "implementation_notes": [
-            "agent/metrics.py exportiert evolution_analyses_total, evolution_proposals_total, evolution_validations_total, evolution_applies_total, evolution_operation_duration_seconds sowie provider-failure/retry/health Metriken.",
-            "agent/services/evolution_service.py schreibt Audit-Events fuer analyze, validate, apply und proposal review.",
-            "docs/backend.md und docs/evolution-rollout.md dokumentieren die Observability-Oberflaeche fuer Operatoren."
-          ]
-        },
-        {
-          "id": "EVOLVER-T09",
-          "title": "Settings- und Dashboard-UI fuer Evolution ergaenzen",
-          "description": "Settings- und Dashboard-UI fuer Evolution ergaenzen",
-          "priority": "P1",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/settings.component.ts",
-            "frontend-angular/src/app/components/settings.component.spec.ts",
-            "frontend-angular/src/app/services/system-api.client.ts",
-            "frontend-angular/src/app/services/agent-api.service.ts"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "UI zeigt Evolution-Modus, Provider-Status, Analyze-only/Apply-Zustand und Review-Anforderungen.",
-            "Operator kann Evolver-Konfiguration pruefen, ohne Roh-JSON lesen zu muessen.",
-            "Warnings fuer riskante Konfigurationen sind sichtbar."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Die Settings zeigen jetzt einen eigenen Evolution-Statusblock statt nur Roh-Konfiguration.",
-            "Operatoren sehen Mode, Health, Validate-/Apply-Gates und provider-spezifische Fail-Closed-Gruende.",
-            "Riskante Kombinationen wie Apply ohne Review-Zwang werden als Warnungen sichtbar gemacht."
-          ],
-          "implementation_notes": [
-            "frontend-angular/src/app/components/settings.component.ts laedt /evolution/providers ueber einen neuen shared API-Pfad und rendert Health, Capability-Matrix und Warnings.",
-            "frontend-angular/src/app/services/system-api.client.ts und frontend-angular/src/app/services/agent-api.service.ts expose'n den Evolution-Provider-Read-Path additiv.",
-            "frontend-angular/src/app/components/settings.component.spec.ts sichert den neuen UI/Policy-Statuspfad und provider fail-closed warnings ab."
-          ]
-        },
-        {
-          "id": "EVOLVER-T10",
-          "title": "Golden Path und Demo fuer Evolver dokumentieren",
-          "description": "Golden Path und Demo fuer Evolver dokumentieren",
-          "priority": "P1",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/evolution-rollout.md",
-            "docs/demo-flows.md",
-            "docs/evolver-adapter.md"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Es gibt einen klaren Demo-Flow fuer Analyze -> Proposal -> Review.",
-            "Doku erklaert, wann Evolver sinnvoll ist und wann nicht.",
-            "Rollout-Phasen sind praxisnah dokumentiert."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Es gibt jetzt einen expliziten Demo-Flow fuer Analyze -> Proposal -> Review.",
-            "Die Doku erklaert, wann Evolver sinnvoll ist und wann nicht.",
-            "Rollout-Phasen bleiben praxisnah in der separaten Rollout-Doku beschrieben."
-          ],
-          "implementation_notes": [
-            "docs/demo-flows.md enthaelt jetzt einen dedizierten Evolver-Golden-Path.",
-            "docs/evolution-rollout.md beschreibt disabled, analyze-only, controlled-review und spaeteres Apply.",
-            "docs/evolver-adapter.md dokumentiert den Provider-spezifischen Integrationsrahmen."
-          ]
-        },
-        {
-          "id": "EVOLVER-T11",
-          "title": "Contract- und E2E-Tests fuer Evolver-Pfaede ergaenzen",
-          "description": "Contract- und E2E-Tests fuer Evolver-Pfaede ergaenzen",
-          "priority": "P1",
-          "type": "evolution-provider",
-          "principle": "Hub-Governed-Evolution",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/test_evolution_api.py",
-            "tests/test_evolution_engine_contract.py",
-            "tests/test_evolution_registry_service.py",
-            "tests/test_evolver_live_compose.py"
-          ],
-          "tags": [
-            "EVOLVER"
-          ],
-          "acceptance": [
-            "Analyze-Flow ist per Tests abgesichert.",
-            "Review-/Validation-Statuswechsel sind regressionssicher.",
-            "Policy-Blockierungen und Providerfehler sind testbar."
-          ],
-          "context": {
-            "track_id": "EVOLVER",
-            "track_goal": "Evolver soll nicht nur analyze-only vorbereitet sein, sondern als kontrollierter, nachvollziehbarer Evolutionspfad im Hub sauber nutzbar werden.",
-            "track_success_criteria": [
-              "Evolver ist in API, UI, Read-Models, Review-Flow und Doku sichtbar als echter Provider integriert.",
-              "Analyze, Validate und spaeter kontrolliertes Apply sind klar getrennt und governance-konform.",
-              "Provider-Lauf, Proposal, Review, Validation und Artefakte sind nachvollziehbar verknuepft.",
-              "Es gibt reproduzierbare Demo- und Testpfade fuer den Evolver."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Analyze-, Review-, Validation- und Apply-Gating sind testseitig abgedeckt.",
-            "Engine- und Registry-Kontrakte fuer Evolution-Provider sind separat abgesichert.",
-            "Es existiert zusaetzlich ein Live-Compose-Testpfad fuer Evolver."
-          ],
-          "implementation_notes": [
-            "tests/test_evolution_api.py deckt analyze, provider failures, validate, review und apply-gated behavior ab.",
-            "tests/test_evolution_engine_contract.py und tests/test_evolution_registry_service.py sichern die Provider-Vertraege und Registry-Verhalten ab.",
-            "tests/test_evolver_live_compose.py stellt einen reproduzierbaren Live-Integrationspfad bereit."
-          ]
-        }
-      ]
+      "id": "MSR-M1",
+      "title": "Architecture and compatibility baseline",
+      "target_outcome": "Source model, interfaces, metadata, hub orchestration and regression safety are defined before deeper implementation."
     },
     {
-      "name": "blueprint-standard-path",
-      "label": "Standard-Blueprint-Pfad mit DeerFlow und Evolver",
-      "items": [
-        {
-          "id": "BP-T01",
-          "title": "Einen offiziellen Standardfall festlegen",
-          "description": "Einen offiziellen Standardfall festlegen",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Ein konkreter Standardfall ist benannt, z. B. 'bestehendes Projekt um Feature erweitern' oder 'kleinen Bugfix kontrolliert vorbereiten'.",
-            "Der Fall ist klein genug fuer Demo und gross genug fuer echten Mehrwert.",
-            "Use-Case ist offiziell in Doku und Demo-Flows verankert."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "implementation_notes": [
-            "UC8 und Demo-Flow H definieren den offiziellen Standardfall: bestehendes Projekt um ein kleines Feature erweitern.",
-            "Der Fall ist klein genug fuer Demo/Smoke und zeigt Research -> Proposal -> Review -> naechste Tasks.",
-            "docs/use-cases.md und docs/demo-flows.md verankern den Use-Case offiziell."
-          ]
-        },
-        {
-          "id": "BP-T02",
-          "title": "Rollenverteilung DeerFlow vs Evolver fest definieren",
-          "description": "Rollenverteilung DeerFlow vs Evolver fest definieren",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "DeerFlow ist klar fuer Research, Vergleich, Quellen, Bericht und Kontextanreicherung zustaendig.",
-            "Evolver ist klar fuer Evolutionsanalyse, Proposal, validierte Aenderungsvorschlaege und spaetere kontrollierte Apply-Pfade zustaendig.",
-            "Keine unklare Doppelrolle beider Systeme."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "implementation_notes": [
-            "Der Research-Evolution-Blueprint trennt Research Lead (DeerFlow), Evolution Strategist (Evolver) und Review Gate Owner.",
-            "Das Policy-Artefakt definiert DeerFlow als Quelle fuer summary, sources, report_markdown und research_metadata.",
-            "Evolver ist auf Analyse, Proposal und Validation-Vorbereitung begrenzt; Apply bleibt ohne Review-Gates deaktiviert."
-          ]
-        },
-        {
-          "id": "BP-T03",
-          "title": "Blueprint fuer den Standardpfad modellieren",
-          "description": "Blueprint fuer den Standardpfad modellieren",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Es gibt einen Team-/Task-Blueprint fuer den offiziellen Standardpfad.",
-            "Blueprint enthaelt initiale Rollen, Artefakte und Start-Tasks.",
-            "Blueprint ist per API und UI instanziierbar."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "implementation_notes": [
-            "Seed-Blueprint Research-Evolution enthaelt Rollen, Policy-Artefakt und Starter-Tasks fuer Scope, DeerFlow Research, Evolver Proposal und Review Gate.",
-            "Der Blueprint wird ueber die bestehende /teams/blueprints API reconciled und ist instanziierbar.",
-            "Tests pruefen Seed-Inhalt, Rollenverteilung, Handoff-Contract und Materialisierung der Starter-Tasks."
-          ]
-        },
-        {
-          "id": "BP-T04",
-          "title": "DeerFlow als erster Stage im Blueprint-Pfad einbauen",
-          "description": "DeerFlow als erster Stage im Blueprint-Pfad einbauen",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "dependencies": [
-            "BP-T01",
-            "BP-T02",
-            "BP-T03"
-          ],
-          "files": [
-            "agent/research_backend.py",
-            "docs/deerflow-integration.md",
-            "tests/test_deerflow_integration.py",
-            "tests/test_team_blueprints.py"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Der Blueprint startet fuer geeignete Teilaufgaben mit Research/Context-Aufbau ueber DeerFlow.",
-            "Research-Bericht wird als Artefakt gespeichert.",
-            "Quellen, Summary und Report sind spaeter im Pfad referenzierbar."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "DeerFlow ist bereits als Research-Backend integriert und dokumentiert.",
-            "Der Seed-Blueprint Research-Evolution setzt den Research Lead bereits auf DeerFlow.",
-            "docs/demo-flows.md und docs/use-cases.md verankern DeerFlow jetzt explizit als erste Stage im Standardpfad."
-          ],
-          "implementation_notes": [
-            "docs/deerflow-integration.md beschreibt den aktuellen CLI-basierten Integrationspfad.",
-            "tests/test_team_blueprints.py prueft den Research-Evolution-Blueprint und den preferred_backend deerflow.",
-            "Der Blueprint materialisiert die Starter-Tasks fuer Scope, DeerFlow Research Stage, Evolver Proposal Stage und Review Gate bereits."
-          ],
-          "subtasks": [
-            {
-              "title": "Starter-Task fuer Research/Context-Aufbau im Blueprint explizit materialisieren",
-              "done": true
-            },
-            {
-              "title": "Research-Artefakt-Typ fuer summary, sources und report im Standardpfad festziehen",
-              "done": true
-            },
-            {
-              "title": "Review-Pflicht fuer DeerFlow-Berichte im Blueprint-Flow sichtbar machen",
-              "done": true
-            }
-          ]
-        },
-        {
-          "id": "BP-T05",
-          "title": "Evolver als zweite Stage im Blueprint-Pfad einbauen",
-          "description": "Evolver als zweite Stage im Blueprint-Pfad einbauen",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "dependencies": [
-            "EVOLVER-T03",
-            "BP-T04",
-            "BP-T06"
-          ],
-          "files": [
-            "agent/routes/evolution.py",
-            "agent/services/evolution_service.py",
-            "tests/test_evolution_api.py",
-            "tests/test_team_blueprints.py"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Nach Research kann Evolver aus dem vorhandenen Kontext Proposals oder Evolutionsanalysen erzeugen.",
-            "Evolver verwendet nicht losgeloeste Rohprompts, sondern den vorherigen kontrollierten Task-/Artifact-Kontext.",
-            "Proposal ist reviewbar und mit DeerFlow-Artefakten verknuepft."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Evolver ist als Provider samt Analyze-/Validate-/Apply-Pfaden bereits vorhanden.",
-            "Der Blueprint enthaelt mit Evolution Strategist bereits die vorgesehene Rolle fuer Stage zwei.",
-            "Use-Case, Demo-Flow, Blueprint-Rollen und Handoff-Policy verankern Evolver jetzt explizit als zweite Stage nach DeerFlow."
-          ],
-          "implementation_notes": [
-            "Der technische Evolver-Pfad existiert bereits unabhaengig vom Blueprint.",
-            "Im Blueprint bleibt Evolver eine hub-ausgeloeste zweite Stage mit approved research context und reviewbaren Proposals."
-          ],
-          "subtasks": [
-            {
-              "title": "Blueprint-Stage fuer Evolution Analyze auf persisted Research-Artefakt referenzieren",
-              "done": true
-            },
-            {
-              "title": "Trigger-Regeln definieren, wann nach Research automatisch nur ein reviewbarer Proposal-Schritt erzeugt wird",
-              "done": true
-            },
-            {
-              "title": "Links zwischen Research-Artefakten und Evolution-Proposals im Read-Model erhalten",
-              "done": true
-            }
-          ]
-        },
-        {
-          "id": "BP-T06",
-          "title": "Task- und Artifact-Uebergabe zwischen DeerFlow und Evolver standardisieren",
-          "description": "Task- und Artifact-Uebergabe zwischen DeerFlow und Evolver standardisieren",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "dependencies": [
-            "BP-T04",
-            "BP-T05"
-          ],
-          "files": [
-            "tests/test_team_blueprints.py",
-            "docs/deerflow-integration.md",
-            "docs/artifacts_and_routing.md",
-            "docs/artifact-traceability-model.md"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Es gibt ein klares Datenmodell fuer Uebergabe von summary, sources, report_markdown und research metadata an den Evolver-Pfad.",
-            "Trace- und Provenance-Daten bleiben erhalten.",
-            "Zwischenergebnisse sind nicht nur im Prompt versteckt."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Der Seed-Blueprint enthaelt bereits einen Handoff-Contract fuer summary, sources, report_markdown und research_metadata.",
-            "Damit ist das fachliche Modell begonnen, aber noch nicht als allgemeiner Hub-Handoff-Standard durchgezogen.",
-            "Der Standardpfad dokumentiert und testet den Handoff jetzt explizit als Policy-/Artefakt-Vertrag statt als implizite Prompt-Uebergabe."
-          ],
-          "implementation_notes": [
-            "tests/test_team_blueprints.py validiert bereits den Handoff-Contract im Policy-Artefakt des Research-Evolution-Blueprints.",
-            "tests/test_team_blueprints.py, docs/demo-flows.md und die Blueprint-Seed-Definition tragen denselben Handoff-Contract konsistent."
-          ],
-          "subtasks": [
-            {
-              "title": "Gemeinsames Handoff-Schema fuer DeerFlow-Outputs und Evolver-Inputs fest in Artefakt-Metadaten verankern",
-              "done": true
-            },
-            {
-              "title": "Trace- und Provenance-Felder in der Uebergabe verpflichtend machen",
-              "done": true
-            },
-            {
-              "title": "Read-Model so erweitern, dass Reviewer den Handoff ohne Prompt-Inspektion verstehen",
-              "done": true
-            }
-          ]
-        },
-        {
-          "id": "BP-T07",
-          "title": "Review-Gates im Standardpfad sichtbar machen",
-          "description": "Review-Gates im Standardpfad sichtbar machen",
-          "priority": "P0",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/teams.py",
-            "frontend-angular/src/app/components/task-detail.component.ts",
-            "tests/test_deerflow_integration.py",
-            "tests/test_team_blueprints.py",
-            "docs/demo-flows.md"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Research-Artefakte und Evolution-Proposals haben klaren Review-Status.",
-            "Der Standardpfad zeigt, wo Mensch freigibt, ablehnt oder nachschaerft.",
-            "UI stellt diese Gates sichtbar dar."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Der Standardpfad materialisiert bereits einen eigenen Review-Gate-Schritt im Blueprint.",
-            "Research-Review und Proposal-Review sind in API und UI sichtbar.",
-            "Die Demo-Doku benennt den Review-Gate-Owner und die Blockade von Apply ohne Freigabe explizit."
-          ],
-          "implementation_notes": [
-            "agent/routes/teams.py seedet den Task `Review Gate` im Research-Evolution-Blueprint.",
-            "frontend-angular/src/app/components/task-detail.component.ts zeigt Review-Status sowie Freigeben/Ablehnen-Aktionen sichtbar an.",
-            "tests/test_deerflow_integration.py und tests/test_team_blueprints.py decken Review-Gates und Blueprint-Starter-Tasks ab."
-          ]
-        },
-        {
-          "id": "BP-T08",
-          "title": "Beispiel-Input und Erwartungsbild fuer den Standardpfad definieren",
-          "description": "Beispiel-Input und Erwartungsbild fuer den Standardpfad definieren",
-          "priority": "P1",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/use-cases.md",
-            "docs/demo-flows.md",
-            "tests/test_team_blueprints.py"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Es gibt einen festen Demo-Input.",
-            "Es ist dokumentiert, welche Zwischenartefakte und Endergebnisse erwartet werden.",
-            "Reviewer koennen beurteilen, ob der Pfad sinnvoll funktioniert."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Der Demo-Input fuer den Standardpfad ist explizit dokumentiert.",
-            "Use-Case und Demo-Flow beschreiben erwartete Zwischenartefakte und Endergebnisse konkret.",
-            "Die Blueprint-Tests sichern die erwarteten Starter-Schritte fuer Reviewer reproduzierbar ab."
-          ],
-          "implementation_notes": [
-            "docs/use-cases.md enthaelt den festen Beispiel-Input fuer UC8.",
-            "docs/demo-flows.md beschreibt Erfolgssignal, Zwischenartefakte und Review-Check fuer den Standardpfad.",
-            "tests/test_team_blueprints.py prueft, dass die erwarteten Standardpfad-Starter-Tasks materialisiert werden."
-          ]
-        },
-        {
-          "id": "BP-T09",
-          "title": "Preset und Wizard-Einstieg fuer den Standardpfad bauen",
-          "description": "Preset und Wizard-Einstieg fuer den Standardpfad bauen",
-          "priority": "P1",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/demo_mode_service.py",
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/dashboard.component.spec.ts"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Es gibt einen sichtbaren UI-Einstieg fuer diesen Beispielpfad.",
-            "Preset ist auch fuer Erstnutzer verstaendlich benannt.",
-            "Wizard erklaert nicht Tools, sondern den Problemfluss."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Der Standardpfad ist jetzt als sichtbarer Erststart-Einstieg und als Preset im Dashboard vorhanden.",
-            "Die Benennung erklaert den Problemfluss `Research -> Proposal -> Review` statt interne Tool-Namen in den Vordergrund zu stellen.",
-            "Der Einstieg bleibt additiv; bestehende `new-software-project` und `project-evolution` Pfade bleiben unveraendert verfuegbar."
-          ],
-          "implementation_notes": [
-            "frontend-angular/src/app/components/dashboard.component.ts fuegt `research-evolution` als First-Start-Option und Goal-Preset hinzu.",
-            "agent/services/demo_mode_service.py liefert dafuer das offizielle Demo-Beispiel mit passendem Goal und Kontext.",
-            "frontend-angular/src/app/components/dashboard.component.spec.ts prueft den neuen sichtbaren Einstieg und das Erwartungsbild im Quick-Goal-Pfad."
-          ]
-        },
-        {
-          "id": "BP-T10",
-          "title": "Read-Model fuer zusammengesetzten Pfad erweitern",
-          "description": "Read-Model fuer zusammengesetzten Pfad erweitern",
-          "priority": "P1",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/demo_mode_service.py",
-            "frontend-angular/src/app/components/dashboard-demo-preview.component.ts",
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "tests/test_demo_mode.py"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Dashboard/Assistant zeigt klar Research-Artefakte, Evolution-Proposals und naechste Schritte.",
-            "Der Nutzer sieht nicht nur Logs, sondern den fachlichen Fortschritt.",
-            "Trace und Policy-Entscheidungen bleiben fuer Admins nachvollziehbar."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Die Demo-/Dashboard-Vorschau zeigt jetzt fachliche Zwischenartefakte und Governance statt nur Titel plus Task-Liste.",
-            "Research-Artefakte, Evolver-Proposal und Review-Gates sind im Preview-Read-Model explizit sichtbar.",
-            "Dadurch wird der zusammengesetzte Standardpfad fuer Nutzer und Reviewer ohne Log-Inspektion nachvollziehbar."
-          ],
-          "implementation_notes": [
-            "agent/services/demo_mode_service.py erweitert Demo-Beispiele um path_summary, artifacts und governance.",
-            "frontend-angular/src/app/components/dashboard-demo-preview.component.ts rendert diese Read-Model-Felder additiv im UI.",
-            "tests/test_demo_mode.py sichert den Research-Evolution-Pfad mit sichtbaren Artefakten und Governance-Signalen ab."
-          ]
-        },
-        {
-          "id": "BP-T11",
-          "title": "Demo-Flow und Golden Path dokumentieren",
-          "description": "Demo-Flow und Golden Path dokumentieren",
-          "priority": "P1",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "docs/demo-flows.md",
-            "docs/use-cases.md",
-            "README.md"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Es gibt einen offiziellen Demo-Flow fuer den zusammengesetzten DeerFlow+Evolver-Pfad.",
-            "README/use-cases/demo-flows referenzieren diesen Pfad.",
-            "Der Mehrwert beider Komponenten wird problemorientiert erklaert."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Der offizielle DeerFlow+Evolver-Standardpfad ist jetzt in Demo-Flow, Use-Case und README referenziert.",
-            "Die Dokumentation beschreibt den Mehrwert problemorientiert ueber den Ablauf Research -> Proposal -> Review.",
-            "Der sichtbare UI-Einstieg ist in der Doku mit dem Team-Blueprint-Pfad abgestimmt."
-          ],
-          "implementation_notes": [
-            "docs/demo-flows.md beschreibt fuer Flow H jetzt den Dashboard-Einstieg und die sichtbaren UI-Signale.",
-            "docs/use-cases.md nennt den Dashboard-Einstieg fuer UC8 explizit.",
-            "README.md fuegt den Standardpfad in die offiziellen Kern-Use-Cases und Link-Hinweise ein."
-          ]
-        },
-        {
-          "id": "BP-T12",
-          "title": "E2E-Test fuer den Standard-Blueprint-Pfad bauen",
-          "description": "E2E-Test fuer den Standard-Blueprint-Pfad bauen",
-          "priority": "P1",
-          "type": "blueprint-flow",
-          "principle": "Controlled-Blueprint-Orchestration",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/test_demo_mode.py",
-            "frontend-angular/src/app/components/dashboard.component.spec.ts",
-            "frontend-angular/src/app/components/settings.component.spec.ts"
-          ],
-          "tags": [
-            "BLUEPRINT-STANDARD-PATH"
-          ],
-          "acceptance": [
-            "Ein automatisierter Test prueft den Blueprint-Flow mindestens als Smoke-Test.",
-            "Research-Stage und Evolution-Stage werden beide sichtbar durchlaufen oder simuliert.",
-            "Artefakte, Status und Review-Gates sind regressionssicher."
-          ],
-          "context": {
-            "track_id": "BLUEPRINT-STANDARD-PATH",
-            "track_goal": "Ein offizieller Beispielpfad zeigt, wie ein standardisierter Blueprint in Ananta zuerst Research mit DeerFlow und danach strukturierte Evolutionsvorschlaege mit Evolver nutzt.",
-            "track_success_criteria": [
-              "Es gibt einen klaren offiziellen Blueprint fuer einen realistischen Entwicklungsfall.",
-              "DeerFlow und Evolver werden nicht nebeneinander zufaellig verwendet, sondern mit klarer Rollenverteilung.",
-              "Der Pfad ist fuer Demo, Dokumentation, Review und Tests reproduzierbar.",
-              "Der Blueprint zeigt den Mehrwert von Goal -> Research -> Proposal -> Review -> naechste Tasks."
-            ],
-            "original_status": "todo",
-            "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          },
-          "notes": [
-            "Der Standardpfad ist jetzt mindestens als kombinierter Smoke-Test ueber Demo-Read-Model und Dashboard-Einstieg abgesichert.",
-            "Research-Stage, Proposal-Stage und Governance-Gates werden in den neuen Tests sichtbar validiert.",
-            "Zusaetzlich ist der Evolution-Settings-Pfad regressionssicher mit Unit-Tests fuer die UI-/Policy-Sicht."
-          ],
-          "implementation_notes": [
-            "tests/test_demo_mode.py prueft den offiziellen `research-evolution` Preview-Pfad auf Artefakte und Governance-Signale.",
-            "frontend-angular/src/app/components/dashboard.component.spec.ts sichert First-Start- und Preset-Einstieg fuer den Standardpfad.",
-            "frontend-angular/src/app/components/settings.component.spec.ts deckt den Evolution-Statuspfad inklusive provider fail-closed warnings ab."
-          ]
-        }
-      ]
+      "id": "MSR-M2",
+      "title": "Wiki MVP on shared core",
+      "target_outcome": "A curated offline wiki corpus can be imported, indexed and queried through the multi-source core with citations."
+    },
+    {
+      "id": "MSR-M3",
+      "title": "Mixed retrieval and operator readiness",
+      "target_outcome": "Mixed retrieval, diagnostics, configuration, API surface and demonstrations are stable and understandable."
     }
   ],
-  "meta": {
-    "total_items": 23,
-    "by_status": {
-      "completed": 23,
-      "partial": 0,
-      "open": 0
+  "tasks": [
+    {
+      "id": "MSR-T01",
+      "title": "Multi-source target model for codecompass define",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "A short design note explains that codecompass evolves into a multi-source retrieval core.",
+        "Source classes are explicitly separated into at least repo, artifact/task and wiki.",
+        "The design states what remains shared and what stays source-specific.",
+        "The design explicitly preserves backward-compatible repo/code behavior during migration."
+      ]
     },
-    "notes": [
-      "Diese Roadmap beschreibt die kontrollierte Evolver-Integration und den Standard-Blueprint-Pfad mit DeerFlow und Evolver.",
-      "Alle Eintraege bleiben Hub-governed: Research, Proposal, Review, Validation und Apply duerfen keine Worker-zu-Worker-Orchestrierung einfuehren.",
-      "Apply-Pfade sind nur vorbereitet und bleiben ohne explizite Review-/Approval-Gates deaktiviert."
-    ],
-    "recommended_order": [
-      "EVOLVER-T01",
-      "EVOLVER-T02",
-      "EVOLVER-T03",
-      "EVOLVER-T04",
-      "EVOLVER-T05",
-      "EVOLVER-T06",
-      "EVOLVER-T07",
-      "EVOLVER-T08",
-      "EVOLVER-T09",
-      "EVOLVER-T10",
-      "EVOLVER-T11",
-      "BP-T01",
-      "BP-T02",
-      "BP-T03",
-      "BP-T04",
-      "BP-T05",
-      "BP-T06",
-      "BP-T07",
-      "BP-T08",
-      "BP-T09",
-      "BP-T10",
-      "BP-T11",
-      "BP-T12"
-    ]
-  },
-  "source_format": {
-    "version": 1,
-    "status_scale": [
-      "todo",
-      "in_progress",
-      "blocked",
-      "done"
-    ],
-    "priority_scale": [
-      "P0",
-      "P1",
-      "P2",
-      "P3"
-    ]
-  }
+    {
+      "id": "MSR-T02",
+      "title": "Common source interface define",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": ["MSR-T01"],
+      "acceptance_criteria": [
+        "A shared source interface or contract exists for all retrieval sources.",
+        "Interface covers import, chunk emission, metadata and stable source identifiers.",
+        "Existing repo/code path can be adapted without behavioral regression.",
+        "The interface is narrow enough that sources do not depend on methods they do not need."
+      ]
+    },
+    {
+      "id": "MSR-T03",
+      "title": "Common document and chunk metadata model define",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": ["MSR-T01", "MSR-T02"],
+      "acceptance_criteria": [
+        "A normalized metadata schema exists for all chunks.",
+        "Metadata includes source_type, source_id, chunk_id and provenance fields.",
+        "Wiki-specific metadata can be added without breaking repo/code metadata.",
+        "Metadata supports read-model summaries, diagnostics and later citation rendering."
+      ]
+    },
+    {
+      "id": "MSR-T04",
+      "title": "Hub-owned orchestration contract for import, index and query flows define",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": ["MSR-T01"],
+      "acceptance_criteria": [
+        "The design states which workflow steps are hub-owned and which are worker-executed.",
+        "Import, reindex and retrieval flows do not introduce worker-to-worker orchestration.",
+        "Task payloads and state transitions are explicit enough to remain auditable across containers.",
+        "Failure handling and retries remain coordinated by the hub rather than embedded in source workers."
+      ]
+    },
+    {
+      "id": "MSR-T05",
+      "title": "Repo/code retrieval path isolate behind source adapter",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": ["MSR-T02", "MSR-T03"],
+      "acceptance_criteria": [
+        "Current repo/code behavior is encapsulated as an explicit source adapter.",
+        "Existing code retrieval tests still pass.",
+        "The repo/code path no longer assumes it is the only retrieval source.",
+        "The adapter boundary reduces direct coupling between repo retrieval and shared orchestration."
+      ]
+    },
+    {
+      "id": "MSR-T06",
+      "title": "Artifact/task memory retrieval path isolate behind source adapter",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "foundation",
+      "depends_on": ["MSR-T02", "MSR-T03"],
+      "acceptance_criteria": [
+        "Artifacts/task memory can be treated as a distinct retrieval source.",
+        "Returned chunks preserve task/artifact provenance.",
+        "This source can be enabled or disabled independently.",
+        "Task-memory specific behavior does not leak into repo or wiki adapters."
+      ]
+    },
+    {
+      "id": "MSR-T07",
+      "title": "Wiki source adapter design define",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "wiki_mvp",
+      "depends_on": ["MSR-T02", "MSR-T03", "MSR-T04"],
+      "acceptance_criteria": [
+        "A dedicated wiki source adapter is designed for local knowledge documents.",
+        "Wiki metadata includes article_title, section_title, language and import/revision metadata.",
+        "The adapter conforms to the shared source interface.",
+        "The design does not require wiki-specific branching in the shared retrieval core."
+      ]
+    },
+    {
+      "id": "MSR-T08",
+      "title": "Offline wiki importer implement",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "wiki_mvp",
+      "depends_on": ["MSR-T07"],
+      "acceptance_criteria": [
+        "A local importer can read curated wiki content from one supported offline format.",
+        "Import failures are logged without corrupting the index.",
+        "Imported records are normalized into the shared document model.",
+        "The importer is deterministic for the same input corpus and configuration."
+      ]
+    },
+    {
+      "id": "MSR-T09",
+      "title": "Wiki-aware chunker implement",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "wiki_mvp",
+      "depends_on": ["MSR-T07", "MSR-T08"],
+      "acceptance_criteria": [
+        "Wiki documents are chunked by article and section structure where possible.",
+        "Chunks remain small enough for retrieval but preserve context.",
+        "Chunk metadata supports later citations.",
+        "Chunk identifiers remain stable across rebuilds when source content is unchanged."
+      ]
+    },
+    {
+      "id": "MSR-T10",
+      "title": "Shared indexing pipeline refactor",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": ["MSR-T03", "MSR-T05", "MSR-T07"],
+      "acceptance_criteria": [
+        "The indexing pipeline works for multiple source types.",
+        "Indexes remain deterministic and rebuildable.",
+        "Source-specific fields do not break the shared index format.",
+        "The pipeline can be invoked by hub-owned tasks without assuming local mutable singleton state."
+      ]
+    },
+    {
+      "id": "MSR-T11",
+      "title": "Per-source storage layout define",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "foundation",
+      "depends_on": ["MSR-T03", "MSR-T10"],
+      "acceptance_criteria": [
+        "Storage layout distinguishes repo/code, artifact and wiki content cleanly.",
+        "Reindexing one source type does not require destructive rebuild of all others unless explicitly requested.",
+        "Storage paths are configurable and laptop-friendly.",
+        "The layout works across container boundaries without hidden shared-state assumptions."
+      ]
+    },
+    {
+      "id": "MSR-T12",
+      "title": "Shared retrieval service support source filters",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "integration",
+      "depends_on": ["MSR-T05", "MSR-T06", "MSR-T10"],
+      "acceptance_criteria": [
+        "Queries can target repo-only, wiki-only, artifact-only or mixed retrieval.",
+        "Source filters are explicit in the query API.",
+        "Returned results preserve source origin.",
+        "Source selection behavior is visible in traces or diagnostics."
+      ]
+    },
+    {
+      "id": "MSR-T13",
+      "title": "Hybrid ranking across sources design",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T05", "MSR-T06", "MSR-T07", "MSR-T12"],
+      "acceptance_criteria": [
+        "A ranking strategy exists for comparing chunks across different source types.",
+        "The design avoids repo code being drowned by wiki text or vice versa.",
+        "Per-source weighting is configurable.",
+        "Ranking policy can evolve independently of source adapters."
+      ]
+    },
+    {
+      "id": "MSR-T14",
+      "title": "Citations and provenance format unify",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "integration",
+      "depends_on": ["MSR-T03", "MSR-T12"],
+      "acceptance_criteria": [
+        "All retrieval results return unified provenance fields.",
+        "Wiki citations include article and section references.",
+        "Repo citations include file/path references.",
+        "Artifact citations include task/artifact references."
+      ]
+    },
+    {
+      "id": "MSR-T15",
+      "title": "Configuration surface for source enabling add",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "integration",
+      "depends_on": ["MSR-T04", "MSR-T10", "MSR-T11"],
+      "acceptance_criteria": [
+        "Config can enable or disable individual source types.",
+        "Wiki-specific config includes corpus path and indexing options.",
+        "Unsafe or broken source config fails closed.",
+        "Default config preserves current repo/code usage for existing deployments."
+      ]
+    },
+    {
+      "id": "MSR-T16",
+      "title": "Preflight diagnostics for all source types add",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T11", "MSR-T15"],
+      "acceptance_criteria": [
+        "Preflight can report whether repo, artifact and wiki sources are available.",
+        "Diagnostics expose corpus/index presence and obvious problems.",
+        "Operators can understand why retrieval quality is degraded.",
+        "Diagnostics identify source-specific and orchestration-level failures separately."
+      ]
+    },
+    {
+      "id": "MSR-T17",
+      "title": "API for source-aware retrieval extend",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T12", "MSR-T14", "MSR-T15"],
+      "acceptance_criteria": [
+        "Retrieval endpoints accept source selection or source policy parameters.",
+        "Responses contain source type and citation metadata.",
+        "Backward compatibility for existing callers is preserved where needed.",
+        "New API fields are additive and optional for legacy clients."
+      ]
+    },
+    {
+      "id": "MSR-T18",
+      "title": "Context-bundle policy extend for multi-source retrieval",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T12", "MSR-T13", "MSR-T14"],
+      "acceptance_criteria": [
+        "Context assembly can budget chunks per source type.",
+        "Policies prevent one source from flooding the context window.",
+        "The effective retrieval mix is visible in diagnostics.",
+        "Policy decisions remain centralized and configurable rather than buried in adapters."
+      ]
+    },
+    {
+      "id": "MSR-T19",
+      "title": "Wiki-only MVP corpus prepare",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "wiki_mvp",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "A small curated local wiki corpus exists for initial validation.",
+        "Corpus is sufficient to prove end-to-end import, index and query.",
+        "MVP corpus is documented and reproducible.",
+        "Corpus scope is intentionally narrow and laptop-friendly."
+      ]
+    },
+    {
+      "id": "MSR-T20",
+      "title": "Mixed retrieval demo define",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "operator_readiness",
+      "depends_on": ["MSR-T12", "MSR-T14", "MSR-T18", "MSR-T19"],
+      "acceptance_criteria": [
+        "There is a demo where repo context and wiki context are both retrieved intentionally.",
+        "The demo shows why mixed retrieval is useful.",
+        "The output clearly distinguishes source origins.",
+        "The demo can be executed without depending on internet access."
+      ]
+    },
+    {
+      "id": "MSR-T21",
+      "title": "Golden path for offline wiki-backed help document",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "operator_readiness",
+      "depends_on": ["MSR-T15", "MSR-T17", "MSR-T19"],
+      "acceptance_criteria": [
+        "A first official workflow explains how to enable and use wiki-backed retrieval.",
+        "The flow is reproducible for another developer.",
+        "The flow includes citations in the result.",
+        "The documentation explains what the wiki source is for and what it is not for."
+      ]
+    },
+    {
+      "id": "MSR-T22",
+      "title": "Regression tests for repo/code behavior add",
+      "status": "todo",
+      "priority": "P0",
+      "phase": "foundation",
+      "depends_on": ["MSR-T05"],
+      "acceptance_criteria": [
+        "Existing codecompass behavior is protected by tests before refactor completion.",
+        "Repo retrieval quality does not silently regress.",
+        "Tests cover source separation assumptions.",
+        "Regression coverage exists before deeper shared-core refactors are merged."
+      ]
+    },
+    {
+      "id": "MSR-T23",
+      "title": "Importer, indexer and retriever tests for wiki source add",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "wiki_mvp",
+      "depends_on": ["MSR-T08", "MSR-T09", "MSR-T10", "MSR-T14"],
+      "acceptance_criteria": [
+        "Wiki importer has basic tests.",
+        "Wiki chunking/indexing has deterministic tests.",
+        "Wiki retrieval returns stable source metadata.",
+        "Tests cover malformed inputs and deterministic rebuild behavior."
+      ]
+    },
+    {
+      "id": "MSR-T24",
+      "title": "Smoke test for end-to-end multi-source retrieval add",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T12", "MSR-T14", "MSR-T22", "MSR-T23"],
+      "acceptance_criteria": [
+        "A smoke test covers import/index/query across at least repo and wiki sources.",
+        "Returned citations are validated.",
+        "The system proves source separation under mixed retrieval.",
+        "The smoke test can run in a reproducible local/containerized environment."
+      ]
+    },
+    {
+      "id": "MSR-T25",
+      "title": "Read-model output include source summaries",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "operator_readiness",
+      "depends_on": ["MSR-T14", "MSR-T17"],
+      "acceptance_criteria": [
+        "Assistant/dashboard summaries can show which source classes contributed.",
+        "Source contributions are understandable at a glance.",
+        "Admin views retain deeper provenance detail.",
+        "Non-admin views do not expose more provenance detail than intended."
+      ]
+    },
+    {
+      "id": "MSR-T26",
+      "title": "Performance and storage limits for laptop setups document",
+      "status": "todo",
+      "priority": "P2",
+      "phase": "operator_readiness",
+      "depends_on": ["MSR-T19", "MSR-T23", "MSR-T24"],
+      "acceptance_criteria": [
+        "There is a documented small-scale recommended corpus size for laptops.",
+        "Storage and indexing costs are roughly described.",
+        "The initial rollout avoids trying to ingest too much at once.",
+        "Observed limits are tied to a concrete reproducible MVP corpus."
+      ]
+    },
+    {
+      "id": "MSR-T27",
+      "title": "Redaction and provenance policy for wiki and mixed-source output add",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T14", "MSR-T18"],
+      "acceptance_criteria": [
+        "Wiki and mixed-source output follow explicit provenance rules.",
+        "Stored and displayed metadata are appropriate for admin and non-admin views.",
+        "No hidden source blending occurs in rendered results or context bundles.",
+        "Policy application is testable and observable."
+      ]
+    },
+    {
+      "id": "MSR-T28",
+      "title": "Hub-triggered API endpoints for import, reindex and query flows add",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "integration",
+      "depends_on": ["MSR-T04", "MSR-T10", "MSR-T12", "MSR-T15"],
+      "acceptance_criteria": [
+        "There are API entry points for import, reindex and retrieval flows.",
+        "APIs trigger hub-owned workflows rather than bypassing the orchestration model.",
+        "Responses expose traceability, source information and workflow status where appropriate.",
+        "The API design remains additive for existing clients."
+      ]
+    },
+    {
+      "id": "MSR-T29",
+      "title": "Container and runtime assumptions document",
+      "status": "todo",
+      "priority": "P1",
+      "phase": "foundation",
+      "depends_on": ["MSR-T04", "MSR-T11", "MSR-T15"],
+      "acceptance_criteria": [
+        "Runtime assumptions for hub, workers, storage and index access are written down explicitly.",
+        "The design identifies what must be persisted across container restarts.",
+        "No workflow step depends on accidental in-memory state sharing between containers.",
+        "Operational prerequisites are concrete enough for local and CI environments."
+      ]
+    },
+    {
+      "id": "MSR-T30",
+      "title": "Future source roadmap prepare",
+      "status": "todo",
+      "priority": "P3",
+      "phase": "future",
+      "depends_on": ["MSR-T02", "MSR-T03", "MSR-T11", "MSR-T18"],
+      "acceptance_criteria": [
+        "The design leaves room for future FreeCAD, KiCad, Blender or handbook sources.",
+        "Roadmap does not require immediate implementation.",
+        "Source extensibility is documented without overcomplicating the MVP.",
+        "Future source examples validate that the current abstractions are not wiki-specific."
+      ]
+    }
+  ]
 }
