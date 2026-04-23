@@ -77,3 +77,5 @@ By default, pause/abort are diagnostic recommendations unless explicit enforceme
 - Unified approval model: `docs/unified-approval-model.md`
 - ContextManager target model: `docs/context-manager-target-model.md`
 - Optional ml-intern fit assessment: `docs/ml-intern-fit-assessment.md`
+- Optional ml-intern adapter boundary: `docs/ml-intern-adapter-boundary.md`
+- Future specialized worker guidance: `docs/specialized-worker-guidance.md`

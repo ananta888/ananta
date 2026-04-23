@@ -31,6 +31,7 @@ from agent.models import (
 )
 from agent.pipeline_trace import append_stage
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
+from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
@@ -58,6 +59,7 @@ class LocalExecutionResult:
     status: str
     loop_signals: list[dict]
     loop_detection: dict | None
+    approval_decision: dict | None
 
 
 class TaskExecutionService:
@@ -225,6 +227,7 @@ class TaskExecutionService:
             "retry_history": execution_run.retry_history if request_data.command else [],
             "loop_signals": execution_run.loop_signals or None,
             "loop_detection": execution_run.loop_detection,
+            "approval_decision": execution_run.approval_decision,
             "cost_summary": {
                 "provider": None,
                 "model": None,
@@ -262,6 +265,61 @@ class TaskExecutionService:
         loop_trace_id = self._resolve_loop_trace_id(effective_task)
         loop_service = get_doom_loop_service()
         loop_signature_for_command = self._loop_signature(command)
+        approval_decision = get_approval_policy_service().evaluate(
+            command=command,
+            tool_calls=tool_calls,
+            task=effective_task,
+            agent_cfg=guard_cfg,
+        )
+        approval_payload = approval_decision.as_dict()
+        if pipeline is not None:
+            append_stage(
+                pipeline,
+                name="approval_check",
+                status="blocked" if approval_payload.get("classification") == "blocked" else "ok",
+                metadata={
+                    "classification": approval_payload.get("classification"),
+                    "reason_code": approval_payload.get("reason_code"),
+                    "required_confirmation_level": approval_payload.get("required_confirmation_level"),
+                },
+            )
+        if approval_payload.get("classification") == "blocked" and approval_payload.get("enforced"):
+            if tid:
+                self._append_approval_block_history(
+                    tid=tid,
+                    task=effective_task,
+                    command=command,
+                    tool_calls=tool_calls,
+                    approval_decision=approval_payload,
+                )
+            raise ToolGuardrailError(
+                details={
+                    "blocked_tools": [str((item or {}).get("name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_reasons": [approval_payload.get("reason_code")],
+                    "approval": approval_payload,
+                }
+            )
+        if (
+            approval_payload.get("classification") == "confirm_required"
+            and approval_payload.get("enforced")
+            and not bool((effective_task or {}).get("approval_confirmed"))
+        ):
+            if tid:
+                self._append_approval_block_history(
+                    tid=tid,
+                    task=effective_task,
+                    command=command,
+                    tool_calls=tool_calls,
+                    approval_decision=approval_payload,
+                    reason="approval_confirmation_required",
+                )
+            raise ToolGuardrailError(
+                details={
+                    "blocked_tools": [str((item or {}).get("name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_reasons": [approval_payload.get("reason_code")],
+                    "approval": approval_payload,
+                }
+            )
 
         risk_decision = evaluate_execution_risk(
             command=command,
@@ -477,6 +535,7 @@ class TaskExecutionService:
             status="completed" if final_exit_code == 0 else "failed",
             loop_signals=loop_signals,
             loop_detection=loop_detection,
+            approval_decision=approval_payload,
         )
 
     def persist_task_proposal_result(
@@ -637,6 +696,36 @@ class TaskExecutionService:
             "failed",
             history=history,
             last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
+            last_exit_code=1,
+        )
+
+    def _append_approval_block_history(
+        self,
+        *,
+        tid: str,
+        task: dict | None,
+        command: str | None,
+        tool_calls: list[dict] | None,
+        approval_decision: dict,
+        reason: str = "approval_blocked",
+    ) -> None:
+        history = list((task or {}).get("history") or [])
+        history.append(
+            {
+                "event_type": "approval_blocked",
+                "reason": reason,
+                "command": command,
+                "tool_calls": tool_calls or [],
+                "approval_decision": dict(approval_decision or {}),
+                "timestamp": time.time(),
+            }
+        )
+        get_task_runtime_service().update_local_task_status(
+            tid,
+            "blocked",
+            history=history,
+            status_reason_code=str((approval_decision or {}).get("reason_code") or "approval_blocked"),
+            last_output=f"[approval] blocked: {approval_decision.get('reason_code')}",
             last_exit_code=1,
         )
 

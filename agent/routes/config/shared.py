@@ -32,6 +32,7 @@ _DOOM_LOOP_DEFAULT_SEVERITY_ACTIONS = {
     "high": "require_review",
     "critical": "pause",
 }
+_APPROVAL_ACTION_CLASSES = {"read_only", "mutation", "system_mutation", "install_remove", "admin_mutation"}
 
 
 def normalize_artifact_flow_config(value: dict | None) -> dict:
@@ -86,6 +87,49 @@ def normalize_doom_loop_policy_config(value: dict | None) -> dict:
         "critical_abort_threshold": _clamp_int(payload.get("critical_abort_threshold"), default=8, minimum=4, maximum=120),
         "severity_actions": severity_actions,
         "enforce_pause_abort": bool(payload.get("enforce_pause_abort", False)),
+    }
+
+
+def normalize_unified_approval_policy_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    overrides_raw = payload.get("governance_overrides") if isinstance(payload.get("governance_overrides"), dict) else {}
+
+    def _normalize_action_classes(raw, default: list[str]) -> list[str]:
+        if not isinstance(raw, list):
+            return list(default)
+        values: list[str] = []
+        for item in raw:
+            value = str(item or "").strip().lower()
+            if value not in _APPROVAL_ACTION_CLASSES or value in values:
+                continue
+            values.append(value)
+        return values or list(default)
+
+    defaults = {
+        "safe": {
+            "confirm_required": ["mutation"],
+            "blocked": ["system_mutation", "install_remove", "admin_mutation"],
+        },
+        "balanced": {
+            "confirm_required": ["system_mutation", "install_remove"],
+            "blocked": ["admin_mutation"],
+        },
+        "strict": {
+            "confirm_required": ["mutation"],
+            "blocked": ["system_mutation", "install_remove", "admin_mutation"],
+        },
+    }
+    normalized_overrides: dict[str, dict[str, list[str]]] = {}
+    for mode, default in defaults.items():
+        mode_cfg = overrides_raw.get(mode) if isinstance(overrides_raw.get(mode), dict) else {}
+        normalized_overrides[mode] = {
+            "confirm_required": _normalize_action_classes(mode_cfg.get("confirm_required"), default["confirm_required"]),
+            "blocked": _normalize_action_classes(mode_cfg.get("blocked"), default["blocked"]),
+        }
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "enforce_confirm_required": bool(payload.get("enforce_confirm_required", False)),
+        "governance_overrides": normalized_overrides,
     }
 
 

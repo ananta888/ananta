@@ -895,6 +895,16 @@ class TaskExecutionTrackingService:
             verification_status["execution_scope"] = scope_summary
         if provenance:
             verification_status["execution_provenance"] = provenance
+        approval_decision = dict((extra_history or {}).get("approval_decision") or {})
+        if approval_decision:
+            verification_status["approval_state"] = {
+                "classification": approval_decision.get("classification"),
+                "reason_code": approval_decision.get("reason_code"),
+                "required_confirmation_level": approval_decision.get("required_confirmation_level"),
+                "operation_class": approval_decision.get("operation_class"),
+                "enforced": bool(approval_decision.get("enforced")),
+                "updated_at": time.time(),
+            }
         verification_status["execution_routing"] = {
             "inference_provider": cost_summary.get("inference_provider"),
             "inference_model": cost_summary.get("inference_model"),

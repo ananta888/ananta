@@ -11,9 +11,11 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.llm_integration import _default_model_for_provider, resolve_preferred_local_runtime
 from agent.local_llm_backends import resolve_local_openai_backend
+from agent.governance_modes import resolve_governance_mode
 from agent.runtime_policy import normalize_task_kind
 from agent.services.hub_llm_service import generate_text
 from agent.services.routing_decision_service import get_routing_decision_service
+from agent.services.tool_routing_service import get_tool_routing_service
 from agent.tool_capabilities import (
     build_capability_contract,
     describe_capabilities,
@@ -230,6 +232,13 @@ def _resolve_request_runtime(data: dict, user_prompt: str) -> dict:
         runtime_selection=runtime_choice,
     )
     routing["fallback_policy"] = routing["decision_chain"]["fallback_policy"]
+    routing["tool_router"] = get_tool_routing_service().route_execution_backend(
+        task_kind=inferred_task_kind,
+        requested_backend=str(agent_cfg.get("sgpt_execution_backend") or "").strip().lower() or None,
+        required_capabilities=[],
+        governance_mode=resolve_governance_mode(agent_cfg),
+        agent_cfg=agent_cfg,
+    )
     return {
         "agent_cfg": agent_cfg,
         "llm_cfg": llm_cfg,

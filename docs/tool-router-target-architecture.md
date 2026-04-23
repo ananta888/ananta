@@ -52,3 +52,12 @@ Router decisions should include:
 - `availability_snapshot`
 
 This output is intended for traces/read-model surfaces in operator views.
+
+## Current diagnostics surface
+
+Routing diagnostics are exposed in runtime payloads under:
+
+- `routing.decision_chain` (policy path and selected source)
+- `routing.fallback_policy` (effective fallback gates)
+- `routing.tool_router.decision` (selected target, alternatives, policy checks)
+- `routing.tool_router.catalog_summary` (normalized catalog counts/classes)

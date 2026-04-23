@@ -257,6 +257,16 @@ def set_config():
         merged_doom_loop_policy = (current_cfg.get("doom_loop_policy", {}) or {}).copy()
         merged_doom_loop_policy.update(doom_loop_cfg)
         new_cfg = {**new_cfg, "doom_loop_policy": shared.normalize_doom_loop_policy_config(merged_doom_loop_policy)}
+    if "unified_approval_policy" in new_cfg:
+        approval_cfg = new_cfg.get("unified_approval_policy")
+        if not isinstance(approval_cfg, dict):
+            return api_response(status="error", message="invalid_unified_approval_policy", code=400)
+        merged_approval_policy = (current_cfg.get("unified_approval_policy", {}) or {}).copy()
+        merged_approval_policy.update(approval_cfg)
+        new_cfg = {
+            **new_cfg,
+            "unified_approval_policy": shared.normalize_unified_approval_policy_config(merged_approval_policy),
+        }
 
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg

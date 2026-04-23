@@ -313,6 +313,41 @@ def test_doom_loop_policy_is_normalized_and_merged(client, admin_token):
     }
 
 
+def test_unified_approval_policy_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    first = {
+        "unified_approval_policy": {
+            "enabled": True,
+            "enforce_confirm_required": True,
+            "governance_overrides": {
+                "balanced": {
+                    "confirm_required": ["system_mutation", "install_remove", "invalid"],
+                    "blocked": ["admin_mutation", "invalid"],
+                }
+            },
+        }
+    }
+    response = client.post("/config", json=first, headers=headers)
+    assert response.status_code == 200
+
+    second = {"unified_approval_policy": {"governance_overrides": {"safe": {"confirm_required": ["mutation", "read_only"]}}}}
+    response = client.post("/config", json=second, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    approval = cfg["unified_approval_policy"]
+    assert approval["enabled"] is True
+    assert approval["enforce_confirm_required"] is True
+    safe_override = (approval.get("governance_overrides") or {}).get("safe") or {}
+    balanced_override = (approval.get("governance_overrides") or {}).get("balanced") or {}
+    assert safe_override["confirm_required"] == ["mutation", "read_only"]
+    assert "admin_mutation" in (safe_override.get("blocked") or [])
+    assert balanced_override["confirm_required"] == ["system_mutation", "install_remove"]
+    assert balanced_override["blocked"] == ["admin_mutation"]
+
+
 def test_model_override_maps_are_normalized(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     response = client.post(
@@ -1182,5 +1217,7 @@ def test_llm_generate_uses_benchmark_recommendation_for_available_model(client, 
     assert routing["recommendation"]["selection_source"] == "benchmarks_available_top_ranked"
     assert routing["decision_chain"]["steps"][0]["step"] == "task_benchmark"
     assert routing["fallback_policy"]["enabled"] is True
+    assert (routing.get("tool_router") or {}).get("catalog_version") == "tool-router-v1"
+    assert ((routing.get("tool_router") or {}).get("decision") or {}).get("policy_version") == "tool-router-v1"
     assert mock_generate.call_args.kwargs["provider"] == "openai"
     assert mock_generate.call_args.kwargs["base_url"] == "http://127.0.0.1:8010/v1"
