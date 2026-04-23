@@ -129,14 +129,13 @@ class ToolRoutingService:
 
         requested = str(requested_backend or "").strip().lower() or None
         alternatives: list[dict[str, Any]] = []
-        best_candidate: tuple[dict, int, int] | None = None
+        candidate_rows: list[dict[str, Any]] = []
         for item in backend_items:
             candidate_id = str(item.get("id") or "").strip()
             candidate_caps = {str(cap or "").strip().lower() for cap in list(item.get("capability_classes") or [])}
             missing = [cap for cap in required if cap not in candidate_caps]
             available = str(item.get("availability") or "unavailable") == "ready"
             governance_block = self._is_governance_blocked(governance_mode=governance, risk_class=str(item.get("risk_class") or "low"))
-            selected = False
             reason = "candidate_available"
             if not available:
                 reason = "backend_unavailable"
@@ -144,33 +143,48 @@ class ToolRoutingService:
                 reason = "governance_risk_blocked"
             elif missing:
                 reason = f"missing_capabilities:{','.join(missing)}"
-            elif requested and requested != candidate_id:
-                reason = "requested_backend_preference"
-            else:
-                selected = True
-                reason = "best_matching_candidate"
-
-            alternatives.append(
+            candidate_rows.append(
                 {
                     "target": candidate_id,
-                    "selected": selected,
+                    "eligible": available and not governance_block and not missing,
                     "reason": reason,
                     "missing_capabilities": missing,
                     "risk_class": item.get("risk_class"),
                     "availability": item.get("availability"),
+                    "score": len([cap for cap in required if cap in candidate_caps]),
+                    "risk_rank": _RISK_CLASS_RANK.get(str(item.get("risk_class") or "low"), 3),
                 }
             )
-            if not selected:
-                continue
-            score = len([cap for cap in required if cap in candidate_caps])
-            risk_rank = _RISK_CLASS_RANK.get(str(item.get("risk_class") or "low"), 3)
-            if best_candidate is None or score > best_candidate[1] or (score == best_candidate[1] and risk_rank < best_candidate[2]):
-                best_candidate = (item, score, risk_rank)
 
-        selected_target = str(best_candidate[0].get("id")) if best_candidate else None
+        eligible = [row for row in candidate_rows if row.get("eligible")]
+        selected_row: dict[str, Any] | None = None
+        if requested:
+            selected_row = next((row for row in eligible if row.get("target") == requested), None)
+        if selected_row is None and eligible:
+            selected_row = sorted(eligible, key=lambda row: (-int(row.get("score") or 0), int(row.get("risk_rank") or 3), str(row.get("target") or "")))[0]
+
+        selected_target = str(selected_row.get("target")) if selected_row else None
         selected_reason = "no_eligible_backend"
         if selected_target:
             selected_reason = "requested_backend_selected" if requested and requested == selected_target else "capability_match_selected"
+        for row in candidate_rows:
+            row_target = str(row.get("target") or "")
+            row_selected = bool(selected_target and row_target == selected_target)
+            row_reason = str(row.get("reason") or "candidate_available")
+            if row.get("eligible") and not row_selected:
+                row_reason = "fallback_candidate_not_selected" if selected_target else "candidate_available"
+            if requested and row_target != requested and row_selected:
+                row_reason = "fallback_from_requested_backend"
+            alternatives.append(
+                {
+                    "target": row_target,
+                    "selected": row_selected,
+                    "reason": row_reason,
+                    "missing_capabilities": list(row.get("missing_capabilities") or []),
+                    "risk_class": row.get("risk_class"),
+                    "availability": row.get("availability"),
+                }
+            )
 
         policy_checks = [
             {"rule_id": "required_capabilities_present", "result": bool(required), "reason": ",".join(required) if required else "no_explicit_required_capabilities"},

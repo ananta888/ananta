@@ -163,9 +163,12 @@ class ApprovalPolicyService:
     def _classify_operation(self, *, command: str | None, tool_calls: list[dict] | None, cfg: dict[str, Any]) -> str:
         command_text = str(command or "").strip().lower()
         if command_text:
-            if any(token in command_text for token in (" pip install ", " pip uninstall ", " npm install ", " apt install ", " apt remove ", "brew install ", "brew uninstall ")):
+            if any(
+                token in command_text
+                for token in ("pip install", "pip uninstall", "npm install", "apt install", "apt remove", "brew install", "brew uninstall")
+            ):
                 return "install_remove"
-            if any(token in command_text for token in (" rm -rf", " shutdown ", " reboot ", " systemctl ")):
+            if any(token in command_text for token in ("rm -rf", "shutdown", "reboot", "systemctl")):
                 return "system_mutation"
             if any(token in command_text for token in ("sed -i", "chmod ", "chown ", "mv ", "cp ", "tee ")):
                 return "mutation"
