@@ -123,6 +123,60 @@ class EvolutionService:
             "proposals": [self._proposal_read_model(proposal) for proposal in proposals],
         }
 
+    def review_persisted_proposal(
+        self,
+        task_id: str,
+        proposal_id: str,
+        *,
+        action: str,
+        actor: str,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        repos = self._repositories or get_repository_registry()
+        persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
+        if persisted is None or str(persisted.task_id or "") != str(task_id):
+            raise KeyError("evolution_proposal_not_found")
+        normalized_action = str(action or "").strip().lower()
+        if normalized_action not in {"approve", "reject"}:
+            raise ValueError("invalid_review_action")
+
+        review_status = "approved" if normalized_action == "approve" else "rejected"
+        proposal_metadata = dict(persisted.proposal_metadata or {})
+        history = list(proposal_metadata.get("history") or [])
+        review = {
+            "required": bool(persisted.requires_review),
+            "status": review_status,
+            "reviewed_by": str(actor or "system"),
+            "reviewed_at": time.time(),
+            "comment": str(comment or "").strip() or None,
+        }
+        history.append(
+            {
+                "event_type": "proposal_review",
+                "action": normalized_action,
+                "status": review_status,
+                "actor": review["reviewed_by"],
+                "comment": review["comment"],
+                "timestamp": review["reviewed_at"],
+            }
+        )
+        proposal_metadata["review"] = review
+        proposal_metadata["history"] = history[-20:]
+        persisted.proposal_metadata = proposal_metadata
+        persisted.status = "approved" if review_status == "approved" else "rejected"
+        saved = repos.evolution_proposal_repo.save(persisted)
+        self._audit(
+            "evolution_proposal_reviewed",
+            {
+                "task_id": task_id,
+                "proposal_id": proposal_id,
+                "action": normalized_action,
+                "status": review_status,
+                "actor": review["reviewed_by"],
+            },
+        )
+        return self._proposal_read_model(saved)
+
     def build_context_for_task(
         self,
         task_id: str,
@@ -586,13 +640,34 @@ class EvolutionService:
             provider_metadata=dict(persisted.provider_metadata or {}),
             raw_payload=persisted.raw_payload,
         )
-        return self.validate(
+        result = self.validate(
             context,
             proposal,
             provider_name=provider_name or persisted.provider_name,
             config=config,
             trigger=trigger,
         )
+        proposal_metadata = dict(persisted.proposal_metadata or {})
+        history = list(proposal_metadata.get("history") or [])
+        validations = list(proposal_metadata.get("validations") or [])
+        validation_entry = result.model_dump(mode="json")
+        validations.append(validation_entry)
+        history.append(
+            {
+                "event_type": "proposal_validation",
+                "status": result.status,
+                "valid": bool(result.valid),
+                "validation_id": result.validation_id,
+                "timestamp": time.time(),
+            }
+        )
+        proposal_metadata["last_validation"] = validation_entry
+        proposal_metadata["validations"] = validations[-20:]
+        proposal_metadata["history"] = history[-20:]
+        persisted.proposal_metadata = proposal_metadata
+        persisted.status = "validated" if result.valid else "validation_failed"
+        repos.evolution_proposal_repo.save(persisted)
+        return result
 
     def apply_persisted_proposal(
         self,
@@ -607,6 +682,10 @@ class EvolutionService:
         persisted = repos.evolution_proposal_repo.get_by_id(proposal_id)
         if persisted is None or str(persisted.task_id or "") != str(task_id):
             raise KeyError("evolution_proposal_not_found")
+        proposal_metadata = dict(persisted.proposal_metadata or {})
+        review = dict(proposal_metadata.get("review") or {})
+        if bool(persisted.requires_review) and str(review.get("status") or "").strip().lower() != "approved":
+            raise PermissionError("evolution_apply_requires_approved_review")
         context = self.build_context_for_task(task_id)
         proposal = EvolutionProposal(
             proposal_id=persisted.id,
@@ -621,13 +700,41 @@ class EvolutionService:
             provider_metadata=dict(persisted.provider_metadata or {}),
             raw_payload=persisted.raw_payload,
         )
-        return self.apply(
+        result = self.apply(
             context,
             proposal,
             provider_name=provider_name or persisted.provider_name,
             config=config,
             trigger=trigger,
         )
+        applies = list(proposal_metadata.get("applies") or [])
+        history = list(proposal_metadata.get("history") or [])
+        apply_entry = result.model_dump(mode="json")
+        applies.append(apply_entry)
+        history.append(
+            {
+                "event_type": "proposal_apply",
+                "status": result.status,
+                "applied": bool(result.applied),
+                "apply_id": result.apply_id,
+                "timestamp": time.time(),
+            }
+        )
+        rollback_hints = list(proposal_metadata.get("rollback_hints") or [])
+        if not rollback_hints:
+            rollback_hints = [
+                "Apply bleibt hub-gesteuert; pruefe Audit-Trace, Artefakt-Referenzen und betroffene Targets vor Rollback.",
+                "Rollback darf keine Worker-zu-Worker-Orchestrierung ausloesen.",
+            ]
+        proposal_metadata["last_apply"] = apply_entry
+        proposal_metadata["applies"] = applies[-20:]
+        proposal_metadata["history"] = history[-20:]
+        proposal_metadata["rollback_hints"] = rollback_hints
+        persisted.proposal_metadata = proposal_metadata
+        persisted.artifact_refs = list(result.artifact_refs or [])
+        persisted.status = "applied" if result.applied else "apply_prepared"
+        repos.evolution_proposal_repo.save(persisted)
+        return result
 
     def _audit_details(
         self,
@@ -765,6 +872,10 @@ class EvolutionService:
         }
 
     def _proposal_read_model(self, proposal: EvolutionProposalDB) -> dict[str, Any]:
+        proposal_metadata = dict(proposal.proposal_metadata or {})
+        review = dict(proposal_metadata.get("review") or {})
+        validations = list(proposal_metadata.get("validations") or [])
+        applies = list(proposal_metadata.get("applies") or [])
         return {
             "proposal_id": proposal.id,
             "run_id": proposal.run_id,
@@ -779,7 +890,25 @@ class EvolutionService:
             "status": proposal.status,
             "target_refs": list(proposal.target_refs or []),
             "artifact_refs": list(proposal.artifact_refs or []),
+            "review": {
+                "required": bool(proposal.requires_review),
+                "status": str(review.get("status") or ("pending" if proposal.requires_review else "not_required")),
+                "reviewed_by": review.get("reviewed_by"),
+                "reviewed_at": review.get("reviewed_at"),
+                "comment": review.get("comment"),
+            },
+            "validation_summary": {
+                "count": len(validations),
+                "last_result": proposal_metadata.get("last_validation"),
+            },
+            "apply_summary": {
+                "count": len(applies),
+                "last_result": proposal_metadata.get("last_apply"),
+                "rollback_hints": list(proposal_metadata.get("rollback_hints") or []),
+            },
+            "history": list(proposal_metadata.get("history") or []),
             "provider_metadata": dict(proposal.provider_metadata or {}),
+            "proposal_metadata": proposal_metadata,
             "created_at": proposal.created_at,
             "updated_at": proposal.updated_at,
         }

@@ -32,6 +32,9 @@ Recommended first production-like phase:
 Operators can call REST or MCP analysis tools. Runs and proposals are persisted,
 audited and exposed through the task Evolution read model. Provider raw payloads
 and Evolution context signals are redacted before storage or provider handoff.
+Reviewable proposals now keep their own review, validation and apply history in
+the persisted proposal metadata so that proposal lifecycle state stays separate
+from the original analysis run.
 
 For Evolver, keep the provider override restricted during this phase:
 
@@ -65,6 +68,8 @@ global Evolution policy later permits those operations for other providers.
 - Enable `auto_triggers_enabled=true` only after the failed-task E2E path is
   verified in the target environment.
 - Use `validate_allowed=true` for provider or policy preflight checks.
+- Use `POST /tasks/<task_id>/evolution/proposals/<proposal_id>/review` to record
+  explicit proposal approval or rejection before any future apply staging.
 - Keep Evolver `force_analyze_only=true`; only providers that explicitly expose
   and implement Validate should receive validation calls.
 - Monitor `evolution_analyses_total`, `evolution_proposals_total` and
@@ -96,7 +101,9 @@ Only enable `apply_allowed=true` in a reviewed staging environment where:
 - container and workspace boundaries are explicit.
 
 Even when `apply_allowed=true`, `require_review_before_apply=true` blocks
-review-required proposals until a later approval model clears that requirement.
+review-required proposals until an explicit persisted review approval exists.
+Apply attempts write lifecycle state, artifact references and rollback hints
+back to the proposal read model for later audit and operator review.
 
 ## Phase 4: Future Controlled Apply
 
