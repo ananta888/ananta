@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "blueprint_template_team_simplification",
-  "updated_at": "2026-04-23T22:52:57+02:00",
+  "updated_at": "2026-04-23T23:10:17+02:00",
   "purpose": "Simplify the outward-facing blueprint/template/team model without losing the strong internal structure, auditability and blueprint-first architecture.",
   "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -110,7 +110,7 @@
     {
       "id": "BTS-T06",
       "title": "Work-profile surface move to the front",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T03", "BTS-T04"],
@@ -123,7 +123,7 @@
     {
       "id": "BTS-T07",
       "title": "Role and artifact language soften for normal users",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T02", "BTS-T03"],
@@ -136,7 +136,7 @@
     {
       "id": "BTS-T08",
       "title": "Admin and standard modes separate in UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T03"],
@@ -149,7 +149,7 @@
     {
       "id": "BTS-T09",
       "title": "Snapshot, drift and reconcile visibility demote",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T08"],
@@ -162,7 +162,7 @@
     {
       "id": "BTS-T10",
       "title": "Team concept explain as running instance only",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T03"],
@@ -356,16 +356,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T22:52:57+02:00",
+    "updated_at": "2026-04-23T23:10:17+02:00",
     "total": 24,
     "by_status": {
-      "todo": 19,
+      "todo": 14,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 5
+      "done": 10
     },
-    "progress_percent_done": 20.8,
+    "progress_percent_done": 41.7,
     "by_priority": {
       "P0": 12,
       "P1": 11,
@@ -381,15 +381,15 @@
       },
       "blueprint_catalog": {
         "total": 7,
-        "done": 2,
+        "done": 3,
         "partial": 0,
-        "todo": 5
+        "todo": 4
       },
       "ux_simplification": {
         "total": 9,
-        "done": 0,
+        "done": 4,
         "partial": 0,
-        "todo": 9
+        "todo": 5
       },
       "documentation_rollout": {
         "total": 5,
@@ -411,7 +411,14 @@
       "BTS-T02",
       "BTS-T03",
       "BTS-T04",
-      "BTS-T05"
+      "BTS-T05",
+      "BTS-T06"
+    ],
+    "second_bundle_completed_tasks": [
+      "BTS-T07",
+      "BTS-T08",
+      "BTS-T09",
+      "BTS-T10"
     ]
   }
 }

@@ -11,6 +11,12 @@ Diese Notiz beschreibt den aktuellen Admin-Ist-Zustand fuer Blueprints, Rollen-T
 
 ## Blueprints
 
+### Produktkatalog (Standard-Modus)
+
+- `GET /teams/blueprints/catalog` liefert die vereinfachte Produktsicht fuer den Standardmodus.
+- Pro Blueprint sind u. a. `intended_use`, `when_to_use`, `expected_outputs`, `safety_review_stance` und `work_profile_summary` enthalten.
+- `work_profile_summary` enthaelt empfohlene Goal-Modi, Playbook-Hinweise, Capability-Hinweise und ein lesbares Governance-Profil.
+
 ### Seed-Reconcile
 
 - `GET /teams/blueprints` und `GET /teams/blueprints/<id>` triggern vor der Antwort einen Seed-Abgleich.
@@ -81,6 +87,7 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 - Start-Artefakte vom Typ `task` werden als Team-Tasks materialisiert.
 - Blueprint-Rollen werden fuer die Team-Struktur auf bestehende Rollen gemappt oder kontrolliert erzeugt.
 - Seed-Reconcile und Instanziierung sind gemeinsam durch Backend-Integrationstests abgesichert.
+- Team-Listen liefern additiv `user_lifecycle_state` mit vereinfachten Statuslabels (`Standard`, `Angepasst`, `Aktualisierbar`) fuer den normalen Nutzerfluss.
 
 ## Blueprint als direktes Arbeitsprofil
 

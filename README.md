@@ -320,6 +320,7 @@ Wichtige Security-Policy:
 - Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte oder kontext-ungueltige `{{variablen}}` mit 4xx blockieren (optional mit `template_variable_validation.context_scope`).
 - Template-Namen sind eindeutig; API und Datenbank antworten bei Konflikten mit `409 template_name_exists`.
 - Seed-Blueprints werden beim Lesen deterministisch reconciled; referenzierte Blueprints koennen nicht geloescht werden und antworten mit `409 blueprint_in_use`.
+- Der Blueprint-Standardmodus nutzt einen kompakten Katalog (`GET /teams/blueprints/catalog`) mit Work-Profile-Hinweisen und trennt klar zwischen Standard- und Admin-/Studio-Sicht.
 - Public model und Standard-Blueprints: `docs/blueprint-product-model.md`, `docs/standard-blueprints.md`
 - Admin-/Rollout-Details fuer Blueprints und Role-Template-Interna: `docs/blueprint-admin.md`, `docs/blueprint-migration-rollout.md`
 

@@ -20,6 +20,13 @@ Der empfohlene Einstieg bleibt bewusst einfach:
 
 Nutzer sollen nicht zuerst manuell Teams, Rollen und Templates zusammenbauen muessen.
 
+## Standard mode vs. admin/studio mode
+
+- **Standard mode**: Fokus auf Blueprint-Auswahl, Team-Start und klare Ergebniserwartung.
+- **Admin/studio mode**: Detailpflege fuer Blueprint-Struktur, Role Templates, Lifecycle- und Migrationsdetails.
+
+Damit bleibt der Erstnutzerfluss kompakt, ohne operative Tiefe zu verlieren.
+
 ## Advanced concepts
 
 Die folgenden Begriffe bleiben erhalten, werden aber standardmaessig nicht in den Vordergrund gestellt:
@@ -30,3 +37,8 @@ Die folgenden Begriffe bleiben erhalten, werden aber standardmaessig nicht in de
 
 Sie sind fuer Admin-/Studio- und Betriebsfaelle weiterhin verfuegbar.
 
+Im Standardmodus werden stattdessen vereinfachte Team-Zustaende gezeigt:
+
+- `Standard`
+- `Angepasst`
+- `Aktualisierbar`
