@@ -880,6 +880,15 @@ Blueprint-first ist der bevorzugte Team-Workflow. Der produktnahe Standardmodus 
           "when_to_use": "...",
           "expected_outputs": ["Scrum Backlog", "Sprint Planning"],
           "safety_review_stance": "balanced security, standard verification",
+          "work_profile_summary": {
+            "recommended_goal_modes": ["code_fix", "repo_analysis"],
+            "playbook_hints": ["bugfix", "refactoring"],
+            "capability_hints": ["coding", "testing"],
+            "governance_profile": {
+              "label": "Balanced with verification",
+              "hint": "Execution remains delivery-oriented but expects explicit verification before closure."
+            }
+          },
           "goal_modes": ["code_fix", "repo_analysis"],
           "playbooks": ["bugfix", "refactoring"],
           "is_standard_blueprint": true,
@@ -986,6 +995,7 @@ Blueprint-first ist der bevorzugte Team-Workflow. Der produktnahe Standardmodus 
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
 - **Rückgabe:** `{"status": "success", "data": [...]}`
+- **Hinweis:** Team-Payloads enthalten additiv `user_lifecycle_state` mit vereinfachten Labels fuer den Standardmodus (`standard`, `customized`, `outdated`) sowie `label`/`hint`.
 
 ### Team erstellen
 - **URL:** `/teams`

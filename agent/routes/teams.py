@@ -1515,6 +1515,38 @@ def _catalog_safety_review_stance(artifacts: list[BlueprintArtifactDB]) -> str:
     return ", ".join(attributes)
 
 
+def _governance_profile_from_work_profile(work_profile: dict[str, Any]) -> dict[str, str]:
+    risk_profiles = {str(item).strip().lower() for item in (work_profile.get("risk_profiles") or []) if str(item).strip()}
+    policy_profiles = work_profile.get("policy_profiles") or []
+    strict_policy = any(str((item.get("payload") or {}).get("security_level") or "").strip().lower() == "strict" for item in policy_profiles)
+    review_gate = any(bool((item.get("payload") or {}).get("review_required", False)) for item in policy_profiles)
+    verification_required = any(bool((item.get("payload") or {}).get("verification_required", False)) for item in policy_profiles)
+
+    if strict_policy or "strict" in risk_profiles:
+        label = "Strict review profile"
+        hint = "High-assurance flow with explicit review and controlled rollout expectations."
+    elif verification_required or "high" in risk_profiles:
+        label = "Balanced with verification"
+        hint = "Execution remains delivery-oriented but expects explicit verification before closure."
+    else:
+        label = "Balanced default profile"
+        hint = "Standard governance profile for regular delivery and iterative refinement."
+
+    if review_gate and "review" not in hint.lower():
+        hint = f"{hint} Includes a human review gate."
+    return {"label": label, "hint": hint}
+
+
+def _work_profile_summary(work_profile: dict[str, Any]) -> dict[str, Any]:
+    governance = _governance_profile_from_work_profile(work_profile)
+    return {
+        "recommended_goal_modes": list(work_profile.get("goal_modes") or [])[:4],
+        "playbook_hints": list(work_profile.get("playbooks") or [])[:4],
+        "capability_hints": list(work_profile.get("recommended_action_pack_capabilities") or [])[:5],
+        "governance_profile": governance,
+    }
+
+
 def _serialize_blueprint_catalog_item(
     blueprint: TeamBlueprintDB,
     roles: list[BlueprintRoleDB],
@@ -1531,6 +1563,7 @@ def _serialize_blueprint_catalog_item(
         "when_to_use": hints["when_to_use"],
         "expected_outputs": _catalog_expected_outputs(artifacts),
         "safety_review_stance": _catalog_safety_review_stance(artifacts),
+        "work_profile_summary": _work_profile_summary(work_profile),
         "goal_modes": work_profile["goal_modes"],
         "playbooks": work_profile["playbooks"],
         "is_standard_blueprint": bool(blueprint.is_seed),
@@ -1546,6 +1579,49 @@ def _blueprint_catalog_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:
         standard_rank = len(STANDARD_BLUEPRINT_ORDER) + 1
     is_standard = bool(item.get("is_standard_blueprint"))
     return (0 if is_standard else 1, standard_rank, name.lower())
+
+
+def _user_lifecycle_state_from_metadata(metadata: dict[str, Any]) -> dict[str, str]:
+    drift_status = str(metadata.get("drift_status") or "").strip().lower()
+    origin_kind = str(metadata.get("origin_kind") or "").strip().lower()
+    customizations = dict(metadata.get("live_customizations") or {})
+    role_templates_customized = bool(customizations.get("role_templates"))
+
+    if drift_status == "in_sync":
+        return {
+            "code": "standard",
+            "label": "Standard",
+            "hint": "Dieses Team folgt dem aktuellen Blueprint-Stand.",
+        }
+    if drift_status == "drifted":
+        return {
+            "code": "outdated",
+            "label": "Aktualisierbar",
+            "hint": "Blueprint wurde aktualisiert; Team laeuft noch auf einem aelteren Stand.",
+        }
+    if origin_kind == "not_blueprint_based":
+        return {
+            "code": "customized",
+            "label": "Individuell",
+            "hint": "Dieses Team wurde direkt als laufende Instanz aufgebaut.",
+        }
+    if role_templates_customized:
+        return {
+            "code": "customized",
+            "label": "Angepasst",
+            "hint": "Das Team nutzt eigene Rollen-Template-Anpassungen.",
+        }
+    if origin_kind in {"seed_blueprint_instance", "custom_blueprint_instance"}:
+        return {
+            "code": "customized",
+            "label": "Angepasst",
+            "hint": "Blueprint-basierte Instanz mit eigener Laufzeitentwicklung.",
+        }
+    return {
+        "code": "customized",
+        "label": "Angepasst",
+        "hint": "Laufende Team-Instanz mit individueller Auspraegung.",
+    }
 
 
 ALLOWED_BLUEPRINT_ARTIFACT_KINDS = {"task", "policy"}
@@ -1955,7 +2031,9 @@ def instantiate_team_blueprint(blueprint_id):
 
     log_audit("team_blueprint_instantiated", {"blueprint_id": blueprint_id, "team_id": instantiated.id})
     team_payload = instantiated.model_dump()
-    team_payload["definition_metadata"] = team_definition_metadata(instantiated)
+    definition_metadata = team_definition_metadata(instantiated)
+    team_payload["definition_metadata"] = definition_metadata
+    team_payload["user_lifecycle_state"] = _user_lifecycle_state_from_metadata(definition_metadata)
     return api_response(data={"team": team_payload, "blueprint": _serialize_blueprint(blueprint)}, code=201)
 
 
@@ -2102,7 +2180,9 @@ def list_teams():
     result = []
     for t in teams:
         team_dict = t.model_dump()
-        team_dict["definition_metadata"] = team_definition_metadata(t)
+        definition_metadata = team_definition_metadata(t)
+        team_dict["definition_metadata"] = definition_metadata
+        team_dict["user_lifecycle_state"] = _user_lifecycle_state_from_metadata(definition_metadata)
         # Mitglieder laden
         members = _repos().team_member_repo.get_by_team(t.id)
         team_dict["members"] = [m.model_dump() for m in members]
@@ -2195,7 +2275,9 @@ def create_team():
             initialize_scrum_artifacts(new_team.name, new_team.id)
     log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
     payload = new_team.model_dump()
-    payload["definition_metadata"] = team_definition_metadata(new_team)
+    definition_metadata = team_definition_metadata(new_team)
+    payload["definition_metadata"] = definition_metadata
+    payload["user_lifecycle_state"] = _user_lifecycle_state_from_metadata(definition_metadata)
     return api_response(data=payload, code=201)
 
 
@@ -2275,7 +2357,9 @@ def update_team(team_id):
         _repos().team_repo.save(team)
     log_audit("team_updated", {"team_id": team_id})
     payload = team.model_dump()
-    payload["definition_metadata"] = team_definition_metadata(team)
+    definition_metadata = team_definition_metadata(team)
+    payload["definition_metadata"] = definition_metadata
+    payload["user_lifecycle_state"] = _user_lifecycle_state_from_metadata(definition_metadata)
     return api_response(data=payload)
 
 
@@ -2314,10 +2398,15 @@ def setup_scrum():
             "blueprint_name": scrum_blueprint.name,
         },
     )
+    definition_metadata = team_definition_metadata(instantiated)
     return api_response(
         message=f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
         data={
-            "team": {**instantiated.model_dump(), "definition_metadata": team_definition_metadata(instantiated)},
+            "team": {
+                **instantiated.model_dump(),
+                "definition_metadata": definition_metadata,
+                "user_lifecycle_state": _user_lifecycle_state_from_metadata(definition_metadata),
+            },
             "blueprint": _serialize_blueprint(scrum_blueprint),
         },
         code=201,

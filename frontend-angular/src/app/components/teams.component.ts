@@ -44,6 +44,22 @@ type BlueprintArtifactForm = {
       <div class="teams-hero-actions">
         <button class="btn-primary" (click)="currentTab = 'blueprints'">Blueprints</button>
         <button class="btn-secondary" (click)="currentTab = 'teams'">Team erstellen</button>
+        @if (isAdmin) {
+          <button
+            class="btn-secondary"
+            [class.btn-primary]="viewMode === 'standard'"
+            (click)="setViewMode('standard')"
+          >
+            Standard-Modus
+          </button>
+          <button
+            class="btn-secondary"
+            [class.btn-primary]="viewMode === 'admin'"
+            (click)="setViewMode('admin')"
+          >
+            Admin-/Studio-Modus
+          </button>
+        }
         <button class="btn-secondary" (click)="refresh()">Aktualisieren</button>
       </div>
       </div>
@@ -51,7 +67,9 @@ type BlueprintArtifactForm = {
       <div class="tabs teams-tabs">
         <button type="button" class="tab" [class.active]="currentTab === 'blueprints'" (click)="currentTab = 'blueprints'">Blueprints</button>
         <button type="button" class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams aus Blueprint</button>
-        <button type="button" class="tab" [class.active]="currentTab === 'advanced'" (click)="currentTab = 'advanced'">Advanced</button>
+        @if (isAdmin && viewMode === 'admin') {
+          <button type="button" class="tab" [class.active]="currentTab === 'advanced'" (click)="currentTab = 'advanced'">Advanced</button>
+        }
       </div>
 
       @if (loading) {
@@ -65,7 +83,9 @@ type BlueprintArtifactForm = {
           <div class="card card-primary teams-list-panel">
             <div class="row flex-between">
               <h3 class="no-margin">Standard-Blueprint-Katalog</h3>
-              <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin">Neu</button>
+              @if (isAdmin && viewMode === 'admin') {
+                <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin">Neu</button>
+              }
             </div>
             <p class="muted no-margin">
               {{ blueprintCatalogModel?.default_entry_path || 'Standardweg: Blueprint waehlen und Team instanziieren.' }}
@@ -92,6 +112,7 @@ type BlueprintArtifactForm = {
             </div>
           </div>
 
+          @if (isAdmin && viewMode === 'admin') {
           <div class="card teams-editor-panel">
             <div class="row flex-between">
               <div>
@@ -195,20 +216,63 @@ type BlueprintArtifactForm = {
               }
             </div>
           </div>
+          } @else {
+          <div class="card teams-summary-card">
+            <h3 class="no-margin">Standard-Modus: Blueprint verstehen und starten</h3>
+            <p class="muted">
+              Der Standard-Modus zeigt nur die entscheidenden Produktinfos fuer den Start. Detailpflege bleibt im Admin-/Studio-Modus.
+            </p>
+            @if (selectedCatalogBlueprintCard()) {
+              <div class="teams-inline-card">
+                <div class="row flex-between">
+                  <strong>{{ selectedCatalogBlueprintCard()?.name }}</strong>
+                  @if (selectedCatalogBlueprintCard()?.is_standard_blueprint) {
+                    <span class="teams-pill teams-pill-seed">Standard</span>
+                  }
+                </div>
+                <p class="muted teams-blueprint-desc">
+                  {{ selectedCatalogBlueprintCard()?.short_description || selectedCatalogBlueprintCard()?.intended_use || 'Keine Beschreibung' }}
+                </p>
+                <div class="teams-summary-meta">
+                  Goal-Modi: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
+                </div>
+                <div class="teams-summary-meta">
+                  Playbooks: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.playbook_hints, 'Keine speziellen Playbooks') }}
+                </div>
+                <div class="teams-summary-meta">
+                  Capabilities: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.capability_hints, 'Standard-Capabilities') }}
+                </div>
+                <div class="teams-summary-meta">
+                  Governance: {{ selectedCatalogBlueprintCard()?.work_profile_summary?.governance_profile?.label || 'Balanced default profile' }}
+                </div>
+                <div class="teams-summary-meta">
+                  {{ selectedCatalogBlueprintCard()?.work_profile_summary?.governance_profile?.hint || 'Standardprofil fuer kontrollierte Ausfuehrung.' }}
+                </div>
+              </div>
+              <div class="row">
+                <button class="btn-primary" (click)="prepareInstantiateFromEditor()">Als Team starten</button>
+              </div>
+            } @else {
+              <div class="state-banner info">Waehle links einen Blueprint, um den Team-Start vorzubereiten.</div>
+            }
+          </div>
+          }
         </div>
       }
 
       @if (currentTab === 'teams') {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-success">
-            <h3 class="no-margin">Team aus Blueprint erstellen</h3>
-            <p class="muted">Blueprint waehlen, Team benennen, optional Agenten den Blueprint-Rollen zuweisen.</p>
+            <h3 class="no-margin">Team als laufende Instanz erstellen</h3>
+            <p class="muted">
+              Blueprint = wiederverwendbare Vorlage. Team = laufende Arbeitsinstanz aus dieser Vorlage.
+            </p>
 
             <div class="grid cols-2">
               <label>Blueprint
                 <select [(ngModel)]="teamFromBlueprint.blueprint_id" (ngModelChange)="onInstantiateBlueprintChange($event)" [disabled]="!isAdmin">
                   <option value="">-- Blueprint waehlen --</option>
-                  @for (blueprint of blueprints; track blueprint.id) {
+                  @for (blueprint of catalogBlueprintCards(); track blueprint.id) {
                     <option [value]="blueprint.id">{{ blueprint.name }}</option>
                   }
                 </select>
@@ -228,6 +292,20 @@ type BlueprintArtifactForm = {
                 </div>
                 <div class="muted">{{ selectedInstantiateBlueprint.description || 'Keine Beschreibung' }}</div>
                 <div class="teams-summary-meta">{{ selectedInstantiateBlueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ selectedInstantiateBlueprint.roles?.length || 0 }} Rollen · {{ selectedInstantiateBlueprint.artifacts?.length || 0 }} Artefakte</div>
+                @if (selectedCatalogBlueprintCard()) {
+                  <div class="teams-summary-meta">
+                    Empfohlene Goal-Modi: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
+                  </div>
+                  <div class="teams-summary-meta">
+                    Playbook-Hinweise: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.playbook_hints, 'Keine speziellen Playbooks') }}
+                  </div>
+                  <div class="teams-summary-meta">
+                    Capability-Hinweise: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.capability_hints, 'Standard-Capabilities') }}
+                  </div>
+                  <div class="teams-summary-meta">
+                    Governance-Profil: {{ selectedCatalogBlueprintCard()?.work_profile_summary?.governance_profile?.label || 'Balanced default profile' }}
+                  </div>
+                }
               </div>
 
               <div class="teams-section">
@@ -240,7 +318,7 @@ type BlueprintArtifactForm = {
                     <div class="grid cols-3">
                       <label>Blueprint-Rolle
                         <select [(ngModel)]="member.blueprint_role_id" [disabled]="!isAdmin">
-                          <option value="">-- Rolle waehlen --</option>
+                          <option value="">-- Work Role waehlen --</option>
                           @for (role of selectedInstantiateBlueprint.roles; track role.id) {
                             <option [value]="role.id">{{ role.name }}</option>
                           }
@@ -280,7 +358,7 @@ type BlueprintArtifactForm = {
 
           <div class="card teams-list-panel">
             <div class="row flex-between">
-              <h3 class="no-margin">Bestehende Teams</h3>
+              <h3 class="no-margin">Laufende Teams</h3>
               <span class="muted">{{ teams.length }} Teams</span>
             </div>
             <div class="grid">
@@ -292,6 +370,7 @@ type BlueprintArtifactForm = {
                       @if (team.is_active) {
                         <span class="teams-pill teams-pill-active">Aktiv</span>
                       }
+                      <span class="badge badge-gray">{{ teamLifecycleLabel(team) }}</span>
                     </div>
                     <div class="row">
                       <button class="btn-secondary btn-sm-action" (click)="prepareTeamEdit(team)" [disabled]="!isAdmin">Bearbeiten</button>
@@ -302,6 +381,7 @@ type BlueprintArtifactForm = {
                     </div>
                   </div>
                   <div class="muted teams-team-meta">{{ team.blueprint_snapshot?.name || getBlueprintName(team.blueprint_id) || 'Manuell' }} · {{ getTeamTypeName(team.team_type_id) }}</div>
+                  <div class="muted teams-team-meta">{{ teamLifecycleHint(team) }}</div>
                   <p class="muted teams-blueprint-desc">{{ team.description || 'Keine Beschreibung' }}</p>
                   <div class="teams-member-list">
                     @for (member of team.members || []; track member.id || member.agent_url) {
@@ -323,7 +403,7 @@ type BlueprintArtifactForm = {
         </div>
       }
 
-      @if (currentTab === 'advanced') {
+      @if (currentTab === 'advanced' && isAdmin && viewMode === 'admin') {
         <div class="card teams-advanced-panel">
           <div class="row flex-between">
             <div>
@@ -509,6 +589,7 @@ export class TeamsComponent implements OnInit {
   private userAuth = inject(UserAuthService);
 
   currentTab: 'blueprints' | 'teams' | 'advanced' = 'blueprints';
+  viewMode: 'standard' | 'admin' = 'standard';
   advancedTab: 'teams' | 'types' | 'roles' = 'teams';
 
   isAdmin = false;
@@ -536,12 +617,23 @@ export class TeamsComponent implements OnInit {
   ngOnInit() {
     this.userAuth.user$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
+      if (!this.isAdmin) this.viewMode = 'standard';
     });
     this.refresh();
   }
 
+  setViewMode(mode: 'standard' | 'admin') {
+    this.viewMode = mode;
+    if (mode === 'standard' && this.currentTab === 'advanced') this.currentTab = 'blueprints';
+  }
+
   get selectedInstantiateBlueprint() {
     return this.blueprints.find(blueprint => blueprint.id === this.teamFromBlueprint.blueprint_id) || null;
+  }
+
+  selectedCatalogBlueprintCard() {
+    if (!this.selectedBlueprintId) return null;
+    return this.catalogBlueprintCards().find(blueprint => blueprint.id === this.selectedBlueprintId) || null;
   }
 
   refresh() {
@@ -717,6 +809,13 @@ export class TeamsComponent implements OnInit {
       ? outputs.map(item => String(item || '').trim()).filter(Boolean)
       : [];
     return values.length ? values.join(', ') : 'Starter tasks and role-ready execution context';
+  }
+
+  formatPreviewList(values: any, fallback: string, limit = 4): string {
+    const normalized = Array.isArray(values)
+      ? values.map(item => String(item || '').trim()).filter(Boolean).slice(0, limit)
+      : [];
+    return normalized.length ? normalized.join(', ') : fallback;
   }
 
   prepareInstantiateFromEditor() {
@@ -1105,6 +1204,24 @@ export class TeamsComponent implements OnInit {
   getBlueprintRoleName(team: any, blueprintRoleId: string): string {
     const role = team?.blueprint_snapshot?.roles?.find((item: any) => item.id === blueprintRoleId);
     return role?.name || 'Blueprint-Rolle';
+  }
+
+  teamLifecycleLabel(team: any): string {
+    const state = team?.user_lifecycle_state;
+    if (state?.label) return String(state.label);
+    const driftStatus = String(team?.definition_metadata?.drift_status || '').toLowerCase();
+    if (driftStatus === 'in_sync') return 'Standard';
+    if (driftStatus === 'drifted') return 'Aktualisierbar';
+    return 'Angepasst';
+  }
+
+  teamLifecycleHint(team: any): string {
+    const state = team?.user_lifecycle_state;
+    if (state?.hint) return String(state.hint);
+    const driftStatus = String(team?.definition_metadata?.drift_status || '').toLowerCase();
+    if (driftStatus === 'in_sync') return 'Dieses Team folgt dem aktuellen Blueprint-Stand.';
+    if (driftStatus === 'drifted') return 'Blueprint wurde aktualisiert; diese Instanz nutzt noch den vorherigen Stand.';
+    return 'Diese laufende Team-Instanz wurde individuell angepasst.';
   }
 
   keepSelectionsStable() {

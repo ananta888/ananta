@@ -116,6 +116,12 @@ def test_blueprint_catalog_exposes_standard_product_cards(client):
     assert scrum_item["when_to_use"]
     assert scrum_item["expected_outputs"]
     assert scrum_item["safety_review_stance"]
+    work_profile_summary = scrum_item["work_profile_summary"]
+    assert work_profile_summary["recommended_goal_modes"]
+    assert work_profile_summary["playbook_hints"]
+    assert isinstance(work_profile_summary["capability_hints"], list)
+    assert work_profile_summary["governance_profile"]["label"]
+    assert work_profile_summary["governance_profile"]["hint"]
 
 
 def test_blueprint_crud_and_instantiate(client):
@@ -288,6 +294,62 @@ def test_team_blueprint_diff_reports_snapshot_drift(client):
     diff = diff_response.json["data"]
     assert diff["definition_metadata"]["drift_status"] == "drifted"
     assert "Definition Drift Reviewer" in diff["diff"]["roles_added"]
+
+
+def test_team_list_exposes_simplified_lifecycle_state(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    scrum_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum")
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{scrum_blueprint['id']}/instantiate",
+        json={"name": "Lifecycle Label Team", "activate": False, "members": []},
+        headers=auth_header,
+    )
+    assert instantiate_response.status_code == 201
+    team_id = instantiate_response.json["data"]["team"]["id"]
+
+    list_response = client.get("/teams", headers=auth_header)
+    assert list_response.status_code == 200
+    team = next(item for item in list_response.json["data"] if item["id"] == team_id)
+    assert team["user_lifecycle_state"]["code"] == "standard"
+    assert team["user_lifecycle_state"]["label"] == "Standard"
+
+    update_response = client.patch(
+        f"/teams/blueprints/{scrum_blueprint['id']}",
+        json={
+            "roles": [
+                *[
+                    {
+                        "name": role["name"],
+                        "description": role.get("description"),
+                        "template_id": role.get("template_id"),
+                        "sort_order": role.get("sort_order"),
+                        "is_required": role.get("is_required", True),
+                        "config": role.get("config") or {},
+                    }
+                    for role in scrum_blueprint["roles"]
+                ],
+                {
+                    "name": "Lifecycle Drift Role",
+                    "description": "creates drift",
+                    "sort_order": 910,
+                    "is_required": False,
+                    "config": {},
+                },
+            ]
+        },
+        headers=auth_header,
+    )
+    assert update_response.status_code == 200
+
+    list_after_drift = client.get("/teams", headers=auth_header)
+    assert list_after_drift.status_code == 200
+    drifted_team = next(item for item in list_after_drift.json["data"] if item["id"] == team_id)
+    assert drifted_team["user_lifecycle_state"]["code"] == "outdated"
+    assert drifted_team["user_lifecycle_state"]["label"] == "Aktualisierbar"
 
 
 def test_setup_scrum_uses_seed_blueprint(client):

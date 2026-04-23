@@ -14,4 +14,9 @@ Die folgende Liste ist der offizielle Standard-Blueprint-Katalog fuer den produk
 | Research-Evolution | DeerFlow-Research plus Evolver-Proposal mit verpflichtendem Review-Gate. | strict security, verification required, human review gate | DeerFlow Research Stage, Evolver Proposal Stage, Review Gate |
 
 Hinweis: Die katalogisierte Produktsicht ist im Read-Model verfuegbar ueber `GET /teams/blueprints/catalog`.
+Der Katalog liefert zusaetzlich pro Blueprint eine kompakte `work_profile_summary` mit:
 
+- `recommended_goal_modes`
+- `playbook_hints`
+- `capability_hints`
+- `governance_profile` (`label`, `hint`)
