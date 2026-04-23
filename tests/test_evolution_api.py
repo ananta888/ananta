@@ -182,6 +182,11 @@ def test_task_evolution_validate_endpoint(client, app, admin_auth_header):
     assert validate_response.status_code == 200
     assert validate_response.json["data"]["status"] == "passed"
     assert validate_response.json["data"]["valid"] is True
+    read_response = client.get("/tasks/T-EVO-VALIDATE/evolution", headers=admin_auth_header)
+    proposal = read_response.json["data"]["proposals"][0]
+    assert proposal["status"] == "validated"
+    assert proposal["validation_summary"]["count"] == 1
+    assert proposal["validation_summary"]["last_result"]["status"] == "passed"
 
 
 def test_task_evolution_apply_endpoint_is_explicitly_policy_gated(client, app, admin_auth_header):
@@ -202,11 +207,17 @@ def test_task_evolution_apply_endpoint_is_explicitly_policy_gated(client, app, a
             json={},
         )
 
+        review_response = client.post(
+            f"/tasks/T-EVO-APPLY/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "proposal approved"},
+        )
+
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
         cfg["evolution"] = {
             **dict(cfg.get("evolution") or {}),
             "apply_allowed": True,
-            "require_review_before_apply": False,
+            "require_review_before_apply": True,
         }
         app.config["AGENT_CONFIG"] = cfg
         apply_response = client.post(
@@ -219,9 +230,77 @@ def test_task_evolution_apply_endpoint_is_explicitly_policy_gated(client, app, a
 
     assert blocked_response.status_code == 403
     assert blocked_response.json["message"] == "evolution_apply_disabled"
+    assert review_response.status_code == 200
+    assert review_response.json["data"]["review"]["status"] == "approved"
     assert apply_response.status_code == 200
     assert apply_response.json["data"]["status"] == "prepared"
     assert apply_response.json["data"]["applied"] is False
+    read_response = client.get("/tasks/T-EVO-APPLY/evolution", headers=admin_auth_header)
+    proposal = read_response.json["data"]["proposals"][0]
+    assert proposal["status"] == "apply_prepared"
+    assert proposal["apply_summary"]["count"] == 1
+    assert proposal["review"]["status"] == "approved"
+    assert proposal["apply_summary"]["rollback_hints"]
+
+
+def test_task_evolution_apply_requires_explicit_review_approval(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-APPLY-REVIEW", title="Apply requires review", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-APPLY-REVIEW/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["evolution"] = {
+            **dict(cfg.get("evolution") or {}),
+            "apply_allowed": True,
+            "require_review_before_apply": True,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        response = client.post(
+            f"/tasks/T-EVO-APPLY-REVIEW/evolution/proposals/{proposal_id}/apply",
+            headers=admin_auth_header,
+            json={},
+        )
+    finally:
+        registry.clear()
+
+    assert response.status_code == 403
+    assert response.json["message"] == "evolution_apply_requires_approved_review"
+
+
+def test_task_evolution_review_endpoint_persists_read_model_status(client, app, admin_auth_header):
+    task_repo.save(TaskDB(id="T-EVO-REVIEW", title="Review proposal", status="failed"))
+    registry = get_evolution_provider_registry()
+    registry.clear()
+    registry.register(ApiEvolutionEngine(), default=True)
+    try:
+        analyze_response = client.post(
+            "/tasks/T-EVO-REVIEW/evolution/analyze",
+            headers=admin_auth_header,
+            json={"trigger_type": "manual"},
+        )
+        proposal_id = analyze_response.json["data"]["proposal_ids"][0]
+        review_response = client.post(
+            f"/tasks/T-EVO-REVIEW/evolution/proposals/{proposal_id}/review",
+            headers=admin_auth_header,
+            json={"action": "approve", "comment": "looks safe"},
+        )
+        read_response = client.get("/tasks/T-EVO-REVIEW/evolution", headers=admin_auth_header)
+    finally:
+        registry.clear()
+
+    assert review_response.status_code == 200
+    assert review_response.json["data"]["status"] == "approved"
+    assert review_response.json["data"]["review"]["status"] == "approved"
+    proposal = read_response.json["data"]["proposals"][0]
+    assert proposal["review"]["status"] == "approved"
+    assert proposal["history"][0]["event_type"] == "proposal_review"
 
 
 def test_failed_task_completion_auto_triggers_evolution_analysis(client, app, admin_auth_header):

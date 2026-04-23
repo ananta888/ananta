@@ -263,6 +263,34 @@ def validate_task_evolution_proposal(task_id: str, proposal_id: str):
     return api_response(data=result.model_dump(mode="json"))
 
 
+@evolution_bp.route("/tasks/<task_id>/evolution/proposals/<proposal_id>/review", methods=["POST"])
+@check_auth
+def review_task_evolution_proposal(task_id: str, proposal_id: str):
+    task = _repos().task_repo.get_by_id(task_id)
+    if task is None:
+        return api_response(status="error", message="not_found", code=404)
+
+    payload = request.get_json(silent=True) or {}
+    action = str(payload.get("action") or "").strip().lower()
+    comment = str(payload.get("comment") or "").strip() or None
+    if action not in {"approve", "reject"}:
+        return api_response(status="error", message="invalid_review_action", code=400)
+    try:
+        proposal = _services().evolution_service.review_persisted_proposal(
+            task_id,
+            proposal_id,
+            action=action,
+            actor=_actor(),
+            comment=comment,
+        )
+    except KeyError as exc:
+        return api_response(status="error", message=str(exc).strip("'"), code=404)
+    except ValueError as exc:
+        return api_response(status="error", message=str(exc), code=400)
+
+    return api_response(data=proposal)
+
+
 @evolution_bp.route("/tasks/<task_id>/evolution/proposals/<proposal_id>/apply", methods=["POST"])
 @check_auth
 def apply_task_evolution_proposal(task_id: str, proposal_id: str):
