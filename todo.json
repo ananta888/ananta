@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "codecompass_multisource_rag",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "decision": {
     "selected_file": "todo.wikiv2.json",
@@ -60,7 +60,7 @@
     {
       "id": "MSR-T01",
       "title": "Multi-source target model for codecompass define",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": [],
@@ -91,7 +91,7 @@
     {
       "id": "MSR-T02",
       "title": "Common source interface define",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T01"],
@@ -121,7 +121,7 @@
     {
       "id": "MSR-T03",
       "title": "Common document and chunk metadata model define",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T01", "MSR-T02"],
@@ -389,7 +389,7 @@
     {
       "id": "MSR-T12",
       "title": "Shared retrieval service support source filters",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "integration",
       "depends_on": ["MSR-T05", "MSR-T06", "MSR-T10"],
@@ -447,7 +447,7 @@
     {
       "id": "MSR-T14",
       "title": "Citations and provenance format unify",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "integration",
       "depends_on": ["MSR-T03", "MSR-T12"],
@@ -477,7 +477,7 @@
     {
       "id": "MSR-T15",
       "title": "Configuration surface for source enabling add",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "integration",
       "depends_on": ["MSR-T04", "MSR-T10", "MSR-T11"],
@@ -535,7 +535,7 @@
     {
       "id": "MSR-T17",
       "title": "API for source-aware retrieval extend",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T12", "MSR-T14", "MSR-T15"],
@@ -913,5 +913,58 @@
         "Vor einem echten Future-Roadmap-Task sollten erst die current-source abstractions source-neutral und nicht nur artifact-/repo-spezifisch konsolidiert werden."
       ]
     }
-  ]
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-23T19:57:14+02:00",
+    "total": 30,
+    "by_status": {
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "partial": 16,
+      "done": 7
+    },
+    "progress_percent_done": 23.3,
+    "by_phase": {
+      "foundation": {
+        "total": 10,
+        "done": 3,
+        "partial": 7,
+        "todo": 0
+      },
+      "wiki_mvp": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "todo": 5
+      },
+      "integration": {
+        "total": 10,
+        "done": 4,
+        "partial": 6,
+        "todo": 0
+      },
+      "operator_readiness": {
+        "total": 4,
+        "done": 0,
+        "partial": 3,
+        "todo": 1
+      },
+      "future": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "todo": 1
+      }
+    },
+    "first_bundle_completed_tasks": [
+      "MSR-T01",
+      "MSR-T02",
+      "MSR-T03",
+      "MSR-T12",
+      "MSR-T14",
+      "MSR-T15",
+      "MSR-T17"
+    ]
+  }
 }
