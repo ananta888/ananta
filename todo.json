@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "8.0.0",
   "created": "2026-04-21",
-  "updated": "2026-04-21T00:00:00Z",
+  "updated": "2026-04-23T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -130,8 +130,19 @@
           "priority": "P1",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
+          "dependencies": [
+            "EVOLVER-T01",
+            "EVOLVER-T02",
+            "EVOLVER-T03"
+          ],
+          "files": [
+            "agent/routes/evolution.py",
+            "agent/services/evolution_service.py",
+            "agent/repositories/evolution.py",
+            "tests/test_evolution_api.py"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -151,7 +162,31 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "REST-Endpoint fuer proposal validation existiert bereits und ist policy-gated.",
+            "Der Hub-Service trennt analyze, validate und apply bereits methodisch.",
+            "Offen ist vor allem die produktreife Persistenz- und Sichtbarkeitsseite fuer Validation-Ergebnisse."
+          ],
+          "implementation_notes": [
+            "POST /tasks/<task_id>/evolution/proposals/<proposal_id>/validate ist implementiert und ruft validate_persisted_proposal auf.",
+            "tests/test_evolution_api.py deckt den erfolgreichen Validation-Endpoint bereits ab.",
+            "Der naechste Schritt ist ein separates Read-Model fuer Validation-Historie inklusive Status, Trigger, Provider und Audit-Referenzen."
+          ],
+          "subtasks": [
+            {
+              "title": "Validation-Ergebnisse als eigene Datensicht vom Proposal trennen",
+              "done": false
+            },
+            {
+              "title": "Read-Model fuer Proposal-Validations inkl. Verlauf und letztem Ergebnis erweitern",
+              "done": false
+            },
+            {
+              "title": "Provider- und Policy-Blockierungen im UI/Read-Model explizit unterscheiden",
+              "done": false
+            }
+          ]
         },
         {
           "id": "EVOLVER-T05",
@@ -160,8 +195,18 @@
           "priority": "P1",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
+          "dependencies": [
+            "EVOLVER-T04",
+            "EVOLVER-T07"
+          ],
+          "files": [
+            "agent/routes/evolution.py",
+            "agent/services/evolution_service.py",
+            "tests/test_evolution_api.py",
+            "docs/evolution-rollout.md"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -181,7 +226,31 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Apply ist bereits explizit per Config deaktiviert und nur ueber eigenen Endpoint erreichbar.",
+            "Der Service blockiert Apply bei Policy-Verbot und optionalem Review-Zwang.",
+            "Es fehlen noch produktreife Approval-, Provenance- und Rollback-Sicherungen."
+          ],
+          "implementation_notes": [
+            "POST /tasks/<task_id>/evolution/proposals/<proposal_id>/apply ist vorhanden, aber standardmaessig fail-closed.",
+            "tests/test_evolution_api.py prueft bereits, dass Apply ohne Policy-Freigabe 403 liefert.",
+            "Die Restarbeit liegt in Review-Gate-Integration, Artefakt-Provenance und einem expliziten Apply-Preparation/rollback contract."
+          ],
+          "subtasks": [
+            {
+              "title": "Apply nur nach explizit persisted Review-Approval freigeben",
+              "done": false
+            },
+            {
+              "title": "Apply-Ergebnis als Artefakt mit Proposal-, Validation- und Trigger-Referenzen speichern",
+              "done": false
+            },
+            {
+              "title": "Rollback-Hinweise und Sicherheitsgrenzen im Read-Model und in Doku verankern",
+              "done": false
+            }
+          ]
         },
         {
           "id": "EVOLVER-T06",
@@ -190,8 +259,18 @@
           "priority": "P0",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
+          "dependencies": [
+            "EVOLVER-T03"
+          ],
+          "files": [
+            "agent/services/evolution_service.py",
+            "agent/repositories/evolution.py",
+            "agent/routes/evolution.py",
+            "frontend-angular/src/app/components/artifacts.component.ts",
+            "docs/artifact-traceability-model.md"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -211,7 +290,31 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Proposals sind bereits persistent und ueber das Evolution-Read-Model abrufbar.",
+            "Links fuer Read-Model, Validate und Apply werden schon im Analyze-Response erzeugt.",
+            "Die Artefakt-Sicht im Hub und Frontend ist aber noch nicht auf Proposal als erstklassiges Artefakt vereinheitlicht."
+          ],
+          "implementation_notes": [
+            "task_read_model liefert Runs und Proposals bereits als strukturierte Daten.",
+            "Es fehlt noch die konsequente Zusammenfuehrung mit der allgemeinen Artefaktansicht inklusive Risk, Diff/Patch und Review-Status.",
+            "Die Aufgabe sollte nicht ueber Prompt-Text geloest werden, sondern ueber persistierte Proposal-Artefakte mit stabilen IDs."
+          ],
+          "subtasks": [
+            {
+              "title": "Proposal-DB-Objekte auf das allgemeine Artefakt-Read-Model abbilden",
+              "done": false
+            },
+            {
+              "title": "UI-Darstellung fuer provider, risk_level, requires_review und Links ergaenzen",
+              "done": false
+            },
+            {
+              "title": "Diff-/Patch-Informationen optional und fail-closed in Proposal-Metadaten aufnehmen",
+              "done": false
+            }
+          ]
         },
         {
           "id": "EVOLVER-T07",
@@ -481,8 +584,19 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
+          "dependencies": [
+            "BP-T01",
+            "BP-T02",
+            "BP-T03"
+          ],
+          "files": [
+            "agent/research_backend.py",
+            "docs/deerflow-integration.md",
+            "tests/test_deerflow_integration.py",
+            "tests/test_team_blueprints.py"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -502,7 +616,31 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "DeerFlow ist bereits als Research-Backend integriert und dokumentiert.",
+            "Der Seed-Blueprint Research-Evolution setzt den Research Lead bereits auf DeerFlow.",
+            "Offen ist die explizite Einhaengung als erste Stage im standardisierten Blueprint-Ablauf statt nur als verfuegbares Backend."
+          ],
+          "implementation_notes": [
+            "docs/deerflow-integration.md beschreibt den aktuellen CLI-basierten Integrationspfad.",
+            "tests/test_team_blueprints.py prueft den Research-Evolution-Blueprint und den preferred_backend deerflow.",
+            "Die Restarbeit ist vor allem Routing und Materialisierung: der Blueprint muss den ersten DeerFlow-Schritt als offiziellen Stage-Start zeigen."
+          ],
+          "subtasks": [
+            {
+              "title": "Starter-Task fuer Research/Context-Aufbau im Blueprint explizit materialisieren",
+              "done": false
+            },
+            {
+              "title": "Research-Artefakt-Typ fuer summary, sources und report im Standardpfad festziehen",
+              "done": false
+            },
+            {
+              "title": "Review-Pflicht fuer DeerFlow-Berichte im Blueprint-Flow sichtbar machen",
+              "done": false
+            }
+          ]
         },
         {
           "id": "BP-T05",
@@ -511,8 +649,19 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
+          "dependencies": [
+            "EVOLVER-T03",
+            "BP-T04",
+            "BP-T06"
+          ],
+          "files": [
+            "agent/routes/evolution.py",
+            "agent/services/evolution_service.py",
+            "tests/test_evolution_api.py",
+            "tests/test_team_blueprints.py"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -532,7 +681,31 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Evolver ist als Provider samt Analyze-/Validate-/Apply-Pfaden bereits vorhanden.",
+            "Der Blueprint enthaelt mit Evolution Strategist bereits die vorgesehene Rolle fuer Stage zwei.",
+            "Es fehlt die kontrollierte Hub-Verkettung vom DeerFlow-Ergebnis zur Evolution-Stage."
+          ],
+          "implementation_notes": [
+            "Der technische Evolver-Pfad existiert bereits unabhaengig vom Blueprint.",
+            "Im Blueprint muss Evolver nicht als eigener Orchestrator agieren, sondern als zweite vom Hub ausgeloesste Stage mit sauberem Artifact-Handoff.",
+            "Die Aufgabe haengt stark an BP-T06, weil Evolver keine losgeloesten Rohprompts bekommen soll."
+          ],
+          "subtasks": [
+            {
+              "title": "Blueprint-Stage fuer Evolution Analyze auf persisted Research-Artefakt referenzieren",
+              "done": false
+            },
+            {
+              "title": "Trigger-Regeln definieren, wann nach Research automatisch nur ein reviewbarer Proposal-Schritt erzeugt wird",
+              "done": false
+            },
+            {
+              "title": "Links zwischen Research-Artefakten und Evolution-Proposals im Read-Model erhalten",
+              "done": false
+            }
+          ]
         },
         {
           "id": "BP-T06",
@@ -541,8 +714,18 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
+          "dependencies": [
+            "BP-T04",
+            "BP-T05"
+          ],
+          "files": [
+            "tests/test_team_blueprints.py",
+            "docs/deerflow-integration.md",
+            "docs/artifacts_and_routing.md",
+            "docs/artifact-traceability-model.md"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -562,7 +745,31 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Der Seed-Blueprint enthaelt bereits einen Handoff-Contract fuer summary, sources, report_markdown und research_metadata.",
+            "Damit ist das fachliche Modell begonnen, aber noch nicht als allgemeiner Hub-Handoff-Standard durchgezogen.",
+            "Gerade dieser Task ist architektonisch zentral, weil er implizite Prompt-Uebergaben verhindern soll."
+          ],
+          "implementation_notes": [
+            "tests/test_team_blueprints.py validiert bereits den Handoff-Contract im Policy-Artefakt des Research-Evolution-Blueprints.",
+            "Die verbleibende Arbeit ist die Durchbindung in Services und Read-Models, sodass Handoffs als Artefakte und nicht nur als Konvention existieren.",
+            "Die Uebergabe muss trace_id, review_status und Quellenherkunft erhalten."
+          ],
+          "subtasks": [
+            {
+              "title": "Gemeinsames Handoff-Schema fuer DeerFlow-Outputs und Evolver-Inputs fest in Artefakt-Metadaten verankern",
+              "done": false
+            },
+            {
+              "title": "Trace- und Provenance-Felder in der Uebergabe verpflichtend machen",
+              "done": false
+            },
+            {
+              "title": "Read-Model so erweitern, dass Reviewer den Handoff ohne Prompt-Inspektion verstehen",
+              "done": false
+            }
+          ]
         },
         {
           "id": "BP-T07",
@@ -751,8 +958,8 @@
     "total_items": 23,
     "by_status": {
       "completed": 6,
-      "partial": 0,
-      "open": 17
+      "partial": 6,
+      "open": 11
     },
     "notes": [
       "Diese Roadmap beschreibt die kontrollierte Evolver-Integration und den Standard-Blueprint-Pfad mit DeerFlow und Evolver.",
