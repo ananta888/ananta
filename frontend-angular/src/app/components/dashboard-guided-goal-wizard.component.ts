@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ExplanationNoticeComponent } from '../shared/ui/display';
 import { FormFieldComponent, ModeCardOption, ModeCardPickerComponent, WizardShellComponent } from '../shared/ui/forms';
+import { recommendBlueprint } from '../shared/blueprint-recommendation';
 
 export interface GoalModeField {
   name: string;
@@ -114,6 +115,11 @@ interface GoalWizardStep {
                 <strong>{{ selectedSafetyLevelLabel() }}</strong>
               </div>
             </div>
+            <div class="card card-light mt-sm">
+              <div class="muted font-sm">Blueprint-Empfehlung aus dem Wizard</div>
+              <strong>{{ wizardBlueprintRecommendation().blueprintName }}</strong>
+              <div class="muted font-sm mt-sm">{{ wizardBlueprintRecommendation().reasons.join(' ') }}</div>
+            </div>
           }
       </app-wizard-shell>
     }
@@ -216,6 +222,22 @@ export class DashboardGuidedGoalWizardComponent implements OnChanges {
   selectedSafetyLevelLabel(): string {
     const selected = this.safetyLevelOptions.find(option => option.value === this.goalModeData['safety_level']);
     return selected?.label || 'Ausgewogen';
+  }
+
+  wizardBlueprintRecommendation() {
+    return recommendBlueprint({
+      modeId: this.selectedGoalMode?.id || '',
+      modeTitle: this.selectedGoalMode?.title || '',
+      strictness: String(this.goalModeData['safety_level'] || 'balanced'),
+      executionStyle: this.executionStyleFromDepth(),
+    });
+  }
+
+  private executionStyleFromDepth(): string {
+    const depth = String(this.goalModeData['execution_depth'] || 'standard').toLowerCase();
+    if (depth === 'quick') return 'flow';
+    if (depth === 'deep') return 'iterative';
+    return 'iterative';
   }
 
   submitGuidedGoal(): void {
