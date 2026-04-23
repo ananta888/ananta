@@ -175,7 +175,7 @@
     {
       "id": "BTS-T11",
       "title": "Guided setup on blueprint level add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T03"],
@@ -201,7 +201,7 @@
     {
       "id": "BTS-T13",
       "title": "Default blueprint selection for main use cases wire up",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T04", "BTS-T11"],
@@ -214,7 +214,7 @@
     {
       "id": "BTS-T14",
       "title": "Blueprint instantiation flow simplify",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T11", "BTS-T13"],
@@ -253,7 +253,7 @@
     {
       "id": "BTS-T17",
       "title": "Seed blueprint lifecycle messaging improve",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T04", "BTS-T09"],
@@ -305,7 +305,7 @@
     {
       "id": "BTS-T21",
       "title": "UI copy audit for internal jargon reduce",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T07", "BTS-T10"],
@@ -356,16 +356,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T23:57:41+02:00",
+    "updated_at": "2026-04-24T00:14:30+02:00",
     "total": 24,
     "by_status": {
-      "todo": 9,
+      "todo": 4,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 15
+      "done": 20
     },
-    "progress_percent_done": 62.5,
+    "progress_percent_done": 83.3,
     "by_priority": {
       "P0": 12,
       "P1": 11,
@@ -381,15 +381,15 @@
       },
       "blueprint_catalog": {
         "total": 7,
-        "done": 5,
+        "done": 6,
         "partial": 0,
-        "todo": 2
+        "todo": 1
       },
       "ux_simplification": {
         "total": 9,
-        "done": 4,
+        "done": 8,
         "partial": 0,
-        "todo": 5
+        "todo": 1
       },
       "documentation_rollout": {
         "total": 5,
