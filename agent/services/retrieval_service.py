@@ -8,6 +8,7 @@ from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
+from agent.services.retrieval_source_contract import normalize_chunk_metadata, resolve_source_selection_policy, source_scopes_for_types
 from agent.services.task_neighborhood_service import get_task_neighborhood_service
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 
@@ -33,6 +34,10 @@ class RetrievalService:
             settings.rag_agentic_timeout_seconds,
             settings.rag_semantic_persist_dir,
             settings.rag_redact_sensitive,
+            settings.rag_source_repo_enabled,
+            settings.rag_source_artifact_enabled,
+            settings.rag_source_task_memory_enabled,
+            settings.rag_source_wiki_enabled,
         )
 
     def _build_orchestrator(self) -> HybridOrchestrator:
@@ -53,6 +58,12 @@ class RetrievalService:
 
     def _normalize_task_kind(self, task_kind: str | None) -> str:
         return str(task_kind or "").strip().lower()
+
+    def _source_selection_policy(self, source_types: list[str] | None) -> dict[str, object]:
+        return resolve_source_selection_policy(
+            settings=settings,
+            requested_source_types=source_types,
+        ).as_dict()
 
     def _knowledge_index_plan(self, query: str, *, task_kind: str | None, retrieval_intent: str | None) -> tuple[int, str]:
         normalized = str(query or "").lower()
@@ -273,12 +284,21 @@ class RetrievalService:
         return self._orchestrator
 
     def _deserialize_chunk(self, payload: dict[str, object]) -> ContextChunk:
-        return ContextChunk(
-            engine=str(payload.get("engine") or ""),
-            source=str(payload.get("source") or ""),
-            content=str(payload.get("content") or ""),
-            score=float(payload.get("score") or 0.0),
+        engine = str(payload.get("engine") or "")
+        source = str(payload.get("source") or "")
+        content = str(payload.get("content") or "")
+        metadata = normalize_chunk_metadata(
+            engine=engine,
+            source=source,
+            content=content,
             metadata=dict(payload.get("metadata") or {}),
+        )
+        return ContextChunk(
+            engine=engine,
+            source=source,
+            content=content,
+            score=float(payload.get("score") or 0.0),
+            metadata=metadata,
         )
 
     def _chunk_identity(self, chunk: ContextChunk) -> tuple[str, str, str]:
@@ -460,6 +480,33 @@ class RetrievalService:
             counts[str(chunk.engine or "unknown")] += 1
         return dict(sorted(counts.items(), key=lambda item: item[0]))
 
+    def _source_type_contributions(self, chunks: list[ContextChunk]) -> dict[str, int]:
+        counts: dict[str, int] = defaultdict(int)
+        for chunk in chunks:
+            metadata = dict(chunk.metadata or {})
+            source_type = str(metadata.get("source_type") or "unknown").strip().lower() or "unknown"
+            counts[source_type] += 1
+        return dict(sorted(counts.items(), key=lambda item: item[0]))
+
+    def _normalize_chunks(self, chunks: list[ContextChunk]) -> list[ContextChunk]:
+        normalized: list[ContextChunk] = []
+        for chunk in chunks:
+            normalized.append(
+                ContextChunk(
+                    engine=chunk.engine,
+                    source=chunk.source,
+                    content=chunk.content,
+                    score=float(chunk.score or 0.0),
+                    metadata=normalize_chunk_metadata(
+                        engine=str(chunk.engine or ""),
+                        source=str(chunk.source or ""),
+                        content=str(chunk.content or ""),
+                        metadata=dict(chunk.metadata or {}),
+                    ),
+                )
+            )
+        return normalized
+
     def _selection_stage_trace(self, stage: str, chunks: list[ContextChunk], *, limit: int = 5) -> dict[str, object]:
         ranked = sorted(chunks, key=lambda chunk: (-chunk.score, chunk.engine, chunk.source, chunk.content[:80]))
         top: list[dict[str, object]] = []
@@ -523,31 +570,46 @@ class RetrievalService:
         task_id: str | None = None,
         goal_id: str | None = None,
         neighbor_task_ids: list[str] | None = None,
+        source_types: list[str] | None = None,
     ) -> dict[str, object]:
         orchestrator = self.get_orchestrator()
+        source_policy = self._source_selection_policy(source_types)
+        effective_source_types = set(source_policy.get("effective") or [])
         context_payload = orchestrator.get_relevant_context(query)
         knowledge_top_k, knowledge_reason = self._knowledge_index_plan(query, task_kind=task_kind, retrieval_intent=retrieval_intent)
         fusion_profile = self._task_profile_for_fusion(task_kind, retrieval_intent)
-        knowledge_chunks = self._knowledge_index_retrieval_service.search(
-            query,
-            top_k=knowledge_top_k,
-            task_kind=task_kind,
-            retrieval_intent=retrieval_intent,
-        )
-        memory_chunks, memory_meta = self._memory_candidates(
-            query=query,
-            task_id=task_id,
-            goal_id=goal_id,
-            neighbor_task_ids=neighbor_task_ids,
-            top_k=max(2, knowledge_top_k),
-        )
+
+        knowledge_chunks: list[ContextChunk] = []
+        knowledge_scopes = source_scopes_for_types(effective_source_types)
+        if knowledge_scopes:
+            knowledge_chunks = self._knowledge_index_retrieval_service.search(
+                query,
+                top_k=knowledge_top_k,
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
+                source_scopes=knowledge_scopes,
+            )
+        memory_chunks: list[ContextChunk] = []
+        memory_meta: dict[str, object] = {"reason": "disabled_by_source_policy", "entries_considered": 0, "matches": 0}
+        if "task_memory" in effective_source_types:
+            memory_chunks, memory_meta = self._memory_candidates(
+                query=query,
+                task_id=task_id,
+                goal_id=goal_id,
+                neighbor_task_ids=neighbor_task_ids,
+                top_k=max(2, knowledge_top_k),
+            )
         KNOWLEDGE_RETRIEVAL_CHUNKS.observe(len(knowledge_chunks))
 
-        orchestrator_chunks = [
-            self._deserialize_chunk(chunk_payload)
-            for chunk_payload in context_payload.get("chunks", [])
-            if isinstance(chunk_payload, dict)
-        ]
+        orchestrator_chunks: list[ContextChunk] = []
+        if "repo" in effective_source_types:
+            orchestrator_chunks = [
+                self._deserialize_chunk(chunk_payload)
+                for chunk_payload in context_payload.get("chunks", [])
+                if isinstance(chunk_payload, dict)
+            ]
+        knowledge_chunks = self._normalize_chunks(knowledge_chunks)
+        memory_chunks = self._normalize_chunks(memory_chunks)
         all_candidates = [*orchestrator_chunks, *knowledge_chunks, *memory_chunks]
         deduped_candidates, dedupe_meta = self._dedupe_candidates(all_candidates)
         expanded_candidates, expansion_meta = self._expand_candidates(
@@ -577,14 +639,19 @@ class RetrievalService:
         strategy["result_memory"] = len(memory_chunks)
         strategy["result_memory_reason"] = str(memory_meta.get("reason") or "unknown")
         strategy["result_memory_meta"] = memory_meta
+        strategy["source_policy"] = source_policy
         strategy["fusion"] = {
             "mode": "deterministic_v2",
             "deterministic_order_key": "score_desc_engine_source_content_prefix",
             "task_kind": self._normalize_task_kind(task_kind) or None,
             "retrieval_intent": str(retrieval_intent or "").strip() or None,
+            "source_policy": source_policy,
             "engine_contributions_before": self._engine_contributions(all_candidates),
             "engine_contributions_after_dedupe": self._engine_contributions(deduped_candidates),
             "engine_contributions_final": self._engine_contributions(merged),
+            "source_type_contributions_before": self._source_type_contributions(all_candidates),
+            "source_type_contributions_after_dedupe": self._source_type_contributions(deduped_candidates),
+            "source_type_contributions_final": self._source_type_contributions(merged),
             "dedupe": dedupe_meta,
             "expansion": expansion_meta,
             "rerank": rerank_meta,

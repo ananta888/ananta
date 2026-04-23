@@ -287,3 +287,31 @@ def test_knowledge_index_retrieval_uses_focus_terms_from_specialized_chunks(tmp_
     assert len(chunks) == 1
     assert chunks[0].metadata["record_kind"] == "java_member_chunk"
     assert chunks[0].metadata["retrieval_score_breakdown"]["final_score"] > 0
+
+
+def test_knowledge_index_retrieval_can_filter_by_source_scope(tmp_path):
+    output_dir = tmp_path / "knowledge-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text(
+        json.dumps({"kind": "md_section", "file": "docs/wiki/payment.md", "title": "Payment", "content": "wiki payment timeout"}),
+        encoding="utf-8",
+    )
+
+    repository = SimpleNamespace(
+        list_completed=lambda: [
+            SimpleNamespace(
+                id="idx-wiki-1",
+                artifact_id="artifact-wiki",
+                source_scope="wiki",
+                profile_name="default",
+                output_dir=str(output_dir),
+            )
+        ]
+    )
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
+
+    assert service.search("payment timeout", source_scopes={"artifact"}) == []
+    wiki_chunks = service.search("payment timeout", source_scopes={"wiki"})
+
+    assert len(wiki_chunks) == 1
+    assert wiki_chunks[0].metadata["source_type"] == "wiki"

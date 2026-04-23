@@ -28,6 +28,7 @@ class RagService:
         task_id: str | None = None,
         goal_id: str | None = None,
         neighbor_task_ids: list[str] | None = None,
+        source_types: list[str] | None = None,
     ) -> dict[str, object]:
         context_payload = self._retrieval_service.retrieve_context(
             query,
@@ -36,6 +37,7 @@ class RagService:
             task_id=task_id,
             goal_id=goal_id,
             neighbor_task_ids=neighbor_task_ids,
+            source_types=source_types,
         )
         return self._context_bundle_service.build_bundle(
             query=query,
@@ -52,8 +54,21 @@ class RagService:
             window_profile=window_profile,
         )
 
-    def build_execution_context(self, prompt: str) -> tuple[dict[str, object], str]:
-        bundle = self.retrieve_context_bundle(prompt, include_context_text=True)
+    def build_execution_context(
+        self,
+        prompt: str,
+        *,
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+        source_types: list[str] | None = None,
+    ) -> tuple[dict[str, object], str]:
+        bundle = self.retrieve_context_bundle(
+            prompt,
+            include_context_text=True,
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            source_types=source_types,
+        )
         grounded_prompt = self._context_bundle_service.build_grounded_prompt(
             prompt=prompt,
             context_text=str(bundle.get("context_text") or ""),

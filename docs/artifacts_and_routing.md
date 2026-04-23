@@ -51,8 +51,18 @@ Knowledge indexing and routing traceability
   - `artifact_ids`
   - `knowledge_index_ids`
   - `chunk_types`
+  - `source_types`
+  - `source_type_counts`
 - Fuer groessere Laeufe stehen asynchrone Statuspfade bereit:
   - `POST /artifacts/<id>/rag-index` mit `{ "async": true }`
   - `POST /knowledge/collections/<id>/index` mit `{ "async": true }`
   - `GET /artifacts/<id>/rag-jobs/<job_id>`
   - `GET /knowledge/index-jobs/<job_id>`
+
+Source-normalisierte Chunk-Metadaten (additiv):
+
+- `source_type`
+- `source_id`
+- `chunk_id`
+- `citation`
+- `provenance`

@@ -128,6 +128,26 @@ def _extract_user_id() -> str:
     return str(user_id)
 
 
+def _parse_source_types(value) -> list[str] | None:
+    allowed = {"repo", "artifact", "task_memory", "wiki"}
+    if value is None:
+        return None
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError("source_types must be a list of strings")
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        source_type = str(item or "").strip().lower()
+        if not source_type:
+            continue
+        if source_type not in allowed:
+            raise ValueError(f"invalid source_types value: {source_type}")
+        if source_type not in seen:
+            seen.add(source_type)
+            normalized.append(source_type)
+    return normalized or None
+
+
 def _resolve_source_path(source_path: str) -> Path:
     repo_root = Path(settings.rag_repo_root).resolve()
     requested = (repo_root / source_path).resolve()
@@ -172,6 +192,11 @@ def execute_sgpt():
     backend = str(data.get("backend") or settings.sgpt_execution_backend or "opencode").strip().lower()
     model = data.get("model")
     task_kind = normalize_task_kind(data.get("task_kind"), prompt or "")
+    retrieval_intent = str(data.get("retrieval_intent") or "").strip() or None
+    try:
+        source_types = _parse_source_types(data.get("source_types"))
+    except ValueError as e:
+        return api_response(status="error", message=str(e), code=400)
 
     if not prompt:
         return api_response(status="error", message="Missing prompt", code=400)
@@ -219,7 +244,12 @@ def execute_sgpt():
                 return api_response(status="error", message="Hybrid context mode is disabled", code=400)
             RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
             with RAG_RETRIEVAL_DURATION.time():
-                context_payload, effective_prompt = get_rag_service().build_execution_context(prompt)
+                context_payload, effective_prompt = get_rag_service().build_execution_context(
+                    prompt,
+                    task_kind=task_kind,
+                    retrieval_intent=retrieval_intent,
+                    source_types=source_types,
+                )
             chunk_count = len(context_payload.get("chunks", []))
             RAG_CHUNKS_SELECTED.observe(chunk_count)
             engines = {str((c or {}).get("engine") or "") for c in (context_payload.get("chunks") or [])}
@@ -557,10 +587,22 @@ def get_context():
         return api_response(status="error", message="Missing query", code=400)
 
     include_context_text = bool(data.get("include_context_text", True))
+    task_kind = normalize_task_kind(data.get("task_kind"), query)
+    retrieval_intent = str(data.get("retrieval_intent") or "").strip() or None
+    try:
+        source_types = _parse_source_types(data.get("source_types"))
+    except ValueError as e:
+        return api_response(status="error", message=str(e), code=400)
     try:
         RAG_REQUESTS_TOTAL.labels(mode="context").inc()
         with RAG_RETRIEVAL_DURATION.time():
-            payload = get_rag_service().retrieve_context_bundle(query, include_context_text=include_context_text)
+            payload = get_rag_service().retrieve_context_bundle(
+                query,
+                include_context_text=include_context_text,
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
+                source_types=source_types,
+            )
         RAG_CHUNKS_SELECTED.observe(len(payload.get("chunks", [])))
         return api_response(data=payload)
     except Exception as e:

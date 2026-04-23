@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "eclipse_plugin_adapter",
+  "purpose": "Build a thin Eclipse plugin that acts as an IDE adapter for Ananta rather than duplicating orchestration inside the IDE.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "Eclipse users can start and inspect Ananta-controlled project work directly from the IDE using existing Ananta APIs and control-plane flows.",
+  "success_criteria": [
+    "The plugin can authenticate against Ananta and store endpoint/profile settings safely.",
+    "Users can send file, selection and project context from Eclipse to Ananta.",
+    "Users can trigger core flows such as analyze, review, patch, new-project and evolve-project from the IDE.",
+    "Returned tasks, proposals, artifacts and statuses are visible inside Eclipse without rebuilding Ananta logic in the plugin.",
+    "The plugin stays thin and delegates planning, routing, review and governance to Ananta."
+  ],
+  "tasks": [
+    {
+      "id": "ECL-T01",
+      "title": "Plugin target model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A design note explains that the Eclipse plugin is a thin IDE adapter and not a second control plane.",
+        "The document lists what stays in Eclipse and what stays in Ananta.",
+        "The design explicitly forbids duplicate orchestration logic inside the plugin."
+      ]
+    },
+    {
+      "id": "ECL-T02",
+      "title": "Minimum supported Eclipse distribution define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Supported Eclipse versions and Java baseline are documented.",
+        "Required target platform or plugin dependencies are listed.",
+        "A simple local dev setup for the plugin exists."
+      ]
+    },
+    {
+      "id": "ECL-T03",
+      "title": "Connection profile and authentication support add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Users can configure Ananta base URL and auth method.",
+        "The plugin can login via the canonical auth flow or use a token profile.",
+        "Sensitive values are stored safely and not dumped into logs."
+      ]
+    },
+    {
+      "id": "ECL-T04",
+      "title": "Basic health and capability handshake implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin can query health/ready or equivalent capability endpoints.",
+        "The plugin can detect whether the target Ananta instance is reachable and usable.",
+        "The UI shows a clear connected/disconnected state."
+      ]
+    },
+    {
+      "id": "ECL-T05",
+      "title": "Workspace and project context collection implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin can detect current workspace, project name and selected file.",
+        "Context collection is explicit and bounded.",
+        "Users can review what will be sent before requesting an operation."
+      ]
+    },
+    {
+      "id": "ECL-T06",
+      "title": "Selection and current editor content handoff add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin can send current text selection or current file path/context to Ananta.",
+        "Operations can target either selection-level or file-level scope.",
+        "Large content is clipped or summarized safely before sending."
+      ]
+    },
+    {
+      "id": "ECL-T07",
+      "title": "Thin command set for core Ananta flows add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin exposes commands for analyze, review, patch, new-project and evolve-project.",
+        "Commands map to existing Ananta goal/task flows rather than custom plugin behavior.",
+        "Commands are accessible from editor context menu or command palette equivalent."
+      ]
+    },
+    {
+      "id": "ECL-T08",
+      "title": "Quick prompt / goal input panel implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A small input panel allows users to describe a goal from Eclipse.",
+        "The panel supports sending project-aware context to Ananta.",
+        "The panel favors the official product paths rather than ad hoc raw prompting."
+      ]
+    },
+    {
+      "id": "ECL-T09",
+      "title": "Task and artifact view inside Eclipse implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Returned tasks and artifacts can be listed in a dedicated view.",
+        "The user can open task details and inspect summaries without leaving the IDE.",
+        "The view distinguishes status, review requirements and next steps."
+      ]
+    },
+    {
+      "id": "ECL-T10",
+      "title": "Status polling or refresh flow for tasks add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Users can refresh running task state from Eclipse.",
+        "The plugin shows whether work is pending, blocked, done or review-required.",
+        "Refresh behavior is lightweight and does not spam the backend."
+      ]
+    },
+    {
+      "id": "ECL-T11",
+      "title": "Diff/review result rendering add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Review or change proposals can be rendered readably inside Eclipse.",
+        "Users can inspect proposed changes with file/path references where available.",
+        "The plugin does not apply changes automatically by default."
+      ]
+    },
+    {
+      "id": "ECL-T12",
+      "title": "Review and approval action support add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Where Ananta requires review, the plugin can surface that state.",
+        "Users can approve/reject applicable review items from the IDE when policy allows.",
+        "Review actions remain explicit and auditable."
+      ]
+    },
+    {
+      "id": "ECL-T13",
+      "title": "Open in browser / open in Ananta shortcuts add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Users can open the corresponding task/goal/artifact in the Ananta web UI.",
+        "Cross-linking works from Eclipse to Ananta for deeper inspection.",
+        "The plugin stays thin by delegating richer visualization to the web UI when useful."
+      ]
+    },
+    {
+      "id": "ECL-T14",
+      "title": "Operation presets matching official use cases add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Plugin actions clearly reflect official Ananta product paths.",
+        "At minimum, repository understanding, change review, bugfix planning, new project and project evolution are supported.",
+        "Terminology remains aligned with README/use-case language."
+      ]
+    },
+    {
+      "id": "ECL-T15",
+      "title": "Optional SGPT/CLI direct operation bridge add",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "The plugin can optionally invoke a bounded SGPT/CLI-backed operation through Ananta.",
+        "This path remains secondary to task/goal-based flows.",
+        "The plugin does not assume direct shell privileges."
+      ]
+    },
+    {
+      "id": "ECL-T16",
+      "title": "OpenAI-compatible fallback experiment evaluate",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "A short evaluation checks whether Eclipse-side integrations could reuse Ananta's OpenAI-compatible endpoints.",
+        "The result documents whether this is worth keeping as a fallback path.",
+        "The fallback does not replace the main plugin-controlled task flows."
+      ]
+    },
+    {
+      "id": "ECL-T17",
+      "title": "Optional MCP-based integration path evaluate",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "A short evaluation checks whether an MCP-based Eclipse path is realistic.",
+        "The document compares MCP versus direct REST integration for Eclipse.",
+        "The result helps avoid unnecessary plugin complexity."
+      ]
+    },
+    {
+      "id": "ECL-T18",
+      "title": "Bounded context packaging rules define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin defines how much editor/workspace content may be sent for one operation.",
+        "Large project state is not blindly dumped to the backend.",
+        "Users can see and control the packaged context."
+      ]
+    },
+    {
+      "id": "ECL-T19",
+      "title": "Security and privacy guardrails for IDE handoff add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin warns before sending sensitive content when possible.",
+        "Tokens, secrets and unrelated files are not sent implicitly.",
+        "Logs redact sensitive configuration values."
+      ]
+    },
+    {
+      "id": "ECL-T20",
+      "title": "Error handling and degraded mode implement",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The plugin handles auth failures, connection problems and backend errors cleanly.",
+        "The UI gives actionable error messages instead of generic failures.",
+        "Operations fail visibly rather than silently hanging."
+      ]
+    },
+    {
+      "id": "ECL-T21",
+      "title": "Task/goal trace visibility expose lightly",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "Advanced users can inspect trace_id or routing summary when needed.",
+        "Default views remain simple and not overloaded.",
+        "The feature supports debugging without turning Eclipse into an ops console."
+      ]
+    },
+    {
+      "id": "ECL-T22",
+      "title": "First-run UX inside Eclipse define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A new user can connect Eclipse to Ananta and run a first useful flow quickly.",
+        "The first-run path recommends one of the official standard use cases.",
+        "No deep manual setup is required beyond endpoint and auth."
+      ]
+    },
+    {
+      "id": "ECL-T23",
+      "title": "Golden path demo for Eclipse plugin document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one official reproducible demo from Eclipse to Ananta.",
+        "The demo covers selecting code, sending a goal and viewing returned tasks/artifacts.",
+        "Another developer can reproduce it from documentation."
+      ]
+    },
+    {
+      "id": "ECL-T24",
+      "title": "Automated tests for plugin core flows add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Core plugin services have basic automated tests.",
+        "At minimum, config/auth, context packaging and task response parsing are tested.",
+        "Tests protect the thin-adapter design from accidental scope creep."
+      ]
+    },
+    {
+      "id": "ECL-T25",
+      "title": "Manual smoke checklist for real Eclipse use add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A small manual checklist verifies connection, send-selection, analyze and review flows.",
+        "Checklist is short enough for release smoke testing.",
+        "Known failure cases are documented."
+      ]
+    },
+    {
+      "id": "ECL-T26",
+      "title": "Future roadmap for richer IDE support prepare",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "Later ideas such as inline suggestions, richer diff views or deeper task boards are documented separately.",
+        "These ideas are not required for the first useful plugin release.",
+        "The MVP remains intentionally small and maintainable."
+      ]
+    }
+  ]
+}

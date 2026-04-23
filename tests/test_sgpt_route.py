@@ -338,7 +338,16 @@ def test_sgpt_context_endpoint_success(client, admin_auth_header):
         },
     }
     with patch("agent.routes.sgpt.get_rag_service", return_value=fake_rag_service):
-        response = client.post("/api/sgpt/context", json={"query": "find docs"}, headers=admin_auth_header)
+        response = client.post(
+            "/api/sgpt/context",
+            json={
+                "query": "find docs",
+                "task_kind": "doc",
+                "retrieval_intent": "architecture_and_decision_context",
+                "source_types": ["repo", "artifact"],
+            },
+            headers=admin_auth_header,
+        )
 
     assert response.status_code == 200
     assert response.json["status"] == "success"
@@ -346,6 +355,11 @@ def test_sgpt_context_endpoint_success(client, admin_auth_header):
     assert response.json["data"]["chunks"]
     assert response.json["data"]["chunk_count"] == 1
     assert response.json["data"]["explainability"]["collection_names"] == ["team-docs"]
+    fake_rag_service.retrieve_context_bundle.assert_called_once()
+    kwargs = fake_rag_service.retrieve_context_bundle.call_args.kwargs
+    assert kwargs["task_kind"] == "doc"
+    assert kwargs["retrieval_intent"] == "architecture_and_decision_context"
+    assert kwargs["source_types"] == ["repo", "artifact"]
 
 
 def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
@@ -375,7 +389,13 @@ def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
 
         response = client.post(
             "/api/sgpt/execute",
-            json={"prompt": "where timeout bug", "use_hybrid_context": True},
+            json={
+                "prompt": "where timeout bug",
+                "use_hybrid_context": True,
+                "task_kind": "bugfix",
+                "retrieval_intent": "localize bug",
+                "source_types": ["repo", "artifact"],
+            },
             headers=admin_auth_header,
         )
 
@@ -383,6 +403,11 @@ def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
     assert response.json["status"] == "success"
     assert response.json["data"]["context"]["policy_version"] == "v1"
     assert response.json["data"]["context"]["chunk_count"] == 1
+    fake_rag_service.build_execution_context.assert_called_once()
+    kwargs = fake_rag_service.build_execution_context.call_args.kwargs
+    assert kwargs["task_kind"] == response.json["data"]["routing"]["task_kind"]
+    assert kwargs["retrieval_intent"] == "localize bug"
+    assert kwargs["source_types"] == ["repo", "artifact"]
 
 
 def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app, admin_auth_header):

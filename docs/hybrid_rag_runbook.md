@@ -9,6 +9,12 @@ Dieses Runbook beschreibt Betrieb, Rebuild und Recovery der Hybrid-RAG-Schicht (
 - Semantischer Index: `SemanticSearchEngine` (persistiert in `.rag/llamaindex`)
 - Artefakt-/Knowledge-Indizes: `rag-helper` ueber `RagHelperIndexService` und `KnowledgeIndexJobService`
 
+## Hub-owned Orchestrierungsvertrag
+- Hub-Endpunkte triggern Import/Index/Query-Flows (`/artifacts/*`, `/knowledge/*`, `/api/sgpt/*`).
+- Worker fuehren delegierte Index-/Retrieval-Arbeit aus, orchestrieren aber keine weiteren Worker.
+- Laufen asynchron ueber Job-Statuspfade, damit Zustand und Fehlerbilder auditable bleiben.
+- Source-Policies sind zentral im Hub konfiguriert und werden fail-closed ausgewertet.
+
 ## Konfiguration
 Relevante Variablen:
 - `RAG_ENABLED`
@@ -21,6 +27,10 @@ Relevante Variablen:
 - `RAG_AGENTIC_TIMEOUT_SECONDS`
 - `RAG_SEMANTIC_PERSIST_DIR`
 - `RAG_REDACT_SENSITIVE`
+- `RAG_SOURCE_REPO_ENABLED`
+- `RAG_SOURCE_ARTIFACT_ENABLED`
+- `RAG_SOURCE_TASK_MEMORY_ENABLED`
+- `RAG_SOURCE_WIKI_ENABLED`
 
 ## Initiale Ingestion
 1. `RAG_DATA_ROOTS` auf produktive Dokumentquellen setzen.
@@ -43,6 +53,18 @@ Artefakt- oder Collection-Laeufe akzeptieren:
 Beispiele:
 - `POST /artifacts/<id>/rag-index` mit `{ "profile_name": "deep_code" }`
 - `POST /knowledge/collections/<id>/index` mit `{ "profile_name": "fast_docs", "async": true }`
+
+## Source-aware Retrieval Policy
+- Optionales Query-Feld `source_types` ist additiv verfuegbar auf:
+  - `POST /api/sgpt/context`
+  - `POST /api/sgpt/execute` (bei `use_hybrid_context=true`)
+  - `POST /knowledge/collections/<id>/search`
+- Erlaubte Source-Typen:
+  - `repo`
+  - `artifact`
+  - `task_memory`
+  - `wiki`
+- Ungueltige Source-Typen oder komplett deaktivierte Source-Matrix werden fail-closed behandelt.
 
 ## Rebuild-Strategie
 - Code-Symbolindex:

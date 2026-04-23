@@ -10,6 +10,7 @@ from agent.models import (
     KnowledgeCollectionIndexRequest,
     KnowledgeCollectionSearchRequest,
 )
+from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 
@@ -207,16 +208,28 @@ def search_knowledge_collection(collection_id: str):
     if not query:
         raise BadRequestError("query_required")
     top_k = max(1, int(payload.top_k or 5))
+    requested_source_types = [str(item).strip().lower() for item in list(payload.source_types or []) if str(item).strip()]
+    invalid_source_types = sorted({item for item in requested_source_types if item not in {"artifact", "wiki"}})
+    if invalid_source_types:
+        raise BadRequestError("invalid_source_types")
+    source_scopes = source_scopes_for_types(set(requested_source_types)) if requested_source_types else set()
     artifact_ids = {
         str(link.artifact_id)
         for link in _knowledge_link_repo().get_by_collection(collection_id)
         if getattr(link, "artifact_id", None)
     }
-    chunks = get_knowledge_index_retrieval_service().search(query, top_k=top_k, artifact_ids=artifact_ids)
+    search_kwargs = {"top_k": top_k, "artifact_ids": artifact_ids}
+    if source_scopes:
+        search_kwargs["source_scopes"] = source_scopes
+    chunks = get_knowledge_index_retrieval_service().search(query, **search_kwargs)
     return api_response(
         data={
             "collection": collection.model_dump(),
             "query": query,
+            "source_policy": {
+                "requested": requested_source_types,
+                "effective_scopes": sorted(source_scopes) if source_scopes else ["artifact"],
+            },
             "chunks": [
                 {
                     "engine": chunk.engine,

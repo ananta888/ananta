@@ -192,3 +192,21 @@ def test_rag_service_redacts_sensitive_values_in_explainability_and_selection_tr
     assert "sk-secret-token-1234567890" not in str(bundle.get("explainability") or {})
     assert "sk-secret-token-1234567890" not in str(bundle.get("why_this_context") or {})
     assert "sk-secret-token-1234567890" not in str(bundle.get("selection_trace") or {})
+
+
+def test_rag_service_forwards_source_type_selection_to_retrieval():
+    retrieval = MagicMock()
+    retrieval.retrieve_context.return_value = {
+        "query": "find docs",
+        "strategy": {"repository_map": 1},
+        "policy_version": "v1",
+        "chunks": [{"engine": "repository_map", "source": "README.md", "content": "ctx", "score": 1.0, "metadata": {}}],
+        "context_text": "ctx",
+        "token_estimate": 7,
+    }
+    service = RagService(retrieval_service=retrieval)
+
+    service.retrieve_context_bundle("find docs", source_types=["repo", "artifact"])
+
+    retrieval.retrieve_context.assert_called_once()
+    assert retrieval.retrieve_context.call_args.kwargs["source_types"] == ["repo", "artifact"]

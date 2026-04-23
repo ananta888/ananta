@@ -184,6 +184,7 @@ class KnowledgeCollectionIndexRequest(SQLModel):
 class KnowledgeCollectionSearchRequest(SQLModel):
     query: str
     top_k: int = 5
+    source_types: Optional[List[str]] = None
 
 
 class TaskExecutionPolicyContract(SQLModel):
@@ -801,11 +802,16 @@ class SgptExecuteRequest(SQLModel):
     backend: Optional[str] = None
     model: Optional[str] = None
     task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    source_types: Optional[List[str]] = None
 
 
 class SgptContextRequest(SQLModel):
     query: Optional[str] = None
     include_context_text: Optional[bool] = True
+    task_kind: Optional[str] = None
+    retrieval_intent: Optional[str] = None
+    source_types: Optional[List[str]] = None
 
 
 class SgptSourceRequest(SQLModel):

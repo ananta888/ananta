@@ -184,6 +184,8 @@ class ContextBundleService:
         artifact_ids: list[str] = []
         knowledge_index_ids: list[str] = []
         chunk_types: list[str] = []
+        source_types: list[str] = []
+        source_type_counts: dict[str, int] = {}
         collection_ids: list[str] = []
         collection_names: list[str] = []
         sources: list[dict[str, object]] = []
@@ -205,6 +207,12 @@ class ContextBundleService:
             chunk_type = str(metadata.get("record_kind") or "").strip()
             if chunk_type and chunk_type not in chunk_types:
                 chunk_types.append(chunk_type)
+            source_type = str(metadata.get("source_type") or "").strip()
+            if source_type:
+                if source_type not in source_types:
+                    source_types.append(source_type)
+                source_type_counts[source_type] = int(source_type_counts.get(source_type) or 0) + 1
+            source_id = str(metadata.get("source_id") or "").strip() or None
             for collection_id in metadata.get("collection_ids") or []:
                 value = str(collection_id or "").strip()
                 if value and value not in collection_ids:
@@ -220,6 +228,9 @@ class ContextBundleService:
                         "source": self._redact_debug_value(source),
                         "score": chunk.get("score"),
                         "record_kind": chunk_type,
+                        "source_type": source_type or None,
+                        "source_id": source_id,
+                        "chunk_id": str(metadata.get("chunk_id") or "").strip() or None,
                         "artifact_id": artifact_id,
                         "knowledge_index_id": knowledge_index_id,
                         "collection_names": self._redact_debug_value(metadata.get("collection_names") or []),
@@ -231,6 +242,8 @@ class ContextBundleService:
             "artifact_ids": artifact_ids,
             "knowledge_index_ids": knowledge_index_ids,
             "chunk_types": chunk_types,
+            "source_types": source_types,
+            "source_type_counts": source_type_counts,
             "collection_ids": collection_ids,
             "collection_names": collection_names,
             "source_count": len(sources),
@@ -325,6 +338,7 @@ class ContextBundleService:
                     "source": str(chunk.get("source") or ""),
                     "score": chunk.get("score"),
                     "record_kind": str(metadata.get("record_kind") or ""),
+                    "source_type": str(metadata.get("source_type") or "").strip() or None,
                     "relevance_dimensions": relevance_dimensions,
                 }
             )
