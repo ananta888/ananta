@@ -1,1371 +1,304 @@
 {
-  "version": 2,
+  "version": 1,
   "owner": "ananta",
-  "track": "kritis_hardening_program_detailed",
-  "purpose": "Detailed KRITIS hardening program for Ananta with phases, dependencies, rollout gates, evidence requirements and explicit execution order inside each priority group.",
+  "track": "generic_agent_control_and_ml_intern_worker",
+  "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
-  "effort_scale": ["XS", "S", "M", "L", "XL"],
-  "program_goal": "Turn Ananta into a much more controlled and evidence-driven platform for higher-trust and KRITIS-like usage by enforcing full auditability, write approvals, retrieval security boundaries, deterministic critical workflows, hardened execution isolation and enterprise-grade role handling.",
-  "program_exit_criteria": [
-    "All P1 program groups have passed their group exit gates.",
-    "All blocking dependencies for P2 and P3 have been resolved or explicitly waived.",
-    "A KRITIS evidence register exists with traceable proof for mandatory controls.",
-    "At least one representative end-to-end high-risk flow passes all approval, audit, filtering and deterministic workflow checks.",
-    "A release gate document exists that prevents overstating KRITIS readiness."
+  "goal": "Ananta should gain stronger generic safeguards and loop-control primitives across CLI, research, evolution and future workers, without coupling the platform to one external agent implementation.",
+  "success_criteria": [
+    "Doom-loop detection works as a generic platform mechanism across task and tool execution paths.",
+    "Tool routing becomes a clearer reusable subsystem instead of scattered per-path logic.",
+    "Sensitive operations use one consistent approval model across Ananta subsystems.",
+    "Context collection, budgeting and compaction are handled by a clearer shared context management layer.",
+    "ml-intern can be evaluated or integrated only as an optional specialized worker/backend, not as a competing control plane."
   ],
-  "phases": [
+  "tasks": [
     {
-      "id": "PHASE-0",
-      "title": "Program framing and control baseline",
-      "goal": "Create the shared control model, evidence model and rollout strategy before deep implementation.",
-      "contains_groups": ["CROSS-CUTTING"]
-    },
-    {
-      "id": "PHASE-1",
-      "title": "Immediate KRITIS controls",
-      "goal": "Close the most dangerous trust gaps first: full audit chain and write-lock approval before mutation.",
-      "contains_groups": ["KRITIS-P1-AUDIT", "KRITIS-P1-EVOLVER-WRITELOCK"]
-    },
-    {
-      "id": "PHASE-2",
-      "title": "Safety and stability hardening",
-      "goal": "Constrain information flow and state behavior so the platform becomes more predictable and policy-safe.",
-      "contains_groups": ["KRITIS-P2-RAG-FILTERING", "KRITIS-P2-WORKFLOW-DETERMINISM"]
-    },
-    {
-      "id": "PHASE-3",
-      "title": "Infrastructure and enterprise hardening",
-      "goal": "Strengthen runtime isolation and enterprise-facing role handling for stronger operational environments.",
-      "contains_groups": ["KRITIS-P3-SANDBOXING", "KRITIS-P3-ENTERPRISE-RBAC"]
-    },
-    {
-      "id": "PHASE-4",
-      "title": "Integrated verification and release gate",
-      "goal": "Validate the combined program with evidence, smoke flows and release readiness criteria.",
-      "contains_groups": ["INTEGRATION-AND-RELEASE"]
-    }
-  ],
-  "groups": [
-    {
-      "id": "CROSS-CUTTING",
+      "id": "GAC-T01",
+      "title": "Cross-cutting control layer design define",
+      "status": "todo",
       "priority": "P0",
-      "phase": "PHASE-0",
-      "title": "Cross-cutting KRITIS framing",
-      "group_goal": "Define the shared model for scope, evidence, rollout and program-level acceptance.",
-      "group_exit_criteria": [
-        "A KRITIS-oriented profile or operating mode is defined.",
-        "A common evidence model exists for all priority groups.",
-        "Program dependencies and stop/go rules are documented."
-      ],
-      "tasks": [
-        {
-          "id": "KRITIS-X01",
-          "order": 1,
-          "title": "KRITIS profile and operating mode define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": [],
-          "acceptance_criteria": [
-            "A dedicated KRITIS-oriented profile or operating mode is defined.",
-            "The profile binds together audit, write-lock, retrieval filtering, deterministic workflows, sandboxing and RBAC expectations.",
-            "Mode semantics are strict enough to be enforceable."
-          ],
-          "evidence_required": [
-            "design note",
-            "config mapping",
-            "review approval"
-          ]
-        },
-        {
-          "id": "KRITIS-X02",
-          "order": 2,
-          "title": "Integrated evidence register structure define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "An evidence register structure exists for all KRITIS controls.",
-            "The structure links test evidence, audit evidence, policy evidence and operator guidance.",
-            "Evidence is organized by group and release."
-          ],
-          "evidence_required": [
-            "evidence schema",
-            "example populated entry"
-          ]
-        },
-        {
-          "id": "KRITIS-X03",
-          "order": 3,
-          "title": "Program dependency and rollout map create",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["KRITIS-X01", "KRITIS-X02"],
-          "acceptance_criteria": [
-            "A dependency map exists for all KRITIS task groups.",
-            "Blocking prerequisites and non-blocking tasks are explicit.",
-            "The map is usable for phased execution."
-          ],
-          "evidence_required": [
-            "dependency map",
-            "review notes"
-          ]
-        },
-        {
-          "id": "KRITIS-X04",
-          "order": 4,
-          "title": "Program-level benchmark and acceptance suite define",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["KRITIS-X02", "KRITIS-X03"],
-          "acceptance_criteria": [
-            "A program-level validation suite exists for the KRITIS hardening effort.",
-            "The suite covers at least one representative flow from each priority group.",
-            "The suite is reusable for later regressions and releases."
-          ],
-          "evidence_required": [
-            "suite definition",
-            "sample scenarios"
-          ]
-        },
-        {
-          "id": "KRITIS-X05",
-          "order": 5,
-          "title": "Program-level release gate define",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "S",
-          "depends_on": ["KRITIS-X02", "KRITIS-X04"],
-          "acceptance_criteria": [
-            "The project defines what must be true before claiming KRITIS-grade hardening for a release.",
-            "Mandatory gates are explicit and test-linked.",
-            "The release gate avoids vague partial-compliance claims."
-          ],
-          "evidence_required": [
-            "release gate document",
-            "approval signoff"
-          ]
-        }
+      "acceptance_criteria": [
+        "A design note explains how doom-loop detection, tool routing, approval checks and context management fit into Ananta as platform concerns.",
+        "The design states clearly which logic belongs to hub, execution backends and optional specialized workers.",
+        "The design avoids creating a second orchestration system inside a worker."
       ]
     },
     {
-      "id": "KRITIS-P1-AUDIT",
+      "id": "GAC-T02",
+      "title": "Doom-loop detection target model define",
+      "status": "todo",
       "priority": "P0",
-      "phase": "PHASE-1",
-      "title": "KRITIS Prioritaet 1 - Audit-Logging Middleware",
-      "group_goal": "Build a complete audit chain for all relevant LLM, tool, approval, workflow and mutation operations.",
-      "group_exit_criteria": [
-        "High-risk LLM, tool, approval and write paths produce complete audit chains.",
-        "Audit records are queryable by trace and actor.",
-        "Audit redaction is enforced without destroying forensic usefulness."
-      ],
-      "tasks": [
-        {
-          "id": "K1-AUD-T01",
-          "order": 1,
-          "title": "Audit coverage target model define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "A target model defines which operations must always be audited.",
-            "The model covers LLM generation, tool calls, approvals, writes, workflow transitions, repair actions and high-risk reads.",
-            "The model distinguishes mandatory, optional and forbidden audit payload classes."
-          ],
-          "evidence_required": ["coverage matrix", "approval signoff"]
-        },
-        {
-          "id": "K1-AUD-T02",
-          "order": 2,
-          "title": "Canonical audit event schema define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T01"],
-          "acceptance_criteria": [
-            "A single schema exists for audit events across routes and services.",
-            "The schema includes at least trace_id, task_id, actor, role, policy_version, operation_type, target, outcome and timestamps.",
-            "The schema supports correlated multi-step chains."
-          ],
-          "evidence_required": ["schema spec", "example events"]
-        },
-        {
-          "id": "K1-AUD-T03",
-          "order": 3,
-          "title": "Audit logging middleware layer implement",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "L",
-          "depends_on": ["K1-AUD-T02"],
-          "acceptance_criteria": [
-            "A middleware or central hook layer emits audit records for relevant request and execution flows.",
-            "The implementation avoids route-by-route duplication where possible.",
-            "Coverage extends to synchronous and asynchronous critical paths."
-          ],
-          "evidence_required": ["implementation", "coverage demo"]
-        },
-        {
-          "id": "K1-AUD-T04",
-          "order": 4,
-          "title": "LLM interaction audit hooks add",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T03"],
-          "acceptance_criteria": [
-            "Every LLM interaction emits auditable metadata.",
-            "The audit record includes provider/backend, model, prompt bundle class, context budget summary and response outcome.",
-            "Raw prompt storage is governed separately from metadata logging."
-          ],
-          "evidence_required": ["sample llm audit records", "tests"]
-        },
-        {
-          "id": "K1-AUD-T05",
-          "order": 5,
-          "title": "Prompt and context class logging design add",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T04"],
-          "acceptance_criteria": [
-            "Audit records can express what kind of context was sent without blindly storing sensitive content.",
-            "Context classes distinguish repo, memory, artifact, wiki, external research and user input.",
-            "The design is useful for later KRITIS evidence and incident reconstruction."
-          ],
-          "evidence_required": ["class taxonomy", "example event payloads"]
-        },
-        {
-          "id": "K1-AUD-T06",
-          "order": 6,
-          "title": "Tool call audit chaining implement",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T03", "K1-AUD-T04"],
-          "acceptance_criteria": [
-            "Tool calls are linked to the LLM interaction that initiated them.",
-            "Audit records show approval state, execution outcome and affected target scope.",
-            "Repeated or nested tool calls remain traceable."
-          ],
-          "evidence_required": ["linked trace example", "tests"]
-        },
-        {
-          "id": "K1-AUD-T07",
-          "order": 7,
-          "title": "Write operation audit detail add",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T06", "K1-EVO-T02"],
-          "acceptance_criteria": [
-            "Every file/code/artifact mutation emits structured audit detail.",
-            "Audit output includes target path class, write reason, approval source and verification result.",
-            "High-risk writes are distinguishable from low-risk writes."
-          ],
-          "evidence_required": ["mutation audit chain", "tests"]
-        },
-        {
-          "id": "K1-AUD-T08",
-          "order": 8,
-          "title": "Approval event audit integration add",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "S",
-          "depends_on": ["K1-AUD-T02", "K1-EVO-T03"],
-          "acceptance_criteria": [
-            "Approvals, rejections and expired approvals are fully audited.",
-            "The records identify approver identity and approval scope.",
-            "Audit records can reconstruct whether a write happened with or without valid approval."
-          ],
-          "evidence_required": ["approval audit records", "tests"]
-        },
-        {
-          "id": "K1-AUD-T09",
-          "order": 9,
-          "title": "Workflow transition audit events add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-WFD-T03"],
-          "acceptance_criteria": [
-            "Critical workflow state transitions emit structured audit records.",
-            "The records include from_state, to_state, trigger and policy context.",
-            "Unexpected transitions are especially visible."
-          ],
-          "evidence_required": ["transition event examples"]
-        },
-        {
-          "id": "K1-AUD-T10",
-          "order": 10,
-          "title": "Audit redaction rules harden",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T02"],
-          "acceptance_criteria": [
-            "Audit logs respect central redaction policies.",
-            "Sensitive secrets and credentials are never stored in plain form at normal visibility levels.",
-            "The result remains forensically useful without leaking sensitive data."
-          ],
-          "evidence_required": ["redaction tests", "negative cases"]
-        },
-        {
-          "id": "K1-AUD-T11",
-          "order": 11,
-          "title": "Audit retention and storage policy define",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K1-AUD-T03"],
-          "acceptance_criteria": [
-            "Retention periods and storage classes are defined for audit data.",
-            "The policy distinguishes operational short-term logs from long-term evidence.",
-            "Rotation and archival behavior are documented."
-          ],
-          "evidence_required": ["retention policy"]
-        },
-        {
-          "id": "K1-AUD-T12",
-          "order": 12,
-          "title": "Audit integrity and tamper evidence evaluate",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T11"],
-          "acceptance_criteria": [
-            "A strategy exists for tamper-evident audit storage or export.",
-            "The design includes hash chaining, signed export or another integrity method.",
-            "The approach is realistic for Ananta operations."
-          ],
-          "evidence_required": ["design evaluation"]
-        },
-        {
-          "id": "K1-AUD-T13",
-          "order": 13,
-          "title": "Audit query surface improve",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T03", "K1-AUD-T10"],
-          "acceptance_criteria": [
-            "Operators can query audit records by task, trace, actor, date and event class.",
-            "The audit view supports practical incident analysis.",
-            "The query surface respects RBAC and redaction."
-          ],
-          "evidence_required": ["query examples", "rbac test"]
-        },
-        {
-          "id": "K1-AUD-T14",
-          "order": 14,
-          "title": "Audit contract tests add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K1-AUD-T04", "K1-AUD-T06", "K1-AUD-T08", "K1-AUD-T10"],
-          "acceptance_criteria": [
-            "Core audit schemas and event emissions are protected by tests.",
-            "Tests confirm that high-risk flows cannot silently skip audit generation.",
-            "Regression coverage exists for LLM, tool, approval and write paths."
-          ],
-          "evidence_required": ["test suite", "passing run"]
-        },
-        {
-          "id": "K1-AUD-T15",
-          "order": 15,
-          "title": "Audit smoke checklist for KRITIS evidence add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K1-AUD-T13", "K1-AUD-T14"],
-          "acceptance_criteria": [
-            "A manual checklist verifies audit completeness for representative critical flows.",
-            "The checklist is suitable for release evidence gathering.",
-            "The checklist includes negative and blocked operation cases."
-          ],
-          "evidence_required": ["checklist", "trial run"]
-        }
+      "acceptance_criteria": [
+        "A target model defines what counts as a doom loop across tasks, tools, retries and repeated execution patterns.",
+        "The model covers repeated tool calls, repeated failures, no-progress loops and oscillating retry patterns.",
+        "The model defines escalating outcomes such as warn, inject correction, require review, pause and abort."
       ]
     },
     {
-      "id": "KRITIS-P1-EVOLVER-WRITELOCK",
+      "id": "GAC-T03",
+      "title": "Loop signal collection add",
+      "status": "todo",
       "priority": "P0",
-      "phase": "PHASE-1",
-      "title": "KRITIS Prioritaet 1 - Evolver Write-Lock",
-      "group_goal": "Make all Evolver-related and comparable mutation paths fail-closed behind explicit approval.",
-      "group_exit_criteria": [
-        "No write-capable Evolver path can execute without valid approval.",
-        "Approval scope is bounded by target and time.",
-        "Blocked and successful mutation attempts are fully auditable."
-      ],
-      "tasks": [
-        {
-          "id": "K1-EVO-T01",
-          "order": 1,
-          "title": "Write-lock target model define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "A target model defines what counts as a write-locked operation.",
-            "The model covers file writes, patch application, generated code insertion and mutation-like artifact application.",
-            "The model clearly separates analyze-only from mutation-capable steps."
-          ],
-          "evidence_required": ["target model"]
-        },
-        {
-          "id": "K1-EVO-T02",
-          "order": 2,
-          "title": "Approval boundary for Evolver implement",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "L",
-          "depends_on": ["K1-EVO-T01"],
-          "acceptance_criteria": [
-            "Evolver write paths call a single approval boundary before mutation.",
-            "No hidden fallback path can write without crossing the boundary.",
-            "The boundary is backend-enforced and not UI-only."
-          ],
-          "evidence_required": ["implementation", "bypass test"]
-        },
-        {
-          "id": "K1-EVO-T03",
-          "order": 3,
-          "title": "Approval scope model define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K1-EVO-T01"],
-          "acceptance_criteria": [
-            "Approval can be bound to target files, operation class, time window and trace.",
-            "Approvals cannot be reused broadly outside their intended scope.",
-            "Expired or mismatched approvals fail closed."
-          ],
-          "evidence_required": ["scope spec"]
-        },
-        {
-          "id": "K1-EVO-T04",
-          "order": 4,
-          "title": "Pre-write verification gate add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K1-EVO-T02", "K1-EVO-T03"],
-          "acceptance_criteria": [
-            "Before a write is executed, the system verifies approval, policy class and target scope.",
-            "The verification gate can reject unsafe apply attempts.",
-            "Rejections are visible and auditable."
-          ],
-          "evidence_required": ["gate tests", "denied examples"]
-        },
-        {
-          "id": "K1-EVO-T05",
-          "order": 5,
-          "title": "Approval artifact or token model add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K1-EVO-T03"],
-          "acceptance_criteria": [
-            "An explicit approval artifact or token model is defined.",
-            "The approval object is linked to audit events and write operations.",
-            "The model prevents ambiguous approval reuse."
-          ],
-          "evidence_required": ["approval object examples"]
-        },
-        {
-          "id": "K1-EVO-T06",
-          "order": 6,
-          "title": "Write target normalization add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "S",
-          "depends_on": ["K1-EVO-T02"],
-          "acceptance_criteria": [
-            "Write targets are normalized before approval checking.",
-            "Normalization avoids path tricks and equivalent-path bypasses.",
-            "The target model is compatible with future sandboxing."
-          ],
-          "evidence_required": ["normalization tests"]
-        },
-        {
-          "id": "K1-EVO-T07",
-          "order": 7,
-          "title": "Review-first approval UX and API path add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K1-EVO-T05"],
-          "acceptance_criteria": [
-            "Approvals can be issued only after reviewing structured proposal details.",
-            "The API/UI path does not encourage blind mass approval.",
-            "The review path shows affected files and operation class."
-          ],
-          "evidence_required": ["ui/api flow", "review screenshots or examples"]
-        },
-        {
-          "id": "K1-EVO-T08",
-          "order": 8,
-          "title": "Emergency deny switch for mutation paths add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "S",
-          "depends_on": ["K1-EVO-T02"],
-          "acceptance_criteria": [
-            "Operators can globally disable mutation-capable Evolver paths quickly.",
-            "The kill switch is visible in configuration and diagnostics.",
-            "The switch fails closed."
-          ],
-          "evidence_required": ["kill switch test"]
-        },
-        {
-          "id": "K1-EVO-T09",
-          "order": 9,
-          "title": "Approval and write-lock contract tests add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K1-EVO-T04", "K1-EVO-T05", "K1-EVO-T06"],
-          "acceptance_criteria": [
-            "Tests prove that write-capable Evolver paths cannot bypass approval.",
-            "Tests cover expired approval, wrong target and no-approval cases.",
-            "Tests cover at least one successful approved write path."
-          ],
-          "evidence_required": ["test suite", "passing run"]
-        },
-        {
-          "id": "K1-EVO-T10",
-          "order": 10,
-          "title": "Mutation evidence checklist add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K1-EVO-T09", "K1-AUD-T08"],
-          "acceptance_criteria": [
-            "A checklist exists for validating mutation gating in release or audit reviews.",
-            "The checklist references audit evidence, approval evidence and write evidence.",
-            "The checklist is suitable for KRITIS reviews."
-          ],
-          "evidence_required": ["checklist"]
-        }
+      "acceptance_criteria": [
+        "Execution paths emit enough structured signals to detect repeated patterns.",
+        "Signals include task id, trace id, tool/backend name, action type, failure type and iteration count.",
+        "The collected signals are reusable across CLI, DeerFlow, Evolver and future workers."
       ]
     },
     {
-      "id": "KRITIS-P2-RAG-FILTERING",
+      "id": "GAC-T04",
+      "title": "Generic doom-loop detector implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A reusable detector can evaluate repeated execution patterns across runs.",
+        "Detection works without being tied to a single backend implementation.",
+        "The detector can emit structured outcomes for routing, review or policy handling."
+      ]
+    },
+    {
+      "id": "GAC-T05",
+      "title": "Loop handling policy add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A policy defines how strongly different loop classes are handled.",
+        "The policy supports conservative defaults for local and admin-safe operation.",
+        "Loop handling is visible in diagnostics and audit trails."
+      ]
+    },
+    {
+      "id": "GAC-T06",
+      "title": "Corrective prompt or corrective context injection define",
+      "status": "todo",
       "priority": "P1",
-      "phase": "PHASE-2",
-      "title": "KRITIS Prioritaet 2 - RAG Metadata-Filtering",
-      "group_goal": "Add metadata-based retrieval security boundaries for indexed content and assembled prompt context.",
-      "group_exit_criteria": [
-        "Indexed items can carry security metadata.",
-        "Retrieval honors metadata policies.",
-        "Prompt bundles do not silently mix forbidden source classes."
-      ],
-      "tasks": [
-        {
-          "id": "K2-RAG-T01",
-          "order": 1,
-          "title": "Security metadata model for retrieval define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "A metadata model exists for documents, chunks and retrieval documents.",
-            "The model supports classification, source origin, sensitivity, tenancy and approval class.",
-            "The model is usable across repo, artifact, wiki and external research sources."
-          ],
-          "evidence_required": ["metadata schema"]
-        },
-        {
-          "id": "K2-RAG-T02",
-          "order": 2,
-          "title": "Context source segregation rules define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-RAG-T01"],
-          "acceptance_criteria": [
-            "The system defines when source classes may be mixed and when they must be isolated.",
-            "Rules cover repo code, task memory, internal docs, offline wiki and external research.",
-            "Mixing policy is explicit and testable."
-          ],
-          "evidence_required": ["policy rules"]
-        },
-        {
-          "id": "K2-RAG-T03",
-          "order": 3,
-          "title": "Chunk-level security tagging add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K2-RAG-T01"],
-          "acceptance_criteria": [
-            "The indexing pipeline can attach security tags at chunk level where needed.",
-            "Chunk tags can differ from file-level tags if finer boundaries are necessary.",
-            "The tagging design stays practical."
-          ],
-          "evidence_required": ["indexed examples"]
-        },
-        {
-          "id": "K2-RAG-T04",
-          "order": 4,
-          "title": "Retrieval policy filter service implement",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "L",
-          "depends_on": ["K2-RAG-T01", "K2-RAG-T02"],
-          "acceptance_criteria": [
-            "Retrieval passes through a policy filter before results reach prompt bundles.",
-            "The filter can allow, deny or downgrade items based on metadata.",
-            "The filter is reusable across retrieval entry points."
-          ],
-          "evidence_required": ["service implementation", "tests"]
-        },
-        {
-          "id": "K2-RAG-T05",
-          "order": 5,
-          "title": "Default deny behavior for unknown sensitivity add",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "S",
-          "depends_on": ["K2-RAG-T04"],
-          "acceptance_criteria": [
-            "Unknown or missing security metadata does not default to broad inclusion in high-trust modes.",
-            "The fallback is documented and fail-closed where appropriate.",
-            "Operators can see when unknown metadata caused exclusion."
-          ],
-          "evidence_required": ["policy examples", "tests"]
-        },
-        {
-          "id": "K2-RAG-T06",
-          "order": 6,
-          "title": "Metadata propagation through compaction and memory add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-RAG-T03", "K2-WFD-T03"],
-          "acceptance_criteria": [
-            "Compacted summaries and retrieval documents retain or derive safe security metadata.",
-            "Security properties are not lost when context is compacted.",
-            "Memory entries remain filterable later."
-          ],
-          "evidence_required": ["propagation examples"]
-        },
-        {
-          "id": "K2-RAG-T07",
-          "order": 7,
-          "title": "RAG diagnostics for filtered context add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K2-RAG-T04", "K2-RAG-T05"],
-          "acceptance_criteria": [
-            "Operators can inspect why retrieval results were filtered or downgraded.",
-            "Diagnostics remain safe and do not leak forbidden content.",
-            "The information is sufficient for policy debugging."
-          ],
-          "evidence_required": ["diagnostic examples"]
-        },
-        {
-          "id": "K2-RAG-T08",
-          "order": 8,
-          "title": "RAG metadata admin tooling add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K2-RAG-T01", "K3-RBAC-T03"],
-          "acceptance_criteria": [
-            "There is an admin path for tagging or retagging indexed content where needed.",
-            "Batch operations are possible for common cases.",
-            "The tooling remains auditable."
-          ],
-          "evidence_required": ["admin flow"]
-        },
-        {
-          "id": "K2-RAG-T09",
-          "order": 9,
-          "title": "Contract and regression tests for metadata filtering add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-RAG-T04", "K2-RAG-T05", "K2-RAG-T06"],
-          "acceptance_criteria": [
-            "Tests prove that forbidden content is excluded from prompt bundles under the relevant policy.",
-            "Tests cover allowed, denied and unknown-metadata cases.",
-            "Mixed-source retrieval behavior is covered."
-          ],
-          "evidence_required": ["test suite"]
-        },
-        {
-          "id": "K2-RAG-T10",
-          "order": 10,
-          "title": "Security-focused retrieval benchmark add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K2-RAG-T09"],
-          "acceptance_criteria": [
-            "A small benchmark exists for security tagging and retrieval correctness.",
-            "The benchmark checks both relevance and isolation behavior.",
-            "The benchmark is reusable in release checks."
-          ],
-          "evidence_required": ["benchmark results"]
-        }
+      "acceptance_criteria": [
+        "The system can optionally inject corrective guidance when a loop is detected.",
+        "Correction behavior is bounded and configurable.",
+        "The mechanism never hides that loop mitigation occurred."
       ]
     },
     {
-      "id": "KRITIS-P2-WORKFLOW-DETERMINISM",
+      "id": "GAC-T07",
+      "title": "ToolRouter target architecture define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A dedicated tool routing concept is documented for Ananta.",
+        "The design explains how routing decisions use task kind, capabilities, policy, governance and backend availability.",
+        "The design makes clear that routing stays hub-controlled."
+      ]
+    },
+    {
+      "id": "GAC-T08",
+      "title": "Tool capability catalog normalize",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Available tools/backends expose normalized capability metadata.",
+        "Capabilities can distinguish research, patching, shell execution, planning, review, admin repair and other classes.",
+        "The catalog can be consumed by routing and approval logic."
+      ]
+    },
+    {
+      "id": "GAC-T09",
+      "title": "Reusable tool routing service implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Tool and backend selection is available through a reusable service rather than scattered conditional logic.",
+        "The router can explain why a tool/backend was chosen or rejected.",
+        "The router supports fallbacks without bypassing governance."
+      ]
+    },
+    {
+      "id": "GAC-T10",
+      "title": "Routing diagnostics and decision traces expose",
+      "status": "todo",
       "priority": "P1",
-      "phase": "PHASE-2",
-      "title": "KRITIS Prioritaet 2 - Workflow Deterministik",
-      "group_goal": "Constrain critical flows with explicit states, guarded transitions and replayable behavior.",
-      "group_exit_criteria": [
-        "Critical flows have explicit state models.",
-        "Invalid transitions fail visibly.",
-        "Recovery and timeout handling are bounded."
-      ],
-      "tasks": [
-        {
-          "id": "K2-WFD-T01",
-          "order": 1,
-          "title": "Deterministic workflow target model define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "A target model defines deterministic expectations for critical Ananta workflows.",
-            "The model distinguishes flexible user-facing flows from safety-critical state machines.",
-            "The model identifies flows that require strict control first."
-          ],
-          "evidence_required": ["workflow model"]
-        },
-        {
-          "id": "K2-WFD-T02",
-          "order": 2,
-          "title": "Critical flow inventory create",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K2-WFD-T01"],
-          "acceptance_criteria": [
-            "An inventory lists all critical flows such as approval, mutation, repair, review and high-risk execution.",
-            "Each flow has named states and intended transitions.",
-            "The inventory becomes the basis for enforcement and tests."
-          ],
-          "evidence_required": ["inventory"]
-        },
-        {
-          "id": "K2-WFD-T03",
-          "order": 3,
-          "title": "Explicit state machine for critical workflows add",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "L",
-          "depends_on": ["K2-WFD-T02"],
-          "acceptance_criteria": [
-            "At least the most critical workflows gain explicit state machine enforcement.",
-            "Transitions are validated instead of inferred ad hoc.",
-            "Invalid transitions fail with structured errors."
-          ],
-          "evidence_required": ["implementation", "demo flow"]
-        },
-        {
-          "id": "K2-WFD-T04",
-          "order": 4,
-          "title": "Transition guard layer implement",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K2-WFD-T03", "K1-EVO-T04"],
-          "acceptance_criteria": [
-            "A transition guard layer checks policy, approval and preconditions before state changes.",
-            "The layer is reusable across critical workflow types.",
-            "Transition denials are auditable."
-          ],
-          "evidence_required": ["guard tests"]
-        },
-        {
-          "id": "K2-WFD-T05",
-          "order": 5,
-          "title": "Fallback behavior explicitness improve",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-WFD-T03"],
-          "acceptance_criteria": [
-            "Fallbacks are visible and structured in stateful critical flows.",
-            "Silent rerouting or mutation-capable fallback behavior is removed where unsafe.",
-            "The system can explain why a fallback happened."
-          ],
-          "evidence_required": ["fallback examples"]
-        },
-        {
-          "id": "K2-WFD-T06",
-          "order": 6,
-          "title": "Replayability and trace reconstruction improve",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K2-WFD-T03", "K1-AUD-T06"],
-          "acceptance_criteria": [
-            "A critical workflow can be reconstructed from state records and audit traces.",
-            "Replay or simulation for incident analysis is practical enough for operators.",
-            "The implementation does not depend on raw unstructured logs alone."
-          ],
-          "evidence_required": ["replay example"]
-        },
-        {
-          "id": "K2-WFD-T07",
-          "order": 7,
-          "title": "Timeout and stuck-state handling add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-WFD-T03"],
-          "acceptance_criteria": [
-            "Critical workflows handle timeout, waiting and interrupted states explicitly.",
-            "Stuck states are detectable and recoverable.",
-            "Recovery paths are bounded and auditable."
-          ],
-          "evidence_required": ["timeout scenarios"]
-        },
-        {
-          "id": "K2-WFD-T08",
-          "order": 8,
-          "title": "Deterministic workflow tests add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K2-WFD-T04", "K2-WFD-T05", "K2-WFD-T07"],
-          "acceptance_criteria": [
-            "Tests cover valid and invalid transitions for critical flows.",
-            "Mutation and approval flows have especially strong state coverage.",
-            "Regression tests prevent accidental loosening of constraints."
-          ],
-          "evidence_required": ["test suite"]
-        },
-        {
-          "id": "K2-WFD-T09",
-          "order": 9,
-          "title": "State transition observability add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K2-WFD-T08"],
-          "acceptance_criteria": [
-            "Metrics or summaries show transition failures, blocked transitions and unusual patterns.",
-            "Operators can detect unstable workflow behavior quickly.",
-            "The signals remain interpretable."
-          ],
-          "evidence_required": ["observability screenshots or examples"]
-        }
+      "acceptance_criteria": [
+        "Routing decisions can be inspected through existing trace/read-model surfaces.",
+        "The output includes chosen tool/backend, alternatives and key reasons.",
+        "This remains readable and does not become debug noise for standard users."
       ]
     },
     {
-      "id": "KRITIS-P3-SANDBOXING",
+      "id": "GAC-T11",
+      "title": "Unified approval model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A single approval model defines low-risk, confirm-required and blocked action classes.",
+        "The model applies consistently to shell execution, file mutation, service mutation, install/remove operations, evolver apply and future repair steps.",
+        "The approval model is compatible with current governance modes."
+      ]
+    },
+    {
+      "id": "GAC-T12",
+      "title": "Approval check service implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A reusable approval service can evaluate proposed actions before execution.",
+        "The service returns structured reasons and required confirmation level.",
+        "Subsystems stop duplicating ad hoc approval checks."
+      ]
+    },
+    {
+      "id": "GAC-T13",
+      "title": "Approval state UX/read-model surface add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Pending approvals, blocked actions and approved actions are visible in relevant views or artifacts.",
+        "Users can understand what is waiting for confirmation.",
+        "The system remains explicit and auditable."
+      ]
+    },
+    {
+      "id": "GAC-T14",
+      "title": "ContextManager target model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A shared context management model is documented for Ananta.",
+        "The model explains how result memory, task neighborhood, repo retrieval, research artifacts and future wiki knowledge are assembled.",
+        "The model defines context budgets, priorities and compaction behavior."
+      ]
+    },
+    {
+      "id": "GAC-T15",
+      "title": "Shared context budget enforcement add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Context assembly enforces budgets instead of blindly appending more material.",
+        "Budget logic can reserve space per source or priority class.",
+        "Budget use is observable for diagnostics."
+      ]
+    },
+    {
+      "id": "GAC-T16",
+      "title": "Auto-compaction strategy implement",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The platform can compact older or lower-priority context into bounded summaries or retrieval documents.",
+        "Compaction preserves provenance and does not silently discard critical state.",
+        "Compaction is reusable across multi-turn flows."
+      ]
+    },
+    {
+      "id": "GAC-T17",
+      "title": "Context source prioritization rules define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A rule set defines how repo context, task memory, artifacts, research and future wiki sources are prioritized.",
+        "The rules reduce context pollution and repeated irrelevance.",
+        "The prioritization is explainable in diagnostics."
+      ]
+    },
+    {
+      "id": "GAC-T18",
+      "title": "ContextManager service expose to execution paths",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Relevant execution paths consume the same context manager service or contract.",
+        "The service is usable from CLI, task propose/execute, research flows and future repair flows.",
+        "Existing retrieval functionality is preserved or improved."
+      ]
+    },
+    {
+      "id": "GAC-T19",
+      "title": "Observability for loop routing approval and context add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Metrics or read-model summaries cover loop detections, approval blocks, routing choices and context compaction outcomes.",
+        "Operators can see which subsystem is misbehaving.",
+        "The observability data remains structured and low-noise."
+      ]
+    },
+    {
+      "id": "GAC-T20",
+      "title": "Contract tests for generic control services add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Tests protect core behavior for doom-loop detection, approval classification, routing output and context compaction.",
+        "The services can evolve without silent regression.",
+        "The tests do not depend on one specific external worker."
+      ]
+    },
+    {
+      "id": "GAC-T21",
+      "title": "Golden path documentation for safer agentic loops add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one documented standard path showing routing, approval, context assembly and loop protection in action.",
+        "The example is understandable for reviewers.",
+        "The path demonstrates the value of the generic control layer."
+      ]
+    },
+    {
+      "id": "GAC-T22",
+      "title": "ml-intern fit assessment document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A short document evaluates ml-intern as an optional specialized worker/backend for Ananta.",
+        "The evaluation distinguishes reusable ideas from direct code reuse.",
+        "The document explains why ml-intern should not become a second control plane inside Ananta."
+      ]
+    },
+    {
+      "id": "GAC-T23",
+      "title": "Optional ml-intern worker adapter boundary define",
+      "status": "todo",
       "priority": "P2",
-      "phase": "PHASE-3",
-      "title": "KRITIS Prioritaet 3 - Execution Sandboxing",
-      "group_goal": "Harden execution and test isolation so risky operations run in constrained environments.",
-      "group_exit_criteria": [
-        "Execution classes exist and are enforced.",
-        "Critical actions can run in hardened isolation.",
-        "Sandbox assumptions are testable and documented."
-      ],
-      "tasks": [
-        {
-          "id": "K3-SBX-T01",
-          "order": 1,
-          "title": "Sandbox threat model define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "A threat model exists for execution and test environments.",
-            "The model covers file access, network access, privilege escalation, container breakout and host impact.",
-            "The model distinguishes dev convenience from KRITIS mode."
-          ],
-          "evidence_required": ["threat model"]
-        },
-        {
-          "id": "K3-SBX-T02",
-          "order": 2,
-          "title": "Execution isolation classes define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "S",
-          "depends_on": ["K3-SBX-T01"],
-          "acceptance_criteria": [
-            "The system defines at least a few isolation classes such as low-risk, bounded mutable and hardened high-risk execution.",
-            "Task kinds or tools can map to these classes.",
-            "The classes are enforceable."
-          ],
-          "evidence_required": ["isolation matrix"]
-        },
-        {
-          "id": "K3-SBX-T03",
-          "order": 3,
-          "title": "Hardened container profile create",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "critical",
-          "effort": "L",
-          "depends_on": ["K3-SBX-T02"],
-          "acceptance_criteria": [
-            "A hardened execution profile exists for containerized runs.",
-            "The profile addresses user privileges, filesystem mutability, capability drops and runtime constraints.",
-            "The profile is documented and testable."
-          ],
-          "evidence_required": ["container profile", "smoke validation"]
-        },
-        {
-          "id": "K3-SBX-T04",
-          "order": 4,
-          "title": "Filesystem boundary controls add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-SBX-T03", "K1-EVO-T06"],
-          "acceptance_criteria": [
-            "Writable locations are explicit and minimal.",
-            "Sensitive host paths and unrelated project areas are not writable by default.",
-            "The model supports future write-lock policy integration."
-          ],
-          "evidence_required": ["boundary tests"]
-        },
-        {
-          "id": "K3-SBX-T05",
-          "order": 5,
-          "title": "Network egress control strategy define",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-SBX-T03"],
-          "acceptance_criteria": [
-            "A strategy exists for controlling outbound network access in hardened execution contexts.",
-            "The policy distinguishes no-network, allowlisted network and broad network cases.",
-            "The approach is realistic for Ananta deployment modes."
-          ],
-          "evidence_required": ["network control design"]
-        },
-        {
-          "id": "K3-SBX-T06",
-          "order": 6,
-          "title": "Command execution wrappers enforce sandbox classes",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "critical",
-          "effort": "M",
-          "depends_on": ["K3-SBX-T02", "K3-SBX-T03"],
-          "acceptance_criteria": [
-            "Execution wrappers can choose the required isolation class per action.",
-            "High-risk actions cannot silently run in weak isolation mode in hardened profiles.",
-            "Isolation choice is auditable."
-          ],
-          "evidence_required": ["wrapper tests", "audit evidence"]
-        },
-        {
-          "id": "K3-SBX-T07",
-          "order": 7,
-          "title": "Terminal access restrictions harden",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-SBX-T03", "K3-RBAC-T03"],
-          "acceptance_criteria": [
-            "Interactive terminal behavior is reviewed against hardened mode requirements.",
-            "Read-only and interactive modes remain clearly separated.",
-            "Additional controls are defined for KRITIS-style use."
-          ],
-          "evidence_required": ["terminal policy tests"]
-        },
-        {
-          "id": "K3-SBX-T08",
-          "order": 8,
-          "title": "Sandboxed test environment rollout define",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K3-SBX-T03", "K3-SBX-T06"],
-          "acceptance_criteria": [
-            "The test/lab execution environment has a rollout path toward hardened isolation.",
-            "The rollout includes compatibility and failure recovery considerations.",
-            "The path does not break all existing developer workflows at once."
-          ],
-          "evidence_required": ["rollout plan"]
-        },
-        {
-          "id": "K3-SBX-T09",
-          "order": 9,
-          "title": "Sandbox escape and policy regression tests add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-SBX-T04", "K3-SBX-T05", "K3-SBX-T06"],
-          "acceptance_criteria": [
-            "Tests verify key isolation assumptions for critical sandbox classes.",
-            "The suite includes representative denied actions.",
-            "Regression tests protect hardened profiles from silent weakening."
-          ],
-          "evidence_required": ["test results"]
-        },
-        {
-          "id": "K3-SBX-T10",
-          "order": 10,
-          "title": "Sandbox operations guide add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K3-SBX-T08", "K3-SBX-T09"],
-          "acceptance_criteria": [
-            "Operators have a practical guide for running Ananta in hardened execution mode.",
-            "The guide covers tradeoffs, limitations and known compatibility issues.",
-            "The guide is suitable for higher-trust environments."
-          ],
-          "evidence_required": ["operations guide"]
-        }
+      "acceptance_criteria": [
+        "A worker adapter boundary is defined for ml-intern-style specialized execution.",
+        "The boundary limits what Ananta delegates and what remains hub-owned.",
+        "The adapter model avoids leaking external worker autonomy into platform governance."
       ]
     },
     {
-      "id": "KRITIS-P3-ENTERPRISE-RBAC",
+      "id": "GAC-T24",
+      "title": "ml-intern capability profile model add",
+      "status": "todo",
       "priority": "P2",
-      "phase": "PHASE-3",
-      "title": "KRITIS Prioritaet 3 - Enterprise RBAC",
-      "group_goal": "Bring Angular UI authorization and admin operations in line with backend role and policy boundaries.",
-      "group_exit_criteria": [
-        "The UI consistently reflects backend permission boundaries.",
-        "Sensitive actions are role-gated.",
-        "Admins can manage users and roles through a usable interface."
-      ],
-      "tasks": [
-        {
-          "id": "K3-RBAC-T01",
-          "order": 1,
-          "title": "RBAC model alignment review perform",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["KRITIS-X01"],
-          "acceptance_criteria": [
-            "A review aligns backend auth model, policy model and frontend visibility rules.",
-            "The review identifies missing UI enforcement and missing role semantics.",
-            "The result defines canonical role names and action classes."
-          ],
-          "evidence_required": ["alignment note"]
-        },
-        {
-          "id": "K3-RBAC-T02",
-          "order": 2,
-          "title": "Frontend permission matrix define",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K3-RBAC-T01"],
-          "acceptance_criteria": [
-            "A permission matrix exists for views, actions and admin operations in Angular.",
-            "The matrix includes at least user, admin and planned enterprise operator roles.",
-            "The matrix is specific enough to drive implementation."
-          ],
-          "evidence_required": ["permission matrix"]
-        },
-        {
-          "id": "K3-RBAC-T03",
-          "order": 3,
-          "title": "Frontend guard and action-policy layer implement",
-          "status": "todo",
-          "priority": "P0",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-RBAC-T02"],
-          "acceptance_criteria": [
-            "Angular routes and action surfaces use a shared permission layer.",
-            "UI access decisions are not scattered ad hoc across components.",
-            "Denied states are handled gracefully."
-          ],
-          "evidence_required": ["implementation", "guard tests"]
-        },
-        {
-          "id": "K3-RBAC-T04",
-          "order": 4,
-          "title": "User and role management UI implement",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "L",
-          "depends_on": ["K3-RBAC-T03"],
-          "acceptance_criteria": [
-            "Admins can view users and manage roles through the UI.",
-            "The interface is usable enough for real administration.",
-            "Critical role changes remain explicit and auditable."
-          ],
-          "evidence_required": ["ui flow", "manual test"]
-        },
-        {
-          "id": "K3-RBAC-T05",
-          "order": 5,
-          "title": "Sensitive action gating in UI add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-RBAC-T03", "K1-EVO-T07"],
-          "acceptance_criteria": [
-            "High-risk actions such as approvals, write applies, terminal access and policy changes are hidden or disabled appropriately.",
-            "The UI reflects pending approval versus permission denial clearly.",
-            "The UI never implies permission where the backend would deny."
-          ],
-          "evidence_required": ["ui permission tests"]
-        },
-        {
-          "id": "K3-RBAC-T06",
-          "order": 6,
-          "title": "Admin read-model and diagnostics views refine",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K3-RBAC-T03"],
-          "acceptance_criteria": [
-            "Admin-only diagnostics and policy summaries have dedicated UI handling.",
-            "Lower-privilege users do not see irrelevant or sensitive admin details.",
-            "Admin views remain practical rather than purely technical dumps."
-          ],
-          "evidence_required": ["before/after screenshots or examples"]
-        },
-        {
-          "id": "K3-RBAC-T07",
-          "order": 7,
-          "title": "Role change audit visibility add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "medium",
-          "effort": "S",
-          "depends_on": ["K3-RBAC-T04", "K1-AUD-T13"],
-          "acceptance_criteria": [
-            "UI users with the right role can inspect recent role and permission changes.",
-            "The view is linked to audit evidence where possible.",
-            "The feature improves governance transparency."
-          ],
-          "evidence_required": ["ui example"]
-        },
-        {
-          "id": "K3-RBAC-T08",
-          "order": 8,
-          "title": "Frontend RBAC tests add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-RBAC-T03", "K3-RBAC-T05"],
-          "acceptance_criteria": [
-            "Tests verify route guards, action visibility and permission handling.",
-            "Representative admin and non-admin flows are covered.",
-            "The tests reduce risk of accidental UI exposure."
-          ],
-          "evidence_required": ["test suite"]
-        },
-        {
-          "id": "K3-RBAC-T09",
-          "order": 9,
-          "title": "End-to-end authorization consistency tests add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "high",
-          "effort": "M",
-          "depends_on": ["K3-RBAC-T08"],
-          "acceptance_criteria": [
-            "E2E tests confirm UI behavior matches backend authorization outcomes.",
-            "The tests cover at least a few sensitive actions and views.",
-            "Mismatch cases are caught before release."
-          ],
-          "evidence_required": ["e2e results"]
-        },
-        {
-          "id": "K3-RBAC-T10",
-          "order": 10,
-          "title": "Enterprise admin operations guide add",
-          "status": "todo",
-          "priority": "P2",
-          "risk": "low",
-          "effort": "S",
-          "depends_on": ["K3-RBAC-T04", "K3-RBAC-T09"],
-          "acceptance_criteria": [
-            "A concise guide explains user, role and permission administration in the UI.",
-            "The guide fits real enterprise or KRITIS operational use.",
-            "The guide includes common safety warnings."
-          ],
-          "evidence_required": ["guide"]
-        }
+      "acceptance_criteria": [
+        "If enabled, ml-intern can be described through a capability profile such as ML research, docs, datasets and code support.",
+        "The profile is visible to routing and approval logic.",
+        "The profile makes it clear that this worker is specialized, not general-purpose default execution."
       ]
     },
     {
-      "id": "INTEGRATION-AND-RELEASE",
-      "priority": "P1",
-      "phase": "PHASE-4",
-      "title": "Integrated verification and release readiness",
-      "group_goal": "Verify the combined effect of all KRITIS controls and decide release readiness with evidence.",
-      "group_exit_criteria": [
-        "Representative high-risk flows pass integrated tests.",
-        "Evidence register is populated.",
-        "Release gate decision is documented."
-      ],
-      "tasks": [
-        {
-          "id": "K4-INT-T01",
-          "order": 1,
-          "title": "Representative integrated flow suite implement",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "L",
-          "depends_on": [
-            "K1-AUD-T14",
-            "K1-EVO-T09",
-            "K2-RAG-T09",
-            "K2-WFD-T08",
-            "K3-SBX-T09",
-            "K3-RBAC-T09"
-          ],
-          "acceptance_criteria": [
-            "A few representative integrated flows cover mutation approval, audit reconstruction, retrieval filtering, deterministic transitions and UI role handling.",
-            "The suite is realistic and not purely mocked.",
-            "The suite is stable enough for release use."
-          ],
-          "evidence_required": ["integration suite", "results"]
-        },
-        {
-          "id": "K4-INT-T02",
-          "order": 2,
-          "title": "Evidence register populate for candidate release",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "medium",
-          "effort": "M",
-          "depends_on": ["K4-INT-T01", "KRITIS-X02"],
-          "acceptance_criteria": [
-            "The evidence register is populated for the candidate release.",
-            "Mandatory evidence links exist for each group exit criterion.",
-            "Missing evidence is visible rather than hidden."
-          ],
-          "evidence_required": ["filled evidence register"]
-        },
-        {
-          "id": "K4-INT-T03",
-          "order": 3,
-          "title": "Program-level release review and decision record add",
-          "status": "todo",
-          "priority": "P1",
-          "risk": "high",
-          "effort": "S",
-          "depends_on": ["K4-INT-T02", "KRITIS-X05"],
-          "acceptance_criteria": [
-            "A release decision record exists stating what KRITIS claims are supported and what is still excluded.",
-            "The decision references evidence, risks and residual gaps.",
-            "The process avoids overstating security posture."
-          ],
-          "evidence_required": ["decision record", "review signoff"]
-        }
+      "id": "GAC-T25",
+      "title": "Optional ml-intern backend spike implement",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "A minimal spike proves whether ml-intern can be invoked as a bounded external worker/backend.",
+        "The spike does not bypass Ananta governance or context rules.",
+        "The spike can be discarded cleanly if maintenance cost is too high."
+      ]
+    },
+    {
+      "id": "GAC-T26",
+      "title": "Future specialized worker guidance isolate",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "The architecture leaves room for future specialized workers beyond ml-intern.",
+        "The guidance keeps Ananta generic and worker-agnostic.",
+        "This roadmap remains separate from the core control-layer rollout."
       ]
     }
-  ],
-  "execution_order_summary": [
-    "PHASE-0: KRITIS-X01 -> X02 -> X03 -> X04 -> X05",
-    "PHASE-1: K1-EVO-T01 -> T02/T03 -> T04/T05/T06 -> T07/T08 -> T09 -> T10 in parallel with K1-AUD-T01 -> T02 -> T03 -> T04/T05/T06 -> T08 -> T07 -> T10 -> T11/T12/T13 -> T14 -> T15",
-    "PHASE-2: K2-WFD-T01 -> T02 -> T03 -> T04 -> T05/T06/T07 -> T08 -> T09; K2-RAG-T01 -> T02/T03 -> T04 -> T05 -> T06 -> T07 -> T09 -> T10, with T08 later when admin tooling is ready",
-    "PHASE-3: K3-SBX-T01 -> T02 -> T03 -> T04/T05 -> T06 -> T07/T08 -> T09 -> T10; K3-RBAC-T01 -> T02 -> T03 -> T04/T05/T06 -> T08 -> T09 -> T07 -> T10",
-    "PHASE-4: K4-INT-T01 -> T02 -> T03"
-  ],
-  "critical_path_tasks": [
-    "KRITIS-X01",
-    "K1-EVO-T02",
-    "K1-EVO-T04",
-    "K1-EVO-T09",
-    "K1-AUD-T03",
-    "K1-AUD-T04",
-    "K1-AUD-T06",
-    "K1-AUD-T10",
-    "K1-AUD-T14",
-    "K2-WFD-T03",
-    "K2-WFD-T04",
-    "K2-WFD-T08",
-    "K2-RAG-T04",
-    "K2-RAG-T05",
-    "K2-RAG-T09",
-    "K3-SBX-T03",
-    "K3-SBX-T06",
-    "K3-SBX-T09",
-    "K3-RBAC-T03",
-    "K3-RBAC-T08",
-    "K3-RBAC-T09",
-    "K4-INT-T01",
-    "K4-INT-T03"
   ]
 }
