@@ -64,7 +64,15 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 
 - Standard: unbekannte `{{variablen}}` erzeugen Warnungen, blockieren den Save aber nicht.
 - Optional strict: `template_variable_validation.strict=true` in `/config` oder `config.json`
-- Im Strict-Mode antwortet die API mit `400 unknown_template_variables` und `data.unknown_variables`.
+- Optional kann ein fester Kontext erzwungen werden: `template_variable_validation.context_scope`.
+- Im Strict-Mode antwortet die API differenziert mit:
+  - `400 unknown_template_variables`
+  - `400 context_unavailable_template_variables`
+  - `400 template_validation_failed`
+- Validierung/Vorschau:
+  - `POST /templates/validate`
+  - `POST /templates/preview`
+  - `POST /templates/validation-diagnostics`
 
 ## Team-Instanziierung aus Blueprint
 
@@ -88,3 +96,6 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 - API: `api-spec.md`
 - Bundle-Import/Export: `docs/blueprint-bundle-import-export.md`
 - Testbetrieb: `docs/testing.md`
+- Template Authoring: `docs/template-authoring-guide.md`
+- Template Registry/Contract: `docs/template-variable-registry.md`
+- Template Migration: `docs/template-variable-migration-notes.md`

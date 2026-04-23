@@ -24,6 +24,13 @@ export class HubApiService {
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> { return this.templates.createTemplate(baseUrl, tpl, token); }
   updateTemplate(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.templates.updateTemplate(baseUrl, id, patch, token); }
   deleteTemplate(baseUrl: string, id: string, token?: string): Observable<any> { return this.templates.deleteTemplate(baseUrl, id, token); }
+  getTemplateVariableRegistry(baseUrl: string, token?: string): Observable<any> { return this.templates.getTemplateVariableRegistry(baseUrl, token); }
+  getTemplateSampleContexts(baseUrl: string, token?: string): Observable<any> { return this.templates.getTemplateSampleContexts(baseUrl, token); }
+  validateTemplate(baseUrl: string, body: any, token?: string): Observable<any> { return this.templates.validateTemplate(baseUrl, body, token); }
+  previewTemplate(baseUrl: string, body: any, token?: string): Observable<any> { return this.templates.previewTemplate(baseUrl, body, token); }
+  templateValidationDiagnostics(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.templates.templateValidationDiagnostics(baseUrl, body, token);
+  }
 
   getConfig(baseUrl: string, token?: string): Observable<any> { return this.config.getConfig(baseUrl, token); }
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.config.getAssistantReadModel(baseUrl, token); }

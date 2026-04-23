@@ -317,7 +317,7 @@ Wichtige Runtime-Checks:
 Wichtige Security-Policy:
 - OpenAI-Compat und zukuenftige MCP-Exposition werden ueber `exposure_policy` in `/config` explizit gesteuert.
 - Remote-Hub-Ziele koennen additiv ueber `remote_ananta_backends` konfiguriert werden und sind im Provider-Katalog sichtbar.
-- Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte `{{variablen}}` mit 4xx blockieren.
+- Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte oder kontext-ungueltige `{{variablen}}` mit 4xx blockieren (optional mit `template_variable_validation.context_scope`).
 - Template-Namen sind eindeutig; API und Datenbank antworten bei Konflikten mit `409 template_name_exists`.
 - Seed-Blueprints werden beim Lesen deterministisch reconciled; referenzierte Blueprints koennen nicht geloescht werden und antworten mit `409 blueprint_in_use`.
 - Admin-/Rollout-Details fuer Blueprints und Templates: `docs/blueprint-admin.md`, `docs/blueprint-migration-rollout.md`
@@ -354,5 +354,7 @@ Linting:
 - `docs/smart-dumb-components-guide.md`
 - `docs/blueprint-admin.md`
 - `docs/blueprint-migration-rollout.md`
+- `docs/template-authoring-guide.md`
 - `docs/template-variable-registry.md`
+- `docs/template-variable-migration-notes.md`
 - `docs/responsible-agent-development-manifesto.md`

@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "template_variables_improvement",
-  "updated_at": "2026-04-23T21:28:04+02:00",
+  "updated_at": "2026-04-23T21:45:35+02:00",
   "purpose": "Improve template variable handling so it becomes clearer, more scalable, better documented and safer across templates, blueprints, teams and future work profiles.",
   "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -110,7 +110,7 @@
     {
       "id": "TVI-T06",
       "title": "Context-aware validation improve",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "implementation",
       "depends_on": ["TVI-T03", "TVI-T05", "TVI-T13"],
@@ -149,7 +149,7 @@
     {
       "id": "TVI-T09",
       "title": "Frontend variable help improve",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "frontend_experience",
       "depends_on": ["TVI-T06", "TVI-T07", "TVI-T08"],
@@ -162,7 +162,7 @@
     {
       "id": "TVI-T10",
       "title": "Template render preview add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "implementation",
       "depends_on": ["TVI-T06", "TVI-T11"],
@@ -175,7 +175,7 @@
     {
       "id": "TVI-T11",
       "title": "Sample context payloads define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "implementation",
       "depends_on": ["TVI-T03", "TVI-T13"],
@@ -227,7 +227,7 @@
     {
       "id": "TVI-T15",
       "title": "Tests for context-aware validation add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "quality_and_rollout",
       "depends_on": ["TVI-T06", "TVI-T13"],
@@ -240,7 +240,7 @@
     {
       "id": "TVI-T16",
       "title": "Documentation for template authors add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "quality_and_rollout",
       "depends_on": ["TVI-T02", "TVI-T03", "TVI-T07"],
@@ -253,7 +253,7 @@
     {
       "id": "TVI-T17",
       "title": "Migration notes for existing templates prepare",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "quality_and_rollout",
       "depends_on": ["TVI-T04", "TVI-T05", "TVI-T13"],
@@ -266,7 +266,7 @@
     {
       "id": "TVI-T18",
       "title": "Operator diagnostics for template validation improve",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "phase": "quality_and_rollout",
       "depends_on": ["TVI-T06", "TVI-T13", "TVI-T15"],
@@ -278,16 +278,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T21:28:04+02:00",
+    "updated_at": "2026-04-23T21:45:35+02:00",
     "total": 18,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 10
+      "done": 18
     },
-    "progress_percent_done": 55.6,
+    "progress_percent_done": 100.0,
     "by_phase": {
       "discovery": {
         "total": 3,
@@ -303,21 +303,21 @@
       },
       "implementation": {
         "total": 4,
-        "done": 1,
+        "done": 4,
         "partial": 0,
-        "todo": 3
+        "todo": 0
       },
       "frontend_experience": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
-        "todo": 1
+        "todo": 0
       },
       "quality_and_rollout": {
         "total": 5,
-        "done": 1,
+        "done": 5,
         "partial": 0,
-        "todo": 4
+        "todo": 0
       }
     },
     "recommended_first_bundle": [
@@ -338,6 +338,16 @@
       "TVI-T07",
       "TVI-T08",
       "TVI-T14"
+    ],
+    "final_bundle_completed_tasks": [
+      "TVI-T06",
+      "TVI-T09",
+      "TVI-T10",
+      "TVI-T11",
+      "TVI-T15",
+      "TVI-T16",
+      "TVI-T17",
+      "TVI-T18"
     ]
   }
 }

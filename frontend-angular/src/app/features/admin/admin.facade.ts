@@ -11,6 +11,13 @@ export class AdminFacade {
   createTemplate(baseUrl: string, body: any, token?: string) { return this.hubApi.createTemplate(baseUrl, body, token); }
   updateTemplate(baseUrl: string, id: string, patch: any, token?: string) { return this.hubApi.updateTemplate(baseUrl, id, patch, token); }
   deleteTemplate(baseUrl: string, id: string, token?: string) { return this.hubApi.deleteTemplate(baseUrl, id, token); }
+  getTemplateVariableRegistry(baseUrl: string, token?: string) { return this.hubApi.getTemplateVariableRegistry(baseUrl, token); }
+  getTemplateSampleContexts(baseUrl: string, token?: string) { return this.hubApi.getTemplateSampleContexts(baseUrl, token); }
+  validateTemplate(baseUrl: string, body: any, token?: string) { return this.hubApi.validateTemplate(baseUrl, body, token); }
+  previewTemplate(baseUrl: string, body: any, token?: string) { return this.hubApi.previewTemplate(baseUrl, body, token); }
+  templateValidationDiagnostics(baseUrl: string, body: any, token?: string) {
+    return this.hubApi.templateValidationDiagnostics(baseUrl, body, token);
+  }
 
   listArtifacts(baseUrl: string, token?: string) { return this.hubApi.listArtifacts(baseUrl, token); }
   getArtifact(baseUrl: string, artifactId: string, token?: string) { return this.hubApi.getArtifact(baseUrl, artifactId, token); }

@@ -471,7 +471,9 @@ Erste freigegebene Tools/Resources:
 - **Rückgabe:** `{"status": "success", "data": {...}}` (Erstelltes Template mit ID)
 - **Fehlerfaelle:**
   - `400 template_name_required`
-  - `400 unknown_template_variables` (nur bei `template_variable_validation.strict=true`)
+  - `400 unknown_template_variables` (strict + unbekannte Variablen)
+  - `400 context_unavailable_template_variables` (strict + bekannte aber im Kontext ungueltige Variablen)
+  - `400 template_validation_failed` (strict + gemischte Fehlerbilder)
   - `409 template_name_exists`
 
 ### Template aktualisieren
@@ -480,7 +482,7 @@ Erste freigegebene Tools/Resources:
 - **Auth erforderlich:** Ja
 - **Body:** Template Felder.
 - **Rückgabe:** `{"status": "success", "data": {...}}`
-- **Fehlerfaelle:** wie beim Erstellen; `unknown_template_variables` liefert die unbekannten Namen in `data.unknown_variables`.
+- **Fehlerfaelle:** wie beim Erstellen; bei Validation liefert die API differenzierte Felder (`unknown_variables`, `context_invalid_variables`, `deprecated_variables`).
 
 ### Template löschen
 - **URL:** `/templates/<tpl_id>`
@@ -492,8 +494,36 @@ Erste freigegebene Tools/Resources:
 - **URL:** `/templates/variable-registry`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
-- **Rückgabe:** `{"status":"success","data":{"version":1,"variables":[...],"by_scope":{...},"allowed_names":[...]}}`
+- **Rückgabe:** `{"status":"success","data":{"version":2,"variables":[...],"by_scope":{...},"allowed_names":[...]}}`
 - **Beschreibung:** Liefert die kanonische Variable-Registry inkl. Scope-, Alias- und Stabilitätsmetadaten.
+
+### Template-Beispielkontexte lesen
+- **URL:** `/templates/sample-contexts`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status":"success","data":{"default_context_scope":"task","contexts":{...}}}`
+- **Beschreibung:** Liefert repräsentative Beispiel-Kontexte fuer task/team/role/blueprint/agent/artifact/domain_specific.
+
+### Template validieren
+- **URL:** `/templates/validate`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Body:** `{"prompt_template":"...","context_scope":"task|team|..."}`
+- **Rückgabe:** Validierungsbericht mit `unknown_variables`, `context_invalid_variables`, `deprecated_variables`, `issues`, `diagnostics`.
+
+### Template-Vorschau rendern
+- **URL:** `/templates/preview`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Body:** `{"prompt_template":"...","context_scope":"task","sample_context":"task","context_payload":{...}}`
+- **Rückgabe:** `preview.rendered_text`, `missing_variables`, verwendeter Beispielkontext und zugehörige Validierungsdaten.
+
+### Template-Validierungsdiagnostik (Operator)
+- **URL:** `/templates/validation-diagnostics`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Body:** wie bei `/templates/preview`
+- **Rückgabe:** sichere Diagnostik mit Severity/Issue-Codes, Rendering-Vollständigkeit und Kontext-Keys (ohne Kontext-Werte).
 
 ### Template-Runtime-Contract lesen
 - **URL:** `/templates/runtime-contract`
