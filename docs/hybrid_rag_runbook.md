@@ -166,6 +166,24 @@ Zu beobachten:
    - `metadata.citation.article_title/section_title` ist fuers Wiki gesetzt
    - `selection_trace.fusion.source_type_contributions_*` zeigt den Mix explizit
 
+## Golden Path: Offline wiki-backed help
+1. Wiki-Quelle aktivieren:
+   - `RAG_SOURCE_WIKI_ENABLED=true`
+2. Reproduzierbaren MVP-Corpus importieren:
+   - `POST /knowledge/wiki/import`
+   - `{"corpus_path":"data_test/wiki_mvp_corpus/articles.jsonl","source_id":"wiki-mvp"}`
+3. Hilfe-Query ueber den Hauptpfad:
+   - `POST /api/sgpt/context` mit `{"query":"Wie behandeln wir Timeout-Retries?","source_types":["wiki","repo"]}`
+4. Ergebnis pruefen:
+   - `chunks[*].metadata.citation` enthaelt fuer Wiki `article_title`, `section_title`, `revision`
+   - `chunks[*].metadata.source_type` bleibt explizit (`wiki|repo`)
+
+Wofuer die Wiki-Quelle gedacht ist:
+- stabile, kuratierte Offline-Wissensseiten mit klarer Provenance.
+
+Wofuer sie nicht gedacht ist:
+- unkontrollierte Web-Suche oder unkuratiertes Echtzeit-Internet-Retrieval.
+
 ## Container- und Runtime-Annahmen
 - Hub und Worker laufen in getrennten Containern; Orchestrierung bleibt im Hub.
 - Persistente Pfade muessen container-uebergreifend stabil gemountet sein:

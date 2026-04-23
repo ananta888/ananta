@@ -499,6 +499,10 @@ class KnowledgeIndexRetrievalService:
                     "article_title": str(record.get("article_title") or record.get("title") or "").strip() or None,
                     "section_title": str(record.get("section_title") or record.get("heading") or "").strip() or None,
                     "language": str(record.get("language") or record.get("lang") or "").strip() or None,
+                    "wiki_article_id": str(record.get("wiki_article_id") or "").strip() or None,
+                    "revision": str(record.get("revision") or record.get("revision_id") or "").strip() or None,
+                    "import_revision": str(record.get("import_revision") or "").strip() or None,
+                    "import_metadata": dict(record.get("import_metadata") or {}),
                 }
                 candidates.append(
                     ContextChunk(

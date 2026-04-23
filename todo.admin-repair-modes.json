@@ -1,0 +1,260 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "admin_repair_cli_mode",
+  "purpose": "Add a dedicated Ananta CLI mode for admins who want to diagnose and repair local Windows 11 or Ubuntu systems in a controlled, reviewable way.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "Ananta can help admins diagnose installation and runtime problems on Windows 11 and Ubuntu, evaluate logs, propose corrective actions and optionally perform bounded repair steps with review and verification.",
+  "success_criteria": [
+    "The CLI supports a dedicated system diagnosis and repair flow for Windows 11 and Ubuntu.",
+    "Logs and system context can be collected in a bounded and reviewable way.",
+    "The system proposes likely causes and concrete repair steps.",
+    "Repairs are never blindly applied without policy and confirmation.",
+    "Verification steps confirm whether the proposed repair actually improved the system state."
+  ],
+  "tasks": [
+    {
+      "id": "ARC-T01",
+      "title": "Use-case and mode definition add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A dedicated admin repair CLI mode is documented as an official Ananta use case.",
+        "The mode clearly targets Windows 11 and Ubuntu local system diagnosis and repair.",
+        "The mode is positioned as review-first and not as unrestricted autonomous shell execution."
+      ]
+    },
+    {
+      "id": "ARC-T02",
+      "title": "CLI entrypoint for admin repair add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A clear CLI entry such as diagnose-system or repair-system exists.",
+        "The mode supports dry-run and bounded execution options.",
+        "The command is discoverable in help and docs."
+      ]
+    },
+    {
+      "id": "ARC-T03",
+      "title": "Operating system detection and environment summary implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The CLI can detect whether it runs on Windows 11 or Ubuntu.",
+        "A summarized environment report includes OS, shell, package tools, services and runtime basics.",
+        "The environment summary is visible before repair planning."
+      ]
+    },
+    {
+      "id": "ARC-T04",
+      "title": "Bounded system context collection define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The mode defines exactly which system facts, logs and command outputs may be collected.",
+        "Collection stays bounded and visible to the user.",
+        "Sensitive data is redacted or explicitly excluded by default."
+      ]
+    },
+    {
+      "id": "ARC-T05",
+      "title": "Log source adapters for Windows 11 implement",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The mode can collect useful Windows diagnosis sources such as event logs, service state, PATH/runtime checks and selected command outputs.",
+        "Collection failures degrade cleanly.",
+        "Collected sources are normalized into Ananta artifacts."
+      ]
+    },
+    {
+      "id": "ARC-T06",
+      "title": "Log source adapters for Ubuntu implement",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The mode can collect useful Ubuntu diagnosis sources such as journalctl, systemd service state, apt/dpkg health and selected command outputs.",
+        "Collection failures degrade cleanly.",
+        "Collected sources are normalized into Ananta artifacts."
+      ]
+    },
+    {
+      "id": "ARC-T07",
+      "title": "Problem class taxonomy define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Common admin problem classes are defined for Windows and Ubuntu.",
+        "At minimum, package/runtime, PATH, permissions, service, port/conflict and Docker/WSL-like classes are covered.",
+        "The taxonomy supports diagnosis, routing and repair planning."
+      ]
+    },
+    {
+      "id": "ARC-T08",
+      "title": "Diagnosis report artifact implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The mode produces a structured diagnosis artifact.",
+        "The artifact includes likely causes, supporting evidence, confidence and next steps.",
+        "The artifact is reviewable and storable like other Ananta results."
+      ]
+    },
+    {
+      "id": "ARC-T09",
+      "title": "Repair plan generation add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The mode can generate a bounded repair plan from diagnosis results.",
+        "The repair plan contains ordered steps, risks, expected effects and verification hints.",
+        "The plan distinguishes safe suggestions from high-risk actions."
+      ]
+    },
+    {
+      "id": "ARC-T10",
+      "title": "Repair action policy define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Repair actions are categorized into allowed, confirm-required and blocked classes.",
+        "Dangerous system mutations are never run implicitly.",
+        "The policy integrates with existing governance and audit ideas."
+      ]
+    },
+    {
+      "id": "ARC-T11",
+      "title": "Dry-run mode implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "All repair plans can be previewed without applying changes.",
+        "The user can see the exact proposed commands or actions.",
+        "Dry-run is the default or strongly recommended first path."
+      ]
+    },
+    {
+      "id": "ARC-T12",
+      "title": "Step-by-step confirmed execution mode add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Repairs can be executed one step at a time with explicit confirmation.",
+        "The system logs which actions were accepted, skipped or blocked.",
+        "Users can stop the sequence without corrupting state."
+      ]
+    },
+    {
+      "id": "ARC-T13",
+      "title": "Verification phase after repair implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "After repair steps, the system re-checks relevant health signals.",
+        "The result clearly states whether the issue appears resolved, improved or still broken.",
+        "Verification output is attached to the same diagnosis/repair record."
+      ]
+    },
+    {
+      "id": "ARC-T14",
+      "title": "Windows-specific repair playbooks add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There are initial playbooks for common Windows 11 issues.",
+        "At minimum, runtime/path, service and Docker/WSL-style issues are covered.",
+        "Playbooks remain bounded and reviewable."
+      ]
+    },
+    {
+      "id": "ARC-T15",
+      "title": "Ubuntu-specific repair playbooks add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There are initial playbooks for common Ubuntu issues.",
+        "At minimum, apt/dpkg, systemd service and runtime/toolchain problems are covered.",
+        "Playbooks remain bounded and reviewable."
+      ]
+    },
+    {
+      "id": "ARC-T16",
+      "title": "Admin-facing output formatting improve",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "CLI output is readable and structured for real repair work.",
+        "Diagnosis, plan, risks and verification are visually separated.",
+        "The output avoids dumping raw logs without explanation."
+      ]
+    },
+    {
+      "id": "ARC-T17",
+      "title": "Audit trail for repair sessions add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Repair sessions are auditable.",
+        "The system records gathered evidence, proposed actions, accepted actions and verification results.",
+        "Sensitive data is handled safely."
+      ]
+    },
+    {
+      "id": "ARC-T18",
+      "title": "Rollback and caution model define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The system distinguishes reversible from non-reversible actions.",
+        "Plans explicitly warn when rollback is limited or unavailable.",
+        "High-risk steps surface stronger caution language and confirmation requirements."
+      ]
+    },
+    {
+      "id": "ARC-T19",
+      "title": "Golden path for Windows repair document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one official Windows 11 repair demo flow.",
+        "The flow covers context collection, diagnosis, plan, confirmation and verification.",
+        "Another developer can reproduce it."
+      ]
+    },
+    {
+      "id": "ARC-T20",
+      "title": "Golden path for Ubuntu repair document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one official Ubuntu repair demo flow.",
+        "The flow covers context collection, diagnosis, plan, confirmation and verification.",
+        "Another developer can reproduce it."
+      ]
+    },
+    {
+      "id": "ARC-T21",
+      "title": "Contract and smoke tests for repair mode add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The diagnosis and plan output formats are protected by tests.",
+        "At least one smoke path exists for Windows and one for Ubuntu using bounded fixtures or mocks.",
+        "The tests verify that execution remains confirmation-gated."
+      ]
+    },
+    {
+      "id": "ARC-T22",
+      "title": "Future extension path for broader admin domains isolate",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "Later expansions such as network repair, container repair or app-specific repair are documented separately.",
+        "The first release remains focused on core Windows 11 and Ubuntu installation/runtime repair scenarios.",
+        "The roadmap does not bloat the MVP."
+      ]
+    }
+  ]
+}

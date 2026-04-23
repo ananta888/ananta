@@ -183,5 +183,43 @@ def test_rag_helper_index_service_indexes_source_records_in_scope_layout():
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["source_scope"] == "wiki"
     assert manifest["index_record_count"] == 2
+    assert manifest["chunking"]["strategy"] == "wiki_sentence_chunks"
+    assert manifest["chunking"]["input_record_count"] == 2
+    assert manifest["chunking"]["normalized_record_count"] == 2
     lines = [line for line in (output_dir / "index.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     assert lines == sorted(lines)
+    parsed = [json.loads(line) for line in lines]
+    assert parsed[0]["kind"] == "wiki_section_chunk"
+    assert parsed[0]["chunk_id"].startswith("wiki:")
+
+
+def test_rag_helper_index_service_wiki_chunk_ids_are_stable_across_rebuilds():
+    service = RagHelperIndexService()
+    records = [
+        {
+            "kind": "wiki_section",
+            "file": "wiki/payment.md",
+            "article_title": "Payment retries",
+            "section_title": "Timeout",
+            "language": "en",
+            "content": "Workers retry payment after timeout. Use bounded backoff.",
+        }
+    ]
+
+    first_index, first_run = service.index_source_records(
+        source_scope="wiki",
+        source_id="wiki-stable",
+        records=records,
+        created_by="tester",
+    )
+    second_index, second_run = service.index_source_records(
+        source_scope="wiki",
+        source_id="wiki-stable",
+        records=list(reversed(records)),
+        created_by="tester",
+    )
+
+    first_lines = (Path(str(first_run.output_dir)) / "index.jsonl").read_text(encoding="utf-8").splitlines()
+    second_lines = (Path(str(second_run.output_dir)) / "index.jsonl").read_text(encoding="utf-8").splitlines()
+    assert first_index.id == second_index.id
+    assert first_lines == second_lines

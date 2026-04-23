@@ -343,3 +343,90 @@ def test_knowledge_orchestration_contract_route_exposes_hub_owned_states(client,
     assert payload["entrypoint_group"] == "knowledge"
     assert "retry_triggering" in payload["ownership"]["hub_owned"]
     assert payload["state_machine"]["states"] == ["queued", "running", "completed", "failed"]
+
+
+def test_knowledge_wiki_import_route_indexes_normalized_records(client, admin_auth_header, monkeypatch):
+    class StubIngestionService:
+        def import_wiki_jsonl(self, *, corpus_path: str, source_id: str | None, default_language: str, strict: bool):
+            assert corpus_path == "/tmp/wiki.jsonl"
+            assert source_id == "wiki-mvp"
+            assert default_language == "en"
+            assert strict is False
+            return {
+                "source_scope": "wiki",
+                "source_id": "wiki-mvp",
+                "corpus_path": corpus_path,
+                "records": [
+                    {
+                        "kind": "wiki_section_chunk",
+                        "article_title": "Payment retries",
+                        "section_title": "Timeout handling",
+                        "language": "en",
+                        "content": "Workers retry payment after timeout.",
+                    }
+                ],
+                "issues": [],
+                "stats": {"input_lines": 1, "normalized_records": 1, "issues": 0},
+            }
+
+    class StubRagService:
+        def index_source_records(self, **kwargs):
+            assert kwargs["source_scope"] == "wiki"
+            assert kwargs["source_id"] == "wiki-mvp"
+            assert kwargs["records"][0]["article_title"] == "Payment retries"
+            assert kwargs["source_metadata"]["import_stats"]["normalized_records"] == 1
+            return (
+                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki-1", "source_scope": "wiki", "status": "completed"}),
+                SimpleNamespace(model_dump=lambda: {"id": "run-wiki-1", "status": "completed"}),
+            )
+
+    monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
+    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+    response = client.post(
+        "/knowledge/wiki/import",
+        headers=admin_auth_header,
+        json={"corpus_path": "/tmp/wiki.jsonl", "source_id": "wiki-mvp"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["import_report"]["source_scope"] == "wiki"
+    assert payload["import_report"]["stats"]["normalized_records"] == 1
+    assert payload["knowledge_index"]["source_scope"] == "wiki"
+
+
+def test_knowledge_wiki_import_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
+    class StubIngestionService:
+        def import_wiki_jsonl(self, **kwargs):
+            return {
+                "source_scope": "wiki",
+                "source_id": "wiki-mvp",
+                "corpus_path": kwargs["corpus_path"],
+                "records": [{"kind": "wiki_section_chunk", "content": "x"}],
+                "issues": [],
+                "stats": {"input_lines": 1, "normalized_records": 1, "issues": 0},
+            }
+
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
+            assert kwargs["source_scope"] == "wiki"
+            assert kwargs["source_id"] == "wiki-mvp"
+            return {"job_id": "job-wiki-import-1", "status": "queued"}
+
+    monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+    response = client.post(
+        "/knowledge/wiki/import",
+        headers=admin_auth_header,
+        json={"corpus_path": "/tmp/wiki.jsonl", "source_id": "wiki-mvp", "async": True},
+    )
+
+    assert response.status_code == 202
+    payload = response.get_json()["data"]
+    assert payload["job"]["job_id"] == "job-wiki-import-1"
+
+
+def test_knowledge_wiki_import_route_rejects_missing_corpus_path(client, admin_auth_header):
+    response = client.post("/knowledge/wiki/import", headers=admin_auth_header, json={"source_id": "wiki-mvp"})
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "corpus_path_required"
