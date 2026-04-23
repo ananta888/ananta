@@ -7,6 +7,7 @@ import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { AdminFacade } from '../features/admin/admin.facade';
+import { recommendBlueprint } from '../shared/blueprint-recommendation';
 
 type BlueprintRoleForm = {
   id?: string;
@@ -25,6 +26,13 @@ type BlueprintArtifactForm = {
   description: string;
   sort_order: number;
   payload: any;
+};
+
+type GuidedSetupForm = {
+  goal_type: string;
+  strictness: string;
+  domain: string;
+  execution_style: string;
 };
 
 @Component({
@@ -105,6 +113,8 @@ type BlueprintArtifactForm = {
                     Einsatzzweck: {{ blueprint.intended_use || 'Wiederverwendbare Team-Initialisierung' }}
                   </div>
                   <div class="muted teams-blueprint-meta">Wann nutzen: {{ blueprint.when_to_use || 'Bei wiederholbaren Team-Starts' }}</div>
+                  <div class="muted teams-blueprint-meta">Status: {{ blueprintLifecycleLabel(blueprint) }}</div>
+                  <div class="muted teams-blueprint-meta">{{ blueprintLifecycleHint(blueprint) }}</div>
                   <div class="muted teams-blueprint-meta">Erwartete Outputs: {{ formatExpectedOutputs(blueprint.expected_outputs) }}</div>
                   <div class="muted teams-blueprint-meta">Sicherheits-/Review-Stance: {{ blueprint.safety_review_stance || 'balanced security, standard verification' }}</div>
                 </button>
@@ -118,6 +128,7 @@ type BlueprintArtifactForm = {
               <div>
                 <h3 class="no-margin">{{ blueprintForm.id ? 'Blueprint bearbeiten' : 'Neuen Blueprint anlegen' }}</h3>
                 <div class="muted">Advanced-Editor fuer Rollen, Rollen-Templates und Starter-Artefakte.</div>
+                <div class="muted">Hinweis: Hier wird Team-Struktur bearbeitet. Rollenverhalten bearbeitest du separat unter <code>Templates (Hub)</code>.</div>
               </div>
               @if (isSelectedSeedBlueprint()) {
                 <span class="teams-pill teams-pill-seed">Seed</span>
@@ -222,6 +233,61 @@ type BlueprintArtifactForm = {
             <p class="muted">
               Der Standard-Modus zeigt nur die entscheidenden Produktinfos fuer den Start. Detailpflege bleibt im Admin-/Studio-Modus.
             </p>
+            <div class="teams-inline-card">
+              <h4 class="no-margin">Gefuehrte Blueprint-Auswahl</h4>
+              <div class="muted">
+                Fuer den Start reichen vier Angaben: Zieltyp, Striktheit, Domaene und Ausfuehrungsstil.
+              </div>
+              <div class="grid cols-2 mt-md">
+                <label>Zieltyp
+                  <select [(ngModel)]="guidedSetup.goal_type">
+                    @for (option of guidedGoalTypeOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Striktheit
+                  <select [(ngModel)]="guidedSetup.strictness">
+                    @for (option of guidedStrictnessOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Domaene
+                  <select [(ngModel)]="guidedSetup.domain">
+                    @for (option of guidedDomainOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Ausfuehrungsstil
+                  <select [(ngModel)]="guidedSetup.execution_style">
+                    @for (option of guidedExecutionStyleOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+              @if (guidedSetupRecommendation() as recommendation) {
+                <div class="teams-inline-card mt-md">
+                  <div class="row flex-between">
+                    <strong>Empfehlter Blueprint: {{ recommendation.card.name }}</strong>
+                    <span class="teams-pill teams-pill-seed">Empfehlung</span>
+                  </div>
+                  <div class="muted teams-blueprint-desc">
+                    {{ recommendation.card.short_description || recommendation.card.intended_use || 'Produktnaher Standard-Blueprint.' }}
+                  </div>
+                  <div class="teams-summary-meta">Warum: {{ recommendation.reasons.join(' ') }}</div>
+                  <div class="teams-summary-meta">
+                    Work-Profile: {{ formatPreviewList(recommendation.card.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
+                  </div>
+                  <div class="teams-summary-meta">{{ recommendation.reviewNote }}</div>
+                  <div class="row mt-sm">
+                    <button class="btn-primary" (click)="applyGuidedSetupRecommendation()">Empfehlung fuer Team-Start uebernehmen</button>
+                  </div>
+                </div>
+              }
+            </div>
             @if (selectedCatalogBlueprintCard()) {
               <div class="teams-inline-card">
                 <div class="row flex-between">
@@ -263,9 +329,9 @@ type BlueprintArtifactForm = {
       @if (currentTab === 'teams') {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-success">
-            <h3 class="no-margin">Team als laufende Instanz erstellen</h3>
+            <h3 class="no-margin">Team aus Blueprint erstellen</h3>
             <p class="muted">
-              Blueprint = wiederverwendbare Vorlage. Team = laufende Arbeitsinstanz aus dieser Vorlage.
+              Blueprint = wiederverwendbare Basis. Team = laufende Instanz fuer die konkrete Ausfuehrung.
             </p>
 
             <div class="grid cols-2">
@@ -278,7 +344,7 @@ type BlueprintArtifactForm = {
                 </select>
               </label>
               <label>Teamname <input [(ngModel)]="teamFromBlueprint.name" [disabled]="!isAdmin"></label>
-              <label class="col-span-full">Beschreibung / Override <textarea [(ngModel)]="teamFromBlueprint.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+              <label class="col-span-full">Beschreibung (optional) <textarea [(ngModel)]="teamFromBlueprint.description" rows="2" [disabled]="!isAdmin"></textarea></label>
             </div>
             <label class="teams-checkbox"><input type="checkbox" [(ngModel)]="teamFromBlueprint.activate" [disabled]="!isAdmin"> Team direkt aktivieren</label>
 
@@ -291,7 +357,13 @@ type BlueprintArtifactForm = {
                   }
                 </div>
                 <div class="muted">{{ selectedInstantiateBlueprint.description || 'Keine Beschreibung' }}</div>
-                <div class="teams-summary-meta">{{ selectedInstantiateBlueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ selectedInstantiateBlueprint.roles?.length || 0 }} Rollen · {{ selectedInstantiateBlueprint.artifacts?.length || 0 }} Artefakte</div>
+                <div class="teams-summary-meta">{{ selectedInstantiateBlueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ selectedInstantiateBlueprint.roles?.length || 0 }} Rollen · {{ selectedInstantiateBlueprint.artifacts?.length || 0 }} Starter-Elemente</div>
+                <div class="teams-summary-meta">
+                  Start-Rollen: {{ previewBlueprintRoles(selectedInstantiateBlueprint) }}
+                </div>
+                <div class="teams-summary-meta">
+                  Start-Aufgaben: {{ previewBlueprintStartTasks(selectedInstantiateBlueprint) }}
+                </div>
                 @if (selectedCatalogBlueprintCard()) {
                   <div class="teams-summary-meta">
                     Empfohlene Goal-Modi: {{ formatPreviewList(selectedCatalogBlueprintCard()?.work_profile_summary?.recommended_goal_modes, 'Standard-Modi') }}
@@ -332,7 +404,7 @@ type BlueprintArtifactForm = {
                           }
                         </select>
                       </label>
-                      <label>Rollen-Template Override
+                      <label>Rollen-Template (optional)
                         <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
                           <option value="">-- Standard Rollen-Template --</option>
                           @for (template of templates; track template.id) {
@@ -603,6 +675,32 @@ export class TeamsComponent implements OnInit {
   teamTypesList: any[] = [];
   allRoles: any[] = [];
   selectedBlueprintId = '';
+  guidedSetup: GuidedSetupForm = this.emptyGuidedSetup();
+
+  readonly guidedGoalTypeOptions = [
+    { value: 'new_feature', label: 'Neues Feature / Weiterentwicklung' },
+    { value: 'bugfix', label: 'Bugfix / Incident' },
+    { value: 'research', label: 'Research / Analyse' },
+    { value: 'security_review', label: 'Security / Compliance Review' },
+    { value: 'release_prep', label: 'Release-Vorbereitung' },
+  ];
+  readonly guidedStrictnessOptions = [
+    { value: 'safe', label: 'Vorsichtig' },
+    { value: 'balanced', label: 'Ausgewogen' },
+    { value: 'strict', label: 'Strikt' },
+  ];
+  readonly guidedDomainOptions = [
+    { value: 'software', label: 'Software' },
+    { value: 'security', label: 'Security' },
+    { value: 'release', label: 'Release' },
+    { value: 'general', label: 'Allgemein' },
+  ];
+  readonly guidedExecutionStyleOptions = [
+    { value: 'iterative', label: 'Iterativ (Sprint/Loop)' },
+    { value: 'flow', label: 'Flow/Kanban' },
+    { value: 'opencode', label: 'OpenCode/Execution-Kaskade' },
+    { value: 'evolution', label: 'Research -> Evolution' },
+  ];
 
   newType: any = { name: '', description: '' };
   newRole: any = { name: '', description: '', default_template_id: '' };
@@ -741,6 +839,15 @@ export class TeamsComponent implements OnInit {
     };
   }
 
+  emptyGuidedSetup(): GuidedSetupForm {
+    return {
+      goal_type: 'new_feature',
+      strictness: 'balanced',
+      domain: 'software',
+      execution_style: 'iterative',
+    };
+  }
+
   startNewBlueprint() {
     this.selectedBlueprintId = '';
     this.blueprintForm = this.emptyBlueprintForm();
@@ -816,6 +923,72 @@ export class TeamsComponent implements OnInit {
       ? values.map(item => String(item || '').trim()).filter(Boolean).slice(0, limit)
       : [];
     return normalized.length ? normalized.join(', ') : fallback;
+  }
+
+  previewBlueprintRoles(blueprint: any, limit = 5): string {
+    const roles = Array.isArray(blueprint?.roles)
+      ? blueprint.roles.map((role: any) => String(role?.name || '').trim()).filter(Boolean).slice(0, limit)
+      : [];
+    return roles.length ? roles.join(', ') : 'Keine Start-Rollen';
+  }
+
+  previewBlueprintStartTasks(blueprint: any, limit = 5): string {
+    const tasks = Array.isArray(blueprint?.artifacts)
+      ? blueprint.artifacts
+        .filter((artifact: any) => String(artifact?.kind || '').toLowerCase() === 'task')
+        .map((artifact: any) => String(artifact?.title || '').trim())
+        .filter(Boolean)
+        .slice(0, limit)
+      : [];
+    return tasks.length ? tasks.join(', ') : 'Keine expliziten Start-Aufgaben';
+  }
+
+  guidedSetupRecommendation() {
+    const recommendation = recommendBlueprint({
+      goalType: this.guidedSetup.goal_type,
+      strictness: this.guidedSetup.strictness,
+      domain: this.guidedSetup.domain,
+      executionStyle: this.guidedSetup.execution_style,
+    });
+    const card = this.blueprintCardByName(recommendation.blueprintName);
+    if (!card) return null;
+    return {
+      card,
+      reasons: recommendation.reasons,
+      reviewNote: recommendation.reviewNote,
+      suggestedTeamName: `${card.name} Team`,
+    };
+  }
+
+  applyGuidedSetupRecommendation() {
+    const recommendation = this.guidedSetupRecommendation();
+    if (!recommendation) {
+      this.ns.error('Keine passende Blueprint-Empfehlung gefunden');
+      return;
+    }
+    this.selectBlueprintFromCatalog(recommendation.card);
+    this.currentTab = 'teams';
+    this.onInstantiateBlueprintChange(recommendation.card.id);
+    if (!this.teamFromBlueprint.name) this.teamFromBlueprint.name = recommendation.suggestedTeamName;
+    this.ns.success(`Empfehlung gesetzt: ${recommendation.card.name}`);
+  }
+
+  blueprintLifecycleLabel(blueprint: any): string {
+    if (blueprint?.is_standard_blueprint || blueprint?.is_seed) return 'Standard';
+    const driftStatus = String(blueprint?.definition_metadata?.drift_status || '').toLowerCase();
+    if (driftStatus === 'drifted') return 'Aktualisierbar';
+    return 'Angepasst';
+  }
+
+  blueprintLifecycleHint(blueprint: any): string {
+    if (blueprint?.is_standard_blueprint || blueprint?.is_seed) {
+      return 'Standard-Blueprint fuer den produktnahen Einstieg.';
+    }
+    const driftStatus = String(blueprint?.definition_metadata?.drift_status || '').toLowerCase();
+    if (driftStatus === 'drifted') {
+      return 'Basisdefinition wurde aktualisiert; diese Variante kann abgeglichen werden.';
+    }
+    return 'Angepasste Blueprint-Variante fuer spezifische Teambedarfe.';
   }
 
   prepareInstantiateFromEditor() {
@@ -1265,5 +1438,10 @@ export class TeamsComponent implements OnInit {
       return;
     }
     this.ns.error(fallback);
+  }
+
+  private blueprintCardByName(name: string) {
+    const normalizedTarget = String(name || '').trim().toLowerCase();
+    return this.catalogBlueprintCards().find(card => String(card?.name || '').trim().toLowerCase() === normalizedTarget) || null;
   }
 }

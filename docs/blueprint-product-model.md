@@ -22,12 +22,21 @@ Merksatz: **Blueprint waehlen -> Team starten -> Arbeit ausfuehren**.
 
 Der empfohlene Einstieg bleibt bewusst einfach:
 
-1. Blueprint passend zum Ziel waehlen.
-2. Vorschau der Start-Rollen und Start-Aufgaben pruefen.
-3. Team aus Blueprint instanziieren.
-4. Arbeit starten und nur bei Bedarf in den Advanced-Modus wechseln.
+1. Gefuehrte Auswahl nutzen (Zieltyp, Striktheit, Domaene, Ausfuehrungsstil).
+2. Blueprint passend zum Ziel waehlen (mit begruendeter Empfehlung).
+3. Vorschau der Start-Rollen und Start-Aufgaben pruefen.
+4. Team aus Blueprint instanziieren.
+5. Arbeit starten und nur bei Bedarf in den Advanced-Modus wechseln.
 
 Nutzer sollen nicht zuerst manuell Teams, Rollen und Templates zusammenbauen muessen.
+
+## Gefuehrte Auswahl und Empfehlung
+
+Die gefuehrte Auswahl liefert fuer Erststart und Wizard-Flows eine erklaerbare Empfehlung:
+
+- Eingaben: Zieltyp, Striktheit, Domaene, Ausfuehrungsstil
+- Ausgabe: empfohlener Standard-Blueprint, Work-Profile-Hinweise und Instanziierungsvorschlag
+- Review: Die Begruendung bleibt vor Team-Start sichtbar und pruefbar
 
 ## Standard mode vs. admin/studio mode
 
@@ -51,6 +60,8 @@ Im Standardmodus werden stattdessen vereinfachte Team-Zustaende gezeigt:
 - `Standard`
 - `Angepasst`
 - `Aktualisierbar`
+
+Diese Begriffe werden auch fuer Seed-/Default-Blueprints in der normalen Produktsicht verwendet.
 
 ## Dokumente nach Zielgruppe
 

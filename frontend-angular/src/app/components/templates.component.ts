@@ -18,9 +18,13 @@ import { AdminFacade } from '../features/admin/admin.facade';
       <button (click)="refresh()" class="button-outline">Aktualisieren</button>
     </div>
     <p class="muted">
-      Verwalten und erstellen Sie Prompt-Templates.
+      Verwalten und erstellen Sie Rollen-Templates (Prompt-Verhalten je Rolle).
       <a href="/docs/template-authoring-guide.md" target="_blank" rel="noopener">Autoren-Guide</a>
     </p>
+    <div class="state-banner info">
+      Trennung der Verantwortung: <strong>Templates</strong> steuern Rollenverhalten.
+      <strong>Blueprints</strong> (Bereich Teams) steuern Team-Struktur, Rollen-Zuschnitt und Start-Aufgaben.
+    </div>
     @if (!isAdmin) {
       <div class="muted mb-md">Template-Verwaltung ist nur fuer Admins verfuegbar.</div>
     }
