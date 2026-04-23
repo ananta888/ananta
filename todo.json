@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "generic_agent_control_and_ml_intern_worker",
-  "updated_at": "2026-04-24T03:44:00+02:00",
+  "updated_at": "2026-04-24T00:54:59+02:00",
   "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -115,7 +115,7 @@
     {
       "id": "GAC-T06",
       "title": "Corrective prompt or corrective context injection define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "loop_control",
       "depends_on": ["GAC-T04", "GAC-T05"],
@@ -128,7 +128,7 @@
     {
       "id": "GAC-T07",
       "title": "ToolRouter target architecture define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "tool_routing",
       "depends_on": ["GAC-T01"],
@@ -180,7 +180,7 @@
     {
       "id": "GAC-T11",
       "title": "Unified approval model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "approval_governance",
       "depends_on": ["GAC-T01"],
@@ -219,7 +219,7 @@
     {
       "id": "GAC-T14",
       "title": "ContextManager target model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "context_management",
       "depends_on": ["GAC-T01"],
@@ -323,7 +323,7 @@
     {
       "id": "GAC-T22",
       "title": "ml-intern fit assessment document",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "optional_ml_intern",
       "depends_on": ["GAC-T01"],
@@ -387,15 +387,15 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T03:44:00+02:00",
+    "updated_at": "2026-04-24T00:54:59+02:00",
     "total": 26,
     "by_status": {
-      "todo": 21,
+      "todo": 16,
       "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 10
     },
-    "progress_percent_done": 19.2,
+    "progress_percent_done": 38.5,
     "by_priority": {
       "P0": 12,
       "P1": 10,
@@ -410,23 +410,23 @@
       },
       "loop_control": {
         "total": 5,
-        "done": 4,
-        "todo": 1
+        "done": 5,
+        "todo": 0
       },
       "tool_routing": {
         "total": 4,
-        "done": 0,
-        "todo": 4
+        "done": 1,
+        "todo": 3
       },
       "approval_governance": {
         "total": 3,
-        "done": 0,
-        "todo": 3
+        "done": 1,
+        "todo": 2
       },
       "context_management": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 1,
+        "todo": 4
       },
       "observability_and_rollout": {
         "total": 3,
@@ -435,20 +435,20 @@
       },
       "optional_ml_intern": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 1,
+        "todo": 4
       }
     },
     "recommended_first_bundle": [
-      "GAC-T06",
-      "GAC-T07",
       "GAC-T08",
       "GAC-T09",
-      "GAC-T11",
+      "GAC-T10",
       "GAC-T12",
-      "GAC-T14",
+      "GAC-T13",
       "GAC-T15",
-      "GAC-T22"
+      "GAC-T17",
+      "GAC-T18",
+      "GAC-T23"
     ]
   }
 }
