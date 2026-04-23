@@ -44,6 +44,7 @@ def test_get_config_exposes_effective_template_variable_registry(client, admin_t
     assert "template_variables_allowlist" in data
     assert "template_variable_registry" in data
     assert data["template_variable_registry"]["allowed_names"] == data["template_variables_allowlist"]
+    assert "task" in (data["template_variable_registry"].get("supported_context_scopes") or [])
     assert "team_goal" in data["template_variables_allowlist"]
     assert "goal_context" in data["template_variables_allowlist"]
     assert "acceptance_criteria" in data["template_variables_allowlist"]

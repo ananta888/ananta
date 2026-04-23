@@ -540,6 +540,19 @@ class TemplateCreateRequest(SQLModel):
     name: str
     description: Optional[str] = None
     prompt_template: str
+    validation_context: Optional[str] = None
+
+
+class TemplateValidationRequest(SQLModel):
+    prompt_template: str
+    context_scope: Optional[str] = None
+
+
+class TemplatePreviewRequest(SQLModel):
+    prompt_template: str
+    context_scope: Optional[str] = None
+    sample_context: Optional[str] = None
+    context_payload: dict = Field(default_factory=dict)
 
 
 class LLMGenerateRequest(SQLModel):

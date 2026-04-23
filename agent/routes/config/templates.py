@@ -9,13 +9,19 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.database import engine
 from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
-from agent.models import TemplateCreateRequest
+from agent.models import TemplateCreateRequest, TemplatePreviewRequest, TemplateValidationRequest
 from agent.services.repository_registry import get_repository_registry
 from agent.services.template_variable_registry import (
+    build_template_sample_contexts_payload,
+    build_template_validation_diagnostics,
     build_template_runtime_contract_payload,
     build_template_variable_registry_payload,
-    find_unknown_template_variables,
+    normalize_template_context_scope,
+    render_template_preview,
+    resolve_template_sample_context,
+    resolve_template_validation_context,
     resolve_allowed_template_variables,
+    validate_template_variables_with_context,
 )
 from agent.services.team_definition_version_service import serialize_template_with_version
 from agent.utils import validate_request
@@ -36,40 +42,99 @@ def _template_validation_config() -> dict:
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     raw = cfg.get("template_variable_validation")
     if not isinstance(raw, dict):
-        return {"strict": False}
-    return {"strict": bool(raw.get("strict", False))}
+        return {"strict": False, "context_scope": None}
+    return {
+        "strict": bool(raw.get("strict", False)),
+        "context_scope": normalize_template_context_scope(raw.get("context_scope")),
+    }
 
 
-def validate_template_variables(template_text: str) -> list[str]:
+def validate_template_variables(template_text: str, *, context_scope: str | None = None) -> dict:
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    return find_unknown_template_variables(template_text, agent_cfg=cfg)
+    return validate_template_variables_with_context(
+        template_text,
+        context_scope=context_scope,
+        agent_cfg=cfg,
+    )
 
 
-def _template_warnings(prompt_template: str) -> list[dict]:
-    unknown = validate_template_variables(prompt_template)
-    if not unknown:
-        return []
-    return [
-        {
-            "type": "unknown_variables",
-            "details": f"Unknown variables: {', '.join(unknown)}",
-            "allowed": sorted(_get_template_allowlist()),
-        }
-    ]
+def _template_validation_result(prompt_template: str, context_scope: str | None = None) -> dict:
+    cfg = _template_validation_config()
+    resolved_scope = resolve_template_validation_context(
+        request_scope=context_scope,
+        config_scope=cfg.get("context_scope"),
+    )
+    return validate_template_variables(prompt_template, context_scope=resolved_scope)
 
 
-def _template_strict_validation_error(prompt_template: str):
-    warnings = _template_warnings(prompt_template)
-    if not warnings or not _template_validation_config().get("strict"):
+def _template_warnings(prompt_template: str, context_scope: str | None = None) -> tuple[list[dict], dict]:
+    validation = _template_validation_result(prompt_template, context_scope=context_scope)
+    warnings: list[dict] = []
+    if validation.get("unknown_variables"):
+        warnings.append(
+            {
+                "type": "unknown_variables",
+                "details": f"Unknown variables: {', '.join(validation['unknown_variables'])}",
+                "allowed": sorted(_get_template_allowlist()),
+            }
+        )
+    if validation.get("context_invalid_variables"):
+        context_label = validation.get("context_scope") or "selected scope"
+        warnings.append(
+            {
+                "type": "context_unavailable_variables",
+                "details": (
+                    f"Unavailable in context '{context_label}': "
+                    f"{', '.join(validation['context_invalid_variables'])}"
+                ),
+                "context_scope": context_label,
+                "allowed_for_context": validation.get("available_variables_for_context") or [],
+            }
+        )
+    if validation.get("deprecated_variables"):
+        warnings.append(
+            {
+                "type": "deprecated_variables",
+                "details": (
+                    "Deprecated legacy variables: "
+                    f"{', '.join(validation['deprecated_variables'])}"
+                ),
+                "deprecated_variables": validation["deprecated_variables"],
+            }
+        )
+    return warnings, validation
+
+
+def _template_strict_validation_error(prompt_template: str, context_scope: str | None = None):
+    validation_cfg = _template_validation_config()
+    warnings, validation = _template_warnings(prompt_template, context_scope=context_scope)
+    if not validation_cfg.get("strict"):
         return None
-    warning = warnings[0]
+    unknown = validation.get("unknown_variables") or []
+    context_invalid = validation.get("context_invalid_variables") or []
+    if not unknown and not context_invalid:
+        return None
+    message = "template_validation_failed"
+    if unknown and not context_invalid:
+        message = "unknown_template_variables"
+    if context_invalid and not unknown:
+        message = "context_unavailable_template_variables"
+    diagnostics = build_template_validation_diagnostics(
+        prompt_template,
+        context_scope=validation.get("context_scope"),
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+    )
     return api_response(
         status="error",
-        message="unknown_template_variables",
+        message=message,
         data={
             "warnings": warnings,
-            "allowed": warning.get("allowed") or [],
-            "unknown_variables": validate_template_variables(prompt_template),
+            "allowed": sorted(_get_template_allowlist()),
+            "unknown_variables": unknown,
+            "context_invalid_variables": context_invalid,
+            "deprecated_variables": validation.get("deprecated_variables") or [],
+            "context_scope": validation.get("context_scope"),
+            "diagnostics": diagnostics,
         },
         code=400,
     )
@@ -86,6 +151,113 @@ def template_variable_registry_read_model():
 @check_auth
 def template_runtime_contract_read_model():
     return api_response(data=build_template_runtime_contract_payload())
+
+
+@templates_bp.route("/templates/sample-contexts", methods=["GET"])
+@check_auth
+def template_sample_contexts_read_model():
+    return api_response(data=build_template_sample_contexts_payload())
+
+
+@templates_bp.route("/templates/validate", methods=["POST"])
+@check_auth
+@validate_request(TemplateValidationRequest)
+def validate_template_payload():
+    data: TemplateValidationRequest = g.validated_data
+    validation = _template_validation_result(
+        data.prompt_template,
+        context_scope=data.context_scope,
+    )
+    warnings, _ = _template_warnings(
+        data.prompt_template,
+        context_scope=data.context_scope,
+    )
+    diagnostics = build_template_validation_diagnostics(
+        data.prompt_template,
+        context_scope=validation.get("context_scope"),
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+    )
+    return api_response(
+        data={
+            **validation,
+            "warnings": warnings,
+            "is_valid": not validation.get("unknown_variables")
+            and not validation.get("context_invalid_variables"),
+            "diagnostics": diagnostics,
+        }
+    )
+
+
+@templates_bp.route("/templates/preview", methods=["POST"])
+@check_auth
+@validate_request(TemplatePreviewRequest)
+def preview_template_payload():
+    data: TemplatePreviewRequest = g.validated_data
+    sample_name, sample_context = resolve_template_sample_context(
+        context_scope=data.context_scope,
+        sample_context=data.sample_context,
+        context_payload=data.context_payload,
+    )
+    validation = _template_validation_result(
+        data.prompt_template,
+        context_scope=data.context_scope,
+    )
+    preview = render_template_preview(data.prompt_template, context_payload=sample_context)
+    diagnostics = build_template_validation_diagnostics(
+        data.prompt_template,
+        context_scope=validation.get("context_scope"),
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        preview_context=sample_context,
+    )
+    return api_response(
+        data={
+            "context_scope": validation.get("context_scope"),
+            "sample_context": sample_name,
+            "sample_context_keys": sorted(list(sample_context.keys())),
+            "preview": preview,
+            "validation": validation,
+            "diagnostics": diagnostics,
+        }
+    )
+
+
+@templates_bp.route("/templates/validation-diagnostics", methods=["POST"])
+@check_auth
+@validate_request(TemplatePreviewRequest)
+def template_validation_diagnostics():
+    data: TemplatePreviewRequest = g.validated_data
+    sample_name, sample_context = resolve_template_sample_context(
+        context_scope=data.context_scope,
+        sample_context=data.sample_context,
+        context_payload=data.context_payload,
+    )
+    validation = _template_validation_result(
+        data.prompt_template,
+        context_scope=data.context_scope,
+    )
+    diagnostics = build_template_validation_diagnostics(
+        data.prompt_template,
+        context_scope=validation.get("context_scope"),
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        preview_context=sample_context,
+    )
+    log_audit(
+        "template_validation_diagnostics_requested",
+        {
+            "context_scope": validation.get("context_scope"),
+            "sample_context": sample_name,
+            "issue_count": diagnostics.get("issue_count"),
+            "severity": diagnostics.get("severity"),
+        },
+    )
+    return api_response(
+        data={
+            "context_scope": validation.get("context_scope"),
+            "sample_context": sample_name,
+            "diagnostics": diagnostics,
+            "summary": validation.get("summary") or {},
+        }
+    )
 
 
 @templates_bp.route("/templates", methods=["GET"])
@@ -106,10 +278,16 @@ def create_template():
     existing = _template_repo().get_by_name(template_name)
     if existing is not None:
         return api_response(status="error", message="template_name_exists", data={"name": template_name}, code=409)
-    strict_error = _template_strict_validation_error(data.prompt_template)
+    strict_error = _template_strict_validation_error(
+        data.prompt_template,
+        context_scope=data.validation_context,
+    )
     if strict_error is not None:
         return strict_error
-    warnings = _template_warnings(data.prompt_template)
+    warnings, validation = _template_warnings(
+        data.prompt_template,
+        context_scope=data.validation_context,
+    )
     new_template = TemplateDB(name=template_name, description=data.description, prompt_template=data.prompt_template)
     try:
         _template_repo().save(new_template)
@@ -119,6 +297,8 @@ def create_template():
     payload = serialize_template_with_version(new_template)
     if warnings:
         payload["warnings"] = warnings
+    payload["validation_summary"] = validation.get("summary") or {}
+    payload["validation_context_scope"] = validation.get("context_scope")
     return api_response(data=payload, code=201)
 
 
@@ -129,11 +309,21 @@ def update_template(tpl_id):
     template = _template_repo().get_by_id(tpl_id)
     if not template:
         return api_response(status="error", message="not_found", code=404)
+    request_context = data.get("validation_context")
     if "prompt_template" in data:
-        strict_error = _template_strict_validation_error(data["prompt_template"])
+        strict_error = _template_strict_validation_error(
+            data["prompt_template"],
+            context_scope=request_context,
+        )
         if strict_error is not None:
             return strict_error
-    warnings = _template_warnings(data["prompt_template"]) if "prompt_template" in data else []
+    warnings: list[dict] = []
+    validation: dict | None = None
+    if "prompt_template" in data:
+        warnings, validation = _template_warnings(
+            data["prompt_template"],
+            context_scope=request_context,
+        )
     if "prompt_template" in data:
         template.prompt_template = data["prompt_template"]
     if "name" in data:
@@ -154,6 +344,9 @@ def update_template(tpl_id):
     payload = serialize_template_with_version(template)
     if warnings:
         payload["warnings"] = warnings
+    if validation is not None:
+        payload["validation_summary"] = validation.get("summary") or {}
+        payload["validation_context_scope"] = validation.get("context_scope")
     return api_response(data=payload)
 
 

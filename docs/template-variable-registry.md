@@ -9,6 +9,10 @@ This note documents the current template variable model, runtime rendering contr
 The canonical registry is defined in `agent/services/template_variable_registry.py` and exposed via:
 
 - `GET /templates/variable-registry`
+- `GET /templates/sample-contexts`
+- `POST /templates/validate`
+- `POST /templates/preview`
+- `POST /templates/validation-diagnostics`
 - `GET /config` (`template_variables_allowlist` + `template_variable_registry`)
 
 The registry now separates variables by scope and stability:
@@ -45,6 +49,11 @@ Contract highlights:
 - `team_goal` uses a fallback chain (`goal.goal -> task.title -> task.description -> team_name -> default marker`).
 - `goal_context` and `acceptance_criteria` are optional and can be empty.
 - Unknown variable handling is warn-only by default and can be strict via `template_variable_validation.strict=true`.
+- Context-aware validation can be fixed to a default scope via `template_variable_validation.context_scope`.
+- Strict-mode errors now distinguish:
+  - `unknown_template_variables`
+  - `context_unavailable_template_variables`
+  - `template_validation_failed` (mixed errors)
 
 ## Known Ambiguities (Explicitly Tracked)
 
@@ -52,3 +61,8 @@ Contract highlights:
 - Domain-specific placeholders are intentionally open for specialized workflows and may be empty in standard task execution.
 
 The migration path is to prefer canonical stable names while keeping aliases until template migration notes complete.
+
+See:
+
+- `docs/template-authoring-guide.md`
+- `docs/template-variable-migration-notes.md`
