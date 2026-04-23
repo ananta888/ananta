@@ -279,3 +279,36 @@ def test_retrieval_service_normalizes_chunk_metadata_with_source_and_citation():
         citation = dict(metadata.get("citation") or {})
         assert citation.get("source_type") == metadata.get("source_type")
         assert citation.get("source_id") == metadata.get("source_id")
+
+
+def test_retrieval_service_exposes_source_type_contributions_in_fusion_trace():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("timeout")
+    fusion = dict((payload.get("strategy") or {}).get("fusion") or {})
+
+    assert "source_type_contributions_before" in fusion
+    assert "source_type_contributions_after_dedupe" in fusion
+    assert "source_type_contributions_final" in fusion
+    assert "repo" in dict(fusion.get("source_type_contributions_before") or {})
+
+
+def test_retrieval_service_preflight_reports_source_diagnostics():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    knowledge.get_source_preflight = lambda: {
+        "artifact": {"status": "degraded", "completed_indices": 0, "issues": ["no_completed_indices"]},
+        "wiki": {"status": "degraded", "completed_indices": 0, "issues": ["no_completed_indices"]},
+    }
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    preflight = service.get_source_preflight()
+
+    assert preflight["status"] in {"ok", "degraded", "error"}
+    assert "sources" in preflight
+    assert "repo" in preflight["sources"]
+    assert "artifact" in preflight["sources"]

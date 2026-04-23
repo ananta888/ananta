@@ -10,6 +10,7 @@ from agent.models import (
     KnowledgeCollectionIndexRequest,
     KnowledgeCollectionSearchRequest,
 )
+from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
@@ -242,3 +243,9 @@ def search_knowledge_collection(collection_id: str):
             ],
         }
     )
+
+
+@knowledge_bp.route("/knowledge/retrieval-preflight", methods=["GET"])
+@check_auth
+def get_knowledge_retrieval_preflight():
+    return api_response(data=get_retrieval_service().get_source_preflight())

@@ -58,6 +58,9 @@ Knowledge indexing and routing traceability
   - `POST /knowledge/collections/<id>/index` mit `{ "async": true }`
   - `GET /artifacts/<id>/rag-jobs/<job_id>`
   - `GET /knowledge/index-jobs/<job_id>`
+- Source-Readiness fuer operatorische Diagnose:
+  - `GET /artifacts/retrieval-preflight`
+  - `GET /knowledge/retrieval-preflight`
 
 Source-normalisierte Chunk-Metadaten (additiv):
 

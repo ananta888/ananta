@@ -418,7 +418,7 @@
     {
       "id": "MSR-T13",
       "title": "Hybrid ranking across sources design",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T05", "MSR-T06", "MSR-T07", "MSR-T12"],
@@ -506,7 +506,7 @@
     {
       "id": "MSR-T16",
       "title": "Preflight diagnostics for all source types add",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T11", "MSR-T15"],
@@ -565,7 +565,7 @@
     {
       "id": "MSR-T18",
       "title": "Context-bundle policy extend for multi-source retrieval",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T12", "MSR-T13", "MSR-T14"],
@@ -670,7 +670,7 @@
     {
       "id": "MSR-T22",
       "title": "Regression tests for repo/code behavior add",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T05"],
@@ -749,7 +749,7 @@
     {
       "id": "MSR-T25",
       "title": "Read-model output include source summaries",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "operator_readiness",
       "depends_on": ["MSR-T14", "MSR-T17"],
@@ -834,7 +834,7 @@
     {
       "id": "MSR-T28",
       "title": "Hub-triggered API endpoints for import, reindex and query flows add",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T04", "MSR-T10", "MSR-T12", "MSR-T15"],
@@ -863,7 +863,7 @@
     {
       "id": "MSR-T29",
       "title": "Container and runtime assumptions document",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "foundation",
       "depends_on": ["MSR-T04", "MSR-T11", "MSR-T15"],
@@ -915,21 +915,21 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T19:57:14+02:00",
+    "updated_at": "2026-04-23T20:37:41+02:00",
     "total": 30,
     "by_status": {
       "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "partial": 16,
-      "done": 7
+      "partial": 9,
+      "done": 14
     },
-    "progress_percent_done": 23.3,
+    "progress_percent_done": 46.7,
     "by_phase": {
       "foundation": {
         "total": 10,
-        "done": 3,
-        "partial": 7,
+        "done": 5,
+        "partial": 5,
         "todo": 0
       },
       "wiki_mvp": {
@@ -940,14 +940,14 @@
       },
       "integration": {
         "total": 10,
-        "done": 4,
-        "partial": 6,
+        "done": 8,
+        "partial": 2,
         "todo": 0
       },
       "operator_readiness": {
         "total": 4,
-        "done": 0,
-        "partial": 3,
+        "done": 1,
+        "partial": 2,
         "todo": 1
       },
       "future": {
@@ -965,6 +965,15 @@
       "MSR-T14",
       "MSR-T15",
       "MSR-T17"
+    ],
+    "second_bundle_completed_tasks": [
+      "MSR-T13",
+      "MSR-T16",
+      "MSR-T18",
+      "MSR-T22",
+      "MSR-T25",
+      "MSR-T28",
+      "MSR-T29"
     ]
   }
 }
