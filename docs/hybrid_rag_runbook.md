@@ -14,6 +14,9 @@ Dieses Runbook beschreibt Betrieb, Rebuild und Recovery der Hybrid-RAG-Schicht (
 - Worker fuehren delegierte Index-/Retrieval-Arbeit aus, orchestrieren aber keine weiteren Worker.
 - Laufen asynchron ueber Job-Statuspfade, damit Zustand und Fehlerbilder auditable bleiben.
 - Source-Policies sind zentral im Hub konfiguriert und werden fail-closed ausgewertet.
+- Vertrag maschinenlesbar:
+  - `GET /artifacts/orchestration-contract`
+  - `GET /knowledge/orchestration-contract`
 
 ## Konfiguration
 Relevante Variablen:
@@ -77,6 +80,13 @@ Diagnostik trennt:
 - globale Source-Policy (`enabled/requested/effective`)
 - Gesamtstatus (`ok|degraded|error`)
 
+## Source-agnostische Index-Pipeline
+- Der Hub kann strukturierte Source-Records direkt indexieren:
+  - `POST /knowledge/sources/index-records`
+  - optional asynchron mit `{ "async": true }`
+- Pipeline bleibt deterministisch (`json_sort_keys`) und erzeugt reproduzierbare `manifest.json` + `index.jsonl`.
+- Unterstuetzte `source_scope` fuer diesen Pfad: `artifact`, `wiki`.
+
 ## Rebuild-Strategie
 - Code-Symbolindex:
   - Rebuild erfolgt inkrementell bei Dateiaenderungen.
@@ -124,11 +134,42 @@ Zu beobachten:
 - `RAG_MAX_CONTEXT_CHARS=12000`
 - Knowledge-Index-Profil zuerst `fast_docs`, danach `default`, erst zuletzt `deep_code`
 - Fuer erste Rollouts pro Collection nur wenige Artefakte indexieren (z. B. 10-30 Dateien), dann schrittweise erweitern
+- Reproduzierbarer Referenz-Corpus fuer kleine Offline-Wiki-Laeufe:
+  - `data_test/wiki_mvp_corpus/articles.jsonl` (klein, lokal, ohne Internet)
+  - empfohlen: zuerst nur diesen Corpus indexieren und Query-Mix pruefen (`repo + wiki`)
+  - typische Groessenordnung fuer den Start: wenige MB Index-Output
+
+## Offline Mixed-Retrieval Demo (repo + wiki)
+1. Wiki-Records lokal indexieren:
+   - `POST /knowledge/sources/index-records`
+   - Payload-Beispiel:
+     ```json
+     {
+       "source_scope": "wiki",
+       "source_id": "wiki-mvp",
+       "records": [
+         {
+           "kind": "wiki_section",
+           "file": "wiki/payment.md",
+           "article_title": "Payment retries",
+           "section_title": "Timeout handling",
+           "language": "en",
+           "content": "Workers retry payment after timeout."
+         }
+       ]
+     }
+     ```
+2. Gemischte Query fahren:
+   - `POST /api/sgpt/context` mit `"source_types": ["repo", "wiki"]`
+3. In der Antwort pruefen:
+   - `metadata.source_type` unterscheidet `repo` vs `wiki`
+   - `metadata.citation.article_title/section_title` ist fuers Wiki gesetzt
+   - `selection_trace.fusion.source_type_contributions_*` zeigt den Mix explizit
 
 ## Container- und Runtime-Annahmen
 - Hub und Worker laufen in getrennten Containern; Orchestrierung bleibt im Hub.
 - Persistente Pfade muessen container-uebergreifend stabil gemountet sein:
   - Repo-Semantikindex: `.rag/llamaindex`
-  - Knowledge-Indizes: `<DATA_DIR>/knowledge_indices`
+  - Knowledge-Indizes: `<DATA_DIR>/knowledge_indices/<source_scope>/<knowledge_index_id>/<run_id>`
 - Retrieval darf nicht von implizitem In-Memory-Shared-State zwischen Hub/Worker abhaengen.
 - Reindex und Recovery werden ueber Hub-APIs/Jobruns gesteuert, nicht ueber direkte Worker-zu-Worker-Pfade.

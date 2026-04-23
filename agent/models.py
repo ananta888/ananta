@@ -181,6 +181,15 @@ class KnowledgeCollectionIndexRequest(SQLModel):
     profile_overrides: Optional[dict] = None
 
 
+class KnowledgeSourceIndexRequest(SQLModel):
+    source_scope: str
+    source_id: str
+    records: List[dict]
+    async_mode: bool = Field(default=False, alias="async")
+    profile_name: Optional[str] = None
+    source_metadata: Optional[dict] = None
+
+
 class KnowledgeCollectionSearchRequest(SQLModel):
     query: str
     top_k: int = 5

@@ -215,3 +215,42 @@ def test_rag_service_forwards_source_type_selection_to_retrieval():
 
     retrieval.retrieve_context.assert_called_once()
     assert retrieval.retrieve_context.call_args.kwargs["source_types"] == ["repo", "artifact"]
+
+
+def test_rag_service_applies_provenance_visibility_policy():
+    retrieval = MagicMock()
+    retrieval.retrieve_context.return_value = {
+        "query": "payment retries",
+        "strategy": {"knowledge_index": 1},
+        "policy_version": "v1",
+        "chunks": [
+            {
+                "engine": "knowledge_index",
+                "source": "wiki/payment.md",
+                "content": "retry guidance",
+                "score": 1.3,
+                "metadata": {
+                    "record_kind": "wiki_section",
+                    "source_type": "wiki",
+                    "source_id": "Payment retries",
+                    "chunk_id": "wiki:chunk-1",
+                    "collection_names": ["wiki-mvp"],
+                },
+            }
+        ],
+        "context_text": "retry guidance",
+        "token_estimate": 5,
+    }
+    service = RagService(retrieval_service=retrieval)
+
+    standard_bundle = service.retrieve_context_bundle("payment retries", provenance_visibility="standard")
+    admin_bundle = service.retrieve_context_bundle("payment retries", provenance_visibility="admin")
+
+    standard_source = (standard_bundle["explainability"]["sources"] or [])[0]
+    admin_source = (admin_bundle["explainability"]["sources"] or [])[0]
+    assert "source_id" not in standard_source
+    assert "chunk_id" not in standard_source
+    assert admin_source["source_id"] == "Payment retries"
+    assert admin_source["chunk_id"] == "wiki:chunk-1"
+    assert standard_bundle["provenance_policy"]["visibility_level"] == "standard"
+    assert admin_bundle["provenance_policy"]["visibility_level"] == "admin"

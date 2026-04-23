@@ -9,7 +9,9 @@ from agent.models import (
     KnowledgeCollectionCreateRequest,
     KnowledgeCollectionIndexRequest,
     KnowledgeCollectionSearchRequest,
+    KnowledgeSourceIndexRequest,
 )
+from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
 from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.repository_registry import get_repository_registry
@@ -61,6 +63,13 @@ def _collection_search_request() -> KnowledgeCollectionSearchRequest:
     if not isinstance(payload, dict):
         payload = {}
     return KnowledgeCollectionSearchRequest.model_validate(payload)
+
+
+def _source_index_request() -> KnowledgeSourceIndexRequest:
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    return KnowledgeSourceIndexRequest.model_validate(payload)
 
 
 def _current_username() -> str:
@@ -198,6 +207,47 @@ def get_knowledge_index_job(job_id: str):
     return api_response(data={"job": job})
 
 
+@knowledge_bp.route("/knowledge/sources/index-records", methods=["POST"])
+@check_auth
+def index_knowledge_source_records():
+    payload = _source_index_request()
+    source_scope = str(payload.source_scope or "").strip().lower()
+    source_id = str(payload.source_id or "").strip()
+    if not source_scope:
+        raise BadRequestError("source_scope_required")
+    if not source_id:
+        raise BadRequestError("source_id_required")
+    if payload.async_mode:
+        job = get_knowledge_index_job_service().submit_source_records_job(
+            source_scope=source_scope,
+            source_id=source_id,
+            records=list(payload.records or []),
+            created_by=_current_username(),
+            profile_name=payload.profile_name,
+            source_metadata=dict(payload.source_metadata or {}),
+        )
+        return api_response(status="accepted", code=202, data={"job": job})
+    knowledge_index, run = get_rag_helper_index_service().index_source_records(
+        source_scope=source_scope,
+        source_id=source_id,
+        records=list(payload.records or []),
+        created_by=_current_username(),
+        profile_name=payload.profile_name,
+        source_metadata=dict(payload.source_metadata or {}),
+    )
+    run_status = _model_status(run)
+    status = "success" if run_status == "completed" else "error"
+    return api_response(
+        status=status,
+        code=200 if run_status == "completed" else 500,
+        message=None if run_status == "completed" else "source_index_failed",
+        data={
+            "knowledge_index": knowledge_index.model_dump(),
+            "run": run.model_dump(),
+        },
+    )
+
+
 @knowledge_bp.route("/knowledge/collections/<collection_id>/search", methods=["POST"])
 @check_auth
 def search_knowledge_collection(collection_id: str):
@@ -249,3 +299,9 @@ def search_knowledge_collection(collection_id: str):
 @check_auth
 def get_knowledge_retrieval_preflight():
     return api_response(data=get_retrieval_service().get_source_preflight())
+
+
+@knowledge_bp.route("/knowledge/orchestration-contract", methods=["GET"])
+@check_auth
+def get_knowledge_orchestration_contract():
+    return api_response(data=build_retrieval_orchestration_contract(entrypoint_group="knowledge"))

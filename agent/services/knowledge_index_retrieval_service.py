@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk
 from agent.repository import knowledge_index_repo, knowledge_link_repo
 from agent.services.retrieval_source_contract import normalize_chunk_metadata
@@ -84,14 +85,30 @@ class KnowledgeIndexRetrievalService:
         return self._knowledge_index_repository.list_completed()
 
     def get_source_preflight(self) -> dict[str, object]:
+        root = Path(settings.data_dir) / "knowledge_indices"
         by_scope: dict[str, dict[str, object]] = {
-            "artifact": {"status": "degraded", "completed_indices": 0, "issues": []},
-            "wiki": {"status": "degraded", "completed_indices": 0, "issues": []},
+            "artifact": {
+                "status": "degraded",
+                "completed_indices": 0,
+                "issues": [],
+                "storage_root": str((root / "artifact").resolve()),
+            },
+            "wiki": {
+                "status": "degraded",
+                "completed_indices": 0,
+                "issues": [],
+                "storage_root": str((root / "wiki").resolve()),
+            },
         }
         for knowledge_index in self._iter_completed_indices():
             scope = str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
             if scope not in by_scope:
-                by_scope[scope] = {"status": "degraded", "completed_indices": 0, "issues": []}
+                by_scope[scope] = {
+                    "status": "degraded",
+                    "completed_indices": 0,
+                    "issues": [],
+                    "storage_root": str((root / scope).resolve()),
+                }
             bucket = by_scope[scope]
             bucket["completed_indices"] = int(bucket.get("completed_indices") or 0) + 1
 

@@ -264,3 +264,82 @@ def test_knowledge_retrieval_preflight_route_returns_source_diagnostics(client, 
     payload = response.get_json()["data"]
     assert payload["status"] == "ok"
     assert payload["sources"]["artifact"]["status"] == "ok"
+
+
+def test_knowledge_source_records_index_route_indexes_wiki_records(client, admin_auth_header, monkeypatch):
+    class StubRagService:
+        def index_source_records(
+            self,
+            *,
+            source_scope: str,
+            source_id: str,
+            records: list[dict],
+            created_by: str | None,
+            profile_name: str | None = None,
+            source_metadata: dict | None = None,
+        ):
+            assert source_scope == "wiki"
+            assert source_id == "wiki-mvp"
+            assert records and records[0]["article_title"] == "Payment retries"
+            return (
+                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki-1", "source_scope": "wiki", "status": "completed"}),
+                SimpleNamespace(model_dump=lambda: {"id": "run-wiki-1", "status": "completed"}),
+            )
+
+    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+    response = client.post(
+        "/knowledge/sources/index-records",
+        headers=admin_auth_header,
+        json={
+            "source_scope": "wiki",
+            "source_id": "wiki-mvp",
+            "records": [
+                {
+                    "kind": "wiki_section",
+                    "article_title": "Payment retries",
+                    "section_title": "Timeout",
+                    "file": "wiki/payment.md",
+                    "content": "Workers retry payment after timeout.",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["knowledge_index"]["source_scope"] == "wiki"
+    assert payload["run"]["status"] == "completed"
+
+
+def test_knowledge_source_records_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
+            assert kwargs["source_scope"] == "wiki"
+            assert kwargs["source_id"] == "wiki-mvp"
+            return {"job_id": "job-source-1", "status": "queued", "source_scope": kwargs["source_scope"]}
+
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+    response = client.post(
+        "/knowledge/sources/index-records",
+        headers=admin_auth_header,
+        json={
+            "source_scope": "wiki",
+            "source_id": "wiki-mvp",
+            "records": [{"kind": "wiki_section", "file": "wiki/payment.md", "content": "x"}],
+            "async": True,
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.get_json()["data"]["job"]["job_id"] == "job-source-1"
+
+
+def test_knowledge_orchestration_contract_route_exposes_hub_owned_states(client, admin_auth_header):
+    response = client.get("/knowledge/orchestration-contract", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["version"] == "retrieval-orchestration-v1"
+    assert payload["entrypoint_group"] == "knowledge"
+    assert "retry_triggering" in payload["ownership"]["hub_owned"]
+    assert payload["state_machine"]["states"] == ["queued", "running", "completed", "failed"]

@@ -171,6 +171,79 @@ class KnowledgeIndexJobService:
         finally:
             KNOWLEDGE_INDEX_ACTIVE_JOBS.dec()
 
+    def _run_source_records_job(
+        self,
+        *,
+        job_id: str,
+        source_scope: str,
+        source_id: str,
+        records: list[dict[str, Any]],
+        created_by: str | None,
+        profile_name: str | None,
+        source_metadata: dict[str, Any] | None,
+    ) -> None:
+        KNOWLEDGE_INDEX_ACTIVE_JOBS.inc()
+        started_at = time.time()
+        self._save_job(
+            {
+                "job_id": job_id,
+                "job_type": "source_records",
+                "scope_id": source_id,
+                "source_scope": source_scope,
+                "status": "running",
+                "created_by": created_by,
+                "profile_name": profile_name or "default",
+                "created_at": started_at,
+                "started_at": started_at,
+                "record_count": len(records),
+            }
+        )
+        try:
+            knowledge_index, run = self._index_service.index_source_records(
+                source_scope=source_scope,
+                source_id=source_id,
+                records=records,
+                created_by=created_by,
+                profile_name=profile_name,
+                source_metadata=source_metadata,
+            )
+            self._save_job(
+                {
+                    "job_id": job_id,
+                    "job_type": "source_records",
+                    "scope_id": source_id,
+                    "source_scope": source_scope,
+                    "status": "completed" if str(getattr(run, "status", "")) == "completed" else "failed",
+                    "created_by": created_by,
+                    "profile_name": profile_name or "default",
+                    "created_at": started_at,
+                    "started_at": started_at,
+                    "finished_at": time.time(),
+                    "record_count": len(records),
+                    "knowledge_index": knowledge_index.model_dump(),
+                    "run": run.model_dump(),
+                }
+            )
+        except Exception as exc:
+            self._save_job(
+                {
+                    "job_id": job_id,
+                    "job_type": "source_records",
+                    "scope_id": source_id,
+                    "source_scope": source_scope,
+                    "status": "failed",
+                    "created_by": created_by,
+                    "profile_name": profile_name or "default",
+                    "created_at": started_at,
+                    "started_at": started_at,
+                    "finished_at": time.time(),
+                    "record_count": len(records),
+                    "error": str(exc),
+                }
+            )
+        finally:
+            KNOWLEDGE_INDEX_ACTIVE_JOBS.dec()
+
     def submit_artifact_job(
         self,
         *,
@@ -232,6 +305,42 @@ class KnowledgeIndexJobService:
             created_by=created_by,
             profile_name=profile_name,
             profile_overrides=profile_overrides,
+        )
+        return self.get_job(job_id) or {}
+
+    def submit_source_records_job(
+        self,
+        *,
+        source_scope: str,
+        source_id: str,
+        records: list[dict[str, Any]],
+        created_by: str | None,
+        profile_name: str | None,
+        source_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        job_id = str(uuid.uuid4())
+        self._save_job(
+            {
+                "job_id": job_id,
+                "job_type": "source_records",
+                "scope_id": source_id,
+                "source_scope": source_scope,
+                "status": "queued",
+                "created_by": created_by,
+                "profile_name": profile_name or "default",
+                "created_at": time.time(),
+                "record_count": len(records),
+            }
+        )
+        self._executor.submit(
+            self._run_source_records_job,
+            job_id=job_id,
+            source_scope=source_scope,
+            source_id=source_id,
+            records=records,
+            created_by=created_by,
+            profile_name=profile_name,
+            source_metadata=source_metadata,
         )
         return self.get_job(job_id) or {}
 

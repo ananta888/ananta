@@ -63,11 +63,15 @@ class _FakeRedactingOrchestrator(_FakeOrchestrator):
 
 
 class _FakeKnowledgeIndexRetrievalService:
+    def __init__(self) -> None:
+        self.scope_calls: list[set[str]] = []
+
     def search(self, query: str, *, top_k: int, task_kind=None, retrieval_intent=None, source_scopes=None):
         self.last_top_k = top_k
         self.last_task_kind = task_kind
         self.last_retrieval_intent = retrieval_intent
         self.last_source_scopes = set(source_scopes or [])
+        self.scope_calls.append(set(source_scopes or []))
         del query
         return [
             ContextChunk(
@@ -312,3 +316,48 @@ def test_retrieval_service_preflight_reports_source_diagnostics():
     assert "sources" in preflight
     assert "repo" in preflight["sources"]
     assert "artifact" in preflight["sources"]
+
+
+def test_retrieval_service_smoke_repo_and_wiki_sources_preserve_citations(monkeypatch):
+    class _WikiKnowledge(_FakeKnowledgeIndexRetrievalService):
+        def search(self, query: str, *, top_k: int, task_kind=None, retrieval_intent=None, source_scopes=None):
+            self.last_top_k = top_k
+            self.last_task_kind = task_kind
+            self.last_retrieval_intent = retrieval_intent
+            self.last_source_scopes = set(source_scopes or [])
+            self.scope_calls.append(set(source_scopes or []))
+            del query
+            scope = next(iter(self.last_source_scopes), "artifact")
+            if scope == "wiki":
+                return [
+                    ContextChunk(
+                        engine="knowledge_index",
+                        source="wiki/payment.md",
+                        content="Wiki timeout guidance",
+                        score=1.9,
+                        metadata={
+                            "source_scope": "wiki",
+                            "article_title": "Payment retries",
+                            "section_title": "Timeout handling",
+                            "language": "en",
+                        },
+                    )
+                ]
+            return []
+
+    monkeypatch.setattr("agent.services.retrieval_service.settings.rag_source_wiki_enabled", True)
+    knowledge = _WikiKnowledge()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("timeout", source_types=["repo", "wiki"])
+
+    source_types = {dict(chunk.get("metadata") or {}).get("source_type") for chunk in payload["chunks"]}
+    assert "repo" in source_types
+    assert "wiki" in source_types
+    wiki_chunk = next(chunk for chunk in payload["chunks"] if dict(chunk.get("metadata") or {}).get("source_type") == "wiki")
+    wiki_citation = dict((wiki_chunk.get("metadata") or {}).get("citation") or {})
+    assert wiki_citation.get("article_title") == "Payment retries"
+    assert wiki_citation.get("section_title") == "Timeout handling"
+    assert {"wiki"} in knowledge.scope_calls

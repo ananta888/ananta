@@ -25,6 +25,13 @@ Gemeinsame Adapter-Schnittstelle in `agent/services/retrieval_source_contract.py
 - `SourceSelectionPolicy` (enabled/requested/effective Source-Typen)
 - Source-Typen: `repo`, `artifact`, `task_memory`, `wiki`
 
+Explizite Adapter-Implementierungen liegen in
+`agent/services/retrieval_source_adapters.py`:
+- `RepoRetrievalSourceAdapter`
+- `ArtifactKnowledgeSourceAdapter`
+- `WikiKnowledgeSourceAdapter`
+- `TaskMemorySourceAdapter`
+
 Fail-closed Verhalten:
 - Ungueltige `source_types` werden abgewiesen.
 - Wenn nach Policy kein Source-Typ aktiv ist, wird kein Retrieval gestartet.
@@ -79,6 +86,22 @@ Source-Readiness kann hub-seitig abgefragt werden:
 - `GET /knowledge/retrieval-preflight`
 
 Die Ausgabe trennt source-spezifische Probleme von globalen Orchestrierungs-/Policy-Signalen.
+
+## Hub-Orchestrierungsvertrag (maschinell)
+Hub-seitige Vertragsendpunkte:
+- `GET /artifacts/orchestration-contract`
+- `GET /knowledge/orchestration-contract`
+
+Der Vertrag dokumentiert:
+- hub-owned State-Machine (`queued -> running -> completed|failed`)
+- worker-ausgefuehrte Schritte ohne Worker-zu-Worker-Orchestrierung
+- explizite Retry-Koordination durch den Hub
+
+## Shared indexing pipeline fuer typed sources
+- `RagHelperIndexService.index_artifact(...)` bleibt artifact-kompatibel.
+- `RagHelperIndexService.index_source_records(...)` bietet denselben kontrollierten Pipeline-Rahmen fuer strukturierte Source-Records (z. B. `wiki`).
+- Persistenzlayout ist source-scope getrennt:
+  - `<DATA_DIR>/knowledge_indices/<source_scope>/<knowledge_index_id>/<run_id>`
 
 ## Neue Sprache fuer Repo-Adapter
 1. Datei-Erweiterung in `RepositoryMapEngine.CODE_EXTENSIONS` aufnehmen.

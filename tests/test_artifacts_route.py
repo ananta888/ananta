@@ -349,3 +349,14 @@ def test_artifact_retrieval_preflight_route_returns_source_diagnostics(client, a
     assert payload["status"] == "degraded"
     assert payload["sources"]["repo"]["status"] == "ok"
     assert payload["sources"]["artifact"]["issues"] == ["no_completed_indices"]
+
+
+def test_artifact_orchestration_contract_route_exposes_hub_owned_states(client, admin_auth_header):
+    response = client.get("/artifacts/orchestration-contract", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["version"] == "retrieval-orchestration-v1"
+    assert payload["entrypoint_group"] == "artifacts"
+    assert "job_state_transitions" in payload["ownership"]["hub_owned"]
+    assert payload["state_machine"]["states"] == ["queued", "running", "completed", "failed"]

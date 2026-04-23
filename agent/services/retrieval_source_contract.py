@@ -23,6 +23,7 @@ class RetrievalSourceAdapter(Protocol):
         top_k: int,
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
+        **kwargs: Any,
     ) -> list[Any]:
         """Return retrieval chunks for a query."""
 

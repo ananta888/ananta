@@ -152,7 +152,7 @@
     {
       "id": "MSR-T04",
       "title": "Hub-owned orchestration contract for import, index and query flows define",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T01"],
@@ -183,7 +183,7 @@
     {
       "id": "MSR-T05",
       "title": "Repo/code retrieval path isolate behind source adapter",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T02", "MSR-T03"],
@@ -214,7 +214,7 @@
     {
       "id": "MSR-T06",
       "title": "Artifact/task memory retrieval path isolate behind source adapter",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "foundation",
       "depends_on": ["MSR-T02", "MSR-T03"],
@@ -330,7 +330,7 @@
     {
       "id": "MSR-T10",
       "title": "Shared indexing pipeline refactor",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation",
       "depends_on": ["MSR-T03", "MSR-T05", "MSR-T07"],
@@ -360,7 +360,7 @@
     {
       "id": "MSR-T11",
       "title": "Per-source storage layout define",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "foundation",
       "depends_on": ["MSR-T03", "MSR-T10"],
@@ -618,7 +618,7 @@
     {
       "id": "MSR-T20",
       "title": "Mixed retrieval demo define",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "operator_readiness",
       "depends_on": ["MSR-T12", "MSR-T14", "MSR-T18", "MSR-T19"],
@@ -722,7 +722,7 @@
     {
       "id": "MSR-T24",
       "title": "Smoke test for end-to-end multi-source retrieval add",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T12", "MSR-T14", "MSR-T22", "MSR-T23"],
@@ -777,7 +777,7 @@
     {
       "id": "MSR-T26",
       "title": "Performance and storage limits for laptop setups document",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "phase": "operator_readiness",
       "depends_on": ["MSR-T19", "MSR-T23", "MSR-T24"],
@@ -804,7 +804,7 @@
     {
       "id": "MSR-T27",
       "title": "Redaction and provenance policy for wiki and mixed-source output add",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "phase": "integration",
       "depends_on": ["MSR-T14", "MSR-T18"],
@@ -915,21 +915,21 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T20:37:41+02:00",
+    "updated_at": "2026-04-23T20:59:21+02:00",
     "total": 30,
     "by_status": {
       "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "partial": 9,
-      "done": 14
+      "partial": 0,
+      "done": 23
     },
-    "progress_percent_done": 46.7,
+    "progress_percent_done": 76.7,
     "by_phase": {
       "foundation": {
         "total": 10,
-        "done": 5,
-        "partial": 5,
+        "done": 10,
+        "partial": 0,
         "todo": 0
       },
       "wiki_mvp": {
@@ -940,14 +940,14 @@
       },
       "integration": {
         "total": 10,
-        "done": 8,
-        "partial": 2,
+        "done": 10,
+        "partial": 0,
         "todo": 0
       },
       "operator_readiness": {
         "total": 4,
-        "done": 1,
-        "partial": 2,
+        "done": 3,
+        "partial": 0,
         "todo": 1
       },
       "future": {
@@ -974,6 +974,17 @@
       "MSR-T25",
       "MSR-T28",
       "MSR-T29"
+    ],
+    "third_bundle_completed_tasks": [
+      "MSR-T04",
+      "MSR-T05",
+      "MSR-T06",
+      "MSR-T10",
+      "MSR-T11",
+      "MSR-T20",
+      "MSR-T24",
+      "MSR-T26",
+      "MSR-T27"
     ]
   }
 }

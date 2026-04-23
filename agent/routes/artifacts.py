@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, g, request
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
+from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
 from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_service import get_retrieval_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
@@ -268,3 +269,9 @@ def get_artifact_rag_job(artifact_id: str, job_id: str):
 @check_auth
 def get_retrieval_preflight():
     return api_response(data=get_retrieval_service().get_source_preflight())
+
+
+@artifacts_bp.route("/artifacts/orchestration-contract", methods=["GET"])
+@check_auth
+def get_artifact_orchestration_contract():
+    return api_response(data=build_retrieval_orchestration_contract(entrypoint_group="artifacts"))
