@@ -8,7 +8,13 @@ from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
-from agent.services.retrieval_source_contract import normalize_chunk_metadata, resolve_source_selection_policy, source_scopes_for_types
+from agent.services.retrieval_source_adapters import (
+    ArtifactKnowledgeSourceAdapter,
+    RepoRetrievalSourceAdapter,
+    TaskMemorySourceAdapter,
+    WikiKnowledgeSourceAdapter,
+)
+from agent.services.retrieval_source_contract import normalize_chunk_metadata, resolve_source_selection_policy
 from agent.services.task_neighborhood_service import get_task_neighborhood_service
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 
@@ -21,6 +27,18 @@ class RetrievalService:
         self._signature: tuple | None = None
         self._knowledge_index_retrieval_service = knowledge_index_retrieval_service or get_knowledge_index_retrieval_service()
         self._memory_entry_repository = memory_entry_repository or default_memory_entry_repo
+        self._source_adapters = self._build_source_adapters()
+
+    def _build_source_adapters(self) -> dict[str, object]:
+        return {
+            "repo": RepoRetrievalSourceAdapter(
+                orchestrator_provider=self.get_orchestrator,
+                chunk_deserializer=self._deserialize_chunk,
+            ),
+            "artifact": ArtifactKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
+            "wiki": WikiKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
+            "task_memory": TaskMemorySourceAdapter(memory_search=self._memory_candidates),
+        }
 
     def _config_signature(self) -> tuple:
         return (
@@ -688,39 +706,63 @@ class RetrievalService:
         orchestrator = self.get_orchestrator()
         source_policy = self._source_selection_policy(source_types)
         effective_source_types = set(source_policy.get("effective") or [])
-        context_payload = orchestrator.get_relevant_context(query)
+        context_payload: dict[str, object] = {
+            "query": query,
+            "strategy": {},
+            "policy_version": orchestrator.context_manager.policy_version,
+            "chunks": [],
+        }
         knowledge_top_k, knowledge_reason = self._knowledge_index_plan(query, task_kind=task_kind, retrieval_intent=retrieval_intent)
         fusion_profile = self._task_profile_for_fusion(task_kind, retrieval_intent)
 
         knowledge_chunks: list[ContextChunk] = []
-        knowledge_scopes = source_scopes_for_types(effective_source_types)
-        if knowledge_scopes:
-            knowledge_chunks = self._knowledge_index_retrieval_service.search(
-                query,
-                top_k=knowledge_top_k,
-                task_kind=task_kind,
-                retrieval_intent=retrieval_intent,
-                source_scopes=knowledge_scopes,
+        artifact_adapter = self._source_adapters.get("artifact")
+        wiki_adapter = self._source_adapters.get("wiki")
+        if "artifact" in effective_source_types and isinstance(artifact_adapter, ArtifactKnowledgeSourceAdapter):
+            knowledge_chunks.extend(
+                artifact_adapter.search(
+                    query,
+                    top_k=knowledge_top_k,
+                    task_kind=task_kind,
+                    retrieval_intent=retrieval_intent,
+                )
+            )
+        if "wiki" in effective_source_types and isinstance(wiki_adapter, WikiKnowledgeSourceAdapter):
+            knowledge_chunks.extend(
+                wiki_adapter.search(
+                    query,
+                    top_k=knowledge_top_k,
+                    task_kind=task_kind,
+                    retrieval_intent=retrieval_intent,
+                )
             )
         memory_chunks: list[ContextChunk] = []
         memory_meta: dict[str, object] = {"reason": "disabled_by_source_policy", "entries_considered": 0, "matches": 0}
-        if "task_memory" in effective_source_types:
-            memory_chunks, memory_meta = self._memory_candidates(
-                query=query,
+        memory_adapter = self._source_adapters.get("task_memory")
+        if "task_memory" in effective_source_types and isinstance(memory_adapter, TaskMemorySourceAdapter):
+            memory_chunks, memory_meta = memory_adapter.search_with_meta(
+                query,
+                top_k=max(2, knowledge_top_k),
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
                 task_id=task_id,
                 goal_id=goal_id,
                 neighbor_task_ids=neighbor_task_ids,
-                top_k=max(2, knowledge_top_k),
             )
         KNOWLEDGE_RETRIEVAL_CHUNKS.observe(len(knowledge_chunks))
 
         orchestrator_chunks: list[ContextChunk] = []
-        if "repo" in effective_source_types:
-            orchestrator_chunks = [
-                self._deserialize_chunk(chunk_payload)
-                for chunk_payload in context_payload.get("chunks", [])
-                if isinstance(chunk_payload, dict)
-            ]
+        repo_adapter = self._source_adapters.get("repo")
+        if "repo" in effective_source_types and isinstance(repo_adapter, RepoRetrievalSourceAdapter):
+            context_payload = repo_adapter.load_context(query)
+            orchestrator_chunks = repo_adapter.search(
+                query,
+                top_k=max(settings.rag_max_chunks * 2, 8),
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
+                context_payload=context_payload,
+            )
+        orchestrator_chunks = self._normalize_chunks(orchestrator_chunks)
         knowledge_chunks = self._normalize_chunks(knowledge_chunks)
         memory_chunks = self._normalize_chunks(memory_chunks)
         all_candidates = [*orchestrator_chunks, *knowledge_chunks, *memory_chunks]

@@ -61,6 +61,11 @@ Knowledge indexing and routing traceability
 - Source-Readiness fuer operatorische Diagnose:
   - `GET /artifacts/retrieval-preflight`
   - `GET /knowledge/retrieval-preflight`
+ - Hub-Orchestrierungsvertrag (auditierbar, source-uebergreifend):
+   - `GET /artifacts/orchestration-contract`
+   - `GET /knowledge/orchestration-contract`
+ - Hub-Indexing fuer strukturierte Source-Records:
+   - `POST /knowledge/sources/index-records`
 
 Source-normalisierte Chunk-Metadaten (additiv):
 
@@ -69,3 +74,9 @@ Source-normalisierte Chunk-Metadaten (additiv):
 - `chunk_id`
 - `citation`
 - `provenance`
+
+Provenance-Policy im Context-Bundle:
+
+- `provenance_policy.policy_version`
+- `provenance_policy.visibility_level` (`standard|admin`)
+- `provenance_policy.source_blending = forbidden`

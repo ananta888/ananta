@@ -122,20 +122,39 @@ class KnowledgeIndexRepository:
         with Session(engine) as session:
             return session.get(KnowledgeIndexDB, knowledge_index_id)
 
-    def list_completed(self) -> List[KnowledgeIndexDB]:
+    def list_completed(self, *, source_scope: str | None = None) -> List[KnowledgeIndexDB]:
         with Session(engine) as session:
+            statement = select(KnowledgeIndexDB).where(KnowledgeIndexDB.status == "completed")
+            if source_scope:
+                statement = statement.where(KnowledgeIndexDB.source_scope == source_scope)
+            statement = statement.order_by(KnowledgeIndexDB.updated_at.desc())
+            return session.exec(statement).all()
+
+    def get_by_scope(self, *, source_scope: str, scope_id: str):
+        normalized_scope = str(source_scope or "").strip().lower() or "artifact"
+        if normalized_scope == "artifact":
             statement = (
                 select(KnowledgeIndexDB)
-                .where(KnowledgeIndexDB.status == "completed")
+                .where(KnowledgeIndexDB.source_scope == "artifact")
+                .where(KnowledgeIndexDB.artifact_id == scope_id)
                 .order_by(KnowledgeIndexDB.updated_at.desc())
             )
-            return session.exec(statement).all()
+        else:
+            statement = (
+                select(KnowledgeIndexDB)
+                .where(KnowledgeIndexDB.source_scope == normalized_scope)
+                .where(KnowledgeIndexDB.collection_id == scope_id)
+                .order_by(KnowledgeIndexDB.updated_at.desc())
+            )
+        with Session(engine) as session:
+            return session.exec(statement).first()
 
     def get_by_artifact(self, artifact_id: str):
         with Session(engine) as session:
             statement = (
                 select(KnowledgeIndexDB)
                 .where(KnowledgeIndexDB.artifact_id == artifact_id)
+                .where(KnowledgeIndexDB.source_scope == "artifact")
                 .order_by(KnowledgeIndexDB.updated_at.desc())
             )
             return session.exec(statement).first()

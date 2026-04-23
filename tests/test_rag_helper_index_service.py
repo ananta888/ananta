@@ -147,3 +147,41 @@ def test_rag_helper_index_service_exposes_gems_partition_previews(tmp_path):
     ]
     assert preview["preview"]["gems_by_domain"]["architecture"][0]["domain"] == "architecture"
     assert preview["preview"]["gems_by_domain"]["configuration"][0]["title"] == "Retry policy"
+
+
+def test_rag_helper_index_service_indexes_source_records_in_scope_layout():
+    service = RagHelperIndexService()
+    records = [
+        {
+            "kind": "wiki_section",
+            "file": "wiki/payment.md",
+            "article_title": "Payment retries",
+            "section_title": "Timeout",
+            "content": "Workers retry payment after timeout.",
+        },
+        {
+            "kind": "wiki_section",
+            "file": "wiki/payment.md",
+            "article_title": "Payment retries",
+            "section_title": "Backoff",
+            "content": "Use bounded exponential backoff.",
+        },
+    ]
+
+    knowledge_index, run = service.index_source_records(
+        source_scope="wiki",
+        source_id="wiki-mvp-corpus",
+        records=list(reversed(records)),
+        created_by="tester",
+    )
+
+    assert knowledge_index.status == "completed"
+    assert knowledge_index.source_scope == "wiki"
+    assert run.status == "completed"
+    assert "/knowledge_indices/wiki/" in str(run.output_dir).replace("\\", "/")
+    output_dir = Path(str(run.output_dir))
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_scope"] == "wiki"
+    assert manifest["index_record_count"] == 2
+    lines = [line for line in (output_dir / "index.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert lines == sorted(lines)

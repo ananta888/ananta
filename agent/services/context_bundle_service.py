@@ -309,6 +309,31 @@ class ContextBundleService:
             payload.pop("knowledge_index_ids", None)
         return dict(self._redact_debug_value(payload) or {})
 
+    def _normalize_provenance_visibility(self, value: str | None) -> str:
+        normalized = str(value or "standard").strip().lower() or "standard"
+        if normalized in {"admin", "operator"}:
+            return "admin"
+        return "standard"
+
+    def _apply_provenance_visibility(self, explainability: dict[str, object], *, visibility_level: str) -> dict[str, object]:
+        if visibility_level == "admin":
+            return explainability
+        filtered_sources: list[dict[str, object]] = []
+        for item in list(explainability.get("sources") or []):
+            if not isinstance(item, dict):
+                continue
+            filtered_sources.append(
+                {
+                    "engine": item.get("engine"),
+                    "source": item.get("source"),
+                    "score": item.get("score"),
+                    "record_kind": item.get("record_kind"),
+                    "source_type": item.get("source_type"),
+                    "collection_names": item.get("collection_names"),
+                }
+            )
+        return {**dict(explainability or {}), "sources": filtered_sources, "source_count": len(filtered_sources)}
+
     def _build_why_this_context(
         self,
         *,
@@ -377,6 +402,7 @@ class ContextBundleService:
         total_budget_tokens: int | None = None,
         budget_tokens_by_mode: dict[str, int] | None = None,
         window_profile: str | None = None,
+        provenance_visibility: str | None = None,
     ) -> dict[str, object]:
         payload = dict(context_payload or {})
         chunks = list(payload.get("chunks") or [])
@@ -409,7 +435,9 @@ class ContextBundleService:
                     effective_total_budget_tokens = total_budget_tokens
         strategy = dict(payload.get("strategy") or {})
         base_explainability = self._build_explainability(list(payload.get("chunks") or []))
-        payload["explainability"] = self._mode_adjusted_explainability(base_explainability, mode=effective_mode)
+        visibility_level = self._normalize_provenance_visibility(provenance_visibility)
+        mode_explainability = self._mode_adjusted_explainability(base_explainability, mode=effective_mode)
+        payload["explainability"] = self._apply_provenance_visibility(mode_explainability, visibility_level=visibility_level)
         payload["why_this_context"] = self._build_why_this_context(
             chunks=list(payload.get("chunks") or []),
             strategy=strategy,
@@ -447,6 +475,16 @@ class ContextBundleService:
             "bundle_strategy": str(mode_profile.get("bundle_strategy") or "balanced"),
             "explainability_level": str(mode_profile.get("explainability_level") or "balanced"),
             "chunk_text_style": str(mode_profile.get("chunk_text_style") or "balanced_snippets"),
+        }
+        payload["provenance_policy"] = {
+            "policy_version": "multi-source-provenance-v1",
+            "visibility_level": visibility_level,
+            "source_blending": "forbidden",
+            "rules": [
+                "source_type and citation metadata stay attached per chunk",
+                "non-admin views hide high-cardinality provenance identifiers",
+                "selection traces remain observable after redaction",
+            ],
         }
         metric_task_kind = str(task_kind or "unknown").strip() or "unknown"
         metric_bundle_mode = str(effective_mode or "unknown").strip() or "unknown"

@@ -19,6 +19,7 @@ class RagHelperIndexService:
     """Owns controlled rag-helper execution and persistence for artifact-backed indices."""
 
     DEFAULT_PROFILE_NAME = "default"
+    VALID_SOURCE_SCOPES = {"artifact", "wiki"}
     INTERNAL_PROFILE_CATALOG = {
         "default": {
             "label": "Default",
@@ -216,8 +217,15 @@ class RagHelperIndexService:
     def _rag_helper_root(self) -> Path:
         return self._repo_root() / "rag-helper"
 
-    def _knowledge_output_root(self) -> Path:
-        output_root = Path(settings.data_dir) / "knowledge_indices"
+    def _normalize_source_scope(self, source_scope: str | None) -> str:
+        normalized = str(source_scope or "artifact").strip().lower() or "artifact"
+        if normalized not in self.VALID_SOURCE_SCOPES:
+            raise ValueError("invalid_source_scope")
+        return normalized
+
+    def _knowledge_output_root(self, *, source_scope: str = "artifact") -> Path:
+        normalized_scope = self._normalize_source_scope(source_scope)
+        output_root = Path(settings.data_dir) / "knowledge_indices" / normalized_scope
         output_root.mkdir(parents=True, exist_ok=True)
         return output_root
 
@@ -474,17 +482,28 @@ class RagHelperIndexService:
             preview[path.stem] = self._load_jsonl_preview(path, limit=limit)
         return preview
 
-    def _build_or_create_index(self, *, artifact_id: str, created_by: str | None) -> KnowledgeIndexDB:
-        existing = knowledge_index_repo.get_by_artifact(artifact_id)
+    def _build_or_create_index(
+        self,
+        *,
+        source_scope: str,
+        scope_id: str,
+        created_by: str | None,
+        artifact_id: str | None = None,
+        collection_id: str | None = None,
+    ) -> KnowledgeIndexDB:
+        normalized_scope = self._normalize_source_scope(source_scope)
+        existing = knowledge_index_repo.get_by_scope(source_scope=normalized_scope, scope_id=scope_id)
         if existing is not None:
             return existing
         return knowledge_index_repo.save(
             KnowledgeIndexDB(
-                artifact_id=artifact_id,
-                source_scope="artifact",
+                artifact_id=artifact_id if normalized_scope == "artifact" else None,
+                collection_id=collection_id if normalized_scope != "artifact" else None,
+                source_scope=normalized_scope,
                 profile_name=self.DEFAULT_PROFILE_NAME,
                 status="pending",
                 created_by=created_by,
+                index_metadata={"source_id": scope_id},
             )
         )
 
@@ -613,7 +632,13 @@ class RagHelperIndexService:
             runtime_extensions = {ext for ext in extensions if ext in set(profile["extensions"] or [])}
             if not runtime_extensions:
                 raise ValueError("artifact_extension_not_supported_by_profile")
-        knowledge_index = self._build_or_create_index(artifact_id=artifact_id, created_by=created_by)
+        knowledge_index = self._build_or_create_index(
+            source_scope="artifact",
+            scope_id=artifact_id,
+            artifact_id=artifact_id,
+            created_by=created_by,
+        )
+        source_scope = self._normalize_source_scope(getattr(knowledge_index, "source_scope", "artifact"))
 
         run = knowledge_index_run_repo.save(
             KnowledgeIndexRunDB(
@@ -627,7 +652,7 @@ class RagHelperIndexService:
             )
         )
 
-        output_dir = self._knowledge_output_root() / knowledge_index.id / run.id
+        output_dir = self._knowledge_output_root(source_scope=source_scope) / knowledge_index.id / run.id
         output_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = output_dir / "manifest.json"
         cache_file = self._resolve_runtime_path(
@@ -723,8 +748,8 @@ class RagHelperIndexService:
                 "available_outputs": manifest.get("partitioned_outputs", {}),
             }
             knowledge_index = knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="artifact", status="completed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="artifact", profile=profile["name"]).observe(
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=source_scope, status="completed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
             )
             return knowledge_index, run
@@ -748,8 +773,160 @@ class RagHelperIndexService:
                 "last_error": str(exc),
             }
             knowledge_index = knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="artifact", status="failed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="artifact", profile=profile["name"]).observe(
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=source_scope, status="failed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile["name"]).observe(
+                duration_ms / 1000.0
+            )
+            return knowledge_index, run
+
+    def index_source_records(
+        self,
+        *,
+        source_scope: str,
+        source_id: str,
+        records: list[dict[str, Any]],
+        created_by: str | None,
+        profile_name: str | None = None,
+        source_metadata: dict[str, Any] | None = None,
+    ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
+        normalized_scope = self._normalize_source_scope(source_scope)
+        normalized_source_id = str(source_id or "").strip()
+        if not normalized_source_id:
+            raise ValueError("source_id_required")
+        if not records:
+            raise ValueError("source_records_required")
+        if any(not isinstance(record, dict) for record in records):
+            raise ValueError("invalid_source_records")
+
+        profile = self._resolve_profile(profile_name, None)
+        index_artifact_id = normalized_source_id if normalized_scope == "artifact" else None
+        index_collection_id = normalized_source_id if normalized_scope != "artifact" else None
+        knowledge_index = self._build_or_create_index(
+            source_scope=normalized_scope,
+            scope_id=normalized_source_id,
+            artifact_id=index_artifact_id,
+            collection_id=index_collection_id,
+            created_by=created_by,
+        )
+
+        run = knowledge_index_run_repo.save(
+            KnowledgeIndexRunDB(
+                knowledge_index_id=knowledge_index.id,
+                artifact_id=index_artifact_id,
+                collection_id=index_collection_id,
+                profile_name=profile["name"],
+                status="running",
+                source_path=normalized_source_id,
+                run_metadata={
+                    "requested_by": created_by,
+                    "profile": profile,
+                    "source_scope": normalized_scope,
+                    "source_id": normalized_source_id,
+                    **(source_metadata or {}),
+                },
+                started_at=time.time(),
+            )
+        )
+
+        output_dir = self._knowledge_output_root(source_scope=normalized_scope) / knowledge_index.id / run.id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = output_dir / "manifest.json"
+        index_path = output_dir / "index.jsonl"
+
+        knowledge_index.status = "running"
+        knowledge_index.profile_name = profile["name"]
+        knowledge_index.latest_run_id = run.id
+        knowledge_index.output_dir = str(output_dir)
+        knowledge_index.manifest_path = str(manifest_path)
+        knowledge_index.updated_at = time.time()
+        knowledge_index.index_metadata = {
+            **(knowledge_index.index_metadata or {}),
+            "source_scope": normalized_scope,
+            "source_id": normalized_source_id,
+            "profile": profile,
+            "last_requested_by": created_by,
+            **(source_metadata or {}),
+        }
+        knowledge_index = knowledge_index_repo.save(knowledge_index)
+
+        started = time.perf_counter()
+        try:
+            serialized = sorted(json.dumps(dict(record), sort_keys=True, ensure_ascii=True) for record in records)
+            index_path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
+            parsed_records = [json.loads(line) for line in serialized]
+            source_files = {
+                str((item or {}).get("file") or (item or {}).get("path") or "").strip()
+                for item in parsed_records
+            }
+            source_files.discard("")
+            manifest = {
+                "source_scope": normalized_scope,
+                "source_id": normalized_source_id,
+                "profile_name": profile["name"],
+                "file_count": len(source_files),
+                "index_record_count": len(serialized),
+                "detail_record_count": 0,
+                "relation_record_count": 0,
+                "error_count": 0,
+                "partitioned_outputs": {},
+                "deterministic_order": "json_sort_keys",
+                "generated_at": time.time(),
+            }
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+            duration_ms = round((time.perf_counter() - started) * 1000, 3)
+
+            run.status = "completed"
+            run.output_dir = str(output_dir)
+            run.manifest_path = str(manifest_path)
+            run.duration_ms = duration_ms
+            run.finished_at = time.time()
+            run.run_metadata = {**(run.run_metadata or {}), "manifest": manifest}
+            run = knowledge_index_run_repo.save(run)
+
+            knowledge_index.status = "completed"
+            knowledge_index.latest_run_id = run.id
+            knowledge_index.output_dir = str(output_dir)
+            knowledge_index.manifest_path = str(manifest_path)
+            knowledge_index.updated_at = time.time()
+            knowledge_index.index_metadata = {
+                **(knowledge_index.index_metadata or {}),
+                "manifest_summary": {
+                    "file_count": manifest.get("file_count", 0),
+                    "index_record_count": manifest.get("index_record_count", 0),
+                    "detail_record_count": manifest.get("detail_record_count", 0),
+                    "relation_record_count": manifest.get("relation_record_count", 0),
+                    "error_count": manifest.get("error_count", 0),
+                },
+                "available_outputs": manifest.get("partitioned_outputs", {}),
+            }
+            knowledge_index = knowledge_index_repo.save(knowledge_index)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=normalized_scope, status="completed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
+                duration_ms / 1000.0
+            )
+            return knowledge_index, run
+        except Exception as exc:
+            duration_ms = round((time.perf_counter() - started) * 1000, 3)
+            run.status = "failed"
+            run.output_dir = str(output_dir)
+            run.manifest_path = str(manifest_path)
+            run.duration_ms = duration_ms
+            run.error_message = str(exc)
+            run.finished_at = time.time()
+            run = knowledge_index_run_repo.save(run)
+
+            knowledge_index.status = "failed"
+            knowledge_index.latest_run_id = run.id
+            knowledge_index.output_dir = str(output_dir)
+            knowledge_index.manifest_path = str(manifest_path)
+            knowledge_index.updated_at = time.time()
+            knowledge_index.index_metadata = {
+                **(knowledge_index.index_metadata or {}),
+                "last_error": str(exc),
+            }
+            knowledge_index = knowledge_index_repo.save(knowledge_index)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=normalized_scope, status="failed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
             )
             return knowledge_index, run
