@@ -24,6 +24,7 @@ import { AdminFacade } from '../features/admin/admin.facade';
     <div class="state-banner info">
       Trennung der Verantwortung: <strong>Templates</strong> steuern Rollenverhalten.
       <strong>Blueprints</strong> (Bereich Teams) steuern Team-Struktur, Rollen-Zuschnitt und Start-Aufgaben.
+      <a href="/teams" class="button-outline" style="margin-left: 8px;">Zum Blueprint-Editor</a>
     </div>
     @if (!isAdmin) {
       <div class="muted mb-md">Template-Verwaltung ist nur fuer Admins verfuegbar.</div>

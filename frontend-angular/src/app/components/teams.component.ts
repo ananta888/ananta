@@ -129,6 +129,9 @@ type GuidedSetupForm = {
                 <h3 class="no-margin">{{ blueprintForm.id ? 'Blueprint bearbeiten' : 'Neuen Blueprint anlegen' }}</h3>
                 <div class="muted">Advanced-Editor fuer Rollen, Rollen-Templates und Starter-Artefakte.</div>
                 <div class="muted">Hinweis: Hier wird Team-Struktur bearbeitet. Rollenverhalten bearbeitest du separat unter <code>Templates (Hub)</code>.</div>
+                <div class="mt-sm">
+                  <a href="/templates" class="btn-secondary btn-small">Zu Rollen-Templates</a>
+                </div>
               </div>
               @if (isSelectedSeedBlueprint()) {
                 <span class="teams-pill teams-pill-seed">Seed</span>
@@ -233,6 +236,7 @@ type GuidedSetupForm = {
             <p class="muted">
               Der Standard-Modus zeigt nur die entscheidenden Produktinfos fuer den Start. Detailpflege bleibt im Admin-/Studio-Modus.
             </p>
+            <div class="muted">Kompakte Produktsicht aus dem Blueprint-Read-Model: Zweck, Nutzungsempfehlung, Governance und erwartete Outputs.</div>
             <div class="teams-inline-card">
               <h4 class="no-margin">Gefuehrte Blueprint-Auswahl</h4>
               <div class="muted">

@@ -188,7 +188,7 @@
     {
       "id": "BTS-T12",
       "title": "Template editing and blueprint editing responsibilities separate",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "ux_simplification",
       "depends_on": ["BTS-T02", "BTS-T03"],
@@ -240,7 +240,7 @@
     {
       "id": "BTS-T16",
       "title": "Read-model for blueprint summaries refine",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T05", "BTS-T06"],
@@ -318,7 +318,7 @@
     {
       "id": "BTS-T22",
       "title": "Behavior regression tests for blueprint/template internals keep",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "documentation_rollout",
       "depends_on": ["BTS-T08", "BTS-T09", "BTS-T12"],
@@ -331,7 +331,7 @@
     {
       "id": "BTS-T23",
       "title": "Smoke tests for standard blueprint onboarding add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "documentation_rollout",
       "depends_on": ["BTS-T13", "BTS-T14", "BTS-T15"],
@@ -356,16 +356,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:14:30+02:00",
+    "updated_at": "2026-04-24T00:22:15+02:00",
     "total": 24,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 20
+      "done": 24
     },
-    "progress_percent_done": 83.3,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 12,
       "P1": 11,
@@ -381,21 +381,21 @@
       },
       "blueprint_catalog": {
         "total": 7,
-        "done": 6,
+        "done": 7,
         "partial": 0,
-        "todo": 1
+        "todo": 0
       },
       "ux_simplification": {
         "total": 9,
-        "done": 8,
+        "done": 9,
         "partial": 0,
-        "todo": 1
+        "todo": 0
       },
       "documentation_rollout": {
         "total": 5,
-        "done": 3,
+        "done": 5,
         "partial": 0,
-        "todo": 2
+        "todo": 0
       }
     },
     "recommended_first_bundle": [
