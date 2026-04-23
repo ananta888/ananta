@@ -1,353 +1,282 @@
 {
-  "version": 2,
+  "version": 1,
   "owner": "ananta",
-  "track": "template_variables_improvement",
-  "updated_at": "2026-04-23T21:45:35+02:00",
-  "purpose": "Improve template variable handling so it becomes clearer, more scalable, better documented and safer across templates, blueprints, teams and future work profiles.",
-  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
+  "track": "blueprint_template_team_simplification",
+  "purpose": "Simplify the outward-facing blueprint/template/team model without losing the strong internal structure, auditability and blueprint-first architecture.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Template variables should be centrally defined, grouped by context, well documented, previewable, and easier to extend without breaking existing templates.",
-  "non_goals": [
-    "Do not break existing templates abruptly.",
-    "Do not duplicate separate variable definitions in frontend and backend.",
-    "Do not couple context validation with hidden runtime-only assumptions."
-  ],
-  "architecture_constraints": [
-    "Keep one canonical variable registry that can be consumed by backend, frontend and tests.",
-    "Preserve hub-owned orchestration and avoid worker-to-worker control paths.",
-    "Introduce changes additively with aliases and migration notes before hard removals."
-  ],
+  "goal": "Users should understand and use the blueprint/template/team system through a few clear product concepts, while internal drift, snapshot, reconcile and admin complexity remain available but mostly hidden.",
   "success_criteria": [
-    "Template variables are no longer just a flat hardcoded list without structure.",
-    "Users can understand which variables exist, what they mean and in which context they are available.",
-    "The system supports clearer naming and future growth.",
-    "Existing templates remain compatible or have a controlled migration path.",
-    "Frontend, backend and tests use the same canonical variable registry."
-  ],
-  "milestones": [
-    {
-      "id": "TVI-M1",
-      "title": "Discovery and runtime contract",
-      "target_outcome": "Current runtime context and rendering contract are documented and clarified."
-    },
-    {
-      "id": "TVI-M2",
-      "title": "Canonical registry and semantics",
-      "target_outcome": "Canonical variables, scopes, naming and alias semantics are implemented."
-    },
-    {
-      "id": "TVI-M3",
-      "title": "UX, tests and rollout safety",
-      "target_outcome": "API/UI exposure, preview, diagnostics, tests and migration guidance are complete."
-    }
+    "The outward model is reduced to a few understandable concepts.",
+    "Blueprints become the obvious primary product entry for structured work.",
+    "Templates become clearer in meaning and less ambiguous.",
+    "Teams are easy to understand as instantiated running work structures.",
+    "Advanced/admin-only lifecycle details remain available without polluting the main UX."
   ],
   "tasks": [
     {
-      "id": "TVI-T01",
-      "title": "Current variable model document",
-      "status": "done",
+      "id": "BTS-T01",
+      "title": "Outward mental model define",
+      "status": "todo",
       "priority": "P0",
-      "phase": "discovery",
-      "depends_on": [],
       "acceptance_criteria": [
-        "A short internal document lists all currently allowed variables from the backend.",
-        "The document explains which ones are legacy, which are generic and which are domain-specific.",
-        "Current ambiguity and naming inconsistencies are explicitly identified."
+        "A short product note defines the public-facing model as Template, Blueprint and Team.",
+        "Internal concepts like snapshot, drift and reconcile are explicitly treated as advanced/admin concepts.",
+        "The explanation is short enough to use in UI and docs."
       ]
     },
     {
-      "id": "TVI-T02",
-      "title": "Canonical variable registry introduce",
-      "status": "done",
+      "id": "BTS-T02",
+      "title": "Terminology cleanup for templates define",
+      "status": "todo",
       "priority": "P0",
-      "phase": "model_design",
-      "depends_on": ["TVI-T01", "TVI-T12"],
       "acceptance_criteria": [
-        "Allowed template variables move into one central registry instead of a flat route-local constant.",
-        "Each variable has metadata such as name, description, scope and stability level.",
-        "Frontend and backend can consume the same canonical list."
+        "A decision is made whether 'Template' stays public or becomes 'Role Template' or 'Agent Template' in the UI.",
+        "The chosen wording reduces ambiguity with prompt snippets or generic text templates.",
+        "The terminology stays consistent across UI, API docs and read-model descriptions."
       ]
     },
     {
-      "id": "TVI-T03",
-      "title": "Variable scopes define",
-      "status": "done",
+      "id": "BTS-T03",
+      "title": "Blueprints as the default product entry path promote",
+      "status": "todo",
       "priority": "P0",
-      "phase": "model_design",
-      "depends_on": ["TVI-T02"],
       "acceptance_criteria": [
-        "Variables are grouped by context such as agent, task, team, role, blueprint, artifact or domain-specific extras.",
-        "The registry can express in which contexts a variable is valid.",
-        "Validation can distinguish globally known variables from contextually valid variables."
+        "UI and docs clearly present blueprint selection as the default path for starting structured work.",
+        "Users are not pushed to manually assemble teams or templates first.",
+        "Blueprint-first stays aligned with the existing architecture."
       ]
     },
     {
-      "id": "TVI-T04",
-      "title": "Naming scheme clean up",
-      "status": "done",
+      "id": "BTS-T04",
+      "title": "Standard seed blueprints define as product-grade entries",
+      "status": "todo",
       "priority": "P0",
-      "phase": "model_design",
-      "depends_on": ["TVI-T02"],
       "acceptance_criteria": [
-        "A clear naming policy is defined for future variables.",
-        "Core names are normalized consistently instead of mixed German/English naming.",
-        "Legacy aliases can remain temporarily for compatibility."
+        "A small official set of standard blueprints is defined and visible.",
+        "Each standard blueprint has a name, short description, intended use, safety/review stance and expected outputs.",
+        "The standard set maps directly to the main Ananta use cases."
       ]
     },
     {
-      "id": "TVI-T05",
-      "title": "Legacy alias strategy define",
-      "status": "done",
+      "id": "BTS-T05",
+      "title": "Blueprint card/view model simplify",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Blueprint list/detail views show only product-relevant information by default.",
+        "Default blueprint presentation includes what it is for, when to use it and what it produces.",
+        "Internal child object complexity is not the first thing users see."
+      ]
+    },
+    {
+      "id": "BTS-T06",
+      "title": "Work-profile surface move to the front",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Blueprint work-profile becomes a visible first-class summary in UI or read model.",
+        "The work-profile shows recommended goal modes, playbook hints, capability hints and governance profile in plain language.",
+        "Users can understand how a blueprint works without reading low-level child structures."
+      ]
+    },
+    {
+      "id": "BTS-T07",
+      "title": "Role and artifact language soften for normal users",
+      "status": "todo",
       "priority": "P1",
-      "phase": "model_design",
-      "depends_on": ["TVI-T04"],
       "acceptance_criteria": [
-        "Existing variables such as German aliases are mapped to canonical names where needed.",
-        "The system can warn on legacy aliases without breaking existing templates immediately.",
-        "A migration path is documented."
+        "User-facing text shifts from internal object names toward understandable labels like work roles, start tasks and expected outputs.",
+        "Internal API/data model naming can remain unchanged.",
+        "This improves comprehension without weakening the model."
       ]
     },
     {
-      "id": "TVI-T06",
-      "title": "Context-aware validation improve",
-      "status": "done",
+      "id": "BTS-T08",
+      "title": "Admin and standard modes separate in UI",
+      "status": "todo",
       "priority": "P0",
-      "phase": "implementation",
-      "depends_on": ["TVI-T03", "TVI-T05", "TVI-T13"],
       "acceptance_criteria": [
-        "Validation can report not only unknown variables but also variables that are known yet unavailable in the current context.",
-        "Validation errors and warnings are more precise than today.",
-        "Strict mode still works with the improved semantics."
+        "A standard mode focuses on choosing a blueprint and starting work.",
+        "An admin/studio mode exposes blueprint/template editing and lifecycle details.",
+        "Normal users are not overloaded by management internals."
       ]
     },
     {
-      "id": "TVI-T07",
-      "title": "Explain variable meaning and origin",
-      "status": "done",
+      "id": "BTS-T09",
+      "title": "Snapshot, drift and reconcile visibility demote",
+      "status": "todo",
       "priority": "P0",
-      "phase": "model_design",
-      "depends_on": ["TVI-T02", "TVI-T03"],
       "acceptance_criteria": [
-        "Each variable has a human-readable description.",
-        "The system can explain where the value comes from and when it may be empty.",
-        "This information is available to UI and docs."
+        "Snapshot/drift/reconcile are hidden or summarized in the normal user flow.",
+        "Normal users see only simple state labels such as standard, customized or outdated when helpful.",
+        "Admins can still inspect full details on demand."
       ]
     },
     {
-      "id": "TVI-T08",
-      "title": "Expose registry through API",
-      "status": "done",
+      "id": "BTS-T10",
+      "title": "Team concept explain as running instance only",
+      "status": "todo",
       "priority": "P1",
-      "phase": "implementation",
-      "depends_on": ["TVI-T02", "TVI-T03"],
       "acceptance_criteria": [
-        "There is an API or config read-model path that returns the canonical variable registry.",
-        "The payload includes name, description, scope and deprecated/alias state where applicable.",
-        "The frontend no longer hardcodes the visible variable descriptions."
+        "The UI and docs explain teams as instantiated running work structures derived from blueprints.",
+        "The distinction between blueprint and team is visually obvious.",
+        "Users understand that changing a running team is not the same as editing the base blueprint."
       ]
     },
     {
-      "id": "TVI-T09",
-      "title": "Frontend variable help improve",
-      "status": "done",
-      "priority": "P1",
-      "phase": "frontend_experience",
-      "depends_on": ["TVI-T06", "TVI-T07", "TVI-T08"],
-      "acceptance_criteria": [
-        "The template editor shows allowed variables grouped by scope.",
-        "Each variable has tooltip/help text.",
-        "Unknown and context-invalid variables are clearly distinguished."
-      ]
-    },
-    {
-      "id": "TVI-T10",
-      "title": "Template render preview add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "implementation",
-      "depends_on": ["TVI-T06", "TVI-T11"],
-      "acceptance_criteria": [
-        "Users can preview how a template would render with sample values.",
-        "Missing variables are visible in preview mode.",
-        "The preview does not require saving the template first."
-      ]
-    },
-    {
-      "id": "TVI-T11",
-      "title": "Sample context payloads define",
-      "status": "done",
-      "priority": "P1",
-      "phase": "implementation",
-      "depends_on": ["TVI-T03", "TVI-T13"],
-      "acceptance_criteria": [
-        "Representative example payloads exist for task, team, role, blueprint and agent contexts.",
-        "These payloads are used for preview, docs and tests.",
-        "The samples make variable availability concrete."
-      ]
-    },
-    {
-      "id": "TVI-T12",
-      "title": "Blueprint and team integration audit",
-      "status": "done",
+      "id": "BTS-T11",
+      "title": "Guided setup on blueprint level add",
+      "status": "todo",
       "priority": "P0",
-      "phase": "discovery",
-      "depends_on": ["TVI-T01"],
       "acceptance_criteria": [
-        "The code paths where templates are actually used from blueprints, roles, teams and members are reviewed.",
-        "The audit identifies which context objects are truly available at render time.",
-        "The variable registry is aligned with real runtime availability."
+        "A guided setup helps users choose the right blueprint based on what they want to do.",
+        "The setup asks about goal type, strictness, domain and execution style rather than internal model details.",
+        "The result is a blueprint + work-profile + instantiation suggestion."
       ]
     },
     {
-      "id": "TVI-T13",
-      "title": "Runtime rendering contract define",
-      "status": "done",
+      "id": "BTS-T12",
+      "title": "Template editing and blueprint editing responsibilities separate",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The system makes clear whether the user is editing a reusable role template or a blueprint structure.",
+        "Users do not accidentally confuse role behavior changes with structural team composition changes.",
+        "The distinction is visible in UI labels and flows."
+      ]
+    },
+    {
+      "id": "BTS-T13",
+      "title": "Default blueprint selection for main use cases wire up",
+      "status": "todo",
       "priority": "P0",
-      "phase": "discovery",
-      "depends_on": ["TVI-T12"],
       "acceptance_criteria": [
-        "A clear contract defines how templates are rendered at runtime and with which context object.",
-        "The contract distinguishes admin-time validation from runtime rendering.",
-        "The contract is documented and testable."
+        "Main use cases can map to a recommended default blueprint.",
+        "The system can surface this recommendation in first-run and wizard flows.",
+        "The recommendation is explainable and reviewable."
       ]
     },
     {
-      "id": "TVI-T14",
-      "title": "Tests for canonical variable registry add",
-      "status": "done",
+      "id": "BTS-T14",
+      "title": "Blueprint instantiation flow simplify",
+      "status": "todo",
       "priority": "P1",
-      "phase": "quality_and_rollout",
-      "depends_on": ["TVI-T02", "TVI-T03", "TVI-T08"],
       "acceptance_criteria": [
-        "Tests verify the canonical registry content and shape.",
-        "Tests cover aliases, deprecated names and per-scope availability.",
-        "Tests protect frontend/backend consistency."
+        "Instantiating a blueprint into a team becomes understandable from one screen or one concise flow.",
+        "Users can see what start tasks and roles will be created before confirming.",
+        "The flow uses product language rather than only internal object language."
       ]
     },
     {
-      "id": "TVI-T15",
-      "title": "Tests for context-aware validation add",
-      "status": "done",
+      "id": "BTS-T15",
+      "title": "Default outputs for standard blueprints define",
+      "status": "todo",
       "priority": "P1",
-      "phase": "quality_and_rollout",
-      "depends_on": ["TVI-T06", "TVI-T13"],
       "acceptance_criteria": [
-        "Validation tests distinguish unknown, deprecated and context-invalid variables.",
-        "Strict mode behavior remains covered.",
-        "Regression tests exist for current known variables."
+        "Each standard blueprint declares expected initial outputs such as analysis summary, backlog, review checklist or plan.",
+        "These outputs are visible in blueprint summaries and post-instantiation screens.",
+        "Users know what they are getting before starting."
       ]
     },
     {
-      "id": "TVI-T16",
-      "title": "Documentation for template authors add",
-      "status": "done",
+      "id": "BTS-T16",
+      "title": "Read-model for blueprint summaries refine",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Assistant/dashboard read-models expose compact blueprint summaries suitable for standard users.",
+        "The summary includes purpose, recommended use, governance stance and expected outputs.",
+        "Admin-only complexity remains in deeper views."
+      ]
+    },
+    {
+      "id": "BTS-T17",
+      "title": "Seed blueprint lifecycle messaging improve",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Seed/default blueprint behavior is described in plain language for product users.",
+        "Users can tell whether a blueprint is standard, customized or drifting without reading backend jargon.",
+        "Admin detail pages still expose reconcile/audit depth."
+      ]
+    },
+    {
+      "id": "BTS-T18",
+      "title": "Documentation rewrite for public blueprint usage add",
+      "status": "todo",
       "priority": "P0",
-      "phase": "quality_and_rollout",
-      "depends_on": ["TVI-T02", "TVI-T03", "TVI-T07"],
       "acceptance_criteria": [
-        "There is a dedicated guide for writing templates with variables.",
-        "The guide includes available variables, scopes, examples and warnings.",
-        "The guide is linked from the template UI or admin docs."
+        "There is a concise user-facing guide explaining when to use blueprints, templates and teams.",
+        "The guide avoids overwhelming admin and migration details.",
+        "The guide matches the simplified outward model."
       ]
     },
     {
-      "id": "TVI-T17",
-      "title": "Migration notes for existing templates prepare",
-      "status": "done",
+      "id": "BTS-T19",
+      "title": "Keep admin rollout and migration docs separate",
+      "status": "todo",
       "priority": "P1",
-      "phase": "quality_and_rollout",
-      "depends_on": ["TVI-T04", "TVI-T05", "TVI-T13"],
       "acceptance_criteria": [
-        "There is a migration note for existing templates that rely on current variable names.",
-        "Potential breaking changes are listed clearly.",
-        "A transition plan exists for legacy names."
+        "Migration/rollout/constraint docs remain available but clearly separated from product-facing usage docs.",
+        "Standard users do not land on rollout content first.",
+        "Admin docs still preserve full operational rigor."
       ]
     },
     {
-      "id": "TVI-T18",
-      "title": "Operator diagnostics for template validation improve",
-      "status": "done",
-      "priority": "P2",
-      "phase": "quality_and_rollout",
-      "depends_on": ["TVI-T06", "TVI-T13", "TVI-T15"],
+      "id": "BTS-T20",
+      "title": "Standard blueprint examples package",
+      "status": "todo",
+      "priority": "P1",
       "acceptance_criteria": [
-        "Operators can inspect why a template failed validation or rendered incompletely.",
-        "Diagnostics remain safe and do not leak sensitive runtime values by default.",
-        "Validation problems are easier to debug than today."
+        "Each standard blueprint includes one concrete example input and one expected result sketch.",
+        "Examples are short and directly useful in demos and first-run guidance.",
+        "They help make the model tangible."
+      ]
+    },
+    {
+      "id": "BTS-T21",
+      "title": "UI copy audit for internal jargon reduce",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Visible UI labels and descriptions are reviewed for unnecessary internal jargon.",
+        "The audit reduces cognitive load without hiding useful meaning.",
+        "The result improves first-run comprehension."
+      ]
+    },
+    {
+      "id": "BTS-T22",
+      "title": "Behavior regression tests for blueprint/template internals keep",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Simplification work does not remove or weaken auditability, reconciliation or validation behavior.",
+        "Existing backend guarantees remain protected by tests.",
+        "UI simplification is decoupled from internal correctness."
+      ]
+    },
+    {
+      "id": "BTS-T23",
+      "title": "Smoke tests for standard blueprint onboarding add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A smoke path verifies that a user can choose a standard blueprint and instantiate it successfully.",
+        "The test confirms visibility of expected outputs and next steps.",
+        "The path works without requiring admin-level model knowledge."
+      ]
+    },
+    {
+      "id": "BTS-T24",
+      "title": "Future advanced studio roadmap isolate",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "More powerful admin/studio editing ideas are documented separately.",
+        "They do not block the main simplification work.",
+        "The main user experience remains intentionally compact."
       ]
     }
-  ],
-  "tasks_status_summary": {
-    "updated_at": "2026-04-23T21:45:35+02:00",
-    "total": 18,
-    "by_status": {
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "partial": 0,
-      "done": 18
-    },
-    "progress_percent_done": 100.0,
-    "by_phase": {
-      "discovery": {
-        "total": 3,
-        "done": 3,
-        "partial": 0,
-        "todo": 0
-      },
-      "model_design": {
-        "total": 5,
-        "done": 5,
-        "partial": 0,
-        "todo": 0
-      },
-      "implementation": {
-        "total": 4,
-        "done": 4,
-        "partial": 0,
-        "todo": 0
-      },
-      "frontend_experience": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "todo": 0
-      },
-      "quality_and_rollout": {
-        "total": 5,
-        "done": 5,
-        "partial": 0,
-        "todo": 0
-      }
-    },
-    "recommended_first_bundle": [
-      "TVI-T01",
-      "TVI-T12",
-      "TVI-T13",
-      "TVI-T02",
-      "TVI-T03"
-    ],
-    "first_bundle_completed_tasks": [
-      "TVI-T01",
-      "TVI-T02",
-      "TVI-T03",
-      "TVI-T04",
-      "TVI-T05",
-      "TVI-T12",
-      "TVI-T13",
-      "TVI-T07",
-      "TVI-T08",
-      "TVI-T14"
-    ],
-    "final_bundle_completed_tasks": [
-      "TVI-T06",
-      "TVI-T09",
-      "TVI-T10",
-      "TVI-T11",
-      "TVI-T15",
-      "TVI-T16",
-      "TVI-T17",
-      "TVI-T18"
-    ]
-  }
+  ]
 }
