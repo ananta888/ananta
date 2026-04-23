@@ -2,6 +2,8 @@
 
 Diese Notiz beschreibt den aktuellen Admin-Ist-Zustand fuer Blueprints, Rollen-Templates (API: `templates`) und blueprint-basierte Team-Erstellung.
 
+> Admin-/Studio-Dokument: fuer Erstnutzer ist der kompakte Produktweg in `docs/blueprint-product-model.md` und `docs/standard-blueprints.md` vorgesehen.
+
 ## Zielbild
 
 - **Blueprint-first** bleibt der bevorzugte Pfad fuer Team-Aufbau.
@@ -101,10 +103,12 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 
 ## Passende Referenzen
 
-- Public model: `docs/blueprint-product-model.md`
-- Standard blueprint catalog: `docs/standard-blueprints.md`
+- Public model (Standardnutzer): `docs/blueprint-product-model.md`
+- Standard blueprint catalog (Standardnutzer): `docs/standard-blueprints.md`
 - API: `api-spec.md`
 - Bundle-Import/Export: `docs/blueprint-bundle-import-export.md`
+- Rollout/Migration (Admin): `docs/blueprint-migration-rollout.md`
+- Advanced Studio Roadmap (Admin): `docs/blueprint-studio-roadmap.md`
 - Testbetrieb: `docs/testing.md`
 - Template Authoring: `docs/template-authoring-guide.md`
 - Template Registry/Contract: `docs/template-variable-registry.md`
