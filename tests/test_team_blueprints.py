@@ -83,6 +83,41 @@ def test_seed_blueprints_are_listed(client):
     ]
 
 
+def test_blueprint_catalog_exposes_standard_product_cards(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    response = client.get("/teams/blueprints/catalog", headers=auth_header)
+
+    assert response.status_code == 200
+    payload = response.json["data"]
+    assert payload["public_model"]["template_term"] == "Role Template"
+    assert payload["public_model"]["default_entry_path"]
+    assert payload["public_model"]["advanced_concepts"] == ["snapshot", "drift", "reconcile"]
+
+    items = payload["items"]
+    names = [item["name"] for item in items]
+    assert names[:3] == ["Scrum", "Kanban", "Research"]
+    assert {
+        "Scrum",
+        "Kanban",
+        "Research",
+        "Code-Repair",
+        "Security-Review",
+        "Release-Prep",
+        "Scrum-OpenCode",
+        "Research-Evolution",
+    }.issubset(set(names))
+
+    scrum_item = next(item for item in items if item["name"] == "Scrum")
+    assert scrum_item["is_standard_blueprint"] is True
+    assert scrum_item["entry_recommended"] is True
+    assert scrum_item["intended_use"]
+    assert scrum_item["when_to_use"]
+    assert scrum_item["expected_outputs"]
+    assert scrum_item["safety_review_stance"]
+
+
 def test_blueprint_crud_and_instantiate(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}

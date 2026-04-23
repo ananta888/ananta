@@ -881,6 +881,52 @@ SEED_BLUEPRINTS = {
     },
 }
 
+STANDARD_BLUEPRINT_ORDER = [
+    "Scrum",
+    "Kanban",
+    "Research",
+    "Code-Repair",
+    "Security-Review",
+    "Release-Prep",
+    "Scrum-OpenCode",
+    "Research-Evolution",
+]
+
+BLUEPRINT_PRODUCT_HINTS = {
+    "scrum": {
+        "intended_use": "Cross-functional delivery with iterative planning and review.",
+        "when_to_use": "Use when product priorities and sprint-level coordination should stay explicit.",
+    },
+    "kanban": {
+        "intended_use": "Flow-oriented delivery with continuous prioritization.",
+        "when_to_use": "Use when incoming work is continuous and WIP control matters more than sprint cadence.",
+    },
+    "research": {
+        "intended_use": "Evidence-focused analysis and source-backed recommendations.",
+        "when_to_use": "Use before implementation when decisions require structured research and confidence levels.",
+    },
+    "code-repair": {
+        "intended_use": "Targeted incident diagnosis, patching, and regression control.",
+        "when_to_use": "Use when production issues or breakages need quick but verifiable remediation.",
+    },
+    "security-review": {
+        "intended_use": "Security and compliance-focused review with explicit risk governance.",
+        "when_to_use": "Use before release or for high-risk changes where control validation is mandatory.",
+    },
+    "release-prep": {
+        "intended_use": "Release readiness, preflight verification, and rollout planning.",
+        "when_to_use": "Use when a planned release needs coordinated go/no-go checks and rollback readiness.",
+    },
+    "scrum-opencode": {
+        "intended_use": "Scrum delivery with explicit OpenCode/SGPT/terminal execution cascade.",
+        "when_to_use": "Use for implementation-heavy work that benefits from stateful coding sessions and strict handoffs.",
+    },
+    "research-evolution": {
+        "intended_use": "DeerFlow research followed by Evolver proposal and controlled review gates.",
+        "when_to_use": "Use for extending an existing project with research-backed, reviewable evolution proposals.",
+    },
+}
+
 SCRUM_SOLID_TEMPLATE_APPENDIX = """
 
 Engineering guardrails for every proposal, change, refactoring, and implementation:
@@ -1419,6 +1465,89 @@ def _build_blueprint_work_profile(
     }
 
 
+def _catalog_hint_for_blueprint(blueprint_name: str) -> dict[str, str]:
+    normalized_name = str(blueprint_name or "").strip().lower()
+    return BLUEPRINT_PRODUCT_HINTS.get(
+        normalized_name,
+        {
+            "intended_use": "Reusable team definition with roles, start artifacts, and governance defaults.",
+            "when_to_use": "Use when you want a repeatable startup path instead of assembling teams manually.",
+        },
+    )
+
+
+def _catalog_expected_outputs(artifacts: list[BlueprintArtifactDB]) -> list[str]:
+    starter_tasks = [
+        str(artifact.title).strip()
+        for artifact in sorted(artifacts, key=lambda item: (item.sort_order, item.title))
+        if str(artifact.kind or "").strip().lower() == "task" and str(artifact.title or "").strip()
+    ]
+    if starter_tasks:
+        return starter_tasks[:3]
+
+    policy_titles = [
+        str(artifact.title).strip()
+        for artifact in sorted(artifacts, key=lambda item: (item.sort_order, item.title))
+        if str(artifact.kind or "").strip().lower() == "policy" and str(artifact.title or "").strip()
+    ]
+    return policy_titles[:2] if policy_titles else ["Starter tasks and role-ready execution context"]
+
+
+def _catalog_safety_review_stance(artifacts: list[BlueprintArtifactDB]) -> str:
+    policy_payloads = [
+        dict(artifact.payload or {})
+        for artifact in sorted(artifacts, key=lambda item: (item.sort_order, item.title))
+        if str(artifact.kind or "").strip().lower() == "policy"
+    ]
+    if not policy_payloads:
+        return "balanced security, standard verification"
+
+    policy = policy_payloads[0]
+    security_level = str(policy.get("security_level") or "balanced").strip().lower()
+    verification_required = bool(policy.get("verification_required", False))
+    review_required = bool(policy.get("review_required", False))
+
+    attributes = [f"{security_level} security"]
+    if verification_required:
+        attributes.append("verification required")
+    if review_required:
+        attributes.append("human review gate")
+    return ", ".join(attributes)
+
+
+def _serialize_blueprint_catalog_item(
+    blueprint: TeamBlueprintDB,
+    roles: list[BlueprintRoleDB],
+    artifacts: list[BlueprintArtifactDB],
+) -> dict[str, Any]:
+    hints = _catalog_hint_for_blueprint(blueprint.name)
+    work_profile = _build_blueprint_work_profile(blueprint, roles, artifacts)
+    short_description = str(blueprint.description or "").strip() or hints["intended_use"]
+    return {
+        "id": blueprint.id,
+        "name": blueprint.name,
+        "short_description": short_description,
+        "intended_use": hints["intended_use"],
+        "when_to_use": hints["when_to_use"],
+        "expected_outputs": _catalog_expected_outputs(artifacts),
+        "safety_review_stance": _catalog_safety_review_stance(artifacts),
+        "goal_modes": work_profile["goal_modes"],
+        "playbooks": work_profile["playbooks"],
+        "is_standard_blueprint": bool(blueprint.is_seed),
+        "entry_recommended": bool(blueprint.is_seed),
+    }
+
+
+def _blueprint_catalog_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:
+    name = str(item.get("name") or "")
+    try:
+        standard_rank = STANDARD_BLUEPRINT_ORDER.index(name)
+    except ValueError:
+        standard_rank = len(STANDARD_BLUEPRINT_ORDER) + 1
+    is_standard = bool(item.get("is_standard_blueprint"))
+    return (0 if is_standard else 1, standard_rank, name.lower())
+
+
 ALLOWED_BLUEPRINT_ARTIFACT_KINDS = {"task", "policy"}
 
 
@@ -1578,6 +1707,32 @@ def list_team_blueprints():
     ensure_seed_blueprints()
     blueprints = _repos().team_blueprint_repo.get_all()
     return api_response(data=[_serialize_blueprint(blueprint) for blueprint in blueprints])
+
+
+@teams_bp.route("/teams/blueprints/catalog", methods=["GET"])
+@check_auth
+def list_team_blueprint_catalog():
+    ensure_seed_blueprints()
+    blueprints = _repos().team_blueprint_repo.get_all()
+    items = []
+    for blueprint in blueprints:
+        roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id)
+        artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+        items.append(_serialize_blueprint_catalog_item(blueprint, roles, artifacts))
+    items.sort(key=_blueprint_catalog_sort_key)
+    return api_response(
+        data={
+            "public_model": {
+                "template_term": "Role Template",
+                "template_api_term": "template",
+                "blueprint_term": "Blueprint",
+                "team_term": "Team",
+                "default_entry_path": "Start with a blueprint, then instantiate a team.",
+                "advanced_concepts": ["snapshot", "drift", "reconcile"],
+            },
+            "items": items,
+        }
+    )
 
 
 @teams_bp.route("/teams/blueprints/<blueprint_id>", methods=["GET"])

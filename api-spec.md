@@ -269,7 +269,7 @@ Der Hub bleibt dabei die Steuerungsebene: Externe Systeme liefern Ziele oder Ere
 
 ---
 
-## Konfiguration & Templates
+## Konfiguration & Role Templates
 
 ### Konfiguration abrufen
 - **URL:** `/config`
@@ -457,13 +457,13 @@ Erste freigegebene Tools/Resources:
 - Tools: `health.get`, `providers.list_models`, `tasks.list`, `tasks.get`, `artifacts.list`, `knowledge.list_collections`, `evolution.providers.list`, `evolution.analyze`, `evolution.proposals.list`
 - Resources: `ananta://system/health`, `ananta://providers/models`, `ananta://tasks/recent`, `ananta://artifacts/list`, `ananta://knowledge/collections`, `ananta://evolution/providers`
 
-### Templates auflisten
+### Role Templates auflisten (API: `/templates`)
 - **URL:** `/templates`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
 - **Rückgabe:** `{"status": "success", "data": [...]}`
 
-### Template erstellen
+### Role Template erstellen (API: `/templates`)
 - **URL:** `/templates`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
@@ -476,7 +476,7 @@ Erste freigegebene Tools/Resources:
   - `400 template_validation_failed` (strict + gemischte Fehlerbilder)
   - `409 template_name_exists`
 
-### Template aktualisieren
+### Role Template aktualisieren (API: `/templates/<tpl_id>`)
 - **URL:** `/templates/<tpl_id>`
 - **Methode:** `PATCH`
 - **Auth erforderlich:** Ja
@@ -484,7 +484,7 @@ Erste freigegebene Tools/Resources:
 - **Rückgabe:** `{"status": "success", "data": {...}}`
 - **Fehlerfaelle:** wie beim Erstellen; bei Validation liefert die API differenzierte Felder (`unknown_variables`, `context_invalid_variables`, `deprecated_variables`).
 
-### Template löschen
+### Role Template loeschen (API: `/templates/<tpl_id>`)
 - **URL:** `/templates/<tpl_id>`
 - **Methode:** `DELETE`
 - **Auth erforderlich:** Ja
@@ -851,7 +851,44 @@ Erste freigegebene Tools/Resources:
   ```
 ## Team Management
 
-Blueprint-first ist jetzt der bevorzugte Team-Workflow. Seed-Blueprints fuer `Scrum` und `Kanban` werden automatisch bereitgestellt.
+Blueprint-first ist der bevorzugte Team-Workflow. Der produktnahe Standardmodus nutzt das Modell **Role Template -> Blueprint -> Team**; interne Lifecycle-Konzepte (`snapshot`, `drift`, `reconcile`) bleiben als Advanced-Sicht verfuegbar.
+
+### Blueprint-Katalog (produktnahe Zusammenfassung)
+- **URL:** `/teams/blueprints/catalog`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Liefert den offiziellen Standard-Blueprint-Katalog mit kompakten Kartenfeldern fuer den Standardmodus (intended use, when to use, expected outputs, safety/review stance) plus Public-Model-Terminologie.
+- **Rueckgabe (Auszug):**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "public_model": {
+        "template_term": "Role Template",
+        "template_api_term": "template",
+        "blueprint_term": "Blueprint",
+        "team_term": "Team",
+        "default_entry_path": "Start with a blueprint, then instantiate a team.",
+        "advanced_concepts": ["snapshot", "drift", "reconcile"]
+      },
+      "items": [
+        {
+          "id": "...",
+          "name": "Scrum",
+          "short_description": "...",
+          "intended_use": "...",
+          "when_to_use": "...",
+          "expected_outputs": ["Scrum Backlog", "Sprint Planning"],
+          "safety_review_stance": "balanced security, standard verification",
+          "goal_modes": ["code_fix", "repo_analysis"],
+          "playbooks": ["bugfix", "refactoring"],
+          "is_standard_blueprint": true,
+          "entry_recommended": true
+        }
+      ]
+    }
+  }
+  ```
 
 ### Blueprints auflisten
 - **URL:** `/teams/blueprints`

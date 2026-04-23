@@ -118,6 +118,7 @@ export class HubApiService {
 
   listTeams(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeams(baseUrl, token); }
   listBlueprints(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listBlueprints(baseUrl, token); }
+  listBlueprintCatalog(baseUrl: string, token?: string): Observable<any> { return this.teams.listBlueprintCatalog(baseUrl, token); }
   getBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.getBlueprint(baseUrl, id, token); }
   createBlueprint(baseUrl: string, body: any, token?: string): Observable<any> { return this.teams.createBlueprint(baseUrl, body, token); }
   patchBlueprint(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.teams.patchBlueprint(baseUrl, id, patch, token); }
