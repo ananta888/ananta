@@ -1051,6 +1051,79 @@ function createDefaultSettingsConfig(): any {
         }
         @if (selectedSection === 'llm') {
         <div class="card">
+          <h3>Evolution Provider Status</h3>
+          <p class="muted">Zeigt den aktuellen Evolution-Modus, Provider-Gesundheit und Governance-Gates fuer Analyze, Validate und Apply. Die Hub-Orchestrierung bleibt unangetastet; hier wird nur Transparenz ueber den delegierten Evolutionspfad geschaffen.</p>
+          <div class="grid cols-2">
+            <div class="card card-info">
+              <strong>Mode</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionModeSummary() }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Health</strong>
+              <div class="muted font-sm mt-sm">{{ evolutionProviderStatus?.health?.status || 'unbekannt' }}</div>
+            </div>
+          </div>
+          <div class="grid cols-2 mt-md">
+            <div class="card card-info">
+              <strong>Analyze only</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().analyze_only ? 'yes' : 'no' }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Review vor Apply</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().require_review_before_apply ? 'required' : 'not enforced' }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Validate</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().validate_allowed ? 'allowed' : 'blocked' }}</div>
+            </div>
+            <div class="card card-info">
+              <strong>Apply</strong>
+              <div class="muted font-sm mt-sm">{{ getEvolutionConfig().apply_allowed ? 'staged' : 'disabled' }}</div>
+            </div>
+          </div>
+          @if (getEvolutionWarnings().length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getEvolutionWarnings(); track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          }
+          @if (getEvolutionProviders().length) {
+            <div class="grid cols-2 mt-md">
+              @for (provider of getEvolutionProviders(); track provider.provider_name) {
+                <div class="card card-info">
+                  <div class="row flex-between gap-sm">
+                    <strong>{{ provider.provider_name }}</strong>
+                    <span>{{ provider.default ? 'default' : 'optional' }}</span>
+                  </div>
+                  <div class="muted font-sm mt-sm">
+                    Analyze: <strong>{{ provider?.capability_matrix?.analyze?.available ? 'ok' : 'blocked' }}</strong>
+                    · Validate: <strong>{{ provider?.capability_matrix?.validate?.available ? 'ok' : 'blocked' }}</strong>
+                    · Apply: <strong>{{ provider?.capability_matrix?.apply?.available ? 'ok' : 'blocked' }}</strong>
+                  </div>
+                  <div class="muted font-sm mt-sm">
+                    Review hints: <strong>{{ provider?.capability_matrix?.review_hints?.supported ? 'yes' : 'no' }}</strong>
+                    · Risk scoring: <strong>{{ provider?.capability_matrix?.risk_scoring?.supported ? 'yes' : 'no' }}</strong>
+                  </div>
+                  @if (provider?.capability_matrix?.apply?.fail_closed_reason || provider?.capability_matrix?.validate?.fail_closed_reason) {
+                    <div class="muted status-text-sm mt-sm">
+                      {{ provider?.capability_matrix?.apply?.fail_closed_reason || provider?.capability_matrix?.validate?.fail_closed_reason }}
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="muted font-sm mt-md">Noch keine Evolution-Provider erkannt.</div>
+          }
+          <div class="row mt-lg gap-sm">
+            <button class="button-outline" (click)="loadEvolutionProviderStatus()">Status aktualisieren</button>
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
           <h3>Hub LLM Defaults</h3>
           <div class="grid cols-2">
             <label>Default Provider
@@ -1472,6 +1545,7 @@ export class SettingsComponent implements OnInit {
   roleModelOverridesError = '';
   templateModelOverridesError = '';
   researchBackendStatus: any = null;
+  evolutionProviderStatus: any = null;
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -1540,6 +1614,7 @@ export class SettingsComponent implements OnInit {
         this.syncQualityGatesFromConfig(cfg);
         this.loadProviderCatalog();
         this.loadResearchBackendStatus();
+        this.loadEvolutionProviderStatus();
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
@@ -1727,6 +1802,7 @@ export class SettingsComponent implements OnInit {
         this.ns.success('Einstellungen gespeichert');
         this.load();
         this.loadResearchBackendStatus();
+        this.loadEvolutionProviderStatus();
       },
       error: () => this.ns.error('Speichern fehlgeschlagen')
     });
@@ -1963,6 +2039,76 @@ export class SettingsComponent implements OnInit {
     }
     if (current.enabled && selected && selected.working_dir && selected.working_dir_exists === false) {
       warnings.push(`Research-Backend ${current.provider} verwendet ein fehlendes working_dir: ${selected.working_dir}`);
+    }
+    return warnings;
+  }
+
+  loadEvolutionProviderStatus() {
+    if (!this.hub || !this.api || typeof this.api.getEvolutionProviders !== 'function') {
+      this.evolutionProviderStatus = null;
+      return;
+    }
+    this.api.getEvolutionProviders(this.hub.url).subscribe({
+      next: (data) => {
+        this.evolutionProviderStatus = data || null;
+      },
+      error: () => {
+        this.evolutionProviderStatus = null;
+      }
+    });
+  }
+
+  getEvolutionProviders(): any[] {
+    const providers = this.evolutionProviderStatus?.providers;
+    return Array.isArray(providers) ? providers : [];
+  }
+
+  getEvolutionModeSummary(): string {
+    const cfg = this.getEvolutionConfig();
+    if (!cfg.enabled) return 'disabled';
+    if (cfg.analyze_only) return 'analyze_only';
+    if (!cfg.apply_allowed) return 'proposal_review';
+    return 'controlled_apply';
+  }
+
+  getEvolutionConfig(): any {
+    const cfg = this.evolutionProviderStatus?.config;
+    return cfg && typeof cfg === 'object'
+      ? cfg
+      : {
+          enabled: false,
+          analyze_only: true,
+          validate_allowed: false,
+          apply_allowed: false,
+          require_review_before_apply: true,
+        };
+  }
+
+  getEvolutionWarnings(): string[] {
+    const warnings: string[] = [];
+    const cfg = this.getEvolutionConfig();
+    if (!cfg.enabled) {
+      warnings.push('Evolution ist global deaktiviert.');
+      return warnings;
+    }
+    if (cfg.apply_allowed === true && cfg.require_review_before_apply !== true) {
+      warnings.push('Apply ist freigegeben, aber Review vor Apply ist nicht erzwungen.');
+    }
+    if (cfg.apply_allowed === true && cfg.analyze_only === true) {
+      warnings.push('Apply ist global freigegeben, aber Provider koennen weiter analyze-only fail-closed bleiben.');
+    }
+    if (cfg.validate_allowed !== true) {
+      warnings.push('Validation ist aktuell nicht global freigegeben.');
+    }
+    for (const provider of this.getEvolutionProviders()) {
+      const apply = provider?.capability_matrix?.apply;
+      const validate = provider?.capability_matrix?.validate;
+      if (apply?.supported && !apply?.available && apply?.fail_closed_reason) {
+        warnings.push(`Provider ${provider.provider_name} blockiert Apply: ${apply.fail_closed_reason}`);
+      }
+      if (validate?.supported && !validate?.available && validate?.fail_closed_reason) {
+        warnings.push(`Provider ${provider.provider_name} blockiert Validate: ${validate.fail_closed_reason}`);
+      }
     }
     return warnings;
   }

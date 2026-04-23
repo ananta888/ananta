@@ -55,6 +55,7 @@ describe('SettingsComponent (benchmark config)', () => {
       getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
       setConfig: vi.fn(() => of({})),
       sgptBackends: vi.fn(() => of({ preflight: { research_backends: {} } })),
+      getEvolutionProviders: vi.fn(() => of({ health: { status: 'available' }, config: { enabled: true, analyze_only: true, validate_allowed: false, apply_allowed: false, require_review_before_apply: true }, providers: [] })),
     };
     cmp.ns = notificationMock;
     cmp.benchmarkRetentionDays = 90;
@@ -328,6 +329,46 @@ describe('SettingsComponent (benchmark config)', () => {
       'LM Studio ist Default-Provider, aber die LM-Studio-URL ist nicht gesetzt.',
       'Codex CLI zeigt auf eine Cloud/OpenAI-kompatible Runtime, aber weder API-Key-Profil noch globaler Key sind erkennbar.',
     ]));
+  });
+
+  it('surfaces evolution provider warnings from policy and provider fail-closed states', () => {
+    const cmp = createComponent();
+    cmp.evolutionProviderStatus = {
+      config: {
+        enabled: true,
+        analyze_only: true,
+        validate_allowed: false,
+        apply_allowed: true,
+        require_review_before_apply: false,
+      },
+      providers: [
+        {
+          provider_name: 'evolver',
+          capability_matrix: {
+            validate: { supported: true, available: false, fail_closed_reason: 'evolution_provider_analyze_only' },
+            apply: { supported: true, available: false, fail_closed_reason: 'evolution_provider_analyze_only' },
+          },
+        },
+      ],
+    };
+
+    expect(cmp.getEvolutionModeSummary()).toBe('analyze_only');
+    expect(cmp.getEvolutionWarnings()).toEqual(expect.arrayContaining([
+      'Apply ist freigegeben, aber Review vor Apply ist nicht erzwungen.',
+      'Apply ist global freigegeben, aber Provider koennen weiter analyze-only fail-closed bleiben.',
+      'Validation ist aktuell nicht global freigegeben.',
+      'Provider evolver blockiert Apply: evolution_provider_analyze_only',
+      'Provider evolver blockiert Validate: evolution_provider_analyze_only',
+    ]));
+  });
+
+  it('loads evolution provider status through the shared agent api', () => {
+    const cmp = createComponent();
+
+    cmp.loadEvolutionProviderStatus();
+
+    expect(cmp.api.getEvolutionProviders).toHaveBeenCalledWith('http://hub:5000');
+    expect(cmp.evolutionProviderStatus?.health?.status).toBe('available');
   });
 
   it('normalizes model override maps by trimming values and lowercasing keys', () => {

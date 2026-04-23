@@ -220,8 +220,8 @@ Standardfall:
 - Der Hub besitzt Planung, Queue, Review-Gates und naechste Tasks; Apply bleibt standardmaessig deaktiviert.
 
 Realpfad UI:
-1. Teams -> Blueprints.
-2. Blueprint `Research-Evolution` auswaehlen.
+1. Dashboard -> `Mit Research starten` oder Demo-Beispiel `Research -> Proposal -> Review` waehlen.
+2. Alternativ Teams -> Blueprints und Blueprint `Research-Evolution` auswaehlen.
 3. Als Team instanziieren und die Starter-Tasks `Standardfall Scope`, `DeerFlow Research Stage`, `Evolver Proposal Stage` und `Review Gate` pruefen.
 4. Erfolgssignal: Research-Artefakt, Evolver-Proposal und Review-Gate sind als getrennte Schritte sichtbar.
 
@@ -234,6 +234,11 @@ POST /teams/blueprints/<research-evolution-blueprint-id>/instantiate
 ```
 
 Erwartetes Ergebnis: ein instanziierbarer Team-/Task-Blueprint mit klarer Rollenverteilung.
+
+UI-Sicht:
+- Die Demo-Vorschau zeigt den Problemfluss explizit als `Research -> Proposal -> Review`.
+- Die Vorschau nennt Research-Artefakte, Evolver-Proposal und Governance-Gates statt nur generische Task-Listen.
+- Der Erststart bietet den Pfad als verstaendlichen Einstieg fuer bestehende Projekte an.
 
 Review-Check:
 - `Research Lead` nutzt DeerFlow fuer Quellen, Summary, Report und Research-Metadaten.

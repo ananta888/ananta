@@ -32,6 +32,14 @@ export class SystemApiClient {
     );
   }
 
+  getEvolutionProviders(baseUrl: string, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .get(`${baseUrl}/evolution/providers`, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(this.transport.timeoutMs), retry(this.transport.retryCount)),
+    );
+  }
+
   setConfig(baseUrl: string, cfg: unknown, token?: string): Observable<any> {
     return this.transport.unwrap(
       this.transport.http

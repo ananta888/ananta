@@ -32,8 +32,9 @@ Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwend
 - Gefuehrte Goal-Erstellung fuer Erstnutzer
 - Neues Softwareprojekt anlegen
 - Existierendes Softwareprojekt weiterentwickeln
+- Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver
 
-Details: `docs/use-cases.md`. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
+Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
 
 ## Schnellstart in 5 Minuten
 
