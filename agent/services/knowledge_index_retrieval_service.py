@@ -8,6 +8,7 @@ from typing import Any
 
 from agent.hybrid_orchestrator import ContextChunk
 from agent.repository import knowledge_index_repo, knowledge_link_repo
+from agent.services.retrieval_source_contract import normalize_chunk_metadata
 
 
 class KnowledgeIndexRetrievalService:
@@ -367,6 +368,7 @@ class KnowledgeIndexRetrievalService:
         artifact_ids: set[str] | None = None,
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
+        source_scopes: set[str] | None = None,
     ) -> list[ContextChunk]:
         query_features = self._query_features(query)
         profile = self._task_profile(task_kind, retrieval_intent)
@@ -374,6 +376,9 @@ class KnowledgeIndexRetrievalService:
         for knowledge_index in self._iter_completed_indices():
             artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
             if artifact_ids is not None and artifact_id not in artifact_ids:
+                continue
+            source_scope = str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
+            if source_scopes is not None and source_scope not in source_scopes:
                 continue
             collection_ids, collection_names = self._collection_metadata(artifact_id)
             output_dir_raw = getattr(knowledge_index, "output_dir", None)
@@ -403,33 +408,43 @@ class KnowledgeIndexRetrievalService:
                 )
                 if score <= 0:
                     continue
+                raw_metadata = {
+                    "knowledge_index_id": str(getattr(knowledge_index, "id", "")),
+                    "artifact_id": artifact_id,
+                    "record_kind": record_kind,
+                    "record_file": filename,
+                    "record_id": str(record.get("id") or "").strip() or None,
+                    "source_scope": source_scope,
+                    "profile_name": str(getattr(knowledge_index, "profile_name", "default")),
+                    "collection_ids": collection_ids,
+                    "collection_names": collection_names,
+                    "retrieval_score_breakdown": breakdown,
+                    "task_kind": str(task_kind or "").strip() or None,
+                    "retrieval_intent": str(retrieval_intent or "").strip() or None,
+                    "importance_score": record.get("importance_score"),
+                    "generated_code": bool(record.get("generated_code", False)),
+                    "duplicate_candidate": bool(str(record.get("id") or "").strip() in duplicate_ids),
+                    "boilerplate_candidate": self._is_boilerplate_candidate(
+                        record,
+                        source_hint=source,
+                        record_kind=record_kind,
+                    ),
+                    "article_title": str(record.get("article_title") or record.get("title") or "").strip() or None,
+                    "section_title": str(record.get("section_title") or record.get("heading") or "").strip() or None,
+                    "language": str(record.get("language") or record.get("lang") or "").strip() or None,
+                }
                 candidates.append(
                     ContextChunk(
                         engine="knowledge_index",
                         source=source,
                         content=record_text,
                         score=score,
-                        metadata={
-                            "knowledge_index_id": str(getattr(knowledge_index, "id", "")),
-                            "artifact_id": artifact_id,
-                            "record_kind": record_kind,
-                            "record_file": filename,
-                            "source_scope": str(getattr(knowledge_index, "source_scope", "artifact")),
-                            "profile_name": str(getattr(knowledge_index, "profile_name", "default")),
-                            "collection_ids": collection_ids,
-                            "collection_names": collection_names,
-                            "retrieval_score_breakdown": breakdown,
-                            "task_kind": str(task_kind or "").strip() or None,
-                            "retrieval_intent": str(retrieval_intent or "").strip() or None,
-                            "importance_score": record.get("importance_score"),
-                            "generated_code": bool(record.get("generated_code", False)),
-                            "duplicate_candidate": bool(str(record.get("id") or "").strip() in duplicate_ids),
-                            "boilerplate_candidate": self._is_boilerplate_candidate(
-                                record,
-                                source_hint=source,
-                                record_kind=record_kind,
-                            ),
-                        },
+                        metadata=normalize_chunk_metadata(
+                            engine="knowledge_index",
+                            source=source,
+                            content=record_text,
+                            metadata=raw_metadata,
+                        ),
                     )
                 )
         ranked = sorted(

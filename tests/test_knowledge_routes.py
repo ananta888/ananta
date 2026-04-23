@@ -105,9 +105,10 @@ def test_knowledge_collection_search_route_returns_collection_chunks(client, adm
     artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
 
     class StubKnowledgeRetrieval:
-        def search(self, query: str, *, top_k: int = 4, artifact_ids=None):
+        def search(self, query: str, *, top_k: int = 4, artifact_ids=None, source_scopes=None):
             assert query == "timeout"
             assert artifact_ids == {artifact_id}
+            assert source_scopes is None
             return [
                 SimpleNamespace(
                     engine="knowledge_index",
@@ -129,6 +130,7 @@ def test_knowledge_collection_search_route_returns_collection_chunks(client, adm
     assert response.status_code == 200
     payload = response.get_json()["data"]
     assert payload["collection"]["id"] == collection_id
+    assert payload["source_policy"]["effective_scopes"] == ["artifact"]
     assert payload["chunks"][0]["engine"] == "knowledge_index"
     assert payload["chunks"][0]["metadata"]["artifact_id"] == artifact_id
 
@@ -185,3 +187,41 @@ def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth
     status_res = client.get("/knowledge/index-jobs/job-collection-1", headers=admin_auth_header)
     assert status_res.status_code == 200
     assert status_res.get_json()["data"]["job"]["status"] == "completed"
+
+
+def test_knowledge_collection_search_route_accepts_source_type_policy(client, admin_auth_header, monkeypatch):
+    create_res = client.post(
+        "/knowledge/collections",
+        headers=admin_auth_header,
+        json={"name": "team-docs"},
+    )
+    collection_id = create_res.get_json()["data"]["id"]
+
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"collection_name": "team-docs", "file": (BytesIO(b"# Hello\nartifact body"), "README.md")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    class StubKnowledgeRetrieval:
+        def search(self, query: str, *, top_k: int = 4, artifact_ids=None, source_scopes=None):
+            assert query == "timeout"
+            assert top_k == 3
+            assert artifact_ids == {artifact_id}
+            assert source_scopes == {"artifact"}
+            return []
+
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_retrieval_service", lambda: StubKnowledgeRetrieval())
+
+    response = client.post(
+        f"/knowledge/collections/{collection_id}/search",
+        headers=admin_auth_header,
+        json={"query": "timeout", "top_k": 3, "source_types": ["artifact"]},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["source_policy"]["requested"] == ["artifact"]
+    assert payload["source_policy"]["effective_scopes"] == ["artifact"]

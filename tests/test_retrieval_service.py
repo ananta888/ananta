@@ -63,10 +63,11 @@ class _FakeRedactingOrchestrator(_FakeOrchestrator):
 
 
 class _FakeKnowledgeIndexRetrievalService:
-    def search(self, query: str, *, top_k: int, task_kind=None, retrieval_intent=None):
+    def search(self, query: str, *, top_k: int, task_kind=None, retrieval_intent=None, source_scopes=None):
         self.last_top_k = top_k
         self.last_task_kind = task_kind
         self.last_retrieval_intent = retrieval_intent
+        self.last_source_scopes = set(source_scopes or [])
         del query
         return [
             ContextChunk(
@@ -107,6 +108,7 @@ def test_retrieval_service_merges_knowledge_index_chunks():
     assert knowledge.last_top_k >= 1
     assert payload["strategy"]["fusion"]["mode"] == "deterministic_v2"
     assert payload["strategy"]["fusion"]["candidate_counts"]["knowledge_index"] == 1
+    assert knowledge.last_source_scopes == {"artifact"}
     assert isinstance(payload["strategy"]["fusion"]["final_ranked_sources"], list)
     assert [stage["stage"] for stage in payload["strategy"]["fusion"]["selection_stages"]] == [
         "all_candidates",
@@ -245,3 +247,35 @@ def test_retrieval_service_selection_stage_trace_stays_deterministic():
     assert selection_stages[-1]["stage"] == "final"
     assert selection_stages[-1]["count"] == payload["strategy"]["fusion"]["candidate_counts"]["final"]
     assert selection_stages[-1]["top"][0]["engine"] == payload["chunks"][0]["engine"]
+
+
+def test_retrieval_service_supports_repo_only_source_filter():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("timeout", source_types=["repo"])
+
+    assert payload["strategy"]["source_policy"]["effective"] == ["repo"]
+    assert payload["strategy"]["knowledge_index"] == 0
+    assert payload["strategy"]["result_memory"] == 0
+    assert [chunk["engine"] for chunk in payload["chunks"]] == ["repository_map"]
+
+
+def test_retrieval_service_normalizes_chunk_metadata_with_source_and_citation():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("timeout")
+
+    for chunk in payload["chunks"]:
+        metadata = dict(chunk.get("metadata") or {})
+        assert metadata.get("source_type")
+        assert metadata.get("source_id")
+        assert metadata.get("chunk_id")
+        citation = dict(metadata.get("citation") or {})
+        assert citation.get("source_type") == metadata.get("source_type")
+        assert citation.get("source_id") == metadata.get("source_id")
