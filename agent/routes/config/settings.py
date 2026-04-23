@@ -250,6 +250,13 @@ def set_config():
         merged_artifact_flow = (current_cfg.get("artifact_flow", {}) or {}).copy()
         merged_artifact_flow.update(new_cfg["artifact_flow"])
         new_cfg = {**new_cfg, "artifact_flow": shared.normalize_artifact_flow_config(merged_artifact_flow)}
+    if "doom_loop_policy" in new_cfg:
+        doom_loop_cfg = new_cfg.get("doom_loop_policy")
+        if not isinstance(doom_loop_cfg, dict):
+            return api_response(status="error", message="invalid_doom_loop_policy", code=400)
+        merged_doom_loop_policy = (current_cfg.get("doom_loop_policy", {}) or {}).copy()
+        merged_doom_loop_policy.update(doom_loop_cfg)
+        new_cfg = {**new_cfg, "doom_loop_policy": shared.normalize_doom_loop_policy_config(merged_doom_loop_policy)}
 
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg

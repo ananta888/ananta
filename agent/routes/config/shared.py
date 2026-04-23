@@ -25,6 +25,13 @@ _DEFAULT_BENCH_PROVIDER_ORDER = DEFAULT_BENCH_PROVIDER_ORDER
 _DEFAULT_BENCH_RETENTION = DEFAULT_BENCH_RETENTION
 _SENSITIVE_CONFIG_KEYS = {"token", "secret", "password", "api_key"}
 _HUB_COPILOT_ALLOWED_MODES = {"planning_only", "planning_and_routing"}
+_DOOM_LOOP_ACTIONS = {"warn", "inject_correction", "require_review", "pause", "abort"}
+_DOOM_LOOP_DEFAULT_SEVERITY_ACTIONS = {
+    "low": "warn",
+    "medium": "inject_correction",
+    "high": "require_review",
+    "critical": "pause",
+}
 
 
 def normalize_artifact_flow_config(value: dict | None) -> dict:
@@ -51,6 +58,34 @@ def normalize_artifact_flow_config(value: dict | None) -> dict:
         "rag_include_content": bool(payload.get("rag_include_content", False)),
         "max_tasks": max_tasks,
         "max_worker_jobs_per_task": max_worker_jobs_per_task,
+    }
+
+
+def normalize_doom_loop_policy_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    severity_actions_payload = dict(payload.get("severity_actions") or {})
+    severity_actions = dict(_DOOM_LOOP_DEFAULT_SEVERITY_ACTIONS)
+    for level in ("low", "medium", "high", "critical"):
+        candidate = str(severity_actions_payload.get(level) or severity_actions[level]).strip().lower()
+        severity_actions[level] = candidate if candidate in _DOOM_LOOP_ACTIONS else severity_actions[level]
+
+    def _clamp_int(raw, *, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value_int = int(raw)
+        except (TypeError, ValueError):
+            value_int = default
+        return max(minimum, min(maximum, value_int))
+
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "lookback_signals": _clamp_int(payload.get("lookback_signals"), default=40, minimum=8, maximum=200),
+        "repeated_tool_call_threshold": _clamp_int(payload.get("repeated_tool_call_threshold"), default=4, minimum=2, maximum=50),
+        "repeated_failure_threshold": _clamp_int(payload.get("repeated_failure_threshold"), default=4, minimum=2, maximum=50),
+        "no_progress_threshold": _clamp_int(payload.get("no_progress_threshold"), default=5, minimum=2, maximum=80),
+        "oscillation_threshold": _clamp_int(payload.get("oscillation_threshold"), default=4, minimum=4, maximum=50),
+        "critical_abort_threshold": _clamp_int(payload.get("critical_abort_threshold"), default=8, minimum=4, maximum=120),
+        "severity_actions": severity_actions,
+        "enforce_pause_abort": bool(payload.get("enforce_pause_abort", False)),
     }
 
 

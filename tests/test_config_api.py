@@ -270,6 +270,49 @@ def test_artifact_flow_config_is_normalized_and_merged(client, admin_token):
     }
 
 
+def test_doom_loop_policy_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    first = {
+        "doom_loop_policy": {
+            "enabled": True,
+            "lookback_signals": 999,
+            "repeated_tool_call_threshold": 1,
+            "repeated_failure_threshold": -3,
+            "no_progress_threshold": 1,
+            "oscillation_threshold": 1,
+            "critical_abort_threshold": 3,
+            "severity_actions": {"critical": "ABORT", "medium": "unknown"},
+            "enforce_pause_abort": True,
+        }
+    }
+    response = client.post("/config", json=first, headers=headers)
+    assert response.status_code == 200
+
+    second = {"doom_loop_policy": {"severity_actions": {"high": "pause"}}}
+    response = client.post("/config", json=second, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["doom_loop_policy"] == {
+        "enabled": True,
+        "lookback_signals": 200,
+        "repeated_tool_call_threshold": 2,
+        "repeated_failure_threshold": 2,
+        "no_progress_threshold": 2,
+        "oscillation_threshold": 4,
+        "critical_abort_threshold": 4,
+        "severity_actions": {
+            "low": "warn",
+            "medium": "inject_correction",
+            "high": "pause",
+            "critical": "abort",
+        },
+        "enforce_pause_abort": True,
+    }
+
+
 def test_model_override_maps_are_normalized(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     response = client.post(
