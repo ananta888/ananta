@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "generic_agent_control_and_ml_intern_worker",
-  "updated_at": "2026-04-24T00:54:59+02:00",
+  "updated_at": "2026-04-24T00:59:12+02:00",
   "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -141,7 +141,7 @@
     {
       "id": "GAC-T08",
       "title": "Tool capability catalog normalize",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "tool_routing",
       "depends_on": ["GAC-T07"],
@@ -154,7 +154,7 @@
     {
       "id": "GAC-T09",
       "title": "Reusable tool routing service implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "tool_routing",
       "depends_on": ["GAC-T07", "GAC-T08"],
@@ -167,7 +167,7 @@
     {
       "id": "GAC-T10",
       "title": "Routing diagnostics and decision traces expose",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "tool_routing",
       "depends_on": ["GAC-T09"],
@@ -193,7 +193,7 @@
     {
       "id": "GAC-T12",
       "title": "Approval check service implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "approval_governance",
       "depends_on": ["GAC-T11"],
@@ -206,7 +206,7 @@
     {
       "id": "GAC-T13",
       "title": "Approval state UX/read-model surface add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "approval_governance",
       "depends_on": ["GAC-T12"],
@@ -336,7 +336,7 @@
     {
       "id": "GAC-T23",
       "title": "Optional ml-intern worker adapter boundary define",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "phase": "optional_ml_intern",
       "depends_on": ["GAC-T22"],
@@ -375,7 +375,7 @@
     {
       "id": "GAC-T26",
       "title": "Future specialized worker guidance isolate",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "phase": "optional_ml_intern",
       "depends_on": ["GAC-T22"],
@@ -387,15 +387,15 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:54:59+02:00",
+    "updated_at": "2026-04-24T00:59:12+02:00",
     "total": 26,
     "by_status": {
-      "todo": 16,
+      "todo": 9,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
+      "done": 17
     },
-    "progress_percent_done": 38.5,
+    "progress_percent_done": 65.4,
     "by_priority": {
       "P0": 12,
       "P1": 10,
@@ -415,13 +415,13 @@
       },
       "tool_routing": {
         "total": 4,
-        "done": 1,
-        "todo": 3
+        "done": 4,
+        "todo": 0
       },
       "approval_governance": {
         "total": 3,
-        "done": 1,
-        "todo": 2
+        "done": 3,
+        "todo": 0
       },
       "context_management": {
         "total": 5,
@@ -435,20 +435,20 @@
       },
       "optional_ml_intern": {
         "total": 5,
-        "done": 1,
-        "todo": 4
+        "done": 3,
+        "todo": 2
       }
     },
     "recommended_first_bundle": [
-      "GAC-T08",
-      "GAC-T09",
-      "GAC-T10",
-      "GAC-T12",
-      "GAC-T13",
       "GAC-T15",
       "GAC-T17",
       "GAC-T18",
-      "GAC-T23"
+      "GAC-T19",
+      "GAC-T20",
+      "GAC-T16",
+      "GAC-T21",
+      "GAC-T24",
+      "GAC-T25"
     ]
   }
 }

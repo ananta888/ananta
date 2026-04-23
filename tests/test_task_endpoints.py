@@ -684,6 +684,8 @@ def test_task_execute_retries_retryable_exit_codes_and_reports_failure_type(clie
         assert loop_signals[0]["failure_type"] != "success"
         assert loop_signals[1]["failure_type"] == "success"
         assert latest.get("loop_detection") is None
+        approval_decision = dict(latest.get("approval_decision") or {})
+        assert approval_decision.get("classification") in {"allow", "confirm_required"}
 
 
 def test_task_execute_timeout_can_disable_retry(client, app, admin_auth_header):
@@ -724,6 +726,8 @@ def test_task_execute_timeout_can_disable_retry(client, app, admin_auth_header):
         loop_signals = list(latest.get("loop_signals") or [])
         assert len(loop_signals) == 1
         assert loop_signals[0]["failure_type"] == "timeout"
+        approval_decision = dict(latest.get("approval_decision") or {})
+        assert approval_decision.get("classification") in {"allow", "confirm_required"}
 
 
 def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path, admin_auth_header):

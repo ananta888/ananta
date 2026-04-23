@@ -348,6 +348,7 @@ class TaskScopedExecutionService:
                 "workspace_artifact_count": len(workspace_artifact_refs),
                 "loop_signals": execution_run.loop_signals,
                 "loop_detection": execution_run.loop_detection,
+                "approval_decision": execution_run.approval_decision,
             },
         )
 

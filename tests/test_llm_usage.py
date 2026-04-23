@@ -147,6 +147,11 @@ def test_llm_generate_returns_routing_metadata(client, app):
     assert (routing.get("effective") or {}).get("provider") == "lmstudio"
     assert (routing.get("effective") or {}).get("model") == "model-x"
     assert (routing.get("fallback") or {}).get("provider_source") == "request.config.provider"
+    tool_router = routing.get("tool_router") or {}
+    assert tool_router.get("catalog_version") == "tool-router-v1"
+    decision = tool_router.get("decision") or {}
+    assert decision.get("policy_version") == "tool-router-v1"
+    assert isinstance(decision.get("alternatives"), list)
 
 
 def test_llm_generate_error_response_contains_routing_metadata(client, app):
