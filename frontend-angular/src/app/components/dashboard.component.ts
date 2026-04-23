@@ -470,6 +470,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   guidedGoalResetKey = 0;
   firstStartOptions: ModeCardOption[] = [
     { id: 'new-software-project', title: 'Neues Projekt anlegen', description: 'Aus einer Idee Blueprint, Backlog und erste pruefbare Tasks erzeugen.' },
+    { id: 'research-evolution', title: 'Mit Research starten', description: 'Ein bestehendes Projekt ueber Recherche, Proposal und Review weiterentwickeln.' },
     { id: 'project-evolution', title: 'Projekt weiterentwickeln', description: 'Ein bestehendes Projekt in kleinen reviewbaren Schritten veraendern.' },
     { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und kontrolliert als echte Ziele starten.' },
   ];
@@ -767,7 +768,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadDemoPreview();
       return;
     }
-    if (choice === 'new-software-project' || choice === 'project-evolution') {
+    if (choice === 'new-software-project' || choice === 'project-evolution' || choice === 'research-evolution') {
       this.applyGoalPresetById(choice);
       return;
     }
@@ -1147,6 +1148,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'change-review': 'Findings nach Schweregrad durchgehen und Tests priorisieren.',
       'guided-first-run': 'Goal pruefen und danach Aufgaben oder Artefakte oeffnen.',
       'new-software-project': 'Blueprint und Initial-Tasks pruefen, danach den kleinsten Startschritt waehlen.',
+      'research-evolution': 'Research-Artefakt pruefen, Proposal reviewen und erst dann die naechste kleine Aenderung starten.',
       'project-evolution': 'Risiken und betroffene Tests pruefen, dann die kleinste Aenderung starten.',
     };
     return nextActions[id] || 'Aufgaben verfolgen und Ergebnisse pruefen.';
@@ -1223,6 +1225,17 @@ const DEFAULT_GOAL_PRESETS: DemoPreviewExample[] = [
     outcome: 'Reviewbarer Projekt-Blueprint mit kleinen Initial-Tasks.',
     tasks: ['Projektidee klaeren', 'Blueprint erstellen', 'Initial-Tasks priorisieren'],
     starter_context: 'Fokus: neuer Projektstart, sichere Defaults, keine Vollautomatik ohne Review.',
+  },
+  {
+    id: 'research-evolution',
+    title: 'Research -> Proposal -> Review',
+    goal: 'Erweitere ein bestehendes Projekt um ein kleines Feature; recherchiere zuerst relevante Quellen und erstelle danach reviewbare Evolver-Proposals.',
+    outcome: 'Research-Bericht, reviewbares Proposal und sichtbares Review-Gate.',
+    tasks: ['Scope schaerfen', 'Research-Artefakt erstellen', 'Proposal und Review-Gate vorbereiten'],
+    starter_context: 'Fokus: DeerFlow fuer Recherche, danach Evolver fuer kontrollierte Proposals. Keine impliziten Apply-Schritte.',
+    path_summary: 'Der Standardpfad fuehrt von Goal ueber Research zu Proposal und Review, nicht direkt zu verdeckter Ausfuehrung.',
+    artifacts: ['Research Summary', 'Source List', 'Evolver Proposal', 'Review Gate'],
+    governance: ['Hub haelt Review und Policy sichtbar.', 'Apply bleibt standardmaessig deaktiviert.'],
   },
   {
     id: 'project-evolution',

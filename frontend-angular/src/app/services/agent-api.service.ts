@@ -31,6 +31,9 @@ export class AgentApiService {
   getConfig(baseUrl: string, token?: string): Observable<any> {
     return this.system.getConfig(baseUrl, token);
   }
+  getEvolutionProviders(baseUrl: string, token?: string): Observable<any> {
+    return this.system.getEvolutionProviders(baseUrl, token);
+  }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
     return this.system.setConfig(baseUrl, cfg, token);
   }

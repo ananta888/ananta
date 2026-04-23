@@ -414,8 +414,14 @@
           "priority": "P1",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/settings.component.spec.ts",
+            "frontend-angular/src/app/services/system-api.client.ts",
+            "frontend-angular/src/app/services/agent-api.service.ts"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -435,7 +441,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Die Settings zeigen jetzt einen eigenen Evolution-Statusblock statt nur Roh-Konfiguration.",
+            "Operatoren sehen Mode, Health, Validate-/Apply-Gates und provider-spezifische Fail-Closed-Gruende.",
+            "Riskante Kombinationen wie Apply ohne Review-Zwang werden als Warnungen sichtbar gemacht."
+          ],
+          "implementation_notes": [
+            "frontend-angular/src/app/components/settings.component.ts laedt /evolution/providers ueber einen neuen shared API-Pfad und rendert Health, Capability-Matrix und Warnings.",
+            "frontend-angular/src/app/services/system-api.client.ts und frontend-angular/src/app/services/agent-api.service.ts expose'n den Evolution-Provider-Read-Path additiv.",
+            "frontend-angular/src/app/components/settings.component.spec.ts sichert den neuen UI/Policy-Statuspfad und provider fail-closed warnings ab."
+          ]
         },
         {
           "id": "EVOLVER-T10",
@@ -930,8 +946,13 @@
           "priority": "P1",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "agent/services/demo_mode_service.py",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.spec.ts"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -951,7 +972,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Der Standardpfad ist jetzt als sichtbarer Erststart-Einstieg und als Preset im Dashboard vorhanden.",
+            "Die Benennung erklaert den Problemfluss `Research -> Proposal -> Review` statt interne Tool-Namen in den Vordergrund zu stellen.",
+            "Der Einstieg bleibt additiv; bestehende `new-software-project` und `project-evolution` Pfade bleiben unveraendert verfuegbar."
+          ],
+          "implementation_notes": [
+            "frontend-angular/src/app/components/dashboard.component.ts fuegt `research-evolution` als First-Start-Option und Goal-Preset hinzu.",
+            "agent/services/demo_mode_service.py liefert dafuer das offizielle Demo-Beispiel mit passendem Goal und Kontext.",
+            "frontend-angular/src/app/components/dashboard.component.spec.ts prueft den neuen sichtbaren Einstieg und das Erwartungsbild im Quick-Goal-Pfad."
+          ]
         },
         {
           "id": "BP-T10",
@@ -960,8 +991,14 @@
           "priority": "P1",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "agent/services/demo_mode_service.py",
+            "frontend-angular/src/app/components/dashboard-demo-preview.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "tests/test_demo_mode.py"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -981,7 +1018,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Die Demo-/Dashboard-Vorschau zeigt jetzt fachliche Zwischenartefakte und Governance statt nur Titel plus Task-Liste.",
+            "Research-Artefakte, Evolver-Proposal und Review-Gates sind im Preview-Read-Model explizit sichtbar.",
+            "Dadurch wird der zusammengesetzte Standardpfad fuer Nutzer und Reviewer ohne Log-Inspektion nachvollziehbar."
+          ],
+          "implementation_notes": [
+            "agent/services/demo_mode_service.py erweitert Demo-Beispiele um path_summary, artifacts und governance.",
+            "frontend-angular/src/app/components/dashboard-demo-preview.component.ts rendert diese Read-Model-Felder additiv im UI.",
+            "tests/test_demo_mode.py sichert den Research-Evolution-Pfad mit sichtbaren Artefakten und Governance-Signalen ab."
+          ]
         },
         {
           "id": "BP-T11",
@@ -990,8 +1037,13 @@
           "priority": "P1",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "docs/demo-flows.md",
+            "docs/use-cases.md",
+            "README.md"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -1011,7 +1063,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Der offizielle DeerFlow+Evolver-Standardpfad ist jetzt in Demo-Flow, Use-Case und README referenziert.",
+            "Die Dokumentation beschreibt den Mehrwert problemorientiert ueber den Ablauf Research -> Proposal -> Review.",
+            "Der sichtbare UI-Einstieg ist in der Doku mit dem Team-Blueprint-Pfad abgestimmt."
+          ],
+          "implementation_notes": [
+            "docs/demo-flows.md beschreibt fuer Flow H jetzt den Dashboard-Einstieg und die sichtbaren UI-Signale.",
+            "docs/use-cases.md nennt den Dashboard-Einstieg fuer UC8 explizit.",
+            "README.md fuegt den Standardpfad in die offiziellen Kern-Use-Cases und Link-Hinweise ein."
+          ]
         },
         {
           "id": "BP-T12",
@@ -1020,8 +1082,13 @@
           "priority": "P1",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "tests/test_demo_mode.py",
+            "frontend-angular/src/app/components/dashboard.component.spec.ts",
+            "frontend-angular/src/app/components/settings.component.spec.ts"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -1041,7 +1108,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Der Standardpfad ist jetzt mindestens als kombinierter Smoke-Test ueber Demo-Read-Model und Dashboard-Einstieg abgesichert.",
+            "Research-Stage, Proposal-Stage und Governance-Gates werden in den neuen Tests sichtbar validiert.",
+            "Zusaetzlich ist der Evolution-Settings-Pfad regressionssicher mit Unit-Tests fuer die UI-/Policy-Sicht."
+          ],
+          "implementation_notes": [
+            "tests/test_demo_mode.py prueft den offiziellen `research-evolution` Preview-Pfad auf Artefakte und Governance-Signale.",
+            "frontend-angular/src/app/components/dashboard.component.spec.ts sichert First-Start- und Preset-Einstieg fuer den Standardpfad.",
+            "frontend-angular/src/app/components/settings.component.spec.ts deckt den Evolution-Statuspfad inklusive provider fail-closed warnings ab."
+          ]
         }
       ]
     }
@@ -1049,9 +1126,9 @@
   "meta": {
     "total_items": 23,
     "by_status": {
-      "completed": 18,
+      "completed": 23,
       "partial": 0,
-      "open": 5
+      "open": 0
     },
     "notes": [
       "Diese Roadmap beschreibt die kontrollierte Evolver-Integration und den Standard-Blueprint-Pfad mit DeerFlow und Evolver.",

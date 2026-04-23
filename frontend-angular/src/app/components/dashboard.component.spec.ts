@@ -95,6 +95,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.showAdvancedDashboard = false;
     cmp.firstStartOptions = [
       { id: 'new-software-project', title: 'Neues Projekt anlegen', description: 'Aus einer Idee Blueprint, Backlog und erste pruefbare Tasks erzeugen.' },
+      { id: 'research-evolution', title: 'Mit Research starten', description: 'Ein bestehendes Projekt ueber Recherche, Proposal und Review weiterentwickeln.' },
       { id: 'project-evolution', title: 'Projekt weiterentwickeln', description: 'Ein bestehendes Projekt in kleinen reviewbaren Schritten veraendern.' },
       { id: 'demo', title: 'Demo ansehen', description: 'Beispiele lesen und kontrolliert als echte Ziele starten.' },
     ];
@@ -278,6 +279,7 @@ describe('DashboardComponent (benchmarks)', () => {
 
     expect(cmp.firstStartOptions.map(option => option.id)).toEqual([
       'new-software-project',
+      'research-evolution',
       'project-evolution',
       'demo',
     ]);
@@ -308,6 +310,18 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.quickGoalContext).toBe('Kontext');
     expect(cmp.selectedPresetId).toBe('bugfix-plan');
     expect(cmp.currentQuickGoalExpectation()?.expectedResult).toContain('Regressionstest');
+    expect(cmp.focusQuickGoal).toHaveBeenCalled();
+  });
+
+  it('offers the research-evolution path as a visible first-start and preset option', () => {
+    const cmp = createComponent();
+    cmp.focusQuickGoal = vi.fn();
+
+    cmp.chooseFirstStart('research-evolution');
+
+    expect(cmp.selectedPresetId).toBe('research-evolution');
+    expect(cmp.quickGoalText).toContain('recherchiere zuerst relevante Quellen');
+    expect(cmp.currentQuickGoalExpectation()?.nextAction).toContain('Research-Artefakt pruefen');
     expect(cmp.focusQuickGoal).toHaveBeenCalled();
   });
 

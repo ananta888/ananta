@@ -12,6 +12,9 @@ class DemoExample:
     outcome: str
     tasks: tuple[str, ...]
     starter_context: str
+    path_summary: str = ""
+    artifacts: tuple[str, ...] = ()
+    governance: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -21,6 +24,9 @@ class DemoExample:
             "outcome": self.outcome,
             "tasks": list(self.tasks),
             "starter_context": self.starter_context,
+            "path_summary": self.path_summary,
+            "artifacts": list(self.artifacts),
+            "governance": list(self.governance),
         }
 
 
@@ -93,6 +99,27 @@ class DemoModeService:
                 outcome="Ein kleiner, verifizierbarer Aenderungsplan fuer ein bestehendes Repository.",
                 tasks=("Ist-Kontext schaerfen", "Aenderungsschritte zerlegen", "Tests und Risiken pruefen"),
                 starter_context="Fokus: aktive Weiterentwicklung statt reiner Analyse, kleine pruefbare Schritte.",
+            ),
+            DemoExample(
+                id="research-evolution",
+                title="Research -> Proposal -> Review",
+                goal=(
+                    "Erweitere ein bestehendes Projekt um ein kleines Feature; recherchiere zuerst "
+                    "relevante Quellen und erstelle danach reviewbare Evolver-Proposals."
+                ),
+                outcome="Research-Bericht, reviewbares Proposal und ein sichtbares Review-Gate fuer die naechsten Schritte.",
+                tasks=("Scope schaerfen", "Research-Artefakt erstellen", "Proposal und Review-Gate vorbereiten"),
+                starter_context=(
+                    "Fokus: erst Recherche und Kontextbericht mit DeerFlow, dann reviewbare Evolver-Vorschlaege. "
+                    "Keine impliziten Apply-Schritte ohne Review."
+                ),
+                path_summary="DeerFlow liefert Kontext und Quellen; Evolver erzeugt daraus Proposals; der Hub haelt Review, Policy und Folge-Tasks sichtbar.",
+                artifacts=("Research Summary", "Source List", "Evolver Proposal", "Review Gate"),
+                governance=(
+                    "Hub bleibt Besitzer von Queue, Review und Policy-Entscheidungen.",
+                    "Apply bleibt standardmaessig deaktiviert.",
+                    "Review ist vor spaeterer Validation oder Apply-Freigabe sichtbar.",
+                ),
             ),
         )
         return {

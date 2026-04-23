@@ -114,7 +114,7 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Fuer wen:** Teams, die eine bestehende Codebasis mit externer Recherche, Review und kontrollierten Evolutionsvorschlaegen weiterentwickeln wollen.
 
-**Einstieg:** Team-Blueprint `Research-Evolution` instanziieren oder den Demo-Flow `Research -> Proposal -> Review` nutzen.
+**Einstieg:** Dashboard -> `Mit Research starten`, Demo-Flow `Research -> Proposal -> Review` oder Team-Blueprint `Research-Evolution`.
 
 **Guter Input:** `Erweitere ein bestehendes Projekt um ein kleines Feature; recherchiere zuerst relevante Quellen und erstelle danach reviewbare Evolver-Proposals.`
 

@@ -10,6 +10,9 @@ export interface DemoPreviewExample {
   outcome: string;
   tasks: string[];
   starter_context?: string;
+  path_summary?: string;
+  artifacts?: string[];
+  governance?: string[];
 }
 
 @Component({
@@ -43,11 +46,34 @@ export interface DemoPreviewExample {
               <h4>{{ example.title }}</h4>
               <p class="muted">{{ example.goal }}</p>
               <strong>{{ example.outcome }}</strong>
+              @if (example.path_summary) {
+                <p class="muted font-sm mt-sm">{{ example.path_summary }}</p>
+              }
               <ul>
                 @for (task of example.tasks; track task) {
                   <li>{{ task }}</li>
                 }
               </ul>
+              @if (example.artifacts?.length) {
+                <div class="mt-sm">
+                  <strong>Zwischenartefakte</strong>
+                  <ul>
+                    @for (artifact of example.artifacts || []; track artifact) {
+                      <li>{{ artifact }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (example.governance?.length) {
+                <div class="mt-sm">
+                  <strong>Governance</strong>
+                  <ul>
+                    @for (item of example.governance || []; track item) {
+                      <li>{{ item }}</li>
+                    }
+                  </ul>
+                </div>
+              }
               <button class="primary btn-small mt-sm" type="button" (click)="startExample.emit(example)" [disabled]="busy">
                 Als Goal starten
               </button>

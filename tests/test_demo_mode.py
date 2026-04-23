@@ -13,9 +13,20 @@ def test_demo_mode_preview_is_read_only_and_use_case_oriented():
         "compose-diagnosis",
         "change-review",
         "guided-first-run",
+        "research-evolution",
     }
     assert all(example["goal"] and example["tasks"] for example in preview["examples"])
     assert all(example["starter_context"] for example in preview["examples"])
+
+
+def test_demo_mode_preview_surfaces_research_evolution_standard_path():
+    preview = DemoModeService().preview()
+
+    example = next(item for item in preview["examples"] if item["id"] == "research-evolution")
+
+    assert "DeerFlow" in example["path_summary"]
+    assert "Evolver Proposal" in example["artifacts"]
+    assert any("Apply bleibt standardmaessig deaktiviert" in item for item in example["governance"])
 
 
 def test_demo_preview_route_requires_auth_and_returns_isolated_preview(client, auth_header):
