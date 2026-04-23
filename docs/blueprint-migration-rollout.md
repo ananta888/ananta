@@ -2,6 +2,8 @@
 
 Diese Anleitung beschreibt den sicheren Rollout der aktuellen Blueprint-/Template-Haertungen in produktionsnahen Umgebungen.
 
+> Admin-/Rollout-Dokument: fuer normale Produktnutzung zuerst `docs/blueprint-product-model.md` und `docs/standard-blueprints.md` verwenden.
+
 ## Betroffene Migrationen
 
 1. `c9d0e1f2a3b4_add_blueprint_child_uniqueness.py`

@@ -13,6 +13,8 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | --- | --- | --- |
 | Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
 | Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
+| Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |
+| Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |
 | Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |
 | Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |
 | Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |
@@ -90,6 +92,8 @@ Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
 - Container-Release-Strategie: `docs/container-release-strategy.md`
 - AI-assisted Development Policy: `docs/ai-assisted-development.md`
 - Security Policy: `.github/SECURITY.md`
+- Blueprint Admin/Studio: `docs/blueprint-admin.md`, `docs/blueprint-studio-roadmap.md`
+- Blueprint Rollout/Migration: `docs/blueprint-migration-rollout.md`
 
 ## Manifest fuer verantwortliche Agentenentwicklung
 

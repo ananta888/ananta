@@ -227,7 +227,7 @@
     {
       "id": "BTS-T15",
       "title": "Default outputs for standard blueprints define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T04", "BTS-T06"],
@@ -266,7 +266,7 @@
     {
       "id": "BTS-T18",
       "title": "Documentation rewrite for public blueprint usage add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "documentation_rollout",
       "depends_on": ["BTS-T01", "BTS-T02", "BTS-T03", "BTS-T10"],
@@ -279,7 +279,7 @@
     {
       "id": "BTS-T19",
       "title": "Keep admin rollout and migration docs separate",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "documentation_rollout",
       "depends_on": ["BTS-T18"],
@@ -292,7 +292,7 @@
     {
       "id": "BTS-T20",
       "title": "Standard blueprint examples package",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "blueprint_catalog",
       "depends_on": ["BTS-T04", "BTS-T15"],
@@ -344,7 +344,7 @@
     {
       "id": "BTS-T24",
       "title": "Future advanced studio roadmap isolate",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "phase": "documentation_rollout",
       "depends_on": ["BTS-T08", "BTS-T19"],
@@ -356,16 +356,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T23:10:17+02:00",
+    "updated_at": "2026-04-23T23:57:41+02:00",
     "total": 24,
     "by_status": {
-      "todo": 14,
+      "todo": 9,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 10
+      "done": 15
     },
-    "progress_percent_done": 41.7,
+    "progress_percent_done": 62.5,
     "by_priority": {
       "P0": 12,
       "P1": 11,
@@ -381,9 +381,9 @@
       },
       "blueprint_catalog": {
         "total": 7,
-        "done": 3,
+        "done": 5,
         "partial": 0,
-        "todo": 4
+        "todo": 2
       },
       "ux_simplification": {
         "total": 9,
@@ -393,9 +393,9 @@
       },
       "documentation_rollout": {
         "total": 5,
-        "done": 0,
+        "done": 3,
         "partial": 0,
-        "todo": 5
+        "todo": 2
       }
     },
     "recommended_first_bundle": [

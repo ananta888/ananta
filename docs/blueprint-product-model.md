@@ -1,6 +1,6 @@
 # Blueprint Product Model (Standard Mode)
 
-Dieses Dokument beschreibt das oeffentliche, nutzerorientierte Modell fuer Team-Start in Ananta.
+Dieses Dokument ist der kurze Produktleitfaden fuer normale Nutzer. Es erklaert nur die drei Kernbegriffe und den empfohlenen Startweg.
 
 ## Public model
 
@@ -10,13 +10,22 @@ Die Standard-Sprache fuer Produktnutzer ist:
 - **Blueprint**: Zusammenstellung aus Rollen, Role Templates, Starter-Artefakten und Governance-Hinweisen.
 - **Team**: Laufende Instanz eines Blueprints fuer konkrete Ausfuehrung.
 
+## Was nutze ich wann?
+
+- **Blueprint**: Wenn du strukturiert starten willst und eine klare Standardvorgehensweise brauchst.
+- **Role Template**: Wenn du Rollenanweisungen wiederverwendbar machen oder gezielt aendern willst.
+- **Team**: Wenn die eigentliche Arbeit laeuft und Aufgaben ausgefuehrt werden.
+
+Merksatz: **Blueprint waehlen -> Team starten -> Arbeit ausfuehren**.
+
 ## Standard entry path
 
 Der empfohlene Einstieg bleibt bewusst einfach:
 
-1. Blueprint waehlen.
-2. Team aus Blueprint instanziieren.
-3. Arbeit starten und nur bei Bedarf in den Advanced-Modus wechseln.
+1. Blueprint passend zum Ziel waehlen.
+2. Vorschau der Start-Rollen und Start-Aufgaben pruefen.
+3. Team aus Blueprint instanziieren.
+4. Arbeit starten und nur bei Bedarf in den Advanced-Modus wechseln.
 
 Nutzer sollen nicht zuerst manuell Teams, Rollen und Templates zusammenbauen muessen.
 
@@ -42,3 +51,17 @@ Im Standardmodus werden stattdessen vereinfachte Team-Zustaende gezeigt:
 - `Standard`
 - `Angepasst`
 - `Aktualisierbar`
+
+## Dokumente nach Zielgruppe
+
+**Standardnutzer (Produktweg):**
+
+- `docs/blueprint-product-model.md` (dieses Dokument)
+- `docs/standard-blueprints.md`
+
+**Admin/Studio und Rollout:**
+
+- `docs/blueprint-admin.md`
+- `docs/blueprint-migration-rollout.md`
+- `docs/blueprint-bundle-import-export.md`
+- `docs/blueprint-studio-roadmap.md`
