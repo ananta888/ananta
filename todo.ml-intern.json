@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "generic_agent_control_and_ml_intern_worker",
+  "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "Ananta should gain stronger generic safeguards and loop-control primitives across CLI, research, evolution and future workers, without coupling the platform to one external agent implementation.",
+  "success_criteria": [
+    "Doom-loop detection works as a generic platform mechanism across task and tool execution paths.",
+    "Tool routing becomes a clearer reusable subsystem instead of scattered per-path logic.",
+    "Sensitive operations use one consistent approval model across Ananta subsystems.",
+    "Context collection, budgeting and compaction are handled by a clearer shared context management layer.",
+    "ml-intern can be evaluated or integrated only as an optional specialized worker/backend, not as a competing control plane."
+  ],
+  "tasks": [
+    {
+      "id": "GAC-T01",
+      "title": "Cross-cutting control layer design define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A design note explains how doom-loop detection, tool routing, approval checks and context management fit into Ananta as platform concerns.",
+        "The design states clearly which logic belongs to hub, execution backends and optional specialized workers.",
+        "The design avoids creating a second orchestration system inside a worker."
+      ]
+    },
+    {
+      "id": "GAC-T02",
+      "title": "Doom-loop detection target model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A target model defines what counts as a doom loop across tasks, tools, retries and repeated execution patterns.",
+        "The model covers repeated tool calls, repeated failures, no-progress loops and oscillating retry patterns.",
+        "The model defines escalating outcomes such as warn, inject correction, require review, pause and abort."
+      ]
+    },
+    {
+      "id": "GAC-T03",
+      "title": "Loop signal collection add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Execution paths emit enough structured signals to detect repeated patterns.",
+        "Signals include task id, trace id, tool/backend name, action type, failure type and iteration count.",
+        "The collected signals are reusable across CLI, DeerFlow, Evolver and future workers."
+      ]
+    },
+    {
+      "id": "GAC-T04",
+      "title": "Generic doom-loop detector implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A reusable detector can evaluate repeated execution patterns across runs.",
+        "Detection works without being tied to a single backend implementation.",
+        "The detector can emit structured outcomes for routing, review or policy handling."
+      ]
+    },
+    {
+      "id": "GAC-T05",
+      "title": "Loop handling policy add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A policy defines how strongly different loop classes are handled.",
+        "The policy supports conservative defaults for local and admin-safe operation.",
+        "Loop handling is visible in diagnostics and audit trails."
+      ]
+    },
+    {
+      "id": "GAC-T06",
+      "title": "Corrective prompt or corrective context injection define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The system can optionally inject corrective guidance when a loop is detected.",
+        "Correction behavior is bounded and configurable.",
+        "The mechanism never hides that loop mitigation occurred."
+      ]
+    },
+    {
+      "id": "GAC-T07",
+      "title": "ToolRouter target architecture define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A dedicated tool routing concept is documented for Ananta.",
+        "The design explains how routing decisions use task kind, capabilities, policy, governance and backend availability.",
+        "The design makes clear that routing stays hub-controlled."
+      ]
+    },
+    {
+      "id": "GAC-T08",
+      "title": "Tool capability catalog normalize",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Available tools/backends expose normalized capability metadata.",
+        "Capabilities can distinguish research, patching, shell execution, planning, review, admin repair and other classes.",
+        "The catalog can be consumed by routing and approval logic."
+      ]
+    },
+    {
+      "id": "GAC-T09",
+      "title": "Reusable tool routing service implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Tool and backend selection is available through a reusable service rather than scattered conditional logic.",
+        "The router can explain why a tool/backend was chosen or rejected.",
+        "The router supports fallbacks without bypassing governance."
+      ]
+    },
+    {
+      "id": "GAC-T10",
+      "title": "Routing diagnostics and decision traces expose",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Routing decisions can be inspected through existing trace/read-model surfaces.",
+        "The output includes chosen tool/backend, alternatives and key reasons.",
+        "This remains readable and does not become debug noise for standard users."
+      ]
+    },
+    {
+      "id": "GAC-T11",
+      "title": "Unified approval model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A single approval model defines low-risk, confirm-required and blocked action classes.",
+        "The model applies consistently to shell execution, file mutation, service mutation, install/remove operations, evolver apply and future repair steps.",
+        "The approval model is compatible with current governance modes."
+      ]
+    },
+    {
+      "id": "GAC-T12",
+      "title": "Approval check service implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A reusable approval service can evaluate proposed actions before execution.",
+        "The service returns structured reasons and required confirmation level.",
+        "Subsystems stop duplicating ad hoc approval checks."
+      ]
+    },
+    {
+      "id": "GAC-T13",
+      "title": "Approval state UX/read-model surface add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Pending approvals, blocked actions and approved actions are visible in relevant views or artifacts.",
+        "Users can understand what is waiting for confirmation.",
+        "The system remains explicit and auditable."
+      ]
+    },
+    {
+      "id": "GAC-T14",
+      "title": "ContextManager target model define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A shared context management model is documented for Ananta.",
+        "The model explains how result memory, task neighborhood, repo retrieval, research artifacts and future wiki knowledge are assembled.",
+        "The model defines context budgets, priorities and compaction behavior."
+      ]
+    },
+    {
+      "id": "GAC-T15",
+      "title": "Shared context budget enforcement add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Context assembly enforces budgets instead of blindly appending more material.",
+        "Budget logic can reserve space per source or priority class.",
+        "Budget use is observable for diagnostics."
+      ]
+    },
+    {
+      "id": "GAC-T16",
+      "title": "Auto-compaction strategy implement",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The platform can compact older or lower-priority context into bounded summaries or retrieval documents.",
+        "Compaction preserves provenance and does not silently discard critical state.",
+        "Compaction is reusable across multi-turn flows."
+      ]
+    },
+    {
+      "id": "GAC-T17",
+      "title": "Context source prioritization rules define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A rule set defines how repo context, task memory, artifacts, research and future wiki sources are prioritized.",
+        "The rules reduce context pollution and repeated irrelevance.",
+        "The prioritization is explainable in diagnostics."
+      ]
+    },
+    {
+      "id": "GAC-T18",
+      "title": "ContextManager service expose to execution paths",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Relevant execution paths consume the same context manager service or contract.",
+        "The service is usable from CLI, task propose/execute, research flows and future repair flows.",
+        "Existing retrieval functionality is preserved or improved."
+      ]
+    },
+    {
+      "id": "GAC-T19",
+      "title": "Observability for loop routing approval and context add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Metrics or read-model summaries cover loop detections, approval blocks, routing choices and context compaction outcomes.",
+        "Operators can see which subsystem is misbehaving.",
+        "The observability data remains structured and low-noise."
+      ]
+    },
+    {
+      "id": "GAC-T20",
+      "title": "Contract tests for generic control services add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Tests protect core behavior for doom-loop detection, approval classification, routing output and context compaction.",
+        "The services can evolve without silent regression.",
+        "The tests do not depend on one specific external worker."
+      ]
+    },
+    {
+      "id": "GAC-T21",
+      "title": "Golden path documentation for safer agentic loops add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one documented standard path showing routing, approval, context assembly and loop protection in action.",
+        "The example is understandable for reviewers.",
+        "The path demonstrates the value of the generic control layer."
+      ]
+    },
+    {
+      "id": "GAC-T22",
+      "title": "ml-intern fit assessment document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A short document evaluates ml-intern as an optional specialized worker/backend for Ananta.",
+        "The evaluation distinguishes reusable ideas from direct code reuse.",
+        "The document explains why ml-intern should not become a second control plane inside Ananta."
+      ]
+    },
+    {
+      "id": "GAC-T23",
+      "title": "Optional ml-intern worker adapter boundary define",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "A worker adapter boundary is defined for ml-intern-style specialized execution.",
+        "The boundary limits what Ananta delegates and what remains hub-owned.",
+        "The adapter model avoids leaking external worker autonomy into platform governance."
+      ]
+    },
+    {
+      "id": "GAC-T24",
+      "title": "ml-intern capability profile model add",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "If enabled, ml-intern can be described through a capability profile such as ML research, docs, datasets and code support.",
+        "The profile is visible to routing and approval logic.",
+        "The profile makes it clear that this worker is specialized, not general-purpose default execution."
+      ]
+    },
+    {
+      "id": "GAC-T25",
+      "title": "Optional ml-intern backend spike implement",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "A minimal spike proves whether ml-intern can be invoked as a bounded external worker/backend.",
+        "The spike does not bypass Ananta governance or context rules.",
+        "The spike can be discarded cleanly if maintenance cost is too high."
+      ]
+    },
+    {
+      "id": "GAC-T26",
+      "title": "Future specialized worker guidance isolate",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "The architecture leaves room for future specialized workers beyond ml-intern.",
+        "The guidance keeps Ananta generic and worker-agnostic.",
+        "This roadmap remains separate from the core control-layer rollout."
+      ]
+    }
+  ]
+}

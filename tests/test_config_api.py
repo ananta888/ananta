@@ -34,6 +34,21 @@ def test_get_config(client, admin_token):
     }
 
 
+def test_get_config_exposes_effective_template_variable_registry(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    response = client.get("/config", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert "template_variables_allowlist" in data
+    assert "template_variable_registry" in data
+    assert data["template_variable_registry"]["allowed_names"] == data["template_variables_allowlist"]
+    assert "team_goal" in data["template_variables_allowlist"]
+    assert "goal_context" in data["template_variables_allowlist"]
+    assert "acceptance_criteria" in data["template_variables_allowlist"]
+
+
 def test_set_config_rejects_invalid_runtime_profile(client, admin_token):
     response = client.post(
         "/config",

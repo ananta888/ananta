@@ -488,6 +488,20 @@ Erste freigegebene Tools/Resources:
 - **Auth erforderlich:** Ja
 - **Rückgabe:** `{"status": "success", "data": {"status": "deleted"}}`
 
+### Template-Variablen-Registry lesen
+- **URL:** `/templates/variable-registry`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status":"success","data":{"version":1,"variables":[...],"by_scope":{...},"allowed_names":[...]}}`
+- **Beschreibung:** Liefert die kanonische Variable-Registry inkl. Scope-, Alias- und Stabilitätsmetadaten.
+
+### Template-Runtime-Contract lesen
+- **URL:** `/templates/runtime-contract`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status":"success","data":{"version":1,"renderer":{...},"context_fields":[...]}}`
+- **Beschreibung:** Dokumentiert den Runtime-Rendervertrag (Kontextfelder, Validierungsmodus, Ersetzungssemantik).
+
 ---
 
 ## Task Management

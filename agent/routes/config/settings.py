@@ -21,6 +21,10 @@ from agent.services.remote_federation_policy_service import get_remote_federatio
 from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.template_variable_registry import (
+    build_template_variable_registry_payload,
+    resolve_allowed_template_variables,
+)
 
 from . import shared
 
@@ -52,6 +56,8 @@ def _merge_nested_config_block(current_cfg: dict, new_cfg: dict, key: str) -> di
 @check_auth
 def get_config():
     cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+    cfg["template_variables_allowlist"] = resolve_allowed_template_variables(cfg)
+    cfg["template_variable_registry"] = build_template_variable_registry_payload(agent_cfg=cfg)
     cfg["runtime_profile_effective"] = resolve_runtime_profile(cfg)
     cfg["governance_mode_effective"] = resolve_governance_mode(cfg)
     cfg["effective_policy_profile"] = build_effective_policy_profile(cfg)
