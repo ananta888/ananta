@@ -1,11 +1,22 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "template_variables_improvement",
+  "updated_at": "2026-04-23T21:23:20+02:00",
   "purpose": "Improve template variable handling so it becomes clearer, more scalable, better documented and safer across templates, blueprints, teams and future work profiles.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "goal": "Template variables should be centrally defined, grouped by context, well documented, previewable, and easier to extend without breaking existing templates.",
+  "non_goals": [
+    "Do not break existing templates abruptly.",
+    "Do not duplicate separate variable definitions in frontend and backend.",
+    "Do not couple context validation with hidden runtime-only assumptions."
+  ],
+  "architecture_constraints": [
+    "Keep one canonical variable registry that can be consumed by backend, frontend and tests.",
+    "Preserve hub-owned orchestration and avoid worker-to-worker control paths.",
+    "Introduce changes additively with aliases and migration notes before hard removals."
+  ],
   "success_criteria": [
     "Template variables are no longer just a flat hardcoded list without structure.",
     "Users can understand which variables exist, what they mean and in which context they are available.",
@@ -13,12 +24,31 @@
     "Existing templates remain compatible or have a controlled migration path.",
     "Frontend, backend and tests use the same canonical variable registry."
   ],
+  "milestones": [
+    {
+      "id": "TVI-M1",
+      "title": "Discovery and runtime contract",
+      "target_outcome": "Current runtime context and rendering contract are documented and clarified."
+    },
+    {
+      "id": "TVI-M2",
+      "title": "Canonical registry and semantics",
+      "target_outcome": "Canonical variables, scopes, naming and alias semantics are implemented."
+    },
+    {
+      "id": "TVI-M3",
+      "title": "UX, tests and rollout safety",
+      "target_outcome": "API/UI exposure, preview, diagnostics, tests and migration guidance are complete."
+    }
+  ],
   "tasks": [
     {
       "id": "TVI-T01",
       "title": "Current variable model document",
       "status": "todo",
       "priority": "P0",
+      "phase": "discovery",
+      "depends_on": [],
       "acceptance_criteria": [
         "A short internal document lists all currently allowed variables from the backend.",
         "The document explains which ones are legacy, which are generic and which are domain-specific.",
@@ -30,6 +60,8 @@
       "title": "Canonical variable registry introduce",
       "status": "todo",
       "priority": "P0",
+      "phase": "model_design",
+      "depends_on": ["TVI-T01", "TVI-T12"],
       "acceptance_criteria": [
         "Allowed template variables move into one central registry instead of a flat route-local constant.",
         "Each variable has metadata such as name, description, scope and stability level.",
@@ -41,6 +73,8 @@
       "title": "Variable scopes define",
       "status": "todo",
       "priority": "P0",
+      "phase": "model_design",
+      "depends_on": ["TVI-T02"],
       "acceptance_criteria": [
         "Variables are grouped by context such as agent, task, team, role, blueprint, artifact or domain-specific extras.",
         "The registry can express in which contexts a variable is valid.",
@@ -52,6 +86,8 @@
       "title": "Naming scheme clean up",
       "status": "todo",
       "priority": "P0",
+      "phase": "model_design",
+      "depends_on": ["TVI-T02"],
       "acceptance_criteria": [
         "A clear naming policy is defined for future variables.",
         "Core names are normalized consistently instead of mixed German/English naming.",
@@ -63,6 +99,8 @@
       "title": "Legacy alias strategy define",
       "status": "todo",
       "priority": "P1",
+      "phase": "model_design",
+      "depends_on": ["TVI-T04"],
       "acceptance_criteria": [
         "Existing variables such as German aliases are mapped to canonical names where needed.",
         "The system can warn on legacy aliases without breaking existing templates immediately.",
@@ -74,6 +112,8 @@
       "title": "Context-aware validation improve",
       "status": "todo",
       "priority": "P0",
+      "phase": "implementation",
+      "depends_on": ["TVI-T03", "TVI-T05", "TVI-T13"],
       "acceptance_criteria": [
         "Validation can report not only unknown variables but also variables that are known yet unavailable in the current context.",
         "Validation errors and warnings are more precise than today.",
@@ -85,6 +125,8 @@
       "title": "Explain variable meaning and origin",
       "status": "todo",
       "priority": "P0",
+      "phase": "model_design",
+      "depends_on": ["TVI-T02", "TVI-T03"],
       "acceptance_criteria": [
         "Each variable has a human-readable description.",
         "The system can explain where the value comes from and when it may be empty.",
@@ -96,6 +138,8 @@
       "title": "Expose registry through API",
       "status": "todo",
       "priority": "P1",
+      "phase": "implementation",
+      "depends_on": ["TVI-T02", "TVI-T03"],
       "acceptance_criteria": [
         "There is an API or config read-model path that returns the canonical variable registry.",
         "The payload includes name, description, scope and deprecated/alias state where applicable.",
@@ -107,6 +151,8 @@
       "title": "Frontend variable help improve",
       "status": "todo",
       "priority": "P1",
+      "phase": "frontend_experience",
+      "depends_on": ["TVI-T06", "TVI-T07", "TVI-T08"],
       "acceptance_criteria": [
         "The template editor shows allowed variables grouped by scope.",
         "Each variable has tooltip/help text.",
@@ -118,6 +164,8 @@
       "title": "Template render preview add",
       "status": "todo",
       "priority": "P1",
+      "phase": "implementation",
+      "depends_on": ["TVI-T06", "TVI-T11"],
       "acceptance_criteria": [
         "Users can preview how a template would render with sample values.",
         "Missing variables are visible in preview mode.",
@@ -129,6 +177,8 @@
       "title": "Sample context payloads define",
       "status": "todo",
       "priority": "P1",
+      "phase": "implementation",
+      "depends_on": ["TVI-T03", "TVI-T13"],
       "acceptance_criteria": [
         "Representative example payloads exist for task, team, role, blueprint and agent contexts.",
         "These payloads are used for preview, docs and tests.",
@@ -140,6 +190,8 @@
       "title": "Blueprint and team integration audit",
       "status": "todo",
       "priority": "P0",
+      "phase": "discovery",
+      "depends_on": ["TVI-T01"],
       "acceptance_criteria": [
         "The code paths where templates are actually used from blueprints, roles, teams and members are reviewed.",
         "The audit identifies which context objects are truly available at render time.",
@@ -151,6 +203,8 @@
       "title": "Runtime rendering contract define",
       "status": "todo",
       "priority": "P0",
+      "phase": "discovery",
+      "depends_on": ["TVI-T12"],
       "acceptance_criteria": [
         "A clear contract defines how templates are rendered at runtime and with which context object.",
         "The contract distinguishes admin-time validation from runtime rendering.",
@@ -162,6 +216,8 @@
       "title": "Tests for canonical variable registry add",
       "status": "todo",
       "priority": "P1",
+      "phase": "quality_and_rollout",
+      "depends_on": ["TVI-T02", "TVI-T03", "TVI-T08"],
       "acceptance_criteria": [
         "Tests verify the canonical registry content and shape.",
         "Tests cover aliases, deprecated names and per-scope availability.",
@@ -173,6 +229,8 @@
       "title": "Tests for context-aware validation add",
       "status": "todo",
       "priority": "P1",
+      "phase": "quality_and_rollout",
+      "depends_on": ["TVI-T06", "TVI-T13"],
       "acceptance_criteria": [
         "Validation tests distinguish unknown, deprecated and context-invalid variables.",
         "Strict mode behavior remains covered.",
@@ -184,6 +242,8 @@
       "title": "Documentation for template authors add",
       "status": "todo",
       "priority": "P0",
+      "phase": "quality_and_rollout",
+      "depends_on": ["TVI-T02", "TVI-T03", "TVI-T07"],
       "acceptance_criteria": [
         "There is a dedicated guide for writing templates with variables.",
         "The guide includes available variables, scopes, examples and warnings.",
@@ -195,6 +255,8 @@
       "title": "Migration notes for existing templates prepare",
       "status": "todo",
       "priority": "P1",
+      "phase": "quality_and_rollout",
+      "depends_on": ["TVI-T04", "TVI-T05", "TVI-T13"],
       "acceptance_criteria": [
         "There is a migration note for existing templates that rely on current variable names.",
         "Potential breaking changes are listed clearly.",
@@ -206,11 +268,64 @@
       "title": "Operator diagnostics for template validation improve",
       "status": "todo",
       "priority": "P2",
+      "phase": "quality_and_rollout",
+      "depends_on": ["TVI-T06", "TVI-T13", "TVI-T15"],
       "acceptance_criteria": [
         "Operators can inspect why a template failed validation or rendered incompletely.",
         "Diagnostics remain safe and do not leak sensitive runtime values by default.",
         "Validation problems are easier to debug than today."
       ]
     }
-  ]
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-23T21:23:20+02:00",
+    "total": 18,
+    "by_status": {
+      "todo": 18,
+      "in_progress": 0,
+      "blocked": 0,
+      "partial": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_phase": {
+      "discovery": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "todo": 3
+      },
+      "model_design": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "todo": 5
+      },
+      "implementation": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "todo": 4
+      },
+      "frontend_experience": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "todo": 1
+      },
+      "quality_and_rollout": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "todo": 5
+      }
+    },
+    "recommended_first_bundle": [
+      "TVI-T01",
+      "TVI-T12",
+      "TVI-T13",
+      "TVI-T02",
+      "TVI-T03"
+    ]
+  }
 }
