@@ -32,6 +32,10 @@ def get_rag_helper_index_service():
     return get_core_services().rag_helper_index_service
 
 
+def get_ingestion_service():
+    return get_core_services().ingestion_service
+
+
 def _collection_repo():
     return get_repository_registry().knowledge_collection_repo
 
@@ -70,6 +74,33 @@ def _source_index_request() -> KnowledgeSourceIndexRequest:
     if not isinstance(payload, dict):
         payload = {}
     return KnowledgeSourceIndexRequest.model_validate(payload)
+
+
+def _wiki_import_request() -> dict:
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    corpus_path = str(payload.get("corpus_path") or "").strip()
+    if not corpus_path:
+        raise BadRequestError("corpus_path_required")
+    source_id = str(payload.get("source_id") or "").strip() or None
+    profile_name = str(payload.get("profile_name") or "").strip() or None
+    language = str(payload.get("language") or "en").strip().lower() or "en"
+    strict = bool(payload.get("strict", False))
+    async_mode = bool(payload.get("async", False))
+    raw_source_metadata = payload.get("source_metadata") or {}
+    if not isinstance(raw_source_metadata, dict):
+        raise BadRequestError("invalid_source_metadata")
+    source_metadata = dict(raw_source_metadata)
+    return {
+        "corpus_path": corpus_path,
+        "source_id": source_id,
+        "profile_name": profile_name,
+        "language": language,
+        "strict": strict,
+        "async_mode": async_mode,
+        "source_metadata": source_metadata,
+    }
 
 
 def _current_username() -> str:
@@ -227,14 +258,17 @@ def index_knowledge_source_records():
             source_metadata=dict(payload.source_metadata or {}),
         )
         return api_response(status="accepted", code=202, data={"job": job})
-    knowledge_index, run = get_rag_helper_index_service().index_source_records(
-        source_scope=source_scope,
-        source_id=source_id,
-        records=list(payload.records or []),
-        created_by=_current_username(),
-        profile_name=payload.profile_name,
-        source_metadata=dict(payload.source_metadata or {}),
-    )
+    try:
+        knowledge_index, run = get_rag_helper_index_service().index_source_records(
+            source_scope=source_scope,
+            source_id=source_id,
+            records=list(payload.records or []),
+            created_by=_current_username(),
+            profile_name=payload.profile_name,
+            source_metadata=dict(payload.source_metadata or {}),
+        )
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
     run_status = _model_status(run)
     status = "success" if run_status == "completed" else "error"
     return api_response(
@@ -242,6 +276,77 @@ def index_knowledge_source_records():
         code=200 if run_status == "completed" else 500,
         message=None if run_status == "completed" else "source_index_failed",
         data={
+            "knowledge_index": knowledge_index.model_dump(),
+            "run": run.model_dump(),
+        },
+    )
+
+
+@knowledge_bp.route("/knowledge/wiki/import", methods=["POST"])
+@check_auth
+def import_wiki_corpus():
+    payload = _wiki_import_request()
+    try:
+        report = get_ingestion_service().import_wiki_jsonl(
+            corpus_path=payload["corpus_path"],
+            source_id=payload["source_id"],
+            default_language=payload["language"],
+            strict=payload["strict"],
+        )
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
+
+    source_metadata = {
+        **dict(payload.get("source_metadata") or {}),
+        "corpus_path": report.get("corpus_path"),
+        "issues": list(report.get("issues") or []),
+        "import_stats": dict(report.get("stats") or {}),
+    }
+
+    if payload["async_mode"]:
+        job = get_knowledge_index_job_service().submit_source_records_job(
+            source_scope="wiki",
+            source_id=str(report.get("source_id") or ""),
+            records=list(report.get("records") or []),
+            created_by=_current_username(),
+            profile_name=payload["profile_name"],
+            source_metadata=source_metadata,
+        )
+        return api_response(
+            status="accepted",
+            code=202,
+            data={
+                "import_report": {
+                    "source_scope": report.get("source_scope"),
+                    "source_id": report.get("source_id"),
+                    "corpus_path": report.get("corpus_path"),
+                    "stats": report.get("stats"),
+                    "issues": report.get("issues"),
+                },
+                "job": job,
+            },
+        )
+    knowledge_index, run = get_rag_helper_index_service().index_source_records(
+        source_scope="wiki",
+        source_id=str(report.get("source_id") or ""),
+        records=list(report.get("records") or []),
+        created_by=_current_username(),
+        profile_name=payload["profile_name"],
+        source_metadata=source_metadata,
+    )
+    run_status = _model_status(run)
+    return api_response(
+        status="success" if run_status == "completed" else "error",
+        code=200 if run_status == "completed" else 500,
+        message=None if run_status == "completed" else "wiki_import_failed",
+        data={
+            "import_report": {
+                "source_scope": report.get("source_scope"),
+                "source_id": report.get("source_id"),
+                "corpus_path": report.get("corpus_path"),
+                "stats": report.get("stats"),
+                "issues": report.get("issues"),
+            },
             "knowledge_index": knowledge_index.model_dump(),
             "run": run.model_dump(),
         },

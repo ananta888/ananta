@@ -246,7 +246,7 @@
     {
       "id": "MSR-T07",
       "title": "Wiki source adapter design define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "wiki_mvp",
       "depends_on": ["MSR-T02", "MSR-T03", "MSR-T04"],
@@ -275,7 +275,7 @@
     {
       "id": "MSR-T08",
       "title": "Offline wiki importer implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "wiki_mvp",
       "depends_on": ["MSR-T07"],
@@ -303,7 +303,7 @@
     {
       "id": "MSR-T09",
       "title": "Wiki-aware chunker implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "wiki_mvp",
       "depends_on": ["MSR-T07", "MSR-T08"],
@@ -594,7 +594,7 @@
     {
       "id": "MSR-T19",
       "title": "Wiki-only MVP corpus prepare",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "wiki_mvp",
       "depends_on": [],
@@ -646,7 +646,7 @@
     {
       "id": "MSR-T21",
       "title": "Golden path for offline wiki-backed help document",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "operator_readiness",
       "depends_on": ["MSR-T15", "MSR-T17", "MSR-T19"],
@@ -697,7 +697,7 @@
     {
       "id": "MSR-T23",
       "title": "Importer, indexer and retriever tests for wiki source add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "wiki_mvp",
       "depends_on": ["MSR-T08", "MSR-T09", "MSR-T10", "MSR-T14"],
@@ -892,7 +892,7 @@
     {
       "id": "MSR-T30",
       "title": "Future source roadmap prepare",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "phase": "future",
       "depends_on": ["MSR-T02", "MSR-T03", "MSR-T11", "MSR-T18"],
@@ -915,16 +915,16 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-23T20:59:21+02:00",
+    "updated_at": "2026-04-23T21:15:58+02:00",
     "total": 30,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
       "partial": 0,
-      "done": 23
+      "done": 30
     },
-    "progress_percent_done": 76.7,
+    "progress_percent_done": 100.0,
     "by_phase": {
       "foundation": {
         "total": 10,
@@ -934,9 +934,9 @@
       },
       "wiki_mvp": {
         "total": 5,
-        "done": 0,
+        "done": 5,
         "partial": 0,
-        "todo": 5
+        "todo": 0
       },
       "integration": {
         "total": 10,
@@ -946,15 +946,15 @@
       },
       "operator_readiness": {
         "total": 4,
-        "done": 3,
+        "done": 4,
         "partial": 0,
-        "todo": 1
+        "todo": 0
       },
       "future": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
-        "todo": 1
+        "todo": 0
       }
     },
     "first_bundle_completed_tasks": [
@@ -985,6 +985,15 @@
       "MSR-T24",
       "MSR-T26",
       "MSR-T27"
+    ],
+    "fourth_bundle_completed_tasks": [
+      "MSR-T07",
+      "MSR-T08",
+      "MSR-T09",
+      "MSR-T19",
+      "MSR-T21",
+      "MSR-T23",
+      "MSR-T30"
     ]
   }
 }

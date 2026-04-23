@@ -166,6 +166,7 @@ def build_citation(
         citation["article_title"] = payload.get("article_title") or payload.get("wiki_article_title")
         citation["section_title"] = payload.get("section_title")
         citation["language"] = payload.get("language")
+        citation["revision"] = payload.get("import_revision") or payload.get("revision")
     return citation
 
 

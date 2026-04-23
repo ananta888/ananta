@@ -103,6 +103,28 @@ Der Vertrag dokumentiert:
 - Persistenzlayout ist source-scope getrennt:
   - `<DATA_DIR>/knowledge_indices/<source_scope>/<knowledge_index_id>/<run_id>`
 
+## Wiki MVP adapter + importer design
+- Wiki bleibt ein dedizierter Adapter (`WikiKnowledgeSourceAdapter`) auf dem gemeinsamen Source-Contract.
+- Offline-Import erfolgt ueber JSONL (`/knowledge/wiki/import`) und normalisiert auf:
+  - `article_title`
+  - `section_title`
+  - `language`
+  - `revision/import_revision`
+  - `import_metadata`
+- Wiki-Chunking bleibt deterministisch:
+  - sentence-basierte Chunks mit stabilen `chunk_id`-Hashes
+  - deterministische Sortierung vor Persistenz
+  - gleiche Eingabe + gleiche Konfiguration => gleiche Chunk-IDs/Index-Outputs
+
+## Future source roadmap (nach MVP, ohne Big-Bang)
+Die aktuelle Source-Abstraktion ist bewusst nicht wiki-spezifisch und kann additive Adapter aufnehmen:
+- FreeCAD/STEP-Dokumente (CAD-Struktur + Baugruppenbeziehungen)
+- KiCad-Projekte (Schaltplan-/Netzlisten-Kontext)
+- Blender-Assets (Szenen-/Objekt-/Material-Kontext)
+- Team-Handbuecher/Runbooks (strukturierte Betriebsdokumentation)
+
+Regel: neue Quellen nur als Adapter + Normalisierungsschicht, nie als Sonderfall direkt im Shared Core.
+
 ## Neue Sprache fuer Repo-Adapter
 1. Datei-Erweiterung in `RepositoryMapEngine.CODE_EXTENSIONS` aufnehmen.
 2. Mapping in `TREE_SITTER_LANGUAGE_BY_EXT` ergaenzen.

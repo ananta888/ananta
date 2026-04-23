@@ -315,3 +315,49 @@ def test_knowledge_index_retrieval_can_filter_by_source_scope(tmp_path):
 
     assert len(wiki_chunks) == 1
     assert wiki_chunks[0].metadata["source_type"] == "wiki"
+
+
+def test_knowledge_index_retrieval_wiki_metadata_preserves_revision_and_import_fields(tmp_path):
+    output_dir = tmp_path / "knowledge-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text(
+        json.dumps(
+            {
+                "kind": "wiki_section_chunk",
+                "file": "wiki/payment.md",
+                "article_title": "Payment retries",
+                "section_title": "Timeout handling",
+                "wiki_article_id": "payment-retries",
+                "language": "en",
+                "revision": "r17",
+                "import_revision": "snapshot-2026-04-23",
+                "import_metadata": {"source_path": "/tmp/wiki.jsonl"},
+                "content": "Workers retry payment after timeout.",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository = SimpleNamespace(
+        list_completed=lambda: [
+            SimpleNamespace(
+                id="idx-wiki-1",
+                artifact_id="wiki-mvp",
+                source_scope="wiki",
+                profile_name="default",
+                output_dir=str(output_dir),
+            )
+        ]
+    )
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
+
+    chunks = service.search("payment timeout", source_scopes={"wiki"})
+
+    assert len(chunks) == 1
+    metadata = chunks[0].metadata
+    assert metadata["source_type"] == "wiki"
+    assert metadata["wiki_article_id"] == "payment-retries"
+    assert metadata["revision"] == "r17"
+    assert metadata["import_revision"] == "snapshot-2026-04-23"
+    citation = metadata.get("citation") or {}
+    assert citation.get("revision") == "snapshot-2026-04-23"
