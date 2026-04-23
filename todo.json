@@ -322,8 +322,14 @@
           "priority": "P0",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "agent/routes/evolution.py",
+            "agent/services/evolution_service.py",
+            "tests/test_evolution_api.py",
+            "docs/evolution-rollout.md"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -343,7 +349,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Evolution-Proposals koennen jetzt explizit approved oder rejected werden.",
+            "Der Review-Status ist im Proposal-Read-Model sichtbar.",
+            "Apply blockiert review-pflichtige Proposals ohne explizite Approval."
+          ],
+          "implementation_notes": [
+            "POST /tasks/<task_id>/evolution/proposals/<proposal_id>/review ist implementiert.",
+            "agent/services/evolution_service.py persistiert Review-Zustand und History direkt am Proposal.",
+            "tests/test_evolution_api.py deckt Approval und Apply-Gating ueber Review jetzt ab."
+          ]
         },
         {
           "id": "EVOLVER-T08",
@@ -352,8 +368,14 @@
           "priority": "P1",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "agent/metrics.py",
+            "agent/services/evolution_service.py",
+            "docs/backend.md",
+            "docs/evolution-rollout.md"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -373,7 +395,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Metriken fuer analyses, validations, applies, retries und provider failures sind vorhanden.",
+            "Audit-Events decken angefragte, erfolgreiche und fehlgeschlagene Evolution-Operationen ab.",
+            "Backend-Doku und Rollout-Doku benennen die exportierten Evolution-Metriken explizit."
+          ],
+          "implementation_notes": [
+            "agent/metrics.py exportiert evolution_analyses_total, evolution_proposals_total, evolution_validations_total, evolution_applies_total, evolution_operation_duration_seconds sowie provider-failure/retry/health Metriken.",
+            "agent/services/evolution_service.py schreibt Audit-Events fuer analyze, validate, apply und proposal review.",
+            "docs/backend.md und docs/evolution-rollout.md dokumentieren die Observability-Oberflaeche fuer Operatoren."
+          ]
         },
         {
           "id": "EVOLVER-T09",
@@ -412,8 +444,13 @@
           "priority": "P1",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "docs/evolution-rollout.md",
+            "docs/demo-flows.md",
+            "docs/evolver-adapter.md"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -433,7 +470,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Es gibt jetzt einen expliziten Demo-Flow fuer Analyze -> Proposal -> Review.",
+            "Die Doku erklaert, wann Evolver sinnvoll ist und wann nicht.",
+            "Rollout-Phasen bleiben praxisnah in der separaten Rollout-Doku beschrieben."
+          ],
+          "implementation_notes": [
+            "docs/demo-flows.md enthaelt jetzt einen dedizierten Evolver-Golden-Path.",
+            "docs/evolution-rollout.md beschreibt disabled, analyze-only, controlled-review und spaeteres Apply.",
+            "docs/evolver-adapter.md dokumentiert den Provider-spezifischen Integrationsrahmen."
+          ]
         },
         {
           "id": "EVOLVER-T11",
@@ -442,8 +489,14 @@
           "priority": "P1",
           "type": "evolution-provider",
           "principle": "Hub-Governed-Evolution",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "tests/test_evolution_api.py",
+            "tests/test_evolution_engine_contract.py",
+            "tests/test_evolution_registry_service.py",
+            "tests/test_evolver_live_compose.py"
+          ],
           "tags": [
             "EVOLVER"
           ],
@@ -463,7 +516,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Analyze-, Review-, Validation- und Apply-Gating sind testseitig abgedeckt.",
+            "Engine- und Registry-Kontrakte fuer Evolution-Provider sind separat abgesichert.",
+            "Es existiert zusaetzlich ein Live-Compose-Testpfad fuer Evolver."
+          ],
+          "implementation_notes": [
+            "tests/test_evolution_api.py deckt analyze, provider failures, validate, review und apply-gated behavior ab.",
+            "tests/test_evolution_engine_contract.py und tests/test_evolution_registry_service.py sichern die Provider-Vertraege und Registry-Verhalten ab.",
+            "tests/test_evolver_live_compose.py stellt einen reproduzierbaren Live-Integrationspfad bereit."
+          ]
         }
       ]
     },
@@ -775,8 +838,15 @@
           "priority": "P0",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "agent/routes/teams.py",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "tests/test_deerflow_integration.py",
+            "tests/test_team_blueprints.py",
+            "docs/demo-flows.md"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -796,7 +866,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Der Standardpfad materialisiert bereits einen eigenen Review-Gate-Schritt im Blueprint.",
+            "Research-Review und Proposal-Review sind in API und UI sichtbar.",
+            "Die Demo-Doku benennt den Review-Gate-Owner und die Blockade von Apply ohne Freigabe explizit."
+          ],
+          "implementation_notes": [
+            "agent/routes/teams.py seedet den Task `Review Gate` im Research-Evolution-Blueprint.",
+            "frontend-angular/src/app/components/task-detail.component.ts zeigt Review-Status sowie Freigeben/Ablehnen-Aktionen sichtbar an.",
+            "tests/test_deerflow_integration.py und tests/test_team_blueprints.py decken Review-Gates und Blueprint-Starter-Tasks ab."
+          ]
         },
         {
           "id": "BP-T08",
@@ -805,8 +885,13 @@
           "priority": "P1",
           "type": "blueprint-flow",
           "principle": "Controlled-Blueprint-Orchestration",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
+          "files": [
+            "docs/use-cases.md",
+            "docs/demo-flows.md",
+            "tests/test_team_blueprints.py"
+          ],
           "tags": [
             "BLUEPRINT-STANDARD-PATH"
           ],
@@ -826,7 +911,17 @@
             ],
             "original_status": "todo",
             "architecture_boundary": "Der Hub bleibt Besitzer von Planung, Queue, Policy und Review-Gates; Worker fuehren nur delegierte Aufgaben aus."
-          }
+          },
+          "notes": [
+            "Der Demo-Input fuer den Standardpfad ist explizit dokumentiert.",
+            "Use-Case und Demo-Flow beschreiben erwartete Zwischenartefakte und Endergebnisse konkret.",
+            "Die Blueprint-Tests sichern die erwarteten Starter-Schritte fuer Reviewer reproduzierbar ab."
+          ],
+          "implementation_notes": [
+            "docs/use-cases.md enthaelt den festen Beispiel-Input fuer UC8.",
+            "docs/demo-flows.md beschreibt Erfolgssignal, Zwischenartefakte und Review-Check fuer den Standardpfad.",
+            "tests/test_team_blueprints.py prueft, dass die erwarteten Standardpfad-Starter-Tasks materialisiert werden."
+          ]
         },
         {
           "id": "BP-T09",
@@ -954,9 +1049,9 @@
   "meta": {
     "total_items": 23,
     "by_status": {
-      "completed": 12,
+      "completed": 18,
       "partial": 0,
-      "open": 11
+      "open": 5
     },
     "notes": [
       "Diese Roadmap beschreibt die kontrollierte Evolver-Integration und den Standard-Blueprint-Pfad mit DeerFlow und Evolver.",

@@ -240,3 +240,36 @@ Review-Check:
 - `Evolution Strategist` nutzt Evolver fuer Analyse, Proposal und Validation-Vorbereitung.
 - `Review Gate Owner` blockiert Apply ohne explizite Review-/Approval-Gates.
 - Das Policy-Artefakt definiert die Uebergabe von `summary`, `sources`, `report_markdown` und `research_metadata` an den Evolver-Pfad.
+
+## Flow I: Evolver Analyze -> Proposal -> Review
+
+Standardfall:
+- Ein fehlgeschlagener oder festgefahrener Task soll in einen reviewbaren Evolutionsvorschlag ueberfuehrt werden.
+- Der Hub startet eine Evolution-Analyse, persistiert Run und Proposal und zeigt danach den Review-Status an.
+- Validate und Apply bleiben eigene, getrennte Schritte; Apply ist standardmaessig deaktiviert.
+
+Realpfad API:
+
+```http
+POST /tasks/<task-id>/evolution/analyze
+{"trigger_type":"manual","reason":"prepare reviewable proposal"}
+
+GET /tasks/<task-id>/evolution
+
+POST /tasks/<task-id>/evolution/proposals/<proposal-id>/review
+{"action":"approve","comment":"proposal approved for next validation step"}
+```
+
+Erwartetes Ergebnis:
+- ein persistierter Evolution-Run mit `trace_id`, Provider-Metadaten und Proposal-Links
+- ein reviewbares Proposal mit Status, Risiko, Review-Zustand und Lifecycle-Historie
+- klare Trennung zwischen Analyze, Review, Validate und spaeterem Apply
+
+Wofuer Evolver sinnvoll ist:
+- wenn ein bestehender Task aus Ist-Kontext, Fehlerbild oder bestehender Codebasis einen reviewbaren Aenderungsvorschlag braucht
+- wenn Proposal, Risiko und Governance sichtbar bleiben sollen
+
+Wofuer Evolver nicht gedacht ist:
+- nicht als unsichtbarer Autopilot fuer direkte Aenderungen
+- nicht als Ersatz fuer Research, wenn erst Quellen, Vergleich oder Bericht fehlen
+- nicht fuer Apply ohne explizite Review-/Approval-Gates
