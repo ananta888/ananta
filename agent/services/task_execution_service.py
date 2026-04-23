@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from flask import current_app
 
+from agent.common.audit import log_audit
 from agent.common.errors import ToolGuardrailError
 from agent.llm_benchmarks import estimate_cost_units
 from agent.llm_integration import _call_llm
@@ -38,6 +39,7 @@ from agent.services.task_execution_policy_service import (
     should_retry_execution,
     validate_task_scoped_tool_calls,
 )
+from agent.services.doom_loop_service import get_doom_loop_service
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import get_local_task_status, get_task_runtime_service
 from agent.shell import get_shell
@@ -54,6 +56,8 @@ class LocalExecutionResult:
     failure_type: str
     retry_history: list[dict]
     status: str
+    loop_signals: list[dict]
+    loop_detection: dict | None
 
 
 class TaskExecutionService:
@@ -219,6 +223,8 @@ class TaskExecutionService:
             "task_id": request_data.task_id,
             "status": execution_run.status,
             "retry_history": execution_run.retry_history if request_data.command else [],
+            "loop_signals": execution_run.loop_signals or None,
+            "loop_detection": execution_run.loop_detection,
             "cost_summary": {
                 "provider": None,
                 "model": None,
@@ -252,6 +258,10 @@ class TaskExecutionService:
         failure_type = "success"
         retry_history: list[dict] = []
         effective_task = task or {}
+        loop_signals: list[dict] = []
+        loop_trace_id = self._resolve_loop_trace_id(effective_task)
+        loop_service = get_doom_loop_service()
+        loop_signature_for_command = self._loop_signature(command)
 
         risk_decision = evaluate_execution_risk(
             command=command,
@@ -378,6 +388,18 @@ class TaskExecutionService:
                     result_text += f"\nError: {tool_result.error}"
                     overall_exit_code = 1
                 output_parts.append(result_text)
+                loop_signals.append(
+                    loop_service.build_signal(
+                        task_id=tid,
+                        trace_id=loop_trace_id,
+                        backend_name=str(name or "tool"),
+                        action_type="tool_call",
+                        failure_type="success" if tool_result.success else "tool_failure",
+                        iteration_count=len(loop_signals) + 1,
+                        action_signature=self._loop_signature(f"{name}:{json.dumps(args or {}, sort_keys=True, ensure_ascii=True)}"),
+                        progress_made=bool(tool_result.success),
+                    )
+                )
 
         if command:
             command_output, command_exit_code, retries_used, failure_type, retry_history = self._execute_shell_command_with_policy(
@@ -397,10 +419,55 @@ class TaskExecutionService:
                     metadata={"exit_code": command_exit_code, "failure_type": failure_type, "retries_used": retries_used},
                     started_at=exec_started_at,
                 )
+            for retry in retry_history:
+                loop_signals.append(
+                    loop_service.build_signal(
+                        task_id=tid,
+                        trace_id=loop_trace_id,
+                        backend_name="shell",
+                        action_type="shell_command",
+                        failure_type=str(retry.get("failure_type") or "command_failure"),
+                        iteration_count=int(retry.get("attempt") or (len(loop_signals) + 1)),
+                        action_signature=loop_signature_for_command,
+                        progress_made=False,
+                    )
+                )
+            if command_exit_code == 0:
+                loop_signals.append(
+                    loop_service.build_signal(
+                        task_id=tid,
+                        trace_id=loop_trace_id,
+                        backend_name="shell",
+                        action_type="shell_command",
+                        failure_type="success",
+                        iteration_count=max(1, len(retry_history) + 1),
+                        action_signature=loop_signature_for_command,
+                        progress_made=True,
+                    )
+                )
+            elif not retry_history:
+                loop_signals.append(
+                    loop_service.build_signal(
+                        task_id=tid,
+                        trace_id=loop_trace_id,
+                        backend_name="shell",
+                        action_type="shell_command",
+                        failure_type=failure_type,
+                        iteration_count=1,
+                        action_signature=loop_signature_for_command,
+                        progress_made=False,
+                    )
+                )
 
         final_output = "\n---\n".join(output_parts)
         final_exit_code = overall_exit_code
         effective_failure_type = failure_type if command else ("success" if final_exit_code == 0 else "tool_failure")
+        loop_detection = self._evaluate_doom_loop(
+            tid=tid,
+            task=effective_task,
+            guard_cfg=guard_cfg,
+            loop_signals=loop_signals,
+        )
         return LocalExecutionResult(
             output=final_output,
             exit_code=final_exit_code,
@@ -408,6 +475,8 @@ class TaskExecutionService:
             failure_type=effective_failure_type,
             retry_history=retry_history if command else [],
             status="completed" if final_exit_code == 0 else "failed",
+            loop_signals=loop_signals,
+            loop_detection=loop_detection,
         )
 
     def persist_task_proposal_result(
@@ -570,6 +639,65 @@ class TaskExecutionService:
             last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
             last_exit_code=1,
         )
+
+    def _resolve_loop_trace_id(self, task: dict) -> str | None:
+        trace_id = str(task.get("goal_trace_id") or "").strip()
+        if trace_id:
+            return trace_id
+        proposal_trace = (task.get("last_proposal") or {}).get("trace") if isinstance(task.get("last_proposal"), dict) else {}
+        trace_id = str((proposal_trace or {}).get("trace_id") or "").strip()
+        return trace_id or None
+
+    def _loop_signature(self, value: str | None) -> str | None:
+        signature = str(value or "").strip()
+        if not signature:
+            return None
+        return signature[:260]
+
+    def _evaluate_doom_loop(
+        self,
+        *,
+        tid: str | None,
+        task: dict,
+        guard_cfg: dict,
+        loop_signals: list[dict],
+    ) -> dict | None:
+        if not loop_signals:
+            return None
+        loop_service = get_doom_loop_service()
+        history_signals = loop_service.collect_signals_from_history(list(task.get("history") or []))
+        decision = loop_service.detect(
+            signals=[*history_signals, *list(loop_signals)],
+            policy=(guard_cfg or {}).get("doom_loop_policy"),
+        )
+        if not decision.detected:
+            return None
+        payload = decision.as_dict()
+        payload["enforced"] = bool(payload.get("action") in {"pause", "abort"} and decision.policy.get("enforce_pause_abort"))
+        if tid:
+            current_app.logger.warning(
+                "Task %s doom-loop detected: class=%s severity=%s action=%s",
+                tid,
+                payload.get("classification"),
+                payload.get("severity"),
+                payload.get("action"),
+            )
+            try:
+                log_audit(
+                    "doom_loop_detected",
+                    {
+                        "task_id": tid,
+                        "trace_id": self._resolve_loop_trace_id(task),
+                        "classification": payload.get("classification"),
+                        "severity": payload.get("severity"),
+                        "action": payload.get("action"),
+                        "reasons": payload.get("reasons"),
+                        "metrics": payload.get("metrics"),
+                    },
+                )
+            except Exception:
+                current_app.logger.debug("doom-loop audit log failed for task %s", tid)
+        return payload
 
     def _apply_implicit_execution_defaults(
         self,

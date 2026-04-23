@@ -346,6 +346,8 @@ class TaskScopedExecutionService:
                 "workspace_changed_files": changed_files,
                 "workspace_dir": str(workspace_ctx.workspace_dir),
                 "workspace_artifact_count": len(workspace_artifact_refs),
+                "loop_signals": execution_run.loop_signals,
+                "loop_detection": execution_run.loop_detection,
             },
         )
 

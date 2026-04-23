@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "generic_agent_control_and_ml_intern_worker",
-  "updated_at": "2026-04-24T00:36:17+02:00",
+  "updated_at": "2026-04-24T03:44:00+02:00",
   "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -50,7 +50,7 @@
     {
       "id": "GAC-T01",
       "title": "Cross-cutting control layer design define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "foundation_model",
       "depends_on": [],
@@ -63,7 +63,7 @@
     {
       "id": "GAC-T02",
       "title": "Doom-loop detection target model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "loop_control",
       "depends_on": ["GAC-T01"],
@@ -76,7 +76,7 @@
     {
       "id": "GAC-T03",
       "title": "Loop signal collection add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "loop_control",
       "depends_on": ["GAC-T02"],
@@ -89,7 +89,7 @@
     {
       "id": "GAC-T04",
       "title": "Generic doom-loop detector implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "loop_control",
       "depends_on": ["GAC-T02", "GAC-T03"],
@@ -102,7 +102,7 @@
     {
       "id": "GAC-T05",
       "title": "Loop handling policy add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "loop_control",
       "depends_on": ["GAC-T04"],
@@ -387,15 +387,15 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:36:17+02:00",
+    "updated_at": "2026-04-24T03:44:00+02:00",
     "total": 26,
     "by_status": {
-      "todo": 26,
+      "todo": 21,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 19.2,
     "by_priority": {
       "P0": 12,
       "P1": 10,
@@ -405,13 +405,13 @@
     "by_phase": {
       "foundation_model": {
         "total": 1,
-        "done": 0,
-        "todo": 1
+        "done": 1,
+        "todo": 0
       },
       "loop_control": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 4,
+        "todo": 1
       },
       "tool_routing": {
         "total": 4,
@@ -440,18 +440,15 @@
       }
     },
     "recommended_first_bundle": [
-      "GAC-T01",
-      "GAC-T02",
-      "GAC-T03",
-      "GAC-T04",
-      "GAC-T05",
+      "GAC-T06",
       "GAC-T07",
       "GAC-T08",
       "GAC-T09",
       "GAC-T11",
       "GAC-T12",
       "GAC-T14",
-      "GAC-T15"
+      "GAC-T15",
+      "GAC-T22"
     ]
   }
 }
