@@ -1,999 +1,216 @@
 {
-  "version": 2,
+  "version": 1,
   "owner": "ananta",
-  "track": "codecompass_multisource_rag",
-  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
+  "track": "template_variables_improvement",
+  "purpose": "Improve template variable handling so it becomes clearer, more scalable, better documented and safer across templates, blueprints, teams and future work profiles.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "decision": {
-    "selected_file": "todo.wikiv2.json",
-    "supersedes": ["todo.wiki-rag.json"],
-    "rationale": "The multi-source retrieval direction is the better long-term fit because it preserves a single controlled retrieval core while keeping source-specific behavior isolated behind adapters."
-  },
-  "purpose": "Evolve codecompass/rag_helper from code-focused retrieval into a controlled multi-source retrieval core that supports repo/code content, artifacts/task memory and local offline wiki knowledge without collapsing source boundaries.",
-  "goal": "A single retrieval core can index and retrieve repo/code content, artifacts/task memory and offline wiki knowledge with clear source separation, provenance, citations and hub-controlled orchestration.",
-  "non_goals": [
-    "Do not build a full internet replacement.",
-    "Do not merge all source types into one untyped blob index.",
-    "Do not break current repo/code retrieval behavior for existing callers.",
-    "Do not introduce worker-to-worker orchestration or hidden background control loops.",
-    "Do not require cloud dependencies for the wiki MVP."
-  ],
-  "architecture_constraints": [
-    "The hub remains the owner of planning, task routing, policy decisions, verification and queue control.",
-    "Workers execute delegated indexing, import, query and artifact-building tasks only.",
-    "Each hub and worker instance runs in its own container; no feature may assume implicit single-process shared state.",
-    "Additive changes are preferred over breaking refactors; compatibility adapters should be used where practical.",
-    "Retrieval sources must remain explicitly typed and traceable end-to-end.",
-    "Unsafe or incomplete source configuration must fail closed."
-  ],
-  "solid_focus": [
-    "SRP: shared retrieval orchestration, source adapters, ranking, storage and API concerns remain separated.",
-    "OCP: new retrieval sources should be added by implementing interfaces and adapters rather than patching central logic repeatedly.",
-    "DIP: core retrieval services depend on source abstractions and policies, not wiki-specific or repo-specific concrete implementations."
-  ],
+  "goal": "Template variables should be centrally defined, grouped by context, well documented, previewable, and easier to extend without breaking existing templates.",
   "success_criteria": [
-    "codecompass remains stable for existing repo/code retrieval.",
-    "wiki content can be imported and queried through the same retrieval core.",
-    "results preserve source type and citation metadata.",
-    "mixed retrieval across repo, artifacts and wiki is possible but controlled.",
-    "the system stays understandable and does not collapse into one unstructured blob index.",
-    "import, indexing and query flows remain hub-controlled and auditable."
-  ],
-  "milestones": [
-    {
-      "id": "MSR-M1",
-      "title": "Architecture and compatibility baseline",
-      "target_outcome": "Source model, interfaces, metadata, hub orchestration and regression safety are defined before deeper implementation."
-    },
-    {
-      "id": "MSR-M2",
-      "title": "Wiki MVP on shared core",
-      "target_outcome": "A curated offline wiki corpus can be imported, indexed and queried through the multi-source core with citations."
-    },
-    {
-      "id": "MSR-M3",
-      "title": "Mixed retrieval and operator readiness",
-      "target_outcome": "Mixed retrieval, diagnostics, configuration, API surface and demonstrations are stable and understandable."
-    }
+    "Template variables are no longer just a flat hardcoded list without structure.",
+    "Users can understand which variables exist, what they mean and in which context they are available.",
+    "The system supports clearer naming and future growth.",
+    "Existing templates remain compatible or have a controlled migration path.",
+    "Frontend, backend and tests use the same canonical variable registry."
   ],
   "tasks": [
     {
-      "id": "MSR-T01",
-      "title": "Multi-source target model for codecompass define",
-      "status": "done",
+      "id": "TVI-T01",
+      "title": "Current variable model document",
+      "status": "todo",
       "priority": "P0",
-      "phase": "foundation",
-      "depends_on": [],
-      "files": [
-        "agent/services/retrieval_service.py",
-        "agent/services/knowledge_index_retrieval_service.py",
-        "agent/routes/knowledge.py",
-        "docs/hybrid_rag_developer_guide.md",
-        "docs/hybrid_rag_runbook.md"
-      ],
       "acceptance_criteria": [
-        "A short design note explains that codecompass evolves into a multi-source retrieval core.",
-        "Source classes are explicitly separated into at least repo, artifact/task and wiki.",
-        "The design states what remains shared and what stays source-specific.",
-        "The design explicitly preserves backward-compatible repo/code behavior during migration."
-      ],
-      "notes": [
-        "Im Code existiert bereits ein faktischer Multi-Source-Kern: `repository_map`, `semantic_search`, `agentic_search`, `knowledge_index` und `result_memory` werden gemeinsam fusioniert.",
-        "Die Trennung zwischen shared orchestration und source-spezifischer Retrieval-Logik ist technisch angelegt, aber noch nicht als explizites CodeCompass-Target-Model dokumentiert.",
-        "Ein eigener Architektur- oder Design-Note fuer den angestrebten typed multi-source retrieval core fehlt noch."
-      ],
-      "implementation_notes": [
-        "`agent/services/retrieval_service.py` zeigt bereits die gemeinsame Retrieval-Seam und Fusion mehrerer Quellen.",
-        "`agent/services/knowledge_index_retrieval_service.py` und `agent/routes/knowledge.py` behandeln artefakt-/knowledge-basierte Retrieval-Pfade als additive Quelle.",
-        "Die vorhandene Doku beschreibt Hybrid-RAG und Knowledge-Indexing, aber noch nicht sauber die neue Zielarchitektur `repo + artifact/task + wiki` als ein kontrolliertes Source-Modell."
+        "A short internal document lists all currently allowed variables from the backend.",
+        "The document explains which ones are legacy, which are generic and which are domain-specific.",
+        "Current ambiguity and naming inconsistencies are explicitly identified."
       ]
     },
     {
-      "id": "MSR-T02",
-      "title": "Common source interface define",
-      "status": "done",
+      "id": "TVI-T02",
+      "title": "Canonical variable registry introduce",
+      "status": "todo",
       "priority": "P0",
-      "phase": "foundation",
-      "depends_on": ["MSR-T01"],
-      "files": [
-        "agent/hybrid_orchestrator.py",
-        "agent/services/retrieval_service.py",
-        "agent/services/knowledge_index_retrieval_service.py",
-        "docs/hybrid_rag_developer_guide.md"
-      ],
       "acceptance_criteria": [
-        "A shared source interface or contract exists for all retrieval sources.",
-        "Interface covers import, chunk emission, metadata and stable source identifiers.",
-        "Existing repo/code path can be adapted without behavioral regression.",
-        "The interface is narrow enough that sources do not depend on methods they do not need."
-      ],
-      "notes": [
-        "Es gibt bereits einen de-facto gemeinsamen Retrieval-Contract ueber `ContextChunk` und serialisierte Chunk-Payloads.",
-        "Dieser Contract deckt Chunk-Emission, Score, Source und Metadaten gut ab, aber Import-/Index-Lifecycle und stabile Source-Identifier sind noch nicht als eigenes Interface modelliert.",
-        "Die Quelle `knowledge_index` haengt noch ueber konkrete Service-Kopplung am Retrieval-Service statt ueber eine formale Source-Registry oder Port."
-      ],
-      "implementation_notes": [
-        "`agent/hybrid_orchestrator.py` etabliert `ContextChunk` als gemeinsame Evidence-Struktur.",
-        "`agent/services/retrieval_service.py` kann bestehende und additive Quellen ueber denselben Chunk-/Fusion-Pfad zusammenfuehren.",
-        "Fertig ist der Task erst, wenn daraus ein bewusst schmales Interface fuer import/index/search/metadata mit klaren Source-IDs wird."
+        "Allowed template variables move into one central registry instead of a flat route-local constant.",
+        "Each variable has metadata such as name, description, scope and stability level.",
+        "Frontend and backend can consume the same canonical list."
       ]
     },
     {
-      "id": "MSR-T03",
-      "title": "Common document and chunk metadata model define",
-      "status": "done",
+      "id": "TVI-T03",
+      "title": "Variable scopes define",
+      "status": "todo",
       "priority": "P0",
-      "phase": "foundation",
-      "depends_on": ["MSR-T01", "MSR-T02"],
-      "files": [
-        "agent/services/knowledge_index_retrieval_service.py",
-        "agent/services/retrieval_service.py",
-        "agent/services/context_bundle_service.py",
-        "tests/test_retrieval_service.py",
-        "docs/artifacts_and_routing.md"
-      ],
       "acceptance_criteria": [
-        "A normalized metadata schema exists for all chunks.",
-        "Metadata includes source_type, source_id, chunk_id and provenance fields.",
-        "Wiki-specific metadata can be added without breaking repo/code metadata.",
-        "Metadata supports read-model summaries, diagnostics and later citation rendering."
-      ],
-      "notes": [
-        "Ein Teil des Metadatenmodells ist schon da: `knowledge_index_id`, `artifact_id`, `collection_names`, `source_scope`, `record_kind`, `retrieval_intent` und Fusion-/Explainability-Felder.",
-        "Das Modell ist aber noch engine-zentriert statt source-zentriert; Felder wie `source_type`, `source_id` und ein stabiler universeller `chunk_id` fehlen als Pflichtschema.",
-        "Fuer spaetere Wiki-Integration ist das kritisch, weil sonst wieder source-spezifische Spezialfaelle im Core landen."
-      ],
-      "implementation_notes": [
-        "`agent/services/knowledge_index_retrieval_service.py` erzeugt bereits reichhaltige Provenance-Metadaten fuer additive Retrieval-Quellen.",
-        "`agent/services/context_bundle_service.py` und die zugehoerigen Tests konsumieren Explainability- und Provenance-Felder bereits weiter.",
-        "Der Task ist erst abgeschlossen, wenn diese Felder in ein normales chunk/document metadata schema ueberfuehrt und fuer alle Quellen vereinheitlicht sind."
+        "Variables are grouped by context such as agent, task, team, role, blueprint, artifact or domain-specific extras.",
+        "The registry can express in which contexts a variable is valid.",
+        "Validation can distinguish globally known variables from contextually valid variables."
       ]
     },
     {
-      "id": "MSR-T04",
-      "title": "Hub-owned orchestration contract for import, index and query flows define",
-      "status": "done",
+      "id": "TVI-T04",
+      "title": "Naming scheme clean up",
+      "status": "todo",
       "priority": "P0",
-      "phase": "foundation",
-      "depends_on": ["MSR-T01"],
-      "files": [
-        "agent/routes/knowledge.py",
-        "agent/routes/artifacts.py",
-        "agent/services/knowledge_index_job_service.py",
-        "agent/services/ingestion_service.py",
-        "tests/test_task_orchestration_api.py"
-      ],
       "acceptance_criteria": [
-        "The design states which workflow steps are hub-owned and which are worker-executed.",
-        "Import, reindex and retrieval flows do not introduce worker-to-worker orchestration.",
-        "Task payloads and state transitions are explicit enough to remain auditable across containers.",
-        "Failure handling and retries remain coordinated by the hub rather than embedded in source workers."
-      ],
-      "notes": [
-        "Die HTTP-Einstiege fuer Upload, Collection-Indexing und Search laufen bereits hub-zentriert ueber Routen und Job-Services.",
-        "Asynchrone Laeufe sind observable und statusbehaftet, aber noch nicht als expliziter allgemeiner Hub-Orchestrierungsvertrag fuer alle Retrieval-Sources beschrieben.",
-        "Fuer die geplante Wiki-Quelle fehlt noch die klare Festlegung, welche Import-, Reindex- und Query-Schritte als Hub-Tasks materialisiert werden."
-      ],
-      "implementation_notes": [
-        "`agent/routes/artifacts.py` und `agent/routes/knowledge.py` zeigen bereits additive API-Einstiege fuer Ingest, Index und Search.",
-        "`agent/services/knowledge_index_job_service.py` verschiebt laengere Index-Laeufe aus dem Request-Thread in beobachtbare Jobs, bleibt aber noch source-spezifisch.",
-        "Zum Abschluss braucht es einen source-uebergreifenden Orchestrierungsvertrag mit expliziten Task-States statt nur route-/service-spezifischen Pfaden."
+        "A clear naming policy is defined for future variables.",
+        "Core names are normalized consistently instead of mixed German/English naming.",
+        "Legacy aliases can remain temporarily for compatibility."
       ]
     },
     {
-      "id": "MSR-T05",
-      "title": "Repo/code retrieval path isolate behind source adapter",
-      "status": "done",
-      "priority": "P0",
-      "phase": "foundation",
-      "depends_on": ["MSR-T02", "MSR-T03"],
-      "files": [
-        "agent/services/retrieval_service.py",
-        "agent/hybrid_orchestrator.py",
-        "tests/test_retrieval_service.py",
-        "docs/hybrid_rag_developer_guide.md",
-        "docs/hybrid_rag_runbook.md"
-      ],
-      "acceptance_criteria": [
-        "Current repo/code behavior is encapsulated as an explicit source adapter.",
-        "Existing code retrieval tests still pass.",
-        "The repo/code path no longer assumes it is the only retrieval source.",
-        "The adapter boundary reduces direct coupling between repo retrieval and shared orchestration."
-      ],
-      "notes": [
-        "Der Repo-/Code-Pfad ist bereits weitgehend vom API-Layer entkoppelt und wird ueber `RetrievalService` plus `HybridOrchestrator` konsumiert.",
-        "Er ist aber noch kein expliziter Source-Adapter; `HybridOrchestrator` kapselt mehrere Engines zusammen und mischt damit Orchestrierung und konkrete Repo-Implementierung.",
-        "Regressionstests fuer das additive Verhalten gegen `knowledge_index` existieren bereits."
-      ],
-      "implementation_notes": [
-        "`agent/services/retrieval_service.py` stellt den stabilen Retrieval-Seam fuer bestehende Caller bereit.",
-        "`agent/hybrid_orchestrator.py` kapselt `RepositoryMapEngine`, `SemanticSearchEngine` und `AgenticSearchEngine`, nimmt dem Repo-Pfad also schon die Alleinstellung.",
-        "Der Task ist fertig, wenn der Repo-/Code-Pfad explizit als typed source adapter hinter der shared core orchestration steht."
-      ]
-    },
-    {
-      "id": "MSR-T06",
-      "title": "Artifact/task memory retrieval path isolate behind source adapter",
-      "status": "done",
+      "id": "TVI-T05",
+      "title": "Legacy alias strategy define",
+      "status": "todo",
       "priority": "P1",
-      "phase": "foundation",
-      "depends_on": ["MSR-T02", "MSR-T03"],
-      "files": [
-        "agent/services/retrieval_service.py",
-        "agent/services/knowledge_index_retrieval_service.py",
-        "agent/services/ingestion_service.py",
-        "agent/routes/knowledge.py",
-        "tests/test_retrieval_service.py",
-        "tests/test_artifacts_route.py"
-      ],
       "acceptance_criteria": [
-        "Artifacts/task memory can be treated as a distinct retrieval source.",
-        "Returned chunks preserve task/artifact provenance.",
-        "This source can be enabled or disabled independently.",
-        "Task-memory specific behavior does not leak into repo or wiki adapters."
-      ],
-      "notes": [
-        "Artefakt- und Task-Memory sind bereits als additive Retrieval-Pfade sichtbar: `knowledge_index` fuer Artefaktwissen und `result_memory` fuer Worker-/Task-Ergebnisse.",
-        "Provenance ist vorhanden, inklusive `artifact_id`, `knowledge_index_id`, `collection_names`, `source_task_id` und `relation`.",
-        "Unabhaengiges Enabling/Disabling und eine wirklich saubere Adaptergrenze fehlen noch; `RetrievalService` kennt beide Quellen noch direkt."
-      ],
-      "implementation_notes": [
-        "`agent/services/knowledge_index_retrieval_service.py` liefert artefaktbezogene Retrieval-Chunks mit Provenance.",
-        "`agent/services/retrieval_service.py` baut `result_memory` als separaten Kandidatenstrom aus Task-/Goal-Nachbarschaft auf.",
-        "`agent/services/ingestion_service.py` und `agent/routes/knowledge.py` verankern den artefaktbezogenen Ingest-/Collection-Pfad bereits im System, aber noch nicht als allgemeines typed source adapter model."
+        "Existing variables such as German aliases are mapped to canonical names where needed.",
+        "The system can warn on legacy aliases without breaking existing templates immediately.",
+        "A migration path is documented."
       ]
     },
     {
-      "id": "MSR-T07",
-      "title": "Wiki source adapter design define",
-      "status": "done",
+      "id": "TVI-T06",
+      "title": "Context-aware validation improve",
+      "status": "todo",
       "priority": "P0",
-      "phase": "wiki_mvp",
-      "depends_on": ["MSR-T02", "MSR-T03", "MSR-T04"],
-      "files": [
-        "agent/services/knowledge_index_retrieval_service.py",
-        "agent/services/retrieval_service.py",
-        "docs/hybrid_rag_developer_guide.md",
-        "todo.json"
-      ],
       "acceptance_criteria": [
-        "A dedicated wiki source adapter is designed for local knowledge documents.",
-        "Wiki metadata includes article_title, section_title, language and import/revision metadata.",
-        "The adapter conforms to the shared source interface.",
-        "The design does not require wiki-specific branching in the shared retrieval core."
-      ],
-      "notes": [
-        "Der bestehende `knowledge_index`-Pfad ist der naechste strukturelle Anknuepfungspunkt fuer eine spaetere Wiki-Quelle.",
-        "Es existiert aber noch kein dediziertes Wiki-Modell und keine Wiki-spezifische Metadatenkonvention.",
-        "Der Task ist noch offen, aber die Adapter-Richtung ist durch den aktuellen additive-source-Pfad bereits vorgezeichnet."
-      ],
-      "implementation_notes": [
-        "Die spaetere Wiki-Quelle sollte nicht direkt als Sonderfall in `RetrievalService` landen, sondern dem Muster von `knowledge_index` als eigenstaendige Source folgen.",
-        "Die offenen Metadatenfelder `article_title`, `section_title`, `language` und `revision/import metadata` muessen auf das kuenftige gemeinsame source metadata schema aufsetzen."
+        "Validation can report not only unknown variables but also variables that are known yet unavailable in the current context.",
+        "Validation errors and warnings are more precise than today.",
+        "Strict mode still works with the improved semantics."
       ]
     },
     {
-      "id": "MSR-T08",
-      "title": "Offline wiki importer implement",
-      "status": "done",
+      "id": "TVI-T07",
+      "title": "Explain variable meaning and origin",
+      "status": "todo",
       "priority": "P0",
-      "phase": "wiki_mvp",
-      "depends_on": ["MSR-T07"],
-      "files": [
-        "agent/services/ingestion_service.py",
-        "agent/routes/knowledge.py",
-        "agent/services/rag_helper_index_service.py"
-      ],
       "acceptance_criteria": [
-        "A local importer can read curated wiki content from one supported offline format.",
-        "Import failures are logged without corrupting the index.",
-        "Imported records are normalized into the shared document model.",
-        "The importer is deterministic for the same input corpus and configuration."
-      ],
-      "notes": [
-        "Es gibt bereits Ingest-/Index-Pfade fuer Artefakte und Collections, aber keinen Offline-Wiki-Importer.",
-        "Die vorhandenen Ingestion- und Knowledge-Routen koennen als Huelle fuer einen spaeteren Wiki-Import wiederverwendet werden.",
-        "Der eigentliche Wiki-Import ist noch vollstaendig offen."
-      ],
-      "implementation_notes": [
-        "Ein Wiki-Importer sollte auf denselben hub-zentrierten Ingest-/Index-Pfaden aufbauen wie Artefakt-Collections, aber in ein eigenes Source-Modell normalisieren.",
-        "Determinismus und fail-closed Verhalten koennen sich am bestehenden `rag_helper`-Indexing orientieren."
+        "Each variable has a human-readable description.",
+        "The system can explain where the value comes from and when it may be empty.",
+        "This information is available to UI and docs."
       ]
     },
     {
-      "id": "MSR-T09",
-      "title": "Wiki-aware chunker implement",
-      "status": "done",
+      "id": "TVI-T08",
+      "title": "Expose registry through API",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is an API or config read-model path that returns the canonical variable registry.",
+        "The payload includes name, description, scope and deprecated/alias state where applicable.",
+        "The frontend no longer hardcodes the visible variable descriptions."
+      ]
+    },
+    {
+      "id": "TVI-T09",
+      "title": "Frontend variable help improve",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The template editor shows allowed variables grouped by scope.",
+        "Each variable has tooltip/help text.",
+        "Unknown and context-invalid variables are clearly distinguished."
+      ]
+    },
+    {
+      "id": "TVI-T10",
+      "title": "Template render preview add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Users can preview how a template would render with sample values.",
+        "Missing variables are visible in preview mode.",
+        "The preview does not require saving the template first."
+      ]
+    },
+    {
+      "id": "TVI-T11",
+      "title": "Sample context payloads define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Representative example payloads exist for task, team, role, blueprint and agent contexts.",
+        "These payloads are used for preview, docs and tests.",
+        "The samples make variable availability concrete."
+      ]
+    },
+    {
+      "id": "TVI-T12",
+      "title": "Blueprint and team integration audit",
+      "status": "todo",
       "priority": "P0",
-      "phase": "wiki_mvp",
-      "depends_on": ["MSR-T07", "MSR-T08"],
-      "files": [
-        "agent/services/knowledge_index_retrieval_service.py",
-        "agent/services/rag_helper_index_service.py"
-      ],
       "acceptance_criteria": [
-        "Wiki documents are chunked by article and section structure where possible.",
-        "Chunks remain small enough for retrieval but preserve context.",
-        "Chunk metadata supports later citations.",
-        "Chunk identifiers remain stable across rebuilds when source content is unchanged."
-      ],
-      "notes": [
-        "Es gibt bereits spezialisierte Chunk- und Record-Typen im `knowledge_index`-Pfad, aber nichts Wiki-Strukturspezifisches.",
-        "Die bestehende Retrieval-Logik kann strukturierte Chunk-Metadaten bereits auswerten.",
-        "Die eigentliche Artikel-/Abschnittslogik fuer Wiki-Quellen fehlt noch."
-      ],
-      "implementation_notes": [
-        "Ein Wiki-Chunker sollte auf stabile Record-/Chunk-IDs und section-aware metadata setzen, damit spaetere Zitate nicht rein textuell rekonstruiert werden muessen.",
-        "Die vorhandene Score-/Metadata-Pipeline kann solche Chunk-Typen spaeter konsumieren, ohne das Core-Fusionsmodell umzubauen."
+        "The code paths where templates are actually used from blueprints, roles, teams and members are reviewed.",
+        "The audit identifies which context objects are truly available at render time.",
+        "The variable registry is aligned with real runtime availability."
       ]
     },
     {
-      "id": "MSR-T10",
-      "title": "Shared indexing pipeline refactor",
-      "status": "done",
+      "id": "TVI-T13",
+      "title": "Runtime rendering contract define",
+      "status": "todo",
       "priority": "P0",
-      "phase": "foundation",
-      "depends_on": ["MSR-T03", "MSR-T05", "MSR-T07"],
-      "files": [
-        "agent/services/rag_helper_index_service.py",
-        "agent/services/knowledge_index_job_service.py",
-        "agent/routes/artifacts.py",
-        "agent/routes/knowledge.py",
-        "docs/hybrid_rag_runbook.md"
-      ],
       "acceptance_criteria": [
-        "The indexing pipeline works for multiple source types.",
-        "Indexes remain deterministic and rebuildable.",
-        "Source-specific fields do not break the shared index format.",
-        "The pipeline can be invoked by hub-owned tasks without assuming local mutable singleton state."
-      ],
-      "notes": [
-        "Ein shared indexing pipeline layer existiert bereits fuer Artefakte und Collections ueber `RagHelperIndexService` plus Job-Service.",
-        "Rebuild, Profile, persistente Output-Ordner und beobachtbare Runs sind vorhanden.",
-        "Was noch fehlt, ist die Verallgemeinerung von artifact-centric indexing zu einem echten multi-source indexing pipeline contract inklusive Wiki."
-      ],
-      "implementation_notes": [
-        "`agent/services/rag_helper_index_service.py` und `agent/services/knowledge_index_job_service.py` liefern bereits deterministische, profilgesteuerte und beobachtbare Indexlaeufe.",
-        "Die bestehende Pipeline ist noch auf Artefakte/Collections fokussiert, nicht auf frei typisierte Sources."
+        "A clear contract defines how templates are rendered at runtime and with which context object.",
+        "The contract distinguishes admin-time validation from runtime rendering.",
+        "The contract is documented and testable."
       ]
     },
     {
-      "id": "MSR-T11",
-      "title": "Per-source storage layout define",
-      "status": "done",
+      "id": "TVI-T14",
+      "title": "Tests for canonical variable registry add",
+      "status": "todo",
       "priority": "P1",
-      "phase": "foundation",
-      "depends_on": ["MSR-T03", "MSR-T10"],
-      "files": [
-        "agent/services/rag_helper_index_service.py",
-        "agent/hybrid_orchestrator.py",
-        "docs/hybrid_rag_runbook.md",
-        "tests/conftest.py"
-      ],
       "acceptance_criteria": [
-        "Storage layout distinguishes repo/code, artifact and wiki content cleanly.",
-        "Reindexing one source type does not require destructive rebuild of all others unless explicitly requested.",
-        "Storage paths are configurable and laptop-friendly.",
-        "The layout works across container boundaries without hidden shared-state assumptions."
-      ],
-      "notes": [
-        "Es gibt bereits getrennte Persistenzorte fuer semantischen Repo-Kontext (`.rag/llamaindex`) und Knowledge-Indices (`data_dir/knowledge_indices`).",
-        "Die Layout-Idee ist also schon source-separiert, aber noch nicht als allgemeines per-source storage model beschrieben.",
-        "Eine spaetere Wiki-Quelle haette hier noch keinen definierten Ort oder Reindex-Vertrag."
-      ],
-      "implementation_notes": [
-        "`agent/hybrid_orchestrator.py` persistiert semantische Repo-Indizes separat.",
-        "`agent/services/rag_helper_index_service.py` schreibt knowledge indices unter `knowledge_indices` und trennt so Artefakt-/Knowledge-Output bereits von Repo-RAG."
+        "Tests verify the canonical registry content and shape.",
+        "Tests cover aliases, deprecated names and per-scope availability.",
+        "Tests protect frontend/backend consistency."
       ]
     },
     {
-      "id": "MSR-T12",
-      "title": "Shared retrieval service support source filters",
-      "status": "done",
+      "id": "TVI-T15",
+      "title": "Tests for context-aware validation add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Validation tests distinguish unknown, deprecated and context-invalid variables.",
+        "Strict mode behavior remains covered.",
+        "Regression tests exist for current known variables."
+      ]
+    },
+    {
+      "id": "TVI-T16",
+      "title": "Documentation for template authors add",
+      "status": "todo",
       "priority": "P0",
-      "phase": "integration",
-      "depends_on": ["MSR-T05", "MSR-T06", "MSR-T10"],
-      "files": [
-        "agent/services/retrieval_service.py",
-        "agent/services/knowledge_index_retrieval_service.py",
-        "agent/routes/knowledge.py",
-        "tests/test_knowledge_routes.py"
-      ],
       "acceptance_criteria": [
-        "Queries can target repo-only, wiki-only, artifact-only or mixed retrieval.",
-        "Source filters are explicit in the query API.",
-        "Returned results preserve source origin.",
-        "Source selection behavior is visible in traces or diagnostics."
-      ],
-      "notes": [
-        "Es gibt bereits implizite und partielle Source-Filter: Collection-Search begrenzt auf bestimmte `artifact_ids`, und der gemeinsame Retrieval-Pfad weist Source-Origin in Metadaten aus.",
-        "Ein expliziter source filter auf dem shared retrieval API fehlt aber noch.",
-        "Die aktuelle Logik ist eher artifact-scope aware als source-policy aware."
-      ],
-      "implementation_notes": [
-        "`agent/routes/knowledge.py` kann Collection-Suchen auf die Artefakte einer Collection eingrenzen.",
-        "`agent/services/retrieval_service.py` fuehrt Sources gemeinsam, ohne dass der Caller repo-only/wiki-only/artifact-only explizit als Policy setzen kann."
+        "There is a dedicated guide for writing templates with variables.",
+        "The guide includes available variables, scopes, examples and warnings.",
+        "The guide is linked from the template UI or admin docs."
       ]
     },
     {
-      "id": "MSR-T13",
-      "title": "Hybrid ranking across sources design",
-      "status": "done",
+      "id": "TVI-T17",
+      "title": "Migration notes for existing templates prepare",
+      "status": "todo",
       "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T05", "MSR-T06", "MSR-T07", "MSR-T12"],
-      "files": [
-        "agent/services/retrieval_service.py",
-        "agent/services/knowledge_index_retrieval_service.py",
-        "tests/test_retrieval_service.py",
-        "tests/test_knowledge_index_retrieval_service.py"
-      ],
       "acceptance_criteria": [
-        "A ranking strategy exists for comparing chunks across different source types.",
-        "The design avoids repo code being drowned by wiki text or vice versa.",
-        "Per-source weighting is configurable.",
-        "Ranking policy can evolve independently of source adapters."
-      ],
-      "notes": [
-        "Ein hybrides Ranking existiert bereits faktisch: Engine-Weights, dedupe, expansion, rerank, diversity-cut und final merge trace sind vorhanden.",
-        "Knowledge- und Result-Memory-Beitraege werden gegen Orchestrator-Chunks gewichtet und nicht blind angehaengt.",
-        "Noch offen ist die Verallgemeinerung von engine-zentrierter Gewichtung zu source-zentrierter Gewichtung inklusive spaeterer Wiki-Quelle."
-      ],
-      "implementation_notes": [
-        "`agent/services/retrieval_service.py` implementiert bereits eine deterministische multi-engine Fusion mit konfigurierbarer Gewichtung nach Task/Intent.",
-        "`tests/test_retrieval_service.py` und `tests/test_knowledge_index_retrieval_service.py` sichern gewichtetes Verhalten und strukturierte Ranking-Signale ab."
+        "There is a migration note for existing templates that rely on current variable names.",
+        "Potential breaking changes are listed clearly.",
+        "A transition plan exists for legacy names."
       ]
     },
     {
-      "id": "MSR-T14",
-      "title": "Citations and provenance format unify",
-      "status": "done",
-      "priority": "P0",
-      "phase": "integration",
-      "depends_on": ["MSR-T03", "MSR-T12"],
-      "files": [
-        "agent/services/context_bundle_service.py",
-        "agent/services/retrieval_service.py",
-        "agent/services/knowledge_index_retrieval_service.py",
-        "tests/test_rag_service.py",
-        "docs/artifacts_and_routing.md"
-      ],
-      "acceptance_criteria": [
-        "All retrieval results return unified provenance fields.",
-        "Wiki citations include article and section references.",
-        "Repo citations include file/path references.",
-        "Artifact citations include task/artifact references."
-      ],
-      "notes": [
-        "Es gibt bereits vereinheitlichte Explainability-/Provenance-Signale fuer Artefakt- und Repo-Kontext, aber noch kein wirkliches einheitliches Citation-Format fuer alle Sources.",
-        "Repo- und knowledge-artifact Pfade tragen Quellen-/Index-/Collection-Metadaten; Wiki-Zitate existieren naturgemaess noch nicht.",
-        "Das Thema ist also fachlich begonnen, aber noch nicht als unified citation contract abgeschlossen."
-      ],
-      "implementation_notes": [
-        "`agent/services/context_bundle_service.py` extrahiert und verdichtet bereits source-, artifact- und knowledge-bezogene Explainability-Felder.",
-        "`tests/test_rag_service.py` validiert die sichtbare Provenance fuer knowledge-index basierte Retrieval-Ergebnisse."
-      ]
-    },
-    {
-      "id": "MSR-T15",
-      "title": "Configuration surface for source enabling add",
-      "status": "done",
-      "priority": "P0",
-      "phase": "integration",
-      "depends_on": ["MSR-T04", "MSR-T10", "MSR-T11"],
-      "files": [
-        "agent/config.py",
-        "agent/services/rag_helper_index_service.py",
-        "docs/hybrid_rag_runbook.md",
-        "tests/test_knowledge_routes.py"
-      ],
-      "acceptance_criteria": [
-        "Config can enable or disable individual source types.",
-        "Wiki-specific config includes corpus path and indexing options.",
-        "Unsafe or broken source config fails closed.",
-        "Default config preserves current repo/code usage for existing deployments."
-      ],
-      "notes": [
-        "Es existiert bereits Konfiguration fuer globales RAG, Persistenz, Limits und Knowledge-Index-Profile.",
-        "Per-source toggles fuer repo/artifact/wiki als explizite Surface fehlen noch.",
-        "Fail-closed Verhalten ist in Teilbereichen vorhanden, aber nicht als durchgaengige source-enable policy modelliert."
-      ],
-      "implementation_notes": [
-        "`agent/config.py` und die Runbook-Doku expose'n bereits globale Retrieval- und Indexing-Parameter.",
-        "`RagHelperIndexService` arbeitet mit Profilen und kontrollierten Overrides, aber nicht mit einem source-enable matrix model."
-      ]
-    },
-    {
-      "id": "MSR-T16",
-      "title": "Preflight diagnostics for all source types add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T11", "MSR-T15"],
-      "files": [
-        "agent/routes/artifacts.py",
-        "agent/routes/knowledge.py",
-        "docs/hybrid_rag_runbook.md",
-        "tests/test_knowledge_routes.py"
-      ],
-      "acceptance_criteria": [
-        "Preflight can report whether repo, artifact and wiki sources are available.",
-        "Diagnostics expose corpus/index presence and obvious problems.",
-        "Operators can understand why retrieval quality is degraded.",
-        "Diagnostics identify source-specific and orchestration-level failures separately."
-      ],
-      "notes": [
-        "Es gibt bereits Status-/Preview-/Job-Endpunkte fuer Knowledge-Indices und dokumentierte Recovery-Schritte, aber keinen einheitlichen Retrieval-Preflight fuer alle Sources.",
-        "Artefakt- und Collection-Status sind operatorisch beobachtbar; Repo- und spaeter Wiki-Readiness sind nicht auf einer gemeinsamen Diagnostikoberflaeche zusammengefasst.",
-        "Der Task ist also teilweise vorbereitet, aber als einheitliche preflight surface noch offen."
-      ],
-      "implementation_notes": [
-        "`/artifacts/<id>/rag-status`, `/artifacts/<id>/rag-preview`, `/knowledge/index-profiles` und Job-Status bilden bereits Teil-Diagnostiken.",
-        "Eine spaetere einheitliche Source-Preflight sollte diese bestehenden Puzzleteile zusammenfassen statt duplizieren."
-      ]
-    },
-    {
-      "id": "MSR-T17",
-      "title": "API for source-aware retrieval extend",
-      "status": "done",
-      "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T12", "MSR-T14", "MSR-T15"],
-      "files": [
-        "agent/routes/knowledge.py",
-        "agent/services/rag_service.py",
-        "agent/services/context_bundle_service.py",
-        "tests/test_knowledge_routes.py",
-        "tests/test_rag_service.py"
-      ],
-      "acceptance_criteria": [
-        "Retrieval endpoints accept source selection or source policy parameters.",
-        "Responses contain source type and citation metadata.",
-        "Backward compatibility for existing callers is preserved where needed.",
-        "New API fields are additive and optional for legacy clients."
-      ],
-      "notes": [
-        "API-Erweiterungen existieren bereits additiv fuer Knowledge-Collections und Explainability-/Provenance-Felder in Context-Bundles.",
-        "Ein gemeinsamer retrieval endpoint mit source selection/policy fehlt jedoch noch.",
-        "Die additive Richtung ist korrekt, aber die Surface ist auf mehrere Spezialpfade verteilt."
-      ],
-      "implementation_notes": [
-        "`agent/routes/knowledge.py` bietet bereits source-nahe Search- und Index-Endpoints fuer Knowledge-Collections.",
-        "`agent/services/rag_service.py` und `agent/services/context_bundle_service.py` geben source-bezogene Explainability-/Metadata-Felder an bestehende Clients weiter."
-      ]
-    },
-    {
-      "id": "MSR-T18",
-      "title": "Context-bundle policy extend for multi-source retrieval",
-      "status": "done",
-      "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T12", "MSR-T13", "MSR-T14"],
-      "files": [
-        "agent/services/context_bundle_service.py",
-        "agent/services/retrieval_service.py",
-        "tests/test_rag_service.py",
-        "tests/test_task_orchestration_api.py"
-      ],
-      "acceptance_criteria": [
-        "Context assembly can budget chunks per source type.",
-        "Policies prevent one source from flooding the context window.",
-        "The effective retrieval mix is visible in diagnostics.",
-        "Policy decisions remain centralized and configurable rather than buried in adapters."
-      ],
-      "notes": [
-        "Budgetierung, Explainability und Auswahlspuren existieren bereits fuer gemischte Retrieval-Kandidaten.",
-        "Ueberflutungsschutz wird aktuell eher ueber engine weights, diversity und max-per-source-source_key umgesetzt als ueber ein explizites source-type budget model.",
-        "Damit ist die Policy-Schicht gut vorbereitet, aber noch nicht source-type explizit genug fuer Repo/Artifact/Wiki."
-      ],
-      "implementation_notes": [
-        "`agent/services/context_bundle_service.py` baut bereits Budget- und Explainability-Modelle fuer gemischte Retrieval-Kontexte.",
-        "`agent/services/retrieval_service.py` begrenzt und diversifiziert Kandidaten schon heute, aber mit engine/source Heuristiken statt einem formalen source-budget schema."
-      ]
-    },
-    {
-      "id": "MSR-T19",
-      "title": "Wiki-only MVP corpus prepare",
-      "status": "done",
-      "priority": "P0",
-      "phase": "wiki_mvp",
-      "depends_on": [],
-      "files": [
-        "todo.json"
-      ],
-      "acceptance_criteria": [
-        "A small curated local wiki corpus exists for initial validation.",
-        "Corpus is sufficient to prove end-to-end import, index and query.",
-        "MVP corpus is documented and reproducible.",
-        "Corpus scope is intentionally narrow and laptop-friendly."
-      ],
-      "notes": [
-        "Im aktuellen Repo gibt es noch keinen dokumentierten oder versionierten Wiki-MVP-Corpus.",
-        "Ohne diesen Corpus bleiben spaetere Wiki-Tests und Performanceaussagen abstrakt."
-      ],
-      "implementation_notes": [
-        "Der Task bleibt offen, bis ein konkreter lokaler Corpus samt Reproduktionsbeschreibung definiert ist."
-      ]
-    },
-    {
-      "id": "MSR-T20",
-      "title": "Mixed retrieval demo define",
-      "status": "done",
-      "priority": "P1",
-      "phase": "operator_readiness",
-      "depends_on": ["MSR-T12", "MSR-T14", "MSR-T18", "MSR-T19"],
-      "files": [
-        "docs/hybrid_rag_runbook.md",
-        "tests/test_retrieval_service.py",
-        "tests/test_rag_service.py"
-      ],
-      "acceptance_criteria": [
-        "There is a demo where repo context and wiki context are both retrieved intentionally.",
-        "The demo shows why mixed retrieval is useful.",
-        "The output clearly distinguishes source origins.",
-        "The demo can be executed without depending on internet access."
-      ],
-      "notes": [
-        "Es gibt bereits gemischte Retrieval-Tests fuer Repo-Orchestrator plus `knowledge_index`, aber noch keinen offiziellen Demo-Flow.",
-        "Die source origins werden in Explainability und Strategy bereits sichtbar unterschieden.",
-        "Mit einer spaeteren Wiki-Quelle kann dieser Task schnell abgeschlossen werden, weil die Mixed-Retrieval-Basis schon existiert."
-      ],
-      "implementation_notes": [
-        "`tests/test_retrieval_service.py` zeigt bereits den Mehrquellen-Fall `repository_map + knowledge_index`.",
-        "Was fehlt, ist die reproduzierbare operator-facing Demo-Dokumentation fuer den kuenftigen Repo+Wiki-Pfad."
-      ]
-    },
-    {
-      "id": "MSR-T21",
-      "title": "Golden path for offline wiki-backed help document",
-      "status": "done",
-      "priority": "P1",
-      "phase": "operator_readiness",
-      "depends_on": ["MSR-T15", "MSR-T17", "MSR-T19"],
-      "files": [
-        "todo.json"
-      ],
-      "acceptance_criteria": [
-        "A first official workflow explains how to enable and use wiki-backed retrieval.",
-        "The flow is reproducible for another developer.",
-        "The flow includes citations in the result.",
-        "The documentation explains what the wiki source is for and what it is not for."
-      ],
-      "notes": [
-        "Ohne Wiki-Corpus, Wiki-Importer und source-aware main retrieval API gibt es aktuell noch keinen sinnvollen Golden Path.",
-        "Der Task ist inhaltlich korrekt, aber real noch nicht anfassbar."
-      ],
-      "implementation_notes": [
-        "Dieser Task sollte erst nach MVP-Corpus, Adapter und Citation-Format konkretisiert werden."
-      ]
-    },
-    {
-      "id": "MSR-T22",
-      "title": "Regression tests for repo/code behavior add",
-      "status": "done",
-      "priority": "P0",
-      "phase": "foundation",
-      "depends_on": ["MSR-T05"],
-      "files": [
-        "tests/test_retrieval_service.py",
-        "tests/test_rag_service.py",
-        "docs/hybrid_rag_developer_guide.md"
-      ],
-      "acceptance_criteria": [
-        "Existing codecompass behavior is protected by tests before refactor completion.",
-        "Repo retrieval quality does not silently regress.",
-        "Tests cover source separation assumptions.",
-        "Regression coverage exists before deeper shared-core refactors are merged."
-      ],
-      "notes": [
-        "Regression-Schutz fuer den bestehenden Retrieval-Kern ist bereits vorhanden, insbesondere rund um Fusion, Explainability und Redaction.",
-        "Was noch fehlt, ist die explizite Testsprache fuer `repo/code must remain stable while adding new sources` als eigener Refaktor-Schutz."
-      ],
-      "implementation_notes": [
-        "`tests/test_retrieval_service.py` und `tests/test_rag_service.py` decken zentrale Retrieval- und Kontext-Bundle-Vertraege bereits ab.",
-        "Der Task ist abgeschlossen, wenn diese Tests bewusst als Repo-/Code-Regression baseline gegen weitere Source-Refactors ausgebaut sind."
-      ]
-    },
-    {
-      "id": "MSR-T23",
-      "title": "Importer, indexer and retriever tests for wiki source add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "wiki_mvp",
-      "depends_on": ["MSR-T08", "MSR-T09", "MSR-T10", "MSR-T14"],
-      "files": [
-        "tests/test_knowledge_index_retrieval_service.py",
-        "tests/test_knowledge_routes.py"
-      ],
-      "acceptance_criteria": [
-        "Wiki importer has basic tests.",
-        "Wiki chunking/indexing has deterministic tests.",
-        "Wiki retrieval returns stable source metadata.",
-        "Tests cover malformed inputs and deterministic rebuild behavior."
-      ],
-      "notes": [
-        "Die Teststruktur fuer spaetere Retrieval-/Indexer-Tests ist vorhanden, aber Wiki-spezifische Tests gibt es noch nicht.",
-        "Sobald ein Wiki-Adapter auf dem bestehenden `knowledge_index`-Muster aufsetzt, koennen diese Tests mechanisch nachgezogen werden."
-      ],
-      "implementation_notes": [
-        "Bestehende Tests fuer Knowledge-Retrieval und Knowledge-Routen liefern gute Vorlagen, aber der Task bleibt bis zur Wiki-Implementierung offen."
-      ]
-    },
-    {
-      "id": "MSR-T24",
-      "title": "Smoke test for end-to-end multi-source retrieval add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T12", "MSR-T14", "MSR-T22", "MSR-T23"],
-      "files": [
-        "tests/test_retrieval_service.py",
-        "tests/test_knowledge_routes.py",
-        "tests/test_rag_service.py"
-      ],
-      "acceptance_criteria": [
-        "A smoke test covers import/index/query across at least repo and wiki sources.",
-        "Returned citations are validated.",
-        "The system proves source separation under mixed retrieval.",
-        "The smoke test can run in a reproducible local/containerized environment."
-      ],
-      "notes": [
-        "Ein Teil-Smoke existiert bereits fuer repo + knowledge/artifact retrieval, aber nicht fuer repo + wiki.",
-        "Source separation und Explainability werden heute schon validiert, jedoch noch nicht als offizieller end-to-end multi-source smoke."
-      ],
-      "implementation_notes": [
-        "`tests/test_retrieval_service.py` plus `tests/test_knowledge_routes.py` decken den bestehenden Mixed-Path bereits in Teilen ab.",
-        "Der Task wird erst vollstaendig mit einem echten Wiki-End-to-End-Fall."
-      ]
-    },
-    {
-      "id": "MSR-T25",
-      "title": "Read-model output include source summaries",
-      "status": "done",
-      "priority": "P1",
-      "phase": "operator_readiness",
-      "depends_on": ["MSR-T14", "MSR-T17"],
-      "files": [
-        "agent/services/context_bundle_service.py",
-        "tests/test_task_orchestration_api.py",
-        "tests/test_rag_service.py"
-      ],
-      "acceptance_criteria": [
-        "Assistant/dashboard summaries can show which source classes contributed.",
-        "Source contributions are understandable at a glance.",
-        "Admin views retain deeper provenance detail.",
-        "Non-admin views do not expose more provenance detail than intended."
-      ],
-      "notes": [
-        "Explainability-, Source- und Collection-Summaries sind bereits in Context-Bundles und Orchestration-Read-Models sichtbar.",
-        "Admin-/Non-Admin-Abstufung fuer diese Retrieval-Provenance ist jedoch noch nicht als eigenes Source-Summary-Contract ausformuliert.",
-        "Die technische Basis ist vorhanden, die Produktisierung als Read-Model-Feature noch nicht ganz."
-      ],
-      "implementation_notes": [
-        "`agent/services/context_bundle_service.py` baut bereits source summaries wie `engines`, `artifact_ids`, `knowledge_index_ids`, `collection_names` und `sources` auf.",
-        "`tests/test_task_orchestration_api.py` prueft diese Signale bereits im Orchestration-Read-Model-Kontext."
-      ]
-    },
-    {
-      "id": "MSR-T26",
-      "title": "Performance and storage limits for laptop setups document",
-      "status": "done",
+      "id": "TVI-T18",
+      "title": "Operator diagnostics for template validation improve",
+      "status": "todo",
       "priority": "P2",
-      "phase": "operator_readiness",
-      "depends_on": ["MSR-T19", "MSR-T23", "MSR-T24"],
-      "files": [
-        "docs/hybrid_rag_runbook.md",
-        "agent/services/rag_helper_index_service.py"
-      ],
       "acceptance_criteria": [
-        "There is a documented small-scale recommended corpus size for laptops.",
-        "Storage and indexing costs are roughly described.",
-        "The initial rollout avoids trying to ingest too much at once.",
-        "Observed limits are tied to a concrete reproducible MVP corpus."
-      ],
-      "notes": [
-        "Profile, Rebuild-Strategie und Recovery fuer bestehende Retrieval-/Knowledge-Indices sind dokumentiert.",
-        "Konkrete laptop-scale Grenzen fuer einen spaeteren Wiki-Corpus fehlen aber noch.",
-        "Der Task ist daher vorbereitet, aber ohne konkreten Wiki-MVP-Corpus noch nicht abschliessbar."
-      ],
-      "implementation_notes": [
-        "`docs/hybrid_rag_runbook.md` und die Profil-Definitionen in `RagHelperIndexService` geben bereits eine operative Basis fuer kleine vs. tiefere Laeufe.",
-        "Fuer echten Abschluss braucht es corpusbezogene Grenzwerte, nicht nur generische Profile."
-      ]
-    },
-    {
-      "id": "MSR-T27",
-      "title": "Redaction and provenance policy for wiki and mixed-source output add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T14", "MSR-T18"],
-      "files": [
-        "agent/hybrid_orchestrator.py",
-        "agent/services/retrieval_service.py",
-        "agent/services/context_bundle_service.py",
-        "tests/test_retrieval_service.py",
-        "tests/test_rag_service.py"
-      ],
-      "acceptance_criteria": [
-        "Wiki and mixed-source output follow explicit provenance rules.",
-        "Stored and displayed metadata are appropriate for admin and non-admin views.",
-        "No hidden source blending occurs in rendered results or context bundles.",
-        "Policy application is testable and observable."
-      ],
-      "notes": [
-        "Redaction und sichtbare Provenance existieren bereits fuer den bestehenden Mixed-Source-Pfad.",
-        "Verhindertes Hidden Blending ist in Explainability-, Strategy- und Selection-Trace-Feldern bereits gut sichtbar.",
-        "Die Policy ist technisch vorhanden, aber noch nicht formal als wiki+tiered-view policy beschrieben."
-      ],
-      "implementation_notes": [
-        "`HybridOrchestrator`, `RetrievalService` und `ContextBundleService` redigieren sensible Daten und halten Source-Herkunft sichtbar.",
-        "`tests/test_retrieval_service.py` und `tests/test_rag_service.py` pruefen Redaction und source-bezogene Explainability bereits."
-      ]
-    },
-    {
-      "id": "MSR-T28",
-      "title": "Hub-triggered API endpoints for import, reindex and query flows add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "integration",
-      "depends_on": ["MSR-T04", "MSR-T10", "MSR-T12", "MSR-T15"],
-      "files": [
-        "agent/routes/artifacts.py",
-        "agent/routes/knowledge.py",
-        "agent/services/knowledge_index_job_service.py",
-        "tests/test_artifacts_route.py",
-        "tests/test_knowledge_routes.py"
-      ],
-      "acceptance_criteria": [
-        "There are API entry points for import, reindex and retrieval flows.",
-        "APIs trigger hub-owned workflows rather than bypassing the orchestration model.",
-        "Responses expose traceability, source information and workflow status where appropriate.",
-        "The API design remains additive for existing clients."
-      ],
-      "notes": [
-        "Fuer Artefakte und Knowledge-Collections gibt es diese API-Pfade bereits inklusive async Jobs und Statusabfrage.",
-        "Es fehlt aber noch die Verallgemeinerung auf einen source-unified import/reindex/query surface, insbesondere fuer die kuenftige Wiki-Quelle."
-      ],
-      "implementation_notes": [
-        "`agent/routes/artifacts.py` und `agent/routes/knowledge.py` liefern schon additive hub-triggered API-Einstiege fuer Ingest, Index, Preview und Search.",
-        "`tests/test_artifacts_route.py` und `tests/test_knowledge_routes.py` decken diese Pfade bereits ab."
-      ]
-    },
-    {
-      "id": "MSR-T29",
-      "title": "Container and runtime assumptions document",
-      "status": "done",
-      "priority": "P1",
-      "phase": "foundation",
-      "depends_on": ["MSR-T04", "MSR-T11", "MSR-T15"],
-      "files": [
-        "docs/hybrid_rag_runbook.md",
-        "agent/hybrid_orchestrator.py",
-        "agent/services/rag_helper_index_service.py",
-        "agent/config.py"
-      ],
-      "acceptance_criteria": [
-        "Runtime assumptions for hub, workers, storage and index access are written down explicitly.",
-        "The design identifies what must be persisted across container restarts.",
-        "No workflow step depends on accidental in-memory state sharing between containers.",
-        "Operational prerequisites are concrete enough for local and CI environments."
-      ],
-      "notes": [
-        "Es gibt bereits dokumentierte Persistenz- und Recovery-Annahmen fuer Repo-RAG und Knowledge-Indices.",
-        "Container- und Runtime-Voraussetzungen sind jedoch noch Hybrid-RAG-/artifact-zentriert und nicht als expliziter Multi-Source-Contract formuliert.",
-        "Die Grundrichtung passt aber bereits gut zu den Architektur-Constraints."
-      ],
-      "implementation_notes": [
-        "`docs/hybrid_rag_runbook.md` beschreibt Persistenz, Recovery und Build-Annahmen fuer bestehende Retrieval-Komponenten.",
-        "`agent/hybrid_orchestrator.py` und `agent/services/rag_helper_index_service.py` trennen bereits in-memory und persistente Indexbestandteile."
-      ]
-    },
-    {
-      "id": "MSR-T30",
-      "title": "Future source roadmap prepare",
-      "status": "done",
-      "priority": "P3",
-      "phase": "future",
-      "depends_on": ["MSR-T02", "MSR-T03", "MSR-T11", "MSR-T18"],
-      "files": [
-        "todo.json"
-      ],
-      "acceptance_criteria": [
-        "The design leaves room for future FreeCAD, KiCad, Blender or handbook sources.",
-        "Roadmap does not require immediate implementation.",
-        "Source extensibility is documented without overcomplicating the MVP.",
-        "Future source examples validate that the current abstractions are not wiki-specific."
-      ],
-      "notes": [
-        "Die aktuelle Roadmap erwaehnt diese Richtung, aber im Repo gibt es noch keine ausformulierte Future-Source-Extension-Note.",
-        "Der Task ist bewusst spaet und sollte erst angefasst werden, wenn die Source-Abstraktion fuer Wiki/Artifact/Repo wirklich steht."
-      ],
-      "implementation_notes": [
-        "Vor einem echten Future-Roadmap-Task sollten erst die current-source abstractions source-neutral und nicht nur artifact-/repo-spezifisch konsolidiert werden."
+        "Operators can inspect why a template failed validation or rendered incompletely.",
+        "Diagnostics remain safe and do not leak sensitive runtime values by default.",
+        "Validation problems are easier to debug than today."
       ]
     }
-  ],
-  "tasks_status_summary": {
-    "updated_at": "2026-04-23T21:15:58+02:00",
-    "total": 30,
-    "by_status": {
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "partial": 0,
-      "done": 30
-    },
-    "progress_percent_done": 100.0,
-    "by_phase": {
-      "foundation": {
-        "total": 10,
-        "done": 10,
-        "partial": 0,
-        "todo": 0
-      },
-      "wiki_mvp": {
-        "total": 5,
-        "done": 5,
-        "partial": 0,
-        "todo": 0
-      },
-      "integration": {
-        "total": 10,
-        "done": 10,
-        "partial": 0,
-        "todo": 0
-      },
-      "operator_readiness": {
-        "total": 4,
-        "done": 4,
-        "partial": 0,
-        "todo": 0
-      },
-      "future": {
-        "total": 1,
-        "done": 1,
-        "partial": 0,
-        "todo": 0
-      }
-    },
-    "first_bundle_completed_tasks": [
-      "MSR-T01",
-      "MSR-T02",
-      "MSR-T03",
-      "MSR-T12",
-      "MSR-T14",
-      "MSR-T15",
-      "MSR-T17"
-    ],
-    "second_bundle_completed_tasks": [
-      "MSR-T13",
-      "MSR-T16",
-      "MSR-T18",
-      "MSR-T22",
-      "MSR-T25",
-      "MSR-T28",
-      "MSR-T29"
-    ],
-    "third_bundle_completed_tasks": [
-      "MSR-T04",
-      "MSR-T05",
-      "MSR-T06",
-      "MSR-T10",
-      "MSR-T11",
-      "MSR-T20",
-      "MSR-T24",
-      "MSR-T26",
-      "MSR-T27"
-    ],
-    "fourth_bundle_completed_tasks": [
-      "MSR-T07",
-      "MSR-T08",
-      "MSR-T09",
-      "MSR-T19",
-      "MSR-T21",
-      "MSR-T23",
-      "MSR-T30"
-    ]
-  }
+  ]
 }
