@@ -165,10 +165,59 @@ NVIM_COMMAND_SURFACE: dict[str, Any] = {
     "naming_style": "editor_native_pascal_commands",
 }
 
+TUI_FRAMEWORK_ARCHITECTURE_DECISION: dict[str, Any] = {
+    "schema": "tui_framework_architecture_decision_v1",
+    "selected_stack": "python_textual_first",
+    "design_principles": [
+        "terminal_native_navigation",
+        "view_state_isolated_from_backend_orchestration",
+        "long_lived_operations_sessions",
+    ],
+    "maintainability": "modular_views_with_shared_backend_client",
+}
+
+TUI_INFORMATION_ARCHITECTURE: dict[str, Any] = {
+    "schema": "tui_information_architecture_v1",
+    "primary_sections": [
+        "dashboard",
+        "tasks",
+        "artifacts",
+        "goals",
+        "approvals",
+        "logs",
+        "kritis",
+        "settings",
+    ],
+    "workflow_pattern": ["overview", "filter_or_search", "detail", "action_confirm"],
+    "browser_handoff_supported": True,
+}
+
+TUI_GLOBAL_NAV_LAYOUT: dict[str, Any] = {
+    "schema": "tui_global_navigation_layout_v1",
+    "layout_regions": ["header", "sidebar", "main_content", "footer_shortcuts"],
+    "default_shortcuts": {
+        "next_view": "tab",
+        "previous_view": "shift+tab",
+        "refresh": "r",
+        "open_detail": "enter",
+        "back": "esc",
+    },
+    "small_terminal_degradation": "single_pane_stack_mode",
+}
+
 
 def _clean_text(value: Any, *, max_chars: int) -> str:
     text = str(value or "").strip()
     return text[: max(1, int(max_chars))]
+
+
+def _compact_task_item(task: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": _clean_text(task.get("id"), max_chars=100),
+        "title": _clean_text(task.get("title"), max_chars=200),
+        "status": _clean_text(task.get("status") or "todo", max_chars=40),
+        "priority": _clean_text(task.get("priority") or "P1", max_chars=20),
+    }
 
 
 def _normalize_connection_profile(profile: dict[str, Any]) -> dict[str, Any]:
@@ -293,12 +342,371 @@ def build_nvim_goal_submission_flow(
     }
 
 
+def build_nvim_quick_action_palette() -> dict[str, Any]:
+    action_specs = [
+        ("quick_goal_submit", "AnantaGoalSubmit", "Submit goal from context"),
+        ("quick_analyze_file", "AnantaAnalyze", "Analyze current file"),
+        ("quick_review_selection", "AnantaReview", "Review current selection"),
+        ("quick_patch_plan", "AnantaPatchPlan", "Generate patch plan"),
+        ("quick_project_new", "AnantaProjectNew", "Start new project path"),
+        ("quick_project_evolve", "AnantaProjectEvolve", "Evolve existing project"),
+    ]
+    actions = [
+        {"id": item_id, "command": command, "label": label, "trigger_mode": "command_or_picker"}
+        for item_id, command, label in action_specs
+    ]
+    return {
+        "schema": "nvim_quick_action_palette_v1",
+        "actions": actions,
+        "lightweight_picker_supported": True,
+        "memorization_heavy": False,
+    }
+
+
+def build_nvim_analyze_flow(
+    *,
+    editor_context: dict[str, Any],
+    scope: str = "current_file",
+) -> dict[str, Any]:
+    effective_scope = scope if scope in {"current_file", "project"} else "current_file"
+    return {
+        "schema": "nvim_analyze_flow_v1",
+        "scope": effective_scope,
+        "trigger_command": "AnantaAnalyze",
+        "context_payload": {
+            "file_path": editor_context.get("file_path"),
+            "project_root": editor_context.get("project_root"),
+            "cursor": dict(editor_context.get("cursor") or {}),
+        },
+        "editor_native_result_views": ["scratch_buffer", "floating_window", "location_list"],
+        "requires_editor_exit": False,
+    }
+
+
+def build_nvim_review_flow(
+    *,
+    editor_context: dict[str, Any],
+    review_prompt: str | None = None,
+) -> dict[str, Any]:
+    selection = dict(editor_context.get("selection") or {})
+    return {
+        "schema": "nvim_review_flow_v1",
+        "trigger_command": "AnantaReview",
+        "review_prompt": _clean_text(review_prompt or "Review selected code", max_chars=240),
+        "selection_required": False,
+        "selection_payload": selection,
+        "safe_bounded_context_submission": True,
+        "result_anchor": {
+            "file_path": editor_context.get("file_path"),
+            "cursor_line": dict(editor_context.get("cursor") or {}).get("line"),
+        },
+    }
+
+
+def build_nvim_patch_planning_flow(
+    *,
+    editor_context: dict[str, Any],
+    issue_summary: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema": "nvim_patch_planning_flow_v1",
+        "trigger_command": "AnantaPatchPlan",
+        "issue_summary": _clean_text(issue_summary or "", max_chars=280) or None,
+        "proposal_only": True,
+        "auto_apply": False,
+        "context_payload": {
+            "file_path": editor_context.get("file_path"),
+            "project_root": editor_context.get("project_root"),
+            "selection": dict(editor_context.get("selection") or {}),
+        },
+        "clear_user_control_required": True,
+    }
+
+
+def build_nvim_task_context_view(
+    tasks: list[dict[str, Any]],
+    *,
+    current_project: str | None = None,
+    max_items: int = 20,
+) -> dict[str, Any]:
+    compact = [_compact_task_item(task) for task in tasks[: max(1, int(max_items))]]
+    return {
+        "schema": "nvim_task_context_view_v1",
+        "project_root": current_project,
+        "items": compact,
+        "compact_navigation": True,
+        "editor_exit_required": False,
+    }
+
+
+def build_nvim_artifact_preview(
+    artifact: dict[str, Any],
+    *,
+    max_text_chars: int = 4000,
+) -> dict[str, Any]:
+    artifact_type = _clean_text(artifact.get("type") or "text", max_chars=60).lower()
+    raw_content = _clean_text(artifact.get("content"), max_chars=max_text_chars)
+    supported = artifact_type in {"text", "markdown", "diff", "json"}
+    return {
+        "schema": "nvim_artifact_preview_v1",
+        "artifact_id": _clean_text(artifact.get("id"), max_chars=80),
+        "artifact_type": artifact_type,
+        "supported_in_editor": supported,
+        "preview_content": raw_content if supported else None,
+        "degraded_behavior": "show_metadata_and_offer_open_in_browser" if not supported else "none",
+    }
+
+
+def build_nvim_context_inspection_panel(editor_context: dict[str, Any]) -> dict[str, Any]:
+    selection = dict(editor_context.get("selection") or {})
+    return {
+        "schema": "nvim_context_inspection_panel_v1",
+        "visible_fields": {
+            "file_path": editor_context.get("file_path"),
+            "project_root": editor_context.get("project_root"),
+            "selection_size_chars": int(selection.get("size_chars") or 0),
+            "buffer_excerpt_size_chars": int(dict(editor_context.get("buffer_excerpt") or {}).get("size_chars") or 0),
+        },
+        "can_trim_context": True,
+        "can_cancel_submission": True,
+    }
+
+
+def build_nvim_diff_proposal_render(
+    *,
+    proposals: list[dict[str, Any]],
+    max_hunks_per_proposal: int = 8,
+) -> dict[str, Any]:
+    rendered = []
+    for proposal in proposals or []:
+        hunks = list(proposal.get("hunks") or [])[: max(1, int(max_hunks_per_proposal))]
+        rendered.append(
+            {
+                "proposal_id": _clean_text(proposal.get("id"), max_chars=100),
+                "title": _clean_text(proposal.get("title"), max_chars=200),
+                "hunks": hunks,
+                "apply_requires_explicit_confirmation": True,
+            }
+        )
+    return {
+        "schema": "nvim_diff_proposal_render_v1",
+        "proposals": rendered,
+        "review_first_posture": True,
+    }
+
+
+def build_nvim_navigation_links(
+    *,
+    task_item: dict[str, Any],
+    artifact_items: list[dict[str, Any]],
+    source_locations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "nvim_navigation_links_v1",
+        "task": _compact_task_item(task_item),
+        "artifact_links": [
+            {
+                "artifact_id": _clean_text(item.get("id"), max_chars=100),
+                "title": _clean_text(item.get("title"), max_chars=180),
+            }
+            for item in artifact_items or []
+        ],
+        "source_links": [
+            {
+                "file_path": _clean_text(link.get("file_path"), max_chars=400),
+                "line": max(1, int(link.get("line", 1) or 1)),
+            }
+            for link in source_locations or []
+        ],
+        "predictable_navigation": True,
+    }
+
+
+def build_nvim_external_shortcuts(
+    *,
+    base_url: str,
+    task_id: str | None = None,
+    artifact_id: str | None = None,
+    goal_id: str | None = None,
+) -> dict[str, Any]:
+    clean_base = _clean_text(base_url, max_chars=240).rstrip("/")
+    shortcuts = []
+    if task_id:
+        shortcuts.append({"label": "Open task in browser", "url": f"{clean_base}/tasks/{_clean_text(task_id, max_chars=100)}"})
+    if artifact_id:
+        shortcuts.append(
+            {"label": "Open artifact in browser", "url": f"{clean_base}/artifacts/{_clean_text(artifact_id, max_chars=100)}"}
+        )
+    if goal_id:
+        shortcuts.append({"label": "Open goal in browser", "url": f"{clean_base}/goals/{_clean_text(goal_id, max_chars=100)}"})
+    return {
+        "schema": "nvim_external_shortcuts_v1",
+        "shortcuts": shortcuts,
+        "optional_not_forced": True,
+    }
+
+
+def build_tui_auth_session_support(
+    profile: dict[str, Any],
+    *,
+    auth_state: str = "authenticated",
+    session_ttl_minutes: int = 120,
+) -> dict[str, Any]:
+    normalized = _normalize_connection_profile(profile)
+    return {
+        "schema": "tui_auth_session_support_v1",
+        "connection_profile": normalized,
+        "auth_state": _clean_text(auth_state, max_chars=40),
+        "session_ttl_minutes": max(1, int(session_ttl_minutes)),
+        "secret_echoed": False,
+        "long_lived_terminal_safe": True,
+    }
+
+
+def build_tui_runtime_status_header(
+    profile: dict[str, Any],
+    *,
+    connection_state: str = "connected",
+    health_state: str = "ok",
+    runtime_mode: str = "standard",
+) -> dict[str, Any]:
+    normalized = _normalize_connection_profile(profile)
+    return {
+        "schema": "tui_runtime_status_header_v1",
+        "profile_id": normalized["id"],
+        "target_endpoint": normalized["endpoint"],
+        "connection_state": _clean_text(connection_state, max_chars=40),
+        "health_state": _clean_text(health_state, max_chars=40),
+        "runtime_mode": _clean_text(runtime_mode, max_chars=40),
+        "compact_and_visible": True,
+    }
+
+
+def build_tui_task_board_view(
+    tasks: list[dict[str, Any]],
+    *,
+    group_by: str = "status",
+) -> dict[str, Any]:
+    effective_group = group_by if group_by in {"status", "priority"} else "status"
+    compact_tasks = [_compact_task_item(task) for task in tasks]
+    return {
+        "schema": "tui_task_board_view_v1",
+        "group_by": effective_group,
+        "tasks": compact_tasks,
+        "operational_readiness": "task_board_or_list_supported",
+    }
+
+
+def build_tui_task_detail_view(
+    task: dict[str, Any],
+    *,
+    artifacts: list[dict[str, Any]] | None = None,
+    routing_hints: list[str] | None = None,
+) -> dict[str, Any]:
+    artifacts = artifacts or []
+    return {
+        "schema": "tui_task_detail_view_v1",
+        "task": _compact_task_item(task),
+        "summary": _clean_text(task.get("summary") or task.get("title"), max_chars=400),
+        "routing_hints": [_clean_text(hint, max_chars=120) for hint in (routing_hints or [])],
+        "artifacts": [
+            {
+                "id": _clean_text(item.get("id"), max_chars=100),
+                "title": _clean_text(item.get("title"), max_chars=180),
+                "type": _clean_text(item.get("type"), max_chars=40),
+            }
+            for item in artifacts
+        ],
+        "terminal_readable": True,
+    }
+
+
+def build_tui_artifact_view(
+    artifacts: list[dict[str, Any]],
+    *,
+    selected_artifact_id: str | None = None,
+) -> dict[str, Any]:
+    items = [
+        {
+            "id": _clean_text(item.get("id"), max_chars=100),
+            "title": _clean_text(item.get("title"), max_chars=180),
+            "type": _clean_text(item.get("type"), max_chars=40),
+        }
+        for item in artifacts or []
+    ]
+    selected = _clean_text(selected_artifact_id, max_chars=100) if selected_artifact_id else (items[0]["id"] if items else None)
+    selected_item = next((item for item in items if item["id"] == selected), None)
+    return {
+        "schema": "tui_artifact_view_v1",
+        "items": items,
+        "selected_artifact_id": selected,
+        "selected_artifact": selected_item,
+    }
+
+
+def build_tui_goal_view(
+    goals: list[dict[str, Any]],
+    *,
+    allow_submission: bool = True,
+) -> dict[str, Any]:
+    items = [
+        {
+            "id": _clean_text(goal.get("id"), max_chars=100),
+            "title": _clean_text(goal.get("title"), max_chars=200),
+            "status": _clean_text(goal.get("status") or "open", max_chars=30),
+        }
+        for goal in goals or []
+    ]
+    return {
+        "schema": "tui_goal_view_v1",
+        "goals": items,
+        "goal_submission_available": bool(allow_submission),
+    }
+
+
+def build_tui_goal_submission_entry(
+    *,
+    quick_actions: list[str] | None = None,
+) -> dict[str, Any]:
+    default_actions = quick_actions or ["analyze", "review", "patch", "new_project", "evolve_project"]
+    return {
+        "schema": "tui_goal_submission_entry_v1",
+        "input_modes": ["single_line_goal", "multiline_goal"],
+        "quick_actions": [_clean_text(action, max_chars=60) for action in default_actions],
+        "explicit_submit_required": True,
+    }
+
+
+def build_tui_task_filtering_grouping(
+    *,
+    task_board: dict[str, Any],
+    status_filters: list[str] | None = None,
+    group_by: str = "status",
+) -> dict[str, Any]:
+    filters = [_clean_text(status, max_chars=30) for status in (status_filters or ["todo", "in_progress", "blocked", "done"])]
+    effective_group = group_by if group_by in {"status", "priority"} else "status"
+    return {
+        "schema": "tui_task_filtering_grouping_v1",
+        "base_task_board_schema": _clean_text(task_board.get("schema"), max_chars=80),
+        "supported_filters": filters,
+        "grouping_modes": ["status", "priority"],
+        "default_grouping": effective_group,
+    }
+
+
 def build_editor_tui_foundation_snapshot(
     *,
     connection_profiles: list[dict[str, Any]],
     active_profile_id: str | None,
     nvim_editor_state: dict[str, Any],
     nvim_goal_text: str,
+    nvim_tasks: list[dict[str, Any]] | None = None,
+    nvim_artifact: dict[str, Any] | None = None,
+    nvim_diff_proposals: list[dict[str, Any]] | None = None,
+    nvim_source_locations: list[dict[str, Any]] | None = None,
+    tui_tasks: list[dict[str, Any]] | None = None,
+    tui_artifacts: list[dict[str, Any]] | None = None,
+    tui_goals: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     profile_model = build_connection_profile_abstraction(
         connection_profiles,
@@ -314,6 +722,19 @@ def build_editor_tui_foundation_snapshot(
         editor_context=nvim_context,
         include_selection=True,
     )
+    nvim_task_view = build_nvim_task_context_view(
+        nvim_tasks or [],
+        current_project=nvim_context.get("project_root"),
+    )
+    nvim_artifact_preview = build_nvim_artifact_preview(
+        nvim_artifact or {"id": "artifact-preview", "type": "text", "content": ""},
+    )
+    nvim_navigation = build_nvim_navigation_links(
+        task_item=(nvim_tasks or [{"id": "task-0", "title": "No task yet", "status": "todo", "priority": "P1"}])[0],
+        artifact_items=[nvim_artifact or {"id": "artifact-preview", "title": "Preview", "type": "text"}],
+        source_locations=nvim_source_locations or [],
+    )
+    tui_task_board = build_tui_task_board_view(tui_tasks or [])
     return {
         "schema": "editor_tui_foundation_snapshot_v1",
         "shared_ui_boundary_model": dict(SHARED_UI_BOUNDARY_MODEL),
@@ -329,6 +750,35 @@ def build_editor_tui_foundation_snapshot(
         "nvim_editor_matrix": dict(NVIM_EDITOR_MATRIX),
         "nvim_connection_auth_support": build_nvim_connection_auth_support(active_profile),
         "nvim_command_surface": dict(NVIM_COMMAND_SURFACE),
+        "nvim_quick_action_palette": build_nvim_quick_action_palette(),
         "nvim_editor_context": nvim_context,
         "nvim_goal_submission_flow": nvim_goal_submission,
+        "nvim_analyze_flow": build_nvim_analyze_flow(editor_context=nvim_context),
+        "nvim_review_flow": build_nvim_review_flow(editor_context=nvim_context),
+        "nvim_patch_planning_flow": build_nvim_patch_planning_flow(editor_context=nvim_context),
+        "nvim_task_context_view": nvim_task_view,
+        "nvim_artifact_preview": nvim_artifact_preview,
+        "nvim_context_inspection_panel": build_nvim_context_inspection_panel(nvim_context),
+        "nvim_diff_proposal_render": build_nvim_diff_proposal_render(proposals=nvim_diff_proposals or []),
+        "nvim_navigation_links": nvim_navigation,
+        "nvim_external_shortcuts": build_nvim_external_shortcuts(
+            base_url=active_profile["endpoint"],
+            task_id=nvim_navigation["task"]["id"],
+            artifact_id=nvim_artifact_preview["artifact_id"],
+        ),
+        "tui_framework_architecture": dict(TUI_FRAMEWORK_ARCHITECTURE_DECISION),
+        "tui_information_architecture": dict(TUI_INFORMATION_ARCHITECTURE),
+        "tui_auth_session_support": build_tui_auth_session_support(active_profile),
+        "tui_global_navigation_layout": dict(TUI_GLOBAL_NAV_LAYOUT),
+        "tui_runtime_status_header": build_tui_runtime_status_header(active_profile),
+        "tui_task_board_view": tui_task_board,
+        "tui_task_detail_view": build_tui_task_detail_view(
+            (tui_tasks or [{"id": "task-0", "title": "No task yet", "status": "todo", "priority": "P1"}])[0],
+            artifacts=tui_artifacts or [],
+            routing_hints=["hub_worker_orchestration_path"],
+        ),
+        "tui_artifact_view": build_tui_artifact_view(tui_artifacts or []),
+        "tui_goal_view": build_tui_goal_view(tui_goals or []),
+        "tui_goal_submission_entry": build_tui_goal_submission_entry(),
+        "tui_task_filtering_grouping": build_tui_task_filtering_grouping(task_board=tui_task_board),
     }

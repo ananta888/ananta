@@ -217,7 +217,7 @@
         {
           "id": "NVIM-T07",
           "title": "Quick action palette or command wrappers add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -237,7 +237,7 @@
         {
           "id": "NVIM-T08",
           "title": "Analyze current file or project flow add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -249,7 +249,7 @@
         {
           "id": "NVIM-T09",
           "title": "Review selected code flow add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -261,7 +261,7 @@
         {
           "id": "NVIM-T10",
           "title": "Patch planning and fix suggestion flow add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -273,7 +273,7 @@
         {
           "id": "NVIM-T11",
           "title": "Task list and current task context view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -285,7 +285,7 @@
         {
           "id": "NVIM-T12",
           "title": "Artifact preview inside editor add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -297,7 +297,7 @@
         {
           "id": "NVIM-T13",
           "title": "Context inspection panel add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -309,7 +309,7 @@
         {
           "id": "NVIM-T14",
           "title": "Diff and proposal rendering add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -321,7 +321,7 @@
         {
           "id": "NVIM-T15",
           "title": "Navigation between tasks artifacts and source locations add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -333,7 +333,7 @@
         {
           "id": "NVIM-T16",
           "title": "Open in browser or open in Ananta shortcuts add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -421,7 +421,7 @@
         {
           "id": "TUI-T01",
           "title": "TUI framework and architecture decide",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -433,7 +433,7 @@
         {
           "id": "TUI-T02",
           "title": "TUI information architecture define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -445,7 +445,7 @@
         {
           "id": "TUI-T03",
           "title": "Authentication and session handling implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -457,7 +457,7 @@
         {
           "id": "TUI-T04",
           "title": "Global navigation and layout implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -469,7 +469,7 @@
         {
           "id": "TUI-T05",
           "title": "Connection and runtime status header add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -489,7 +489,7 @@
         {
           "id": "TUI-T06",
           "title": "Task board or task list view implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -501,7 +501,7 @@
         {
           "id": "TUI-T07",
           "title": "Task detail view implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -513,7 +513,7 @@
         {
           "id": "TUI-T08",
           "title": "Artifact list and artifact detail view implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -525,7 +525,7 @@
         {
           "id": "TUI-T09",
           "title": "Goal list and goal detail view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -537,7 +537,7 @@
         {
           "id": "TUI-T10",
           "title": "Goal submission and quick action entry add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -549,7 +549,7 @@
         {
           "id": "TUI-T11",
           "title": "Task filtering and grouping add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -915,15 +915,15 @@
     "EDT-REL-T02"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T16:20:00+02:00",
+    "updated_at": "2026-04-24T15:42:00+02:00",
     "total": 65,
     "by_status": {
-      "todo": 50,
+      "todo": 29,
       "in_progress": 0,
       "blocked": 0,
-      "done": 15
+      "done": 36
     },
-    "progress_percent_done": 23.08,
+    "progress_percent_done": 55.38,
     "by_priority": {
       "P0": 23,
       "P1": 37,
@@ -938,11 +938,11 @@
     },
     "by_group": {
       "COMMON-FOUNDATION": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
-      "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 1, "in_progress": 0, "blocked": 0, "done": 6},
-      "NVIM-CODING-REVIEW-CONTEXT": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+      "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 0, "in_progress": 0, "blocked": 0, "done": 7},
+      "NVIM-CODING-REVIEW-CONTEXT": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
       "NVIM-ADVANCED": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
-      "TUI-FOUNDATION": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
-      "TUI-ADMIN-TASKS-ARTIFACTS": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0},
+      "TUI-FOUNDATION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "TUI-ADMIN-TASKS-ARTIFACTS": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6},
       "TUI-LOGS-APPROVALS-AUDIT": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0},
       "TUI-KRITIS-REPAIR-ADMIN": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
       "TUI-USABILITY-NAVIGATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
@@ -950,24 +950,24 @@
     },
     "critical_path": {
       "total": 23,
-      "done": 6,
-      "remaining": 17
+      "done": 17,
+      "remaining": 6
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T16:20:00+02:00",
+    "updated_at": "2026-04-24T15:42:00+02:00",
     "stages": {
       "stage_1_foundation": {"scope_groups": ["COMMON-FOUNDATION"], "total": 9, "done": 9, "todo": 0},
-      "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 6, "todo": 6},
-      "stage_3_core_workflows_parallel": {"scope_groups": ["NVIM-CODING-REVIEW-CONTEXT", "TUI-ADMIN-TASKS-ARTIFACTS"], "total": 15, "done": 0, "todo": 15},
+      "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 12, "todo": 0},
+      "stage_3_core_workflows_parallel": {"scope_groups": ["NVIM-CODING-REVIEW-CONTEXT", "TUI-ADMIN-TASKS-ARTIFACTS"], "total": 15, "done": 15, "todo": 0},
       "stage_4_advanced_ops_parallel": {"scope_groups": ["TUI-LOGS-APPROVALS-AUDIT", "NVIM-ADVANCED"], "total": 11, "done": 0, "todo": 11},
       "stage_5_kritis_navigation_parallel": {"scope_groups": ["TUI-KRITIS-REPAIR-ADMIN", "TUI-USABILITY-NAVIGATION"], "total": 9, "done": 0, "todo": 9},
       "stage_6_docs_tests_release": {"scope_groups": ["INTEGRATION-DOCS-TESTING"], "total": 9, "done": 0, "todo": 9}
     }
   },
   "summary_notes": [
-    "The first 15 priority tasks are complete: common foundation EDT-COM-T01..T09 and Neovim foundation NVIM-T01..T06.",
-    "Shared boundary, contract, capability, error, trace, onboarding and release-smoke contracts are now codified for both surfaces.",
-    "Next delivery focus remains on NVIM-T07 and then parallel core workflows for NVIM coding/review and TUI operations."
+    "The next 21 tasks are complete: NVIM-T07..T16 plus TUI-T01..T11, covering stage-2 foundations and stage-3 core workflows.",
+    "Neovim now has explicit quick-action, analyze/review/patch, task/artifact/context, diff rendering, navigation and browser-handoff contracts.",
+    "TUI now has framework/information architecture, auth/session, navigation, runtime header, and core task/artifact/goal/filtering interaction contracts."
   ]
 }
