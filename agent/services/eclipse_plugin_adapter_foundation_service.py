@@ -298,6 +298,162 @@ def build_eclipse_sgpt_cli_operation_bridge(
     }
 
 
+def build_eclipse_openai_fallback_evaluation(
+    *,
+    endpoint_compatible: bool,
+    decision: str = "keep_as_optional_fallback",
+) -> dict[str, Any]:
+    normalized_decision = _clean_text(decision, max_chars=80).lower()
+    return {
+        "schema": "eclipse_openai_fallback_evaluation_v1",
+        "endpoint_compatible": bool(endpoint_compatible),
+        "decision": normalized_decision,
+        "recommended_only_as_fallback": True,
+        "must_not_replace_main_task_flows": True,
+    }
+
+
+def build_eclipse_mcp_integration_evaluation(
+    *,
+    feasibility: str,
+    rest_preference_reason: str,
+) -> dict[str, Any]:
+    return {
+        "schema": "eclipse_mcp_integration_evaluation_v1",
+        "feasibility": _clean_text(feasibility, max_chars=60).lower(),
+        "comparison": {
+            "mcp": "higher integration complexity",
+            "rest": "direct and simpler for thin plugin",
+        },
+        "rest_preference_reason": _clean_text(rest_preference_reason, max_chars=220),
+    }
+
+
+def build_eclipse_context_packaging_rules(
+    *,
+    max_selection_chars: int = 5000,
+    max_files: int = 20,
+    allow_workspace_dump: bool = False,
+) -> dict[str, Any]:
+    return {
+        "schema": "eclipse_context_packaging_rules_v1",
+        "max_selection_chars": max(200, int(max_selection_chars)),
+        "max_files": max(1, int(max_files)),
+        "allow_workspace_dump": bool(allow_workspace_dump),
+        "user_preview_required": True,
+        "bounded_by_default": True,
+    }
+
+
+def build_eclipse_security_privacy_guardrails(
+    *,
+    sensitive_patterns: list[str] | None = None,
+) -> dict[str, Any]:
+    default_patterns = sensitive_patterns or ["token", "secret", "private_key", "credential"]
+    return {
+        "schema": "eclipse_security_privacy_guardrails_v1",
+        "sensitive_patterns": [_clean_text(pattern, max_chars=60) for pattern in default_patterns],
+        "warn_before_sensitive_send": True,
+        "implicit_unrelated_files_send": False,
+        "redact_sensitive_logs": True,
+    }
+
+
+def build_eclipse_error_degraded_mode(
+    *,
+    auth_failed: bool = False,
+    backend_reachable: bool = True,
+    policy_denied: bool = False,
+) -> dict[str, Any]:
+    if auth_failed:
+        mode = "auth_failure"
+    elif not backend_reachable:
+        mode = "disconnected"
+    elif policy_denied:
+        mode = "policy_denied"
+    else:
+        mode = "healthy"
+    return {
+        "schema": "eclipse_error_degraded_mode_v1",
+        "mode": mode,
+        "actionable_message_required": True,
+        "no_silent_hang": True,
+        "degraded_read_only_hint": mode in {"disconnected", "policy_denied"},
+    }
+
+
+def build_eclipse_trace_visibility(
+    *,
+    trace_id: str | None,
+    routing_summary: str | None,
+    advanced_mode: bool = False,
+) -> dict[str, Any]:
+    return {
+        "schema": "eclipse_trace_visibility_v1",
+        "trace_id": _clean_text(trace_id, max_chars=120) or None,
+        "routing_summary": _clean_text(routing_summary, max_chars=220) or None,
+        "visible_only_in_advanced_mode": True,
+        "advanced_mode": bool(advanced_mode),
+    }
+
+
+def build_eclipse_first_run_ux(
+    *,
+    recommended_use_case: str = "analyze",
+) -> dict[str, Any]:
+    use_case = _clean_text(recommended_use_case, max_chars=60) or "analyze"
+    return {
+        "schema": "eclipse_first_run_ux_v1",
+        "steps": [
+            "configure_endpoint_and_auth",
+            "validate_connection",
+            f"run_first_{use_case}",
+            "inspect_task_and_artifact_view",
+        ],
+        "minimal_manual_setup": True,
+    }
+
+
+def build_eclipse_golden_path_demo() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_golden_path_demo_v1",
+        "steps": [
+            "select_code_in_editor",
+            "send_goal_from_goal_panel",
+            "inspect_returned_task",
+            "inspect_related_artifact",
+            "open_deep_detail_in_browser_if_needed",
+        ],
+        "reproducible_by_second_developer": True,
+    }
+
+
+def build_eclipse_manual_smoke_checklist() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_manual_smoke_checklist_v1",
+        "checks": [
+            "connect_profile",
+            "send_selection",
+            "run_analyze",
+            "run_review",
+            "inspect_task_and_artifact_views",
+        ],
+        "release_smoke_ready": True,
+    }
+
+
+def build_eclipse_future_roadmap() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_future_roadmap_v1",
+        "later_phase_items": [
+            "inline_suggestions",
+            "richer_diff_views",
+            "deeper_task_boards",
+        ],
+        "mvp_scope_protected": True,
+    }
+
+
 def build_eclipse_plugin_adapter_foundation_snapshot(
     *,
     profile: dict[str, Any],
@@ -344,4 +500,24 @@ def build_eclipse_plugin_adapter_foundation_snapshot(
         ),
         "operation_presets": dict(ECLIPSE_OPERATION_PRESETS),
         "sgpt_cli_operation_bridge": build_eclipse_sgpt_cli_operation_bridge(enabled=False),
+        "openai_fallback_evaluation": build_eclipse_openai_fallback_evaluation(
+            endpoint_compatible=True,
+            decision="keep_as_optional_fallback",
+        ),
+        "mcp_integration_evaluation": build_eclipse_mcp_integration_evaluation(
+            feasibility="medium",
+            rest_preference_reason="REST keeps plugin thinner and easier to maintain in Eclipse.",
+        ),
+        "context_packaging_rules": build_eclipse_context_packaging_rules(),
+        "security_privacy_guardrails": build_eclipse_security_privacy_guardrails(),
+        "error_degraded_mode": build_eclipse_error_degraded_mode(),
+        "trace_visibility": build_eclipse_trace_visibility(
+            trace_id="trace-1",
+            routing_summary="hub->task_queue->worker",
+            advanced_mode=False,
+        ),
+        "first_run_ux": build_eclipse_first_run_ux(),
+        "golden_path_demo": build_eclipse_golden_path_demo(),
+        "manual_smoke_checklist": build_eclipse_manual_smoke_checklist(),
+        "future_roadmap": build_eclipse_future_roadmap(),
     }

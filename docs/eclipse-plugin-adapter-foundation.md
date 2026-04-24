@@ -30,3 +30,11 @@ This document captures the first implementation block of the Eclipse plugin adap
 - Secrets are redacted and never logged.
 - Proposal rendering is review-first and does not auto-apply changes.
 - Optional SGPT/CLI bridge is secondary and bounded, without direct shell assumptions.
+
+## Extended safety and rollout layer
+
+- OpenAI fallback and MCP path are captured as explicit evaluations rather than default integration paths.
+- Context packaging, security/privacy guardrails, degraded-mode handling and trace visibility are modeled in dedicated contracts.
+- First-run UX, golden path demo, manual smoke checklist and future roadmap are tracked as rollout artifacts.
+
+See `docs/eclipse-plugin-adapter-evaluation-and-rollout.md` for the evaluation and rollout details.
