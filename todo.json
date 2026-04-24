@@ -39,19 +39,19 @@
       "id": "TFS-M2",
       "title": "Dashboard, system and config",
       "task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "TFS-M3",
       "title": "Goals, tasks and execution",
       "task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "TFS-M4",
       "title": "Artifacts, knowledge and templates",
       "task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "TFS-M5",
@@ -63,13 +63,13 @@
       "id": "TFS-M6",
       "title": "Automation, audit, approvals and repair",
       "task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "TFS-M7",
       "title": "Testing, docs and release gate",
       "task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32"],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -129,7 +129,7 @@
     {
       "id": "TFS-T05",
       "title": "Dashboard read model view implement",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -221,7 +221,7 @@
     {
       "id": "TFS-T12",
       "title": "Task workbench view expand",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -261,7 +261,7 @@
     {
       "id": "TFS-T15",
       "title": "Artifact explorer expand",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -393,7 +393,7 @@
     {
       "id": "TFS-T25",
       "title": "Approval and proposal review queue implement",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -406,7 +406,7 @@
     {
       "id": "TFS-T26",
       "title": "Repair operator view deepen",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -433,7 +433,7 @@
     {
       "id": "TFS-T28",
       "title": "TUI view-model test suite expand",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -459,7 +459,7 @@
     {
       "id": "TFS-T30",
       "title": "TUI golden path smoke suite add",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -472,7 +472,7 @@
     {
       "id": "TFS-T31",
       "title": "TUI user and operator docs update",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -523,19 +523,19 @@
     "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:00:00+02:00",
+    "updated_at": "2026-04-24T20:39:04+02:00",
     "total": 32,
     "by_status": {
-      "todo": 32,
-      "in_progress": 0,
+      "todo": 24,
+      "in_progress": 8,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 16,
+      "P0": 18,
       "P1": 11,
-      "P2": 5,
+      "P2": 3,
       "P3": 0
     },
     "by_risk": {
@@ -551,16 +551,65 @@
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 5,
       "blocked": 0,
       "done": 0
     }
   },
+  "code_evidence_snapshot": {
+    "updated_at": "2026-04-24T20:39:04+02:00",
+    "runtime_baseline_evidence": [
+      "client_surfaces/tui_runtime/ananta_tui/app.py",
+      "client_surfaces/tui_runtime/ananta_tui/views.py",
+      "scripts/smoke_tui_runtime.py",
+      "scripts/smoke_client_golden_paths.py",
+      "tests/test_tui_runtime_app.py",
+      "docs/tui-user-operator-guide.md"
+    ],
+    "detected_runtime_sections": [
+      "health",
+      "tasks",
+      "artifacts",
+      "approvals",
+      "repairs"
+    ],
+    "major_gaps_vs_track_goal": [
+      "No broad multi-section navigation shell yet (dashboard/goals/knowledge/config/system/teams/automation/audit/repair/help parity).",
+      "No explicit audit, automation, team/blueprint, instruction-layer, or knowledge runtime screens in current TUI runtime module.",
+      "Existing smoke/golden-path checks cover core MVP sections, but not full frontend-parity workflow depth."
+    ]
+  },
   "summary_notes": [
-    "This track assumes the existing TUI MVP is already runnable.",
-    "The goal is broad frontend parity where terminal UX makes sense, not a pixel-for-pixel clone of Angular.",
-    "Dangerous write/admin operations must remain confirmation-based, backend-gated and auditable.",
-    "Browser fallback is preferred over unsafe or awkward terminal implementations."
+    "Status correction applied against real code: this track is not greenfield; multiple TUI parity tasks are already started on top of the runnable MVP runtime baseline.",
+    "Current runtime evidence confirms implemented MVP sections for health, tasks, artifacts, approvals and repairs with smoke/test coverage.",
+    "Main remaining work is breadth expansion (navigation + additional sections) and depth hardening (safe writes, richer read models, parity report).",
+    "Dangerous write/admin operations remain confirmation-based, backend-gated and auditable; browser fallback stays preferred for complex or risky workflows."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "TFS-S1",
+      "title": "Analysis outcome",
+      "items": [
+        "todo.json was internally consistent but overstated greenfield status (all tasks set to todo) versus existing TUI runtime evidence.",
+        "Track now reflects real progress with explicit in_progress tasks where baseline implementation already exists."
+      ]
+    },
+    {
+      "summary_id": "TFS-S2",
+      "title": "Corrections and improvements",
+      "items": [
+        "Updated milestone and task statuses to reflect started implementation areas (M2, M3, M4, M6, M7 and related tasks).",
+        "Added code_evidence_snapshot to anchor planning decisions against concrete repository artifacts."
+      ]
+    },
+    {
+      "summary_id": "TFS-S3",
+      "title": "Extension and next execution focus",
+      "items": [
+        "Extended end-of-file summaries with a concrete gap analysis against current runtime capabilities.",
+        "Recommended next execution block: TFS-T01..T04 and TFS-T06..T09 to establish navigation/API mapping and safe dashboard/system/config coverage before deeper domain expansions."
+      ]
+    }
   ]
 }
