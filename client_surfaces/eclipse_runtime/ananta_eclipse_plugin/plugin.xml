@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+   <extension
+         point="org.eclipse.ui.commands">
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Analyze current editor context with Ananta"
+            id="io.ananta.eclipse.command.analyze"
+            name="Ananta Analyze"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Review selected editor context with Ananta"
+            id="io.ananta.eclipse.command.review"
+            name="Ananta Review"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Generate patch plan through Ananta"
+            id="io.ananta.eclipse.command.patch"
+            name="Ananta Patch Plan"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Start new project flow in Ananta"
+            id="io.ananta.eclipse.command.new_project"
+            name="Ananta Project New"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Evolve project flow in Ananta"
+            id="io.ananta.eclipse.command.evolve_project"
+            name="Ananta Project Evolve"/>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.commandCategories">
+      <category
+            id="io.ananta.eclipse.category"
+            name="Ananta"/>
+   </extension>
+</plugin>

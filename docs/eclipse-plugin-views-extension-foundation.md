@@ -5,7 +5,7 @@ This document captures the Eclipse views extension track as a **contract-first b
 There is currently no shipped standalone Eclipse plugin UI binary in this repository.  
 The implemented service contracts model and validate the view behavior that a thin Eclipse plugin must follow.
 
-Runtime delivery is currently **blocked/deferred** for this track; this document remains a foundation contract reference, not a runnable plugin delivery claim.
+Runtime bootstrap is now in progress, but full Eclipse views runtime delivery is still pending; this document remains a foundation contract reference and not a complete runtime delivery claim.
 
 ## Covered tasks (ECL-T27..ECL-T50)
 

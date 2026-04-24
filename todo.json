@@ -139,7 +139,7 @@
         "EAC-T38",
         "EAC-T39"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EAC-M9",
@@ -563,7 +563,7 @@
     {
       "id": "EAC-T33",
       "title": "Runtime unblocking decision and scope freeze",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -575,7 +575,7 @@
     {
       "id": "EAC-T34",
       "title": "Create Eclipse plugin runtime project layout",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -587,7 +587,7 @@
     {
       "id": "EAC-T35",
       "title": "Add plugin metadata and manifest artifacts",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -599,7 +599,7 @@
     {
       "id": "EAC-T36",
       "title": "Implement reproducible plugin build pipeline",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -611,7 +611,7 @@
     {
       "id": "EAC-T37",
       "title": "Implement Java backend client core",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -623,7 +623,7 @@
     {
       "id": "EAC-T38",
       "title": "Implement secure profile and token handling",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -635,7 +635,7 @@
     {
       "id": "EAC-T39",
       "title": "Implement runtime capability and permission handshake",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -910,15 +910,15 @@
     "EAC-T58"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T19:31:15+02:00",
+    "updated_at": "2026-04-24T19:38:06+02:00",
     "total": 58,
     "by_status": {
-      "todo": 26,
+      "todo": 19,
       "in_progress": 0,
       "blocked": 0,
-      "done": 32
+      "done": 39
     },
-    "progress_percent_done": 55.17,
+    "progress_percent_done": 67.24,
     "by_priority": {
       "P0": 36,
       "P1": 21,
@@ -933,19 +933,19 @@
     },
     "critical_path": {
       "total": 28,
-      "done": 12,
-      "remaining": 16
+      "done": 18,
+      "remaining": 10
     },
     "milestones": {
       "total": 10,
-      "todo": 3,
+      "todo": 2,
       "in_progress": 0,
       "blocked": 0,
-      "done": 7
+      "done": 8
     }
   },
   "code_validation_snapshot": {
-    "updated_at": "2026-04-24T19:31:15+02:00",
+    "updated_at": "2026-04-24T19:38:06+02:00",
     "foundation_evidence": [
       "agent/services/eclipse_plugin_adapter_foundation_service.py",
       "tests/test_eclipse_plugin_adapter_foundation_service.py",
@@ -962,12 +962,12 @@
       "vim_plugin": "foundation_only"
     },
     "alignment_issues_found": [
-      "Current repository has Eclipse advanced foundation contracts/tests but no runnable Eclipse plugin runtime project (no plugin.xml/MANIFEST/buildable runtime artifact).",
-      "This todo was corrected to mark foundation tasks done and split pending runtime delivery into granular implementation and test gates."
+      "Eclipse runtime bootstrap now exists (project layout, plugin metadata, deterministic build bootstrap and smoke script) but full runtime command/view MVP delivery remains pending.",
+      "Foundation tasks remain done; runtime delivery is split into bootstrap-complete (EAC-T33..EAC-T39) and pending operational/runtime hardening blocks."
     ]
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T19:31:15+02:00",
+    "updated_at": "2026-04-24T19:38:06+02:00",
     "stages": {
       "EAC_M1_foundation_scope_and_boundary": {
         "scope_task_ids": [
@@ -1075,8 +1075,8 @@
           "EAC-T39"
         ],
         "total": 7,
-        "done": 0,
-        "todo": 7,
+        "done": 7,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -1121,7 +1121,8 @@
   },
   "summary_notes": [
     "Correction applied: prior EAC todo marked everything as todo, but real repository evidence already contains substantial foundation implementation in service contracts, tests and docs.",
-    "Expansion applied: runtime delivery was split into fine-grained executable tasks (EAC-T33..EAC-T58) with explicit security, contract, smoke and CI gates.",
+    "First runtime block implemented: EAC-T33..EAC-T39 (runtime unblocking, plugin skeleton/metadata, build bootstrap, Java client core, token security, capability gate).",
+    "Runtime delivery remains split into fine-grained executable tasks (EAC-T40..EAC-T58) with explicit security, contract, smoke and CI gates.",
     "This plan preserves SRP/DIP boundaries by separating foundation modeling from runtime plugin implementation and by keeping governance decisions in backend APIs.",
     "Main remaining outcome is not more foundation docs, but a runnable Eclipse plugin runtime with deterministic build and high-confidence test coverage."
   ]
