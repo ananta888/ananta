@@ -669,7 +669,12 @@
         "lmstudio": {
           "base_url": "str",
           "candidate_count": "int",
-          "candidates": [],
+          "candidates": [
+            {
+              "context_length": "NoneType",
+              "id": "str"
+            }
+          ],
           "configured": "bool",
           "host_kind": "str",
           "is_local": "bool",
