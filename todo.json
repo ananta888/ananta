@@ -190,7 +190,7 @@
         {
           "id": "REP-T11",
           "title": "Initial signature catalog create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -202,7 +202,7 @@
         {
           "id": "REP-T12",
           "title": "Signature matching engine implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -214,7 +214,7 @@
         {
           "id": "REP-T13",
           "title": "Ambiguous and low-confidence match handling add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -226,7 +226,7 @@
         {
           "id": "REP-T14",
           "title": "Signature explanation output add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -245,7 +245,7 @@
         {
           "id": "REP-T15",
           "title": "Diagnosis procedure model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -257,7 +257,7 @@
         {
           "id": "REP-T16",
           "title": "Initial diagnosis playbooks create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -269,7 +269,7 @@
         {
           "id": "REP-T17",
           "title": "Diagnosis runner implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -281,7 +281,7 @@
         {
           "id": "REP-T18",
           "title": "Diagnosis branching and fallback behavior add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -293,7 +293,7 @@
         {
           "id": "REP-T19",
           "title": "Non-destructive first strategy enforce",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -312,7 +312,7 @@
         {
           "id": "REP-T20",
           "title": "Repair procedure model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -779,15 +779,15 @@
     "REP-T50"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T20:10:00+02:00",
+    "updated_at": "2026-04-24T20:33:00+02:00",
     "total": 51,
     "by_status": {
-      "todo": 41,
+      "todo": 31,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
+      "done": 20
     },
-    "progress_percent_done": 19.61,
+    "progress_percent_done": 39.22,
     "by_priority": {
       "P0": 24,
       "P1": 22,
@@ -803,9 +803,9 @@
     "by_group": {
       "REP-FOUNDATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
       "REP-SIGNAL-INGESTION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-SIGNATURES": {"total": 5, "todo": 4, "in_progress": 0, "blocked": 0, "done": 1},
-      "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
-      "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "REP-SIGNATURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 4, "in_progress": 0, "blocked": 0, "done": 1},
       "REP-VERIFICATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-LLM-ESCALATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
@@ -815,23 +815,23 @@
     },
     "critical_path": {
       "total": 28,
-      "done": 7,
-      "remaining": 21
+      "done": 14,
+      "remaining": 14
     }
   },
   "milestone_status_summary": {
-    "updated_at": "2026-04-24T20:10:00+02:00",
+    "updated_at": "2026-04-24T20:33:00+02:00",
     "by_milestone": {
       "REP-M1": {"total": 9, "done": 9, "todo": 0},
-      "REP-M2": {"total": 10, "done": 1, "todo": 9},
-      "REP-M3": {"total": 9, "done": 0, "todo": 9},
+      "REP-M2": {"total": 10, "done": 10, "todo": 0},
+      "REP-M3": {"total": 9, "done": 1, "todo": 8},
       "REP-M4": {"total": 13, "done": 0, "todo": 13},
       "REP-M5": {"total": 10, "done": 0, "todo": 10}
     }
   },
   "summary_notes": [
-    "Deterministic repair foundations, evidence ingestion and first signature modeling wave (REP-T01 to REP-T10) are implemented.",
-    "Milestone REP-M1 is completed and REP-M2 is started, while the remaining execution track stays aligned to execution_order_summary and critical_path_tasks.",
-    "Risk-heavy remaining work is concentrated in signature matching engine depth, repair execution, governance enforcement and deterministic verification."
+    "Deterministic repair foundations plus signature catalog/matching, branching diagnosis playbooks and repair-procedure model (REP-T01 to REP-T20) are implemented.",
+    "Milestone REP-M1 and REP-M2 are completed; REP-M3 has started while remaining execution stays aligned to execution_order_summary and critical_path_tasks.",
+    "Risk-heavy remaining work is concentrated in executable repair catalog/executor depth, verification hardening, governance enforcement and rollout safety."
   ]
 }

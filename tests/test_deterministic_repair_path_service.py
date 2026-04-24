@@ -1,17 +1,27 @@
 import pytest
 
 from agent.services.deterministic_repair_path_service import (
+    DIAGNOSIS_PROCEDURE_MODEL,
+    REPAIR_PROCEDURE_MODEL,
     REPAIR_PATH_TARGET_MODEL,
     REPAIR_PROBLEM_CLASS_INVENTORY,
     REPAIR_STATE_MODEL,
     build_deterministic_repair_foundation_snapshot,
+    build_initial_failure_signature_catalog,
+    build_repair_procedure_template,
+    build_signature_explanation,
     build_failure_signature,
     capture_command_result,
+    classify_signature_matching_outcome,
     collect_environment_facts,
     evaluate_repair_confidence,
+    get_initial_diagnosis_playbooks,
     ingest_structured_logs,
+    match_failure_signatures,
     normalize_evidence_bundle,
+    run_diagnosis_playbook,
     signature_to_dict,
+    validate_non_destructive_diagnosis_playbook,
 )
 
 
@@ -118,7 +128,146 @@ def test_failure_signature_model_rejects_unknown_problem_class():
         )
 
 
-def test_foundation_snapshot_contains_first_ten_task_artifacts():
+def test_initial_signature_catalog_contains_windows_ubuntu_and_shared_failures():
+    catalog = build_initial_failure_signature_catalog()
+    as_dicts = {item.id: signature_to_dict(item) for item in catalog}
+
+    assert len(catalog) >= 7
+    assert "sig-ubuntu-apt-lock-conflict" in as_dicts
+    assert as_dicts["sig-ubuntu-apt-lock-conflict"]["environment_constraints"]["platform_target"] == "ubuntu"
+    assert "sig-windows-service-timeout-1053" in as_dicts
+    assert as_dicts["sig-windows-service-timeout-1053"]["environment_constraints"]["platform_target"] == "windows11"
+    assert any(item["problem_class"] == "service_start_failure" for item in as_dicts.values())
+
+
+def test_signature_matching_engine_ranks_matches_deterministically_without_llm():
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "service failed to start"},
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "restart loop detected"},
+            {"type": "command_result", "source": "service_status", "severity": "error", "command": "systemctl status api", "stderr": "start request repeated too quickly", "exit_code": 3},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    result = match_failure_signatures(
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+    )
+
+    assert result["schema"] == "deterministic_signature_matching_v1"
+    assert result["llm_used"] is False
+    assert result["matches"]
+    assert result["matches"][0]["problem_class"] == "service_start_failure"
+    assert result["matches"][0]["score"] >= 0.7
+
+
+def test_signature_outcome_handles_ambiguity_and_low_confidence_paths():
+    confidence_model = evaluate_repair_confidence(signature_strength=0.9, platform_match=1.0, history_success_rate=0.7)
+    ambiguous = classify_signature_matching_outcome(
+        ranked_matches=[
+            {"signature_id": "a", "problem_class": "service_start_failure", "score": 0.82},
+            {"signature_id": "b", "problem_class": "compose_failure", "score": 0.78},
+        ],
+        confidence_model=confidence_model,
+    )
+    low = classify_signature_matching_outcome(
+        ranked_matches=[
+            {"signature_id": "a", "problem_class": "service_start_failure", "score": 0.41},
+        ],
+        confidence_model=confidence_model,
+    )
+
+    assert ambiguous["outcome"] == "ambiguous_high_confidence"
+    assert ambiguous["requires_review"] is True
+    assert "run_branching_diagnosis_playbook" in ambiguous["recommended_next_steps"]
+    assert low["outcome"] == "low_confidence"
+    assert "avoid_mutation_until_confidence_improves" in low["recommended_next_steps"]
+
+
+def test_signature_explanation_includes_key_evidence_and_constraints():
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "Address already in use on port 5000"},
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "bind failed for service api"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    matching = match_failure_signatures(
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    explanation = build_signature_explanation(
+        match=matching["matches"][0],
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+    )
+
+    assert explanation["signature_id"]
+    assert explanation["key_evidence"]
+    assert "platform ubuntu" in explanation["summary"].lower()
+
+
+def test_diagnosis_model_playbooks_and_runner_support_branching_and_early_stop():
+    assert DIAGNOSIS_PROCEDURE_MODEL["schema"] == "deterministic_diagnosis_procedure_v1"
+    playbooks = get_initial_diagnosis_playbooks()
+    playbook = playbooks["service_start_failure"]
+    validate_non_destructive_diagnosis_playbook(playbook)
+
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "service_status", "severity": "error", "message": "service failed to start"},
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "restart loop"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    outcome = {
+        "outcome": "single_high_confidence",
+        "best_problem_class": "service_start_failure",
+        "best_score": 0.88,
+    }
+    run = run_diagnosis_playbook(
+        playbook=playbook,
+        normalized_evidence=normalized,
+        matching_outcome=outcome,
+    )
+
+    assert run["schema"] == "deterministic_diagnosis_run_v1"
+    assert run["non_destructive_enforced"] is True
+    assert run["executed_steps"]
+    assert run["classification"] == "service_start_failure"
+    assert run["final_state"] in {"classified", "completed"}
+
+
+def test_diagnosis_non_destructive_policy_rejects_mutating_steps():
+    playbook = {
+        "id": "invalid-playbook",
+        "steps": [
+            {
+                "id": "mutating-step",
+                "step_type": "execute_mutation",
+                "title": "should never be in diagnosis",
+                "mutation_candidate": True,
+            }
+        ],
+    }
+    with pytest.raises(ValueError):
+        validate_non_destructive_diagnosis_playbook(playbook)
+
+
+def test_repair_procedure_model_supports_safety_classes_and_template_structure():
+    template = build_repair_procedure_template(problem_class="permission_issue", platform_target="ubuntu")
+
+    assert REPAIR_PROCEDURE_MODEL["schema"] == "deterministic_repair_procedure_v1"
+    assert {"safe", "review_first", "high_risk"} == set(REPAIR_PROCEDURE_MODEL["safety_classes"])
+    assert template["problem_class"] == "permission_issue"
+    assert template["safety_class"] == "high_risk"
+    assert template["preconditions"]
+    assert template["postconditions"]
+    assert template["verification"]["required"] is True
+    assert template["rollback_hints"]
+
+
+def test_foundation_snapshot_contains_first_twenty_task_artifacts():
     snapshot = build_deterministic_repair_foundation_snapshot(
         mode_data={"platform_target": "windows11"},
         issue_symptom="Service failed to start after update",
@@ -132,3 +281,18 @@ def test_foundation_snapshot_contains_first_ten_task_artifacts():
     assert snapshot["environment_facts"]["platform_target"] == "windows11"
     assert snapshot["normalized_evidence"]["schema"] == "deterministic_repair_evidence_v1"
     assert snapshot["failure_signature_model"]["schema"] == "failure_signature_v1"
+    assert snapshot["initial_signature_catalog"]["schema"] == "deterministic_failure_signature_catalog_v1"
+    assert snapshot["initial_signature_catalog"]["entries"]
+    assert snapshot["signature_matching"]["schema"] == "deterministic_signature_matching_v1"
+    assert snapshot["signature_matching_outcome"]["outcome"] in {
+        "single_high_confidence",
+        "ambiguous_high_confidence",
+        "low_confidence",
+        "no_match",
+    }
+    assert snapshot["diagnosis_procedure_model"]["schema"] == "deterministic_diagnosis_procedure_v1"
+    assert snapshot["diagnosis_playbooks"]["entries"]
+    assert snapshot["diagnosis_run"]["schema"] == "deterministic_diagnosis_run_v1"
+    assert snapshot["non_destructive_diagnosis_policy"]["enforced"] is True
+    assert snapshot["repair_procedure_model"]["schema"] == "deterministic_repair_procedure_v1"
+    assert snapshot["repair_procedure_template"]["preconditions"]
