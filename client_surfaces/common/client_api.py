@@ -86,6 +86,62 @@ class AnantaApiClient:
     def get_capabilities(self) -> ClientResponse:
         return self._request_json("GET", "/capabilities")
 
+    def get_dashboard_read_model(
+        self, *, benchmark_task_kind: str = "analysis", include_task_snapshot: bool = True
+    ) -> ClientResponse:
+        query = (
+            f"benchmark_task_kind={benchmark_task_kind}&include_task_snapshot={'1' if include_task_snapshot else '0'}"
+        )
+        return self._request_json("GET", f"/dashboard/read-model?{query}")
+
+    def get_assistant_read_model(self) -> ClientResponse:
+        return self._request_json("GET", "/assistant/read-model")
+
+    def get_config(self) -> ClientResponse:
+        return self._request_json("GET", "/config")
+
+    def set_config(self, config_payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/config", payload=config_payload)
+
+    def list_providers(self) -> ClientResponse:
+        return self._request_json("GET", "/providers")
+
+    def list_provider_catalog(self) -> ClientResponse:
+        return self._request_json("GET", "/providers/catalog")
+
+    def get_llm_benchmarks(self, *, task_kind: str | None = None, top_n: int | None = None) -> ClientResponse:
+        parts: list[str] = []
+        if task_kind:
+            parts.append(f"task_kind={task_kind}")
+        if isinstance(top_n, int) and top_n > 0:
+            parts.append(f"top_n={top_n}")
+        suffix = f"?{'&'.join(parts)}" if parts else ""
+        return self._request_json("GET", f"/llm/benchmarks{suffix}")
+
+    def get_llm_benchmarks_config(self) -> ClientResponse:
+        return self._request_json("GET", "/llm/benchmarks/config")
+
+    def get_system_contracts(self) -> ClientResponse:
+        return self._request_json("GET", "/api/system/contracts")
+
+    def list_agents(self) -> ClientResponse:
+        return self._request_json("GET", "/api/system/agents")
+
+    def get_stats(self) -> ClientResponse:
+        return self._request_json("GET", "/api/system/stats")
+
+    def get_stats_history(self) -> ClientResponse:
+        return self._request_json("GET", "/api/system/stats/history")
+
+    def get_audit_logs(self, *, limit: int = 50, offset: int = 0) -> ClientResponse:
+        return self._request_json("GET", f"/api/system/audit-logs?limit={max(1, limit)}&offset={max(0, offset)}")
+
+    def list_goals(self) -> ClientResponse:
+        return self._request_json("GET", "/goals")
+
+    def list_goal_modes(self) -> ClientResponse:
+        return self._request_json("GET", "/goals/modes")
+
     def list_tasks(self) -> ClientResponse:
         return self._request_json("GET", "/tasks")
 
@@ -97,6 +153,24 @@ class AnantaApiClient:
 
     def list_repairs(self) -> ClientResponse:
         return self._request_json("GET", "/repairs")
+
+    def list_knowledge_collections(self) -> ClientResponse:
+        return self._request_json("GET", "/knowledge/collections")
+
+    def list_knowledge_index_profiles(self) -> ClientResponse:
+        return self._request_json("GET", "/knowledge/index-profiles")
+
+    def list_teams(self) -> ClientResponse:
+        return self._request_json("GET", "/teams")
+
+    def get_autopilot_status(self) -> ClientResponse:
+        return self._request_json("GET", "/tasks/autopilot/status")
+
+    def get_auto_planner_status(self) -> ClientResponse:
+        return self._request_json("GET", "/tasks/auto-planner/status")
+
+    def get_triggers_status(self) -> ClientResponse:
+        return self._request_json("GET", "/triggers/status")
 
     def submit_goal(self, goal_text: str, context_payload: dict[str, Any]) -> ClientResponse:
         payload = {"goal_text": goal_text, "context": context_payload}

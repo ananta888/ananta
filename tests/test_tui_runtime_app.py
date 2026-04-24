@@ -17,11 +17,26 @@ def test_tui_runtime_app_renders_fixture_sections() -> None:
         text=True,
     )
     assert result.returncode == 0
-    assert "[HEALTH]" in result.stdout
-    assert "[TASKS]" in result.stdout
-    assert "[ARTIFACTS]" in result.stdout
-    assert "[APPROVALS]" in result.stdout
-    assert "[REPAIRS]" in result.stdout
+    for marker in (
+        "[NAVIGATION]",
+        "[API-MAP]",
+        "[DASHBOARD]",
+        "[GOALS]",
+        "[TASKS]",
+        "[ARTIFACTS]",
+        "[KNOWLEDGE]",
+        "[CONFIG]",
+        "[PROVIDERS]",
+        "[BENCHMARKS]",
+        "[SYSTEM]",
+        "[TEAMS]",
+        "[AUTOMATION]",
+        "[AUDIT]",
+        "[APPROVALS]",
+        "[REPAIRS]",
+        "[HELP]",
+    ):
+        assert marker in result.stdout
 
 
 def test_tui_runtime_main_returns_error_for_invalid_profile(capsys) -> None:
@@ -29,6 +44,64 @@ def test_tui_runtime_main_returns_error_for_invalid_profile(capsys) -> None:
     captured = capsys.readouterr()
     assert rc == 2
     assert "invalid_profile" in captured.out
+
+
+def test_tui_runtime_compact_navigation_and_selected_context() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--section",
+            "Tasks",
+            "--terminal-width",
+            "70",
+            "--selected-task-id",
+            "T-1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "mode=compact current=Tasks" in result.stdout
+    assert "selected_task=T-1" in result.stdout
+
+
+def test_tui_runtime_safe_config_edit_preview_and_apply() -> None:
+    preview = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--set-safe-config",
+            "runtime_profile=strict",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert preview.returncode == 0
+    assert "[CONFIG-EDIT] preview_only" in preview.stdout
+
+    applied = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--set-safe-config",
+            "runtime_profile=strict",
+            "--apply-safe-config",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert applied.returncode == 0
+    assert "[CONFIG-EDIT] applied" in applied.stdout
 
 
 def test_tui_runtime_app_shows_degraded_health_state() -> None:
@@ -40,10 +113,11 @@ def test_tui_runtime_app_shows_degraded_health_state() -> None:
         transport=transport,
     )
     rendered = TuiRuntimeApp(client).run_once()
-    assert "state=backend_unreachable" in rendered
+    assert "health_state=backend_unreachable" in rendered
+    assert "dashboard_degraded=" in rendered
 
 
 def test_smoke_tui_runtime_script_function_reports_success() -> None:
     ok, output = run_smoke_once()
     assert ok is True
-    assert "[HEALTH]" in output
+    assert "[NAVIGATION]" in output

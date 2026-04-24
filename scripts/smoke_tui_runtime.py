@@ -13,7 +13,21 @@ def run_smoke_once() -> tuple[bool, str]:
     ]
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     output = f"{result.stdout}\n{result.stderr}".strip()
-    required_markers = ("[HEALTH]", "[TASKS]", "[ARTIFACTS]", "[APPROVALS]", "[REPAIRS]")
+    required_markers = (
+        "[NAVIGATION]",
+        "[DASHBOARD]",
+        "[GOALS]",
+        "[TASKS]",
+        "[ARTIFACTS]",
+        "[KNOWLEDGE]",
+        "[CONFIG]",
+        "[SYSTEM]",
+        "[AUTOMATION]",
+        "[AUDIT]",
+        "[APPROVALS]",
+        "[REPAIRS]",
+        "[HELP]",
+    )
     markers_ok = all(marker in output for marker in required_markers)
     ok = result.returncode == 0 and markers_ok
     return ok, output

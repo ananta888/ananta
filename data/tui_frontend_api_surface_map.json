@@ -1,0 +1,273 @@
+{
+  "schema": "tui_frontend_api_surface_map_v1",
+  "sections": [
+    "Dashboard",
+    "Goals",
+    "Tasks",
+    "Artifacts",
+    "Knowledge",
+    "Config",
+    "System",
+    "Teams",
+    "Automation",
+    "Audit",
+    "Repair",
+    "Help"
+  ],
+  "classification_scale": [
+    "tui-mvp",
+    "tui-advanced",
+    "browser-fallback",
+    "not-suitable-for-terminal"
+  ],
+  "by_section": {
+    "Dashboard": [
+      {
+        "section": "Dashboard",
+        "method": "get_dashboard_read_model",
+        "http_method": "GET",
+        "endpoint": "/dashboard/read-model",
+        "classification": "tui-mvp",
+        "notes": "Primary runtime snapshot."
+      },
+      {
+        "section": "Dashboard",
+        "method": "get_assistant_read_model",
+        "http_method": "GET",
+        "endpoint": "/assistant/read-model",
+        "classification": "tui-advanced",
+        "notes": "Optional assistant detail card."
+      }
+    ],
+    "Goals": [
+      {
+        "section": "Goals",
+        "method": "list_goals",
+        "http_method": "GET",
+        "endpoint": "/goals",
+        "classification": "tui-mvp",
+        "notes": "Goal list and summary."
+      },
+      {
+        "section": "Goals",
+        "method": "list_goal_modes",
+        "http_method": "GET",
+        "endpoint": "/goals/modes",
+        "classification": "tui-advanced",
+        "notes": "Mode-aware goal creation hints."
+      }
+    ],
+    "Tasks": [
+      {
+        "section": "Tasks",
+        "method": "list_tasks",
+        "http_method": "GET",
+        "endpoint": "/tasks",
+        "classification": "tui-mvp",
+        "notes": "Task board baseline."
+      }
+    ],
+    "Artifacts": [
+      {
+        "section": "Artifacts",
+        "method": "list_artifacts",
+        "http_method": "GET",
+        "endpoint": "/artifacts",
+        "classification": "tui-mvp",
+        "notes": "Artifact list baseline."
+      }
+    ],
+    "Knowledge": [
+      {
+        "section": "Knowledge",
+        "method": "list_knowledge_collections",
+        "http_method": "GET",
+        "endpoint": "/knowledge/collections",
+        "classification": "tui-mvp",
+        "notes": "Knowledge collection inventory."
+      },
+      {
+        "section": "Knowledge",
+        "method": "list_knowledge_index_profiles",
+        "http_method": "GET",
+        "endpoint": "/knowledge/index-profiles",
+        "classification": "tui-advanced",
+        "notes": "Index profile visibility."
+      }
+    ],
+    "Config": [
+      {
+        "section": "Config",
+        "method": "get_config",
+        "http_method": "GET",
+        "endpoint": "/config",
+        "classification": "tui-mvp",
+        "notes": "Read-only config summary with redaction."
+      },
+      {
+        "section": "Config",
+        "method": "set_config",
+        "http_method": "POST",
+        "endpoint": "/config",
+        "classification": "browser-fallback",
+        "notes": "Only allowlisted keys from terminal."
+      },
+      {
+        "section": "Config",
+        "method": "list_providers",
+        "http_method": "GET",
+        "endpoint": "/providers",
+        "classification": "tui-mvp",
+        "notes": "Provider inventory summary."
+      },
+      {
+        "section": "Config",
+        "method": "list_provider_catalog",
+        "http_method": "GET",
+        "endpoint": "/providers/catalog",
+        "classification": "tui-advanced",
+        "notes": "Provider catalog metadata."
+      },
+      {
+        "section": "Config",
+        "method": "get_llm_benchmarks",
+        "http_method": "GET",
+        "endpoint": "/llm/benchmarks",
+        "classification": "tui-mvp",
+        "notes": "Benchmark summary table."
+      },
+      {
+        "section": "Config",
+        "method": "get_llm_benchmarks_config",
+        "http_method": "GET",
+        "endpoint": "/llm/benchmarks/config",
+        "classification": "tui-advanced",
+        "notes": "Benchmark execution configuration."
+      }
+    ],
+    "System": [
+      {
+        "section": "System",
+        "method": "get_health",
+        "http_method": "GET",
+        "endpoint": "/health",
+        "classification": "tui-mvp",
+        "notes": "Core service liveness."
+      },
+      {
+        "section": "System",
+        "method": "get_system_contracts",
+        "http_method": "GET",
+        "endpoint": "/api/system/contracts",
+        "classification": "tui-mvp",
+        "notes": "Contract and compatibility view."
+      },
+      {
+        "section": "System",
+        "method": "list_agents",
+        "http_method": "GET",
+        "endpoint": "/api/system/agents",
+        "classification": "tui-mvp",
+        "notes": "Agent status inventory."
+      },
+      {
+        "section": "System",
+        "method": "get_stats",
+        "http_method": "GET",
+        "endpoint": "/api/system/stats",
+        "classification": "tui-mvp",
+        "notes": "Current runtime metrics."
+      },
+      {
+        "section": "System",
+        "method": "get_stats_history",
+        "http_method": "GET",
+        "endpoint": "/api/system/stats/history",
+        "classification": "tui-advanced",
+        "notes": "Trend snapshot for metrics."
+      }
+    ],
+    "Teams": [
+      {
+        "section": "Teams",
+        "method": "list_teams",
+        "http_method": "GET",
+        "endpoint": "/teams",
+        "classification": "tui-advanced",
+        "notes": "Team visibility baseline."
+      }
+    ],
+    "Automation": [
+      {
+        "section": "Automation",
+        "method": "get_autopilot_status",
+        "http_method": "GET",
+        "endpoint": "/tasks/autopilot/status",
+        "classification": "tui-advanced",
+        "notes": "Autopilot status card."
+      },
+      {
+        "section": "Automation",
+        "method": "get_auto_planner_status",
+        "http_method": "GET",
+        "endpoint": "/tasks/auto-planner/status",
+        "classification": "tui-advanced",
+        "notes": "Auto-planner status card."
+      },
+      {
+        "section": "Automation",
+        "method": "get_triggers_status",
+        "http_method": "GET",
+        "endpoint": "/triggers/status",
+        "classification": "tui-advanced",
+        "notes": "Trigger subsystem status."
+      }
+    ],
+    "Audit": [
+      {
+        "section": "Audit",
+        "method": "get_audit_logs",
+        "http_method": "GET",
+        "endpoint": "/api/system/audit-logs",
+        "classification": "tui-advanced",
+        "notes": "Paged audit list in terminal."
+      }
+    ],
+    "Repair": [
+      {
+        "section": "Repair",
+        "method": "list_repairs",
+        "http_method": "GET",
+        "endpoint": "/repairs",
+        "classification": "tui-mvp",
+        "notes": "Repair session overview."
+      },
+      {
+        "section": "Repair",
+        "method": "list_approvals",
+        "http_method": "GET",
+        "endpoint": "/approvals",
+        "classification": "tui-mvp",
+        "notes": "Approval queue visibility."
+      }
+    ],
+    "Help": [
+      {
+        "section": "Help",
+        "method": "open_in_browser",
+        "http_method": "N/A",
+        "endpoint": "browser://deep-link",
+        "classification": "browser-fallback",
+        "notes": "Deep admin and risky flows stay browser-first."
+      },
+      {
+        "section": "Help",
+        "method": "rich_rendering",
+        "http_method": "N/A",
+        "endpoint": "terminal://unsupported",
+        "classification": "not-suitable-for-terminal",
+        "notes": "Complex rich/binary rendering remains browser-only."
+      }
+    ]
+  }
+}
