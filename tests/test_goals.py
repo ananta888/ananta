@@ -88,6 +88,11 @@ class TestGoalsAPI:
         assert persisted_goal.mode_data["bridge_contract"]["schema"] == "admin_repair_bridge_contract_v1"
         assert persisted_goal.mode_data["platform_evidence_adapters"]["selected_adapter"]["platform"] == "ubuntu"
         assert persisted_goal.mode_data["platform_playbooks"]["recommended_playbooks"]
+        assert persisted_goal.mode_data["rollback_caution_model"]["schema"] == "admin_repair_rollback_caution_v1"
+        assert persisted_goal.mode_data["golden_paths"]["schema"] == "admin_repair_golden_paths_v1"
+        assert persisted_goal.mode_data["golden_paths"]["windows"]["platform_target"] == "windows11"
+        assert persisted_goal.mode_data["golden_paths"]["ubuntu"]["platform_target"] == "ubuntu"
+        assert persisted_goal.mode_data["future_extension_boundaries"]["schema"] == "admin_repair_extension_boundaries_v1"
         assert persisted_goal.mode_data["session_trail"]["entries"]
         assert persisted_goal.mode_data["cli_output"]["sections"][0]["id"] == "diagnosis"
         assert persisted_goal.mode_data["smoke_scenarios"]

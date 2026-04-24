@@ -429,6 +429,43 @@ def _build_repair_plan(
     }
 
 
+def _build_rollback_and_caution_model(repair_plan: dict[str, Any]) -> dict[str, Any]:
+    reversible_actions: list[str] = []
+    non_reversible_actions: list[str] = []
+    caution_messages: list[dict[str, Any]] = []
+    for action in list(repair_plan.get("steps") or []):
+        action_id = str(action.get("id") or "")
+        action_title = str(action.get("title") or "")
+        rollback_supported = bool(action.get("rollback_supported"))
+        if rollback_supported:
+            reversible_actions.append(action_id)
+        else:
+            non_reversible_actions.append(action_id)
+        is_high_risk = bool(action.get("mutation_candidate")) and str(action.get("caution_level") or "") == "high"
+        if is_high_risk or not rollback_supported:
+            caution_messages.append(
+                {
+                    "action_id": action_id,
+                    "title": action_title,
+                    "risk_class": action.get("risk_class"),
+                    "caution_level": action.get("caution_level"),
+                    "rollback_supported": rollback_supported,
+                    "rollback_hint": action.get("rollback_hint"),
+                    "message": "High-risk mutation action requires explicit caution; never present as safe when rollback is missing.",
+                }
+            )
+    return {
+        "schema": "admin_repair_rollback_caution_v1",
+        "reversible_action_ids": reversible_actions,
+        "non_reversible_action_ids": non_reversible_actions,
+        "caution_messages": caution_messages,
+        "safe_presentation_guard": {
+            "enabled": True,
+            "rule": "no_safe_label_when_high_risk_or_rollback_missing",
+        },
+    }
+
+
 def _build_platform_evidence_adapters(
     *,
     platform_target: str,
@@ -695,6 +732,9 @@ def _build_cli_output_sections(
             "risk_class": action.get("risk_class"),
             "advisory_class": action.get("advisory_class"),
             "requires_approval": action.get("requires_approval"),
+            "rollback_supported": action.get("rollback_supported"),
+            "rollback_hint": action.get("rollback_hint"),
+            "caution_level": action.get("caution_level"),
         }
         for action in list(repair_plan.get("steps") or [])
     ]
@@ -770,6 +810,80 @@ def _build_smoke_scenarios(
     return [windows_scenario, ubuntu_scenario]
 
 
+def _build_golden_paths(
+    *,
+    issue_symptom: str,
+    evidence_sources: list[str],
+    execution_scope: str,
+) -> dict[str, Any]:
+    def _flow(platform: str, fixture_profile: str) -> dict[str, Any]:
+        return {
+            "platform_target": platform,
+            "reproducible": True,
+            "fixture_supported": True,
+            "fixture_profile": fixture_profile,
+            "steps": [
+                {
+                    "id": "collect-evidence",
+                    "label": "Collect bounded evidence",
+                    "confirmation_gate": False,
+                    "output": "diagnosis_artifact",
+                },
+                {
+                    "id": "preview-plan",
+                    "label": "Render dry-run repair preview",
+                    "confirmation_gate": False,
+                    "output": "repair_plan_preview",
+                },
+                {
+                    "id": "confirm-execution",
+                    "label": "Confirm bounded mutation-capable step",
+                    "confirmation_gate": True,
+                    "output": "execution_decision",
+                },
+                {
+                    "id": "verify-result",
+                    "label": "Run verification checks and classify result",
+                    "confirmation_gate": False,
+                    "output": "verification_phase",
+                },
+            ],
+            "flow_summary": {
+                "issue_symptom": issue_symptom[:160],
+                "evidence_sources": list(evidence_sources),
+                "execution_scope": execution_scope,
+            },
+        }
+
+    return {
+        "schema": "admin_repair_golden_paths_v1",
+        "windows": _flow("windows11", "windows_service_restart_loop"),
+        "ubuntu": _flow("ubuntu", "ubuntu_service_unhealthy"),
+    }
+
+
+def _build_future_extension_boundaries() -> dict[str, Any]:
+    return {
+        "schema": "admin_repair_extension_boundaries_v1",
+        "mvp_scope": [
+            "bounded_diagnosis",
+            "bounded_repair_plan",
+            "step_confirmed_execution",
+            "post_repair_verification",
+        ],
+        "out_of_scope_domains": [
+            "network_specific_repair_architecture",
+            "container_orchestrator_specific_repair_architecture",
+            "application_domain_specific_repair_architecture",
+        ],
+        "extension_policy": {
+            "requires_shared_repair_action_schema": True,
+            "forbid_parallel_repair_models": True,
+            "keep_shared_foundation_maintainable": True,
+        },
+    }
+
+
 def build_admin_repair_mode_data(mode_data: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(mode_data or {})
     issue_symptom = str(normalized.get("issue_symptom") or "").strip() or "unspecified_admin_issue"
@@ -796,6 +910,7 @@ def build_admin_repair_mode_data(mode_data: dict[str, Any]) -> dict[str, Any]:
         execution_scope=execution_scope,
         dry_run_default=dry_run_default,
     )
+    rollback_caution_model = _build_rollback_and_caution_model(repair_plan)
     platform_adapters = _build_platform_evidence_adapters(
         platform_target=platform_detection["platform_target"],
         evidence_sources=evidence_sources,
@@ -836,11 +951,18 @@ def build_admin_repair_mode_data(mode_data: dict[str, Any]) -> dict[str, Any]:
     }
     normalized["diagnosis_artifact"] = diagnosis_artifact
     normalized["repair_plan"] = repair_plan
+    normalized["rollback_caution_model"] = rollback_caution_model
     normalized["platform_evidence_adapters"] = platform_adapters
     normalized["platform_playbooks"] = platform_playbooks
+    normalized["golden_paths"] = _build_golden_paths(
+        issue_symptom=issue_symptom,
+        evidence_sources=evidence_sources,
+        execution_scope=execution_scope,
+    )
     normalized["execution_session"] = execution_session
     normalized["verification_phase"] = verification_phase
     normalized["bridge_contract"] = bridge_contract
+    normalized["future_extension_boundaries"] = _build_future_extension_boundaries()
     normalized["session_trail"] = _build_session_trail(
         evidence_contract=normalized["evidence_contract"],
         repair_plan=repair_plan,

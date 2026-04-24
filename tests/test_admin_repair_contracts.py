@@ -185,3 +185,54 @@ def test_admin_repair_smoke_scenarios_cover_windows_and_ubuntu():
     targets = {scenario["platform_target"] for scenario in scenarios}
     assert {"windows11", "ubuntu"}.issubset(targets)
     assert all(scenario["expects_confirmation_gates"] for scenario in scenarios)
+
+
+def test_admin_repair_rollback_and_caution_model_is_explicit_for_risky_actions():
+    payload = build_admin_repair_mode_data(
+        {
+            "issue_symptom": "Permission denied while changing ownership for runtime directory",
+            "platform_target": "ubuntu",
+            "execution_scope": "bounded_repair",
+        }
+    )
+    rollback = payload["rollback_caution_model"]
+
+    assert rollback["schema"] == "admin_repair_rollback_caution_v1"
+    assert rollback["safe_presentation_guard"]["enabled"] is True
+    assert rollback["non_reversible_action_ids"]
+    assert rollback["caution_messages"]
+    assert any("never present as safe" in item["message"] for item in rollback["caution_messages"])
+
+
+def test_admin_repair_golden_paths_exist_for_windows_and_ubuntu():
+    payload = build_admin_repair_mode_data(
+        {
+            "issue_symptom": "Service restart loop",
+            "platform_target": "windows11",
+            "execution_scope": "bounded_repair",
+        }
+    )
+    golden_paths = payload["golden_paths"]
+
+    assert golden_paths["schema"] == "admin_repair_golden_paths_v1"
+    assert golden_paths["windows"]["platform_target"] == "windows11"
+    assert golden_paths["ubuntu"]["platform_target"] == "ubuntu"
+    assert golden_paths["windows"]["fixture_supported"] is True
+    assert golden_paths["ubuntu"]["fixture_supported"] is True
+    assert any(step["confirmation_gate"] for step in golden_paths["windows"]["steps"])
+    assert any(step["confirmation_gate"] for step in golden_paths["ubuntu"]["steps"])
+
+
+def test_admin_repair_future_extension_boundaries_are_explicit():
+    payload = build_admin_repair_mode_data(
+        {
+            "issue_symptom": "Container runtime unstable",
+            "platform_target": "ubuntu",
+        }
+    )
+    boundaries = payload["future_extension_boundaries"]
+
+    assert boundaries["schema"] == "admin_repair_extension_boundaries_v1"
+    assert "network_specific_repair_architecture" in boundaries["out_of_scope_domains"]
+    assert boundaries["extension_policy"]["requires_shared_repair_action_schema"] is True
+    assert boundaries["extension_policy"]["forbid_parallel_repair_models"] is True
