@@ -22,9 +22,14 @@ def test_tui_runtime_app_renders_fixture_sections() -> None:
         "[API-MAP]",
         "[DASHBOARD]",
         "[GOALS]",
-        "[TASKS]",
-        "[ARTIFACTS]",
+        "[GOAL-DETAIL]",
+        "[GOAL-PLAN]",
+        "[TASK-WORKBENCH]",
+        "[TASK-ORCHESTRATION]",
+        "[ARCHIVED-TASKS]",
+        "[ARTIFACT-EXPLORER]",
         "[KNOWLEDGE]",
+        "[TEMPLATES]",
         "[CONFIG]",
         "[PROVIDERS]",
         "[BENCHMARKS]",
@@ -59,6 +64,10 @@ def test_tui_runtime_compact_navigation_and_selected_context() -> None:
             "70",
             "--selected-task-id",
             "T-1",
+            "--selected-collection-id",
+            "KC-1",
+            "--selected-template-id",
+            "TPL-1",
         ],
         check=False,
         capture_output=True,
@@ -67,6 +76,8 @@ def test_tui_runtime_compact_navigation_and_selected_context() -> None:
     assert result.returncode == 0
     assert "mode=compact current=Tasks" in result.stdout
     assert "selected_task=T-1" in result.stdout
+    assert "selected_collection=KC-1" in result.stdout
+    assert "selected_template=TPL-1" in result.stdout
 
 
 def test_tui_runtime_safe_config_edit_preview_and_apply() -> None:
@@ -102,6 +113,104 @@ def test_tui_runtime_safe_config_edit_preview_and_apply() -> None:
     )
     assert applied.returncode == 0
     assert "[CONFIG-EDIT] applied" in applied.stdout
+
+
+def test_tui_runtime_goal_task_artifact_actions_are_guarded() -> None:
+    preview = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--goal-create-text",
+            "Add runtime checks",
+            "--goal-create-mode",
+            "guided",
+            "--goal-create-context-json",
+            '{"scope":"tui"}',
+            "--selected-task-id",
+            "T-1",
+            "--task-action",
+            "patch",
+            "--task-action-json",
+            '{"status":"in_progress"}',
+            "--selected-artifact-id",
+            "A-1",
+            "--artifact-action",
+            "index",
+            "--artifact-action-json",
+            '{"profile":"default"}',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert preview.returncode == 0
+    assert "[GOAL-CREATE] state=healthy" in preview.stdout
+    assert "[TASK-ACTION] preview_only" in preview.stdout
+    assert "[ARTIFACT-ACTION] preview_only" in preview.stdout
+
+    apply_actions = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-task-id",
+            "T-1",
+            "--task-action",
+            "execute",
+            "--task-action-json",
+            '{"dry_run":true}',
+            "--confirm-task-action",
+            "--selected-artifact-id",
+            "A-1",
+            "--artifact-action",
+            "extract",
+            "--confirm-artifact-action",
+            "--selected-archived-task-id",
+            "TA-1",
+            "--archived-action",
+            "restore",
+            "--confirm-archived-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert apply_actions.returncode == 0
+    assert "[TASK-ACTION] applied action=execute state=healthy" in apply_actions.stdout
+    assert "[ARTIFACT-ACTION] applied action=extract state=healthy" in apply_actions.stdout
+    assert "[ARCHIVED-ACTION] applied action=restore state=healthy" in apply_actions.stdout
+
+
+def test_tui_runtime_knowledge_and_template_operations() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-collection-id",
+            "KC-1",
+            "--knowledge-search-query",
+            "parity",
+            "--knowledge-top-k",
+            "3",
+            "--index-selected-collection",
+            "--confirm-knowledge-index",
+            "--template-operation",
+            "diagnostics",
+            "--template-payload-json",
+            '{"template":"x"}',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "[KNOWLEDGE-ACTION] index_state=healthy search_state=healthy search_hits=1" in result.stdout
+    assert "[TEMPLATE-OP] operation=diagnostics state=healthy" in result.stdout
 
 
 def test_tui_runtime_app_shows_degraded_health_state() -> None:

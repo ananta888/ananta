@@ -12,6 +12,8 @@ class TuiViewState:
     selected_goal_id: str | None = None
     selected_task_id: str | None = None
     selected_artifact_id: str | None = None
+    selected_collection_id: str | None = None
+    selected_template_id: str | None = None
     filters: dict[str, str] = field(default_factory=dict)
     refresh_count: int = 0
     last_refresh_epoch: float = 0.0
@@ -32,13 +34,21 @@ class TuiViewState:
         return replace(self, filters=next_filters)
 
     def with_selection(
-        self, *, goal_id: str | None = None, task_id: str | None = None, artifact_id: str | None = None
+        self,
+        *,
+        goal_id: str | None = None,
+        task_id: str | None = None,
+        artifact_id: str | None = None,
+        collection_id: str | None = None,
+        template_id: str | None = None,
     ) -> "TuiViewState":
         return replace(
             self,
             selected_goal_id=goal_id if goal_id is not None else self.selected_goal_id,
             selected_task_id=task_id if task_id is not None else self.selected_task_id,
             selected_artifact_id=artifact_id if artifact_id is not None else self.selected_artifact_id,
+            selected_collection_id=collection_id if collection_id is not None else self.selected_collection_id,
+            selected_template_id=template_id if template_id is not None else self.selected_template_id,
         )
 
     def mark_refresh(self) -> "TuiViewState":
@@ -47,10 +57,22 @@ class TuiViewState:
     def with_terminal_width(self, width: int) -> "TuiViewState":
         return replace(self, compact_mode=width < 100)
 
-    def sanitize_selection(self, *, goal_ids: set[str], task_ids: set[str], artifact_ids: set[str]) -> "TuiViewState":
+    def sanitize_selection(
+        self,
+        *,
+        goal_ids: set[str],
+        task_ids: set[str],
+        artifact_ids: set[str],
+        collection_ids: set[str],
+        template_ids: set[str],
+    ) -> "TuiViewState":
         return replace(
             self,
             selected_goal_id=self.selected_goal_id if self.selected_goal_id in goal_ids else None,
             selected_task_id=self.selected_task_id if self.selected_task_id in task_ids else None,
             selected_artifact_id=self.selected_artifact_id if self.selected_artifact_id in artifact_ids else None,
+            selected_collection_id=self.selected_collection_id
+            if self.selected_collection_id in collection_ids
+            else None,
+            selected_template_id=self.selected_template_id if self.selected_template_id in template_ids else None,
         )

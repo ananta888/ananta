@@ -53,7 +53,9 @@ def render_navigation_shell(state: TuiViewState, sections: list[str], fallback_l
         (
             f"selected_goal={state.selected_goal_id or '-'} "
             f"selected_task={state.selected_task_id or '-'} "
-            f"selected_artifact={state.selected_artifact_id or '-'}"
+            f"selected_artifact={state.selected_artifact_id or '-'} "
+            f"selected_collection={state.selected_collection_id or '-'} "
+            f"selected_template={state.selected_template_id or '-'}"
         )
     )
     lines.append(f"refresh_count={state.refresh_count}")
@@ -94,61 +96,271 @@ def render_dashboard_view(
     return "\n".join(lines)
 
 
-def render_goals_view(goals: ClientResponse, goal_modes: ClientResponse) -> str:
+def render_goals_view(
+    goals: ClientResponse,
+    goal_modes: ClientResponse,
+    goal_detail: ClientResponse,
+    goal_plan: ClientResponse,
+    goal_governance: ClientResponse,
+    create_goal_summary: str | None,
+    selected_goal_id: str | None,
+) -> str:
     lines = ["[GOALS]"]
-    goal_items = _safe_items(goals.data)
-    if goal_items:
-        for goal in goal_items[:10]:
-            lines.append(f"- {goal.get('id')} [{goal.get('status')}] {goal.get('title')}")
-    else:
+    for goal in _safe_items(goals.data)[:10]:
+        lines.append(
+            (
+                f"- {goal.get('id')} [{goal.get('status')}] {goal.get('title')} "
+                f"team={goal.get('team')} mode={goal.get('mode')} summary={goal.get('summary')}"
+            )
+        )
+    if len(lines) == 1:
         lines.append("- no_goals_available")
     modes = _safe_items(goal_modes.data)
-    if not modes and isinstance(goal_modes.data, dict):
-        modes = _safe_items(_safe_dict(goal_modes.data).get("items"))
     if modes:
         mode_ids = [str(mode.get("id") or mode.get("name")) for mode in modes[:10]]
         lines.append(f"goal_modes={','.join(mode_ids)}")
+    if create_goal_summary:
+        lines.append(create_goal_summary)
+
+    lines.append("[GOAL-DETAIL]")
+    if selected_goal_id and goal_detail.ok:
+        detail = _safe_dict(goal_detail.data)
+        lines.append(
+            (
+                f"id={detail.get('id')} trace_ref={detail.get('trace_ref')} "
+                f"related_tasks={detail.get('related_task_ids')} related_artifacts={detail.get('related_artifact_ids')}"
+            )
+        )
+    elif selected_goal_id:
+        lines.append(f"selected_goal={selected_goal_id} detail_state={goal_detail.state}")
+    else:
+        lines.append("selected_goal=none")
+
+    lines.append("[GOAL-PLAN]")
+    plan_payload = _safe_dict(goal_plan.data)
+    nodes = list(plan_payload.get("nodes") or [])
+    if nodes:
+        for node in nodes[:20]:
+            lines.append(
+                (
+                    f"- {node.get('id')} [{node.get('status')}] "
+                    f"{node.get('title')} depends_on={node.get('depends_on') or []}"
+                )
+            )
+    elif selected_goal_id:
+        lines.append("plan_state=raw_or_missing browser_first_patch=true")
+    else:
+        lines.append("plan_state=not_selected")
+    lines.append("plan_patch_strategy=browser_first")
+
+    lines.append("[GOAL-GOVERNANCE]")
+    governance = _safe_dict(goal_governance.data)
+    if governance:
+        lines.append(
+            (
+                f"mode={governance.get('governance_mode')} "
+                f"risk_level={governance.get('risk_level')} policy_state={governance.get('policy_state')}"
+            )
+        )
+    elif selected_goal_id:
+        lines.append(f"governance_state={goal_governance.state}")
+    else:
+        lines.append("governance_state=not_selected")
     if goals.state != "healthy":
         lines.append(f"goals_degraded={goals.state}")
     return "\n".join(lines)
 
 
-def render_task_artifact_view(tasks: ClientResponse, artifacts: ClientResponse) -> str:
-    lines = ["[TASKS]"]
-    task_items = _safe_items(tasks.data)
-    if task_items:
-        for task in task_items[:10]:
-            lines.append(f"- {task.get('id')} [{task.get('status')}] {task.get('title')}")
-    else:
+def render_task_workbench_view(
+    tasks: ClientResponse,
+    task_timeline: ClientResponse,
+    selected_task: ClientResponse,
+    task_logs: ClientResponse,
+    task_action_summary: str | None,
+) -> str:
+    lines = ["[TASK-WORKBENCH]"]
+    for task in _safe_items(tasks.data)[:10]:
+        lines.append(
+            (
+                f"- {task.get('id')} [{task.get('status')}] {task.get('title')} "
+                f"team={task.get('team_id')} agent={task.get('agent')} execution={task.get('execution_state')}"
+            )
+        )
+    if len(lines) == 1:
         lines.append("- no_tasks_available")
-    lines.append("[ARTIFACTS]")
-    artifact_items = _safe_items(artifacts.data)
-    if artifact_items:
-        for artifact in artifact_items[:10]:
-            lines.append(f"- {artifact.get('id')} ({artifact.get('type')}) {artifact.get('title')}")
+    if task_action_summary:
+        lines.append(task_action_summary)
+
+    lines.append("[TASK-DETAIL]")
+    detail = _safe_dict(selected_task.data)
+    if detail:
+        lines.append(
+            (
+                f"id={detail.get('id')} owner={detail.get('owner')} agent={detail.get('agent')} "
+                f"proposal={detail.get('proposal_state')} execution={detail.get('execution_state')} "
+                f"artifacts={detail.get('artifact_ids')}"
+            )
+        )
     else:
-        lines.append("- no_artifacts_available")
-    if tasks.state != "healthy":
-        lines.append(f"tasks_degraded={tasks.state}")
-    if artifacts.state != "healthy":
-        lines.append(f"artifacts_degraded={artifacts.state}")
+        lines.append("selected_task=none_or_missing")
+
+    lines.append("[TASK-TIMELINE]")
+    timeline_items = _safe_items(task_timeline.data)
+    if timeline_items:
+        for item in timeline_items[:10]:
+            lines.append(
+                (
+                    f"- {item.get('event_id')} task={item.get('task_id')} "
+                    f"status={item.get('status')} agent={item.get('agent')}"
+                )
+            )
+    else:
+        lines.append("timeline_empty_or_unavailable")
+
+    lines.append("[TASK-LOGS]")
+    log_items = _safe_items(task_logs.data)
+    if log_items:
+        for item in log_items[:10]:
+            lines.append(f"- {item.get('ts')} {item.get('line')}")
+    else:
+        lines.append("logs_unavailable_or_not_selected")
+    lines.append("task_actions_confirmation=required")
     return "\n".join(lines)
 
 
-def render_knowledge_view(collections: ClientResponse, index_profiles: ClientResponse) -> str:
+def render_task_orchestration_view(orchestration: ClientResponse) -> str:
+    lines = ["[TASK-ORCHESTRATION]"]
+    payload = _safe_dict(orchestration.data)
+    lines.append(f"state={payload.get('state') or orchestration.state}")
+    queues = _safe_dict(payload.get("queues"))
+    for queue_name in ("normal", "blocked", "failed", "stale"):
+        entries = queues.get(queue_name)
+        lines.append(f"{queue_name}_count={len(entries) if isinstance(entries, list) else 0}")
+    lines.append("orchestration_write_mode=read_only_guarded")
+    return "\n".join(lines)
+
+
+def render_archived_tasks_view(
+    archived_tasks: ClientResponse,
+    archived_action_summary: str | None,
+) -> str:
+    lines = ["[ARCHIVED-TASKS]"]
+    for task in _safe_items(archived_tasks.data)[:10]:
+        lines.append(f"- {task.get('id')} archived_at={task.get('archived_at')} title={task.get('title')}")
+    if len(lines) == 1:
+        lines.append("- no_archived_tasks")
+    if archived_action_summary:
+        lines.append(archived_action_summary)
+    lines.append("archived_actions_confirmation=required")
+    lines.append("bulk_cleanup_strategy=impact_summary_then_confirm_or_browser_fallback")
+    return "\n".join(lines)
+
+
+def render_artifact_explorer_view(
+    artifacts: ClientResponse,
+    artifact_detail: ClientResponse,
+    rag_status: ClientResponse,
+    rag_preview: ClientResponse,
+    artifact_action_summary: str | None,
+) -> str:
+    lines = ["[ARTIFACT-EXPLORER]"]
+    for artifact in _safe_items(artifacts.data)[:10]:
+        lines.append(
+            (
+                f"- {artifact.get('id')} type={artifact.get('type')} "
+                f"title={artifact.get('title')} task={artifact.get('task_id')}"
+            )
+        )
+    if len(lines) == 1:
+        lines.append("- no_artifacts_available")
+    detail = _safe_dict(artifact_detail.data)
+    if detail:
+        lines.append(
+            (
+                f"selected_artifact={detail.get('id')} size={detail.get('size_bytes')} "
+                f"type={detail.get('type')} preview={str(detail.get('preview') or '')[:120]}"
+            )
+        )
+    status_payload = _safe_dict(rag_status.data)
+    if status_payload:
+        lines.append((f"rag_indexed={status_payload.get('indexed')} rag_chunks={status_payload.get('chunks')}"))
+    preview_items = _safe_items(rag_preview.data)
+    if preview_items:
+        preview_item = preview_items[0]
+        lines.append(
+            (
+                f"rag_preview_top=chunk:{preview_item.get('chunk_id')} "
+                f"score:{preview_item.get('score')} text:{str(preview_item.get('text') or '')[:120]}"
+            )
+        )
+    if artifact_action_summary:
+        lines.append(artifact_action_summary)
+    lines.append("artifact_binary_strategy=browser_fallback")
+    lines.append("artifact_upload_strategy=deferred_browser_fallback")
+    return "\n".join(lines)
+
+
+def render_knowledge_view(
+    collections: ClientResponse,
+    index_profiles: ClientResponse,
+    collection_detail: ClientResponse,
+    knowledge_action_summary: str | None,
+) -> str:
     lines = ["[KNOWLEDGE]"]
-    collection_items = _safe_items(collections.data)
-    if collection_items:
-        for item in collection_items[:10]:
-            lines.append(f"- {item.get('id')} name={item.get('name')} docs={item.get('documents')}")
-    else:
+    for item in _safe_items(collections.data)[:10]:
+        lines.append(f"- {item.get('id')} name={item.get('name')} docs={item.get('documents')}")
+    if len(lines) == 1:
         lines.append("- no_collections_available")
     profile_items = _safe_items(index_profiles.data)
     if profile_items:
         profile_ids = [str(item.get("id") or item.get("name")) for item in profile_items[:10]]
         lines.append(f"index_profiles={','.join(profile_ids)}")
+    detail = _safe_dict(collection_detail.data)
+    if detail:
+        lines.append(
+            (
+                f"selected_collection={detail.get('id')} name={detail.get('name')} "
+                f"documents={detail.get('documents')} last_indexed={detail.get('last_indexed_at')}"
+            )
+        )
+    if knowledge_action_summary:
+        lines.append(knowledge_action_summary)
     if collections.state != "healthy":
         lines.append(f"knowledge_degraded={collections.state}")
+    return "\n".join(lines)
+
+
+def render_template_management_view(
+    templates: ClientResponse,
+    variable_registry: ClientResponse,
+    sample_contexts: ClientResponse,
+    template_operation_summary: str | None,
+    selected_template_id: str | None,
+) -> str:
+    lines = ["[TEMPLATES]"]
+    template_items = _safe_items(templates.data)
+    for item in template_items[:10]:
+        lines.append(
+            f"- {item.get('id')} name={item.get('name')} kind={item.get('kind')} version={item.get('version')}"
+        )
+    if len(lines) == 1:
+        lines.append("- no_templates_available")
+    if selected_template_id:
+        selected = next((item for item in template_items if str(item.get("id")) == selected_template_id), None)
+        if selected:
+            lines.append(f"selected_template={selected.get('id')} detail_name={selected.get('name')}")
+        else:
+            lines.append(f"selected_template={selected_template_id} detail_state=missing")
+    registry_payload = _safe_dict(variable_registry.data)
+    vars_payload = registry_payload.get("variables")
+    if isinstance(vars_payload, list):
+        lines.append(f"template_variable_registry_count={len(vars_payload)}")
+    samples_payload = _safe_dict(sample_contexts.data).get("samples")
+    if isinstance(samples_payload, list):
+        lines.append(f"template_sample_contexts_count={len(samples_payload)}")
+    if template_operation_summary:
+        lines.append(template_operation_summary)
+    lines.append("template_write_strategy=browser_first_or_explicit_guarded")
     return "\n".join(lines)
 
 

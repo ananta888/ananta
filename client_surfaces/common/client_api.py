@@ -142,11 +142,97 @@ class AnantaApiClient:
     def list_goal_modes(self) -> ClientResponse:
         return self._request_json("GET", "/goals/modes")
 
+    def get_goal(self, goal_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/goals/{goal_id}")
+
+    def get_goal_detail(self, goal_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/goals/{goal_id}/detail")
+
+    def get_goal_plan(self, goal_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/goals/{goal_id}/plan")
+
+    def patch_goal_plan_node(self, goal_id: str, node_id: str, patch_payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("PATCH", f"/goals/{goal_id}/plan/nodes/{node_id}", payload=patch_payload)
+
+    def get_goal_governance_summary(self, goal_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/goals/{goal_id}/governance-summary")
+
+    def create_goal(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/goals", payload=payload)
+
     def list_tasks(self) -> ClientResponse:
         return self._request_json("GET", "/tasks")
 
+    def get_task(self, task_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/tasks/{task_id}")
+
+    def patch_task(self, task_id: str, patch_payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("PATCH", f"/tasks/{task_id}", payload=patch_payload)
+
+    def assign_task(self, task_id: str, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", f"/tasks/{task_id}/assign", payload=payload)
+
+    def propose_task_step(self, task_id: str, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", f"/tasks/{task_id}/step/propose", payload=payload)
+
+    def execute_task_step(self, task_id: str, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", f"/tasks/{task_id}/step/execute", payload=payload)
+
+    def get_task_timeline(
+        self,
+        *,
+        team_id: str | None = None,
+        agent: str | None = None,
+        status: str | None = None,
+        error_only: bool = False,
+        limit: int = 200,
+    ) -> ClientResponse:
+        parts = [f"limit={max(1, limit)}"]
+        if team_id:
+            parts.append(f"team_id={team_id}")
+        if agent:
+            parts.append(f"agent={agent}")
+        if status:
+            parts.append(f"status={status}")
+        if error_only:
+            parts.append("error_only=1")
+        return self._request_json("GET", f"/tasks/timeline?{'&'.join(parts)}")
+
+    def get_task_orchestration_read_model(self) -> ClientResponse:
+        return self._request_json("GET", "/tasks/orchestration/read-model")
+
+    def get_task_logs(self, task_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/tasks/{task_id}/logs")
+
+    def list_archived_tasks(self, *, limit: int = 100, offset: int = 0) -> ClientResponse:
+        return self._request_json("GET", f"/tasks/archived?limit={max(1, limit)}&offset={max(0, offset)}")
+
+    def restore_archived_task(self, task_id: str) -> ClientResponse:
+        return self._request_json("POST", f"/tasks/archived/{task_id}/restore", payload={})
+
+    def cleanup_archived_tasks(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/tasks/archived/cleanup", payload=payload)
+
+    def delete_archived_task(self, task_id: str) -> ClientResponse:
+        return self._request_json("DELETE", f"/tasks/archived/{task_id}")
+
     def list_artifacts(self) -> ClientResponse:
         return self._request_json("GET", "/artifacts")
+
+    def get_artifact(self, artifact_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/artifacts/{artifact_id}")
+
+    def extract_artifact(self, artifact_id: str) -> ClientResponse:
+        return self._request_json("POST", f"/artifacts/{artifact_id}/extract", payload={})
+
+    def index_artifact(self, artifact_id: str, payload: dict[str, Any] | None = None) -> ClientResponse:
+        return self._request_json("POST", f"/artifacts/{artifact_id}/rag-index", payload=payload or {})
+
+    def get_artifact_rag_status(self, artifact_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/artifacts/{artifact_id}/rag-status")
+
+    def get_artifact_rag_preview(self, artifact_id: str, *, limit: int = 5) -> ClientResponse:
+        return self._request_json("GET", f"/artifacts/{artifact_id}/rag-preview?limit={max(1, limit)}")
 
     def list_approvals(self) -> ClientResponse:
         return self._request_json("GET", "/approvals")
@@ -159,6 +245,37 @@ class AnantaApiClient:
 
     def list_knowledge_index_profiles(self) -> ClientResponse:
         return self._request_json("GET", "/knowledge/index-profiles")
+
+    def get_knowledge_collection(self, collection_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/knowledge/collections/{collection_id}")
+
+    def index_knowledge_collection(self, collection_id: str, payload: dict[str, Any] | None = None) -> ClientResponse:
+        return self._request_json("POST", f"/knowledge/collections/{collection_id}/index", payload=payload or {})
+
+    def search_knowledge_collection(self, collection_id: str, *, query: str, top_k: int = 5) -> ClientResponse:
+        return self._request_json(
+            "POST",
+            f"/knowledge/collections/{collection_id}/search",
+            payload={"query": query, "top_k": max(1, top_k)},
+        )
+
+    def list_templates(self) -> ClientResponse:
+        return self._request_json("GET", "/templates")
+
+    def get_template_variable_registry(self) -> ClientResponse:
+        return self._request_json("GET", "/templates/variable-registry")
+
+    def get_template_sample_contexts(self) -> ClientResponse:
+        return self._request_json("GET", "/templates/sample-contexts")
+
+    def validate_template(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/templates/validate", payload=payload)
+
+    def preview_template(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/templates/preview", payload=payload)
+
+    def template_validation_diagnostics(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/templates/validation-diagnostics", payload=payload)
 
     def list_teams(self) -> ClientResponse:
         return self._request_json("GET", "/teams")
