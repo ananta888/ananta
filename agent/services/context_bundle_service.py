@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import re
 
+from agent.common.redaction import redact
 from agent.config import settings
 from agent.metrics import RAG_BUNDLE_BUDGET_UTILIZATION, RAG_BUNDLE_DUPLICATE_RATE, RAG_BUNDLE_NOISE_RATE
-from agent.common.redaction import redact, VisibilityLevel
 
 CONTEXT_BUNDLE_POLICY_MODES = {"compact", "standard", "full"}
 CONTEXT_WINDOW_PROFILES = {"compact_12k", "standard_32k", "full_64k"}

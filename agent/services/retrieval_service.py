@@ -8,6 +8,7 @@ from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
+from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 from agent.services.retrieval_source_adapters import (
     ArtifactKnowledgeSourceAdapter,
     RepoRetrievalSourceAdapter,
@@ -16,7 +17,6 @@ from agent.services.retrieval_source_adapters import (
 )
 from agent.services.retrieval_source_contract import normalize_chunk_metadata, resolve_source_selection_policy
 from agent.services.task_neighborhood_service import get_task_neighborhood_service
-from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 
 
 class RetrievalService:

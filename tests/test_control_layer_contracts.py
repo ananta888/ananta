@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
+from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.context_bundle_service import ContextBundleService
 from agent.services.doom_loop_service import get_doom_loop_service
 from agent.services.tool_routing_service import get_tool_routing_service
-from agent.services.approval_policy_service import get_approval_policy_service
 
 
 def test_control_layer_contract_doom_loop_detects_repeated_failure_pattern():
