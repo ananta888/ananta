@@ -170,14 +170,177 @@ class ContextBundleService:
 
         retrieval_alloc = max(1, sections.get("retrieval_context", 0))
         utilization = min(1.0, float(token_estimate or 0) / float(retrieval_alloc))
+        reservation_weights = self._priority_reservations_for_task(task_kind)
+        priority_order = ["critical", "high", "medium", "low"]
+        priority_tokens: dict[str, int] = {}
+        assigned_priority = 0
+        for index, priority in enumerate(priority_order):
+            if index == len(priority_order) - 1:
+                priority_tokens[priority] = max(0, retrieval_alloc - assigned_priority)
+                continue
+            amount = int(round(retrieval_alloc * float(reservation_weights.get(priority, 0.0))))
+            priority_tokens[priority] = amount
+            assigned_priority += amount
         return {
-            "model": "sectional_v1",
+            "model": "sectional_v2",
             "mode": mode,
             "task_kind": str(task_kind or "").strip() or None,
             "total_tokens": total_tokens,
             "sections": sections,
             "retrieval_utilization": round(utilization, 4),
+            "priority_reservations": {
+                "version": "source-priority-reservation-v1",
+                "weights": reservation_weights,
+                "tokens_by_priority": priority_tokens,
+            },
         }
+
+    def _priority_reservations_for_task(self, task_kind: str | None) -> dict[str, float]:
+        normalized = str(task_kind or "").strip().lower()
+        if normalized in {"bugfix", "testing", "test"}:
+            return {"critical": 0.40, "high": 0.30, "medium": 0.20, "low": 0.10}
+        if normalized in {"refactor", "coding", "implement"}:
+            return {"critical": 0.35, "high": 0.30, "medium": 0.22, "low": 0.13}
+        if normalized in {"architecture", "analysis", "doc", "research"}:
+            return {"critical": 0.28, "high": 0.28, "medium": 0.28, "low": 0.16}
+        return {"critical": 0.33, "high": 0.30, "medium": 0.22, "low": 0.15}
+
+    def _chunk_priority(self, chunk: dict[str, object], *, task_kind: str | None) -> str:
+        metadata = dict(chunk.get("metadata") or {})
+        record_kind = str(metadata.get("record_kind") or "").strip().lower()
+        source_type = str(metadata.get("source_type") or "").strip().lower()
+        relation = str(metadata.get("task_relation") or "").strip().lower()
+        if record_kind in {"policy", "constraint", "security_note", "approval", "contract"}:
+            return "critical"
+        if relation in {"same_task", "direct_parent", "direct_child"}:
+            return "high"
+        if source_type in {"task_memory", "artifact"}:
+            return "high"
+        if source_type in {"goal_memory", "result_memory", "wiki", "kb"}:
+            return "medium"
+        normalized_task = str(task_kind or "").strip().lower()
+        if normalized_task in {"bugfix", "testing", "test"} and source_type in {"logs", "telemetry", "trace"}:
+            return "high"
+        return "low"
+
+    @staticmethod
+    def _estimate_chunk_tokens(chunk: dict[str, object]) -> int:
+        text = str(chunk.get("content") or "")
+        return max(1, int(len(text) / 4))
+
+    def _compact_chunk_entry(self, chunk: dict[str, object], *, reason: str, priority: str, tokens: int) -> dict[str, object]:
+        metadata = dict(chunk.get("metadata") or {})
+        return {
+            "engine": str(chunk.get("engine") or "").strip() or None,
+            "source": self._redact_debug_value(str(chunk.get("source") or "").strip() or None),
+            "score": chunk.get("score"),
+            "record_kind": str(metadata.get("record_kind") or "").strip() or None,
+            "source_type": str(metadata.get("source_type") or "").strip() or None,
+            "chunk_id": str(metadata.get("chunk_id") or "").strip() or None,
+            "estimated_tokens": int(tokens),
+            "priority": priority,
+            "reason": reason,
+        }
+
+    def _enforce_budget_with_compaction(
+        self,
+        *,
+        chunks: list[dict[str, object]],
+        task_kind: str | None,
+        retrieval_budget_tokens: int,
+        priority_tokens_by_level: dict[str, int],
+    ) -> tuple[list[dict[str, object]], dict[str, object]]:
+        rank = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+        indexed: list[tuple[int, dict[str, object], str, int]] = []
+        for index, chunk in enumerate(chunks):
+            if not isinstance(chunk, dict):
+                continue
+            priority = self._chunk_priority(chunk, task_kind=task_kind)
+            indexed.append((index, chunk, priority, self._estimate_chunk_tokens(chunk)))
+        ordered = sorted(
+            indexed,
+            key=lambda item: (
+                -int(rank.get(item[2], 0)),
+                -float(item[1].get("score") or 0.0),
+                int(item[0]),
+            ),
+        )
+
+        selected: list[dict[str, object]] = []
+        selected_entries: list[tuple[int, dict[str, object], str, int]] = []
+        deferred: list[tuple[int, dict[str, object], str, int, str]] = []
+        used_tokens_total = 0
+        used_by_priority = {key: 0 for key in ("critical", "high", "medium", "low")}
+        dropped_by_reason: dict[str, int] = {}
+        dropped_by_priority = {key: 0 for key in ("critical", "high", "medium", "low")}
+        kept_by_priority = {key: 0 for key in ("critical", "high", "medium", "low")}
+
+        def _drop(item: tuple[int, dict[str, object], str, int], reason: str) -> None:
+            deferred.append((item[0], item[1], item[2], item[3], reason))
+            dropped_by_reason[reason] = int(dropped_by_reason.get(reason) or 0) + 1
+            dropped_by_priority[item[2]] = int(dropped_by_priority.get(item[2]) or 0) + 1
+
+        for item in ordered:
+            _, _, priority, tokens = item
+            if used_tokens_total + tokens > retrieval_budget_tokens:
+                _drop(item, "retrieval_budget_exhausted")
+                continue
+            reserved_limit = max(1, int(priority_tokens_by_level.get(priority) or 0))
+            if used_by_priority[priority] + tokens > reserved_limit:
+                _drop(item, "priority_reservation_exhausted")
+                continue
+            used_tokens_total += tokens
+            used_by_priority[priority] += tokens
+            kept_by_priority[priority] = int(kept_by_priority.get(priority) or 0) + 1
+            selected_entries.append(item)
+            selected.append(item[1])
+
+        if used_tokens_total < retrieval_budget_tokens:
+            remaining = sorted(
+                [item for item in deferred if item[4] == "priority_reservation_exhausted"],
+                key=lambda item: (-float(item[1].get("score") or 0.0), int(item[0])),
+            )
+            refill_kept: list[tuple[int, dict[str, object], str, int, str]] = []
+            for item in remaining:
+                index, chunk, priority, tokens, _ = item
+                if used_tokens_total + tokens > retrieval_budget_tokens:
+                    continue
+                used_tokens_total += tokens
+                used_by_priority[priority] += tokens
+                kept_by_priority[priority] = int(kept_by_priority.get(priority) or 0) + 1
+                selected_entries.append((index, chunk, priority, tokens))
+                selected.append(chunk)
+                refill_kept.append(item)
+            if refill_kept:
+                for item in refill_kept:
+                    deferred.remove(item)
+                    dropped_by_reason["priority_reservation_exhausted"] = max(
+                        0,
+                        int(dropped_by_reason.get("priority_reservation_exhausted") or 0) - 1,
+                    )
+                    dropped_by_priority[item[2]] = max(0, int(dropped_by_priority.get(item[2]) or 0) - 1)
+
+        selected_entries = sorted(selected_entries, key=lambda item: int(item[0]))
+        selected = [item[1] for item in selected_entries]
+        dropped_chunks = [
+            self._compact_chunk_entry(chunk, reason=reason, priority=priority, tokens=tokens)
+            for _, chunk, priority, tokens, reason in deferred
+        ]
+        compaction = {
+            "enabled": True,
+            "version": "priority-budget-compaction-v1",
+            "retrieval_budget_tokens": int(retrieval_budget_tokens),
+            "selected_tokens": int(used_tokens_total),
+            "selected_chunk_count": len(selected),
+            "dropped_chunk_count": len(dropped_chunks),
+            "kept_by_priority": kept_by_priority,
+            "dropped_by_priority": dropped_by_priority,
+            "used_tokens_by_priority": used_by_priority,
+            "dropped_reasons": dropped_by_reason,
+            "dropped_chunks": self._redact_debug_value(dropped_chunks),
+            "provenance_preserved": True,
+        }
+        return selected, compaction
 
     def _build_explainability(self, chunks: list[dict]) -> dict[str, object]:
         engines: list[str] = []
@@ -343,6 +506,7 @@ class ContextBundleService:
         retrieval_intent: str | None,
         required_context_scope: str | None,
         mode: str,
+        compaction: dict[str, object] | None = None,
     ) -> dict[str, object]:
         profile = self._mode_profile(mode)
         top_source_limit = max(1, int(profile.get("top_source_limit") or 5))
@@ -377,6 +541,12 @@ class ContextBundleService:
         if strategy:
             summary_parts.append(f"strategy_keys={','.join(sorted(str(key) for key in strategy.keys()))}")
         summary_parts.append(f"selected_chunks={len(chunks)}")
+        if isinstance(compaction, dict):
+            summary_parts.append(
+                "compaction="
+                f"{int(compaction.get('selected_chunk_count') or 0)}/"
+                f"{int((compaction.get('selected_chunk_count') or 0) + (compaction.get('dropped_chunk_count') or 0))}"
+            )
         summary_parts.append(f"mode={mode}")
         return {
             "summary": self._redact_debug_value(" | ".join(summary_parts)),
@@ -385,6 +555,12 @@ class ContextBundleService:
             "required_context_scope": str(required_context_scope or "").strip() or None,
             "mode": mode,
             "top_sources": self._redact_debug_value(top_sources),
+            "compaction_summary": {
+                "selected_chunk_count": int((compaction or {}).get("selected_chunk_count") or 0),
+                "dropped_chunk_count": int((compaction or {}).get("dropped_chunk_count") or 0),
+                "dropped_reasons": dict((compaction or {}).get("dropped_reasons") or {}),
+                "provenance_preserved": bool((compaction or {}).get("provenance_preserved")),
+            },
         }
 
     def build_bundle(
@@ -433,6 +609,27 @@ class ContextBundleService:
                     effective_total_budget_tokens = int(mapped)
                 except (TypeError, ValueError):
                     effective_total_budget_tokens = total_budget_tokens
+        budget_model = self._build_budget_model(
+            policy_mode=effective_mode,
+            task_kind=task_kind,
+            token_estimate=int(payload.get("token_estimate") or 0),
+            explicit_total_tokens=effective_total_budget_tokens,
+        )
+        selected_chunks, compaction = self._enforce_budget_with_compaction(
+            chunks=list(payload.get("chunks") or []),
+            task_kind=task_kind,
+            retrieval_budget_tokens=max(1, int((budget_model.get("sections") or {}).get("retrieval_context") or 1)),
+            priority_tokens_by_level=dict(
+                ((budget_model.get("priority_reservations") or {}).get("tokens_by_priority") or {})
+            ),
+        )
+        payload["chunks"] = selected_chunks
+        payload["chunk_count"] = len(selected_chunks)
+        payload["compaction"] = compaction
+        selected_tokens = int(compaction.get("selected_tokens") or 0)
+        retrieval_alloc = max(1, int((budget_model.get("sections") or {}).get("retrieval_context") or 1))
+        budget_model["retrieval_selected_tokens"] = selected_tokens
+        budget_model["retrieval_utilization"] = round(min(1.0, float(selected_tokens) / float(retrieval_alloc)), 4)
         strategy = dict(payload.get("strategy") or {})
         base_explainability = self._build_explainability(list(payload.get("chunks") or []))
         visibility_level = self._normalize_provenance_visibility(provenance_visibility)
@@ -445,13 +642,9 @@ class ContextBundleService:
             retrieval_intent=retrieval_intent,
             required_context_scope=required_context_scope,
             mode=effective_mode,
+            compaction=compaction,
         )
-        payload["budget"] = self._build_budget_model(
-            policy_mode=effective_mode,
-            task_kind=task_kind,
-            token_estimate=int(payload.get("token_estimate") or 0),
-            explicit_total_tokens=effective_total_budget_tokens,
-        )
+        payload["budget"] = budget_model
         fusion = dict(strategy.get("fusion") or {})
         dedupe = dict(fusion.get("dedupe") or {})
         candidate_counts = dict(fusion.get("candidate_counts") or {})
@@ -464,6 +657,10 @@ class ContextBundleService:
             "fusion": dict(strategy.get("fusion") or {}),
             "knowledge_index_reason": strategy.get("knowledge_index_reason"),
             "result_memory_reason": strategy.get("result_memory_reason"),
+            "compaction": {
+                "version": compaction.get("version"),
+                "dropped_reasons": dict(compaction.get("dropped_reasons") or {}),
+            },
         }
         payload["selection_trace"] = self._redact_debug_value(payload["selection_trace"])
         payload["context_policy"] = {
@@ -475,6 +672,28 @@ class ContextBundleService:
             "bundle_strategy": str(mode_profile.get("bundle_strategy") or "balanced"),
             "explainability_level": str(mode_profile.get("explainability_level") or "balanced"),
             "chunk_text_style": str(mode_profile.get("chunk_text_style") or "balanced_snippets"),
+            "source_prioritization_rules": [
+                {
+                    "priority": "critical",
+                    "match": ["record_kind in {policy,constraint,security_note,approval,contract}"],
+                    "reason": "Governance and safety constraints are preserved first",
+                },
+                {
+                    "priority": "high",
+                    "match": ["task_relation in {same_task,direct_parent,direct_child}", "source_type in {task_memory,artifact}"],
+                    "reason": "Direct execution context and task-local artifacts are favored",
+                },
+                {
+                    "priority": "medium",
+                    "match": ["source_type in {goal_memory,result_memory,wiki,kb}"],
+                    "reason": "Supporting context is retained when budget allows",
+                },
+                {
+                    "priority": "low",
+                    "match": ["fallback for non-matching chunks"],
+                    "reason": "Residual context is included only after higher priority reservations",
+                },
+            ],
         }
         payload["provenance_policy"] = {
             "policy_version": "multi-source-provenance-v1",

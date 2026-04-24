@@ -233,7 +233,14 @@ def set_config():
         if not isinstance(override_cfg, dict):
             return api_response(status="error", message=f"invalid_{key}", code=400)
         new_cfg[key] = shared.normalize_model_override_map(override_cfg)
-    for key in ("llm_config", "research_backend", "opencode_runtime", "worker_runtime"):
+    for key in (
+        "llm_config",
+        "research_backend",
+        "opencode_runtime",
+        "worker_runtime",
+        "specialized_worker_profiles",
+        "ml_intern_spike",
+    ):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):
         merged_hub_copilot = (current_cfg.get("hub_copilot", {}) or {}).copy()
@@ -266,6 +273,26 @@ def set_config():
         new_cfg = {
             **new_cfg,
             "unified_approval_policy": shared.normalize_unified_approval_policy_config(merged_approval_policy),
+        }
+    if "specialized_worker_profiles" in new_cfg:
+        specialized_cfg = new_cfg.get("specialized_worker_profiles")
+        if not isinstance(specialized_cfg, dict):
+            return api_response(status="error", message="invalid_specialized_worker_profiles", code=400)
+        merged_specialized = (current_cfg.get("specialized_worker_profiles", {}) or {}).copy()
+        merged_specialized.update(specialized_cfg)
+        new_cfg = {
+            **new_cfg,
+            "specialized_worker_profiles": shared.normalize_specialized_worker_profiles_config(merged_specialized),
+        }
+    if "ml_intern_spike" in new_cfg:
+        ml_intern_cfg = new_cfg.get("ml_intern_spike")
+        if not isinstance(ml_intern_cfg, dict):
+            return api_response(status="error", message="invalid_ml_intern_spike", code=400)
+        merged_ml_intern = (current_cfg.get("ml_intern_spike", {}) or {}).copy()
+        merged_ml_intern.update(ml_intern_cfg)
+        new_cfg = {
+            **new_cfg,
+            "ml_intern_spike": shared.normalize_ml_intern_spike_config(merged_ml_intern),
         }
 
     current_cfg.update(new_cfg)

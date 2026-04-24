@@ -159,6 +159,27 @@ def test_sgpt_execute_invalid_backend(client, admin_auth_header):
     assert response.json["status"] == "error"
 
 
+def test_sgpt_execute_ml_intern_backend_when_enabled(client, admin_auth_header):
+    cfg_res = client.post(
+        "/config",
+        json={"ml_intern_spike": {"enabled": True, "command_template": "python worker.py --prompt-file {prompt_file}"}},
+        headers=admin_auth_header,
+    )
+    assert cfg_res.status_code == 200
+    with patch("agent.routes.sgpt.get_ml_intern_adapter_service") as mock_service_factory:
+        mock_service = MagicMock()
+        mock_service.invoke_spike.return_value = {"ok": True, "stdout": "ml intern output", "stderr": "", "backend": "ml_intern"}
+        mock_service_factory.return_value = mock_service
+        response = client.post(
+            "/api/sgpt/execute",
+            json={"prompt": "analyze dataset", "backend": "ml_intern"},
+            headers=admin_auth_header,
+        )
+    assert response.status_code == 200
+    assert response.json["data"]["backend"] == "ml_intern"
+    assert response.json["data"]["output"] == "ml intern output"
+
+
 def test_sgpt_backends_endpoint(client, admin_auth_header):
     with patch(
         "agent.llm_integration.probe_lmstudio_runtime",

@@ -81,6 +81,26 @@ class ToolRoutingService:
                     "availability": "ready" if bool((payload or {}).get("available")) else "unavailable",
                 }
             )
+        known_backend_ids = {str(item.get("id") or "").strip().lower() for item in items if item.get("kind") == "backend"}
+        for profile in self._specialized_backend_profiles(cfg):
+            profile_id = str(profile.get("id") or "").strip().lower()
+            if not profile_id or profile_id in known_backend_ids:
+                continue
+            capability_classes = [str(item or "").strip().lower() for item in list(profile.get("capability_classes") or []) if str(item or "").strip()]
+            risk_class = str(profile.get("risk_class") or self._risk_class_for_capability_classes(capability_classes)).strip().lower() or "medium"
+            items.append(
+                {
+                    "id": profile_id,
+                    "kind": "specialized_backend",
+                    "capability_classes": sorted(set(capability_classes or ["planning"])),
+                    "risk_class": risk_class,
+                    "supports_stateful_session": False,
+                    "requires_approval": bool(profile.get("requires_approval", risk_class in {"medium", "high"})),
+                    "availability": "ready" if bool(profile.get("available")) else "optional",
+                    "backend_type": str(profile.get("backend_type") or "external_worker"),
+                    "routing_aliases": list(profile.get("routing_aliases") or []),
+                }
+            )
 
         for tool_name, tool_class in sorted(tool_classes.items(), key=lambda item: item[0]):
             capability_classes = sorted(set(_TOOL_CLASS_CAPABILITY_CLASSES.get(tool_class, ["planning"])))
@@ -125,7 +145,11 @@ class ToolRoutingService:
         if governance not in {"safe", "balanced", "strict"}:
             governance = "balanced"
         required = self._required_capabilities(normalized_kind, required_capabilities)
-        backend_items = [item for item in list(catalog.get("items") or []) if item.get("kind") == "backend"]
+        backend_items = [
+            item
+            for item in list(catalog.get("items") or [])
+            if item.get("kind") in {"backend", "specialized_backend"}
+        ]
 
         requested = str(requested_backend or "").strip().lower() or None
         alternatives: list[dict[str, Any]] = []
@@ -248,6 +272,31 @@ class ToolRoutingService:
         if governance_mode == "strict":
             return risk in {"medium", "high"}
         return False
+
+    @staticmethod
+    def _specialized_backend_profiles(cfg: dict[str, Any]) -> list[dict[str, Any]]:
+        payload = cfg.get("specialized_worker_profiles") if isinstance(cfg.get("specialized_worker_profiles"), dict) else {}
+        if not bool(payload.get("enabled", False)):
+            return []
+        profiles = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}
+        rows: list[dict[str, Any]] = []
+        for profile_id, profile in profiles.items():
+            if not isinstance(profile, dict) or not bool(profile.get("enabled", False)):
+                continue
+            if not bool(profile.get("export_to_tool_router", True)):
+                continue
+            rows.append(
+                {
+                    "id": str(profile_id or "").strip().lower(),
+                    "backend_type": str(profile.get("backend_type") or "external_worker").strip().lower(),
+                    "capability_classes": list(profile.get("capability_classes") or []),
+                    "risk_class": str(profile.get("risk_class") or "medium").strip().lower(),
+                    "requires_approval": bool(profile.get("requires_approval", True)),
+                    "available": bool(profile.get("available", False)),
+                    "routing_aliases": list(profile.get("routing_aliases") or []),
+                }
+            )
+        return rows
 
 
 tool_routing_service = ToolRoutingService()

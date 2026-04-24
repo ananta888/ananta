@@ -30,6 +30,7 @@ from agent.runtime_policy import build_trace_record, normalize_task_kind, resolv
 from agent.security_risk import classify_command_risk, classify_tool_calls_risk, has_file_access_signal, has_terminal_signal, max_risk_level
 from agent.services.repository_registry import get_repository_registry
 from agent.services.cli_session_service import get_cli_session_service
+from agent.services.context_manager_service import get_context_manager_service
 from agent.services.live_terminal_session_service import get_live_terminal_session_service
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
@@ -1704,15 +1705,30 @@ class TaskScopedExecutionService:
             "comment": None,
         }
 
-    def _get_worker_execution_context(self, task: dict | None) -> dict:
+    def _get_worker_execution_context(
+        self,
+        task: dict | None,
+        *,
+        tid: str | None = None,
+        base_prompt: str | None = None,
+    ) -> dict:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         if execution_context:
             execution_context["allowed_tools"] = normalize_allowed_tools(execution_context.get("allowed_tools"))
             return execution_context
         bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
-        if not bundle_id:
-            return {}
-        bundle = get_repository_registry().context_bundle_repo.get_by_id(bundle_id)
+        bundle = None
+        if bundle_id:
+            bundle = get_repository_registry().context_bundle_repo.get_by_id(bundle_id)
+        if bundle is None and (tid or (task or {})):
+            resolved = get_context_manager_service().ensure_task_context_bundle(
+                task=dict(task or {}),
+                task_id=tid,
+                query=base_prompt,
+            )
+            resolved_bundle = resolved.get("context_bundle")
+            if resolved_bundle is not None:
+                bundle = resolved_bundle
         if bundle is None:
             return {}
         return {
@@ -1725,8 +1741,14 @@ class TaskScopedExecutionService:
             },
         }
 
-    def _tool_definitions_for_task(self, task: dict | None, *, tool_definitions_resolver: Callable) -> list[dict]:
-        execution_context = self._get_worker_execution_context(task)
+    def _tool_definitions_for_task(
+        self,
+        task: dict | None,
+        *,
+        tool_definitions_resolver: Callable,
+        execution_context: dict | None = None,
+    ) -> list[dict]:
+        execution_context = dict(execution_context or self._get_worker_execution_context(task))
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         if allowed_tools:
             return tool_definitions_resolver(allowlist=allowed_tools)
@@ -1983,14 +2005,18 @@ class TaskScopedExecutionService:
         research_context: dict | None = None,
         interactive_terminal: bool = False,
     ) -> tuple[str, dict]:
-        execution_context = self._get_worker_execution_context(task)
+        execution_context = self._get_worker_execution_context(task, tid=tid, base_prompt=base_prompt)
         context_payload = dict(execution_context.get("context") or {})
         context_text = str(context_payload.get("context_text") or "").strip()
         workspace_payload = dict(execution_context.get("workspace") or {})
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
-        tool_definitions = self._tool_definitions_for_task(task, tool_definitions_resolver=tool_definitions_resolver)
+        tool_definitions = self._tool_definitions_for_task(
+            task,
+            tool_definitions_resolver=tool_definitions_resolver,
+            execution_context=execution_context,
+        )
 
         prompt_sections: list[str] = []
         system_prompt = self._get_system_prompt_for_task(tid)

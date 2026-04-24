@@ -2,7 +2,7 @@
   "version": 2,
   "owner": "ananta",
   "track": "generic_agent_control_and_ml_intern_worker",
-  "updated_at": "2026-04-24T00:59:12+02:00",
+  "updated_at": "2026-04-24T03:44:00+02:00",
   "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -232,7 +232,7 @@
     {
       "id": "GAC-T15",
       "title": "Shared context budget enforcement add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "phase": "context_management",
       "depends_on": ["GAC-T14"],
@@ -245,7 +245,7 @@
     {
       "id": "GAC-T16",
       "title": "Auto-compaction strategy implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "context_management",
       "depends_on": ["GAC-T14", "GAC-T15"],
@@ -258,7 +258,7 @@
     {
       "id": "GAC-T17",
       "title": "Context source prioritization rules define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "context_management",
       "depends_on": ["GAC-T14"],
@@ -271,7 +271,7 @@
     {
       "id": "GAC-T18",
       "title": "ContextManager service expose to execution paths",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "context_management",
       "depends_on": ["GAC-T14", "GAC-T15", "GAC-T17"],
@@ -284,7 +284,7 @@
     {
       "id": "GAC-T19",
       "title": "Observability for loop routing approval and context add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "observability_and_rollout",
       "depends_on": ["GAC-T05", "GAC-T09", "GAC-T12", "GAC-T18"],
@@ -297,7 +297,7 @@
     {
       "id": "GAC-T20",
       "title": "Contract tests for generic control services add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "observability_and_rollout",
       "depends_on": ["GAC-T05", "GAC-T09", "GAC-T12", "GAC-T16"],
@@ -310,7 +310,7 @@
     {
       "id": "GAC-T21",
       "title": "Golden path documentation for safer agentic loops add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "phase": "observability_and_rollout",
       "depends_on": ["GAC-T10", "GAC-T13", "GAC-T19"],
@@ -349,7 +349,7 @@
     {
       "id": "GAC-T24",
       "title": "ml-intern capability profile model add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "phase": "optional_ml_intern",
       "depends_on": ["GAC-T08", "GAC-T09", "GAC-T12", "GAC-T23"],
@@ -362,7 +362,7 @@
     {
       "id": "GAC-T25",
       "title": "Optional ml-intern backend spike implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "phase": "optional_ml_intern",
       "depends_on": ["GAC-T23", "GAC-T24"],
@@ -387,15 +387,15 @@
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:59:12+02:00",
+    "updated_at": "2026-04-24T03:44:00+02:00",
     "total": 26,
     "by_status": {
-      "todo": 9,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 17
+      "done": 26
     },
-    "progress_percent_done": 65.4,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 12,
       "P1": 10,
@@ -425,30 +425,20 @@
       },
       "context_management": {
         "total": 5,
-        "done": 1,
-        "todo": 4
+        "done": 5,
+        "todo": 0
       },
       "observability_and_rollout": {
         "total": 3,
-        "done": 0,
-        "todo": 3
+        "done": 3,
+        "todo": 0
       },
       "optional_ml_intern": {
         "total": 5,
-        "done": 3,
-        "todo": 2
+        "done": 5,
+        "todo": 0
       }
     },
-    "recommended_first_bundle": [
-      "GAC-T15",
-      "GAC-T17",
-      "GAC-T18",
-      "GAC-T19",
-      "GAC-T20",
-      "GAC-T16",
-      "GAC-T21",
-      "GAC-T24",
-      "GAC-T25"
-    ]
+    "recommended_first_bundle": []
   }
 }
