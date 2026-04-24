@@ -1,0 +1,640 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track_id": "vscode_plugin_runtime_delivery",
+  "track": "vscode_plugin",
+  "purpose": "Deliver a real Visual Studio Code extension for Ananta as a first-class developer surface: goal submission, analysis/review commands, task/artifact visibility, approvals, audit/repair visibility, TUI launch and safe backend-driven workflows.",
+  "depends_on": [
+    "client_runtime_delivery_after_skeletons",
+    "TUI runtime MVP",
+    "shared client API concepts",
+    "existing Angular Hub API surface",
+    "Neovim runtime MVP as editor-integration reference"
+  ],
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+
+  "goal": "VS Code should become the main mainstream editor integration for Ananta, supporting common developer workflows without duplicating hub orchestration, governance, approval, audit or repair logic.",
+
+  "success_criteria": [
+    "VS Code extension project exists with reproducible build/package/test setup.",
+    "Extension can configure Ananta endpoint/profile/auth safely.",
+    "Extension can check backend health and capabilities.",
+    "Command Palette exposes Ananta goal/analyze/review/patch/new/evolve workflows.",
+    "Editor context capture is bounded, visible and user-confirmed before send.",
+    "Sidebar or activity view shows tasks, artifacts, approvals and runtime status.",
+    "TUI can be launched safely from VS Code terminal.",
+    "No file mutation, repair execution or approval action happens implicitly.",
+    "Tests and smoke checks prove core runtime behavior."
+  ],
+
+  "architecture_guardrails": [
+    "VS Code extension is a thin client, not a second Ananta control plane.",
+    "All orchestration, planning, policy, approval, audit and repair enforcement stay in the Ananta backend.",
+    "All risky actions require explicit user confirmation and backend permission.",
+    "Editor context must be bounded and inspectable.",
+    "Secrets/tokens must not be logged, shown in errors or passed unsafely via command line.",
+    "Browser fallback remains available for deep/high-risk admin workflows.",
+    "TUI launch must be explicit and observable."
+  ],
+
+  "milestones": [
+    {
+      "id": "VSC-M1",
+      "title": "Scope, architecture and project bootstrap",
+      "task_ids": ["VSC-T01", "VSC-T02", "VSC-T03", "VSC-T04", "VSC-T05"],
+      "status": "todo"
+    },
+    {
+      "id": "VSC-M2",
+      "title": "Connection, auth and backend client",
+      "task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
+      "status": "todo"
+    },
+    {
+      "id": "VSC-M3",
+      "title": "Editor context and command palette workflows",
+      "task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
+      "status": "todo"
+    },
+    {
+      "id": "VSC-M4",
+      "title": "Sidebar views for tasks, artifacts and approvals",
+      "task_ids": ["VSC-T17", "VSC-T18", "VSC-T19", "VSC-T20", "VSC-T21"],
+      "status": "todo"
+    },
+    {
+      "id": "VSC-M5",
+      "title": "Runtime, audit, repair and TUI integration",
+      "task_ids": ["VSC-T22", "VSC-T23", "VSC-T24", "VSC-T25", "VSC-T26"],
+      "status": "todo"
+    },
+    {
+      "id": "VSC-M6",
+      "title": "Safety, tests and packaging",
+      "task_ids": ["VSC-T27", "VSC-T28", "VSC-T29", "VSC-T30", "VSC-T31", "VSC-T32"],
+      "status": "todo"
+    },
+    {
+      "id": "VSC-M7",
+      "title": "Docs, smoke checks and release readiness",
+      "task_ids": ["VSC-T33", "VSC-T34", "VSC-T35", "VSC-T36"],
+      "status": "todo"
+    }
+  ],
+
+  "tasks": [
+    {
+      "id": "VSC-T01",
+      "title": "VS Code plugin scope boundary define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Document defines MVP, advanced and browser-fallback features.",
+        "VS Code is explicitly defined as thin client surface.",
+        "Dangerous workflows such as repair execution, config writes and file mutation are backend-gated or deferred.",
+        "Scope separates editor workflows from operator/admin workflows."
+      ]
+    },
+    {
+      "id": "VSC-T02",
+      "title": "VS Code extension project skeleton create",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Repository contains real VS Code extension project directory, e.g. client_surfaces/vscode_extension.",
+        "package.json exists with activationEvents, contributes.commands and contributes.views where needed.",
+        "TypeScript project config exists.",
+        "Extension can compile from clean checkout."
+      ]
+    },
+    {
+      "id": "VSC-T03",
+      "title": "Build and packaging setup implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "npm scripts exist for compile, test, lint and package.",
+        "VSIX packaging path is documented.",
+        "Build is deterministic and CI-friendly.",
+        "Build failure blocks runtime_mvp claim."
+      ]
+    },
+    {
+      "id": "VSC-T04",
+      "title": "Extension architecture document create",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Docs explain extension modules: backend client, context capture, commands, views, webviews, terminal/TUI integration.",
+        "Docs show which existing Ananta APIs are reused.",
+        "Docs explicitly forbid client-side policy/orchestration duplication.",
+        "Docs list future advanced features separately."
+      ]
+    },
+    {
+      "id": "VSC-T05",
+      "title": "Frontend API reuse mapping create",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Angular Hub API surface is mapped to VS Code extension features.",
+        "Each planned view/action lists the backend endpoint/read model it uses.",
+        "Missing endpoints are listed explicitly.",
+        "No fake local-only data model is used for runtime claims."
+      ]
+    },
+
+    {
+      "id": "VSC-T06",
+      "title": "VS Code configuration settings implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Extension settings include Ananta base URL and profile/runtime target.",
+        "Auth mode is defined safely.",
+        "Raw tokens are not stored in normal plain settings if secret storage is available.",
+        "Invalid config is visible and actionable."
+      ]
+    },
+    {
+      "id": "VSC-T07",
+      "title": "Secret storage and auth handling implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "VS Code SecretStorage or equivalent safe mechanism is used for tokens/secrets.",
+        "Logs and errors redact secrets.",
+        "Missing/invalid auth returns explicit degraded state.",
+        "Tests cover missing token, invalid token and redaction."
+      ]
+    },
+    {
+      "id": "VSC-T08",
+      "title": "Backend client implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "TypeScript backend client supports health, capabilities, goals, tasks, artifacts, approvals, audit, repair and config read endpoints where available.",
+        "Client has timeout handling.",
+        "Client maps backend failures to typed degraded states.",
+        "Client does not silently swallow backend errors."
+      ]
+    },
+    {
+      "id": "VSC-T09",
+      "title": "Capability and permission handshake implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Extension checks backend health/capabilities before enabling commands.",
+        "Denied or unsupported actions are disabled or clearly marked.",
+        "Command execution rechecks capability where needed.",
+        "No action appears available when backend denies it."
+      ]
+    },
+    {
+      "id": "VSC-T10",
+      "title": "Runtime status bar and diagnostics implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Status bar shows connected/disconnected/degraded state.",
+        "Click opens Ananta status/details view.",
+        "Diagnostics show backend unreachable, auth failed, capability missing and policy denied states.",
+        "Status never shows success if backend is degraded."
+      ]
+    },
+
+    {
+      "id": "VSC-T11",
+      "title": "Bounded editor context capture implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Extension captures active file path, selected text, language id and workspace root.",
+        "Context size is bounded.",
+        "No unrelated files are included implicitly.",
+        "Likely secrets are blocked, redacted or warned before send."
+      ]
+    },
+    {
+      "id": "VSC-T12",
+      "title": "Context preview and confirmation UI implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "User can preview what context will be sent.",
+        "Preview shows file path, selection length, excerpt and metadata.",
+        "Sensitive or large context warnings are visible.",
+        "Goal submission can be cancelled before sending."
+      ]
+    },
+    {
+      "id": "VSC-T13",
+      "title": "Command Palette goal workflows implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Commands exist for Ananta: Submit Goal, Analyze Selection, Review File, Patch Plan, New Project and Evolve Project.",
+        "Commands map to official backend goal/task flows.",
+        "Command payload includes explicit mode/profile/context metadata.",
+        "Success result links to task/artifact views or web UI."
+      ]
+    },
+    {
+      "id": "VSC-T14",
+      "title": "Quick goal input panel implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Quick input supports goal text and optional mode selection.",
+        "Input validates empty/too-large values.",
+        "Selected context is summarized before submit.",
+        "Submission shows status and created task IDs."
+      ]
+    },
+    {
+      "id": "VSC-T15",
+      "title": "Editor context menu actions implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Context menu actions exist for selected text/current file where appropriate.",
+        "Actions remain capability-aware.",
+        "No action mutates files directly.",
+        "Context menu actions reuse the same safe context preview flow."
+      ]
+    },
+    {
+      "id": "VSC-T16",
+      "title": "Result rendering and notification flow implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Command results show clear success/failure/degraded notification.",
+        "Results can open task/artifact detail in VS Code side view.",
+        "Browser fallback is available.",
+        "Unsupported result types degrade to text/browser fallback."
+      ]
+    },
+
+    {
+      "id": "VSC-T17",
+      "title": "Ananta activity bar and sidebar container implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "VS Code activity bar container exists for Ananta.",
+        "Sidebar has sections for Status, Goals/Tasks, Artifacts, Approvals and Runtime.",
+        "Views refresh manually.",
+        "Views handle empty/degraded states."
+      ]
+    },
+    {
+      "id": "VSC-T18",
+      "title": "Tasks and goals tree view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tree view lists recent goals and tasks.",
+        "Items show status, mode, team/profile where available.",
+        "Selecting item opens detail panel or webview.",
+        "Refresh and filter by status are supported."
+      ]
+    },
+    {
+      "id": "VSC-T19",
+      "title": "Task detail and log view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Task detail shows title, status, summary, trace, related artifacts and next step.",
+        "Task logs can be loaded or refreshed where backend supports them.",
+        "Stale/missing task state is explicit.",
+        "No task execution happens implicitly."
+      ]
+    },
+    {
+      "id": "VSC-T20",
+      "title": "Artifact view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Artifact list/detail is available in sidebar or panel.",
+        "Text artifacts render inside VS Code.",
+        "Diff/review artifacts render read-only.",
+        "Binary/rich artifacts use browser fallback."
+      ]
+    },
+    {
+      "id": "VSC-T21",
+      "title": "Approval and review queue view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Pending approval/review items are visible with enough context.",
+        "Approve/reject actions require explicit confirmation.",
+        "Actions call backend approval APIs only.",
+        "Stale/denied/already-handled states are handled safely."
+      ]
+    },
+
+    {
+      "id": "VSC-T22",
+      "title": "System and runtime overview view implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "View shows backend health, capabilities, active profile/governance and provider/model summary where available.",
+        "View is read-only by default.",
+        "Sensitive values are redacted.",
+        "Unavailable endpoints degrade clearly."
+      ]
+    },
+    {
+      "id": "VSC-T23",
+      "title": "Audit explorer MVP implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Extension can list audit log summaries where backend supports it.",
+        "Audit entries redact sensitive data.",
+        "Entries can link to related goal/task/artifact/trace where available.",
+        "Deep audit analysis uses browser fallback if needed."
+      ]
+    },
+    {
+      "id": "VSC-T24",
+      "title": "Repair visibility MVP implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Repair sessions or repair-related task states are visible where backend exposes them.",
+        "Diagnosis, proposed steps, dry-run status, approval state and verification result are shown where available.",
+        "No repair execution is triggered by opening or refreshing the view.",
+        "Repair approval/execution actions are deferred unless backend-gated and explicitly confirmed."
+      ]
+    },
+    {
+      "id": "VSC-T25",
+      "title": "Launch Ananta TUI in VS Code terminal implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Command launches documented Ananta TUI command in VS Code integrated terminal.",
+        "Launch is explicit and user-triggered.",
+        "Endpoint/profile context is passed safely.",
+        "Tokens/secrets are not exposed in command line where avoidable."
+      ]
+    },
+    {
+      "id": "VSC-T26",
+      "title": "Open Ananta Web UI fallback implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Commands can open relevant Ananta Web UI pages.",
+        "Fallback exists for tasks, artifacts, audit, config and repair views.",
+        "Browser fallback is clearly labeled and never bypasses policy.",
+        "URLs are generated safely from configured base URL."
+      ]
+    },
+
+    {
+      "id": "VSC-T27",
+      "title": "Security and governance negative tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Tests verify no client-side approval/policy bypass.",
+        "Tests verify denied, unauthorized, stale and malformed backend responses.",
+        "Tests verify no implicit file mutation.",
+        "Tests verify no implicit repair execution."
+      ]
+    },
+    {
+      "id": "VSC-T28",
+      "title": "Secret redaction and context safety tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Tests verify tokens/secrets are redacted in logs/errors/output.",
+        "Tests cover likely secret patterns in selected text/context.",
+        "Tests verify size limits and provenance metadata.",
+        "Tests verify unrelated files are not included implicitly."
+      ]
+    },
+    {
+      "id": "VSC-T29",
+      "title": "Backend client unit and contract tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests cover health, capabilities, goals, tasks, artifacts, approvals and degraded responses.",
+        "Backend response shape assumptions are locked by fixtures.",
+        "Timeout and malformed response behavior is tested.",
+        "Tests run without live backend."
+      ]
+    },
+    {
+      "id": "VSC-T30",
+      "title": "VS Code command and view tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests cover command registration.",
+        "Tests cover command dispatch with mocked backend client.",
+        "Tests cover view model rendering inputs.",
+        "Tests cover capability-disabled commands."
+      ]
+    },
+    {
+      "id": "VSC-T31",
+      "title": "Extension smoke test add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Smoke test verifies extension activation.",
+        "Smoke test verifies command registration.",
+        "Smoke test verifies mocked health check and one goal submission flow.",
+        "Smoke test is runnable locally and suitable for CI."
+      ]
+    },
+    {
+      "id": "VSC-T32",
+      "title": "CI lane for VS Code extension add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "CI runs extension compile/tests.",
+        "CI reports extension failures separately from Python backend failures.",
+        "VS Code extension runtime claims are blocked if CI/smoke evidence is missing.",
+        "Packaging step is optional but documented."
+      ]
+    },
+
+    {
+      "id": "VSC-T33",
+      "title": "VS Code user guide write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Docs explain install/build/run for development.",
+        "Docs explain settings, auth and connection status.",
+        "Docs list available commands and views.",
+        "Docs explain safe context preview and browser/TUI fallback."
+      ]
+    },
+    {
+      "id": "VSC-T34",
+      "title": "Developer smoke checklist write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Checklist covers install extension, configure backend, health check, analyze selection, review file, submit goal, view task/artifact and launch TUI.",
+        "Checklist includes expected success and failure signals.",
+        "Checklist distinguishes automated vs manual checks.",
+        "Checklist is short enough for release review."
+      ]
+    },
+    {
+      "id": "VSC-T35",
+      "title": "Runtime inventory and audit integration update",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Client surface runtime inventory includes vscode_plugin status.",
+        "Audit script checks VS Code extension runtime evidence.",
+        "Runtime evidence includes package.json, source files, build command and smoke/test evidence.",
+        "Foundation-only VS Code files cannot satisfy runtime_mvp."
+      ]
+    },
+    {
+      "id": "VSC-T36",
+      "title": "VS Code merge readiness report generate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Report lists implemented commands, views and deferred features.",
+        "Report includes build/test/smoke evidence.",
+        "Report lists known backend/API gaps if any.",
+        "Report states merge-safe vs feature-flag-only recommendation."
+      ]
+    }
+  ],
+
+  "execution_order_summary": [
+    "Stage 1: Define VS Code scope and bootstrap real extension project.",
+    "Stage 2: Implement secure connection/auth and backend client.",
+    "Stage 3: Implement bounded editor context and command palette workflows.",
+    "Stage 4: Implement sidebar views for goals/tasks/artifacts/approvals.",
+    "Stage 5: Add runtime/audit/repair visibility and TUI/Web UI fallback.",
+    "Stage 6: Add security, contract, command, view and smoke tests.",
+    "Stage 7: Update docs, inventory, audit and merge-readiness report."
+  ],
+
+  "critical_path_tasks": [
+    "VSC-T01",
+    "VSC-T02",
+    "VSC-T03",
+    "VSC-T06",
+    "VSC-T07",
+    "VSC-T08",
+    "VSC-T09",
+    "VSC-T11",
+    "VSC-T12",
+    "VSC-T13",
+    "VSC-T17",
+    "VSC-T18",
+    "VSC-T20",
+    "VSC-T21",
+    "VSC-T25",
+    "VSC-T27",
+    "VSC-T28",
+    "VSC-T29",
+    "VSC-T31",
+    "VSC-T35",
+    "VSC-T36"
+  ],
+
+  "tasks_status_summary": {
+    "updated_at": "2026-04-24T00:00:00+02:00",
+    "total": 36,
+    "by_status": {
+      "todo": 36,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 23,
+      "P1": 13,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 11,
+      "high": 15,
+      "critical": 10
+    },
+    "critical_path": {
+      "total": 21,
+      "done": 0,
+      "remaining": 21
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+
+  "summary_notes": [
+    "This track should not be mixed into the Eclipse advanced runtime track.",
+    "VS Code is likely the most important mainstream editor integration and should probably run before Eclipse Advanced.",
+    "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
+    "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened."
+  ]
+}

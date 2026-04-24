@@ -1,6 +1,6 @@
 {
   "schema": "client_surface_runtime_inventory_v1",
-  "generated_for_track": "client_runtime_delivery_after_skeletons",
+  "generated_for_track": "eclipse_advanced_control_surface_runtime_delivery_after_foundation",
   "inventory_focus": [
     "tui_surface",
     "eclipse_plugin",
