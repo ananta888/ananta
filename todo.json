@@ -63,13 +63,13 @@
       "id": "TFS-M6",
       "title": "Automation, audit, approvals and repair",
       "task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TFS-M7",
       "title": "Testing, docs and release gate",
       "task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -393,7 +393,7 @@
     {
       "id": "TFS-T25",
       "title": "Approval and proposal review queue implement",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -406,7 +406,7 @@
     {
       "id": "TFS-T26",
       "title": "Repair operator view deepen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -419,7 +419,7 @@
     {
       "id": "TFS-T27",
       "title": "Event stream and live refresh model implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -433,7 +433,7 @@
     {
       "id": "TFS-T28",
       "title": "TUI view-model test suite expand",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -446,7 +446,7 @@
     {
       "id": "TFS-T29",
       "title": "TUI API contract tests expand",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -459,7 +459,7 @@
     {
       "id": "TFS-T30",
       "title": "TUI golden path smoke suite add",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -472,7 +472,7 @@
     {
       "id": "TFS-T31",
       "title": "TUI user and operator docs update",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -485,7 +485,7 @@
     {
       "id": "TFS-T32",
       "title": "TUI frontend-parity readiness report generate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -536,15 +536,15 @@
     "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T01:05:00+02:00",
+    "updated_at": "2026-04-25T00:37:13+02:00",
     "total": 33,
     "by_status": {
-      "todo": 3,
-      "in_progress": 5,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 25
+      "done": 33
     },
-    "progress_percent_done": 75.76,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 18,
       "P1": 12,
@@ -559,19 +559,19 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 10,
-      "remaining": 6
+      "done": 16,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 7
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T01:05:00+02:00",
+    "updated_at": "2026-04-25T00:37:13+02:00",
     "stages": {
       "TFS-M1": {
         "title": "Navigation and API mapping",
@@ -622,24 +622,24 @@
         "title": "Automation, audit, approvals and repair",
         "scope_task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
         "total": 5,
-        "done": 2,
-        "todo": 1,
-        "in_progress": 2,
+        "done": 5,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       },
       "TFS-M7": {
         "title": "Testing, docs and release gate",
         "scope_task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
         "total": 6,
-        "done": 1,
-        "todo": 2,
-        "in_progress": 3,
+        "done": 6,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "code_evidence_snapshot": {
-    "updated_at": "2026-04-25T01:05:00+02:00",
+    "updated_at": "2026-04-25T00:37:13+02:00",
     "runtime_baseline_evidence": [
       "client_surfaces/common/client_api.py",
       "client_surfaces/tui_runtime/ananta_tui/app.py",
@@ -661,7 +661,8 @@
       "devtools/validate_todo_schema.py",
       "todo.track.schema.json",
       "tests/test_validate_todo_schema.py",
-      "data/tui_frontend_api_surface_map.json"
+      "data/tui_frontend_api_surface_map.json",
+      "data/tui_frontend_parity_readiness_report.json"
     ],
     "detected_runtime_sections": [
       "dashboard",
@@ -689,23 +690,23 @@
       "audit",
       "approvals",
       "repairs",
+      "live_refresh",
       "help"
     ],
     "major_gaps_vs_track_goal": [
-      "Goal/task/artifact/knowledge/template deep views now exist for core workflows, but advanced write paths are intentionally guarded or browser-first.",
-      "Config editing is intentionally allowlisted; advanced governance/config operations stay browser-first.",
-      "Approval/proposal and repair execution depth is still in-progress and remains strongly guarded.",
-      "Live refresh/event-stream behavior and full golden-path release hardening remain open.",
-      "Golden-path and API-contract coverage improved, but full frontend-parity workflow depth is still open."
+      "No merge blockers for the tracked parity scope; remaining gaps are explicitly marked as browser-first safety boundaries.",
+      "Repair execution APIs are intentionally not bypassed from terminal when backend contracts are not explicit.",
+      "Event streaming remains polling-based in terminal until dedicated push stream contracts are stabilized."
     ]
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T01:05:00+02:00",
+    "checked_at": "2026-04-25T00:37:13+02:00",
     "internal_consistency": "ok",
     "notes": [
       "Task IDs are unique and all milestone task references resolve to existing tasks.",
       "Task status, priority and risk counters were recalculated and synchronized.",
-      "todo schema validation now auto-detects task-track format and validates against todo.track.schema.json."
+      "todo schema validation now auto-detects task-track format and validates against todo.track.schema.json.",
+      "Frontend parity readiness report is available at data/tui_frontend_parity_readiness_report.json."
     ]
   },
   "summary_notes": [
@@ -715,6 +716,8 @@
     "Goal creation now supports explicit mode/context payload, and task/artifact/archive write actions are confirmation-gated.",
     "Artifact upload strategy is explicitly set to deferred browser fallback to prevent accidental terminal uploads.",
     "Third bundle (TFS-T19..T24) is completed with teams/blueprint deep views, instruction layer workbench/selection flows, automation guarded actions and audit analyze/redaction support.",
+    "Final bundle (TFS-T25..T32) is completed with approval/proposal queue actions, deeper repair operator visibility, optional live refresh polling, expanded smoke/contract/view tests and updated operator docs.",
+    "Frontend parity readiness report has been generated at data/tui_frontend_parity_readiness_report.json with supported/partial/browser-fallback mapping and residual polish notes.",
     "Dashboard/system/config/provider/benchmark surfaces are now rendered through existing backend API contracts with degraded-state visibility.",
     "Safe config editing is now allowlisted, preview-first and explicit-apply only; dangerous or complex operations remain browser-first.",
     "todo schema validation drift is resolved for active track format via format detection and dedicated track schema support.",
@@ -768,6 +771,14 @@
       "items": [
         "Completed tasks: TFS-T19, TFS-T20, TFS-T21, TFS-T22, TFS-T23 and TFS-T24.",
         "Milestone TFS-M5 is now done; TFS-M6 moved forward with automation/audit baseline complete while approvals/repair/live-refresh remain open."
+      ]
+    },
+    {
+      "summary_id": "TFS-S7",
+      "title": "Track completion",
+      "items": [
+        "Completed tasks: TFS-T25, TFS-T26, TFS-T27, TFS-T28, TFS-T29, TFS-T30, TFS-T31 and TFS-T32.",
+        "Milestones TFS-M6 and TFS-M7 are now done; full track status is synchronized at done=33, in_progress=0, todo=0."
       ]
     }
   ]
