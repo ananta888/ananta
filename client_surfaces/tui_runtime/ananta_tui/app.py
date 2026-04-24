@@ -25,12 +25,13 @@ from client_surfaces.tui_runtime.ananta_tui.views import (
     render_dashboard_view,
     render_goals_view,
     render_help_view,
+    render_instruction_layers_view,
     render_knowledge_view,
     render_navigation_shell,
     render_system_view,
     render_task_orchestration_view,
     render_task_workbench_view,
-    render_teams_view,
+    render_team_blueprint_view,
     render_template_management_view,
 )
 
@@ -188,6 +189,11 @@ class TuiRuntimeApp:
         selected_artifact_id: str | None = None,
         selected_collection_id: str | None = None,
         selected_template_id: str | None = None,
+        selected_team_id: str | None = None,
+        selected_blueprint_id: str | None = None,
+        selected_team_type_id: str | None = None,
+        selected_instruction_profile_id: str | None = None,
+        selected_instruction_overlay_id: str | None = None,
         safe_config_edits: Sequence[str] = (),
         apply_safe_config: bool = False,
         task_status_filter: str | None = None,
@@ -214,6 +220,19 @@ class TuiRuntimeApp:
         knowledge_top_k: int = 5,
         index_selected_collection: bool = False,
         confirm_knowledge_index: bool = False,
+        instruction_owner_username: str = "",
+        instruction_usage_key: str = "",
+        instruction_session_id: str = "",
+        team_action: str = "",
+        team_action_json: str = "",
+        confirm_team_action: bool = False,
+        instruction_action: str = "",
+        instruction_action_json: str = "",
+        confirm_instruction_action: bool = False,
+        automation_action: str = "",
+        automation_action_json: str = "",
+        confirm_automation_action: bool = False,
+        audit_analyze_limit: int = 50,
     ) -> None:
         self._client = client
         self._state = (
@@ -226,6 +245,11 @@ class TuiRuntimeApp:
                 artifact_id=selected_artifact_id,
                 collection_id=selected_collection_id,
                 template_id=selected_template_id,
+                team_id=selected_team_id,
+                blueprint_id=selected_blueprint_id,
+                team_type_id=selected_team_type_id,
+                instruction_profile_id=selected_instruction_profile_id,
+                instruction_overlay_id=selected_instruction_overlay_id,
             )
         )
         self._safe_config_edits = tuple(safe_config_edits)
@@ -254,6 +278,19 @@ class TuiRuntimeApp:
         self._knowledge_top_k = max(1, int(knowledge_top_k))
         self._index_selected_collection = bool(index_selected_collection)
         self._confirm_knowledge_index = bool(confirm_knowledge_index)
+        self._instruction_owner_username = instruction_owner_username.strip() or None
+        self._instruction_usage_key = instruction_usage_key.strip() or None
+        self._instruction_session_id = instruction_session_id.strip() or None
+        self._team_action = team_action.strip().lower()
+        self._team_action_json = team_action_json
+        self._confirm_team_action = bool(confirm_team_action)
+        self._instruction_action = instruction_action.strip().lower()
+        self._instruction_action_json = instruction_action_json
+        self._confirm_instruction_action = bool(confirm_instruction_action)
+        self._automation_action = automation_action.strip().lower()
+        self._automation_action_json = automation_action_json
+        self._confirm_automation_action = bool(confirm_automation_action)
+        self._audit_analyze_limit = max(1, int(audit_analyze_limit))
         self._api_map = build_hub_api_surface_map()
 
     def _apply_config_edits(self, config_response: ClientResponse) -> ConfigEditRuntime:
@@ -429,6 +466,90 @@ class TuiRuntimeApp:
             f"[TEMPLATE-OP] operation={self._template_operation} state={response.state} status={response.status_code}"
         )
 
+    def _run_team_action(self, selected_team_id: str | None) -> str | None:
+        if not self._team_action:
+            return None
+        payload, parse_err = _parse_json_object(self._team_action_json, default={})
+        if parse_err:
+            return f"[TEAM-ACTION] rejected={parse_err}"
+        if self._team_action != "activate":
+            return f"[TEAM-ACTION] rejected=unsupported_action:{self._team_action}"
+        if not selected_team_id:
+            return "[TEAM-ACTION] rejected=selected_team_required"
+        if not self._confirm_team_action:
+            return f"[TEAM-ACTION] preview_only action=activate team_id={selected_team_id}"
+        response = self._client.activate_team(selected_team_id)
+        return (
+            f"[TEAM-ACTION] applied action=activate team_id={selected_team_id} "
+            f"state={response.state} status={response.status_code}"
+        )
+
+    def _run_instruction_action(self, state: TuiViewState) -> str | None:
+        if not self._instruction_action:
+            return None
+        payload, parse_err = _parse_json_object(self._instruction_action_json, default={})
+        if parse_err:
+            return f"[INSTRUCTION-ACTION] rejected={parse_err}"
+        if not self._confirm_instruction_action:
+            return f"[INSTRUCTION-ACTION] preview_only action={self._instruction_action}"
+
+        if self._instruction_action == "select_profile":
+            if not state.selected_instruction_profile_id:
+                return "[INSTRUCTION-ACTION] rejected=selected_instruction_profile_required"
+            response = self._client.select_instruction_profile(state.selected_instruction_profile_id)
+        elif self._instruction_action == "select_overlay":
+            if not state.selected_instruction_overlay_id:
+                return "[INSTRUCTION-ACTION] rejected=selected_instruction_overlay_required"
+            response = self._client.select_instruction_overlay(state.selected_instruction_overlay_id, payload=payload)
+        elif self._instruction_action == "link_overlay":
+            if not state.selected_instruction_overlay_id:
+                return "[INSTRUCTION-ACTION] rejected=selected_instruction_overlay_required"
+            response = self._client.link_instruction_overlay(state.selected_instruction_overlay_id, payload=payload)
+        elif self._instruction_action == "unlink_overlay":
+            if not state.selected_instruction_overlay_id:
+                return "[INSTRUCTION-ACTION] rejected=selected_instruction_overlay_required"
+            response = self._client.unlink_instruction_overlay(state.selected_instruction_overlay_id)
+        elif self._instruction_action == "set_goal_selection":
+            if not state.selected_goal_id:
+                return "[INSTRUCTION-ACTION] rejected=selected_goal_required"
+            response = self._client.set_goal_instruction_selection(state.selected_goal_id, payload=payload)
+        elif self._instruction_action == "set_task_selection":
+            if not state.selected_task_id:
+                return "[INSTRUCTION-ACTION] rejected=selected_task_required"
+            response = self._client.set_task_instruction_selection(state.selected_task_id, payload=payload)
+        else:
+            return f"[INSTRUCTION-ACTION] rejected=unsupported_action:{self._instruction_action}"
+        return (
+            f"[INSTRUCTION-ACTION] applied action={self._instruction_action} "
+            f"state={response.state} status={response.status_code}"
+        )
+
+    def _run_automation_action(self) -> str | None:
+        if not self._automation_action:
+            return None
+        payload, parse_err = _parse_json_object(self._automation_action_json, default={})
+        if parse_err:
+            return f"[AUTOMATION-ACTION] rejected={parse_err}"
+        if not self._confirm_automation_action:
+            return f"[AUTOMATION-ACTION] preview_only action={self._automation_action}"
+
+        if self._automation_action == "autopilot_start":
+            response = self._client.start_autopilot(payload)
+        elif self._automation_action == "autopilot_stop":
+            response = self._client.stop_autopilot()
+        elif self._automation_action == "autopilot_tick":
+            response = self._client.tick_autopilot()
+        elif self._automation_action == "configure_planner":
+            response = self._client.configure_auto_planner(payload)
+        elif self._automation_action == "configure_triggers":
+            response = self._client.configure_triggers(payload)
+        else:
+            return f"[AUTOMATION-ACTION] rejected=unsupported_action:{self._automation_action}"
+        return (
+            f"[AUTOMATION-ACTION] applied action={self._automation_action} "
+            f"state={response.state} status={response.status_code}"
+        )
+
     def run_once(self) -> str:
         health = self._client.get_health()
         capabilities = self._client.get_capabilities()
@@ -462,10 +583,18 @@ class TuiRuntimeApp:
         stats = self._client.get_stats()
         stats_history = self._client.get_stats_history()
         teams = self._client.list_teams()
+        blueprints = self._client.list_blueprints()
+        blueprint_catalog = self._client.list_blueprint_catalog()
+        team_types = self._client.list_team_types()
+        team_roles = self._client.list_team_roles()
+        instruction_model = self._client.get_instruction_layer_model()
+        instruction_profiles = self._client.list_instruction_profiles(owner_username=self._instruction_owner_username)
+        instruction_overlays = self._client.list_instruction_overlays(owner_username=self._instruction_owner_username)
         autopilot = self._client.get_autopilot_status()
         auto_planner = self._client.get_auto_planner_status()
         triggers = self._client.get_triggers_status()
         audit_logs = self._client.get_audit_logs(limit=30)
+        audit_analysis = self._client.analyze_audit_logs(limit=self._audit_analyze_limit)
         approvals = self._client.list_approvals()
         repairs = self._client.list_repairs()
 
@@ -474,12 +603,26 @@ class TuiRuntimeApp:
         artifact_ids = {str(item.get("id")) for item in _safe_items(artifacts.data) if item.get("id")}
         collection_ids = {str(item.get("id")) for item in _safe_items(knowledge_collections.data) if item.get("id")}
         template_ids = {str(item.get("id")) for item in _safe_items(templates.data) if item.get("id")}
+        team_ids = {str(item.get("id")) for item in _safe_items(teams.data) if item.get("id")}
+        blueprint_ids = {str(item.get("id")) for item in _safe_items(blueprints.data) if item.get("id")}
+        team_type_ids = {str(item.get("id")) for item in _safe_items(team_types.data) if item.get("id")}
+        instruction_profile_ids = {
+            str(item.get("id")) for item in _safe_items(instruction_profiles.data) if item.get("id")
+        }
+        instruction_overlay_ids = {
+            str(item.get("id")) for item in _safe_items(instruction_overlays.data) if item.get("id")
+        }
         state = self._state.sanitize_selection(
             goal_ids=goal_ids,
             task_ids=task_ids,
             artifact_ids=artifact_ids,
             collection_ids=collection_ids,
             template_ids=template_ids,
+            team_ids=team_ids,
+            blueprint_ids=blueprint_ids,
+            team_type_ids=team_type_ids,
+            instruction_profile_ids=instruction_profile_ids,
+            instruction_overlay_ids=instruction_overlay_ids,
         ).mark_refresh()
         fallback_snapshot = build_browser_fallback_snapshot(self._client.profile.base_url, state)
 
@@ -492,6 +635,9 @@ class TuiRuntimeApp:
         artifact_action_summary = self._run_artifact_action(state.selected_artifact_id)
         knowledge_action_summary = self._run_knowledge_action(state.selected_collection_id)
         template_operation_summary = self._run_template_operation()
+        team_action_summary = self._run_team_action(state.selected_team_id)
+        instruction_action_summary = self._run_instruction_action(state)
+        automation_action_summary = self._run_automation_action()
 
         goal_detail = (
             self._client.get_goal_detail(state.selected_goal_id) if state.selected_goal_id else _empty_response({})
@@ -525,6 +671,28 @@ class TuiRuntimeApp:
             self._client.get_knowledge_collection(state.selected_collection_id)
             if state.selected_collection_id
             else _empty_response({})
+        )
+        blueprint_detail = (
+            self._client.get_blueprint(state.selected_blueprint_id)
+            if state.selected_blueprint_id
+            else _empty_response({})
+        )
+        selected_team_type_id = state.selected_team_type_id or (
+            sorted(team_type_ids)[0] if team_type_ids else None
+        )
+        roles_for_type = (
+            self._client.list_roles_for_team_type(selected_team_type_id)
+            if selected_team_type_id
+            else _empty_response({"items": []})
+        )
+        effective_layers = self._client.get_instruction_layers_effective(
+            owner_username=self._instruction_owner_username,
+            task_id=state.selected_task_id,
+            goal_id=state.selected_goal_id,
+            session_id=self._instruction_session_id,
+            usage_key=self._instruction_usage_key,
+            profile_id=state.selected_instruction_profile_id,
+            overlay_id=state.selected_instruction_overlay_id,
         )
 
         sections = list(self._api_map.get("sections") or list(TUI_SECTION_ORDER))
@@ -580,9 +748,25 @@ class TuiRuntimeApp:
                     runtime_cfg.summary_line,
                 ),
                 render_system_view(health, contracts, agents, stats, stats_history),
-                render_teams_view(teams),
-                render_automation_view(autopilot, auto_planner, triggers),
-                render_audit_view(audit_logs),
+                render_team_blueprint_view(
+                    teams,
+                    blueprints,
+                    blueprint_catalog,
+                    blueprint_detail,
+                    team_types,
+                    team_roles,
+                    roles_for_type,
+                    team_action_summary,
+                ),
+                render_instruction_layers_view(
+                    instruction_model,
+                    effective_layers,
+                    instruction_profiles,
+                    instruction_overlays,
+                    instruction_action_summary,
+                ),
+                render_automation_view(autopilot, auto_planner, triggers, automation_action_summary),
+                render_audit_view(audit_logs, audit_analysis),
                 render_approval_repair_view(approvals, repairs),
                 render_help_view(fallback_snapshot),
             ]
@@ -606,6 +790,11 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--selected-artifact-id", default="")
     parser.add_argument("--selected-collection-id", default="")
     parser.add_argument("--selected-template-id", default="")
+    parser.add_argument("--selected-team-id", default="")
+    parser.add_argument("--selected-blueprint-id", default="")
+    parser.add_argument("--selected-team-type-id", default="")
+    parser.add_argument("--selected-instruction-profile-id", default="")
+    parser.add_argument("--selected-instruction-overlay-id", default="")
     parser.add_argument("--set-safe-config", action="append", default=[])
     parser.add_argument("--apply-safe-config", action="store_true")
 
@@ -638,6 +827,35 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     parser.add_argument("--template-operation", choices=["", "validate", "preview", "diagnostics"], default="")
     parser.add_argument("--template-payload-json", default="")
+    parser.add_argument("--instruction-owner-username", default="")
+    parser.add_argument("--instruction-usage-key", default="")
+    parser.add_argument("--instruction-session-id", default="")
+    parser.add_argument("--team-action", choices=["", "activate"], default="")
+    parser.add_argument("--team-action-json", default="")
+    parser.add_argument("--confirm-team-action", action="store_true")
+    parser.add_argument(
+        "--instruction-action",
+        choices=[
+            "",
+            "select_profile",
+            "select_overlay",
+            "link_overlay",
+            "unlink_overlay",
+            "set_goal_selection",
+            "set_task_selection",
+        ],
+        default="",
+    )
+    parser.add_argument("--instruction-action-json", default="")
+    parser.add_argument("--confirm-instruction-action", action="store_true")
+    parser.add_argument(
+        "--automation-action",
+        choices=["", "autopilot_start", "autopilot_stop", "autopilot_tick", "configure_planner", "configure_triggers"],
+        default="",
+    )
+    parser.add_argument("--automation-action-json", default="")
+    parser.add_argument("--confirm-automation-action", action="store_true")
+    parser.add_argument("--audit-analyze-limit", type=int, default=50)
     return parser.parse_args(argv)
 
 
@@ -669,6 +887,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         selected_artifact_id=args.selected_artifact_id or None,
         selected_collection_id=args.selected_collection_id or None,
         selected_template_id=args.selected_template_id or None,
+        selected_team_id=args.selected_team_id or None,
+        selected_blueprint_id=args.selected_blueprint_id or None,
+        selected_team_type_id=args.selected_team_type_id or None,
+        selected_instruction_profile_id=args.selected_instruction_profile_id or None,
+        selected_instruction_overlay_id=args.selected_instruction_overlay_id or None,
         safe_config_edits=tuple(args.set_safe_config),
         apply_safe_config=args.apply_safe_config,
         task_status_filter=args.task_status_filter or None,
@@ -695,6 +918,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         knowledge_top_k=args.knowledge_top_k,
         index_selected_collection=args.index_selected_collection,
         confirm_knowledge_index=args.confirm_knowledge_index,
+        instruction_owner_username=args.instruction_owner_username,
+        instruction_usage_key=args.instruction_usage_key,
+        instruction_session_id=args.instruction_session_id,
+        team_action=args.team_action,
+        team_action_json=args.team_action_json,
+        confirm_team_action=args.confirm_team_action,
+        instruction_action=args.instruction_action,
+        instruction_action_json=args.instruction_action_json,
+        confirm_instruction_action=args.confirm_instruction_action,
+        automation_action=args.automation_action,
+        automation_action_json=args.automation_action_json,
+        confirm_automation_action=args.confirm_automation_action,
+        audit_analyze_limit=args.audit_analyze_limit,
     ).run_once()
     if args.json:
         print(

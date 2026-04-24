@@ -150,6 +150,72 @@ def build_fixture_transport():  # noqa: C901
             {"id": "ananta-smoke", "provider": "ollama", "model": "qwen2.5-coder:14b", "status": "healthy"},
         ]
     }
+    teams_payload = {"items": [{"id": "team-core", "name": "Core Team", "mode": "active", "blueprint_id": "BP-1"}]}
+    blueprints_payload = {
+        "items": [
+            {"id": "BP-1", "name": "Core Blueprint", "team_type_id": "TT-1", "version": 4},
+            {"id": "BP-2", "name": "Ops Blueprint", "team_type_id": "TT-2", "version": 2},
+        ]
+    }
+    blueprint_catalog_payload = {"items": [{"id": "BPC-1", "name": "Default Catalog", "blueprint_count": 2}]}
+    blueprint_detail_payload = {
+        "id": "BP-1",
+        "name": "Core Blueprint",
+        "team_type_id": "TT-1",
+        "roles": ["RL-1", "RL-2"],
+        "composition": {"agents": 3, "mode": "balanced"},
+    }
+    team_types_payload = {"items": [{"id": "TT-1", "name": "Engineering"}, {"id": "TT-2", "name": "Operations"}]}
+    team_roles_payload = {"items": [{"id": "RL-1", "name": "Architect"}, {"id": "RL-2", "name": "Reviewer"}]}
+    roles_for_type_payload = {"items": [{"id": "RL-1", "name": "Architect"}, {"id": "RL-2", "name": "Reviewer"}]}
+    instruction_model_payload = {
+        "schema": "instruction_layer_model_v1",
+        "layers": [
+            {"id": "base", "kind": "system", "overridable": False},
+            {"id": "governance", "kind": "safety", "overridable": False},
+            {"id": "profile", "kind": "user_profile", "overridable": True},
+            {"id": "overlay", "kind": "task_overlay", "overridable": True},
+        ],
+    }
+    instruction_effective_payload = {
+        "effective_stack": [
+            {"layer": "base", "source": "system"},
+            {"layer": "governance", "source": "strict"},
+            {"layer": "profile", "source": "IP-1"},
+            {"layer": "overlay", "source": "IO-1"},
+        ],
+        "non_overridable_layers": ["base", "governance"],
+    }
+    instruction_profiles_payload = {"items": [{"id": "IP-1", "name": "Default Profile", "owner_username": "ops"}]}
+    instruction_overlays_payload = {
+        "items": [
+            {"id": "IO-1", "name": "Task Overlay", "attachment_kind": "task", "attachment_id": "T-1"},
+            {"id": "IO-2", "name": "Goal Overlay", "attachment_kind": "goal", "attachment_id": "G-1"},
+        ]
+    }
+    audit_logs_payload = {
+        "items": [
+            {
+                "id": "AUD-1",
+                "kind": "approval",
+                "target_id": "T-1",
+                "task_id": "T-1",
+                "goal_id": "G-1",
+                "artifact_id": "A-1",
+                "trace_ref": "trace-11",
+                "message": "token=abc123 decision=approved",
+            },
+            {
+                "id": "AUD-2",
+                "kind": "automation",
+                "target_id": "G-1",
+                "task_id": "T-2",
+                "goal_id": "G-1",
+                "trace_ref": "trace-22",
+                "message": "password=very-secret trigger=fired",
+            },
+        ]
+    }
     fixture_payloads = {
         "/health": {"state": "ready"},
         "/capabilities": {
@@ -204,9 +270,23 @@ def build_fixture_transport():  # noqa: C901
         },
         "/api/system/stats": {"tasks_total": 22, "tasks_in_progress": 4, "queue_depth": 2},
         "/api/system/stats/history": {"items": [{"ts": 1, "queue_depth": 3}, {"ts": 2, "queue_depth": 2}]},
-        "/api/system/audit-logs": {"items": [{"id": "AUD-1", "kind": "approval", "target_id": "T-1"}]},
-        "/teams": {"items": [{"id": "team-core", "name": "Core Team", "mode": "active"}]},
-        "/tasks/autopilot/status": {"running": False, "max_concurrency": 2, "security_level": "safe"},
+        "/api/system/audit-logs": audit_logs_payload,
+        "/teams": teams_payload,
+        "/teams/blueprints": blueprints_payload,
+        "/teams/blueprints/catalog": blueprint_catalog_payload,
+        "/teams/types": team_types_payload,
+        "/teams/roles": team_roles_payload,
+        "/teams/types/TT-1/roles": roles_for_type_payload,
+        "/instruction-layers/model": instruction_model_payload,
+        "/instruction-layers/effective": instruction_effective_payload,
+        "/instruction-profiles": instruction_profiles_payload,
+        "/instruction-overlays": instruction_overlays_payload,
+        "/tasks/autopilot/status": {
+            "running": False,
+            "max_concurrency": 2,
+            "security_level": "safe",
+            "budget_label": "daily-default",
+        },
         "/tasks/auto-planner/status": {"enabled": True, "last_plan_at": "2026-04-24T20:00:00Z"},
         "/triggers/status": {"enabled": True, "sources": ["webhook", "schedule"]},
         "/approvals": {"items": [{"id": "AP-1", "scope": "repair_step", "state": "pending"}]},
@@ -300,6 +380,24 @@ def build_fixture_transport():  # noqa: C901
         if path.endswith("/knowledge/collections/KC-1/search") and method == "POST":
             return 200, json.dumps(knowledge_search_payload)
 
+        if path.endswith("/teams/blueprints/BP-1"):
+            return 200, json.dumps(blueprint_detail_payload)
+        if path.endswith("/teams/team-core/activate") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "activate_team"})
+
+        if path.endswith("/instruction-profiles/IP-1/select") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "select_profile"})
+        if path.endswith("/instruction-overlays/IO-1/select") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "select_overlay"})
+        if path.endswith("/instruction-overlays/IO-1/attach") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "attach_overlay"})
+        if path.endswith("/instruction-overlays/IO-1/detach") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "detach_overlay"})
+        if path.endswith("/goals/G-1/instruction-selection") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "set_goal_instruction_selection"})
+        if path.endswith("/tasks/T-1/instruction-selection") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "set_task_instruction_selection"})
+
         if path.endswith("/templates/validate") and method == "POST":
             return 200, json.dumps({"valid": True, "errors": []})
         if path.endswith("/templates/preview") and method == "POST":
@@ -313,6 +411,20 @@ def build_fixture_transport():  # noqa: C901
                 nonlocal config_payload
                 config_payload = _merge_dict(config_payload, patch)
             return 200, json.dumps({"updated": True, "config": config_payload})
+        if path.endswith("/tasks/autopilot/start") and method == "POST":
+            return 200, json.dumps({"updated": True, "running": True})
+        if path.endswith("/tasks/autopilot/stop") and method == "POST":
+            return 200, json.dumps({"updated": True, "running": False})
+        if path.endswith("/tasks/autopilot/tick") and method == "POST":
+            return 200, json.dumps({"updated": True, "tick": "ok"})
+        if path.endswith("/tasks/auto-planner/configure") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "configure_auto_planner"})
+        if path.endswith("/triggers/configure") and method == "POST":
+            return 200, json.dumps({"updated": True, "action": "configure_triggers"})
+        if path.endswith("/api/system/audit/analyze") and method == "POST":
+            return 200, json.dumps(
+                {"summary": {"total": 2, "high_risk": 1}, "top_patterns": ["approval", "automation"]}
+            )
         if path.endswith("/config"):
             return 200, json.dumps(config_payload)
 

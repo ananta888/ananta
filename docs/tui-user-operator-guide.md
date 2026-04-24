@@ -32,6 +32,7 @@ For selected-object drilldown and guarded actions:
 - Config
 - System
 - Teams
+- Instruction
 - Automation
 - Audit
 - Repair
@@ -48,6 +49,9 @@ For selected-object drilldown and guarded actions:
 - Task patch/assign/propose/execute actions require explicit `--confirm-task-action`.
 - Archived restore/cleanup/delete actions require explicit `--confirm-archived-action`.
 - Artifact extract/index actions require explicit `--confirm-artifact-action`.
+- Team activation requires explicit `--confirm-team-action`.
+- Instruction profile/overlay selection and link/unlink actions require explicit `--confirm-instruction-action`.
+- Automation start/stop/tick and planner/trigger configuration require explicit `--confirm-automation-action`.
 - Artifact upload is intentionally deferred in terminal and handled via browser fallback.
 
 ## Navigation
@@ -71,3 +75,10 @@ For selected-object drilldown and guarded actions:
 - Knowledge collections support inspect, explicit index action, and search (`query`, `top_k`).
 - Templates support list/detail, variable registry, sample contexts, validation, diagnostics, and preview.
 - Template writes remain browser-first unless a later guarded terminal flow is introduced.
+
+## Teams, instruction layers, automation, audit
+
+- Teams view includes blueprint catalog/detail, team types, role catalog, and role mapping for selected team types.
+- Instruction view includes layer model, effective stack resolution, profile list, and overlay list.
+- Automation view exposes autopilot/planner/trigger status plus explicit guarded actions (`autopilot_start|stop|tick`, `configure_planner`, `configure_triggers`).
+- Audit view includes redacted message rendering, cross-entity references (task/goal/artifact/trace), and analyze summary.

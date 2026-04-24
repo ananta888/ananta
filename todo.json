@@ -57,7 +57,7 @@
       "id": "TFS-M5",
       "title": "Teams, blueprints and instruction layers",
       "task_ids": ["TFS-T19", "TFS-T20", "TFS-T21", "TFS-T22"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TFS-M6",
@@ -314,7 +314,7 @@
     {
       "id": "TFS-T19",
       "title": "Teams and blueprint catalog views implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -327,7 +327,7 @@
     {
       "id": "TFS-T20",
       "title": "Instruction layer workbench view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -340,7 +340,7 @@
     {
       "id": "TFS-T21",
       "title": "Instruction profile and overlay editing strategy implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "acceptance_criteria": [
@@ -353,7 +353,7 @@
     {
       "id": "TFS-T22",
       "title": "Reference profile placeholder integration prepare",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "acceptance_criteria": [
@@ -367,7 +367,7 @@
     {
       "id": "TFS-T23",
       "title": "Automation and autopilot views implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -380,7 +380,7 @@
     {
       "id": "TFS-T24",
       "title": "Audit log explorer implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -536,15 +536,15 @@
     "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:07:15+02:00",
+    "updated_at": "2026-04-25T01:05:00+02:00",
     "total": 33,
     "by_status": {
-      "todo": 9,
+      "todo": 3,
       "in_progress": 5,
       "blocked": 0,
-      "done": 19
+      "done": 25
     },
-    "progress_percent_done": 57.58,
+    "progress_percent_done": 75.76,
     "by_priority": {
       "P0": 18,
       "P1": 12,
@@ -559,19 +559,19 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 7,
-      "remaining": 9
+      "done": 10,
+      "remaining": 6
     },
     "milestones": {
       "total": 7,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 2,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T00:07:15+02:00",
+    "updated_at": "2026-04-25T01:05:00+02:00",
     "stages": {
       "TFS-M1": {
         "title": "Navigation and API mapping",
@@ -613,8 +613,8 @@
         "title": "Teams, blueprints and instruction layers",
         "scope_task_ids": ["TFS-T19", "TFS-T20", "TFS-T21", "TFS-T22"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -622,8 +622,8 @@
         "title": "Automation, audit, approvals and repair",
         "scope_task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
         "total": 5,
-        "done": 0,
-        "todo": 3,
+        "done": 2,
+        "todo": 1,
         "in_progress": 2,
         "blocked": 0
       },
@@ -639,7 +639,7 @@
     }
   },
   "code_evidence_snapshot": {
-    "updated_at": "2026-04-25T00:07:15+02:00",
+    "updated_at": "2026-04-25T01:05:00+02:00",
     "runtime_baseline_evidence": [
       "client_surfaces/common/client_api.py",
       "client_surfaces/tui_runtime/ananta_tui/app.py",
@@ -683,6 +683,8 @@
       "benchmarks",
       "system",
       "teams",
+      "team_blueprints",
+      "instruction_layers",
       "automation",
       "audit",
       "approvals",
@@ -692,13 +694,13 @@
     "major_gaps_vs_track_goal": [
       "Goal/task/artifact/knowledge/template deep views now exist for core workflows, but advanced write paths are intentionally guarded or browser-first.",
       "Config editing is intentionally allowlisted; advanced governance/config operations stay browser-first.",
-      "Instruction-layer and teams/blueprint deep workflows are still pending in later milestones.",
-      "Advanced automation/audit operator actions beyond status/read models remain in the next bundle.",
+      "Approval/proposal and repair execution depth is still in-progress and remains strongly guarded.",
+      "Live refresh/event-stream behavior and full golden-path release hardening remain open.",
       "Golden-path and API-contract coverage improved, but full frontend-parity workflow depth is still open."
     ]
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T00:07:15+02:00",
+    "checked_at": "2026-04-25T01:05:00+02:00",
     "internal_consistency": "ok",
     "notes": [
       "Task IDs are unique and all milestone task references resolve to existing tasks.",
@@ -712,6 +714,7 @@
     "Second bundle (TFS-T10..T18) is completed with goal/task/artifact deep views, orchestration/archived task visibility, knowledge search/index and template diagnostics/preview support.",
     "Goal creation now supports explicit mode/context payload, and task/artifact/archive write actions are confirmation-gated.",
     "Artifact upload strategy is explicitly set to deferred browser fallback to prevent accidental terminal uploads.",
+    "Third bundle (TFS-T19..T24) is completed with teams/blueprint deep views, instruction layer workbench/selection flows, automation guarded actions and audit analyze/redaction support.",
     "Dashboard/system/config/provider/benchmark surfaces are now rendered through existing backend API contracts with degraded-state visibility.",
     "Safe config editing is now allowlisted, preview-first and explicit-apply only; dangerous or complex operations remain browser-first.",
     "todo schema validation drift is resolved for active track format via format detection and dedicated track schema support.",
@@ -755,8 +758,16 @@
       "summary_id": "TFS-S5",
       "title": "Next focus recommendation",
       "items": [
-        "Next execution block should focus on teams/blueprints/instruction layers (TFS-T19..T22) and automation/audit operator depth (TFS-T23..T24).",
+        "Next execution block should focus on approvals/repair depth and live refresh hardening (TFS-T25..T27).",
         "Continue expanding smoke and contract suites in parallel to preserve parity confidence as write/action depth increases."
+      ]
+    },
+    {
+      "summary_id": "TFS-S6",
+      "title": "Third bundle completion",
+      "items": [
+        "Completed tasks: TFS-T19, TFS-T20, TFS-T21, TFS-T22, TFS-T23 and TFS-T24.",
+        "Milestone TFS-M5 is now done; TFS-M6 moved forward with automation/audit baseline complete while approvals/repair/live-refresh remain open."
       ]
     }
   ]

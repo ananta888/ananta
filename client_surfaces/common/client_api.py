@@ -280,6 +280,98 @@ class AnantaApiClient:
     def list_teams(self) -> ClientResponse:
         return self._request_json("GET", "/teams")
 
+    def list_blueprints(self) -> ClientResponse:
+        return self._request_json("GET", "/teams/blueprints")
+
+    def list_blueprint_catalog(self) -> ClientResponse:
+        return self._request_json("GET", "/teams/blueprints/catalog")
+
+    def get_blueprint(self, blueprint_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/teams/blueprints/{blueprint_id}")
+
+    def list_team_types(self) -> ClientResponse:
+        return self._request_json("GET", "/teams/types")
+
+    def list_team_roles(self) -> ClientResponse:
+        return self._request_json("GET", "/teams/roles")
+
+    def list_roles_for_team_type(self, type_id: str) -> ClientResponse:
+        return self._request_json("GET", f"/teams/types/{type_id}/roles")
+
+    def activate_team(self, team_id: str) -> ClientResponse:
+        return self._request_json("POST", f"/teams/{team_id}/activate", payload={})
+
+    def get_instruction_layer_model(self) -> ClientResponse:
+        return self._request_json("GET", "/instruction-layers/model")
+
+    def get_instruction_layers_effective(
+        self,
+        *,
+        owner_username: str | None = None,
+        task_id: str | None = None,
+        goal_id: str | None = None,
+        session_id: str | None = None,
+        usage_key: str | None = None,
+        profile_id: str | None = None,
+        overlay_id: str | None = None,
+    ) -> ClientResponse:
+        parts: list[str] = []
+        if owner_username:
+            parts.append(f"owner_username={owner_username}")
+        if task_id:
+            parts.append(f"task_id={task_id}")
+        if goal_id:
+            parts.append(f"goal_id={goal_id}")
+        if session_id:
+            parts.append(f"session_id={session_id}")
+        if usage_key:
+            parts.append(f"usage_key={usage_key}")
+        if profile_id:
+            parts.append(f"profile_id={profile_id}")
+        if overlay_id:
+            parts.append(f"overlay_id={overlay_id}")
+        suffix = f"?{'&'.join(parts)}" if parts else ""
+        return self._request_json("GET", f"/instruction-layers/effective{suffix}")
+
+    def list_instruction_profiles(self, *, owner_username: str | None = None) -> ClientResponse:
+        suffix = f"?owner_username={owner_username}" if owner_username else ""
+        return self._request_json("GET", f"/instruction-profiles{suffix}")
+
+    def list_instruction_overlays(
+        self,
+        *,
+        owner_username: str | None = None,
+        attachment_kind: str | None = None,
+        attachment_id: str | None = None,
+    ) -> ClientResponse:
+        parts: list[str] = []
+        if owner_username:
+            parts.append(f"owner_username={owner_username}")
+        if attachment_kind:
+            parts.append(f"attachment_kind={attachment_kind}")
+        if attachment_id:
+            parts.append(f"attachment_id={attachment_id}")
+        suffix = f"?{'&'.join(parts)}" if parts else ""
+        return self._request_json("GET", f"/instruction-overlays{suffix}")
+
+    def select_instruction_profile(self, profile_id: str) -> ClientResponse:
+        return self._request_json("POST", f"/instruction-profiles/{profile_id}/select", payload={})
+
+    def select_instruction_overlay(self, overlay_id: str, payload: dict[str, Any] | None = None) -> ClientResponse:
+        return self._request_json("POST", f"/instruction-overlays/{overlay_id}/select", payload=payload or {})
+
+    def link_instruction_overlay(self, overlay_id: str, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", f"/instruction-overlays/{overlay_id}/attach", payload=payload)
+
+    def unlink_instruction_overlay(self, overlay_id: str) -> ClientResponse:
+        return self._request_json("POST", f"/instruction-overlays/{overlay_id}/detach", payload={})
+
+    def set_goal_instruction_selection(self, goal_id: str, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", f"/goals/{goal_id}/instruction-selection", payload=payload)
+
+    def set_task_instruction_selection(self, task_id: str, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", f"/tasks/{task_id}/instruction-selection", payload=payload)
+
     def get_autopilot_status(self) -> ClientResponse:
         return self._request_json("GET", "/tasks/autopilot/status")
 
@@ -288,6 +380,24 @@ class AnantaApiClient:
 
     def get_triggers_status(self) -> ClientResponse:
         return self._request_json("GET", "/triggers/status")
+
+    def start_autopilot(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/tasks/autopilot/start", payload=payload)
+
+    def stop_autopilot(self) -> ClientResponse:
+        return self._request_json("POST", "/tasks/autopilot/stop", payload={})
+
+    def tick_autopilot(self) -> ClientResponse:
+        return self._request_json("POST", "/tasks/autopilot/tick", payload={})
+
+    def configure_auto_planner(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/tasks/auto-planner/configure", payload=payload)
+
+    def configure_triggers(self, payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/triggers/configure", payload=payload)
+
+    def analyze_audit_logs(self, *, limit: int = 50) -> ClientResponse:
+        return self._request_json("POST", f"/api/system/audit/analyze?limit={max(1, limit)}", payload={})
 
     def submit_goal(self, goal_text: str, context_payload: dict[str, Any]) -> ClientResponse:
         payload = {"goal_text": goal_text, "context": context_payload}

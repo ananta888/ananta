@@ -27,6 +27,11 @@ def _coerce_scalar(value: Any) -> str:
     return repr(value)
 
 
+def _render_named_items(items: list[dict[str, Any]], *, key: str = "id", label: str = "name", limit: int = 5) -> str:
+    values = [f"{item.get(key)}:{item.get(label)}" for item in items[:limit]]
+    return ",".join(str(value) for value in values if value and value != "None:None")
+
+
 def _flatten_config(payload: dict[str, Any], parent: str = "") -> dict[str, Any]:
     flat: dict[str, Any] = {}
     for key, value in payload.items():
@@ -55,7 +60,11 @@ def render_navigation_shell(state: TuiViewState, sections: list[str], fallback_l
             f"selected_task={state.selected_task_id or '-'} "
             f"selected_artifact={state.selected_artifact_id or '-'} "
             f"selected_collection={state.selected_collection_id or '-'} "
-            f"selected_template={state.selected_template_id or '-'}"
+            f"selected_template={state.selected_template_id or '-'} "
+            f"selected_team={state.selected_team_id or '-'} "
+            f"selected_blueprint={state.selected_blueprint_id or '-'} "
+            f"selected_profile={state.selected_instruction_profile_id or '-'} "
+            f"selected_overlay={state.selected_instruction_overlay_id or '-'}"
         )
     )
     lines.append(f"refresh_count={state.refresh_count}")
@@ -485,10 +494,112 @@ def render_teams_view(teams: ClientResponse) -> str:
     return "\n".join(lines)
 
 
+def render_team_blueprint_view(
+    teams: ClientResponse,
+    blueprints: ClientResponse,
+    blueprint_catalog: ClientResponse,
+    blueprint_detail: ClientResponse,
+    team_types: ClientResponse,
+    team_roles: ClientResponse,
+    roles_for_type: ClientResponse,
+    team_action_summary: str | None,
+) -> str:
+    lines = [render_teams_view(teams), "[BLUEPRINTS]"]
+    blueprint_items = _safe_items(blueprints.data)
+    if blueprint_items:
+        for item in blueprint_items[:10]:
+            lines.append(
+                (
+                    f"- {item.get('id')} name={item.get('name')} "
+                    f"team_type={item.get('team_type_id')} version={item.get('version')}"
+                )
+            )
+    else:
+        lines.append("- no_blueprints_available")
+    catalog_items = _safe_items(blueprint_catalog.data)
+    if catalog_items:
+        lines.append(f"catalogs={_render_named_items(catalog_items)}")
+    detail = _safe_dict(blueprint_detail.data)
+    if detail:
+        lines.append(
+            (
+                f"selected_blueprint={detail.get('id')} "
+                f"team_type={detail.get('team_type_id')} roles={detail.get('roles')}"
+            )
+        )
+    type_items = _safe_items(team_types.data)
+    role_items = _safe_items(team_roles.data)
+    typed_role_items = _safe_items(roles_for_type.data)
+    if type_items:
+        lines.append(f"team_types={_render_named_items(type_items)}")
+    if role_items:
+        lines.append(f"team_roles={_render_named_items(role_items)}")
+    if typed_role_items:
+        lines.append(f"roles_for_selected_type={_render_named_items(typed_role_items)}")
+    if team_action_summary:
+        lines.append(team_action_summary)
+    lines.append("team_activation_confirmation=required")
+    return "\n".join(lines)
+
+
+def render_instruction_layers_view(
+    layer_model: ClientResponse,
+    effective_layers: ClientResponse,
+    profiles: ClientResponse,
+    overlays: ClientResponse,
+    instruction_action_summary: str | None,
+) -> str:
+    lines = ["[INSTRUCTION-LAYERS]"]
+    model = _safe_dict(layer_model.data)
+    layers = _safe_items(model.get("layers"))
+    if layers:
+        for layer in layers[:10]:
+            lines.append(
+                f"- layer={layer.get('id')} kind={layer.get('kind')} overridable={layer.get('overridable')}"
+            )
+    else:
+        lines.append(f"model_state={layer_model.state}")
+    effective = _safe_dict(effective_layers.data)
+    effective_stack = _safe_items(effective.get("effective_stack"))
+    if effective_stack:
+        lines.append("[INSTRUCTION-EFFECTIVE]")
+        for item in effective_stack[:10]:
+            lines.append(f"- layer={item.get('layer')} source={item.get('source')}")
+    non_overridable = effective.get("non_overridable_layers")
+    if isinstance(non_overridable, list):
+        lines.append(f"non_overridable_layers={','.join(str(item) for item in non_overridable)}")
+
+    lines.append("[INSTRUCTION-PROFILES]")
+    profile_items = _safe_items(profiles.data)
+    if profile_items:
+        for item in profile_items[:10]:
+            lines.append(f"- {item.get('id')} name={item.get('name')} owner={item.get('owner_username')}")
+    else:
+        lines.append("- no_instruction_profiles")
+
+    lines.append("[INSTRUCTION-OVERLAYS]")
+    overlay_items = _safe_items(overlays.data)
+    if overlay_items:
+        for item in overlay_items[:10]:
+            lines.append(
+                (
+                    f"- {item.get('id')} name={item.get('name')} "
+                    f"attachment={item.get('attachment_kind')}:{item.get('attachment_id')}"
+                )
+            )
+    else:
+        lines.append("- no_instruction_overlays")
+    if instruction_action_summary:
+        lines.append(instruction_action_summary)
+    lines.append("instruction_write_strategy=explicit_guarded_or_browser_fallback")
+    return "\n".join(lines)
+
+
 def render_automation_view(
     autopilot: ClientResponse,
     auto_planner: ClientResponse,
     triggers: ClientResponse,
+    automation_action_summary: str | None,
 ) -> str:
     lines = ["[AUTOMATION]"]
     autopilot_payload = _safe_dict(autopilot.data)
@@ -497,24 +608,43 @@ def render_automation_view(
     lines.append(
         (
             f"autopilot_running={autopilot_payload.get('running')} "
-            f"security_level={autopilot_payload.get('security_level')}"
+            f"security_level={autopilot_payload.get('security_level')} "
+            f"max_concurrency={autopilot_payload.get('max_concurrency')} "
+            f"budget={autopilot_payload.get('budget_label')}"
         )
     )
     lines.append(f"auto_planner_enabled={planner_payload.get('enabled')}")
     lines.append(f"triggers_enabled={trigger_payload.get('enabled')}")
+    if automation_action_summary:
+        lines.append(automation_action_summary)
+    lines.append("automation_write_mode=explicit_confirmation_only")
     if autopilot.state != "healthy":
         lines.append(f"autopilot_degraded={autopilot.state}")
     return "\n".join(lines)
 
 
-def render_audit_view(audit_logs: ClientResponse) -> str:
+def render_audit_view(audit_logs: ClientResponse, audit_analysis: ClientResponse) -> str:
     lines = ["[AUDIT]"]
     items = _safe_items(audit_logs.data)
     if items:
         for item in items[:10]:
-            lines.append(f"- {item.get('id')} kind={item.get('kind')} target={item.get('target_id')}")
+            redacted_message = redact_sensitive_text(str(item.get("message") or ""))
+            lines.append(
+                (
+                    f"- {item.get('id')} kind={item.get('kind')} target={item.get('target_id')} "
+                    f"task={item.get('task_id')} goal={item.get('goal_id')} artifact={item.get('artifact_id')} "
+                    f"trace={item.get('trace_ref')} msg={redacted_message}"
+                )
+            )
     else:
         lines.append("- no_audit_entries")
+    analysis_payload = _safe_dict(audit_analysis.data)
+    summary = _safe_dict(analysis_payload.get("summary"))
+    if summary:
+        lines.append(f"analysis_total={summary.get('total')} analysis_high_risk={summary.get('high_risk')}")
+    patterns = analysis_payload.get("top_patterns")
+    if isinstance(patterns, list) and patterns:
+        lines.append(f"analysis_patterns={','.join(str(item) for item in patterns[:8])}")
     if audit_logs.state != "healthy":
         lines.append(f"audit_degraded={audit_logs.state}")
     return "\n".join(lines)
