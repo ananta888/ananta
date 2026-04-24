@@ -83,6 +83,14 @@ class TestGoalsAPI:
         assert persisted_goal is not None
         assert persisted_goal.mode == "admin_repair"
         assert persisted_goal.mode_data["repair_plan"]["dry_run_default"] is True
+        assert persisted_goal.mode_data["execution_session"]["execution_mode"] == "step_confirmed"
+        assert persisted_goal.mode_data["verification_phase"]["schema"] == "admin_repair_verification_v1"
+        assert persisted_goal.mode_data["bridge_contract"]["schema"] == "admin_repair_bridge_contract_v1"
+        assert persisted_goal.mode_data["platform_evidence_adapters"]["selected_adapter"]["platform"] == "ubuntu"
+        assert persisted_goal.mode_data["platform_playbooks"]["recommended_playbooks"]
+        assert persisted_goal.mode_data["session_trail"]["entries"]
+        assert persisted_goal.mode_data["cli_output"]["sections"][0]["id"] == "diagnosis"
+        assert persisted_goal.mode_data["smoke_scenarios"]
         steps = persisted_goal.mode_data["repair_plan"]["steps"]
         assert steps
         first_step = steps[0]
