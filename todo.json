@@ -168,7 +168,7 @@
         {
           "id": "UPT-T13",
           "title": "CRUD and selection API for overlays implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The backend supports creating, reading, updating and attaching overlays.",
@@ -179,7 +179,7 @@
         {
           "id": "UPT-T14",
           "title": "Overlay visibility in task and goal read models add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Relevant read models expose which overlay is active for a goal, task or session.",
@@ -197,7 +197,7 @@
         {
           "id": "UPT-T15",
           "title": "Governance override prevention implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "User profile prompts and task overlays cannot override approval, policy or hard safety constraints.",
@@ -208,7 +208,7 @@
         {
           "id": "UPT-T16",
           "title": "Prompt layer validation rules add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The system validates profile prompts and overlays for forbidden directives where applicable.",
@@ -219,7 +219,7 @@
         {
           "id": "UPT-T17",
           "title": "Audit integration for profile and overlay usage add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Audit records show whether a user profile prompt or task overlay influenced an operation.",
@@ -241,7 +241,7 @@
         {
           "id": "UPT-T19",
           "title": "Policy conflict feedback UX define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Users receive understandable feedback when their profile or overlay conflicts with governance.",
@@ -259,7 +259,7 @@
         {
           "id": "UPT-T20",
           "title": "Instruction assembly service implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A central service assembles the active instruction stack from all relevant layers.",
@@ -270,7 +270,7 @@
         {
           "id": "UPT-T21",
           "title": "Layer merge strategy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system defines whether layers are concatenated, normalized, structured or merged in another controlled way.",
@@ -281,7 +281,7 @@
         {
           "id": "UPT-T22",
           "title": "Structured instruction rendering add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The assembled instruction set can be represented in a structured internal form before final rendering.",
@@ -292,7 +292,7 @@
         {
           "id": "UPT-T23",
           "title": "Context-aware scope selection add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The runtime can decide which user profile and which overlay apply in a given execution context.",
@@ -303,7 +303,7 @@
         {
           "id": "UPT-T24",
           "title": "Instruction stack diagnostics add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Operators or advanced users can inspect the effective instruction stack summary.",
@@ -394,7 +394,7 @@
         {
           "id": "UPT-T31",
           "title": "Goal input schema integration add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Relevant goal input flows can carry overlay or profile selection explicitly.",
@@ -516,15 +516,15 @@
     "UPT-T37"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T10:56:00+02:00",
+    "updated_at": "2026-04-24T11:36:00+02:00",
     "total": 38,
     "by_status": {
-      "todo": 19,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 19
+      "done": 31
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 81.6,
     "by_priority": {
       "P0": 12,
       "P1": 20,
@@ -544,18 +544,18 @@
       },
       "UPT-TASK-OVERLAY": {
         "total": 5,
-        "done": 3,
-        "todo": 2
+        "done": 5,
+        "todo": 0
       },
       "UPT-GOVERNANCE-SAFETY": {
         "total": 5,
-        "done": 1,
-        "todo": 4
+        "done": 5,
+        "todo": 0
       },
       "UPT-RUNTIME-ASSEMBLY": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 5,
+        "todo": 0
       },
       "UPT-UI-AND-UX": {
         "total": 5,
@@ -564,8 +564,8 @@
       },
       "UPT-INTEGRATION-WITH-BLUEPRINTS": {
         "total": 4,
-        "done": 1,
-        "todo": 3
+        "done": 2,
+        "todo": 2
       },
       "UPT-TESTING-DOCS": {
         "total": 5,
@@ -575,8 +575,8 @@
     },
     "critical_path": {
       "total": 17,
-      "done": 10,
-      "remaining": 7
+      "done": 16,
+      "remaining": 1
     }
   }
 }
