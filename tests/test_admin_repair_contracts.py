@@ -29,6 +29,9 @@ def test_admin_repair_mode_data_contains_hook_ready_contract_fields():
     assert payload["deterministic_repair_foundation"]["success_weighted_recommendations"]["schema"] == "deterministic_success_weighted_recommendation_v1"
     assert payload["deterministic_repair_foundation"]["llm_escalation_policy"]["schema"] == "deterministic_llm_escalation_policy_v1"
     assert payload["deterministic_repair_foundation"]["repair_audit_chain"]["schema"] == "deterministic_repair_audit_chain_v1"
+    assert payload["deterministic_repair_foundation"]["operator_session_summary"]["schema"] == "deterministic_operator_session_summary_v1"
+    assert payload["deterministic_repair_foundation"]["golden_path_examples"]["schema"] == "deterministic_repair_golden_paths_v1"
+    assert payload["deterministic_repair_foundation"]["rollout_plan"]["schema"] == "deterministic_repair_rollout_plan_v1"
 
     required_fields = {
         "risk_class",
