@@ -68,7 +68,7 @@
     {
       "id": "TFS-M7",
       "title": "Testing, docs and release gate",
-      "task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32"],
+      "task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
       "status": "in_progress"
     }
   ],
@@ -142,7 +142,7 @@
     {
       "id": "TFS-T06",
       "title": "System health and contracts view implement",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -494,6 +494,19 @@
         "Report lists remaining backend/API gaps if any.",
         "Report separates merge blockers from future polish."
       ]
+    },
+    {
+      "id": "TFS-T33",
+      "title": "Todo schema alignment and stats sync hardening",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Chosen todo.json format and validation schema are explicitly aligned or versioned with a compatibility adapter.",
+        "Release and developer validators use the same todo format assumptions.",
+        "Counter synchronization is automated for the active todo format and covered by tests.",
+        "Documentation explains how to keep status summaries and stage summaries consistent."
+      ]
     }
   ],
   "execution_order_summary": [
@@ -502,7 +515,7 @@
     "Stage 3: Deepen goal/task/artifact workflows.",
     "Stage 4: Add knowledge, templates, teams, blueprints and instruction layers.",
     "Stage 5: Add automation, audit, approvals and repair views.",
-    "Stage 6: Add tests, docs and parity/readiness report."
+    "Stage 6: Add tests, docs, parity/readiness report and todo-governance hardening."
   ],
   "critical_path_tasks": [
     "TFS-T01",
@@ -523,24 +536,24 @@
     "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T20:39:04+02:00",
-    "total": 32,
+    "updated_at": "2026-04-24T23:21:37+02:00",
+    "total": 33,
     "by_status": {
       "todo": 24,
-      "in_progress": 8,
+      "in_progress": 9,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 18,
-      "P1": 11,
+      "P1": 12,
       "P2": 3,
       "P3": 0
     },
     "by_risk": {
       "low": 1,
-      "medium": 11,
+      "medium": 12,
       "high": 12,
       "critical": 8
     },
@@ -557,8 +570,76 @@
       "done": 0
     }
   },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-24T23:21:37+02:00",
+    "stages": {
+      "TFS-M1": {
+        "title": "Navigation and API mapping",
+        "scope_task_ids": ["TFS-T01", "TFS-T02", "TFS-T03", "TFS-T04"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TFS-M2": {
+        "title": "Dashboard, system and config",
+        "scope_task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
+        "total": 5,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 2,
+        "blocked": 0
+      },
+      "TFS-M3": {
+        "title": "Goals, tasks and execution",
+        "scope_task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
+        "total": 5,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 1,
+        "blocked": 0
+      },
+      "TFS-M4": {
+        "title": "Artifacts, knowledge and templates",
+        "scope_task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
+        "total": 4,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 1,
+        "blocked": 0
+      },
+      "TFS-M5": {
+        "title": "Teams, blueprints and instruction layers",
+        "scope_task_ids": ["TFS-T19", "TFS-T20", "TFS-T21", "TFS-T22"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TFS-M6": {
+        "title": "Automation, audit, approvals and repair",
+        "scope_task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
+        "total": 5,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 2,
+        "blocked": 0
+      },
+      "TFS-M7": {
+        "title": "Testing, docs and release gate",
+        "scope_task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
+        "total": 6,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 3,
+        "blocked": 0
+      }
+    }
+  },
   "code_evidence_snapshot": {
-    "updated_at": "2026-04-24T20:39:04+02:00",
+    "updated_at": "2026-04-24T23:21:37+02:00",
     "runtime_baseline_evidence": [
       "client_surfaces/tui_runtime/ananta_tui/app.py",
       "client_surfaces/tui_runtime/ananta_tui/views.py",
@@ -566,6 +647,11 @@
       "scripts/smoke_client_golden_paths.py",
       "tests/test_tui_runtime_app.py",
       "docs/tui-user-operator-guide.md"
+    ],
+    "planning_and_validation_evidence": [
+      "scripts/validate_todo_consistency.py",
+      "tests/test_validate_todo_consistency.py",
+      "devtools/validate_todo_schema.py"
     ],
     "detected_runtime_sections": [
       "health",
@@ -576,12 +662,24 @@
     ],
     "major_gaps_vs_track_goal": [
       "No broad multi-section navigation shell yet (dashboard/goals/knowledge/config/system/teams/automation/audit/repair/help parity).",
+      "System health baseline exists, but contracts/deep system views are still partial and not yet parity-level.",
       "No explicit audit, automation, team/blueprint, instruction-layer, or knowledge runtime screens in current TUI runtime module.",
       "Existing smoke/golden-path checks cover core MVP sections, but not full frontend-parity workflow depth."
     ]
   },
+  "analysis_checks": {
+    "checked_at": "2026-04-24T23:21:37+02:00",
+    "internal_consistency": "ok",
+    "notes": [
+      "Task IDs are unique and all milestone task references resolve to existing tasks.",
+      "Task status, priority and risk counters were recalculated and synchronized.",
+      "Current todo.json format is consistent with scripts/validate_todo_consistency.py but not with todo.schema.json category/meta shape."
+    ]
+  },
   "summary_notes": [
     "Status correction applied against real code: this track is not greenfield; multiple TUI parity tasks are already started on top of the runnable MVP runtime baseline.",
+    "TFS-T06 moved to in_progress to reflect already implemented health baseline that now needs contracts/depth hardening.",
+    "Track was extended with TFS-T33 to close todo-format/schema validation drift and strengthen release-gate reliability.",
     "Current runtime evidence confirms implemented MVP sections for health, tasks, artifacts, approvals and repairs with smoke/test coverage.",
     "Main remaining work is breadth expansion (navigation + additional sections) and depth hardening (safe writes, richer read models, parity report).",
     "Dangerous write/admin operations remain confirmation-based, backend-gated and auditable; browser fallback stays preferred for complex or risky workflows."
@@ -591,24 +689,33 @@
       "summary_id": "TFS-S1",
       "title": "Analysis outcome",
       "items": [
-        "todo.json was internally consistent but overstated greenfield status (all tasks set to todo) versus existing TUI runtime evidence.",
-        "Track now reflects real progress with explicit in_progress tasks where baseline implementation already exists."
+        "todo.json was structurally consistent (IDs, milestone references, counters), but the saved snapshot was stale compared to current repository evidence.",
+        "A schema/validator split was detected: this file follows the task-track format used by scripts/validate_todo_consistency.py, not the category/meta shape expected by devtools/validate_todo_schema.py."
       ]
     },
     {
       "summary_id": "TFS-S2",
-      "title": "Corrections and improvements",
+      "title": "Corrections",
       "items": [
-        "Updated milestone and task statuses to reflect started implementation areas (M2, M3, M4, M6, M7 and related tasks).",
-        "Added code_evidence_snapshot to anchor planning decisions against concrete repository artifacts."
+        "TFS-T06 status was corrected to in_progress based on existing system-health runtime baseline.",
+        "tasks_status_summary was resynced (total=33, todo=24, in_progress=9, done=0, blocked=0) including priority/risk distributions."
       ]
     },
     {
       "summary_id": "TFS-S3",
-      "title": "Extension and next execution focus",
+      "title": "Improvements and extensions",
       "items": [
-        "Extended end-of-file summaries with a concrete gap analysis against current runtime capabilities.",
-        "Recommended next execution block: TFS-T01..T04 and TFS-T06..T09 to establish navigation/API mapping and safe dashboard/system/config coverage before deeper domain expansions."
+        "Added TFS-T33 (Todo schema alignment and stats sync hardening) to milestone M7.",
+        "Added execution_stage_summary with per-milestone scope and live status counters to improve planning precision.",
+        "Added analysis_checks and expanded code_evidence_snapshot with planning/validation evidence."
+      ]
+    },
+    {
+      "summary_id": "TFS-S4",
+      "title": "Next focus recommendation",
+      "items": [
+        "Execution focus should remain on TFS-T01..T04 and TFS-T06..T09 to stabilize navigation/API mapping and safe system/config depth.",
+        "In parallel, start TFS-T33 to remove schema/validator drift before release-gate tightening."
       ]
     }
   ]
