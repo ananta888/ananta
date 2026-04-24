@@ -1,11 +1,11 @@
 # Eclipse Plugin Views Extension Foundation
 
-This document captures the Eclipse views extension track as a **contract-first backend implementation**.
+This document captures the Eclipse views extension track as a **contract-first backend reference with runtime follow-through**.
 
-There is currently no shipped standalone Eclipse plugin UI binary in this repository.  
-The implemented service contracts model and validate the view behavior that a thin Eclipse plugin must follow.
+There is currently no shipped standalone Eclipse update-site bundle in this repository.  
+The implemented service contracts model and validate the view behavior that a thin Eclipse plugin must follow, and the runtime registry/handlers now implement the core M9 command/view delivery path.
 
-Runtime bootstrap is now in progress, but full Eclipse views runtime delivery is still pending; this document remains a foundation contract reference and not a complete runtime delivery claim.
+This document remains the foundation contract reference; release hardening and CI depth are tracked in the runtime hardening block.
 
 ## Covered tasks (ECL-T27..ECL-T50)
 

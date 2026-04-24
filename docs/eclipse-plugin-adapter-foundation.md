@@ -2,16 +2,17 @@
 
 This document captures the first implementation block of the Eclipse plugin adapter track.
 
-## Current runtime decision (EAC-T33 bootstrap phase)
+## Current runtime decision (EAC-T33..EAC-T51 runtime phase)
 
-- Current track decision: Eclipse runtime is **unblocked for bootstrap delivery**.
-- Current state: foundation contracts/tests/docs remain valid, and runtime bootstrap artifacts now exist.
-- Runtime status truth: Eclipse remains `foundation_only` until full runtime command/view delivery and smoke gates are completed.
-- Bootstrap runtime artifacts:
+- Current track decision: Eclipse runtime is **unblocked and operational for command/view MVP delivery**.
+- Current state: foundation contracts/tests/docs remain valid, and runtime command/context/view handlers now exist.
+- Runtime status truth: Eclipse plugin and views are `runtime_mvp` for operational use, while hardening/CI gates remain in follow-up tasks.
+- Runtime artifacts:
   - Eclipse plugin project with `plugin.xml`
   - `META-INF/MANIFEST.MF`
   - deterministic dockerized Gradle build command
-  - runtime bootstrap smoke script
+  - runtime command registry and views extension registry
+  - runtime smoke script
 
 See `docs/eclipse-plugin-runtime-bootstrap.md` for build and smoke commands.
 

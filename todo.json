@@ -158,7 +158,7 @@
         "EAC-T50",
         "EAC-T51"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EAC-M10",
@@ -647,7 +647,7 @@
     {
       "id": "EAC-T40",
       "title": "Register Eclipse runtime commands and handlers",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -659,7 +659,7 @@
     {
       "id": "EAC-T41",
       "title": "Implement bounded editor/workspace context capture runtime",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -671,7 +671,7 @@
     {
       "id": "EAC-T42",
       "title": "Implement goal submission runtime panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -683,7 +683,7 @@
     {
       "id": "EAC-T43",
       "title": "Implement analyze/review/patch runtime execution flows",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -695,7 +695,7 @@
     {
       "id": "EAC-T44",
       "title": "Implement new/evolve project runtime flows",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -707,7 +707,7 @@
     {
       "id": "EAC-T45",
       "title": "Implement runtime task list and task detail views",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -719,7 +719,7 @@
     {
       "id": "EAC-T46",
       "title": "Implement runtime artifact view and diff rendering",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -731,7 +731,7 @@
     {
       "id": "EAC-T47",
       "title": "Implement runtime approval queue actions",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -743,7 +743,7 @@
     {
       "id": "EAC-T48",
       "title": "Implement runtime audit explorer",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -755,7 +755,7 @@
     {
       "id": "EAC-T49",
       "title": "Implement runtime repair explorer and guarded step actions",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "acceptance_criteria": [
@@ -767,7 +767,7 @@
     {
       "id": "EAC-T50",
       "title": "Implement runtime TUI launch and status panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -779,7 +779,7 @@
     {
       "id": "EAC-T51",
       "title": "Implement runtime policy-denied and browser-fallback UX",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -910,15 +910,15 @@
     "EAC-T58"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T19:38:06+02:00",
+    "updated_at": "2026-04-24T19:55:27+02:00",
     "total": 58,
     "by_status": {
-      "todo": 19,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 39
+      "done": 51
     },
-    "progress_percent_done": 67.24,
+    "progress_percent_done": 87.93,
     "by_priority": {
       "P0": 36,
       "P1": 21,
@@ -933,19 +933,19 @@
     },
     "critical_path": {
       "total": 28,
-      "done": 18,
-      "remaining": 10
+      "done": 23,
+      "remaining": 5
     },
     "milestones": {
       "total": 10,
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
       "blocked": 0,
-      "done": 8
+      "done": 9
     }
   },
   "code_validation_snapshot": {
-    "updated_at": "2026-04-24T19:38:06+02:00",
+    "updated_at": "2026-04-24T19:55:27+02:00",
     "foundation_evidence": [
       "agent/services/eclipse_plugin_adapter_foundation_service.py",
       "tests/test_eclipse_plugin_adapter_foundation_service.py",
@@ -955,19 +955,19 @@
     ],
     "audit_script": "scripts/audit_client_surface_entrypoints.py",
     "latest_runtime_surface_status": {
-      "eclipse_plugin": "foundation_only",
-      "eclipse_views_extension": "foundation_only",
+      "eclipse_plugin": "real_implementation",
+      "eclipse_views_extension": "real_implementation",
       "nvim_plugin": "real_implementation",
       "tui_surface": "real_implementation",
       "vim_plugin": "foundation_only"
     },
     "alignment_issues_found": [
-      "Eclipse runtime bootstrap now exists (project layout, plugin metadata, deterministic build bootstrap and smoke script) but full runtime command/view MVP delivery remains pending.",
-      "Foundation tasks remain done; runtime delivery is split into bootstrap-complete (EAC-T33..EAC-T39) and pending operational/runtime hardening blocks."
+      "Eclipse runtime command/view operational block is now implemented (EAC-T40..EAC-T51) with registry, handlers, bounded context capture and runtime view wiring.",
+      "Runtime hardening/release block (EAC-T52..EAC-T58) remains pending for deeper tests, CI lane and merge-readiness evidence."
     ]
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T19:38:06+02:00",
+    "updated_at": "2026-04-24T19:55:27+02:00",
     "stages": {
       "EAC_M1_foundation_scope_and_boundary": {
         "scope_task_ids": [
@@ -1096,8 +1096,8 @@
           "EAC-T51"
         ],
         "total": 12,
-        "done": 0,
-        "todo": 12,
+        "done": 12,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -1122,8 +1122,9 @@
   "summary_notes": [
     "Correction applied: prior EAC todo marked everything as todo, but real repository evidence already contains substantial foundation implementation in service contracts, tests and docs.",
     "First runtime block implemented: EAC-T33..EAC-T39 (runtime unblocking, plugin skeleton/metadata, build bootstrap, Java client core, token security, capability gate).",
-    "Runtime delivery remains split into fine-grained executable tasks (EAC-T40..EAC-T58) with explicit security, contract, smoke and CI gates.",
+    "Second runtime block implemented: EAC-T40..EAC-T51 (command registry/handlers, bounded context capture, goal panel runtime, task/artifact/approval/audit/repair views, TUI bridge, policy fallback UX).",
+    "Runtime delivery remains split into fine-grained executable tasks, with EAC-T52..EAC-T58 still focused on security/contract/smoke/CI hardening gates.",
     "This plan preserves SRP/DIP boundaries by separating foundation modeling from runtime plugin implementation and by keeping governance decisions in backend APIs.",
-    "Main remaining outcome is not more foundation docs, but a runnable Eclipse plugin runtime with deterministic build and high-confidence test coverage."
+    "Main remaining outcome is M10 hardening (tests, CI lane, docs truth pass and merge readiness) for release confidence."
   ]
 }

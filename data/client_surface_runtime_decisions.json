@@ -70,6 +70,46 @@
       "summary": "Build bootstrap path uses dockerized Gradle for deterministic runtime packaging.",
       "reason": "Host-independent command improves reproducibility while keeping runtime bootstrap lightweight.",
       "build_command": "python3 scripts/build_eclipse_runtime_plugin.py --mode build"
+    },
+    {
+      "decision_id": "EAC-T40",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_operational",
+      "summary": "Eclipse runtime command registry and handlers are now implemented for analyze/review/patch/new/evolve.",
+      "reason": "Command execution is routed through capability gates and explicit degraded/policy-denied handling.",
+      "runtime_scope_included": [
+        "command_registry",
+        "command_handlers",
+        "bounded_context_capture",
+        "goal_submission_panel"
+      ]
+    },
+    {
+      "decision_id": "EAC-T45",
+      "surface": "eclipse_views_extension",
+      "status": "runtime_mvp_operational",
+      "summary": "Task/artifact/approval/audit/repair/TUI/policy-fallback runtime views are wired through a runtime views extension registry.",
+      "reason": "Core operational views now load backend runtime data and preserve thin-adapter boundaries.",
+      "runtime_scope_included": [
+        "task_list_and_detail_views",
+        "artifact_and_diff_rendering",
+        "approval_actions_with_confirmation",
+        "audit_and_repair_explorer_runtime",
+        "tui_status_and_launch_bridge",
+        "policy_denied_and_browser_fallback_ux"
+      ]
+    },
+    {
+      "decision_id": "EAC-T51",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_operational",
+      "summary": "Policy-denied and browser-fallback UX is explicit and governance-safe.",
+      "reason": "Fallback paths remain backend-authorized and never bypass policy enforcement.",
+      "hardening_pending": [
+        "runtime_unit_and_integration_tests",
+        "security_and_contract_regression_suite",
+        "headless_runtime_smoke_ci_lane"
+      ]
     }
   ]
 }

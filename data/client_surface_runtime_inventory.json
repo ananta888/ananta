@@ -54,9 +54,9 @@
     },
     {
       "surface": "eclipse_plugin",
-      "classification": "foundation_only",
-      "delivery_status": "runtime_bootstrap_started",
-      "decision": "runtime_bootstrap_started_full_runtime_mvp_pending",
+      "classification": "real_implementation",
+      "delivery_status": "runtime_mvp_operational",
+      "decision": "runtime_commands_and_views_mvp_delivered_hardening_pending",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -73,9 +73,20 @@
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.properties",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.gradle",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/settings.gradle",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/context/EclipseContextCaptureRuntime.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/GoalSubmissionRuntimePanel.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/ClientProfile.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/CapabilityGate.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseArtifactRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseApprovalRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseAuditRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java",
           "scripts/build_eclipse_runtime_plugin.py",
           "scripts/smoke_eclipse_runtime_bootstrap.py"
@@ -84,9 +95,9 @@
     },
     {
       "surface": "eclipse_views_extension",
-      "classification": "foundation_only",
-      "delivery_status": "runtime_bootstrap_started",
-      "decision": "views_runtime_delivery_pending_after_bootstrap",
+      "classification": "real_implementation",
+      "delivery_status": "runtime_mvp_operational",
+      "decision": "views_runtime_delivery_completed_for_m9_core_scope",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -95,7 +106,17 @@
         "docs": [
           "docs/eclipse-plugin-views-extension-foundation.md"
         ],
-        "runtime": []
+        "runtime": [
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseArtifactRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseApprovalRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseAuditRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
+          "scripts/smoke_eclipse_runtime_bootstrap.py"
+        ]
       }
     },
     {
@@ -140,8 +161,7 @@
   ],
   "gap_summary": {
     "missing_runtime_artifacts": [
-      "Eclipse runtime command/view handlers are not fully implemented yet (bootstrap only).",
-      "Eclipse runtime integration/UI/security/contract/smoke gates for full MVP are still pending.",
+      "Eclipse runtime hardening gates (Java unit tests, integration/UI tests, security/contract tests, CI lane) are still pending in M10.",
       "No Vim runtime plugin/autoload files available in a runtime plugin directory while Vim remains deferred.",
       "TUI runtime exists as MVP but still needs expanded feature coverage and release packaging."
     ]
