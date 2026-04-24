@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-
 _SECRET_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -79,4 +78,3 @@ def package_editor_context(
         "bounded": True,
         "implicit_unrelated_paths_included": False,
     }
-

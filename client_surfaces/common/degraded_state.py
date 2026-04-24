@@ -23,4 +23,3 @@ def map_status_to_degraded_state(status_code: int | None, *, parse_error: bool =
 
 def is_retriable_state(state: DegradedState) -> bool:
     return state in {"backend_unreachable", "malformed_response", "unknown_error"}
-

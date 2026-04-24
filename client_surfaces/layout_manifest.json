@@ -25,16 +25,16 @@
     {
       "path": "client_surfaces/tui_runtime/ananta_tui",
       "purpose": "TUI runtime app package and view modules.",
-      "status": "skeleton_created"
+      "status": "runtime_mvp_started"
     },
     {
       "path": "client_surfaces/tui_runtime/tests",
       "purpose": "TUI runtime-specific tests.",
-      "status": "skeleton_created"
+      "status": "runtime_tests_started"
     }
   ],
   "notes": [
-    "Skeleton directories are intentionally runtime-ready but do not yet imply runnable implementation.",
-    "Runtime completion is tracked by TVM tasks and completion definitions."
+    "TUI runtime now contains executable MVP modules while Neovim/Vim/Eclipse remain skeleton or deferred.",
+    "Runtime completion is tracked by CRT tasks and completion definitions."
   ]
 }

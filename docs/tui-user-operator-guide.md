@@ -10,6 +10,10 @@ Use the TUI for operational workflows: task/artifact handling, approval/audit vi
 2. Authenticate and confirm runtime header context.
 3. Open the relevant view (`tasks`, `approvals`, `logs`, `kritis`, `settings`).
 
+For local MVP runtime smoke:
+
+`python -m client_surfaces.tui_runtime.ananta_tui --fixture`
+
 ## Core views
 
 - Task board and task detail

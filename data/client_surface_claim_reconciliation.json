@@ -9,8 +9,8 @@
     "legacy_claim_track": "eclipse_plugin_views_extension",
     "legacy_claim_progress_percent": 100.0,
     "legacy_claim_done_tasks": 24,
-    "current_unified_track": "client_surface_reality_plus_tui_vim_runtime_delivery",
-    "current_status": "runtime_gaps_explicitly_open"
+    "current_unified_track": "client_runtime_delivery_after_skeletons",
+    "current_status": "tui_runtime_mvp_started_with_vim_deferred"
   },
   "reclassification": [
     {
@@ -22,9 +22,9 @@
     {
       "area": "tui_and_editor_plugin",
       "before_label": "foundation_complete_mixed_with_runtime_expectation",
-      "after_label": "foundation_complete_runtime_missing",
-      "reason": "Repository evidence shows contract models and docs but no runnable Neovim/Vim plugin runtime and no dedicated TUI app runtime entrypoint."
+      "after_label": "tui_runtime_mvp_started_vim_deferred",
+      "reason": "Repository now includes a runnable TUI MVP entrypoint and smoke script; Vim compatibility is explicitly deferred and Neovim remains foundation-only."
     }
   ],
-  "correction_note": "Earlier completion claims overstated runnable client status. The merged track keeps foundation work and runtime delivery explicitly separated so completion is evidence-based."
+  "correction_note": "Earlier completion claims overstated runnable client status. Runtime claims now require executable evidence, while deferred surfaces are marked explicitly."
 }
