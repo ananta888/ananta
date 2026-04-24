@@ -98,6 +98,20 @@ def test_done_claims_include_current_crt_runtime_ranges() -> None:
     assert done_claims["vim_plugin"] == []
 
 
+def test_done_claims_include_current_eac_runtime_ranges() -> None:
+    todo_payload = {
+        "tasks": [
+            {"id": "EAC-T33", "status": "done"},
+            {"id": "EAC-T45", "status": "done"},
+            {"id": "EAC-T53", "status": "done"},
+            {"id": "EAC-T58", "status": "done"},
+        ]
+    }
+    done_claims = collect_done_claims(todo_payload)
+    assert done_claims["eclipse_plugin"] == ["EAC-T33", "EAC-T45", "EAC-T53", "EAC-T58"]
+    assert done_claims["eclipse_views_extension"] == ["EAC-T45", "EAC-T53"]
+
+
 def test_nvim_requires_smoke_evidence_for_runtime_classification() -> None:
     without_smoke = {
         "client_surfaces/nvim_runtime/plugin/ananta.vim",

@@ -38,6 +38,6 @@ These are explicitly out of MVP scope to keep the adapter maintainable and thin.
 
 ## Runtime delivery status for current CRT track
 
-- Eclipse runtime bootstrap is now active for the EAC track.
-- Bootstrap artifacts now include plugin metadata, deterministic dockerized build command and runtime bootstrap smoke check.
-- Full runtime MVP claim remains gated on command/view delivery, integration tests and runtime smoke evidence for operational flows.
+- Eclipse runtime command/view MVP is active for the EAC track.
+- Runtime artifacts include plugin metadata, deterministic dockerized build command, command registry, bounded context capture, runtime views extension registry and runtime smoke checks.
+- Follow-up block focuses on hardening: deeper runtime test coverage, CI lane and merge-readiness evidence.

@@ -117,8 +117,8 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
 
 DONE_CLAIM_RULES: dict[str, list[tuple[str, int, int]]] = {
     "tui_surface": [("CSH-T", 5, 10), ("TVM-T", 29, 38), ("CRT-T", 9, 13)],
-    "eclipse_plugin": [("CSH-T", 11, 17)],
-    "eclipse_views_extension": [("ECL-T", 27, 50)],
+    "eclipse_plugin": [("CSH-T", 11, 17), ("EAC-T", 33, 58)],
+    "eclipse_views_extension": [("ECL-T", 27, 50), ("EAC-T", 45, 53)],
     "nvim_plugin": [("TVM-T", 13, 22), ("CRT-T", 14, 17), ("CRT-T", 19, 19)],
     "vim_plugin": [("TVM-T", 23, 28)],
 }

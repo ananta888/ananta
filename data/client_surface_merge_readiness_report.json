@@ -1,7 +1,7 @@
 {
   "schema": "client_surface_merge_readiness_report_v1",
   "track_id": "client_runtime_delivery_after_skeletons",
-  "updated_at": "2026-04-24T19:38:06+02:00",
+  "updated_at": "2026-04-24T19:55:27+02:00",
   "surface_status": {
     "tui_surface": {
       "classification": "real_implementation",
@@ -16,12 +16,12 @@
       "declared_status": "deferred"
     },
     "eclipse_plugin": {
-      "classification": "foundation_only",
-      "declared_status": "foundation_only"
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
     },
     "eclipse_views_extension": {
-      "classification": "foundation_only",
-      "declared_status": "foundation_only"
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
     }
   },
   "runtime_evidence": {
@@ -40,6 +40,20 @@
       "client_surfaces/nvim_runtime/ananta_bridge.py",
       "scripts/smoke_nvim_runtime.py",
       "scripts/smoke_client_golden_paths.py"
+    ],
+    "eclipse_plugin": [
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/context/EclipseContextCaptureRuntime.java",
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+      "scripts/build_eclipse_runtime_plugin.py",
+      "scripts/smoke_eclipse_runtime_bootstrap.py"
+    ],
+    "eclipse_views_extension": [
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java",
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseArtifactRuntimeView.java",
+      "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseApprovalRuntimeView.java",
+      "scripts/smoke_eclipse_runtime_bootstrap.py"
     ]
   },
   "verification": {
@@ -47,11 +61,13 @@
     "smoke_commands": [
       "python3 scripts/smoke_tui_runtime.py",
       "python3 scripts/smoke_nvim_runtime.py",
+      "python3 scripts/smoke_eclipse_runtime_bootstrap.py",
       "python3 scripts/smoke_client_golden_paths.py"
     ],
     "test_targets": [
       "tests/test_tui_runtime_app.py",
       "tests/test_nvim_runtime_surface.py",
+      "tests/test_eclipse_runtime_bootstrap.py",
       "tests/test_client_surface_api_contracts.py",
       "tests/test_client_surface_security_contracts.py",
       "tests/test_client_surface_golden_path_smoke.py",
@@ -61,7 +77,7 @@
   },
   "main_merge_blockers": [],
   "later_enhancements": [
-    "Eclipse runtime bootstrap is active, but full command/view runtime MVP and integration smoke evidence are still pending.",
+    "Eclipse runtime hardening block (Java unit/integration/security/contract tests and CI lane) is still pending.",
     "Vim compatibility remains deferred until Neovim runtime stabilization and explicit compatibility subset tests."
   ],
   "references": [

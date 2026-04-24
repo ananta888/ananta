@@ -10,14 +10,14 @@
     "legacy_claim_progress_percent": 100.0,
     "legacy_claim_done_tasks": 24,
     "current_unified_track": "client_runtime_delivery_after_skeletons",
-    "current_status": "tui_and_nvim_runtime_mvp_with_vim_deferred_and_eclipse_bootstrap_started"
+    "current_status": "tui_nvim_and_eclipse_runtime_mvp_with_vim_deferred"
   },
   "reclassification": [
     {
       "area": "eclipse_plugin_and_views",
       "before_label": "client_complete_claimed",
-      "after_label": "foundation_complete_with_runtime_bootstrap_started",
-      "reason": "Repository evidence shows backend contracts/tests/docs plus Eclipse runtime bootstrap artifacts (plugin metadata/build/smoke scaffolding), while full runtime MVP flows remain pending."
+      "after_label": "runtime_mvp_operational_with_hardening_pending",
+      "reason": "Repository evidence now includes Eclipse runtime command registry, bounded context capture, operational runtime view registry and smoke/build verification."
     },
     {
       "area": "tui_and_editor_plugin",
@@ -26,5 +26,5 @@
       "reason": "Repository now includes runnable TUI and Neovim MVP runtime entrypoints with smoke evidence; Vim compatibility remains explicitly deferred."
     }
   ],
-  "correction_note": "Earlier completion claims overstated runnable client status. Runtime claims now require executable evidence, while deferred and bootstrap-only surfaces are marked explicitly."
+  "correction_note": "Earlier completion claims overstated runnable client status. Runtime claims now require executable evidence, and Eclipse now qualifies as runtime_mvp while hardening tasks remain explicit."
 }

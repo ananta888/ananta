@@ -22,6 +22,36 @@ REQUIRED_PATHS = [
     / "ananta"
     / "eclipse"
     / "runtime"
+    / "commands"
+    / "EclipseCommandRegistry.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "context"
+    / "EclipseContextCaptureRuntime.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "views"
+    / "EclipseViewsExtensionRegistry.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
     / "security"
     / "TokenRedaction.java",
 ]
@@ -43,6 +73,30 @@ def run_smoke_once() -> tuple[bool, str]:
     missing_commands = [command for command in required_commands if command not in plugin_xml]
     if missing_commands:
         return False, f"missing_plugin_commands={missing_commands}"
+    required_handlers = [
+        "io.ananta.eclipse.runtime.commands.handlers.AnalyzeCommandHandler",
+        "io.ananta.eclipse.runtime.commands.handlers.ReviewCommandHandler",
+        "io.ananta.eclipse.runtime.commands.handlers.PatchCommandHandler",
+        "io.ananta.eclipse.runtime.commands.handlers.NewProjectCommandHandler",
+        "io.ananta.eclipse.runtime.commands.handlers.EvolveProjectCommandHandler",
+    ]
+    missing_handlers = [handler for handler in required_handlers if handler not in plugin_xml]
+    if missing_handlers:
+        return False, f"missing_plugin_handlers={missing_handlers}"
+    required_views = [
+        "io.ananta.eclipse.view.goal",
+        "io.ananta.eclipse.view.task_list",
+        "io.ananta.eclipse.view.task_detail",
+        "io.ananta.eclipse.view.artifact",
+        "io.ananta.eclipse.view.approval_queue",
+        "io.ananta.eclipse.view.audit",
+        "io.ananta.eclipse.view.repair",
+        "io.ananta.eclipse.view.tui_status",
+        "io.ananta.eclipse.view.policy_fallback",
+    ]
+    missing_views = [view for view in required_views if view not in plugin_xml]
+    if missing_views:
+        return False, f"missing_plugin_views={missing_views}"
 
     api_client_source = (
         PLUGIN_ROOT
@@ -56,6 +110,101 @@ def run_smoke_once() -> tuple[bool, str]:
         / "core"
         / "AnantaApiClient.java"
     ).read_text(encoding="utf-8")
+    required_client_methods = [
+        "mapStatusToState",
+        "isRetriable",
+        "analyzeContext",
+        "reviewContext",
+        "patchPlan",
+        "createProjectNew",
+        "createProjectEvolve",
+        "approveApproval",
+        "listAuditEvents(String severity, String eventType, String objectId)",
+    ]
+    missing_client_methods = [method for method in required_client_methods if method not in api_client_source]
+    if missing_client_methods:
+        return False, f"client_core_methods_missing={missing_client_methods}"
+
+    command_registry_source = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "commands"
+        / "EclipseCommandRegistry.java"
+    ).read_text(encoding="utf-8")
+    command_registry_requirements = [
+        "capabilityGate.evaluate",
+        "RuntimeCommandType.ANALYZE.commandId()",
+        "RuntimeCommandType.REVIEW.commandId()",
+        "RuntimeCommandType.PATCH.commandId()",
+        "RuntimeCommandType.NEW_PROJECT.commandId()",
+        "RuntimeCommandType.EVOLVE_PROJECT.commandId()",
+        "submitGoalFromPanel",
+    ]
+    missing_registry_requirements = [
+        requirement for requirement in command_registry_requirements if requirement not in command_registry_source
+    ]
+    if missing_registry_requirements:
+        return False, f"command_registry_requirements_missing={missing_registry_requirements}"
+
+    views_registry_source = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "views"
+        / "EclipseViewsExtensionRegistry.java"
+    ).read_text(encoding="utf-8")
+    views_registry_requirements = [
+        "io.ananta.eclipse.view.goal",
+        "io.ananta.eclipse.view.task_list",
+        "io.ananta.eclipse.view.task_detail",
+        "io.ananta.eclipse.view.artifact",
+        "io.ananta.eclipse.view.approval_queue",
+        "io.ananta.eclipse.view.audit",
+        "io.ananta.eclipse.view.repair",
+        "io.ananta.eclipse.view.tui_status",
+        "io.ananta.eclipse.view.policy_fallback",
+    ]
+    missing_views_registry_requirements = [
+        requirement for requirement in views_registry_requirements if requirement not in views_registry_source
+    ]
+    if missing_views_registry_requirements:
+        return False, f"views_registry_requirements_missing={missing_views_registry_requirements}"
+
+    context_capture_source = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "context"
+        / "EclipseContextCaptureRuntime.java"
+    ).read_text(encoding="utf-8")
+    context_capture_requirements = [
+        "DEFAULT_MAX_SELECTION_CHARS",
+        "DEFAULT_MAX_PATHS",
+        "userReviewRequiredBeforeSend",
+        "implicit_unrelated_paths_included",
+    ]
+    missing_context_capture_requirements = [
+        requirement for requirement in context_capture_requirements if requirement not in context_capture_source
+    ]
+    if missing_context_capture_requirements:
+        return False, f"context_capture_requirements_missing={missing_context_capture_requirements}"
+
     if "mapStatusToState" not in api_client_source or "isRetriable" not in api_client_source:
         return False, "client_core_degraded_state_mapping_missing"
 

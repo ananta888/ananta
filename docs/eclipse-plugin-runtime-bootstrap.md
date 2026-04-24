@@ -1,17 +1,21 @@
 # Eclipse Plugin Runtime Bootstrap
 
-This document tracks the runtime bootstrap phase for the Eclipse advanced control surface.
+This document tracks the runtime bootstrap and first operational runtime phase for the Eclipse advanced control surface.
 
 ## Scope
 
-Runtime bootstrap covers:
+Runtime bootstrap and operations currently cover:
 
 - plugin project layout
 - plugin metadata (`plugin.xml`, `META-INF/MANIFEST.MF`, `build.properties`)
 - deterministic dockerized Gradle build command
 - Java backend client core, secure profile/token handling, and capability gate
+- runtime command registry and command handlers (`analyze`, `review`, `patch`, `new_project`, `evolve_project`)
+- bounded workspace/editor context capture with user-review preview
+- runtime goal submission panel model with task/artifact result links
+- runtime views registry for task/artifact/approval/audit/repair/TUI/policy-fallback surfaces
 
-It does **not** yet claim full runtime command/view delivery for all advanced screens.
+Runtime implementation exists, but test/CI hardening and merge-readiness tasks are still pending in the follow-up block.
 
 ## Build Command
 
@@ -37,3 +41,4 @@ If Docker credential helpers are misconfigured in WSL-like environments:
 - Inline secret-like strings are redacted before exposure.
 - Capability and permission gates fail closed for unknown or unauthorized actions.
 - Eclipse remains a thin client; governance and approval decisions stay backend-owned.
+- Policy-denied states and browser fallback links are explicit and do not bypass backend governance.
