@@ -111,3 +111,41 @@ def test_nvim_requires_smoke_evidence_for_runtime_classification() -> None:
 
     assert report_without_smoke["classification"] == "foundation_only"
     assert report_with_smoke["classification"] == "real_implementation"
+
+
+def test_eclipse_requires_command_registry_for_runtime_classification() -> None:
+    bootstrap_only = {
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.properties",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java",
+        "scripts/smoke_eclipse_runtime_bootstrap.py",
+        "agent/services/eclipse_plugin_adapter_foundation_service.py",
+    }
+    with_runtime_registry = bootstrap_only | {
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java"
+    }
+
+    report_bootstrap_only = classify_surface("eclipse_plugin", bootstrap_only)
+    report_with_registry = classify_surface("eclipse_plugin", with_runtime_registry)
+
+    assert report_bootstrap_only["classification"] == "foundation_only"
+    assert report_with_registry["classification"] == "real_implementation"
+
+
+def test_eclipse_views_extension_requires_runtime_registry_for_classification() -> None:
+    bootstrap_only = {
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
+        "scripts/smoke_eclipse_runtime_bootstrap.py",
+        "agent/services/eclipse_plugin_adapter_foundation_service.py",
+    }
+    with_views_registry = bootstrap_only | {
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java"
+    }
+
+    report_bootstrap_only = classify_surface("eclipse_views_extension", bootstrap_only)
+    report_with_registry = classify_surface("eclipse_views_extension", with_views_registry)
+
+    assert report_bootstrap_only["classification"] == "foundation_only"
+    assert report_with_registry["classification"] == "real_implementation"

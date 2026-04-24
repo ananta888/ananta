@@ -1,7 +1,7 @@
 {
   "schema": "client_surface_merge_readiness_report_v1",
   "track_id": "client_runtime_delivery_after_skeletons",
-  "updated_at": "2026-04-24T19:11:24+02:00",
+  "updated_at": "2026-04-24T19:38:06+02:00",
   "surface_status": {
     "tui_surface": {
       "classification": "real_implementation",
@@ -17,11 +17,11 @@
     },
     "eclipse_plugin": {
       "classification": "foundation_only",
-      "declared_status": "blocked"
+      "declared_status": "foundation_only"
     },
     "eclipse_views_extension": {
       "classification": "foundation_only",
-      "declared_status": "blocked"
+      "declared_status": "foundation_only"
     }
   },
   "runtime_evidence": {
@@ -61,7 +61,7 @@
   },
   "main_merge_blockers": [],
   "later_enhancements": [
-    "Eclipse runtime remains blocked until a buildable plugin project with plugin.xml, MANIFEST and CI-capable build/smoke evidence is implemented.",
+    "Eclipse runtime bootstrap is active, but full command/view runtime MVP and integration smoke evidence are still pending.",
     "Vim compatibility remains deferred until Neovim runtime stabilization and explicit compatibility subset tests."
   ],
   "references": [

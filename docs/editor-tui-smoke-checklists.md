@@ -27,4 +27,4 @@ Run:
 
 `python3 scripts/smoke_client_golden_paths.py`
 
-The golden path verifies TUI and Neovim goal->task/artifact flow on fixture transport. Eclipse runtime is currently blocked in this track, so only foundation/manual guidance applies there.
+The golden path verifies TUI and Neovim goal->task/artifact flow on fixture transport. Eclipse runtime bootstrap is started in this track, but full Eclipse runtime flow smoke remains pending until command/view runtime delivery lands.

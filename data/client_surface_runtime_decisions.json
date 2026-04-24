@@ -1,6 +1,6 @@
 {
   "schema": "client_surface_runtime_decisions_v1",
-  "track_id": "client_runtime_delivery_after_skeletons",
+  "track_id": "eclipse_advanced_control_surface_runtime_delivery_after_foundation",
   "decisions": [
     {
       "decision_id": "CRT-T20",
@@ -41,6 +41,35 @@
       "status": "blocked",
       "summary": "Task/artifact runtime view implementation and runtime smoke checklist are blocked in this track.",
       "reason": "Eclipse runtime is not claimed as MVP; views remain foundation contracts with browser fallback guidance."
+    },
+    {
+      "decision_id": "EAC-T33",
+      "surface": "eclipse_plugin",
+      "status": "runtime_bootstrap_started",
+      "summary": "Eclipse runtime is unblocked for bootstrap delivery in the EAC track.",
+      "reason": "Repository now includes plugin metadata, deterministic build bootstrap command, client core and bootstrap smoke evidence.",
+      "runtime_scope_freeze": {
+        "included_now": [
+          "project_layout",
+          "plugin_metadata",
+          "deterministic_build_bootstrap",
+          "secure_profile_token_handling",
+          "capability_permission_gate"
+        ],
+        "excluded_until_next_block": [
+          "full_command_handler_runtime",
+          "full_advanced_view_runtime",
+          "full_runtime_mvp_claim"
+        ]
+      }
+    },
+    {
+      "decision_id": "EAC-T36",
+      "surface": "eclipse_plugin",
+      "status": "runtime_bootstrap_started",
+      "summary": "Build bootstrap path uses dockerized Gradle for deterministic runtime packaging.",
+      "reason": "Host-independent command improves reproducibility while keeping runtime bootstrap lightweight.",
+      "build_command": "python3 scripts/build_eclipse_runtime_plugin.py --mode build"
     }
   ]
 }

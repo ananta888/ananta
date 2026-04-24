@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+}
+
+group = 'io.ananta.eclipse'
+version = '0.1.0-bootstrap'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+jar {
+    archiveBaseName = 'ananta-eclipse-plugin-runtime'
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    manifest {
+        attributes(
+            'Implementation-Title': 'Ananta Eclipse Runtime Bootstrap',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+tasks.register('eclipsePluginBundle', Zip) {
+    group = 'build'
+    description = 'Builds a deterministic Eclipse plugin bootstrap bundle.'
+    dependsOn(tasks.named('jar'))
+    archiveBaseName = 'ananta-eclipse-plugin'
+    archiveVersion = project.version
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+
+    from('plugin.xml')
+    from('build.properties')
+    from('META-INF') {
+        into 'META-INF'
+    }
+    from(tasks.named('jar')) {
+        into 'lib'
+    }
+}
+
+tasks.named('build') {
+    dependsOn(tasks.named('eclipsePluginBundle'))
+}

@@ -2,15 +2,18 @@
 
 This document captures the first implementation block of the Eclipse plugin adapter track.
 
-## Current runtime decision (CRT-T20..CRT-T24)
+## Current runtime decision (EAC-T33 bootstrap phase)
 
-- Current track decision: Eclipse runtime is **blocked/deferred** for this delivery train.
-- Reason: repository currently has contract/test/doc foundations, but no buildable PDE/Tycho/Gradle plugin project and no runtime smoke evidence.
-- Runtime status truth: keep Eclipse surfaces in `foundation_only` classification and `blocked` delivery status until executable evidence exists.
-- Expected runtime layout when unblocked:
+- Current track decision: Eclipse runtime is **unblocked for bootstrap delivery**.
+- Current state: foundation contracts/tests/docs remain valid, and runtime bootstrap artifacts now exist.
+- Runtime status truth: Eclipse remains `foundation_only` until full runtime command/view delivery and smoke gates are completed.
+- Bootstrap runtime artifacts:
   - Eclipse plugin project with `plugin.xml`
   - `META-INF/MANIFEST.MF`
-  - deterministic build via Tycho or Gradle (Buildship-compatible) command documented in CI/release docs
+  - deterministic dockerized Gradle build command
+  - runtime bootstrap smoke script
+
+See `docs/eclipse-plugin-runtime-bootstrap.md` for build and smoke commands.
 
 ## Thin adapter boundary
 
