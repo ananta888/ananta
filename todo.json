@@ -1,1130 +1,566 @@
 {
-  "version": 2,
+  "version": 1,
   "owner": "ananta",
-  "track_id": "eclipse_advanced_control_surface_runtime_delivery_after_foundation",
-  "track": "eclipse_advanced_control_surface",
-  "purpose": "Deliver the advanced Eclipse control surface in two phases: finished contract foundation and pending runnable Eclipse plugin runtime implementation with test-heavy hardening.",
+  "track": "tui_full_surface_frontend_parity",
+  "purpose": "Expand the existing Ananta TUI MVP into a broad operator/developer terminal surface that reuses existing Angular/Hub APIs where practical, without becoming an unsafe duplicate control plane.",
   "depends_on": [
-    "client_runtime_delivery_after_skeletons (completed)",
-    "TUI runtime MVP (completed)",
-    "Neovim runtime MVP (completed)",
-    "Eclipse foundation contracts/tests/docs (completed, runtime still blocked)"
+    "client_runtime_delivery_after_skeletons",
+    "TUI runtime MVP"
   ],
-  "status_scale": [
-    "todo",
-    "in_progress",
-    "blocked",
-    "done"
-  ],
-  "priority_scale": [
-    "P0",
-    "P1",
-    "P2",
-    "P3"
-  ],
-  "risk_scale": [
-    "low",
-    "medium",
-    "high",
-    "critical"
-  ],
-  "goal": "Ship a real, buildable, test-covered Eclipse runtime plugin surface for Ananta, while preserving hub ownership, policy enforcement, bounded context, explicit degraded states, and auditability.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "The TUI should cover most daily Ananta frontend workflows: dashboard/status, goals, tasks, artifacts, knowledge, config, teams/blueprints, automation, audit, approvals and repair visibility, using terminal-appropriate screens and safe backend-gated actions.",
   "success_criteria": [
-    "Eclipse plugin runtime project exists with plugin metadata and deterministic build.",
-    "Core Eclipse commands execute against backend APIs with bounded user-visible context.",
-    "Task/artifact/approval/audit/repair surfaces are operational and governance-safe.",
-    "TUI launch integration is explicit, safe and observable.",
-    "Unit, integration, security, contract and smoke checks enforce runtime behavior and guardrails.",
-    "Docs and merge-readiness evidence match the real implementation state."
+    "TUI provides navigable top-level sections similar to the Angular frontend surface.",
+    "TUI reuses existing Hub APIs/read models instead of adding duplicate backend logic.",
+    "Users can inspect and operate common Goals/Tasks/Artifacts workflows without browser.",
+    "Users can inspect System/Config/Audit/Automation state from terminal.",
+    "Dangerous writes remain backend-permissioned, explicit and auditable.",
+    "Deep/complex operations degrade to browser fallback where terminal UX would be unsafe.",
+    "TUI has smoke tests and view-model tests for all major sections."
   ],
   "architecture_guardrails": [
-    "Eclipse remains a thin client surface, never a second control plane.",
-    "No orchestration, approval policy or governance logic is duplicated client-side.",
-    "All risky actions are backend-gated, permission-aware and auditable.",
-    "No implicit repair execution, no implicit file mutation, no hidden command execution.",
-    "Degraded states are explicit and actionable, never masked as success.",
-    "Browser fallback remains available for deep/high-risk admin workflows."
+    "TUI remains a thin client.",
+    "No planning, routing, approval, repair execution or policy logic is duplicated in TUI.",
+    "All writes use existing backend APIs and preserve backend validation/audit.",
+    "Read-heavy first; write actions require confirmation and risk labels.",
+    "Secrets, tokens and sensitive config values are redacted.",
+    "Browser fallback remains available for complex admin/configuration screens."
   ],
   "milestones": [
     {
-      "id": "EAC-M1",
-      "title": "Foundation scope and architecture boundary",
-      "task_ids": [
-        "EAC-T01",
-        "EAC-T02",
-        "EAC-T03",
-        "EAC-T04"
-      ],
-      "status": "done"
+      "id": "TFS-M1",
+      "title": "Navigation and API mapping",
+      "task_ids": ["TFS-T01", "TFS-T02", "TFS-T03", "TFS-T04"],
+      "status": "todo"
     },
     {
-      "id": "EAC-M2",
-      "title": "Foundation analysis and developer work modes",
-      "task_ids": [
-        "EAC-T05",
-        "EAC-T06",
-        "EAC-T07",
-        "EAC-T08",
-        "EAC-T09"
-      ],
-      "status": "done"
+      "id": "TFS-M2",
+      "title": "Dashboard, system and config",
+      "task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
+      "status": "todo"
     },
     {
-      "id": "EAC-M3",
-      "title": "Foundation internals and runtime visibility",
-      "task_ids": [
-        "EAC-T10",
-        "EAC-T11",
-        "EAC-T12",
-        "EAC-T13",
-        "EAC-T14"
-      ],
-      "status": "done"
+      "id": "TFS-M3",
+      "title": "Goals, tasks and execution",
+      "task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
+      "status": "todo"
     },
     {
-      "id": "EAC-M4",
-      "title": "Foundation configuration and control views",
-      "task_ids": [
-        "EAC-T15",
-        "EAC-T16",
-        "EAC-T17",
-        "EAC-T18"
-      ],
-      "status": "done"
+      "id": "TFS-M4",
+      "title": "Artifacts, knowledge and templates",
+      "task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
+      "status": "todo"
     },
     {
-      "id": "EAC-M5",
-      "title": "Foundation approval, audit and repair deep views",
-      "task_ids": [
-        "EAC-T19",
-        "EAC-T20",
-        "EAC-T21",
-        "EAC-T22",
-        "EAC-T23"
-      ],
-      "status": "done"
+      "id": "TFS-M5",
+      "title": "Teams, blueprints and instruction layers",
+      "task_ids": ["TFS-T19", "TFS-T20", "TFS-T21", "TFS-T22"],
+      "status": "todo"
     },
     {
-      "id": "EAC-M6",
-      "title": "Foundation TUI launch and integration strategy",
-      "task_ids": [
-        "EAC-T24",
-        "EAC-T25",
-        "EAC-T26",
-        "EAC-T27"
-      ],
-      "status": "done"
+      "id": "TFS-M6",
+      "title": "Automation, audit, approvals and repair",
+      "task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
+      "status": "todo"
     },
     {
-      "id": "EAC-M7",
-      "title": "Foundation tests, docs and baseline report",
-      "task_ids": [
-        "EAC-T28",
-        "EAC-T29",
-        "EAC-T30",
-        "EAC-T31",
-        "EAC-T32"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "EAC-M8",
-      "title": "Runtime bootstrap and project skeleton",
-      "task_ids": [
-        "EAC-T33",
-        "EAC-T34",
-        "EAC-T35",
-        "EAC-T36",
-        "EAC-T37",
-        "EAC-T38",
-        "EAC-T39"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "EAC-M9",
-      "title": "Runtime commands, views and operations",
-      "task_ids": [
-        "EAC-T40",
-        "EAC-T41",
-        "EAC-T42",
-        "EAC-T43",
-        "EAC-T44",
-        "EAC-T45",
-        "EAC-T46",
-        "EAC-T47",
-        "EAC-T48",
-        "EAC-T49",
-        "EAC-T50",
-        "EAC-T51"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "EAC-M10",
-      "title": "Runtime hardening, tests and release readiness",
-      "task_ids": [
-        "EAC-T52",
-        "EAC-T53",
-        "EAC-T54",
-        "EAC-T55",
-        "EAC-T56",
-        "EAC-T57",
-        "EAC-T58"
-      ],
-      "status": "done"
+      "id": "TFS-M7",
+      "title": "Testing, docs and release gate",
+      "task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32"],
+      "status": "todo"
     }
   ],
   "tasks": [
     {
-      "id": "EAC-T01",
-      "title": "Advanced Eclipse scope boundary define (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Advanced feature boundary is documented.",
-        "Thin-adapter and control-plane separation is explicit.",
-        "High-risk views are marked backend-gated or browser-first."
-      ]
-    },
-    {
-      "id": "EAC-T02",
-      "title": "Eclipse advanced view model inventory create (foundation)",
-      "status": "done",
+      "id": "TFS-T01",
+      "title": "Frontend API surface mapping create",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "View inventory maps capabilities and API dependencies.",
-        "Read-only vs read-write classification exists.",
-        "Missing endpoints are explicit instead of silently mocked."
+        "Map Angular HubApiService methods to TUI sections.",
+        "Classify each feature as TUI-MVP, TUI-advanced, browser-fallback or not-suitable-for-terminal.",
+        "No existing frontend API is reimplemented blindly without UX/risk decision.",
+        "Mapping identifies missing or unstable endpoints, if any."
       ]
     },
     {
-      "id": "EAC-T03",
-      "title": "Permission and capability model define (foundation)",
-      "status": "done",
+      "id": "TFS-T02",
+      "title": "TUI section navigation shell expand",
+      "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "acceptance_criteria": [
-        "Capability and permission semantics are modeled.",
-        "Denied actions are represented explicitly.",
-        "No client-side permission escalation path exists."
+        "TUI has top-level navigation for Dashboard, Goals, Tasks, Artifacts, Knowledge, Config, System, Teams, Automation, Audit, Repair and Help.",
+        "Keyboard navigation is consistent.",
+        "Current section and selected object are always visible.",
+        "Small terminal sizes degrade gracefully."
       ]
     },
     {
-      "id": "EAC-T04",
-      "title": "Advanced navigation and perspective layout define (foundation)",
-      "status": "done",
+      "id": "TFS-T03",
+      "title": "Shared TUI view-state model implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Selected goal/task/artifact/context can be shared across sections.",
+        "Refresh state, filters and last selected objects are tracked predictably.",
+        "No stale object is silently treated as current.",
+        "View-state model is unit tested."
+      ]
+    },
+    {
+      "id": "TFS-T04",
+      "title": "Browser fallback and deep-link helper implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "Recommended Eclipse perspective/layout is defined.",
-        "Context-preserving navigation model exists.",
-        "Browser fallback links are modeled."
+        "Every complex object can expose an open-in-browser link where backend/frontend supports it.",
+        "TUI clearly marks browser-first operations.",
+        "Fallback is available for deep admin, rich artifact rendering and risky config workflows.",
+        "Fallback helper is tested."
       ]
     },
+
     {
-      "id": "EAC-T05",
-      "title": "Analysis mode registry implement (foundation)",
-      "status": "done",
+      "id": "TFS-T05",
+      "title": "Dashboard read model view implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "Multiple analysis modes are modeled and testable.",
-        "Modes map to official Ananta flows.",
-        "Capability-aware enable/disable behavior is covered."
+        "TUI consumes the same dashboard/assistant read models used by frontend where available.",
+        "View shows health, readiness, active profile/governance, recent tasks and important warnings.",
+        "View handles degraded backend state.",
+        "View has fixture and live-mode tests."
       ]
     },
     {
-      "id": "EAC-T06",
-      "title": "Analysis launcher view implement (foundation)",
-      "status": "done",
+      "id": "TFS-T06",
+      "title": "System health and contracts view implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "Launcher contract includes explicit context preview.",
-        "Submission maps to backend goal/task semantics.",
-        "Result linkage model is defined."
+        "TUI shows system health, contracts, agents, stats and stats history where available.",
+        "System events stream is supported if terminal runtime can handle it safely; otherwise polling fallback exists.",
+        "Unavailable endpoints show explicit degraded state.",
+        "View does not crash on partial backend responses."
       ]
     },
     {
-      "id": "EAC-T07",
-      "title": "Multi-result analysis history view implement (foundation)",
-      "status": "done",
+      "id": "TFS-T07",
+      "title": "Config read-only view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "TUI shows safe config categories including runtime_profile, governance_mode, providers/model summary and benchmark config where available.",
+        "Secrets/tokens are redacted.",
+        "Dangerous or complex config stays read-only or browser-first.",
+        "Config view is permission-aware."
+      ]
+    },
+    {
+      "id": "TFS-T08",
+      "title": "Safe config edit flow implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Only explicitly safe config fields can be edited from TUI.",
+        "Changes show preview/diff before submit.",
+        "Backend validation/audit is required for every config write.",
+        "Failed writes do not update local assumed state."
+      ]
+    },
+    {
+      "id": "TFS-T09",
+      "title": "Provider and benchmark views implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "History model covers mode, status and links.",
-        "Reopen and stale-object behavior are represented.",
-        "Graceful degradation is defined."
+        "TUI can list providers, provider catalog and LLM benchmark summaries.",
+        "Benchmark filters are supported where backend supports them.",
+        "Provider secrets are never rendered.",
+        "Large benchmark output is summarized with detail drilldown."
       ]
     },
+
     {
-      "id": "EAC-T08",
-      "title": "Review and proposal workbench implement (foundation)",
-      "status": "done",
+      "id": "TFS-T10",
+      "title": "Goals list and detail views expand",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "Review/proposal model includes diff rendering semantics.",
-        "No auto-apply behavior is enforced.",
-        "Approval-aware flow contracts exist."
+        "TUI lists goals with status, team, mode and summary.",
+        "Goal detail shows plan, governance summary, trace and related tasks/artifacts where available.",
+        "Goal modes are listable and selectable for new goals.",
+        "Create goal flow supports explicit context and mode data."
       ]
     },
     {
-      "id": "EAC-T09",
-      "title": "Blueprint and profile selection view implement (foundation)",
-      "status": "done",
+      "id": "TFS-T11",
+      "title": "Goal plan tree view implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "Blueprint/work-profile view model exists.",
-        "Selection is explicit metadata in submission model.",
-        "Unavailable profile behavior is defined."
+        "TUI can display goal plan nodes/tree in readable terminal form.",
+        "Plan node patching is either safely supported or browser-first.",
+        "Node state and dependencies are visible.",
+        "Malformed plans degrade to raw readable text."
       ]
     },
     {
-      "id": "EAC-T10",
-      "title": "Ananta system overview view implement (foundation)",
-      "status": "done",
+      "id": "TFS-T12",
+      "title": "Task workbench view expand",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "System overview model covers health/capabilities/runtime state.",
-        "Read-only default behavior is explicit.",
-        "Failure/degraded state semantics are represented."
+        "TUI supports task list filters by status/team/agent/error-only where backend supports them.",
+        "Task detail shows status, owner/agent, proposal, execution state, artifacts, logs and timeline references.",
+        "Task logs can be viewed and optionally streamed or refreshed.",
+        "Task patch/assign/propose/execute actions are guarded and confirmation-based."
       ]
     },
     {
-      "id": "EAC-T11",
-      "title": "Worker and queue visibility view implement (foundation)",
-      "status": "done",
+      "id": "TFS-T13",
+      "title": "Task orchestration view implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
-        "Worker/queue visibility contract exists.",
-        "Refresh behavior and backend load guard are modeled.",
-        "No unsafe control action is exposed without capability."
+        "TUI shows orchestration read model and worker/task flow state.",
+        "Ingest/claim/complete orchestration operations are read-only or guarded by explicit permission and confirmation.",
+        "View distinguishes normal, blocked, failed and stale states.",
+        "No orchestration operation is performed implicitly."
       ]
     },
     {
-      "id": "EAC-T12",
-      "title": "Provider and model runtime view implement (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Provider/model runtime read model exists.",
-        "Sensitive config values are redacted.",
-        "Permission-aware access model is defined."
-      ]
-    },
-    {
-      "id": "EAC-T13",
-      "title": "Task artifact trace explorer implement (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Goal-task-artifact-trace relationship model exists.",
-        "Trace and audit reference visibility is modeled.",
-        "Deep-link fallback contract is defined."
-      ]
-    },
-    {
-      "id": "EAC-T14",
-      "title": "Runtime diagnostics and degraded-state panel implement (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Degraded state taxonomy is modeled.",
-        "Actionable operator hints are represented.",
-        "False-success masking is explicitly forbidden."
-      ]
-    },
-    {
-      "id": "EAC-T15",
-      "title": "Configuration surface strategy define (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Config scope split (read-only/edit/browser-first) is documented.",
-        "Risky config writes are backend-gated and auditable by rule.",
-        "No raw unsafe editor path is allowed."
-      ]
-    },
-    {
-      "id": "EAC-T16",
-      "title": "Read-only configuration view implement (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Read-only config view model exists.",
-        "Secrets/tokens are redacted by contract.",
-        "Unavailable categories are explicit."
-      ]
-    },
-    {
-      "id": "EAC-T17",
-      "title": "Safe configuration edit flow implement (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Safe edit flow model includes preview/confirm semantics.",
-        "Backend validation/audit dependency is explicit.",
-        "Failed writes must not mutate assumed client state."
-      ]
-    },
-    {
-      "id": "EAC-T18",
-      "title": "Control actions registry implement (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Action registry contains risk/capability classification.",
-        "Unknown actions fail closed by model.",
-        "Dangerous actions require explicit confirmation."
-      ]
-    },
-    {
-      "id": "EAC-T19",
-      "title": "Approval queue advanced view implement (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Approval queue model includes enough review context.",
-        "Approve/reject is backend API-only by rule.",
-        "Stale/denied/already-handled state handling exists."
-      ]
-    },
-    {
-      "id": "EAC-T20",
-      "title": "Audit explorer view implement (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Audit explorer contract covers summaries and traces.",
-        "Sensitive values are redacted in representation.",
-        "Filtering semantics are modeled."
-      ]
-    },
-    {
-      "id": "EAC-T21",
-      "title": "Repair session explorer implement (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Repair session view model exists.",
-        "No implicit execution behavior is enforced.",
-        "Risk and approval status visibility is modeled."
-      ]
-    },
-    {
-      "id": "EAC-T22",
-      "title": "Repair review and approval flow implement (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Repair approval flow model includes explicit confirmation.",
-        "Dry-run-first semantics are represented.",
-        "Trace/audit result linkage is modeled."
-      ]
-    },
-    {
-      "id": "EAC-T23",
-      "title": "Policy denial and blocked action view implement (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Policy denial view model exists.",
-        "Navigation from denial to related context is represented.",
-        "No governance-bypass workaround is modeled."
-      ]
-    },
-    {
-      "id": "EAC-T24",
-      "title": "TUI integration strategy decide (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Integration option comparison is documented.",
-        "Security implications of process launch are evaluated.",
-        "Safe default path is selected."
-      ]
-    },
-    {
-      "id": "EAC-T25",
-      "title": "Launch external Ananta TUI action implement (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "External TUI launch contract exists.",
-        "Launch is explicit and confirmable.",
-        "Profile context transfer and secret handling are modeled."
-      ]
-    },
-    {
-      "id": "EAC-T26",
-      "title": "Eclipse terminal integration evaluate (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Terminal-hosting evaluation exists.",
-        "Implemented-vs-deferred criteria are defined.",
-        "Terminal lifecycle error visibility is modeled."
-      ]
-    },
-    {
-      "id": "EAC-T27",
-      "title": "TUI bridge status view implement (foundation)",
-      "status": "done",
+      "id": "TFS-T14",
+      "title": "Archived task management view implement",
+      "status": "todo",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
-        "TUI bridge status model exists.",
-        "Missing runtime behavior is explicit.",
-        "No fake embedded TUI representation exists."
+        "TUI can list archived tasks.",
+        "Restore/cleanup/delete archived task actions require confirmation.",
+        "Bulk cleanup shows impact summary before submit.",
+        "Browser fallback exists for risky cleanup operations."
       ]
     },
+
     {
-      "id": "EAC-T28",
-      "title": "Advanced Eclipse unit tests add (foundation)",
-      "status": "done",
+      "id": "TFS-T15",
+      "title": "Artifact explorer expand",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "Unit-level contract builders are covered by tests.",
-        "Degraded and capability-missing behavior is tested.",
-        "Tests run without live backend dependency."
+        "TUI lists artifacts and shows artifact detail.",
+        "Extract/index/RAG status/RAG preview are supported where backend supports them.",
+        "Large text artifacts have paging or summary mode.",
+        "Binary/rich artifacts use browser fallback."
       ]
     },
     {
-      "id": "EAC-T29",
-      "title": "Advanced Eclipse integration tests add (foundation)",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Contract integration semantics are covered in tests.",
-        "Malformed and denied behavior paths are exercised.",
-        "Policy-bypass negative expectations are tested."
-      ]
-    },
-    {
-      "id": "EAC-T30",
-      "title": "Advanced Eclipse manual smoke checklist add (foundation)",
-      "status": "done",
+      "id": "TFS-T16",
+      "title": "Knowledge collections view implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "Manual smoke checklist exists and is scoped.",
-        "Expected success/failure signals are documented.",
-        "Required vs optional checks are separated."
+        "TUI can list knowledge collections and index profiles.",
+        "TUI can inspect a collection and trigger indexing where safe.",
+        "Knowledge search works with query/top_k.",
+        "Results show source/provenance where available."
       ]
     },
     {
-      "id": "EAC-T31",
-      "title": "Advanced Eclipse documentation update (foundation)",
-      "status": "done",
+      "id": "TFS-T17",
+      "title": "Template management view implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "Foundation docs describe modeled view set and boundaries.",
-        "Browser-first and governance limits are explicit.",
-        "No runnable Eclipse runtime claim is made."
+        "TUI can list templates and inspect template detail.",
+        "Template validation, diagnostics and preview are supported.",
+        "Create/update/delete are either browser-first or guarded with confirmation.",
+        "Variable registry and sample contexts can be viewed."
       ]
     },
     {
-      "id": "EAC-T32",
-      "title": "Advanced Eclipse merge readiness report generate (foundation)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
+      "id": "TFS-T18",
+      "title": "Artifact upload strategy decide",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
       "acceptance_criteria": [
-        "Foundation readiness report exists.",
-        "Implemented-vs-deferred contracts are listed.",
-        "Safety and branch-merge caveats are explicit."
+        "Decision defines whether TUI supports artifact upload directly.",
+        "If supported, upload path validates file path, size and collection name.",
+        "If deferred, TUI clearly links to browser fallback.",
+        "No accidental file upload can happen from selection/navigation alone."
       ]
     },
+
     {
-      "id": "EAC-T33",
-      "title": "Runtime unblocking decision and scope freeze",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Decision explicitly moves Eclipse from blocked to runtime-delivery scope for this track.",
-        "Runtime MVP scope and out-of-scope items are frozen.",
-        "Decision is reflected in runtime status and docs before implementation starts."
-      ]
-    },
-    {
-      "id": "EAC-T34",
-      "title": "Create Eclipse plugin runtime project layout",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Repository contains a real Eclipse plugin project directory.",
-        "Project package namespace and plugin id are stable and documented.",
-        "Layout supports deterministic local and CI build."
-      ]
-    },
-    {
-      "id": "EAC-T35",
-      "title": "Add plugin metadata and manifest artifacts",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "plugin.xml and META-INF/MANIFEST.MF are present and valid.",
-        "build.properties (or equivalent) exists for reproducible packaging.",
-        "Command/view extension points are registered without runtime load errors."
-      ]
-    },
-    {
-      "id": "EAC-T36",
-      "title": "Implement reproducible plugin build pipeline",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Tycho or Gradle build path is selected and implemented.",
-        "Plugin build succeeds from clean checkout with documented command.",
-        "Build path is CI-friendly and non-interactive."
-      ]
-    },
-    {
-      "id": "EAC-T37",
-      "title": "Implement Java backend client core",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Client supports health, capabilities, goals, tasks, artifacts, approvals, audit and repair endpoints.",
-        "Typed response mapping includes degraded-state semantics.",
-        "No silent fallback swallows backend failures."
-      ]
-    },
-    {
-      "id": "EAC-T38",
-      "title": "Implement secure profile and token handling",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Profile persistence excludes raw tokens/secrets.",
-        "Log/error channels redact sensitive values consistently.",
-        "Profile/auth validation errors are explicit and actionable."
-      ]
-    },
-    {
-      "id": "EAC-T39",
-      "title": "Implement runtime capability and permission handshake",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Runtime handshake gates commands and actions by capability/permission.",
-        "Denied actions render explicit policy-denied state.",
-        "No action appears enabled when backend denies it."
-      ]
-    },
-    {
-      "id": "EAC-T40",
-      "title": "Register Eclipse runtime commands and handlers",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Analyze/review/patch/new/evolve commands are registered and callable.",
-        "Handlers are wired through client layer and capability gates.",
-        "Missing capabilities degrade explicitly instead of failing silently."
-      ]
-    },
-    {
-      "id": "EAC-T41",
-      "title": "Implement bounded editor/workspace context capture runtime",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Runtime captures current file, selection and bounded project context.",
-        "User-visible context preview is shown before send.",
-        "Unrelated files are not implicitly included."
-      ]
-    },
-    {
-      "id": "EAC-T42",
-      "title": "Implement goal submission runtime panel",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Goal panel submits through backend goal/task flow.",
-        "Operation preset and profile metadata are attached explicitly.",
-        "Result links to task/artifact views are available."
-      ]
-    },
-    {
-      "id": "EAC-T43",
-      "title": "Implement analyze/review/patch runtime execution flows",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Analyze/review/patch commands execute end-to-end against backend APIs.",
-        "Success/failure/degraded output is rendered explicitly.",
-        "No local file mutation occurs without backend-approved flow."
-      ]
-    },
-    {
-      "id": "EAC-T44",
-      "title": "Implement new/evolve project runtime flows",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "New/evolve commands submit official project goal flows.",
-        "Blueprint/work-profile selection is passed explicitly.",
-        "Runtime errors and policy denials are visible and traceable."
-      ]
-    },
-    {
-      "id": "EAC-T45",
-      "title": "Implement runtime task list and task detail views",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Task list/detail views load live backend data with refresh controls.",
-        "Status, review-required and next-step markers are visible.",
-        "Stale/missing task states degrade safely."
-      ]
-    },
-    {
-      "id": "EAC-T46",
-      "title": "Implement runtime artifact view and diff rendering",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Artifact list/detail renders live data and links to tasks.",
-        "Diff/review artifacts render with file references.",
-        "Unsupported artifact types degrade to text/browser fallback."
-      ]
-    },
-    {
-      "id": "EAC-T47",
-      "title": "Implement runtime approval queue actions",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Approval queue loads pending items with review context.",
-        "Approve/reject requires explicit user confirmation.",
-        "Actions call backend approval APIs only and return audit/trace references."
-      ]
-    },
-    {
-      "id": "EAC-T48",
-      "title": "Implement runtime audit explorer",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Audit explorer loads summaries and detailed entries from backend.",
-        "Filters (severity/type/time/object) work in runtime view.",
-        "Sensitive fields are redacted consistently."
-      ]
-    },
-    {
-      "id": "EAC-T49",
-      "title": "Implement runtime repair explorer and guarded step actions",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Repair explorer shows sessions, diagnosis, steps, verification and outcome.",
-        "Runtime defaults to read-only unless backend capability allows step approvals.",
-        "No repair execution occurs on open/refresh."
-      ]
-    },
-    {
-      "id": "EAC-T50",
-      "title": "Implement runtime TUI launch and status panel",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "TUI launch action starts documented command explicitly.",
-        "Profile/endpoint context handoff is supported safely.",
-        "Launch failures and missing TUI runtime are explicit."
-      ]
-    },
-    {
-      "id": "EAC-T51",
-      "title": "Implement runtime policy-denied and browser-fallback UX",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Policy-denied paths render structured denial info with next steps.",
-        "Deep links to browser fallback are available for complex/risky workflows.",
-        "Fallback behavior never bypasses governance."
-      ]
-    },
-    {
-      "id": "EAC-T52",
-      "title": "Add runtime Java unit tests",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Unit tests cover command dispatch, client mapping and state models.",
-        "Tests cover degraded states, capability gating and profile validation.",
-        "Tests run deterministically without live backend."
-      ]
-    },
-    {
-      "id": "EAC-T53",
-      "title": "Add runtime Eclipse integration/UI tests",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Integration tests cover command execution and main views.",
-        "UI tests cover context preview and explicit confirmation paths.",
-        "Tests verify no implicit apply/execute behavior exists."
-      ]
-    },
-    {
-      "id": "EAC-T54",
-      "title": "Add runtime security and governance tests",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Tests verify no policy bypass via Eclipse actions.",
-        "Tests verify token/secret redaction across logs and errors.",
-        "Tests cover denied, unauthorized, stale and malformed backend responses."
-      ]
-    },
-    {
-      "id": "EAC-T55",
-      "title": "Add runtime API contract compatibility tests",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Contract tests lock request/response fields used by runtime plugin.",
-        "Breaking backend shape changes fail tests clearly.",
-        "Degraded-state payload shapes are included."
-      ]
-    },
-    {
-      "id": "EAC-T56",
-      "title": "Add runtime headless smoke checks and CI lane",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Headless smoke validates plugin load, command registration and one mocked golden path.",
-        "CI lane runs runtime unit/integration/smoke checks.",
-        "Runtime claims are blocked if smoke evidence is missing."
-      ]
-    },
-    {
-      "id": "EAC-T57",
-      "title": "Run runtime documentation truth pass",
-      "status": "done",
+      "id": "TFS-T19",
+      "title": "Teams and blueprint catalog views implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "Docs only claim runnable Eclipse runtime features that actually exist.",
-        "Deferred/blocked and browser-first areas remain explicit.",
-        "Install/build/run/troubleshoot steps are validated against real runtime."
+        "TUI can list teams, blueprints, blueprint catalog, team types and roles.",
+        "TUI can inspect blueprint detail and team composition.",
+        "Instantiate/create/update/delete actions are guarded or browser-first.",
+        "Activate team action requires confirmation."
       ]
     },
     {
-      "id": "EAC-T58",
-      "title": "Generate runtime merge readiness report",
-      "status": "done",
+      "id": "TFS-T20",
+      "title": "Instruction layer workbench view implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "Report lists runtime-implemented views/actions and remaining blockers.",
-        "Report references unit/integration/security/contract/smoke evidence.",
-        "Report states merge-safe vs feature-flag-only recommendation explicitly."
+        "TUI can show instruction layer model and effective instruction stack.",
+        "Profiles and overlays can be listed and inspected.",
+        "Selection/attachment actions are explicit and permission-aware.",
+        "Governance/safety layers are visibly non-overridable."
+      ]
+    },
+    {
+      "id": "TFS-T21",
+      "title": "Instruction profile and overlay editing strategy implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Editing profiles/overlays is either supported with preview/validation or kept browser-first.",
+        "Attach/detach/select operations require explicit confirmation.",
+        "Task/goal instruction selection is visible and auditable.",
+        "Invalid instruction input is rejected before submit when possible."
+      ]
+    },
+    {
+      "id": "TFS-T22",
+      "title": "Reference profile placeholder integration prepare",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "TUI has a placeholder/read-only section for future reference profiles if backend exposes them.",
+        "Section does not block current TUI work.",
+        "No fake reference profile data is shown.",
+        "Browser fallback exists until ref-profile integration is real."
+      ]
+    },
+
+    {
+      "id": "TFS-T23",
+      "title": "Automation and autopilot views implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "TUI shows autopilot status, auto-planner status and triggers status.",
+        "Start/stop/tick autopilot actions are backend-gated and confirmation-based.",
+        "Configure auto-planner/triggers is guarded or browser-first.",
+        "Security level and concurrency/budget fields are shown clearly."
+      ]
+    },
+    {
+      "id": "TFS-T24",
+      "title": "Audit log explorer implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "TUI lists audit logs with pagination.",
+        "Audit analyze action is available where backend supports it.",
+        "Sensitive values are redacted.",
+        "Audit entries link to task/goal/artifact/trace references where possible."
+      ]
+    },
+    {
+      "id": "TFS-T25",
+      "title": "Approval and proposal review queue implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "TUI shows tasks/proposals requiring review or approval.",
+        "Review/approve/reject actions call existing backend APIs only.",
+        "Every action shows summary, risk and confirmation before submit.",
+        "Stale/denied/already-handled states are handled."
+      ]
+    },
+    {
+      "id": "TFS-T26",
+      "title": "Repair operator view deepen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "TUI shows repair diagnosis, proposed steps, dry-run status, approval state, execution result and verification result where backend exposes them.",
+        "Repair execution is never implicit.",
+        "Unsafe or unknown repair actions are blocked visibly.",
+        "Browser fallback exists for complex repair session detail."
+      ]
+    },
+    {
+      "id": "TFS-T27",
+      "title": "Event stream and live refresh model implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "TUI supports manual refresh everywhere.",
+        "Optional live refresh/streaming is available for system events/task logs if stable.",
+        "Live refresh is rate-limited and stoppable.",
+        "Connection loss is visible and recoverable."
+      ]
+    },
+
+    {
+      "id": "TFS-T28",
+      "title": "TUI view-model test suite expand",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "View-model tests cover every major TUI section.",
+        "Tests include empty, normal, degraded and permission-denied states.",
+        "Tests use fixture transports and do not require live backend.",
+        "Tests cover dangerous action confirmation logic."
+      ]
+    },
+    {
+      "id": "TFS-T29",
+      "title": "TUI API contract tests expand",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests verify TUI client expectations against backend response shapes.",
+        "Tests cover config, dashboard, tasks, goals, artifacts, knowledge, system, teams, automation and audit APIs.",
+        "Breaking API changes produce clear test failures.",
+        "Tests do not duplicate frontend TypeScript logic blindly."
+      ]
+    },
+    {
+      "id": "TFS-T30",
+      "title": "TUI golden path smoke suite add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Smoke suite covers dashboard -> goal -> task -> artifact.",
+        "Smoke suite covers config read-only, audit list, automation status and repair/approval visibility.",
+        "Smoke suite can run against fixture backend.",
+        "Smoke suite is part of release gate or clearly documented as manual."
+      ]
+    },
+    {
+      "id": "TFS-T31",
+      "title": "TUI user and operator docs update",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Docs list available sections and keyboard shortcuts.",
+        "Docs explain safe write actions and browser fallback.",
+        "Docs show start command and fixture/live modes.",
+        "Docs clearly state what is not yet supported."
+      ]
+    },
+    {
+      "id": "TFS-T32",
+      "title": "TUI frontend-parity readiness report generate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Report maps Angular frontend areas to TUI support status.",
+        "Report marks each area as supported, partial, browser-fallback or deferred.",
+        "Report lists remaining backend/API gaps if any.",
+        "Report separates merge blockers from future polish."
       ]
     }
   ],
   "execution_order_summary": [
-    "Stage 1: Foundation contracts, docs and baseline tests are complete (EAC-T01..EAC-T32).",
-    "Stage 2: Unblock Eclipse runtime and create real plugin project/build skeleton (EAC-T33..EAC-T39).",
-    "Stage 3: Implement runtime commands, context packaging, views and operations (EAC-T40..EAC-T51).",
-    "Stage 4: Add test-heavy hardening, CI/smoke gates, docs truth and merge readiness report (EAC-T52..EAC-T58)."
+    "Stage 1: Map Angular API surface to terminal-appropriate TUI sections.",
+    "Stage 2: Expand navigation, dashboard, system and config.",
+    "Stage 3: Deepen goal/task/artifact workflows.",
+    "Stage 4: Add knowledge, templates, teams, blueprints and instruction layers.",
+    "Stage 5: Add automation, audit, approvals and repair views.",
+    "Stage 6: Add tests, docs and parity/readiness report."
   ],
   "critical_path_tasks": [
-    "EAC-T01",
-    "EAC-T02",
-    "EAC-T03",
-    "EAC-T05",
-    "EAC-T06",
-    "EAC-T08",
-    "EAC-T10",
-    "EAC-T13",
-    "EAC-T15",
-    "EAC-T19",
-    "EAC-T24",
-    "EAC-T28",
-    "EAC-T33",
-    "EAC-T34",
-    "EAC-T35",
-    "EAC-T36",
-    "EAC-T38",
-    "EAC-T39",
-    "EAC-T40",
-    "EAC-T41",
-    "EAC-T43",
-    "EAC-T45",
-    "EAC-T47",
-    "EAC-T52",
-    "EAC-T54",
-    "EAC-T55",
-    "EAC-T56",
-    "EAC-T58"
+    "TFS-T01",
+    "TFS-T02",
+    "TFS-T05",
+    "TFS-T07",
+    "TFS-T10",
+    "TFS-T12",
+    "TFS-T15",
+    "TFS-T20",
+    "TFS-T23",
+    "TFS-T24",
+    "TFS-T25",
+    "TFS-T26",
+    "TFS-T28",
+    "TFS-T29",
+    "TFS-T30",
+    "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T20:19:44+02:00",
-    "total": 58,
+    "updated_at": "2026-04-24T00:00:00+02:00",
+    "total": 32,
     "by_status": {
-      "todo": 0,
+      "todo": 32,
       "in_progress": 0,
       "blocked": 0,
-      "done": 58
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 36,
-      "P1": 21,
-      "P2": 1,
+      "P0": 16,
+      "P1": 11,
+      "P2": 5,
       "P3": 0
     },
     "by_risk": {
-      "low": 0,
-      "medium": 10,
-      "high": 28,
-      "critical": 20
+      "low": 1,
+      "medium": 11,
+      "high": 12,
+      "critical": 8
     },
     "critical_path": {
-      "total": 28,
-      "done": 28,
-      "remaining": 0
+      "total": 16,
+      "done": 0,
+      "remaining": 16
     },
     "milestones": {
-      "total": 10,
-      "todo": 0,
+      "total": 7,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
-    }
-  },
-  "code_validation_snapshot": {
-    "updated_at": "2026-04-24T20:19:44+02:00",
-    "foundation_evidence": [
-      "agent/services/eclipse_plugin_adapter_foundation_service.py",
-      "tests/test_eclipse_plugin_adapter_foundation_service.py",
-      "docs/eclipse-plugin-adapter-foundation.md",
-      "docs/eclipse-plugin-views-extension-foundation.md",
-      "docs/eclipse-plugin-adapter-evaluation-and-rollout.md"
-    ],
-    "audit_script": "scripts/audit_client_surface_entrypoints.py",
-    "latest_runtime_surface_status": {
-      "eclipse_plugin": "real_implementation",
-      "eclipse_views_extension": "real_implementation",
-      "nvim_plugin": "real_implementation",
-      "tui_surface": "real_implementation",
-      "vim_plugin": "foundation_only"
-    },
-    "alignment_issues_found": [
-      "Eclipse runtime command/view operational block is now implemented (EAC-T40..EAC-T51) with registry, handlers, bounded context capture and runtime view wiring.",
-      "Runtime hardening/release block (EAC-T52..EAC-T58) is implemented with Java unit/integration/security/contract suites, headless smoke gate, CI lane and merge-readiness report."
-    ]
-  },
-  "execution_stage_summary": {
-    "updated_at": "2026-04-24T20:19:44+02:00",
-    "stages": {
-      "EAC_M1_foundation_scope_and_boundary": {
-        "scope_task_ids": [
-          "EAC-T01",
-          "EAC-T02",
-          "EAC-T03",
-          "EAC-T04"
-        ],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M2_foundation_analysis_modes": {
-        "scope_task_ids": [
-          "EAC-T05",
-          "EAC-T06",
-          "EAC-T07",
-          "EAC-T08",
-          "EAC-T09"
-        ],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M3_foundation_internals_visibility": {
-        "scope_task_ids": [
-          "EAC-T10",
-          "EAC-T11",
-          "EAC-T12",
-          "EAC-T13",
-          "EAC-T14"
-        ],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M4_foundation_config_control": {
-        "scope_task_ids": [
-          "EAC-T15",
-          "EAC-T16",
-          "EAC-T17",
-          "EAC-T18"
-        ],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M5_foundation_approval_audit_repair": {
-        "scope_task_ids": [
-          "EAC-T19",
-          "EAC-T20",
-          "EAC-T21",
-          "EAC-T22",
-          "EAC-T23"
-        ],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M6_foundation_tui_integration_strategy": {
-        "scope_task_ids": [
-          "EAC-T24",
-          "EAC-T25",
-          "EAC-T26",
-          "EAC-T27"
-        ],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M7_foundation_quality_docs_report": {
-        "scope_task_ids": [
-          "EAC-T28",
-          "EAC-T29",
-          "EAC-T30",
-          "EAC-T31",
-          "EAC-T32"
-        ],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M8_runtime_bootstrap": {
-        "scope_task_ids": [
-          "EAC-T33",
-          "EAC-T34",
-          "EAC-T35",
-          "EAC-T36",
-          "EAC-T37",
-          "EAC-T38",
-          "EAC-T39"
-        ],
-        "total": 7,
-        "done": 7,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M9_runtime_commands_views_ops": {
-        "scope_task_ids": [
-          "EAC-T40",
-          "EAC-T41",
-          "EAC-T42",
-          "EAC-T43",
-          "EAC-T44",
-          "EAC-T45",
-          "EAC-T46",
-          "EAC-T47",
-          "EAC-T48",
-          "EAC-T49",
-          "EAC-T50",
-          "EAC-T51"
-        ],
-        "total": 12,
-        "done": 12,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "EAC_M10_runtime_tests_release": {
-        "scope_task_ids": [
-          "EAC-T52",
-          "EAC-T53",
-          "EAC-T54",
-          "EAC-T55",
-          "EAC-T56",
-          "EAC-T57",
-          "EAC-T58"
-        ],
-        "total": 7,
-        "done": 7,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      }
+      "done": 0
     }
   },
   "summary_notes": [
-    "Correction applied: prior EAC todo marked everything as todo, but real repository evidence already contains substantial foundation implementation in service contracts, tests and docs.",
-    "First runtime block implemented: EAC-T33..EAC-T39 (runtime unblocking, plugin skeleton/metadata, build bootstrap, Java client core, token security, capability gate).",
-    "Second runtime block implemented: EAC-T40..EAC-T51 (command registry/handlers, bounded context capture, goal panel runtime, task/artifact/approval/audit/repair views, TUI bridge, policy fallback UX).",
-    "Runtime hardening block implemented: EAC-T52..EAC-T58 (Java unit/integration/security/contract tests, headless smoke gate, CI lane, docs truth pass, merge readiness report).",
-    "This plan preserves SRP/DIP boundaries by separating foundation modeling from runtime plugin implementation and by keeping governance decisions in backend APIs.",
-    "Runtime track is now complete at 58/58 done with merge-safe recommendation captured in runtime readiness data."
+    "This track assumes the existing TUI MVP is already runnable.",
+    "The goal is broad frontend parity where terminal UX makes sense, not a pixel-for-pixel clone of Angular.",
+    "Dangerous write/admin operations must remain confirmation-based, backend-gated and auditable.",
+    "Browser fallback is preferred over unsafe or awkward terminal implementations."
   ]
 }
