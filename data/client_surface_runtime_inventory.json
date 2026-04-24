@@ -1,0 +1,103 @@
+{
+  "schema": "client_surface_runtime_inventory_v1",
+  "generated_for_track": "client_surface_reality_plus_tui_vim_runtime_delivery",
+  "inventory_focus": [
+    "tui_surface",
+    "eclipse_plugin",
+    "eclipse_views_extension",
+    "nvim_plugin",
+    "vim_plugin"
+  ],
+  "classification_scale": [
+    "real_implementation",
+    "foundation_only",
+    "docs_only",
+    "missing"
+  ],
+  "surfaces": [
+    {
+      "surface": "tui_surface",
+      "classification": "foundation_only",
+      "evidence": {
+        "foundation": [
+          "agent/services/editor_tui_surface_foundation_service.py",
+          "agent/tui_contract.py",
+          "tests/test_editor_tui_surface_foundation_service.py",
+          "tests/test_tui_interaction_contract.py"
+        ],
+        "docs": [
+          "docs/tui-user-operator-guide.md",
+          "docs/editor-tui-foundation.md",
+          "docs/editor-tui-smoke-checklists.md"
+        ],
+        "runtime": []
+      }
+    },
+    {
+      "surface": "eclipse_plugin",
+      "classification": "foundation_only",
+      "evidence": {
+        "foundation": [
+          "agent/services/eclipse_plugin_adapter_foundation_service.py",
+          "tests/test_eclipse_plugin_adapter_foundation_service.py"
+        ],
+        "docs": [
+          "docs/eclipse-plugin-adapter-foundation.md",
+          "docs/eclipse-plugin-views-extension-foundation.md"
+        ],
+        "runtime": []
+      }
+    },
+    {
+      "surface": "eclipse_views_extension",
+      "classification": "foundation_only",
+      "evidence": {
+        "foundation": [
+          "agent/services/eclipse_plugin_adapter_foundation_service.py",
+          "tests/test_eclipse_plugin_adapter_foundation_service.py"
+        ],
+        "docs": [
+          "docs/eclipse-plugin-views-extension-foundation.md"
+        ],
+        "runtime": []
+      }
+    },
+    {
+      "surface": "nvim_plugin",
+      "classification": "foundation_only",
+      "evidence": {
+        "foundation": [
+          "agent/services/editor_tui_surface_foundation_service.py",
+          "tests/test_editor_tui_surface_foundation_service.py"
+        ],
+        "docs": [
+          "docs/nvim-plugin-user-guide.md",
+          "docs/editor-tui-foundation.md"
+        ],
+        "runtime": []
+      }
+    },
+    {
+      "surface": "vim_plugin",
+      "classification": "foundation_only",
+      "evidence": {
+        "foundation": [
+          "agent/services/editor_tui_surface_foundation_service.py"
+        ],
+        "docs": [
+          "docs/plugin-vs-tui-usage-guide.md",
+          "docs/editor-tui-foundation.md"
+        ],
+        "runtime": []
+      }
+    }
+  ],
+  "gap_summary": {
+    "missing_runtime_artifacts": [
+      "No installable Eclipse plugin project markers (plugin.xml, META-INF/MANIFEST.MF).",
+      "No Neovim runtime lua plugin modules available in a runtime plugin directory.",
+      "No Vim runtime plugin/autoload files available in a runtime plugin directory.",
+      "No dedicated runnable TUI app entrypoint package currently shipped."
+    ]
+  }
+}

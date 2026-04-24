@@ -1,0 +1,77 @@
+{
+  "schema": "editor_tui_contract_runtime_mapping_v1",
+  "source_contract_module": "agent/services/editor_tui_surface_foundation_service.py",
+  "target_layout_manifest": "client_surfaces/layout_manifest.json",
+  "mapping": [
+    {
+      "contract_group": "nvim_command_surface_and_goal_flows",
+      "contract_examples": [
+        "nvim_command_surface_v1",
+        "nvim_goal_submission_flow_v1",
+        "nvim_quick_action_palette_v1"
+      ],
+      "runtime_module_targets": [
+        "client_surfaces/nvim_runtime/lua/ananta/commands.lua",
+        "client_surfaces/nvim_runtime/lua/ananta/dispatch.lua",
+        "client_surfaces/nvim_runtime/plugin/ananta.vim"
+      ],
+      "runtime_status": "missing_runtime_module"
+    },
+    {
+      "contract_group": "nvim_render_and_navigation",
+      "contract_examples": [
+        "nvim_task_context_view_v1",
+        "nvim_artifact_preview_v1",
+        "nvim_navigation_links_v1"
+      ],
+      "runtime_module_targets": [
+        "client_surfaces/nvim_runtime/lua/ananta/render.lua",
+        "client_surfaces/nvim_runtime/lua/ananta/navigation.lua"
+      ],
+      "runtime_status": "missing_runtime_module"
+    },
+    {
+      "contract_group": "tui_shell_and_main_views",
+      "contract_examples": [
+        "tui_runtime_status_header_v1",
+        "tui_task_board_view_v1",
+        "tui_artifact_view_v1"
+      ],
+      "runtime_module_targets": [
+        "client_surfaces/tui_runtime/ananta_tui/app.py",
+        "client_surfaces/tui_runtime/ananta_tui/views/task_board.py",
+        "client_surfaces/tui_runtime/ananta_tui/views/artifacts.py"
+      ],
+      "runtime_status": "missing_runtime_module"
+    },
+    {
+      "contract_group": "tui_approvals_logs_audit",
+      "contract_examples": [
+        "tui_approval_queue_view_v1",
+        "tui_log_stream_view_v1",
+        "tui_audit_summary_view_v1"
+      ],
+      "runtime_module_targets": [
+        "client_surfaces/tui_runtime/ananta_tui/views/approvals.py",
+        "client_surfaces/tui_runtime/ananta_tui/views/logs.py",
+        "client_surfaces/tui_runtime/ananta_tui/views/audit.py"
+      ],
+      "runtime_status": "missing_runtime_module"
+    },
+    {
+      "contract_group": "vim_compatibility_bridge",
+      "contract_examples": [
+        "nvim_command_surface_v1"
+      ],
+      "runtime_module_targets": [
+        "client_surfaces/vim_compat/plugin/ananta.vim",
+        "client_surfaces/vim_compat/autoload/ananta.vim"
+      ],
+      "runtime_status": "missing_runtime_module"
+    }
+  ],
+  "notes": [
+    "Contract models are implementation input, not runtime completion evidence.",
+    "Runtime modules listed here are the explicit gap list for execution stages TVM-M3 to TVM-M5."
+  ]
+}

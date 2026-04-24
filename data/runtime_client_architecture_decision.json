@@ -1,0 +1,50 @@
+{
+  "schema": "runtime_client_architecture_decision_v1",
+  "decision_id": "TVM-ADR-001",
+  "status": "accepted_for_runtime_track",
+  "scope": "Neovim/Vim plugin runtime and TUI runtime delivery",
+  "constraints": [
+    "Hub remains central control plane and task owner.",
+    "Clients remain thin adapters that call backend APIs.",
+    "Approval, policy and mutation controls stay backend-enforced.",
+    "Complex admin/audit deep surfaces remain browser-first."
+  ],
+  "selected_architecture": {
+    "nvim_runtime": {
+      "stack": "Lua runtime plugin plus Vim command shim",
+      "reasoning": [
+        "Neovim supports native Lua integration for maintainable command dispatch and rendering.",
+        "A Vim compatibility shim can be added incrementally without duplicating backend logic."
+      ]
+    },
+    "vim_compatibility": {
+      "stack": "Vimscript wrapper around shared backend command bridge",
+      "reasoning": [
+        "Keeps command naming predictable for users.",
+        "Avoids full feature-parity pressure in first runtime milestone."
+      ]
+    },
+    "tui_runtime": {
+      "stack": "Python prompt_toolkit based app shell and views",
+      "reasoning": [
+        "prompt_toolkit is already part of the repository dependency graph.",
+        "Supports keyboard-first terminal workflows and explicit rendering control."
+      ]
+    }
+  },
+  "rejected_alternatives": [
+    {
+      "option": "Contract-only plus docs-only completion",
+      "reason": "Does not satisfy runnable client requirements."
+    },
+    {
+      "option": "Heavy client-side orchestration in plugin/TUI",
+      "reason": "Violates hub-worker control-plane boundaries."
+    },
+    {
+      "option": "Big-bang multi-surface rewrite",
+      "reason": "High risk and unnecessary for additive migration from existing contracts."
+    }
+  ],
+  "implementation_layout_reference": "client_surfaces/layout_manifest.json"
+}

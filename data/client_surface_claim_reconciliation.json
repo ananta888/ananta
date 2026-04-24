@@ -1,0 +1,30 @@
+{
+  "schema": "client_surface_claim_reconciliation_v1",
+  "sources_compared": [
+    "todo_last.json",
+    "todo.json",
+    "data/client_surface_runtime_inventory.json"
+  ],
+  "analysis_summary": {
+    "legacy_claim_track": "eclipse_plugin_views_extension",
+    "legacy_claim_progress_percent": 100.0,
+    "legacy_claim_done_tasks": 24,
+    "current_unified_track": "client_surface_reality_plus_tui_vim_runtime_delivery",
+    "current_status": "runtime_gaps_explicitly_open"
+  },
+  "reclassification": [
+    {
+      "area": "eclipse_plugin_and_views",
+      "before_label": "client_complete_claimed",
+      "after_label": "foundation_complete_runtime_missing",
+      "reason": "Repository evidence shows backend contracts/tests/docs but no buildable Eclipse plugin project runtime artifacts."
+    },
+    {
+      "area": "tui_and_editor_plugin",
+      "before_label": "foundation_complete_mixed_with_runtime_expectation",
+      "after_label": "foundation_complete_runtime_missing",
+      "reason": "Repository evidence shows contract models and docs but no runnable Neovim/Vim plugin runtime and no dedicated TUI app runtime entrypoint."
+    }
+  ],
+  "correction_note": "Earlier completion claims overstated runnable client status. The merged track keeps foundation work and runtime delivery explicitly separated so completion is evidence-based."
+}
