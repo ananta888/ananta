@@ -2,13 +2,14 @@
   "version": 1,
   "owner": "ananta",
   "track": "kritis_hardening_program",
-  "purpose": "Large-scale KRITIS hardening program for Ananta with immediate focus on auditability and write approvals, followed by safety/stability controls and infrastructure-grade isolation and RBAC.",
+  "purpose": "Large-scale KRITIS hardening program for Ananta with immediate focus on auditability, central mutation gating and write approvals, followed by safety/stability controls and infrastructure-grade isolation and RBAC.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Ananta should become suitable for higher-trust and KRITIS-like environments by enforcing auditable LLM interactions, explicit write approvals, secure retrieval filtering, deterministic workflow control, hardened execution isolation and enterprise-grade role handling.",
+  "goal": "Ananta should become suitable for higher-trust and KRITIS-like environments by enforcing auditable LLM interactions, central mutation gating, explicit write approvals, secure retrieval filtering, deterministic workflow control, hardened execution isolation and enterprise-grade role handling.",
   "program_success_criteria": [
     "Every security-relevant LLM and tool interaction can be reconstructed through an auditable chain.",
-    "No code or file mutation path can bypass an explicit approval boundary where required.",
+    "No code, file, artifact, project state or system mutation path can bypass the central MutationGate where required.",
+    "Mutation-capable operations fail closed when approval, policy, target validation or audit linkage is missing or invalid.",
     "RAG and context assembly can respect metadata-based security boundaries.",
     "Workflow behavior is constrained enough to avoid unsafe hidden transitions.",
     "Execution paths run in hardened isolated environments suitable for higher-risk usage.",
@@ -205,113 +206,271 @@
       ]
     },
     {
+      "id": "KRITIS-P1-MUTATION-GATE",
+      "priority": "P0",
+      "title": "KRITIS Prioritaet 1 - MutationGate / WriteGate",
+      "goal": "Introduce one backend-enforced mutation gate for all file, code, artifact, project state and system mutation paths before any write-like operation can happen.",
+      "success_criteria": [
+        "No mutation-capable path can bypass the central mutation gate.",
+        "Mutation decisions are based on normalized targets, operation class, approval scope, governance mode and risk policy.",
+        "Mutation attempts fail closed when approval, scope, policy or target validation is missing or invalid.",
+        "Mutation decisions are auditable and can be linked to proposals, approvals, execution steps and verification results.",
+        "Specific subsystems such as Evolver, repair procedures, shell execution, tool calls, TUI actions and future IDE integrations use the same gate instead of implementing separate write checks."
+      ],
+      "tasks": [
+        {
+          "id": "K1-MUT-T01",
+          "title": "MutationGate target model define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A target model defines MutationGate as the single backend-controlled boundary for mutation-capable operations.",
+            "The model distinguishes read-only, proposal-only, artifact-only, project-write, code-write and system-mutation operations.",
+            "The model explains how MutationGate relates to approval policy, audit logging, workflow state and sandboxing."
+          ]
+        },
+        {
+          "id": "K1-MUT-T02",
+          "title": "Mutation operation taxonomy define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A mutation taxonomy exists for file writes, patch applies, generated code writes, artifact mutations, task state mutations, shell write effects, install/remove operations and repair actions.",
+            "Each mutation class has a default approval and audit expectation.",
+            "The taxonomy is compatible with existing approval action classes and future repair procedures."
+          ]
+        },
+        {
+          "id": "K1-MUT-T03",
+          "title": "Normalized mutation target model add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Mutation targets are normalized before policy and approval checks.",
+            "The model supports target type, path, project scope, artifact id, service name or system resource where applicable.",
+            "Normalization avoids equivalent-path, relative-path and symlink-like bypasses where practical."
+          ]
+        },
+        {
+          "id": "K1-MUT-T04",
+          "title": "Scoped mutation approval model define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Approval can be bound to mutation class, normalized target, actor, task, trace and time window.",
+            "Approvals cannot be reused broadly outside their intended mutation scope.",
+            "Expired, mismatched or incomplete approvals fail closed."
+          ]
+        },
+        {
+          "id": "K1-MUT-T05",
+          "title": "MutationGate service implement",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A reusable backend service evaluates mutation requests before execution.",
+            "The service returns structured allow, confirm_required or blocked decisions with reasons.",
+            "The service integrates with existing approval policy and execution risk checks instead of duplicating them."
+          ]
+        },
+        {
+          "id": "K1-MUT-T06",
+          "title": "MutationGate audit integration add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Every MutationGate decision emits or links to a structured audit event.",
+            "Audit records include mutation class, normalized target, approval scope, decision, reason and trace linkage.",
+            "Blocked and denied mutation attempts are auditable as first-class security events."
+          ]
+        },
+        {
+          "id": "K1-MUT-T07",
+          "title": "MutationGate pipeline stage add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Critical execution pipelines expose a mutation_gate stage before write-like execution.",
+            "The stage is visible in traces, diagnostics and operator-facing read models.",
+            "A mutation-capable action cannot silently skip this stage in hardened modes."
+          ]
+        },
+        {
+          "id": "K1-MUT-T08",
+          "title": "Integrate MutationGate into Evolver write paths",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Evolver write and apply paths call MutationGate before any mutation.",
+            "Existing Evolver Write-Lock requirements are implemented through MutationGate rather than a separate ad hoc mechanism.",
+            "No Evolver-related fallback path can write without crossing the gate."
+          ]
+        },
+        {
+          "id": "K1-MUT-T09",
+          "title": "Integrate MutationGate into shell and tool write paths",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Shell commands and tool calls classified as mutation-capable are checked by MutationGate before execution.",
+            "The integration covers write, admin and install/remove operation classes where detectable.",
+            "Unknown high-risk mutation behavior fails closed in strict or hardened modes."
+          ]
+        },
+        {
+          "id": "K1-MUT-T10",
+          "title": "Integrate MutationGate into artifact and task state mutations",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Artifact mutations and critical task state changes are reviewed against MutationGate rules where security-relevant.",
+            "The system distinguishes harmless internal bookkeeping from security-relevant state mutation.",
+            "Critical state changes remain traceable and policy-aware."
+          ]
+        },
+        {
+          "id": "K1-MUT-T11",
+          "title": "Global mutation deny switch add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Operators can globally disable mutation-capable operations in hardened mode.",
+            "The deny switch is backend-enforced and fails closed.",
+            "The switch state is visible in configuration, diagnostics and audit output."
+          ]
+        },
+        {
+          "id": "K1-MUT-T12",
+          "title": "MutationGate bypass regression tests add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Tests prove that mutation-capable paths cannot bypass MutationGate.",
+            "Tests cover no approval, expired approval, wrong target, wrong mutation class and global deny switch cases.",
+            "At least one approved mutation path is covered to prove the valid path remains usable."
+          ]
+        },
+        {
+          "id": "K1-MUT-T13",
+          "title": "MutationGate release evidence checklist add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "A checklist exists for validating MutationGate behavior during release or KRITIS review.",
+            "The checklist references audit evidence, approval evidence, blocked mutation evidence and successful approved mutation evidence.",
+            "The checklist can be used together with the broader KRITIS audit smoke checklist."
+          ]
+        }
+      ]
+    },
+    {
       "id": "KRITIS-P1-EVOLVER-WRITELOCK",
       "priority": "P0",
       "title": "KRITIS Prioritaet 1 - Evolver Write-Lock",
-      "goal": "Require explicit backend approval before any Evolver-driven or related code mutation can be written.",
+      "goal": "Ensure Evolver-driven and related code mutation paths use the central MutationGate and scoped approval model before any write can happen.",
       "success_criteria": [
-        "No Evolver-related write path can bypass approval.",
+        "No Evolver-related write path can bypass MutationGate, scoped approval and audit linkage.",
         "Approval scope is explicit, time-bounded and auditable.",
-        "Apply behavior remains fail-closed unless approval and policy requirements are satisfied."
+        "Apply behavior remains fail-closed unless MutationGate, approval and policy requirements are satisfied."
       ],
       "tasks": [
         {
           "id": "K1-EVO-T01",
-          "title": "Write-lock target model define",
+          "title": "Evolver write-lock target model align with MutationGate",
           "status": "todo",
           "priority": "P0",
           "acceptance_criteria": [
-            "A target model defines what counts as a write-locked operation.",
-            "The model covers file writes, patch application, generated code insertion and mutation-like artifact application.",
-            "The model clearly separates analyze-only from mutation-capable steps."
+            "A target model defines which Evolver operations are mutation-capable.",
+            "The model maps Evolver writes, patch application, generated code insertion and mutation-like artifact application to MutationGate mutation classes.",
+            "The model clearly separates analyze-only from mutation-capable Evolver steps."
           ]
         },
         {
           "id": "K1-EVO-T02",
-          "title": "Approval boundary for Evolver implement",
+          "title": "Evolver MutationGate boundary implement",
           "status": "todo",
           "priority": "P0",
           "acceptance_criteria": [
-            "Evolver write paths call a single approval boundary before mutation.",
-            "No hidden fallback path can write without crossing the boundary.",
+            "Evolver write paths call the central MutationGate before mutation.",
+            "No hidden fallback path can write without crossing the MutationGate boundary.",
             "The boundary is backend-enforced and not UI-only."
           ]
         },
         {
           "id": "K1-EVO-T03",
-          "title": "Approval scope model define",
+          "title": "Evolver scoped approval binding add",
           "status": "todo",
           "priority": "P0",
           "acceptance_criteria": [
-            "Approval can be bound to target files, operation class, time window and trace.",
-            "Approvals cannot be reused broadly outside their intended scope.",
+            "Evolver approvals can be bound to target files, operation class, time window and trace.",
+            "Approvals cannot be reused broadly outside their intended Evolver mutation scope.",
             "Expired or mismatched approvals fail closed."
           ]
         },
         {
           "id": "K1-EVO-T04",
-          "title": "Pre-write verification gate add",
+          "title": "Evolver pre-write MutationGate verification add",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "Before a write is executed, the system verifies approval, policy class and target scope.",
+            "Before an Evolver write is executed, the system verifies MutationGate decision, approval, policy class and target scope.",
             "The verification gate can reject unsafe apply attempts.",
             "Rejections are visible and auditable."
           ]
         },
         {
           "id": "K1-EVO-T05",
-          "title": "Apply token or approval artifact design add",
+          "title": "Evolver approval artifact integration add",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "An explicit approval artifact or token model is defined.",
+            "Evolver write approval uses an explicit approval artifact or token model.",
             "The approval object is linked to audit events and write operations.",
             "The model prevents ambiguous 'approved somewhere earlier' behavior."
           ]
         },
         {
           "id": "K1-EVO-T06",
-          "title": "Write target normalization add",
+          "title": "Evolver write target normalization use",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "Write targets are normalized before approval checking.",
+            "Evolver write targets are normalized before MutationGate checking.",
             "Normalization avoids path tricks and equivalent-path bypasses.",
             "The target model is compatible with future sandboxing."
           ]
         },
         {
           "id": "K1-EVO-T07",
-          "title": "Review-first approval UX/API path add",
+          "title": "Review-first Evolver approval UX/API path add",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "Approvals can be issued only after reviewing structured proposal details.",
+            "Evolver approvals can be issued only after reviewing structured proposal details.",
             "The API/UI path does not encourage blind mass approval.",
             "The review path shows affected files and operation class."
           ]
         },
         {
           "id": "K1-EVO-T08",
-          "title": "Emergency deny switch for mutation paths add",
+          "title": "Evolver mutation deny switch integration add",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "Operators can globally disable mutation-capable Evolver paths quickly.",
+            "Operators can globally disable mutation-capable Evolver paths quickly through the central mutation deny switch.",
             "The kill switch is visible in configuration and diagnostics.",
             "The switch fails closed."
           ]
         },
         {
           "id": "K1-EVO-T09",
-          "title": "Approval and write-lock contract tests add",
+          "title": "Evolver MutationGate contract tests add",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "Tests prove that write-capable Evolver paths cannot bypass approval.",
-            "Tests cover expired approval, wrong target and no-approval cases.",
-            "Tests cover at least one successful approved write path."
+            "Tests prove that write-capable Evolver paths cannot bypass MutationGate.",
+            "Tests cover expired approval, wrong target, wrong mutation class and no-approval cases.",
+            "Tests cover at least one successful approved Evolver write path."
           ]
         },
         {
@@ -320,8 +479,8 @@
           "status": "todo",
           "priority": "P2",
           "acceptance_criteria": [
-            "A checklist exists for validating mutation gating in release or audit reviews.",
-            "The checklist references audit evidence, approval evidence and write evidence.",
+            "A checklist exists for validating Evolver mutation gating in release or audit reviews.",
+            "The checklist references MutationGate evidence, audit evidence, approval evidence and write evidence.",
             "The checklist is suitable for KRITIS reviews."
           ]
         }
@@ -770,89 +929,78 @@
           "acceptance_criteria": [
             "UI users with the right role can inspect recent role and permission changes.",
             "The view is linked to audit evidence where possible.",
-            "The feature improves governance transparency."
+            "Sensitive role-change details remain protected."
           ]
         },
         {
           "id": "K3-RBAC-T08",
-          "title": "Frontend RBAC tests add",
+          "title": "RBAC tests and route guard regression add",
           "status": "todo",
           "priority": "P1",
           "acceptance_criteria": [
-            "Tests verify route guards, action visibility and permission handling.",
-            "Representative admin and non-admin flows are covered.",
-            "The tests reduce risk of accidental UI exposure."
+            "Tests verify permission matrix behavior for representative roles.",
+            "Tests cover denied sensitive actions and allowed admin actions.",
+            "Regression tests prevent accidental UI exposure of restricted actions."
           ]
         },
         {
           "id": "K3-RBAC-T09",
-          "title": "End-to-end authorization consistency tests add",
+          "title": "RBAC operations guide add",
           "status": "todo",
           "priority": "P2",
           "acceptance_criteria": [
-            "E2E tests confirm UI behavior matches backend authorization outcomes.",
-            "The tests cover at least a few sensitive actions and views.",
-            "Mismatch cases are caught before release."
-          ]
-        },
-        {
-          "id": "K3-RBAC-T10",
-          "title": "Enterprise admin operations guide add",
-          "status": "todo",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "A concise guide explains user, role and permission administration in the UI.",
-            "The guide fits real enterprise or KRITIS operational use.",
-            "The guide includes common safety warnings."
+            "Operators have a practical guide for user, role and permission handling.",
+            "The guide explains backend versus UI enforcement boundaries.",
+            "The guide is suitable for enterprise-style deployments."
           ]
         }
       ]
     }
   ],
-  "cross_cutting_tasks": [
-    {
-      "id": "KRITIS-X01",
-      "title": "KRITIS profile and rollout strategy define",
-      "status": "todo",
-      "priority": "P0",
-      "acceptance_criteria": [
-        "A dedicated KRITIS-oriented profile or mode is defined.",
-        "The profile binds together audit, write-lock, retrieval filtering, deterministic workflows, sandboxing and RBAC expectations.",
-        "The rollout path from normal operation to KRITIS-oriented operation is documented."
-      ]
-    },
-    {
-      "id": "KRITIS-X02",
-      "title": "Integrated evidence register for KRITIS hardening add",
-      "status": "todo",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Evidence artifacts across all KRITIS groups are collected in one structured place.",
-        "The register is suitable for internal review and release acceptance.",
-        "The register links tests, audit evidence, policy evidence and operational guidance."
-      ]
-    },
-    {
-      "id": "KRITIS-X03",
-      "title": "Program-level benchmark and acceptance suite define",
-      "status": "todo",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "A program-level validation suite exists for the KRITIS hardening effort.",
-        "The suite covers at least one representative flow from each priority group.",
-        "The suite is reusable for later regressions and releases."
-      ]
-    },
-    {
-      "id": "KRITIS-X04",
-      "title": "Program-level release gate define",
-      "status": "todo",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "The project defines what must be true before claiming KRITIS-grade hardening for a release.",
-        "Mandatory gates are explicit and test-linked.",
-        "The release gate avoids vague partial compliance claims."
-      ]
-    }
+  "execution_order_summary": [
+    "KRITIS-P1-AUDIT first",
+    "Then KRITIS-P1-MUTATION-GATE",
+    "Then KRITIS-P1-EVOLVER-WRITELOCK as a MutationGate consumer",
+    "Then KRITIS-P2-RAG-FILTERING and KRITIS-P2-WORKFLOW-DETERMINISM",
+    "Then KRITIS-P3-SANDBOXING",
+    "Finish with KRITIS-P3-ENTERPRISE-RBAC"
+  ],
+  "critical_path_tasks": [
+    "K1-AUD-T01",
+    "K1-AUD-T02",
+    "K1-AUD-T03",
+    "K1-AUD-T04",
+    "K1-AUD-T06",
+    "K1-AUD-T07",
+    "K1-AUD-T08",
+    "K1-AUD-T15",
+    "K1-MUT-T01",
+    "K1-MUT-T02",
+    "K1-MUT-T03",
+    "K1-MUT-T04",
+    "K1-MUT-T05",
+    "K1-MUT-T06",
+    "K1-MUT-T07",
+    "K1-MUT-T08",
+    "K1-MUT-T09",
+    "K1-MUT-T12",
+    "K1-EVO-T02",
+    "K1-EVO-T03",
+    "K1-EVO-T09",
+    "K2-RAG-T01",
+    "K2-RAG-T03",
+    "K2-RAG-T05",
+    "K2-RAG-T09",
+    "K2-WFD-T01",
+    "K2-WFD-T02",
+    "K2-WFD-T03",
+    "K2-WFD-T04",
+    "K2-WFD-T08",
+    "K3-SBX-T01",
+    "K3-SBX-T02",
+    "K3-SBX-T03",
+    "K3-RBAC-T01",
+    "K3-RBAC-T02",
+    "K3-RBAC-T03"
   ]
 }
