@@ -1,837 +1,973 @@
 {
   "version": 2,
   "owner": "ananta",
-  "track": "deterministic_repair_path",
-  "purpose": "Build a deterministic-first repair path for Ananta that prefers structured diagnostics, known failure signatures, verified repair procedures and success memory over unnecessary LLM calls, while still allowing bounded LLM escalation for unknown or ambiguous situations.",
+  "track": "vim_plugin_and_tui_program",
+  "purpose": "Build two complementary operator surfaces for Ananta: a Vim/Neovim plugin for developer-centric coding workflows and a terminal UI for admin, task, artifact, approval, audit and KRITIS-style operations.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Ananta should diagnose and repair common local system and development environment problems through structured, repeatable and increasingly evidence-based flows, using LLM reasoning only when deterministic knowledge and bounded procedural logic are insufficient.",
+  "goal": "Developers should be able to use Ananta directly from Vim/Neovim for coding and review workflows, while operators and advanced users can manage goals, tasks, artifacts, approvals, logs, repair flows and KRITIS-related visibility through a dedicated Ananta TUI.",
   "success_criteria": [
-    "Known repair cases can be recognized through signatures without requiring LLM interpretation.",
-    "Deterministic diagnosis and repair flows exist for a useful subset of high-value failure classes.",
-    "The system records which fixes actually succeeded, failed or were unsafe in real contexts.",
-    "Each repair step is verified explicitly before the next step is attempted.",
-    "LLM escalation happens only when deterministic paths are insufficient or confidence is too low.",
-    "Repair behavior remains auditable, bounded and approval-aware."
+    "The Vim/Neovim plugin acts as an editor-native adapter to Ananta and does not duplicate orchestration logic.",
+    "The Ananta TUI provides a practical terminal-native control surface for admin and operational workflows.",
+    "Both surfaces use the same backend contracts, approval model, audit model and task/artifact logic.",
+    "The plugin and TUI together improve usability without fragmenting the platform into inconsistent interfaces."
   ],
-  "milestones": [
-    {
-      "id": "REP-M1",
-      "title": "Foundation and signal ingestion",
-      "scope_groups": ["REP-FOUNDATION", "REP-SIGNAL-INGESTION"],
-      "target_outcome": "Repair target/state/confidence models and bounded evidence ingestion are defined."
-    },
-    {
-      "id": "REP-M2",
-      "title": "Signatures and diagnosis",
-      "scope_groups": ["REP-SIGNATURES", "REP-RULE-BASED-DIAGNOSIS"],
-      "target_outcome": "Deterministic signature matching and structured diagnosis runners/playbooks exist."
-    },
-    {
-      "id": "REP-M3",
-      "title": "Repair and verification execution",
-      "scope_groups": ["REP-REPAIR-PROCEDURES", "REP-VERIFICATION"],
-      "target_outcome": "Bounded repair execution and per-step/final verification are integrated."
-    },
-    {
-      "id": "REP-M4",
-      "title": "Memory, escalation and governance",
-      "scope_groups": ["REP-MEMORY-AND-LEARNING", "REP-LLM-ESCALATION", "REP-GOVERNANCE-APPROVAL-SAFETY"],
-      "target_outcome": "Outcome memory, controlled LLM escalation and hard safety/approval rails are in place."
-    },
-    {
-      "id": "REP-M5",
-      "title": "Operator enablement and rollout",
-      "scope_groups": ["REP-UX-AND-OPERATOR-FLOWS", "REP-TESTING-DOCS-ROLLOUT"],
-      "target_outcome": "Operator views, tests, docs and phased rollout are complete."
-    }
+  "program_success_criteria": [
+    "The Vim/Neovim plugin acts as an editor-native adapter to Ananta and does not duplicate orchestration logic.",
+    "The Ananta TUI provides a practical terminal-native control surface for admin and operational workflows.",
+    "Both surfaces use the same backend contracts, approval model, audit model and task/artifact logic.",
+    "The plugin and TUI together improve usability without fragmenting the platform into inconsistent interfaces."
   ],
   "groups": [
     {
-      "id": "REP-FOUNDATION",
+      "id": "COMMON-FOUNDATION",
       "priority": "P0",
-      "title": "Grundmodell fuer Repair Path",
+      "title": "Gemeinsame Grundlage fuer Plugin und TUI",
+      "goal": "Create shared frontend contracts, API assumptions, view-model semantics and UX boundaries for both terminal-facing surfaces.",
       "tasks": [
         {
-          "id": "REP-T01",
-          "title": "Repair path target model define",
-          "status": "done",
+          "id": "EDT-COM-T01",
+          "title": "Shared UI boundary model define",
+          "status": "todo",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
-            "A target model defines deterministic-first repair behavior for Ananta.",
-            "The model distinguishes diagnosis, repair proposal, repair execution and verification.",
-            "The model explicitly defines when the system may escalate to an LLM."
+            "A design note defines what belongs in the Vim/Neovim plugin, what belongs in the TUI and what remains browser-first.",
+            "The model states that orchestration, routing, governance and approvals remain in Ananta.",
+            "The split between developer-facing and operator-facing views is explicit."
           ]
         },
         {
-          "id": "REP-T02",
-          "title": "Repair problem class inventory create",
-          "status": "done",
+          "id": "EDT-COM-T02",
+          "title": "Shared frontend contract inventory create",
+          "status": "todo",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
-            "A first inventory exists for high-value repair classes such as package install failures, service start failures, port conflicts, path issues, permission issues, compose failures and runtime health failures.",
-            "Each class has examples, signals and likely safe action ranges.",
-            "The inventory is realistic for Ananta's intended local/admin use."
+            "A contract inventory maps the required backend endpoints and read models for plugin and TUI usage.",
+            "The inventory covers auth, goals, tasks, artifacts, approvals, logs, health, runtime diagnostics and relevant KRITIS views.",
+            "The inventory identifies missing API surfaces before UI implementation starts."
           ]
         },
         {
-          "id": "REP-T03",
-          "title": "Repair state model define",
-          "status": "done",
+          "id": "EDT-COM-T03",
+          "title": "Common object model for task artifact approval log entries define",
+          "status": "todo",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
-            "A state model exists for repair sessions such as detected, diagnosing, proposing, approval_required, executing, verifying, succeeded, failed and escalated.",
-            "State transitions are explicit and support auditability.",
-            "The model fits later KRITIS and approval work."
+            "A normalized object model is defined for task, artifact, approval, log and trace items used by both UIs.",
+            "The object model is stable enough to avoid each frontend inventing different interpretations.",
+            "The model supports compact rendering and detailed drill-down."
           ]
         },
         {
-          "id": "REP-T04",
-          "title": "Repair confidence model define",
-          "status": "done",
+          "id": "EDT-COM-T04",
+          "title": "Connection profile abstraction create",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Both the plugin and the TUI can use a consistent connection profile concept for endpoint, auth and environment selection.",
+            "Connection profiles can distinguish local, team and KRITIS-oriented targets.",
+            "The design supports future multiple Ananta instances."
+          ]
+        },
+        {
+          "id": "EDT-COM-T05",
+          "title": "Shared permission and capability surface define",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Both UIs can understand capability availability and permission limits in a consistent way.",
+            "Sensitive operations such as approvals, writes, repair actions, terminal usage and admin actions are clearly modeled.",
+            "The design aligns with existing platform governance and auth semantics."
+          ]
+        },
+        {
+          "id": "EDT-COM-T06",
+          "title": "Common error and degraded-state model define",
+          "status": "todo",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "A confidence model defines when the system trusts deterministic matches, when it asks for review and when it escalates to LLM reasoning.",
-            "Confidence can combine signature strength, platform match and past fix success.",
-            "The model is explainable."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "REP-SIGNAL-INGESTION",
-      "priority": "P0",
-      "title": "Signal- und Datenerfassung",
-      "tasks": [
-        {
-          "id": "REP-T05",
-          "title": "Repair evidence ingestion model define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The system defines which evidence types can enter a repair session such as logs, exit codes, health checks, config snippets, service status and environment facts.",
-            "Evidence classes are normalized enough for deterministic matching.",
-            "The design remains bounded and privacy-aware."
+            "Both UIs distinguish auth failure, backend unreachability, missing capability, policy denial and runtime failure cleanly.",
+            "Error semantics remain understandable to real users.",
+            "The design avoids silent fallbacks."
           ]
         },
         {
-          "id": "REP-T06",
-          "title": "Environment fact collection add",
-          "status": "done",
-          "priority": "P0",
+          "id": "EDT-COM-T07",
+          "title": "Shared trace and audit linking rules define",
+          "status": "todo",
+          "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "Repair sessions can collect structured environment facts such as OS, distro, package manager, runtime versions, container state and relevant service state.",
-            "Fact collection is bounded and reproducible.",
-            "The fact set is usable for platform-specific matching."
+            "Plugin and TUI both know how to link tasks, approvals, artifacts, logs and audit traces.",
+            "The linking model is consistent across both surfaces.",
+            "The model supports future KRITIS evidence visibility."
           ]
         },
         {
-          "id": "REP-T07",
-          "title": "Structured log ingestion add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The repair path can ingest logs from selected sources in a structured way.",
-            "The ingestion preserves source provenance, timestamps and severity where available.",
-            "The result supports later signature matching."
-          ]
-        },
-        {
-          "id": "REP-T08",
-          "title": "Health and command result capture add",
-          "status": "done",
+          "id": "EDT-COM-T08",
+          "title": "First-run and onboarding split define",
+          "status": "todo",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
-            "Repair sessions can store relevant command outputs, exit codes and health-check results in a normalized form.",
-            "These results are linked to the current repair session.",
-            "The captured data is available to deterministic rules."
+            "A clear onboarding split exists: plugin for coding workflows, TUI for operations/admin flows.",
+            "Users are not forced into the wrong interface for the wrong job.",
+            "The documentation can explain the choice quickly."
           ]
         },
         {
-          "id": "REP-T09",
-          "title": "Evidence normalization pipeline implement",
-          "status": "done",
+          "id": "EDT-COM-T09",
+          "title": "Shared release and smoke strategy define",
+          "status": "todo",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "Ingested evidence is normalized into a stable internal representation.",
-            "The normalization supports pattern matching and history comparison.",
-            "Noise reduction does not destroy important diagnostic detail."
+            "There is a shared smoke and release approach for plugin and TUI.",
+            "The approach covers both local and containerized Ananta targets.",
+            "Core flows are validated before claiming usability."
           ]
         }
       ]
     },
     {
-      "id": "REP-SIGNATURES",
+      "id": "NVIM-PLUGIN-FOUNDATION",
       "priority": "P0",
-      "title": "Signaturen und deterministic matching",
+      "title": "Vim/Neovim Plugin Grundlage",
+      "goal": "Create a real editor-native integration for coding, review, context and goal submission.",
       "tasks": [
         {
-          "id": "REP-T10",
-          "title": "Failure signature model define",
-          "status": "done",
+          "id": "NVIM-T01",
+          "title": "Plugin architecture decide",
+          "status": "todo",
           "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A formal model exists for failure signatures.",
-            "Signatures can include regex patterns, structured fields, environment constraints and confidence weights.",
-            "The model can express platform- or tool-specific failures."
-          ]
-        },
-        {
-          "id": "REP-T11",
-          "title": "Initial signature catalog create",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A first catalog exists for common failures in Windows, Ubuntu or common development stacks relevant to Ananta.",
-            "The catalog includes enough metadata to drive diagnosis and repair selection.",
-            "The first catalog focuses on high-value and reasonably safe cases."
-          ]
-        },
-        {
-          "id": "REP-T12",
-          "title": "Signature matching engine implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A matching engine can score ingested evidence against known failure signatures.",
-            "Multiple matches can be ranked and explained.",
-            "The engine does not require LLM calls for normal matching."
-          ]
-        },
-        {
-          "id": "REP-T13",
-          "title": "Ambiguous and low-confidence match handling add",
-          "status": "done",
-          "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "The system can detect ambiguity or weak matches.",
-            "Low-confidence cases lead to bounded next steps instead of blind repair.",
-            "The behavior is consistent with the repair confidence model."
+            "A concrete architecture choice is made for Vim and/or Neovim support.",
+            "The decision covers whether to support Neovim first and Vim later or both from the beginning.",
+            "The architecture is maintainable and not overengineered."
           ]
         },
         {
-          "id": "REP-T14",
-          "title": "Signature explanation output add",
-          "status": "done",
+          "id": "NVIM-T02",
+          "title": "Minimum supported editor matrix define",
+          "status": "todo",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
-            "The system can explain which signature matched and why.",
-            "The explanation includes key evidence and platform constraints.",
-            "The output is short and useful for operator trust."
+            "Supported Neovim/Vim versions are documented.",
+            "Plugin dependencies and optional runtime requirements are listed.",
+            "The first release path is practical for installation."
+          ]
+        },
+        {
+          "id": "NVIM-T03",
+          "title": "Connection and authentication support implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "The plugin can store and use Ananta connection profiles safely.",
+            "Authentication works with the supported Ananta auth path.",
+            "Secrets are not leaked into command history or logs."
+          ]
+        },
+        {
+          "id": "NVIM-T04",
+          "title": "Plugin command surface define",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "A coherent command set exists for the plugin.",
+            "The first command set covers goal submission, analyze, review, patch, new project and evolve project.",
+            "Command naming is editor-appropriate and aligned with Ananta concepts."
+          ]
+        },
+        {
+          "id": "NVIM-T05",
+          "title": "Editor context collection implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "The plugin can collect current file, buffer, cursor context, selection and project root.",
+            "Context collection stays bounded and visible to the user.",
+            "The plugin avoids dumping excessive unrelated workspace content."
+          ]
+        },
+        {
+          "id": "NVIM-T06",
+          "title": "Goal submission from editor implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Users can send a goal directly from the editor.",
+            "Goal submission can include current file or selected text context.",
+            "The flow favors official Ananta use cases rather than arbitrary hidden behavior."
+          ]
+        },
+        {
+          "id": "NVIM-T07",
+          "title": "Quick action palette or command wrappers add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Common operations can be invoked quickly from editor commands or a lightweight picker.",
+            "The first useful operations are obvious and easy to trigger.",
+            "The plugin does not require users to memorize too much before becoming useful."
           ]
         }
       ]
     },
     {
-      "id": "REP-RULE-BASED-DIAGNOSIS",
+      "id": "NVIM-CODING-REVIEW-CONTEXT",
       "priority": "P0",
-      "title": "Regelbasierte Diagnosepfade",
+      "title": "Vim/Neovim Plugin - Coding Review Kontext Goals",
+      "goal": "Deliver the core developer-facing workflows inside the editor.",
       "tasks": [
         {
-          "id": "REP-T15",
-          "title": "Diagnosis procedure model define",
-          "status": "done",
+          "id": "NVIM-T08",
+          "title": "Analyze current file or project flow add",
+          "status": "todo",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
-            "A procedure model exists for deterministic diagnosis flows.",
-            "Procedures can encode ordered checks, branching checks and stop conditions.",
-            "The model supports verification checkpoints."
+            "The plugin supports asking Ananta to analyze the current file or project context.",
+            "Results are shown in a readable editor-native way.",
+            "The flow can be triggered without leaving the editor."
           ]
         },
         {
-          "id": "REP-T16",
-          "title": "Initial diagnosis playbooks create",
-          "status": "done",
+          "id": "NVIM-T09",
+          "title": "Review selected code flow add",
+          "status": "todo",
           "priority": "P0",
-          "risk": "high",
+          "risk": "medium",
           "acceptance_criteria": [
-            "A first set of deterministic diagnosis playbooks exists for the highest-value repair classes.",
-            "Playbooks are structured and not just prose notes.",
-            "Each playbook includes safe stop conditions."
+            "The plugin supports sending a visual selection or current block for review.",
+            "Review output is linked back to the relevant code area.",
+            "The review flow supports safe, bounded context submission."
           ]
         },
         {
-          "id": "REP-T17",
-          "title": "Diagnosis runner implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The system can execute diagnosis playbooks step by step.",
-            "Each step can collect new evidence or classify the case further.",
-            "The runner produces structured state updates."
-          ]
-        },
-        {
-          "id": "REP-T18",
-          "title": "Diagnosis branching and fallback behavior add",
-          "status": "done",
+          "id": "NVIM-T10",
+          "title": "Patch planning and fix suggestion flow add",
+          "status": "todo",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "Diagnosis procedures can branch based on observed evidence.",
-            "Fallback behavior is explicit and not hidden.",
-            "The runner can stop early when sufficient evidence exists."
+            "The plugin can request patch planning or fix suggestions for the current context.",
+            "Results do not silently mutate files.",
+            "Suggestions are presented with clear user control."
           ]
         },
         {
-          "id": "REP-T19",
-          "title": "Non-destructive first strategy enforce",
-          "status": "done",
+          "id": "NVIM-T11",
+          "title": "Task list and current task context view add",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The plugin can show current Ananta tasks relevant to the current project or user.",
+            "The user can inspect task summaries and status without leaving the editor.",
+            "Task navigation is editor-friendly and compact."
+          ]
+        },
+        {
+          "id": "NVIM-T12",
+          "title": "Artifact preview inside editor add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Relevant artifacts can be previewed in a scratch buffer, split or floating window.",
+            "The artifact rendering is readable for text-heavy outputs such as summaries and review results.",
+            "Unsupported artifact types degrade gracefully."
+          ]
+        },
+        {
+          "id": "NVIM-T13",
+          "title": "Context inspection panel add",
+          "status": "todo",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
-            "Diagnosis defaults to non-destructive checks before proposing mutation.",
-            "Destructive or state-changing steps are never treated as normal diagnosis.",
-            "The strategy is enforced, not just documented."
+            "The user can inspect what context will be sent to Ananta before submission.",
+            "The panel shows file path, selection size and included project information.",
+            "The user can trim or cancel context submission."
+          ]
+        },
+        {
+          "id": "NVIM-T14",
+          "title": "Diff and proposal rendering add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Review proposals or diff-like outputs can be rendered in a Vim-friendly form.",
+            "The user can inspect changes before any application step.",
+            "The plugin preserves a review-first posture."
+          ]
+        },
+        {
+          "id": "NVIM-T15",
+          "title": "Navigation between tasks artifacts and source locations add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The plugin can jump from task or artifact items back to the relevant file or location where possible.",
+            "Cross-navigation feels editor-native instead of web-like.",
+            "The navigation model remains predictable."
+          ]
+        },
+        {
+          "id": "NVIM-T16",
+          "title": "Open in browser or open in Ananta shortcuts add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "The plugin can open deeper task, artifact or goal views in the browser when editor rendering is insufficient.",
+            "The shortcut is available but not forced.",
+            "The plugin stays thin where browser views are better."
           ]
         }
       ]
     },
     {
-      "id": "REP-REPAIR-PROCEDURES",
-      "priority": "P0",
-      "title": "Deterministische Reparaturprozeduren",
-      "tasks": [
-        {
-          "id": "REP-T20",
-          "title": "Repair procedure model define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A repair procedure model exists for executable fixes.",
-            "The model includes preconditions, steps, postconditions, verification and rollback hints where possible.",
-            "The model can mark procedures as safe, review-first or high-risk."
-          ]
-        },
-        {
-          "id": "REP-T21",
-          "title": "Initial deterministic repair catalog create",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A first catalog of deterministic repair procedures exists for common failure classes.",
-            "Each procedure is tied to specific signatures or diagnosis outcomes.",
-            "The catalog is bounded to well-understood repairs rather than speculative fixes."
-          ]
-        },
-        {
-          "id": "REP-T22",
-          "title": "Repair step executor implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "critical",
-          "acceptance_criteria": [
-            "Repair procedures can be executed through a bounded step executor.",
-            "Execution is integrated with approval and safety policy layers.",
-            "Each executed step is recorded and verifiable."
-          ]
-        },
-        {
-          "id": "REP-T23",
-          "title": "Dry-run and preview support add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "Repair procedures support dry-run or preview where meaningful.",
-            "Users can inspect intended actions before execution.",
-            "The preview is explicit about limitations."
-          ]
-        },
-        {
-          "id": "REP-T24",
-          "title": "Safe stop and abort conditions add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "Repair execution can stop cleanly when conditions worsen or become unsafe.",
-            "Abort conditions are explicit and logged.",
-            "The system avoids blindly continuing after contradictory evidence."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "REP-VERIFICATION",
-      "priority": "P0",
-      "title": "Verifikation nach jedem Schritt",
-      "tasks": [
-        {
-          "id": "REP-T25",
-          "title": "Verification model define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A verification model exists for repair procedures and diagnosis milestones.",
-            "Verification can use health checks, service status, command outputs or functional probes.",
-            "Verification is mandatory for state-changing repair actions."
-          ]
-        },
-        {
-          "id": "REP-T26",
-          "title": "Per-step verification hooks add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "Each important repair step can trigger specific verification checks.",
-            "Verification results decide whether to continue, stop or roll back.",
-            "The model avoids fire-and-forget repair execution."
-          ]
-        },
-        {
-          "id": "REP-T27",
-          "title": "Final repair success verification add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "Every repair flow ends with an explicit success or failure verification.",
-            "The final result is based on evidence, not just command completion.",
-            "The result updates repair history."
-          ]
-        },
-        {
-          "id": "REP-T28",
-          "title": "Rollback or recovery hint model add",
-          "status": "done",
-          "priority": "P2",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Where full rollback is not possible, the system can at least record recovery hints or manual undo guidance.",
-            "Recovery information is linked to the repair procedure.",
-            "The feature improves operator safety."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "REP-MEMORY-AND-LEARNING",
-      "priority": "P0",
-      "title": "Repair Memory und Erfolgstracking",
-      "tasks": [
-        {
-          "id": "REP-T29",
-          "title": "Repair outcome memory model define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A structured model exists for storing repair attempts and outcomes.",
-            "The model records signature, environment facts, chosen procedure, result and verification evidence.",
-            "The model is queryable later."
-          ]
-        },
-        {
-          "id": "REP-T30",
-          "title": "Fix success and failure tracking add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The system records whether a fix succeeded, partially helped, failed or made things worse.",
-            "Outcome labels are explicit and standardized.",
-            "The tracking supports future recommendation scoring."
-          ]
-        },
-        {
-          "id": "REP-T31",
-          "title": "Environment similarity model add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Repair history can reason about similarity across environment facts such as OS, version, package manager and service context.",
-            "The model helps reuse successful procedures in similar contexts.",
-            "The logic remains explainable."
-          ]
-        },
-        {
-          "id": "REP-T32",
-          "title": "Success-weighted repair recommendation add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The system can rank repair procedures partly by past success in similar cases.",
-            "Ranking does not override hard safety rules.",
-            "The recommendation explains both signature match and historical confidence."
-          ]
-        },
-        {
-          "id": "REP-T33",
-          "title": "Negative learning and anti-pattern recording add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The system can remember procedures or steps that repeatedly fail or worsen a class of issue.",
-            "Negative history can reduce or block certain suggestions later.",
-            "The feature supports safer long-term behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "REP-LLM-ESCALATION",
+      "id": "NVIM-ADVANCED",
       "priority": "P1",
-      "title": "LLM als Eskalation statt Standardpfad",
+      "title": "Vim/Neovim Plugin - Erweiterte Features",
+      "goal": "Add richer features without turning the plugin into a second orchestration system or IDE clone.",
       "tasks": [
         {
-          "id": "REP-T34",
-          "title": "LLM escalation policy define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A policy defines when LLM escalation is allowed such as unknown signatures, contradictory evidence or exhausted deterministic paths.",
-            "The policy explicitly prevents unnecessary LLM use in known cases.",
-            "Escalation reasons are auditable."
-          ]
-        },
-        {
-          "id": "REP-T35",
-          "title": "Bounded repair escalation prompt model add",
-          "status": "done",
+          "id": "NVIM-T17",
+          "title": "Blueprint-aware project start commands add",
+          "status": "todo",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "When escalation occurs, the LLM receives a bounded structured repair context instead of raw uncontrolled logs only.",
-            "The prompt includes known evidence, attempted paths and confidence information.",
-            "The model supports safer and more targeted LLM output."
+            "The plugin can surface standard blueprint or work-profile choices for new or evolving project flows.",
+            "The user can start official product paths from the editor.",
+            "The plugin reflects product terminology consistently."
           ]
         },
         {
-          "id": "REP-T36",
-          "title": "LLM proposal-to-procedure conversion path add",
-          "status": "done",
-          "priority": "P2",
+          "id": "NVIM-T18",
+          "title": "Approval awareness for risky actions add",
+          "status": "todo",
+          "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
-            "An LLM-suggested fix can be converted into a reviewed or structured repair proposal instead of being executed blindly.",
-            "The path favors explicit procedure generation and review.",
-            "The feature does not bypass approval."
+            "The plugin can show when an action is pending approval or blocked by policy.",
+            "The UI does not imply that writes will happen immediately.",
+            "Approval state remains explicit."
           ]
         },
         {
-          "id": "REP-T37",
-          "title": "Escalation feedback loop into repair knowledge add",
-          "status": "done",
+          "id": "NVIM-T19",
+          "title": "Trace and diagnostic summary view add",
+          "status": "todo",
           "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
-            "Useful escalated outcomes can later be curated into deterministic signatures or procedures.",
-            "The system supports moving repeated LLM-learned cases into structured knowledge.",
-            "The curation step remains explicit."
+            "Advanced users can inspect compact trace or routing summaries.",
+            "The view helps debugging without overwhelming ordinary use.",
+            "The feature remains optional."
+          ]
+        },
+        {
+          "id": "NVIM-T20",
+          "title": "Knowledge and context source summary add",
+          "status": "todo",
+          "priority": "P2",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The plugin can show from which source classes context came when relevant.",
+            "The summary is compact and understandable.",
+            "The feature supports trust in responses."
+          ]
+        },
+        {
+          "id": "NVIM-T21",
+          "title": "First-run guided setup inside editor add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "A first-run flow helps users connect the plugin and perform one useful operation quickly.",
+            "The flow recommends an official use case such as analyze or review.",
+            "The setup does not demand browser use for the first success."
           ]
         }
       ]
     },
     {
-      "id": "REP-GOVERNANCE-APPROVAL-SAFETY",
+      "id": "TUI-FOUNDATION",
       "priority": "P0",
-      "title": "Governance Approval Safety",
+      "title": "Ananta TUI Grundlage",
+      "goal": "Build a dedicated terminal UI for operational use without trying to become a full editor.",
       "tasks": [
         {
-          "id": "REP-T38",
-          "title": "Repair action safety classes define",
-          "status": "done",
+          "id": "TUI-T01",
+          "title": "TUI framework and architecture decide",
+          "status": "todo",
           "priority": "P0",
-          "risk": "critical",
+          "risk": "medium",
           "acceptance_criteria": [
-            "Repair actions are classified into safety classes such as inspect-only, bounded low-risk, confirm-required and high-risk.",
-            "The classes are enforced consistently.",
-            "The classification integrates with broader approval logic."
+            "A concrete TUI stack is selected.",
+            "The decision fits long-lived admin and dashboard-like workflows.",
+            "The architecture supports multiple views without becoming brittle."
           ]
         },
         {
-          "id": "REP-T39",
-          "title": "Approval integration for repair procedures add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "critical",
-          "acceptance_criteria": [
-            "Repair steps that require approval cannot execute without it.",
-            "Approval scope is tied to procedure, target and session where appropriate.",
-            "The integration is backend-enforced."
-          ]
-        },
-        {
-          "id": "REP-T40",
-          "title": "Repair audit chain add",
-          "status": "done",
+          "id": "TUI-T02",
+          "title": "TUI information architecture define",
+          "status": "todo",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
-            "Repair sessions produce a traceable audit chain from diagnosis through execution and verification.",
-            "Audit records show whether deterministic logic or LLM escalation was used.",
-            "The chain supports later incident review."
+            "The TUI information architecture is defined clearly.",
+            "The design covers dashboard-like overview, drill-down views and action flows.",
+            "The TUI remains operation-focused and does not attempt to replace the browser for everything."
           ]
         },
         {
-          "id": "REP-T41",
-          "title": "Unsafe action guardrails add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "critical",
+          "id": "TUI-T03",
+          "title": "Authentication and session handling implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "The system has explicit guardrails for obviously dangerous or out-of-scope repair actions.",
-            "Guardrails fail closed where appropriate.",
-            "The behavior is visible and testable."
+            "The TUI can authenticate securely against Ananta.",
+            "Session handling is safe for long-running terminal use.",
+            "Sensitive credentials are handled carefully and not echoed."
+          ]
+        },
+        {
+          "id": "TUI-T04",
+          "title": "Global navigation and layout implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The TUI has a coherent layout and navigation model.",
+            "Users can move between key views without getting lost.",
+            "The layout works in realistic terminal sizes."
+          ]
+        },
+        {
+          "id": "TUI-T05",
+          "title": "Connection and runtime status header add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "The TUI shows current connection profile, target instance and basic health signals.",
+            "The header makes the current context obvious.",
+            "The status presentation is compact and useful."
           ]
         }
       ]
     },
     {
-      "id": "REP-UX-AND-OPERATOR-FLOWS",
-      "priority": "P1",
-      "title": "UX und Operator-Sichten",
+      "id": "TUI-ADMIN-TASKS-ARTIFACTS",
+      "priority": "P0",
+      "title": "Ananta TUI - Admin Tasks Artifacts",
+      "goal": "Provide the core terminal-native operational workflows.",
       "tasks": [
         {
-          "id": "REP-T42",
-          "title": "Repair session summary view add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
+          "id": "TUI-T06",
+          "title": "Task board or task list view implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
           "acceptance_criteria": [
-            "Operators can see a concise summary of a repair session.",
-            "The summary includes current state, detected signature, chosen path and verification status.",
-            "The presentation is useful in UI or TUI."
+            "The TUI has a practical task list or board view.",
+            "Users can inspect status, priority, review-needed state and recent progress.",
+            "The view supports real operational use."
           ]
         },
         {
-          "id": "REP-T43",
-          "title": "Deterministic versus escalated path visibility add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
+          "id": "TUI-T07",
+          "title": "Task detail view implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
           "acceptance_criteria": [
-            "Users can tell whether the current repair path is deterministic, mixed or LLM-escalated.",
-            "The visibility helps trust and review.",
-            "The presentation is simple."
+            "A selected task can be inspected in detail.",
+            "The detail view includes summary, stage/routing hints, artifacts and latest state.",
+            "The view stays readable in terminal form."
           ]
         },
         {
-          "id": "REP-T44",
-          "title": "Repair proposal preview UX add",
-          "status": "done",
+          "id": "TUI-T08",
+          "title": "Artifact list and artifact detail view implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The TUI can list artifacts and open artifact details.",
+            "Text-heavy artifacts render clearly in terminal format.",
+            "Users can move between artifacts and related tasks."
+          ]
+        },
+        {
+          "id": "TUI-T09",
+          "title": "Goal list and goal detail view add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Goals can be listed and inspected in the TUI.",
+            "The operator can see how goals relate to tasks and artifacts.",
+            "The view is useful for current operational monitoring."
+          ]
+        },
+        {
+          "id": "TUI-T10",
+          "title": "Goal submission and quick action entry add",
+          "status": "todo",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
-            "Before mutation-capable repair actions, users can inspect the proposed steps and expected verification.",
-            "The preview is good enough for approval decisions.",
-            "The UX remains compact."
+            "Users can submit a goal or launch a few key actions from the TUI.",
+            "The TUI supports the most important official use cases.",
+            "The flow remains controlled and explicit."
           ]
         },
         {
-          "id": "REP-T45",
-          "title": "Repair history inspection view add",
-          "status": "done",
-          "priority": "P2",
+          "id": "TUI-T11",
+          "title": "Task filtering and grouping add",
+          "status": "todo",
+          "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
-            "Operators can inspect prior repair outcomes and reuse evidence.",
-            "History can be filtered by issue class or environment.",
-            "The view is practical for recurring problems."
+            "Tasks can be filtered by status, review-required, blocked or similar useful classes.",
+            "Grouping remains practical and not overly complex.",
+            "The filtering model improves daily use."
           ]
         }
       ]
     },
     {
-      "id": "REP-TESTING-DOCS-ROLLOUT",
-      "priority": "P1",
-      "title": "Tests Doku Rollout",
+      "id": "TUI-LOGS-APPROVALS-AUDIT",
+      "priority": "P0",
+      "title": "Ananta TUI - Logs Approvals Audit",
+      "goal": "Make the TUI the strong terminal surface for high-signal operational visibility.",
       "tasks": [
         {
-          "id": "REP-T46",
-          "title": "Signature matching tests add",
-          "status": "done",
-          "priority": "P1",
+          "id": "TUI-T12",
+          "title": "Log stream and log detail views implement",
+          "status": "todo",
+          "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
-            "Tests verify deterministic signature matching for representative failure classes.",
-            "Ambiguous and no-match cases are covered.",
-            "Regression risk is reduced."
+            "The TUI can display relevant logs in an operator-friendly way.",
+            "Users can inspect current and recent logs without leaving the terminal.",
+            "The log view stays readable and filterable."
           ]
         },
         {
-          "id": "REP-T47",
-          "title": "Diagnosis and repair procedure tests add",
-          "status": "done",
+          "id": "TUI-T13",
+          "title": "Approval queue view implement",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Pending approvals can be listed in a dedicated TUI view.",
+            "The view shows enough context to make safe decisions.",
+            "The queue supports real approval workflows."
+          ]
+        },
+        {
+          "id": "TUI-T14",
+          "title": "Approval detail and action flow add",
+          "status": "todo",
+          "priority": "P0",
+          "risk": "critical",
+          "acceptance_criteria": [
+            "A selected approval item can be reviewed and explicitly approved or rejected when policy allows.",
+            "The action flow is safe, explicit and auditable.",
+            "The TUI does not encourage blind approval."
+          ]
+        },
+        {
+          "id": "TUI-T15",
+          "title": "Audit summary view implement",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The TUI can display compact audit summaries suitable for operators.",
+            "The view can highlight sensitive actions, blocked actions and recent critical chains.",
+            "The view stays high-signal and not overwhelming."
+          ]
+        },
+        {
+          "id": "TUI-T16",
+          "title": "Audit trace drill-down add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Operators can inspect more detailed trace-linked audit information from the TUI.",
+            "The drill-down supports incident and approval review work.",
+            "The feature respects redaction and RBAC."
+          ]
+        },
+        {
+          "id": "TUI-T17",
+          "title": "Policy denial and blocked action view add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The TUI can surface blocked actions and policy denials in a dedicated or filtered view.",
+            "Operators can tell why an action was denied.",
+            "The feature is helpful for debugging and governance review."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TUI-KRITIS-REPAIR-ADMIN",
+      "priority": "P1",
+      "title": "Ananta TUI - KRITIS Repair Admin",
+      "goal": "Make the TUI the preferred terminal surface for hardened operational and repair-oriented flows.",
+      "tasks": [
+        {
+          "id": "TUI-T18",
+          "title": "KRITIS dashboard summary view add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "A KRITIS-oriented overview exists for audit health, approval backlog, mutation status and policy posture.",
+            "The view helps operators quickly understand system trust posture.",
+            "The summary is compact enough for real terminal use."
+          ]
+        },
+        {
+          "id": "TUI-T19",
+          "title": "Repair session list and detail views add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "If system repair flows exist, the TUI can inspect repair sessions and their state.",
+            "The operator can review diagnosis, plan, applied steps and verification results.",
+            "The view is useful for local admin scenarios."
+          ]
+        },
+        {
+          "id": "TUI-T20",
+          "title": "Repair approval and execution review flow add",
+          "status": "todo",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
-            "Tests cover representative diagnosis and repair flows.",
-            "Verification and approval gating are included in the suite.",
-            "The suite protects the deterministic-first model."
+            "The TUI can support bounded approval and review for repair-related steps when policy allows.",
+            "The flow is explicit and auditable.",
+            "The TUI supports dry-run-first usage where applicable."
           ]
         },
         {
-          "id": "REP-T48",
-          "title": "Repair memory and ranking tests add",
-          "status": "done",
+          "id": "TUI-T21",
+          "title": "Health and runtime diagnostics view add",
+          "status": "todo",
           "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "The TUI shows health, readiness and important runtime diagnostics for the current instance.",
+            "The view is good enough for daily operational checking.",
+            "The information is well structured."
+          ]
+        },
+        {
+          "id": "TUI-T22",
+          "title": "Provider and backend visibility view add",
+          "status": "todo",
+          "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
-            "Tests verify success recording, failure recording and recommendation ranking behavior.",
-            "The suite covers similar-environment reuse at least minimally.",
-            "The behavior stays predictable."
+            "Operators can inspect current providers, backends and important capability states.",
+            "The view supports runtime troubleshooting and policy review.",
+            "The view is operator-focused and not too noisy."
           ]
-        },
+        }
+      ]
+    },
+    {
+      "id": "TUI-USABILITY-NAVIGATION",
+      "priority": "P1",
+      "title": "Ananta TUI - Navigation Bedienbarkeit Robustheit",
+      "goal": "Make the TUI genuinely usable over time rather than only technically possible.",
+      "tasks": [
         {
-          "id": "REP-T49",
-          "title": "Operator guide for deterministic repair path write",
-          "status": "done",
+          "id": "TUI-T23",
+          "title": "Keyboard navigation and shortcuts refine",
+          "status": "todo",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
-            "Documentation explains how deterministic repair works, when approval is needed and when LLM escalation occurs.",
-            "The guide includes examples and safety notes.",
-            "The guide is useful for local admin scenarios."
+            "Important actions are available through keyboard-friendly navigation.",
+            "The TUI feels natural for terminal-heavy users.",
+            "The shortcut model is learnable."
           ]
         },
         {
-          "id": "REP-T50",
-          "title": "Golden path examples for common repair classes add",
-          "status": "done",
+          "id": "TUI-T24",
+          "title": "Search and filtering across key views add",
+          "status": "todo",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
-            "At least a few reproducible repair golden paths exist for common classes such as service start failure or package issue.",
-            "Each example shows diagnosis, proposal, verification and result recording.",
-            "The examples demonstrate the deterministic-first value."
+            "Users can search or filter tasks, artifacts, approvals and logs where appropriate.",
+            "The filtering behavior remains consistent across views.",
+            "The feature materially improves navigation."
           ]
         },
         {
-          "id": "REP-T51",
-          "title": "Rollout plan define",
-          "status": "done",
+          "id": "TUI-T25",
+          "title": "State persistence and resume behavior add",
+          "status": "todo",
           "priority": "P2",
           "risk": "low",
           "acceptance_criteria": [
-            "A rollout plan exists that introduces deterministic repair in phases rather than all at once.",
-            "The plan identifies the first supported repair classes.",
-            "The rollout remains manageable."
+            "The TUI can restore useful session state such as selected profile or last active view.",
+            "Sensitive data is not persisted unsafely.",
+            "Resume behavior reduces friction."
+          ]
+        },
+        {
+          "id": "TUI-T26",
+          "title": "Empty and error state UX add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Each major TUI view has practical empty and error states.",
+            "The user can distinguish no data, permission denial and backend failure.",
+            "The interface stays understandable under degraded conditions."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "INTEGRATION-DOCS-TESTING",
+      "priority": "P1",
+      "title": "Integration Dokumentation Tests Releases",
+      "goal": "Harden both surfaces with docs, tests and release discipline.",
+      "tasks": [
+        {
+          "id": "EDT-TST-T01",
+          "title": "Plugin automated tests add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Core plugin flows are protected by automated tests.",
+            "Tests cover connection handling, context collection and command result parsing.",
+            "The suite is practical for ongoing maintenance."
+          ]
+        },
+        {
+          "id": "EDT-TST-T02",
+          "title": "TUI automated tests add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Core TUI view models and interaction flows have automated coverage.",
+            "The suite covers task, artifact, log and approval handling at minimum.",
+            "The suite protects against regressions as the TUI grows."
+          ]
+        },
+        {
+          "id": "EDT-TST-T03",
+          "title": "Plugin manual smoke checklist add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "A short manual smoke checklist exists for the Vim/Neovim plugin.",
+            "The checklist covers connect, analyze, review and task/artifact viewing.",
+            "The checklist is usable before releases."
+          ]
+        },
+        {
+          "id": "EDT-TST-T04",
+          "title": "TUI manual smoke checklist add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "A short manual smoke checklist exists for the TUI.",
+            "The checklist covers task view, artifact view, log view and approval flow.",
+            "The checklist is suitable for terminal-centric release validation."
+          ]
+        },
+        {
+          "id": "EDT-DOC-T01",
+          "title": "Plugin user guide write",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "A practical user guide exists for the Vim/Neovim plugin.",
+            "The guide explains installation, setup and first useful workflows.",
+            "The guide matches the actual shipped command set."
+          ]
+        },
+        {
+          "id": "EDT-DOC-T02",
+          "title": "TUI user and operator guide write",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "A guide exists for using the TUI in admin and operational contexts.",
+            "The guide explains navigation, core views and common operator tasks.",
+            "The guide includes safety notes for approval and repair flows."
+          ]
+        },
+        {
+          "id": "EDT-DOC-T03",
+          "title": "Common docs explaining when to use plugin versus TUI write",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Documentation clearly explains which interface is intended for which class of work.",
+            "Users can choose the right interface quickly.",
+            "The split between coding and operations is obvious."
+          ]
+        },
+        {
+          "id": "EDT-REL-T01",
+          "title": "Release packaging and versioning strategy define",
+          "status": "todo",
+          "priority": "P2",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "A packaging and versioning strategy exists for the plugin and the TUI.",
+            "Compatibility with Ananta backend versions is documented.",
+            "The strategy supports maintainable releases."
+          ]
+        },
+        {
+          "id": "EDT-REL-T02",
+          "title": "Golden path demos for plugin and TUI add",
+          "status": "todo",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "There is one official golden path for the Vim/Neovim plugin.",
+            "There is one official golden path for the TUI.",
+            "Both demos are reproducible by another developer."
           ]
         }
       ]
     }
   ],
   "execution_order_summary": [
-    "REP-FOUNDATION first",
-    "Then REP-SIGNAL-INGESTION and REP-SIGNATURES",
-    "Then REP-RULE-BASED-DIAGNOSIS and REP-REPAIR-PROCEDURES",
-    "Then REP-VERIFICATION and REP-MEMORY-AND-LEARNING",
-    "Then REP-GOVERNANCE-APPROVAL-SAFETY",
-    "Then REP-LLM-ESCALATION",
-    "Then REP-UX-AND-OPERATOR-FLOWS",
-    "Finish with REP-TESTING-DOCS-ROLLOUT"
+    "COMMON-FOUNDATION first",
+    "Then NVIM-PLUGIN-FOUNDATION and TUI-FOUNDATION in parallel",
+    "Then NVIM-CODING-REVIEW-CONTEXT and TUI-ADMIN-TASKS-ARTIFACTS",
+    "Then TUI-LOGS-APPROVALS-AUDIT and NVIM-ADVANCED",
+    "Then TUI-KRITIS-REPAIR-ADMIN and TUI-USABILITY-NAVIGATION",
+    "Finish with INTEGRATION-DOCS-TESTING"
   ],
   "critical_path_tasks": [
-    "REP-T01",
-    "REP-T02",
-    "REP-T03",
-    "REP-T05",
-    "REP-T06",
-    "REP-T07",
-    "REP-T10",
-    "REP-T11",
-    "REP-T12",
-    "REP-T15",
-    "REP-T16",
-    "REP-T17",
-    "REP-T19",
-    "REP-T20",
-    "REP-T21",
-    "REP-T22",
-    "REP-T25",
-    "REP-T26",
-    "REP-T27",
-    "REP-T29",
-    "REP-T30",
-    "REP-T32",
-    "REP-T38",
-    "REP-T39",
-    "REP-T40",
-    "REP-T46",
-    "REP-T47",
-    "REP-T50"
+    "EDT-COM-T01",
+    "EDT-COM-T02",
+    "EDT-COM-T03",
+    "NVIM-T03",
+    "NVIM-T05",
+    "NVIM-T06",
+    "NVIM-T08",
+    "NVIM-T09",
+    "NVIM-T11",
+    "NVIM-T13",
+    "TUI-T01",
+    "TUI-T02",
+    "TUI-T03",
+    "TUI-T04",
+    "TUI-T06",
+    "TUI-T07",
+    "TUI-T08",
+    "TUI-T12",
+    "TUI-T13",
+    "TUI-T14",
+    "EDT-TST-T01",
+    "EDT-TST-T02",
+    "EDT-REL-T02"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T21:10:00+02:00",
-    "total": 51,
+    "updated_at": "2026-04-24T15:02:00+02:00",
+    "total": 65,
     "by_status": {
-      "todo": 0,
+      "todo": 65,
       "in_progress": 0,
       "blocked": 0,
-      "done": 51
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 24,
-      "P1": 22,
+      "P0": 23,
+      "P1": 37,
       "P2": 5,
       "P3": 0
     },
     "by_risk": {
-      "low": 8,
-      "medium": 19,
-      "high": 20,
-      "critical": 4
+      "low": 18,
+      "medium": 36,
+      "high": 10,
+      "critical": 1
     },
     "by_group": {
-      "REP-FOUNDATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-SIGNAL-INGESTION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-SIGNATURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-VERIFICATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-LLM-ESCALATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-UX-AND-OPERATOR-FLOWS": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-TESTING-DOCS-ROLLOUT": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
+      "COMMON-FOUNDATION": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+      "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0},
+      "NVIM-CODING-REVIEW-CONTEXT": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+      "NVIM-ADVANCED": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "TUI-FOUNDATION": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "TUI-ADMIN-TASKS-ARTIFACTS": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0},
+      "TUI-LOGS-APPROVALS-AUDIT": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0},
+      "TUI-KRITIS-REPAIR-ADMIN": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "TUI-USABILITY-NAVIGATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
+      "INTEGRATION-DOCS-TESTING": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0}
     },
     "critical_path": {
-      "total": 28,
-      "done": 28,
-      "remaining": 0
+      "total": 23,
+      "done": 0,
+      "remaining": 23
     }
   },
-  "milestone_status_summary": {
-    "updated_at": "2026-04-24T21:10:00+02:00",
-    "by_milestone": {
-      "REP-M1": {"total": 9, "done": 9, "todo": 0},
-      "REP-M2": {"total": 10, "done": 10, "todo": 0},
-      "REP-M3": {"total": 9, "done": 9, "todo": 0},
-      "REP-M4": {"total": 13, "done": 13, "todo": 0},
-      "REP-M5": {"total": 10, "done": 10, "todo": 0}
+  "execution_stage_summary": {
+    "updated_at": "2026-04-24T15:02:00+02:00",
+    "stages": {
+      "stage_1_foundation": {"scope_groups": ["COMMON-FOUNDATION"], "total": 9, "done": 0, "todo": 9},
+      "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 0, "todo": 12},
+      "stage_3_core_workflows_parallel": {"scope_groups": ["NVIM-CODING-REVIEW-CONTEXT", "TUI-ADMIN-TASKS-ARTIFACTS"], "total": 15, "done": 0, "todo": 15},
+      "stage_4_advanced_ops_parallel": {"scope_groups": ["TUI-LOGS-APPROVALS-AUDIT", "NVIM-ADVANCED"], "total": 11, "done": 0, "todo": 11},
+      "stage_5_kritis_navigation_parallel": {"scope_groups": ["TUI-KRITIS-REPAIR-ADMIN", "TUI-USABILITY-NAVIGATION"], "total": 9, "done": 0, "todo": 9},
+      "stage_6_docs_tests_release": {"scope_groups": ["INTEGRATION-DOCS-TESTING"], "total": 9, "done": 0, "todo": 9}
     }
   },
   "summary_notes": [
-    "Deterministic repair foundations and governance are fully implemented across REP-T01 to REP-T51.",
-    "Milestones REP-M1 through REP-M5 are completed and the critical path is fully closed.",
-    "The track now includes guardrails, operator transparency views, expanded test coverage, operator guide, golden paths and phased rollout planning."
+    "Track reset from prior deterministic-repair completion to a new dual-surface editor-and-terminal program.",
+    "All tasks are currently planned and grouped into a clear execution order with explicit critical path focus.",
+    "Highest delivery risk is concentrated in shared contracts, orchestration-safe integration boundaries, approval/audit handling and end-to-end UX reliability."
   ]
 }
