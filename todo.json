@@ -353,7 +353,7 @@
         {
           "id": "NVIM-T17",
           "title": "Blueprint-aware project start commands add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -365,7 +365,7 @@
         {
           "id": "NVIM-T18",
           "title": "Approval awareness for risky actions add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -377,7 +377,7 @@
         {
           "id": "NVIM-T19",
           "title": "Trace and diagnostic summary view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
@@ -389,7 +389,7 @@
         {
           "id": "NVIM-T20",
           "title": "Knowledge and context source summary add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
@@ -401,7 +401,7 @@
         {
           "id": "NVIM-T21",
           "title": "First-run guided setup inside editor add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -569,7 +569,7 @@
         {
           "id": "TUI-T12",
           "title": "Log stream and log detail views implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -581,7 +581,7 @@
         {
           "id": "TUI-T13",
           "title": "Approval queue view implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -593,7 +593,7 @@
         {
           "id": "TUI-T14",
           "title": "Approval detail and action flow add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "critical",
           "acceptance_criteria": [
@@ -605,7 +605,7 @@
         {
           "id": "TUI-T15",
           "title": "Audit summary view implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -617,7 +617,7 @@
         {
           "id": "TUI-T16",
           "title": "Audit trace drill-down add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -629,7 +629,7 @@
         {
           "id": "TUI-T17",
           "title": "Policy denial and blocked action view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -649,7 +649,7 @@
         {
           "id": "TUI-T18",
           "title": "KRITIS dashboard summary view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -661,7 +661,7 @@
         {
           "id": "TUI-T19",
           "title": "Repair session list and detail views add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -673,7 +673,7 @@
         {
           "id": "TUI-T20",
           "title": "Repair approval and execution review flow add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -685,7 +685,7 @@
         {
           "id": "TUI-T21",
           "title": "Health and runtime diagnostics view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -697,7 +697,7 @@
         {
           "id": "TUI-T22",
           "title": "Provider and backend visibility view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
@@ -717,7 +717,7 @@
         {
           "id": "TUI-T23",
           "title": "Keyboard navigation and shortcuts refine",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -729,7 +729,7 @@
         {
           "id": "TUI-T24",
           "title": "Search and filtering across key views add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -741,7 +741,7 @@
         {
           "id": "TUI-T25",
           "title": "State persistence and resume behavior add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "low",
           "acceptance_criteria": [
@@ -753,7 +753,7 @@
         {
           "id": "TUI-T26",
           "title": "Empty and error state UX add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -773,7 +773,7 @@
         {
           "id": "EDT-TST-T01",
           "title": "Plugin automated tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -785,7 +785,7 @@
         {
           "id": "EDT-TST-T02",
           "title": "TUI automated tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -915,15 +915,15 @@
     "EDT-REL-T02"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T15:42:00+02:00",
+    "updated_at": "2026-04-24T16:18:00+02:00",
     "total": 65,
     "by_status": {
-      "todo": 29,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 36
+      "done": 58
     },
-    "progress_percent_done": 55.38,
+    "progress_percent_done": 89.23,
     "by_priority": {
       "P0": 23,
       "P1": 37,
@@ -940,34 +940,34 @@
       "COMMON-FOUNDATION": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
       "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 0, "in_progress": 0, "blocked": 0, "done": 7},
       "NVIM-CODING-REVIEW-CONTEXT": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
-      "NVIM-ADVANCED": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "NVIM-ADVANCED": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "TUI-FOUNDATION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "TUI-ADMIN-TASKS-ARTIFACTS": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6},
-      "TUI-LOGS-APPROVALS-AUDIT": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0},
-      "TUI-KRITIS-REPAIR-ADMIN": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
-      "TUI-USABILITY-NAVIGATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
-      "INTEGRATION-DOCS-TESTING": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0}
+      "TUI-LOGS-APPROVALS-AUDIT": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6},
+      "TUI-KRITIS-REPAIR-ADMIN": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "TUI-USABILITY-NAVIGATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "INTEGRATION-DOCS-TESTING": {"total": 9, "todo": 7, "in_progress": 0, "blocked": 0, "done": 2}
     },
     "critical_path": {
       "total": 23,
-      "done": 17,
-      "remaining": 6
+      "done": 20,
+      "remaining": 3
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T15:42:00+02:00",
+    "updated_at": "2026-04-24T16:18:00+02:00",
     "stages": {
       "stage_1_foundation": {"scope_groups": ["COMMON-FOUNDATION"], "total": 9, "done": 9, "todo": 0},
       "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 12, "todo": 0},
       "stage_3_core_workflows_parallel": {"scope_groups": ["NVIM-CODING-REVIEW-CONTEXT", "TUI-ADMIN-TASKS-ARTIFACTS"], "total": 15, "done": 15, "todo": 0},
-      "stage_4_advanced_ops_parallel": {"scope_groups": ["TUI-LOGS-APPROVALS-AUDIT", "NVIM-ADVANCED"], "total": 11, "done": 0, "todo": 11},
-      "stage_5_kritis_navigation_parallel": {"scope_groups": ["TUI-KRITIS-REPAIR-ADMIN", "TUI-USABILITY-NAVIGATION"], "total": 9, "done": 0, "todo": 9},
-      "stage_6_docs_tests_release": {"scope_groups": ["INTEGRATION-DOCS-TESTING"], "total": 9, "done": 0, "todo": 9}
+      "stage_4_advanced_ops_parallel": {"scope_groups": ["TUI-LOGS-APPROVALS-AUDIT", "NVIM-ADVANCED"], "total": 11, "done": 11, "todo": 0},
+      "stage_5_kritis_navigation_parallel": {"scope_groups": ["TUI-KRITIS-REPAIR-ADMIN", "TUI-USABILITY-NAVIGATION"], "total": 9, "done": 9, "todo": 0},
+      "stage_6_docs_tests_release": {"scope_groups": ["INTEGRATION-DOCS-TESTING"], "total": 9, "done": 2, "todo": 7}
     }
   },
   "summary_notes": [
-    "The next 21 tasks are complete: NVIM-T07..T16 plus TUI-T01..T11, covering stage-2 foundations and stage-3 core workflows.",
-    "Neovim now has explicit quick-action, analyze/review/patch, task/artifact/context, diff rendering, navigation and browser-handoff contracts.",
-    "TUI now has framework/information architecture, auth/session, navigation, runtime header, and core task/artifact/goal/filtering interaction contracts."
+    "A further 22 tasks are complete: NVIM-T17..T21, TUI-T12..T26, plus EDT-TST-T01 and EDT-TST-T02.",
+    "Advanced Neovim and TUI contracts now cover approvals, audit, KRITIS/repair visibility, diagnostics, provider visibility and terminal usability safeguards.",
+    "Only 7 integration/doc/release tasks remain before full track completion."
   ]
 }
