@@ -1,0 +1,130 @@
+{
+  "schema": "vscode_frontend_api_surface_map_v1",
+  "surface": "vscode_plugin",
+  "classification_scale": [
+    "vscode-mvp",
+    "vscode-advanced",
+    "browser-fallback",
+    "deferred"
+  ],
+  "sections": [
+    "Connection",
+    "Goals",
+    "Tasks",
+    "Artifacts",
+    "Approvals",
+    "Audit",
+    "Repair",
+    "Config"
+  ],
+  "by_section": {
+    "Connection": [
+      {
+        "feature": "health_check",
+        "method": "getHealth",
+        "http_method": "GET",
+        "endpoint": "/health",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "capability_handshake",
+        "method": "getCapabilities",
+        "http_method": "GET",
+        "endpoint": "/capabilities",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "runtime_settings",
+        "method": "getConfig",
+        "http_method": "GET",
+        "endpoint": "/config",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      }
+    ],
+    "Goals": [
+      {
+        "feature": "goal_inventory",
+        "method": "listGoals",
+        "http_method": "GET",
+        "endpoint": "/goals",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      }
+    ],
+    "Tasks": [
+      {
+        "feature": "task_inventory",
+        "method": "listTasks",
+        "http_method": "GET",
+        "endpoint": "/tasks",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      }
+    ],
+    "Artifacts": [
+      {
+        "feature": "artifact_inventory",
+        "method": "listArtifacts",
+        "http_method": "GET",
+        "endpoint": "/artifacts",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      }
+    ],
+    "Approvals": [
+      {
+        "feature": "approval_queue",
+        "method": "listApprovals",
+        "http_method": "GET",
+        "endpoint": "/approvals",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      }
+    ],
+    "Audit": [
+      {
+        "feature": "audit_log_summary",
+        "method": "getAuditLogs",
+        "http_method": "GET",
+        "endpoint": "/api/system/audit-logs",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      }
+    ],
+    "Repair": [
+      {
+        "feature": "repair_visibility",
+        "method": "listRepairs",
+        "http_method": "GET",
+        "endpoint": "/repairs",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      },
+      {
+        "feature": "repair_execution",
+        "method": "openWebFallback",
+        "http_method": "N/A",
+        "endpoint": "browser://repairs/{id}",
+        "classification": "browser-fallback",
+        "source": "fallback_policy"
+      }
+    ],
+    "Config": [
+      {
+        "feature": "config_write",
+        "method": "openWebFallback",
+        "http_method": "N/A",
+        "endpoint": "browser://config",
+        "classification": "browser-fallback",
+        "source": "fallback_policy"
+      }
+    ]
+  },
+  "known_backend_gaps": [
+    "No dedicated VS Code-specific capability endpoint is required; generic /capabilities contract is reused.",
+    "High-risk deep admin and repair execution flows remain fallback-first by design."
+  ]
+}

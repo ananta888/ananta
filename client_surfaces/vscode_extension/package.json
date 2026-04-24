@@ -1,0 +1,128 @@
+{
+  "name": "ananta-vscode-extension",
+  "displayName": "Ananta",
+  "description": "Thin VS Code client for Ananta goal/task runtime workflows.",
+  "version": "0.1.0",
+  "publisher": "ananta888",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "files": [
+    "out/**",
+    "resources/**",
+    "README.md",
+    "package.json"
+  ],
+  "activationEvents": [
+    "onCommand:ananta.checkHealth",
+    "onCommand:ananta.configureProfile",
+    "onCommand:ananta.storeToken",
+    "onCommand:ananta.clearToken",
+    "onView:ananta.statusView"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ananta.checkHealth",
+        "title": "Ananta: Check Backend Health"
+      },
+      {
+        "command": "ananta.configureProfile",
+        "title": "Ananta: Open Settings"
+      },
+      {
+        "command": "ananta.storeToken",
+        "title": "Ananta: Store Auth Token"
+      },
+      {
+        "command": "ananta.clearToken",
+        "title": "Ananta: Clear Auth Token"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ananta",
+          "title": "Ananta",
+          "icon": "resources/ananta.svg"
+        }
+      ]
+    },
+    "views": {
+      "ananta": [
+        {
+          "id": "ananta.statusView",
+          "name": "Status"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Ananta",
+      "properties": {
+        "ananta.baseUrl": {
+          "type": "string",
+          "default": "http://localhost:8080",
+          "description": "Base URL for the Ananta backend API."
+        },
+        "ananta.profileId": {
+          "type": "string",
+          "default": "default",
+          "description": "Logical profile id used for runtime context selection."
+        },
+        "ananta.runtimeTarget": {
+          "type": "string",
+          "default": "local",
+          "enum": [
+            "local",
+            "staging",
+            "production"
+          ],
+          "description": "Named runtime target used by diagnostics and logs."
+        },
+        "ananta.auth.mode": {
+          "type": "string",
+          "default": "session_token",
+          "enum": [
+            "none",
+            "session_token",
+            "personal_token"
+          ],
+          "description": "Authentication mode used for backend requests."
+        },
+        "ananta.auth.secretStorageKey": {
+          "type": "string",
+          "default": "ananta.auth.token",
+          "description": "SecretStorage key used for auth token lookup."
+        },
+        "ananta.timeoutMs": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 1000,
+          "description": "HTTP timeout in milliseconds for backend requests."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run",
+    "package": "npm run compile && vsce package --out dist/ananta-vscode-extension.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.32.0",
+    "@typescript-eslint/parser": "^8.32.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2",
+    "vsce": "^2.15.0"
+  }
+}

@@ -127,3 +127,4 @@ __pycache__/
 /.artifacts/
 /frontend-angular/.nvmrc
 /frontend-angular/.node-version
+/client_surfaces/vscode_extension/node_modules/
