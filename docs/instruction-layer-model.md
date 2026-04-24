@@ -54,6 +54,26 @@ Conflicts are blocked backend-side with explicit `instruction_policy_conflict` r
 - Audit trails persist identifiers and selection metadata, not full prompt bodies.
 - Generic redaction (`agent.common.redaction`) applies to structured audit payloads and API responses where relevant.
 
+## Read-model visibility
+
+- Task and goal read models expose `instruction_layers` with:
+  - `owner_username`, `profile_id`, `overlay_id`
+  - `selected_profile` and `selected_overlay` summaries
+  - resolved `attachment_kind` / `attachment_id` when available
+- Overlay responses include lifecycle visibility (`kind`, `consumed_count`, `remaining_uses`, expiry flags).
+
+## Policy conflict feedback
+
+When user-controlled layers violate forbidden scope, the API responds with `instruction_policy_conflict` and structured payload fields:
+
+- `reason`
+- `policy_domain`
+- `forbidden_directives`
+- `forbidden_metadata_keys`
+- `allowed_scope`
+- `forbidden_scope`
+- `suggested_fix`
+
 ## Overlay attachment points
 
 Supported attachment kinds:
