@@ -2,12 +2,20 @@ import pytest
 
 from agent.services.deterministic_repair_path_service import (
     DIAGNOSIS_PROCEDURE_MODEL,
+    REPAIR_EXECUTION_SAFETY_POLICY,
+    REPAIR_OUTCOME_MEMORY_MODEL,
     REPAIR_PROCEDURE_MODEL,
     REPAIR_PATH_TARGET_MODEL,
     REPAIR_PROBLEM_CLASS_INVENTORY,
     REPAIR_STATE_MODEL,
+    REPAIR_VERIFICATION_MODEL,
+    STANDARD_OUTCOME_LABELS,
+    build_initial_repair_procedure_catalog,
     build_deterministic_repair_foundation_snapshot,
     build_initial_failure_signature_catalog,
+    build_recovery_hint_bundle,
+    build_repair_outcome_memory_entry,
+    build_repair_procedure_preview,
     build_repair_procedure_template,
     build_signature_explanation,
     build_failure_signature,
@@ -15,13 +23,18 @@ from agent.services.deterministic_repair_path_service import (
     classify_signature_matching_outcome,
     collect_environment_facts,
     evaluate_repair_confidence,
+    execute_repair_procedure,
     get_initial_diagnosis_playbooks,
     ingest_structured_logs,
     match_failure_signatures,
     normalize_evidence_bundle,
+    run_step_verification,
     run_diagnosis_playbook,
+    select_repair_procedure_from_catalog,
     signature_to_dict,
+    track_repair_outcomes,
     validate_non_destructive_diagnosis_playbook,
+    verify_final_repair_outcome,
 )
 
 
@@ -267,7 +280,138 @@ def test_repair_procedure_model_supports_safety_classes_and_template_structure()
     assert template["rollback_hints"]
 
 
-def test_foundation_snapshot_contains_first_twenty_task_artifacts():
+def test_initial_repair_catalog_ties_procedures_to_signatures_and_diagnosis_outcomes():
+    signatures = build_initial_failure_signature_catalog()
+    catalog = build_initial_repair_procedure_catalog(signature_catalog=signatures)
+    entry = select_repair_procedure_from_catalog(
+        repair_catalog=catalog,
+        matching_outcome={"best_problem_class": "service_start_failure"},
+    )
+
+    assert catalog["schema"] == "deterministic_repair_catalog_v1"
+    assert catalog["entries"]
+    assert entry["problem_class"] == "service_start_failure"
+    assert entry["trigger_signature_ids"]
+    assert "service_start_failure" in entry["trigger_diagnosis_outcomes"]
+    assert entry["procedure"]["steps"]
+
+
+def test_repair_executor_supports_preview_safety_and_per_step_verification():
+    catalog = build_initial_repair_procedure_catalog()
+    selected = select_repair_procedure_from_catalog(
+        repair_catalog=catalog,
+        matching_outcome={"best_problem_class": "service_start_failure"},
+    )
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "service failed to start"},
+            {"type": "service_status", "source": "service_status", "severity": "error", "message": "service unhealthy"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    preview = build_repair_procedure_preview(
+        selected_catalog_entry=selected,
+        matching_outcome={"outcome": "single_high_confidence"},
+    )
+    dry_run = execute_repair_procedure(
+        selected_catalog_entry=selected,
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+        dry_run=True,
+    )
+
+    assert preview["schema"] == "deterministic_repair_preview_v1"
+    assert preview["limitations"]
+    assert dry_run["schema"] == "deterministic_repair_execution_v1"
+    assert dry_run["status"] == "preview_only"
+    assert dry_run["safety_policy"]["schema"] == REPAIR_EXECUTION_SAFETY_POLICY["schema"]
+    assert dry_run["steps"]
+    assert all(step["verifiable"] for step in dry_run["steps"])
+
+
+def test_repair_executor_stops_on_contradictory_or_worsening_evidence():
+    catalog = build_initial_repair_procedure_catalog()
+    selected = select_repair_procedure_from_catalog(
+        repair_catalog=catalog,
+        matching_outcome={"best_problem_class": "service_start_failure"},
+    )
+    contradictory_evidence = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "service healthy but failed to start"},
+            {"type": "log_entry", "source": "error_logs", "severity": "critical", "message": "panic and crash loop detected"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    run = execute_repair_procedure(
+        selected_catalog_entry=selected,
+        normalized_evidence=contradictory_evidence,
+        environment_facts={"platform_target": "ubuntu"},
+        dry_run=False,
+        approval_policy={"approved_mutations": True},
+    )
+
+    assert run["status"] == "aborted"
+    assert run["clean_stop"] is True
+    assert run["abort_conditions"]
+    assert run["stop_reason"] in {"worsening_signals", "contradictory_evidence"}
+
+
+def test_verification_and_outcome_memory_tracking_are_standardized():
+    step = {"id": "repair-step-02", "mutation_candidate": True}
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "info", "message": "service started and healthy"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    step_verification = run_step_verification(
+        step=step,
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+    )
+
+    catalog = build_initial_repair_procedure_catalog()
+    selected = select_repair_procedure_from_catalog(
+        repair_catalog=catalog,
+        matching_outcome={"best_problem_class": "service_start_failure"},
+    )
+    execution = execute_repair_procedure(
+        selected_catalog_entry=selected,
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+        dry_run=False,
+        approval_policy={"approved_mutations": True},
+    )
+    final = verify_final_repair_outcome(
+        execution_result=execution,
+        normalized_evidence=normalized,
+        matching_outcome={"outcome": "single_high_confidence"},
+    )
+    recovery = build_recovery_hint_bundle(
+        selected_catalog_entry=selected,
+        execution_result=execution,
+    )
+    memory_entry = build_repair_outcome_memory_entry(
+        signature_matching={"matches": [{"signature_id": "sig-service-restart-loop"}]},
+        selected_catalog_entry=selected,
+        environment_facts={"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "healthy"},
+        execution_result=execution,
+        final_verification=final,
+    )
+    tracking = track_repair_outcomes([memory_entry])
+
+    assert REPAIR_VERIFICATION_MODEL["schema"] == "deterministic_repair_verification_v1"
+    assert REPAIR_OUTCOME_MEMORY_MODEL["schema"] == "deterministic_repair_outcome_memory_v1"
+    assert step_verification["schema"] == "deterministic_step_verification_v1"
+    assert final["schema"] == "deterministic_repair_final_verification_v1"
+    assert final["outcome_label"] in set(STANDARD_OUTCOME_LABELS)
+    assert recovery["schema"] == "deterministic_repair_recovery_hints_v1"
+    assert memory_entry["schema"] == "deterministic_repair_outcome_memory_entry_v1"
+    assert tracking["schema"] == "deterministic_repair_outcome_tracking_v1"
+    assert tracking["counts_by_outcome"][memory_entry["outcome_label"]] >= 1
+
+
+def test_foundation_snapshot_contains_first_thirty_task_artifacts():
     snapshot = build_deterministic_repair_foundation_snapshot(
         mode_data={"platform_target": "windows11"},
         issue_symptom="Service failed to start after update",
@@ -296,3 +440,14 @@ def test_foundation_snapshot_contains_first_twenty_task_artifacts():
     assert snapshot["non_destructive_diagnosis_policy"]["enforced"] is True
     assert snapshot["repair_procedure_model"]["schema"] == "deterministic_repair_procedure_v1"
     assert snapshot["repair_procedure_template"]["preconditions"]
+    assert snapshot["repair_catalog"]["schema"] == "deterministic_repair_catalog_v1"
+    assert snapshot["selected_repair_catalog_entry"]["procedure"]["id"]
+    assert snapshot["repair_preview"]["schema"] == "deterministic_repair_preview_v1"
+    assert snapshot["repair_execution"]["dry_run"]["status"] == "preview_only"
+    assert snapshot["repair_execution"]["apply_run"]["schema"] == "deterministic_repair_execution_v1"
+    assert snapshot["verification_model"]["schema"] == "deterministic_repair_verification_v1"
+    assert snapshot["final_repair_verification"]["schema"] == "deterministic_repair_final_verification_v1"
+    assert snapshot["recovery_hints"]["schema"] == "deterministic_repair_recovery_hints_v1"
+    assert snapshot["outcome_memory_model"]["schema"] == "deterministic_repair_outcome_memory_v1"
+    assert snapshot["outcome_memory_entry"]["schema"] == "deterministic_repair_outcome_memory_entry_v1"
+    assert snapshot["outcome_tracking"]["schema"] == "deterministic_repair_outcome_tracking_v1"

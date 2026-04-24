@@ -97,6 +97,8 @@ class TestGoalsAPI:
         assert persisted_goal.mode_data["deterministic_repair_foundation"]["evidence_ingestion_model"]["allowed_evidence_types"]
         assert persisted_goal.mode_data["deterministic_repair_foundation"]["signature_matching"]["schema"] == "deterministic_signature_matching_v1"
         assert persisted_goal.mode_data["deterministic_repair_foundation"]["repair_procedure_model"]["schema"] == "deterministic_repair_procedure_v1"
+        assert persisted_goal.mode_data["deterministic_repair_foundation"]["repair_catalog"]["schema"] == "deterministic_repair_catalog_v1"
+        assert persisted_goal.mode_data["deterministic_repair_foundation"]["final_repair_verification"]["schema"] == "deterministic_repair_final_verification_v1"
         assert persisted_goal.mode_data["session_trail"]["entries"]
         assert persisted_goal.mode_data["cli_output"]["sections"][0]["id"] == "diagnosis"
         assert persisted_goal.mode_data["smoke_scenarios"]

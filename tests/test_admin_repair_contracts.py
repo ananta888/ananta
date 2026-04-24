@@ -23,6 +23,9 @@ def test_admin_repair_mode_data_contains_hook_ready_contract_fields():
     assert payload["deterministic_repair_foundation"]["signature_matching"]["schema"] == "deterministic_signature_matching_v1"
     assert payload["deterministic_repair_foundation"]["diagnosis_procedure_model"]["schema"] == "deterministic_diagnosis_procedure_v1"
     assert payload["deterministic_repair_foundation"]["repair_procedure_model"]["schema"] == "deterministic_repair_procedure_v1"
+    assert payload["deterministic_repair_foundation"]["repair_catalog"]["schema"] == "deterministic_repair_catalog_v1"
+    assert payload["deterministic_repair_foundation"]["repair_execution"]["apply_run"]["schema"] == "deterministic_repair_execution_v1"
+    assert payload["deterministic_repair_foundation"]["outcome_tracking"]["schema"] == "deterministic_repair_outcome_tracking_v1"
 
     required_fields = {
         "risk_class",
