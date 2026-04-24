@@ -48,6 +48,94 @@ export class HubTasksApiClient {
     return this.core.post<any>(`${baseUrl}/goals`, body, baseUrl, token, false, timeoutMs);
   }
 
+  getInstructionLayerModel(baseUrl: string, token?: string): Observable<any> {
+    return this.core.get<any>(`${baseUrl}/instruction-layers/model`, baseUrl, token, true);
+  }
+  getInstructionLayersEffective(
+    baseUrl: string,
+    params?: {
+      owner_username?: string;
+      task_id?: string;
+      goal_id?: string;
+      session_id?: string;
+      usage_key?: string;
+      base_prompt?: string;
+      profile_id?: string;
+      overlay_id?: string;
+    },
+    token?: string,
+  ): Observable<any> {
+    const q = new URLSearchParams();
+    if (params?.owner_username) q.set('owner_username', params.owner_username);
+    if (params?.task_id) q.set('task_id', params.task_id);
+    if (params?.goal_id) q.set('goal_id', params.goal_id);
+    if (params?.session_id) q.set('session_id', params.session_id);
+    if (params?.usage_key) q.set('usage_key', params.usage_key);
+    if (params?.base_prompt) q.set('base_prompt', params.base_prompt);
+    if (params?.profile_id) q.set('profile_id', params.profile_id);
+    if (params?.overlay_id) q.set('overlay_id', params.overlay_id);
+    const query = q.toString();
+    return this.core.get<any>(`${baseUrl}/instruction-layers/effective${query ? `?${query}` : ''}`, baseUrl, token, true, 60000);
+  }
+  listInstructionProfiles(baseUrl: string, ownerUsername?: string, token?: string): Observable<any[]> {
+    const q = new URLSearchParams();
+    if (ownerUsername) q.set('owner_username', ownerUsername);
+    const query = q.toString();
+    return this.core.get<any[]>(`${baseUrl}/instruction-profiles${query ? `?${query}` : ''}`, baseUrl, token, true);
+  }
+  listInstructionProfileExamples(baseUrl: string, token?: string): Observable<any[]> {
+    return this.core.get<any[]>(`${baseUrl}/instruction-profiles/examples`, baseUrl, token, true);
+  }
+  createInstructionProfile(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/instruction-profiles`, body, baseUrl, token);
+  }
+  patchInstructionProfile(baseUrl: string, profileId: string, body: any, token?: string): Observable<any> {
+    return this.core.patch<any>(`${baseUrl}/instruction-profiles/${profileId}`, body, baseUrl, token);
+  }
+  deleteInstructionProfile(baseUrl: string, profileId: string, token?: string): Observable<any> {
+    return this.core.delete<any>(`${baseUrl}/instruction-profiles/${profileId}`, baseUrl, token);
+  }
+  selectInstructionProfile(baseUrl: string, profileId: string, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/instruction-profiles/${profileId}/select`, {}, baseUrl, token);
+  }
+
+  listInstructionOverlays(
+    baseUrl: string,
+    filters?: { owner_username?: string; attachment_kind?: string; attachment_id?: string },
+    token?: string,
+  ): Observable<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.owner_username) q.set('owner_username', filters.owner_username);
+    if (filters?.attachment_kind) q.set('attachment_kind', filters.attachment_kind);
+    if (filters?.attachment_id) q.set('attachment_id', filters.attachment_id);
+    const query = q.toString();
+    return this.core.get<any[]>(`${baseUrl}/instruction-overlays${query ? `?${query}` : ''}`, baseUrl, token, true);
+  }
+  createInstructionOverlay(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/instruction-overlays`, body, baseUrl, token);
+  }
+  patchInstructionOverlay(baseUrl: string, overlayId: string, body: any, token?: string): Observable<any> {
+    return this.core.patch<any>(`${baseUrl}/instruction-overlays/${overlayId}`, body, baseUrl, token);
+  }
+  deleteInstructionOverlay(baseUrl: string, overlayId: string, token?: string): Observable<any> {
+    return this.core.delete<any>(`${baseUrl}/instruction-overlays/${overlayId}`, baseUrl, token);
+  }
+  selectInstructionOverlay(baseUrl: string, overlayId: string, body?: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/instruction-overlays/${overlayId}/select`, body || {}, baseUrl, token);
+  }
+  attachInstructionOverlay(baseUrl: string, overlayId: string, body: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/instruction-overlays/${overlayId}/attach`, body, baseUrl, token);
+  }
+  detachInstructionOverlay(baseUrl: string, overlayId: string, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/instruction-overlays/${overlayId}/detach`, {}, baseUrl, token);
+  }
+  setGoalInstructionSelection(baseUrl: string, goalId: string, body: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/goals/${goalId}/instruction-selection`, body, baseUrl, token);
+  }
+  setTaskInstructionSelection(baseUrl: string, taskId: string, body: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/tasks/${taskId}/instruction-selection`, body, baseUrl, token);
+  }
+
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks/${id}/logs`, baseUrl, token, true); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.streamTaskLogs(baseUrl, id, token); }
 

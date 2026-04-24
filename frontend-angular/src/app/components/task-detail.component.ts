@@ -364,6 +364,85 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
         </div>
 
         <div class="card">
+          <div class="row space-between">
+            <div>
+              <h3 class="no-margin">Instruction Layers</h3>
+              <p class="muted font-sm mt-5 no-margin">Profil = persistenter Stil, Overlay = task/session-spezifische Zusatzanweisung.</p>
+            </div>
+            <a class="button-outline" [routerLink]="['/instruction-layers']">Workbench</a>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <div>
+              <div class="muted">Aktives Profil</div>
+              <strong>{{ task?.instruction_layers?.selected_profile?.name || '-' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Aktives Overlay</div>
+              <strong>{{ task?.instruction_layers?.selected_overlay?.name || '-' }}</strong>
+            </div>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <label>Profil fuer diese Task
+              <select [(ngModel)]="instructionProfileSelectionId">
+                <option value="">-</option>
+                @for (profile of instructionProfiles; track profile.id) {
+                  <option [value]="profile.id">{{ profile.name }}</option>
+                }
+              </select>
+            </label>
+            <label>Overlay fuer diese Task
+              <select [(ngModel)]="instructionOverlaySelectionId">
+                <option value="">-</option>
+                @for (overlay of instructionOverlays; track overlay.id) {
+                  <option [value]="overlay.id">{{ overlay.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="row gap-sm mt-sm">
+            <button type="button" (click)="saveInstructionSelection()" [disabled]="instructionSelectionBusy">Auswahl speichern</button>
+            <button class="secondary" type="button" (click)="refreshInstructionCompatibility()">Compatibility aktualisieren</button>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <label>Session reuse: Overlay
+              <select [(ngModel)]="instructionSessionOverlayId">
+                <option value="">-</option>
+                @for (overlay of instructionOverlays; track overlay.id) {
+                  <option [value]="overlay.id">{{ overlay.name }}</option>
+                }
+              </select>
+            </label>
+            <label>Session ID
+              <input [(ngModel)]="instructionSessionId" placeholder="session-id" />
+            </label>
+          </div>
+          <div class="row gap-sm mt-sm">
+            <button class="secondary" type="button" (click)="attachOverlayToSession()" [disabled]="instructionSelectionBusy || !instructionSessionOverlayId || !instructionSessionId">Overlay an Session binden</button>
+          </div>
+          @if (instructionCompatibility) {
+            <div class="card card-light mt-sm">
+              <div class="row space-between">
+                <strong>Template Compatibility</strong>
+                <span class="badge" [class.success]="instructionCompatibility.status === 'ok'" [class.warning]="instructionCompatibility.status === 'warn'" [class.danger]="instructionCompatibility.status === 'block'">
+                  {{ instructionCompatibility.status }}
+                </span>
+              </div>
+              <div class="muted font-sm mt-5">
+                Role: {{ instructionCompatibility.role_template_context?.role_name || '-' }}
+                | Template: {{ instructionCompatibility.role_template_context?.template_name || '-' }}
+              </div>
+              @if (instructionCompatibility.issues?.length) {
+                <ul class="mt-sm">
+                  @for (issue of instructionCompatibility.issues; track issue.code + issue.layer_id) {
+                    <li>{{ issue.severity }}: {{ issue.message }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="card">
           <h3 class="no-margin">Worker-Run & Provenance</h3>
           <div class="grid cols-2 mt-sm">
             <div>
@@ -614,6 +693,14 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   loadingLogs = false;
   hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
   availableProviders: any[] = [];
+  instructionProfiles: any[] = [];
+  instructionOverlays: any[] = [];
+  instructionProfileSelectionId = '';
+  instructionOverlaySelectionId = '';
+  instructionSessionOverlayId = '';
+  instructionSessionId = '';
+  instructionSelectionBusy = false;
+  instructionCompatibility: any = null;
   isAdmin = false;
   showAdminDrilldown = false;
   taskTerminalMode: 'task' | 'diagnostic' = 'task';
@@ -639,6 +726,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     if (this.hub?.url) {
       this.taskFacade.connectTaskCollection(this.hub.url);
       this.taskFacade.reloadTaskCollection();
+      this.loadInstructionOptions();
     }
   }
 
@@ -699,6 +787,85 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadInstructionOptions() {
+    if (!this.hub) return;
+    this.taskFacade.listInstructionProfiles(this.hub.url).subscribe({
+      next: (profiles: any[]) => {
+        this.instructionProfiles = Array.isArray(profiles) ? profiles : [];
+        this.ensureInstructionSelections();
+      },
+      error: () => this.ns.error('Instruction-Profile konnten nicht geladen werden')
+    });
+    this.taskFacade.listInstructionOverlays(this.hub.url).subscribe({
+      next: (overlays: any[]) => {
+        this.instructionOverlays = Array.isArray(overlays) ? overlays : [];
+        this.ensureInstructionSelections();
+      },
+      error: () => this.ns.error('Instruction-Overlays konnten nicht geladen werden')
+    });
+  }
+
+  private ensureInstructionSelections() {
+    const profileIds = new Set(this.instructionProfiles.map(item => item.id));
+    const overlayIds = new Set(this.instructionOverlays.map(item => item.id));
+    if (this.instructionProfileSelectionId && !profileIds.has(this.instructionProfileSelectionId)) this.instructionProfileSelectionId = '';
+    if (this.instructionOverlaySelectionId && !overlayIds.has(this.instructionOverlaySelectionId)) this.instructionOverlaySelectionId = '';
+    if (this.instructionSessionOverlayId && !overlayIds.has(this.instructionSessionOverlayId)) this.instructionSessionOverlayId = '';
+  }
+
+  saveInstructionSelection() {
+    if (!this.hub) return;
+    this.instructionSelectionBusy = true;
+    this.taskFacade.setTaskInstructionSelection(this.hub.url, this.tid, {
+      profile_id: this.instructionProfileSelectionId || null,
+      overlay_id: this.instructionOverlaySelectionId || null,
+    }).pipe(
+      finalize(() => this.instructionSelectionBusy = false)
+    ).subscribe({
+      next: (summary) => {
+        this.task = { ...(this.task || {}), instruction_layers: summary };
+        this.ns.success('Instruction-Auswahl gespeichert');
+        this.refreshInstructionCompatibility();
+      },
+      error: (err) => this.ns.error(this.ns.fromApiError(err, 'Instruction-Auswahl konnte nicht gespeichert werden'))
+    });
+  }
+
+  attachOverlayToSession() {
+    if (!this.hub || !this.instructionSessionOverlayId || !this.instructionSessionId) return;
+    this.instructionSelectionBusy = true;
+    this.taskFacade.attachInstructionOverlay(
+      this.hub.url,
+      this.instructionSessionOverlayId,
+      { attachment_kind: 'session', attachment_id: this.instructionSessionId }
+    ).pipe(
+      finalize(() => this.instructionSelectionBusy = false)
+    ).subscribe({
+      next: () => {
+        this.ns.success('Overlay an Session gebunden');
+        this.loadInstructionOptions();
+      },
+      error: (err) => this.ns.error(this.ns.fromApiError(err, 'Session-Bindung fehlgeschlagen'))
+    });
+  }
+
+  refreshInstructionCompatibility() {
+    if (!this.hub || !this.tid) return;
+    this.taskFacade.getInstructionLayersEffective(this.hub.url, {
+      task_id: this.tid,
+      profile_id: this.instructionProfileSelectionId || undefined,
+      overlay_id: this.instructionOverlaySelectionId || undefined,
+      base_prompt: 'task-detail-compatibility-preview',
+    }).subscribe({
+      next: (payload: any) => {
+        this.instructionCompatibility = payload?.diagnostics?.template_compatibility || null;
+      },
+      error: () => {
+        this.instructionCompatibility = null;
+      }
+    });
+  }
+
   get tid(){ return this.route.snapshot.paramMap.get('id')!; }
 
   setTab(tab: string) {
@@ -717,11 +884,14 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
       next: t => {
         this.task = t;
         this.assignUrl = t?.assignment?.agent_url;
+        this.instructionProfileSelectionId = String(t?.instruction_layers?.profile_id || '');
+        this.instructionOverlaySelectionId = String(t?.instruction_layers?.overlay_id || '');
         if (!this.proposedTouched) {
           this.proposed = t?.last_proposal?.command || '';
           this.toolCalls = t?.last_proposal?.tool_calls || [];
         }
         this.comparisons = t?.last_proposal?.comparisons || null;
+        this.refreshInstructionCompatibility();
         if (this.activeTab === 'logs' && !this.activeLogTaskId) this.startStreaming();
         this.loadSubtasks();
       },

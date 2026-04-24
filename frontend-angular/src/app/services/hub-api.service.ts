@@ -72,6 +72,72 @@ export class HubApiService {
   createGoal(baseUrl: string, body: any, token?: string, timeoutMs?: number): Observable<any> {
     return this.tasks.createGoal(baseUrl, body, token, timeoutMs);
   }
+  getInstructionLayerModel(baseUrl: string, token?: string): Observable<any> { return this.tasks.getInstructionLayerModel(baseUrl, token); }
+  getInstructionLayersEffective(
+    baseUrl: string,
+    params?: {
+      owner_username?: string;
+      task_id?: string;
+      goal_id?: string;
+      session_id?: string;
+      usage_key?: string;
+      base_prompt?: string;
+      profile_id?: string;
+      overlay_id?: string;
+    },
+    token?: string,
+  ): Observable<any> {
+    return this.tasks.getInstructionLayersEffective(baseUrl, params, token);
+  }
+  listInstructionProfiles(baseUrl: string, ownerUsername?: string, token?: string): Observable<any[]> {
+    return this.tasks.listInstructionProfiles(baseUrl, ownerUsername, token);
+  }
+  listInstructionProfileExamples(baseUrl: string, token?: string): Observable<any[]> {
+    return this.tasks.listInstructionProfileExamples(baseUrl, token);
+  }
+  createInstructionProfile(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.tasks.createInstructionProfile(baseUrl, body, token);
+  }
+  patchInstructionProfile(baseUrl: string, profileId: string, body: any, token?: string): Observable<any> {
+    return this.tasks.patchInstructionProfile(baseUrl, profileId, body, token);
+  }
+  deleteInstructionProfile(baseUrl: string, profileId: string, token?: string): Observable<any> {
+    return this.tasks.deleteInstructionProfile(baseUrl, profileId, token);
+  }
+  selectInstructionProfile(baseUrl: string, profileId: string, token?: string): Observable<any> {
+    return this.tasks.selectInstructionProfile(baseUrl, profileId, token);
+  }
+  listInstructionOverlays(
+    baseUrl: string,
+    filters?: { owner_username?: string; attachment_kind?: string; attachment_id?: string },
+    token?: string,
+  ): Observable<any[]> {
+    return this.tasks.listInstructionOverlays(baseUrl, filters, token);
+  }
+  createInstructionOverlay(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.tasks.createInstructionOverlay(baseUrl, body, token);
+  }
+  patchInstructionOverlay(baseUrl: string, overlayId: string, body: any, token?: string): Observable<any> {
+    return this.tasks.patchInstructionOverlay(baseUrl, overlayId, body, token);
+  }
+  deleteInstructionOverlay(baseUrl: string, overlayId: string, token?: string): Observable<any> {
+    return this.tasks.deleteInstructionOverlay(baseUrl, overlayId, token);
+  }
+  selectInstructionOverlay(baseUrl: string, overlayId: string, body?: any, token?: string): Observable<any> {
+    return this.tasks.selectInstructionOverlay(baseUrl, overlayId, body, token);
+  }
+  attachInstructionOverlay(baseUrl: string, overlayId: string, body: any, token?: string): Observable<any> {
+    return this.tasks.attachInstructionOverlay(baseUrl, overlayId, body, token);
+  }
+  detachInstructionOverlay(baseUrl: string, overlayId: string, token?: string): Observable<any> {
+    return this.tasks.detachInstructionOverlay(baseUrl, overlayId, token);
+  }
+  setGoalInstructionSelection(baseUrl: string, goalId: string, body: any, token?: string): Observable<any> {
+    return this.tasks.setGoalInstructionSelection(baseUrl, goalId, body, token);
+  }
+  setTaskInstructionSelection(baseUrl: string, taskId: string, body: any, token?: string): Observable<any> {
+    return this.tasks.setTaskInstructionSelection(baseUrl, taskId, body, token);
+  }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.tasks.taskLogs(baseUrl, id, token); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.streamTaskLogs(baseUrl, id, token); }
   listArchivedTasks(baseUrl: string, token?: string, limit = 100, offset = 0): Observable<any[]> {

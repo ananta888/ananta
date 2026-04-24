@@ -34,6 +34,17 @@ For lifecycle-sensitive overlays, use `scope` intentionally:
 
 Conflicts are rejected with `instruction_policy_conflict`.
 
+## Optional compatibility metadata
+
+If a profile or overlay should be constrained to specific role/template contexts, use metadata under `compatibility`:
+
+- `blocked_template_contexts`: e.g. `["review"]`
+- `allowed_template_contexts`: e.g. `["research", "implementation"]`
+- `forbidden_template_keywords`: e.g. `["production-release"]`
+- `required_template_keywords`: e.g. `["analysis"]`
+
+When a task role/template context conflicts, diagnostics show `template_compatibility` with `warn` or `block`.
+
 ## Preset examples
 
 The backend exposes safe starter profiles via:

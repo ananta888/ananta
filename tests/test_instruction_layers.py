@@ -3,7 +3,7 @@ import time
 import jwt
 
 from agent.config import settings
-from agent.db_models import GoalDB, InstructionOverlayDB, TaskDB, UserInstructionProfileDB
+from agent.db_models import GoalDB, InstructionOverlayDB, RoleDB, TaskDB, TemplateDB, UserInstructionProfileDB
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 
@@ -514,3 +514,111 @@ def test_goal_read_model_exposes_selected_overlay_summary(client, user_auth_head
     assert layers["selected_overlay"]["id"] == overlay_id
     assert layers["selected_overlay"]["attachment_kind"] == "goal"
     assert layers["selected_overlay"]["attachment_id"] == "inst-goal-read-model"
+
+
+def test_effective_stack_reports_role_template_compatibility_warning(client, user_auth_header, app):
+    with app.app_context():
+        repos = get_repository_registry()
+        template = repos.template_repo.save(
+            TemplateDB(
+                name="review-template-compat",
+                description="Template focused on review checks",
+                prompt_template="Review every change for risks first.",
+            )
+        )
+        role = repos.role_repo.save(
+            RoleDB(
+                name="Code Reviewer Compatibility",
+                default_template_id=template.id,
+            )
+        )
+        repos.task_repo.save(
+            TaskDB(
+                id="inst-task-compat-warn",
+                title="Compatibility warn",
+                status="todo",
+                assigned_role_id=role.id,
+            )
+        )
+
+    profile_res = client.post(
+        "/instruction-profiles",
+        headers=user_auth_header,
+        json={
+            "name": "compat-warn-profile",
+            "prompt_content": "Focus on implementation speed and shipping quickly.",
+            "profile_metadata": {"preferences": {"working_mode": "implementation"}},
+        },
+    )
+    assert profile_res.status_code == 201
+    profile_id = profile_res.get_json()["data"]["id"]
+
+    selection_res = client.post(
+        "/tasks/inst-task-compat-warn/instruction-selection",
+        headers=user_auth_header,
+        json={"profile_id": profile_id},
+    )
+    assert selection_res.status_code == 200
+    selection_compat = selection_res.get_json()["data"]["template_compatibility"]
+    assert selection_compat["status"] == "warn"
+
+    effective_res = client.get(
+        "/instruction-layers/effective?task_id=inst-task-compat-warn&base_prompt=Run compatibility preview",
+        headers=user_auth_header,
+    )
+    assert effective_res.status_code == 200
+    compatibility = effective_res.get_json()["data"]["diagnostics"]["template_compatibility"]
+    assert compatibility["status"] == "warn"
+    issue_codes = {item["code"] for item in compatibility["issues"]}
+    assert "working_mode_template_mismatch" in issue_codes
+
+
+def test_task_selection_blocks_incompatible_template_context(client, user_auth_header, app):
+    with app.app_context():
+        repos = get_repository_registry()
+        template = repos.template_repo.save(
+            TemplateDB(
+                name="qa-review-template-block",
+                description="Template with strict review expectations",
+                prompt_template="Prioritize review quality and auditability.",
+            )
+        )
+        role = repos.role_repo.save(
+            RoleDB(
+                name="QA Reviewer Compatibility",
+                default_template_id=template.id,
+            )
+        )
+        repos.task_repo.save(
+            TaskDB(
+                id="inst-task-compat-block",
+                title="Compatibility block",
+                status="todo",
+                assigned_role_id=role.id,
+            )
+        )
+
+    profile_res = client.post(
+        "/instruction-profiles",
+        headers=user_auth_header,
+        json={
+            "name": "compat-block-profile",
+            "prompt_content": "Implementation profile that must avoid review templates.",
+            "profile_metadata": {
+                "preferences": {"working_mode": "implementation"},
+                "compatibility": {"blocked_template_contexts": ["review"]},
+            },
+        },
+    )
+    assert profile_res.status_code == 201
+    profile_id = profile_res.get_json()["data"]["id"]
+
+    selection_res = client.post(
+        "/tasks/inst-task-compat-block/instruction-selection",
+        headers=user_auth_header,
+        json={"profile_id": profile_id},
+    )
+    assert selection_res.status_code == 409
+    payload = selection_res.get_json()
+    assert payload["message"] == "instruction_template_incompatible"
+    assert payload["data"]["status"] == "block"

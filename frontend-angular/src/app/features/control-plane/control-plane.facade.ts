@@ -119,6 +119,22 @@ export class ControlPlaneFacade {
     return this.hubApi.listGoalModes(baseUrl, token);
   }
 
+  listInstructionProfiles(baseUrl: string, ownerUsername?: string, token?: string) {
+    return this.hubApi.listInstructionProfiles(baseUrl, ownerUsername, token);
+  }
+
+  listInstructionOverlays(
+    baseUrl: string,
+    filters?: { owner_username?: string; attachment_kind?: string; attachment_id?: string },
+    token?: string,
+  ) {
+    return this.hubApi.listInstructionOverlays(baseUrl, filters, token);
+  }
+
+  setGoalInstructionSelection(baseUrl: string, goalId: string, body: any, token?: string) {
+    return this.hubApi.setGoalInstructionSelection(baseUrl, goalId, body, token);
+  }
+
   configureAutoPlanner(baseUrl: string, config: any, token?: string) {
     return this.hubApi.configureAutoPlanner(baseUrl, config, token);
   }
