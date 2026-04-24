@@ -493,6 +493,62 @@ LLM_ESCALATION_POLICY_MODEL: dict[str, Any] = {
     ],
 }
 
+UNSAFE_ACTION_GUARDRAIL_MODEL: dict[str, Any] = {
+    "schema": "deterministic_unsafe_action_guardrails_v1",
+    "blocked_patterns": [
+        r"\brm\s+-rf\s+/\b",
+        r"\bmkfs\b",
+        r"\bdd\s+if=",
+        r"\bshutdown\b",
+        r"\breboot\b",
+        r"\bdel\s+/f\s+/s\b",
+        r":\(\)\{:\|:&\};:",
+    ],
+    "out_of_scope_patterns": [
+        r"\bkubernetes\b",
+        r"\bterraform\b",
+        r"\bnetwork\s+firewall\s+rewrite\b",
+        r"\bactive\s+directory\s+domain\b",
+    ],
+    "fail_closed": True,
+}
+
+OPERATOR_VIEW_MODEL: dict[str, Any] = {
+    "schema": "deterministic_operator_views_v1",
+    "views": [
+        "session_summary",
+        "path_visibility",
+        "proposal_preview",
+        "history_inspection",
+    ],
+}
+
+OPERATOR_GUIDE_METADATA: dict[str, Any] = {
+    "schema": "deterministic_operator_guide_v1",
+    "doc_path": "docs/deterministic-repair-operator-guide.md",
+    "topics": [
+        "deterministic_flow",
+        "approval_and_guardrails",
+        "llm_escalation",
+        "safety_notes",
+    ],
+}
+
+ROLLOUT_PLAN_MODEL: dict[str, Any] = {
+    "schema": "deterministic_repair_rollout_plan_v1",
+    "phases": ["pilot", "expanded_common_classes", "governed_default"],
+}
+
+TEST_COVERAGE_MODEL: dict[str, Any] = {
+    "schema": "deterministic_repair_test_coverage_v1",
+    "areas": [
+        "signature_matching",
+        "diagnosis_and_repair_execution",
+        "memory_and_ranking",
+        "governance_and_escalation",
+    ],
+}
+
 STANDARD_OUTCOME_LABELS: tuple[str, ...] = ("succeeded", "partially_helped", "failed", "regressed")
 
 
@@ -1109,6 +1165,9 @@ def execute_repair_procedure(
     procedure = dict(selected_catalog_entry.get("procedure") or {})
     procedure_id = str(procedure.get("id") or "unknown_procedure")
     steps = list(procedure.get("steps") or [])
+    guardrail_evaluation = evaluate_unsafe_action_guardrails(
+        proposed_actions=[str(step.get("title") or "") for step in steps],
+    )
     procedure_safety_class = str(procedure.get("safety_class") or "safe")
     procedure_requires_approval = procedure_safety_class in set(policy.get("requires_approval_for_safety_classes") or [])
     scope_key = _approval_scope_key(
@@ -1133,6 +1192,35 @@ def execute_repair_procedure(
     step_records: list[dict[str, Any]] = []
     abort_conditions: list[dict[str, Any]] = []
     stop_reason = None
+
+    if guardrail_evaluation["blocked_actions"] and guardrail_evaluation["fail_closed"]:
+        abort_conditions.append(
+            {
+                "code": "unsafe_action_guardrail_block",
+                "severity": "critical",
+                "step_id": None,
+                "message": "Execution blocked by unsafe action guardrails.",
+                "blocked_actions": list(guardrail_evaluation["blocked_actions"]),
+            }
+        )
+        return {
+            "schema": "deterministic_repair_execution_v1",
+            "procedure_id": procedure_id,
+            "problem_class": selected_catalog_entry.get("problem_class"),
+            "procedure_safety_class": procedure_safety_class,
+            "execution_mode": "dry_run" if dry_run else "apply",
+            "status": "blocked",
+            "safety_policy": policy,
+            "approval": approval_context,
+            "steps": step_records,
+            "abort_conditions": abort_conditions,
+            "stop_reason": "unsafe_action_guardrail_block",
+            "clean_stop": True,
+            "bounded_execution_enforced": True,
+            "worsening_signals_detected": worsening,
+            "contradictory_evidence_detected": contradictory,
+            "unsafe_action_guardrails": guardrail_evaluation,
+        }
 
     for step in steps:
         step_id = str(step.get("id") or "")
@@ -1234,6 +1322,7 @@ def execute_repair_procedure(
         "bounded_execution_enforced": True,
         "worsening_signals_detected": worsening,
         "contradictory_evidence_detected": contradictory,
+        "unsafe_action_guardrails": guardrail_evaluation,
     }
 
 
@@ -1722,6 +1811,228 @@ def build_repair_audit_chain(
     }
 
 
+def evaluate_unsafe_action_guardrails(
+    *,
+    proposed_actions: list[str],
+) -> dict[str, Any]:
+    blocked: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    allowed_actions: list[str] = []
+    blocked_patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in UNSAFE_ACTION_GUARDRAIL_MODEL["blocked_patterns"]]
+    out_of_scope_patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in UNSAFE_ACTION_GUARDRAIL_MODEL["out_of_scope_patterns"]]
+    for action in proposed_actions:
+        text = str(action or "").strip()
+        if not text:
+            continue
+        blocked_match = next((pattern.pattern for pattern in blocked_patterns if pattern.search(text)), None)
+        if blocked_match:
+            blocked.append(
+                {
+                    "action": text,
+                    "reason": "blocked_pattern",
+                    "matched_pattern": blocked_match,
+                    "severity": "critical",
+                }
+            )
+            continue
+        out_of_scope_match = next((pattern.pattern for pattern in out_of_scope_patterns if pattern.search(text)), None)
+        if out_of_scope_match:
+            blocked.append(
+                {
+                    "action": text,
+                    "reason": "out_of_scope",
+                    "matched_pattern": out_of_scope_match,
+                    "severity": "high",
+                }
+            )
+            continue
+        if len(text) > 180:
+            warnings.append(
+                {
+                    "action": text[:180],
+                    "reason": "action_text_truncated_for_review",
+                }
+            )
+        allowed_actions.append(text)
+    return {
+        "schema": "deterministic_unsafe_action_guardrail_evaluation_v1",
+        "blocked_actions": blocked,
+        "warnings": warnings,
+        "allowed_actions": allowed_actions,
+        "fail_closed": bool(UNSAFE_ACTION_GUARDRAIL_MODEL.get("fail_closed", True)),
+    }
+
+
+def build_operator_session_summary(
+    *,
+    diagnosis_run: dict[str, Any],
+    matching_outcome: dict[str, Any],
+    repair_execution_result: dict[str, Any],
+    final_verification: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema": "deterministic_operator_session_summary_v1",
+        "current_state": final_verification.get("outcome_label"),
+        "detected_signature_class": matching_outcome.get("best_problem_class"),
+        "chosen_path": {
+            "diagnosis_playbook": diagnosis_run.get("playbook_id"),
+            "procedure_id": repair_execution_result.get("procedure_id"),
+            "execution_status": repair_execution_result.get("status"),
+        },
+        "verification_status": final_verification.get("verification_summary"),
+        "compact_view": True,
+    }
+
+
+def build_path_visibility(
+    *,
+    llm_escalation_decision: dict[str, Any],
+    matching_outcome: dict[str, Any],
+) -> dict[str, Any]:
+    if bool(llm_escalation_decision.get("should_escalate")):
+        path_type = "llm_escalated"
+    elif str(matching_outcome.get("outcome") or "") == "ambiguous_high_confidence":
+        path_type = "mixed"
+    else:
+        path_type = "deterministic"
+    return {
+        "schema": "deterministic_path_visibility_v1",
+        "path_type": path_type,
+        "matching_outcome": matching_outcome.get("outcome"),
+        "escalation_reasons": list(llm_escalation_decision.get("reasons") or []),
+        "operator_visible": True,
+    }
+
+
+def build_operator_proposal_preview(
+    *,
+    repair_preview: dict[str, Any],
+    selected_catalog_entry: dict[str, Any],
+) -> dict[str, Any]:
+    procedure = dict(selected_catalog_entry.get("procedure") or {})
+    steps = list(procedure.get("steps") or [])
+    preview_steps = [
+        {
+            "id": step.get("id"),
+            "title": step.get("title"),
+            "mutation_candidate": bool(step.get("mutation_candidate")),
+            "expected_verification": "step_verification_required",
+        }
+        for step in steps
+    ]
+    return {
+        "schema": "deterministic_operator_proposal_preview_v1",
+        "procedure_id": repair_preview.get("procedure_id"),
+        "problem_class": repair_preview.get("problem_class"),
+        "steps": preview_steps,
+        "approval_decision_ready": True,
+        "compact_view": True,
+    }
+
+
+def build_repair_history_inspection_view(
+    *,
+    memory_entries: list[dict[str, Any]],
+    filter_problem_class: str | None = None,
+    filter_platform_target: str | None = None,
+) -> dict[str, Any]:
+    filtered = []
+    for entry in memory_entries:
+        problem_class = str(entry.get("problem_class") or "")
+        platform_target = str((entry.get("environment_facts") or {}).get("platform_target") or "")
+        if filter_problem_class and problem_class != filter_problem_class:
+            continue
+        if filter_platform_target and platform_target != filter_platform_target:
+            continue
+        filtered.append(
+            {
+                "procedure_id": entry.get("procedure_id"),
+                "problem_class": problem_class,
+                "platform_target": platform_target,
+                "outcome_label": entry.get("outcome_label"),
+                "signature_id": entry.get("signature_id"),
+            }
+        )
+    return {
+        "schema": "deterministic_repair_history_inspection_v1",
+        "entries": filtered,
+        "filters": {
+            "problem_class": filter_problem_class,
+            "platform_target": filter_platform_target,
+        },
+    }
+
+
+def build_golden_path_examples() -> dict[str, Any]:
+    return {
+        "schema": "deterministic_repair_golden_paths_v1",
+        "examples": [
+            {
+                "id": "golden-service-start-failure",
+                "problem_class": "service_start_failure",
+                "flow": ["diagnosis", "proposal_preview", "verification", "result_recording"],
+            },
+            {
+                "id": "golden-package-install-failure",
+                "problem_class": "package_install_failure",
+                "flow": ["diagnosis", "proposal_preview", "verification", "result_recording"],
+            },
+            {
+                "id": "golden-port-conflict",
+                "problem_class": "port_conflict",
+                "flow": ["diagnosis", "proposal_preview", "verification", "result_recording"],
+            },
+        ],
+    }
+
+
+def build_rollout_plan() -> dict[str, Any]:
+    return {
+        "schema": "deterministic_repair_rollout_plan_v1",
+        "phases": [
+            {
+                "name": "pilot",
+                "supported_classes": ["service_start_failure", "package_install_failure"],
+                "gating": "approval_required_for_mutation",
+            },
+            {
+                "name": "expanded_common_classes",
+                "supported_classes": ["port_conflict", "path_issue", "compose_failure"],
+                "gating": "bounded_execution_and_guardrails",
+            },
+            {
+                "name": "governed_default",
+                "supported_classes": ["all_curated_classes"],
+                "gating": "audit_and_policy_enforced",
+            },
+        ],
+        "rollout_mode": "phased",
+    }
+
+
+def build_test_coverage_manifest() -> dict[str, Any]:
+    return {
+        "schema": "deterministic_repair_test_coverage_manifest_v1",
+        "coverage_areas": [
+            {
+                "area": "signature_matching",
+                "status": "covered",
+                "focus": ["representative_failure_classes", "ambiguous_and_no_match_paths"],
+            },
+            {
+                "area": "diagnosis_and_repair_flows",
+                "status": "covered",
+                "focus": ["approval_gating", "verification_and_safe_stop"],
+            },
+            {
+                "area": "memory_and_ranking",
+                "status": "covered",
+                "focus": ["success_failure_recording", "environment_similarity", "negative_learning"],
+            },
+        ],
+    }
+
+
 def evaluate_repair_confidence(
     *,
     signature_strength: float,
@@ -2046,6 +2357,35 @@ def build_deterministic_repair_foundation_snapshot(
         final_verification=final_verification,
         llm_escalation_decision=llm_escalation_decision,
     )
+    operator_session_summary = build_operator_session_summary(
+        diagnosis_run=diagnosis_run,
+        matching_outcome=matching_outcome,
+        repair_execution_result=repair_execution_apply,
+        final_verification=final_verification,
+    )
+    path_visibility = build_path_visibility(
+        llm_escalation_decision=llm_escalation_decision,
+        matching_outcome=matching_outcome,
+    )
+    operator_proposal_preview = build_operator_proposal_preview(
+        repair_preview=repair_preview,
+        selected_catalog_entry=selected_catalog_entry,
+    )
+    repair_history_view = build_repair_history_inspection_view(
+        memory_entries=[memory_entry],
+        filter_problem_class=selected_problem_class,
+        filter_platform_target=(str(environment_facts.get("platform_target")) if environment_facts.get("platform_target") else None),
+    )
+    golden_path_examples = build_golden_path_examples()
+    rollout_plan = build_rollout_plan()
+    test_coverage_manifest = build_test_coverage_manifest()
+    unsafe_action_guardrails = evaluate_unsafe_action_guardrails(
+        proposed_actions=[
+            str(step.get("title") or "")
+            for step in list((selected_catalog_entry.get("procedure") or {}).get("steps") or [])
+        ]
+        + [str(step.get("title") or "") for step in list((llm_proposal_conversion.get("structured_candidate_procedure") or {}).get("steps") or [])],
+    )
     return {
         "target_model": dict(REPAIR_PATH_TARGET_MODEL),
         "problem_class_inventory": dict(REPAIR_PROBLEM_CLASS_INVENTORY),
@@ -2123,4 +2463,16 @@ def build_deterministic_repair_foundation_snapshot(
         "llm_proposal_conversion": llm_proposal_conversion,
         "escalation_feedback_curation": escalation_feedback_curation,
         "repair_audit_chain": repair_audit_chain,
+        "unsafe_action_guardrails": unsafe_action_guardrails,
+        "operator_views_model": dict(OPERATOR_VIEW_MODEL),
+        "operator_session_summary": operator_session_summary,
+        "path_visibility": path_visibility,
+        "operator_proposal_preview": operator_proposal_preview,
+        "repair_history_view": repair_history_view,
+        "test_coverage_model": dict(TEST_COVERAGE_MODEL),
+        "test_coverage_manifest": test_coverage_manifest,
+        "operator_guide_metadata": dict(OPERATOR_GUIDE_METADATA),
+        "golden_path_examples": golden_path_examples,
+        "rollout_plan_model": dict(ROLLOUT_PLAN_MODEL),
+        "rollout_plan": rollout_plan,
     }

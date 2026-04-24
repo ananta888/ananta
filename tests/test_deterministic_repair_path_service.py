@@ -5,6 +5,8 @@ from agent.services.deterministic_repair_path_service import (
     DIAGNOSIS_PROCEDURE_MODEL,
     ENVIRONMENT_SIMILARITY_MODEL,
     LLM_ESCALATION_POLICY_MODEL,
+    OPERATOR_GUIDE_METADATA,
+    OPERATOR_VIEW_MODEL,
     REPAIR_ACTION_SAFETY_CLASSES,
     REPAIR_EXECUTION_SAFETY_POLICY,
     REPAIR_OUTCOME_MEMORY_MODEL,
@@ -13,11 +15,18 @@ from agent.services.deterministic_repair_path_service import (
     REPAIR_PROBLEM_CLASS_INVENTORY,
     REPAIR_STATE_MODEL,
     REPAIR_VERIFICATION_MODEL,
+    ROLLOUT_PLAN_MODEL,
     STANDARD_OUTCOME_LABELS,
     build_bounded_escalation_prompt,
     build_negative_learning_model,
+    build_operator_proposal_preview,
+    build_operator_session_summary,
     build_repair_audit_chain,
+    build_repair_history_inspection_view,
+    build_rollout_plan,
     build_success_weighted_repair_recommendations,
+    build_test_coverage_manifest,
+    build_path_visibility,
     compute_environment_similarity,
     convert_llm_proposal_to_reviewed_procedure,
     curate_escalation_feedback,
@@ -40,6 +49,7 @@ from agent.services.deterministic_repair_path_service import (
     ingest_structured_logs,
     match_failure_signatures,
     normalize_evidence_bundle,
+    evaluate_unsafe_action_guardrails,
     run_step_verification,
     run_diagnosis_playbook,
     select_repair_procedure_from_catalog,
@@ -590,7 +600,81 @@ def test_governance_safety_approval_and_audit_chain_are_traceable():
     assert audit_chain["traceability"]["llm_escalation_used"] is True
 
 
-def test_foundation_snapshot_contains_first_forty_task_artifacts():
+def test_unsafe_action_guardrails_fail_closed_for_dangerous_actions():
+    guardrails = evaluate_unsafe_action_guardrails(
+        proposed_actions=[
+            "Run safe verification probe",
+            "rm -rf /",
+            "Apply kubernetes-wide firewall rewrite",
+        ]
+    )
+
+    assert guardrails["schema"] == "deterministic_unsafe_action_guardrail_evaluation_v1"
+    assert guardrails["fail_closed"] is True
+    assert len(guardrails["blocked_actions"]) == 2
+    assert guardrails["allowed_actions"] == ["Run safe verification probe"]
+
+
+def test_operator_views_cover_summary_path_preview_and_history():
+    diagnosis_run = {"playbook_id": "diag-service-start-failure-v1", "classification": "service_start_failure", "final_state": "classified"}
+    matching_outcome = {"outcome": "single_high_confidence", "best_problem_class": "service_start_failure"}
+    repair_execution = {"procedure_id": "repair-procedure-service_start_failure-v1", "status": "completed"}
+    final_verification = {"outcome_label": "succeeded", "verification_summary": {"execution_status": "completed"}}
+
+    summary = build_operator_session_summary(
+        diagnosis_run=diagnosis_run,
+        matching_outcome=matching_outcome,
+        repair_execution_result=repair_execution,
+        final_verification=final_verification,
+    )
+    visibility = build_path_visibility(
+        llm_escalation_decision={"should_escalate": False, "reasons": []},
+        matching_outcome=matching_outcome,
+    )
+    preview = build_operator_proposal_preview(
+        repair_preview={"procedure_id": "repair-procedure-service_start_failure-v1", "problem_class": "service_start_failure"},
+        selected_catalog_entry={
+            "procedure": {
+                "steps": [
+                    {"id": "repair-step-01", "title": "Preview", "mutation_candidate": False},
+                    {"id": "repair-step-02", "title": "Apply", "mutation_candidate": True},
+                ]
+            }
+        },
+    )
+    history = build_repair_history_inspection_view(
+        memory_entries=[
+            {"procedure_id": "p1", "problem_class": "service_start_failure", "signature_id": "sig1", "outcome_label": "succeeded", "environment_facts": {"platform_target": "ubuntu"}},
+            {"procedure_id": "p2", "problem_class": "package_install_failure", "signature_id": "sig2", "outcome_label": "failed", "environment_facts": {"platform_target": "windows11"}},
+        ],
+        filter_problem_class="service_start_failure",
+        filter_platform_target="ubuntu",
+    )
+
+    assert OPERATOR_VIEW_MODEL["schema"] == "deterministic_operator_views_v1"
+    assert summary["schema"] == "deterministic_operator_session_summary_v1"
+    assert visibility["schema"] == "deterministic_path_visibility_v1"
+    assert visibility["path_type"] == "deterministic"
+    assert preview["schema"] == "deterministic_operator_proposal_preview_v1"
+    assert preview["approval_decision_ready"] is True
+    assert history["schema"] == "deterministic_repair_history_inspection_v1"
+    assert len(history["entries"]) == 1
+
+
+def test_rollout_plan_operator_guide_and_test_manifest_are_defined():
+    manifest = build_test_coverage_manifest()
+    rollout = build_rollout_plan()
+
+    assert manifest["schema"] == "deterministic_repair_test_coverage_manifest_v1"
+    assert any(area["area"] == "signature_matching" for area in manifest["coverage_areas"])
+    assert ROLLOUT_PLAN_MODEL["schema"] == "deterministic_repair_rollout_plan_v1"
+    assert rollout["schema"] == "deterministic_repair_rollout_plan_v1"
+    assert len(rollout["phases"]) == 3
+    assert OPERATOR_GUIDE_METADATA["schema"] == "deterministic_operator_guide_v1"
+    assert OPERATOR_GUIDE_METADATA["doc_path"].endswith("deterministic-repair-operator-guide.md")
+
+
+def test_foundation_snapshot_contains_complete_track_artifacts():
     snapshot = build_deterministic_repair_foundation_snapshot(
         mode_data={"platform_target": "windows11"},
         issue_symptom="Service failed to start after update",
@@ -642,3 +726,15 @@ def test_foundation_snapshot_contains_first_forty_task_artifacts():
     assert snapshot["llm_proposal_conversion"]["schema"] == "deterministic_llm_proposal_conversion_v1"
     assert snapshot["escalation_feedback_curation"]["schema"] == "deterministic_escalation_feedback_curation_v1"
     assert snapshot["repair_audit_chain"]["schema"] == "deterministic_repair_audit_chain_v1"
+    assert snapshot["unsafe_action_guardrails"]["schema"] == "deterministic_unsafe_action_guardrail_evaluation_v1"
+    assert snapshot["operator_views_model"]["schema"] == "deterministic_operator_views_v1"
+    assert snapshot["operator_session_summary"]["schema"] == "deterministic_operator_session_summary_v1"
+    assert snapshot["path_visibility"]["schema"] == "deterministic_path_visibility_v1"
+    assert snapshot["operator_proposal_preview"]["schema"] == "deterministic_operator_proposal_preview_v1"
+    assert snapshot["repair_history_view"]["schema"] == "deterministic_repair_history_inspection_v1"
+    assert snapshot["test_coverage_model"]["schema"] == "deterministic_repair_test_coverage_v1"
+    assert snapshot["test_coverage_manifest"]["schema"] == "deterministic_repair_test_coverage_manifest_v1"
+    assert snapshot["operator_guide_metadata"]["schema"] == "deterministic_operator_guide_v1"
+    assert snapshot["golden_path_examples"]["schema"] == "deterministic_repair_golden_paths_v1"
+    assert snapshot["rollout_plan_model"]["schema"] == "deterministic_repair_rollout_plan_v1"
+    assert snapshot["rollout_plan"]["schema"] == "deterministic_repair_rollout_plan_v1"
