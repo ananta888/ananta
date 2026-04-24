@@ -7,11 +7,11 @@ import re
 import shlex
 import subprocess
 import sys
-import tomllib
 from collections import Counter
 from pathlib import Path
 from typing import Iterable
 
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -54,6 +54,14 @@ RELEASE_CI_FILE = ".github/workflows/quality-and-docs.yml"
 EXACT_PYTHON_VERSION = "3.11.15"
 EXACT_NODE_VERSION = "20.19.5"
 APT_SNAPSHOT = "20260406T000000Z"
+CLIENT_SURFACE_GATE_REPORT = "ci-artifacts/client-surface-release-gate.json"
+CLIENT_SURFACE_ALLOWED_STATUSES = {
+    "foundation_only",
+    "runtime_mvp",
+    "runtime_complete",
+    "deferred",
+    "blocked",
+}
 
 PINNED_ACTIONS = {
     "actions/checkout": "34e114876b0b11c390a56381ad16ebd13914f8d5",
@@ -159,17 +167,22 @@ def check_required_files() -> CheckResult:
 def check_python_dependency_sources() -> CheckResult:
     pyproject = tomllib.loads(read_text("pyproject.toml"))
     project_deps = {package_name(dep) for dep in pyproject["project"].get("dependencies", [])}
-    dev_deps = {
-        package_name(dep)
-        for dep in pyproject["project"].get("optional-dependencies", {}).get("dev", [])
-    }
+    dev_deps = {package_name(dep) for dep in pyproject["project"].get("optional-dependencies", {}).get("dev", [])}
     runtime = requirement_names("requirements.txt")
     dev = requirement_names("requirements-dev.txt")
     problems = []
     if project_deps != runtime:
-        problems.append(f"runtime mismatch: pyproject-only={sorted(project_deps - runtime)}, requirements-only={sorted(runtime - project_deps)}")
+        problems.append(
+            (
+                "runtime mismatch: "
+                f"pyproject-only={sorted(project_deps - runtime)}, "
+                f"requirements-only={sorted(runtime - project_deps)}"
+            )
+        )
     if dev_deps != dev:
-        problems.append(f"dev mismatch: pyproject-only={sorted(dev_deps - dev)}, requirements-dev-only={sorted(dev - dev_deps)}")
+        problems.append(
+            f"dev mismatch: pyproject-only={sorted(dev_deps - dev)}, requirements-dev-only={sorted(dev - dev_deps)}"
+        )
     overlap = runtime & dev
     if overlap:
         problems.append(f"runtime/dev source overlap: {sorted(overlap)}")
@@ -217,7 +230,9 @@ def check_frontend_manifest() -> CheckResult:
     return CheckResult(
         "frontend-manifest",
         not problems,
-        "frontend package manifest uses exact top-level versions matching package-lock" if not problems else "; ".join(problems),
+        "frontend package manifest uses exact top-level versions matching package-lock"
+        if not problems
+        else "; ".join(problems),
     )
 
 
@@ -306,7 +321,7 @@ def check_tool_pinning() -> CheckResult:
     dockerfile = read_text("Dockerfile")
     if "OPENCODE_AI_VERSION=1.14.18" not in dockerfile:
         problems.append("Dockerfile must pin OPENCODE_AI_VERSION=1.14.18")
-    if 'opencode-ai@${OPENCODE_AI_VERSION}' not in dockerfile:
+    if "opencode-ai@${OPENCODE_AI_VERSION}" not in dockerfile:
         problems.append("Dockerfile must install opencode-ai with the pinned version")
     if "opencode --version | grep -F" not in dockerfile:
         problems.append("Dockerfile must verify the opencode CLI version during build")
@@ -354,20 +369,22 @@ def check_apt_snapshots() -> CheckResult:
     problems = []
     if f"ARG DEBIAN_SNAPSHOT={APT_SNAPSHOT}" not in backend:
         problems.append("Dockerfile must pin DEBIAN_SNAPSHOT")
-    if f"snapshot.debian.org/archive/debian/${{DEBIAN_SNAPSHOT}}" not in backend:
+    if "snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}" not in backend:
         problems.append("Dockerfile must install apt packages from snapshot.debian.org")
     if 'Acquire::Check-Valid-Until "false"' not in backend:
         problems.append("Dockerfile must disable Valid-Until checks for Debian snapshots")
     if f"ARG UBUNTU_SNAPSHOT={APT_SNAPSHOT}" not in ollama:
         problems.append("Dockerfile.ollama-wsl-amd must pin UBUNTU_SNAPSHOT")
-    if f"Snapshot: ${{UBUNTU_SNAPSHOT}}" not in ollama:
+    if "Snapshot: ${UBUNTU_SNAPSHOT}" not in ollama:
         problems.append("Dockerfile.ollama-wsl-amd must configure Ubuntu snapshot sources")
     if "add-apt-repository" in ollama or "ppa:" in ollama:
         problems.append("Dockerfile.ollama-wsl-amd must not add moving PPAs in the release path")
     return CheckResult(
         "apt-snapshots",
         not problems,
-        "apt packages are installed through fixed Debian/Ubuntu snapshot configuration" if not problems else "; ".join(problems),
+        "apt packages are installed through fixed Debian/Ubuntu snapshot configuration"
+        if not problems
+        else "; ".join(problems),
     )
 
 
@@ -386,6 +403,58 @@ def check_todo_status() -> CheckResult:
         not problems,
         "todo status counters are synchronized" if not problems else "; ".join(problems),
     )
+
+
+def check_client_surface_release_gate() -> CheckResult:
+    report_path = ROOT / CLIENT_SURFACE_GATE_REPORT
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    result = run_command(
+        [
+            sys.executable,
+            "scripts/audit_client_surface_entrypoints.py",
+            "--todo",
+            "todo.json",
+            "--fail-on-warning",
+            "--out",
+            CLIENT_SURFACE_GATE_REPORT,
+        ]
+    )
+    if result.returncode != 0:
+        detail = f"audit_client_surface_entrypoints.py failed: {result.stdout[-1000:]}"
+        return CheckResult("client-surface-release-gate", False, detail)
+    if not report_path.exists():
+        return CheckResult(
+            "client-surface-release-gate",
+            False,
+            f"audit output missing: {CLIENT_SURFACE_GATE_REPORT}",
+        )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    surfaces = dict(report.get("surfaces") or {})
+    surface_status = dict(report.get("surface_status") or {})
+    warnings = [str(item) for item in list(report.get("blocking_warnings") or [])]
+    missing_status_entries = sorted(surface for surface in surfaces if surface not in surface_status)
+    invalid_status_entries = sorted(
+        f"{surface}={status}"
+        for surface, status in surface_status.items()
+        if str(status) not in CLIENT_SURFACE_ALLOWED_STATUSES
+    )
+
+    problems = []
+    if warnings:
+        problems.append(f"blocking warnings: {warnings}")
+    if missing_status_entries:
+        problems.append(f"missing surface status entries: {missing_status_entries}")
+    if invalid_status_entries:
+        problems.append(f"invalid surface statuses: {invalid_status_entries}")
+
+    status_overview = ", ".join(f"{surface}={surface_status.get(surface, 'missing')}" for surface in sorted(surfaces))
+    detail = (
+        f"surface status overview: {status_overview}"
+        if not problems
+        else f"{'; '.join(problems)} | overview: {status_overview}"
+    )
+    return CheckResult("client-surface-release-gate", not problems, detail)
 
 
 def check_compose_config() -> CheckResult:
@@ -456,7 +525,9 @@ def check_frontend_build() -> CheckResult:
     return CheckResult(
         "frontend-build",
         build.returncode == 0,
-        "frontend npm ci and build passed" if build.returncode == 0 else f"npm run build failed: {build.stdout[-1000:]}",
+        "frontend npm ci and build passed"
+        if build.returncode == 0
+        else f"npm run build failed: {build.stdout[-1000:]}",
     )
 
 
@@ -514,13 +585,10 @@ def main() -> int:
         check_ci_release_paths(),
         check_apt_snapshots(),
         check_todo_status(),
+        check_client_surface_release_gate(),
     ]
     if not args.strict:
-        results = [
-            result
-            for result in results
-            if result.name not in {"actions-pinning", "apt-snapshots"}
-        ]
+        results = [result for result in results if result.name not in {"actions-pinning", "apt-snapshots"}]
     if args.compose_config:
         results.append(check_compose_config())
     if args.frontend_build:

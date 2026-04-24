@@ -2,6 +2,16 @@
 
 This document captures the first implementation block of the Eclipse plugin adapter track.
 
+## Current runtime decision (CRT-T20..CRT-T24)
+
+- Current track decision: Eclipse runtime is **blocked/deferred** for this delivery train.
+- Reason: repository currently has contract/test/doc foundations, but no buildable PDE/Tycho/Gradle plugin project and no runtime smoke evidence.
+- Runtime status truth: keep Eclipse surfaces in `foundation_only` classification and `blocked` delivery status until executable evidence exists.
+- Expected runtime layout when unblocked:
+  - Eclipse plugin project with `plugin.xml`
+  - `META-INF/MANIFEST.MF`
+  - deterministic build via Tycho or Gradle (Buildship-compatible) command documented in CI/release docs
+
 ## Thin adapter boundary
 
 - Eclipse plugin is a UI adapter, not a control plane.

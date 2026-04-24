@@ -1,0 +1,46 @@
+{
+  "schema": "client_surface_runtime_decisions_v1",
+  "track_id": "client_runtime_delivery_after_skeletons",
+  "decisions": [
+    {
+      "decision_id": "CRT-T20",
+      "surface": "eclipse_plugin",
+      "status": "blocked",
+      "summary": "Eclipse runtime MVP is not implemented in this delivery track.",
+      "reason": "Repository has foundation contracts/tests/docs but no buildable Eclipse plugin runtime project.",
+      "expected_unblock_artifacts": [
+        "eclipse-plugin/**/plugin.xml",
+        "eclipse-plugin/**/META-INF/MANIFEST.MF",
+        "deterministic build command via Tycho or Gradle (documented and CI-capable)"
+      ]
+    },
+    {
+      "decision_id": "CRT-T21",
+      "surface": "eclipse_plugin",
+      "status": "blocked",
+      "summary": "Project skeleton implementation skipped due blocked runtime decision.",
+      "reason": "No runtime plugin project is pursued in current track; foundation-only state remains explicit."
+    },
+    {
+      "decision_id": "CRT-T22",
+      "surface": "eclipse_plugin",
+      "status": "blocked",
+      "summary": "Build and connection MVP implementation skipped due blocked runtime decision.",
+      "reason": "No Eclipse runtime build pipeline is enabled in current track."
+    },
+    {
+      "decision_id": "CRT-T23",
+      "surface": "eclipse_plugin",
+      "status": "blocked",
+      "summary": "Context handoff and command runtime implementation skipped due blocked runtime decision.",
+      "reason": "Runtime plugin delivery is blocked; only foundation contracts are maintained."
+    },
+    {
+      "decision_id": "CRT-T24",
+      "surface": "eclipse_views_extension",
+      "status": "blocked",
+      "summary": "Task/artifact runtime view implementation and runtime smoke checklist are blocked in this track.",
+      "reason": "Eclipse runtime is not claimed as MVP; views remain foundation contracts with browser fallback guidance."
+    }
+  ]
+}

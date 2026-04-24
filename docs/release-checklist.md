@@ -10,6 +10,7 @@ Before creating or publishing a release tag:
 1. Confirm the release scope, version, and tag name follow `docs/release-process.md`.
 2. Confirm all required branch-protection checks are green on the release commit.
 3. Run the standard release gate and keep `release-verification-report.json`.
+   Keep `ci-artifacts/client-surface-release-gate.json` from the same run.
 4. Run the full local rebuild gate for release candidates that publish build artifacts or images.
 5. Confirm `todo.json` status counters are synchronized.
 6. Confirm release notes or changelog text is ready.
@@ -40,6 +41,7 @@ The standard gate checks:
 - global release tools are pinned
 - backend and WSL/Ollama apt installs use fixed snapshots
 - CI installs from lockfiles and runs the release gate
+- client-surface release gate report is generated with per-surface status overview
 - lite and distributed Compose configs render successfully
 
 ## Full Local Rebuild

@@ -35,3 +35,9 @@
 - Deeper task board interactions (later phase)
 
 These are explicitly out of MVP scope to keep the adapter maintainable and thin.
+
+## Runtime delivery status for current CRT track
+
+- Eclipse runtime implementation tasks (project skeleton/build/context/views) are marked as blocked/deferred in this track.
+- Unblock condition: add a real Eclipse plugin project (`plugin.xml`, `META-INF/MANIFEST.MF`) with reproducible build and smoke evidence.
+- Until then, Eclipse remains foundation-only and should not be communicated as runnable runtime MVP.

@@ -39,6 +39,14 @@ jobs:
           python-version: "3.11.15"
       - name: Run release gate
         run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
+      - name: Upload release verification reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-release-verification-reports
+          path: |
+            release-verification-report.json
+            ci-artifacts/client-surface-release-gate.json
+          retention-days: 14
       - name: Generate release SBOM
         run: python scripts/generate_release_sbom.py
       - name: Prepare release assets
