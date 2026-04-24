@@ -76,3 +76,12 @@ Additional contract models now cover:
 - KRITIS dashboard summary and repair session review contracts.
 - Health/runtime diagnostics and provider/backend visibility.
 - Keyboard refinement, cross-view search/filtering, safe resume state and explicit empty/error UX states.
+
+## Related guides
+
+- `docs/nvim-plugin-user-guide.md`
+- `docs/tui-user-operator-guide.md`
+- `docs/plugin-vs-tui-usage-guide.md`
+- `docs/editor-tui-smoke-checklists.md`
+- `docs/editor-tui-release-strategy.md`
+- `docs/editor-tui-golden-paths.md`
