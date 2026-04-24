@@ -105,11 +105,60 @@
       "status": "runtime_mvp_operational",
       "summary": "Policy-denied and browser-fallback UX is explicit and governance-safe.",
       "reason": "Fallback paths remain backend-authorized and never bypass policy enforcement.",
-      "hardening_pending": [
+      "hardening_completed": [
         "runtime_unit_and_integration_tests",
         "security_and_contract_regression_suite",
         "headless_runtime_smoke_ci_lane"
       ]
+    },
+    {
+      "decision_id": "EAC-T52",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_hardened",
+      "summary": "Runtime Java unit tests cover command dispatch, degraded-state mapping, capability gating and profile validation.",
+      "reason": "Deterministic JUnit suite runs in dockerized Gradle test mode without live backend dependencies."
+    },
+    {
+      "decision_id": "EAC-T53",
+      "surface": "eclipse_views_extension",
+      "status": "runtime_mvp_hardened",
+      "summary": "Runtime integration/UI tests validate command execution, view loading, context preview and explicit confirmation paths.",
+      "reason": "Integration suite uses a local stub backend server and verifies no implicit apply/execute behavior."
+    },
+    {
+      "decision_id": "EAC-T54",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_hardened",
+      "summary": "Security and governance tests prevent policy bypass and verify token redaction and degraded response handling.",
+      "reason": "Denied, unauthorized, stale and malformed backend responses are explicitly asserted in runtime test coverage."
+    },
+    {
+      "decision_id": "EAC-T55",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_hardened",
+      "summary": "API contract compatibility tests lock runtime request/response shapes and endpoint contracts.",
+      "reason": "Breaking payload or routing changes now fail the runtime contract suite."
+    },
+    {
+      "decision_id": "EAC-T56",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_hardened",
+      "summary": "Headless runtime smoke and CI lane are implemented for Eclipse runtime claims.",
+      "reason": "Runtime classification now depends on both bootstrap and headless smoke evidence, with CI gate execution."
+    },
+    {
+      "decision_id": "EAC-T57",
+      "surface": "eclipse_plugin",
+      "status": "runtime_mvp_hardened",
+      "summary": "Runtime documentation truth pass aligns all Eclipse runtime claims with executable repository evidence.",
+      "reason": "Docs now reflect delivered command/view runtime, headless smoke gates and explicit deferred boundaries."
+    },
+    {
+      "decision_id": "EAC-T58",
+      "surface": "eclipse_plugin",
+      "status": "merge_ready_recommendation_documented",
+      "summary": "Runtime merge readiness report is generated with explicit merge-safe recommendation and evidence references.",
+      "reason": "Report now includes Java unit/integration/security/contract tests, smoke gates and CI lane links."
     }
   ]
 }

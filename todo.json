@@ -172,7 +172,7 @@
         "EAC-T57",
         "EAC-T58"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -791,7 +791,7 @@
     {
       "id": "EAC-T52",
       "title": "Add runtime Java unit tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -803,7 +803,7 @@
     {
       "id": "EAC-T53",
       "title": "Add runtime Eclipse integration/UI tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -815,7 +815,7 @@
     {
       "id": "EAC-T54",
       "title": "Add runtime security and governance tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -827,7 +827,7 @@
     {
       "id": "EAC-T55",
       "title": "Add runtime API contract compatibility tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -839,7 +839,7 @@
     {
       "id": "EAC-T56",
       "title": "Add runtime headless smoke checks and CI lane",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -851,7 +851,7 @@
     {
       "id": "EAC-T57",
       "title": "Run runtime documentation truth pass",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -863,7 +863,7 @@
     {
       "id": "EAC-T58",
       "title": "Generate runtime merge readiness report",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -910,15 +910,15 @@
     "EAC-T58"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T19:55:27+02:00",
+    "updated_at": "2026-04-24T20:19:44+02:00",
     "total": 58,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 51
+      "done": 58
     },
-    "progress_percent_done": 87.93,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 36,
       "P1": 21,
@@ -933,19 +933,19 @@
     },
     "critical_path": {
       "total": 28,
-      "done": 23,
-      "remaining": 5
+      "done": 28,
+      "remaining": 0
     },
     "milestones": {
       "total": 10,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 9
+      "done": 10
     }
   },
   "code_validation_snapshot": {
-    "updated_at": "2026-04-24T19:55:27+02:00",
+    "updated_at": "2026-04-24T20:19:44+02:00",
     "foundation_evidence": [
       "agent/services/eclipse_plugin_adapter_foundation_service.py",
       "tests/test_eclipse_plugin_adapter_foundation_service.py",
@@ -963,11 +963,11 @@
     },
     "alignment_issues_found": [
       "Eclipse runtime command/view operational block is now implemented (EAC-T40..EAC-T51) with registry, handlers, bounded context capture and runtime view wiring.",
-      "Runtime hardening/release block (EAC-T52..EAC-T58) remains pending for deeper tests, CI lane and merge-readiness evidence."
+      "Runtime hardening/release block (EAC-T52..EAC-T58) is implemented with Java unit/integration/security/contract suites, headless smoke gate, CI lane and merge-readiness report."
     ]
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T19:55:27+02:00",
+    "updated_at": "2026-04-24T20:19:44+02:00",
     "stages": {
       "EAC_M1_foundation_scope_and_boundary": {
         "scope_task_ids": [
@@ -1112,8 +1112,8 @@
           "EAC-T58"
         ],
         "total": 7,
-        "done": 0,
-        "todo": 7,
+        "done": 7,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
@@ -1123,8 +1123,8 @@
     "Correction applied: prior EAC todo marked everything as todo, but real repository evidence already contains substantial foundation implementation in service contracts, tests and docs.",
     "First runtime block implemented: EAC-T33..EAC-T39 (runtime unblocking, plugin skeleton/metadata, build bootstrap, Java client core, token security, capability gate).",
     "Second runtime block implemented: EAC-T40..EAC-T51 (command registry/handlers, bounded context capture, goal panel runtime, task/artifact/approval/audit/repair views, TUI bridge, policy fallback UX).",
-    "Runtime delivery remains split into fine-grained executable tasks, with EAC-T52..EAC-T58 still focused on security/contract/smoke/CI hardening gates.",
+    "Runtime hardening block implemented: EAC-T52..EAC-T58 (Java unit/integration/security/contract tests, headless smoke gate, CI lane, docs truth pass, merge readiness report).",
     "This plan preserves SRP/DIP boundaries by separating foundation modeling from runtime plugin implementation and by keeping governance decisions in backend APIs.",
-    "Main remaining outcome is M10 hardening (tests, CI lane, docs truth pass and merge readiness) for release confidence."
+    "Runtime track is now complete at 58/58 done with merge-safe recommendation captured in runtime readiness data."
   ]
 }

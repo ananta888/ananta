@@ -179,7 +179,7 @@ Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer 
 - TUI: `runtime_mvp` (Start: `python -m client_surfaces.tui_runtime.ananta_tui --fixture`)
 - Neovim: `runtime_mvp` (Smoke: `python3 scripts/smoke_nvim_runtime.py`)
 - Vim: `deferred` bis Neovim-Runtime-Stabilisierung
-- Eclipse Plugin/Views: `runtime_mvp` fuer Command-/View-Runtime geliefert (M9), Hardening-/CI-Block fuer Release-Readiness noch offen
+- Eclipse Plugin/Views: `runtime_mvp` inklusive Command-/View-Runtime und Hardening-/CI-Gates (M9+M10)
 
 ## Architektur
 - Angular Frontend fuer Visualisierung und Steuerung

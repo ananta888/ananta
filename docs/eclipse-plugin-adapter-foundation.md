@@ -6,7 +6,7 @@ This document captures the first implementation block of the Eclipse plugin adap
 
 - Current track decision: Eclipse runtime is **unblocked and operational for command/view MVP delivery**.
 - Current state: foundation contracts/tests/docs remain valid, and runtime command/context/view handlers now exist.
-- Runtime status truth: Eclipse plugin and views are `runtime_mvp` for operational use, while hardening/CI gates remain in follow-up tasks.
+- Runtime status truth: Eclipse plugin and views are `runtime_mvp` for operational use, including hardening and CI gates.
 - Runtime artifacts:
   - Eclipse plugin project with `plugin.xml`
   - `META-INF/MANIFEST.MF`

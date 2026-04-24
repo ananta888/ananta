@@ -134,6 +134,7 @@ def test_eclipse_requires_command_registry_for_runtime_classification() -> None:
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.properties",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java",
         "scripts/smoke_eclipse_runtime_bootstrap.py",
+        "scripts/smoke_eclipse_runtime_headless.py",
         "agent/services/eclipse_plugin_adapter_foundation_service.py",
     }
     with_runtime_registry = bootstrap_only | {
@@ -152,6 +153,7 @@ def test_eclipse_views_extension_requires_runtime_registry_for_classification() 
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
         "scripts/smoke_eclipse_runtime_bootstrap.py",
+        "scripts/smoke_eclipse_runtime_headless.py",
         "agent/services/eclipse_plugin_adapter_foundation_service.py",
     }
     with_views_registry = bootstrap_only | {

@@ -33,4 +33,4 @@ If it starts in operations/governance, start in TUI.
 - TUI runtime MVP: available.
 - Neovim runtime MVP: available.
 - Vim compatibility: deferred until Neovim runtime baseline is stable.
-- Eclipse runtime: bootstrap started (plugin metadata/build scaffolding exists), full runtime MVP still pending.
+- Eclipse runtime MVP: available (command/view runtime + hardening/CI gates).

@@ -17,6 +17,46 @@ def test_eclipse_runtime_bootstrap_files_exist() -> None:
         PLUGIN_ROOT / "META-INF" / "MANIFEST.MF",
         PLUGIN_ROOT
         / "src"
+        / "test"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "core"
+        / "EclipseRuntimeUnitTest.java",
+        PLUGIN_ROOT
+        / "src"
+        / "test"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "integration"
+        / "EclipseRuntimeIntegrationUiTest.java",
+        PLUGIN_ROOT
+        / "src"
+        / "test"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "security"
+        / "EclipseRuntimeSecurityGovernanceTest.java",
+        PLUGIN_ROOT
+        / "src"
+        / "test"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "core"
+        / "EclipseRuntimeApiContractCompatibilityTest.java",
+        PLUGIN_ROOT
+        / "src"
         / "main"
         / "java"
         / "io"
@@ -78,6 +118,7 @@ def test_eclipse_runtime_bootstrap_files_exist() -> None:
         / "TokenRedaction.java",
         ROOT / "scripts" / "build_eclipse_runtime_plugin.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_bootstrap.py",
+        ROOT / "scripts" / "smoke_eclipse_runtime_headless.py",
     ]
     for file_path in required_files:
         assert file_path.exists(), f"missing bootstrap runtime artifact: {file_path}"
@@ -189,3 +230,15 @@ def test_smoke_script_succeeds() -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "eclipse-runtime-bootstrap-smoke-ok" in result.stdout
+
+
+def test_headless_smoke_and_ci_lane_artifacts_exist() -> None:
+    headless_smoke = (ROOT / "scripts" / "smoke_eclipse_runtime_headless.py").read_text(encoding="utf-8")
+    assert "run_headless_smoke_once" in headless_smoke
+    assert "eclipse-runtime-headless-smoke-ok" in headless_smoke
+    assert "scripts/build_eclipse_runtime_plugin.py" in headless_smoke
+    assert '"--mode", "test"' in headless_smoke
+
+    workflow = (ROOT / ".github" / "workflows" / "quality-and-docs.yml").read_text(encoding="utf-8")
+    assert "eclipse-runtime-headless" in workflow
+    assert "python3 scripts/smoke_eclipse_runtime_headless.py" in workflow

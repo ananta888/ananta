@@ -12,6 +12,22 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 STATUS_FILE = ROOT / "data" / "client_surface_runtime_status.json"
+ECLIPSE_HEADLESS_SMOKE = ROOT / "scripts" / "smoke_eclipse_runtime_headless.py"
+ECLIPSE_COMMAND_REGISTRY = (
+    ROOT
+    / "client_surfaces"
+    / "eclipse_runtime"
+    / "ananta_eclipse_plugin"
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "commands"
+    / "EclipseCommandRegistry.java"
+)
 
 
 def _run_tui_goal_path() -> dict[str, Any]:
@@ -102,18 +118,46 @@ def _run_nvim_goal_path() -> dict[str, Any]:
 def _run_eclipse_path_check() -> dict[str, Any]:
     status_payload = json.loads(STATUS_FILE.read_text(encoding="utf-8"))
     status = str(status_payload.get("surface_status", {}).get("eclipse_plugin", "")).strip().lower()
-    if status in {"runtime_mvp", "runtime_complete"}:
+    if status not in {"runtime_mvp", "runtime_complete"}:
+        return {
+            "path": "eclipse",
+            "ok": True,
+            "status": status,
+            "detail": "runtime not claimed; manual foundation checklist remains documentation-only",
+        }
+    if not ECLIPSE_HEADLESS_SMOKE.exists():
         return {
             "path": "eclipse",
             "ok": False,
             "status": status,
-            "detail": "eclipse runtime claimed as runnable but no runtime smoke path is implemented in this track",
+            "detail": "runtime_mvp declared but headless smoke script is missing",
+        }
+    if not ECLIPSE_COMMAND_REGISTRY.exists():
+        return {
+            "path": "eclipse",
+            "ok": False,
+            "status": status,
+            "detail": "runtime_mvp declared but command registry artifact is missing",
+        }
+    if os.environ.get("ANANTA_RUN_ECLIPSE_HEADLESS_SMOKE") == "1":
+        result = subprocess.run(
+            [sys.executable, str(ECLIPSE_HEADLESS_SMOKE)],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+        )
+        return {
+            "path": "eclipse",
+            "ok": result.returncode == 0,
+            "status": status,
+            "detail": (result.stdout + "\n" + result.stderr).strip(),
         }
     return {
         "path": "eclipse",
         "ok": True,
-        "status": status or "missing",
-        "detail": "runtime not claimed; manual foundation checklist remains documentation-only",
+        "status": status,
+        "detail": "runtime_mvp declared with command registry and headless smoke evidence path",
     }
 
 
