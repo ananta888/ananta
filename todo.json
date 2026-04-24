@@ -38,7 +38,9 @@
       "Neovim skeleton directories exist but no real Lua plugin modules or command registration are proven.",
       "Vim compatibility skeleton directories exist but no real Vim plugin/autoload files are proven.",
       "Eclipse foundation service exists but no Eclipse plugin project metadata/build is proven.",
-      "Runtime inventory still lists runtime evidence arrays as empty."
+      "Runtime inventory still lists runtime evidence arrays as empty.",
+      "data/client_surface_runtime_inventory.json still points to previous track id and must be refreshed for this track.",
+      "scripts/audit_client_surface_entrypoints.py still maps done-claim ranges from old CSH/TVM/ECL IDs and must be aligned to CRT IDs."
     ]
   },
 
@@ -68,7 +70,7 @@
     {
       "id": "M1",
       "title": "Audit hardening and truthful status",
-      "task_ids": ["CRT-T01", "CRT-T02", "CRT-T03", "CRT-T04"],
+      "task_ids": ["CRT-T01", "CRT-T02", "CRT-T03", "CRT-T04", "CRT-T31"],
       "status": "todo"
     },
     {
@@ -98,7 +100,7 @@
     {
       "id": "M6",
       "title": "Cross-client tests and merge gate",
-      "task_ids": ["CRT-T25", "CRT-T26", "CRT-T27", "CRT-T28", "CRT-T29", "CRT-T30"],
+      "task_ids": ["CRT-T25", "CRT-T26", "CRT-T27", "CRT-T28", "CRT-T29", "CRT-T30", "CRT-T32"],
       "status": "todo"
     }
   ],
@@ -124,9 +126,10 @@
       "risk": "critical",
       "acceptance_criteria": [
         "scripts/audit_client_surface_entrypoints.py treats .keep files as no runtime evidence.",
-        "Audit fails if TUI is claimed runtime_mvp/runtime_complete without an executable entrypoint.",
-        "Audit fails if Neovim/Vim is claimed runtime_mvp/runtime_complete without plugin files and commands.",
-        "Audit fails if Eclipse is claimed runtime_mvp/runtime_complete without plugin metadata/build evidence."
+        "DONE_CLAIM_RULES includes current CRT task ranges so done runtime tasks are actually checked.",
+        "Audit fails if TUI runtime claim tasks are done while classification is not real_implementation.",
+        "Audit fails if Neovim/Vim runtime claim tasks are done while classification is not real_implementation.",
+        "Audit fails if Eclipse runtime claim tasks are done while classification is not real_implementation."
       ]
     },
     {
@@ -136,8 +139,9 @@
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "data/client_surface_completion_definitions.json defines foundation_only, runtime_mvp and runtime_complete consistently with the audit script.",
+        "data/client_surface_completion_definitions.json defines completion labels consistently with audit output classes.",
         "Definitions explicitly say skeleton directories do not count as runtime.",
+        "Definitions include mapping from runtime_mvp/runtime_complete to audit evidence checks.",
         "Definitions include required evidence for each client surface."
       ]
     },
@@ -151,6 +155,18 @@
         "data/client_surface_claim_reconciliation.json is updated after implementation work.",
         "It states which old todo claims were foundation-only and which became runtime_mvp.",
         "No old Eclipse/TUI/Vim claim remains ambiguous."
+      ]
+    },
+    {
+      "id": "CRT-T31",
+      "title": "CRT done-claim mapping in audit script align",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "scripts/audit_client_surface_entrypoints.py DONE_CLAIM_RULES include CRT task ranges for TUI, Neovim/Vim and Eclipse runtime claims.",
+        "Audit output lists done_claims for CRT tasks once such tasks are marked done.",
+        "Tests cover the new CRT mapping behavior."
       ]
     },
 
@@ -494,6 +510,18 @@
         "Report separates blockers for main from later enhancements.",
         "Report references updated inventory and audit results."
       ]
+    },
+    {
+      "id": "CRT-T32",
+      "title": "Todo summary and stage consistency guard add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "A validation command or script verifies tasks_status_summary and execution_stage_summary against real task data.",
+        "Guard is run before marking large task blocks done in this track.",
+        "Track summary counters cannot silently drift from task reality."
+      ]
     }
   ],
 
@@ -511,6 +539,7 @@
     "CRT-T01",
     "CRT-T02",
     "CRT-T03",
+    "CRT-T31",
     "CRT-T05",
     "CRT-T06",
     "CRT-T07",
@@ -531,31 +560,31 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:00:00+02:00",
-    "total": 30,
+    "updated_at": "2026-04-24T17:59:18+02:00",
+    "total": 32,
     "by_status": {
-      "todo": 30,
+      "todo": 32,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 23,
+      "P0": 25,
       "P1": 7,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
-      "medium": 2,
-      "high": 17,
-      "critical": 11
+      "medium": 3,
+      "high": 16,
+      "critical": 13
     },
     "critical_path": {
-      "total": 20,
+      "total": 21,
       "done": 0,
-      "remaining": 20
+      "remaining": 21
     },
     "milestones": {
       "total": 6,
@@ -566,10 +595,83 @@
     }
   },
 
+  "code_validation_snapshot": {
+    "updated_at": "2026-04-24T17:59:18+02:00",
+    "audit_script": "scripts/audit_client_surface_entrypoints.py",
+    "latest_audit_output_file": "/tmp/client_surface_audit_output_latest.json",
+    "latest_audit_result": {
+      "tui_surface": "foundation_only",
+      "nvim_plugin": "foundation_only",
+      "vim_plugin": "foundation_only",
+      "eclipse_plugin": "foundation_only",
+      "eclipse_views_extension": "foundation_only"
+    },
+    "alignment_issues_found": [
+      "tasks_status_summary counters previously diverged from real task counts.",
+      "DONE_CLAIM_RULES still referenced old CSH/TVM/ECL ranges and not current CRT ranges.",
+      "Runtime inventory metadata still referenced previous merged track id."
+    ]
+  },
+
+  "execution_stage_summary": {
+    "updated_at": "2026-04-24T17:59:18+02:00",
+    "stages": {
+      "stage_1_audit_hardening_truthful_status": {
+        "scope_task_ids": ["CRT-T01", "CRT-T02", "CRT-T03", "CRT-T04", "CRT-T31"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "stage_2_shared_client_api_context": {
+        "scope_task_ids": ["CRT-T05", "CRT-T06", "CRT-T07", "CRT-T08"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "stage_3_runnable_tui_mvp": {
+        "scope_task_ids": ["CRT-T09", "CRT-T10", "CRT-T11", "CRT-T12", "CRT-T13"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "stage_4_runnable_neovim_vim_surface": {
+        "scope_task_ids": ["CRT-T14", "CRT-T15", "CRT-T16", "CRT-T17", "CRT-T18", "CRT-T19"],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "stage_5_eclipse_plugin_mvp_or_blocker": {
+        "scope_task_ids": ["CRT-T20", "CRT-T21", "CRT-T22", "CRT-T23", "CRT-T24"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "stage_6_cross_client_tests_merge_gate": {
+        "scope_task_ids": ["CRT-T25", "CRT-T26", "CRT-T27", "CRT-T28", "CRT-T29", "CRT-T30", "CRT-T32"],
+        "total": 7,
+        "done": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+
   "summary_notes": [
     "This todo assumes skeleton directories and audit/inventory files already exist.",
     "The main remaining work is real runtime implementation and executable evidence.",
     "TUI and Neovim should be implemented as runtime MVPs in this track.",
-    "Eclipse may either become a real buildable plugin MVP or remain explicitly deferred/blocked, but must not be claimed complete without plugin metadata and build evidence."
+    "Eclipse may either become a real buildable plugin MVP or remain explicitly deferred/blocked, but must not be claimed complete without plugin metadata and build evidence.",
+    "This todo was re-aligned against real code evidence from scripts/audit_client_surface_entrypoints.py and existing runtime/foundation artifacts."
   ]
 }
