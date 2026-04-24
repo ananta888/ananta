@@ -227,6 +227,46 @@ class TestGoalsAPI:
         assert payload["id"] == goal_id
         assert payload["task_count"] >= 1
 
+    def test_goal_create_accepts_instruction_selection_fields(self, client, user_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        profile_res = client.post(
+            "/instruction-profiles",
+            headers=user_auth_header,
+            json={"name": "goal-input-profile", "prompt_content": "Use concise rationale."},
+        )
+        assert profile_res.status_code == 201
+        profile_id = profile_res.get_json()["data"]["id"]
+
+        overlay_res = client.post(
+            "/instruction-overlays",
+            headers=user_auth_header,
+            json={
+                "name": "goal-input-overlay",
+                "prompt_content": "Prioritize acceptance criteria first.",
+                "attachment_kind": "usage",
+                "attachment_id": "project:goal-input",
+            },
+        )
+        assert overlay_res.status_code == 201
+        overlay_id = overlay_res.get_json()["data"]["id"]
+
+        create_res = client.post(
+            "/goals",
+            headers=user_auth_header,
+            json={
+                "goal": "Validate goal input instruction integration",
+                "create_tasks": False,
+                "instruction_owner_username": "testuser",
+                "instruction_profile_id": profile_id,
+                "instruction_overlay_id": overlay_id,
+            },
+        )
+        assert create_res.status_code == 201
+        layers = create_res.get_json()["data"]["goal"]["instruction_layers"]
+        assert layers["owner_username"] == "testuser"
+        assert layers["profile_id"] == profile_id
+        assert layers["overlay_id"] == overlay_id
+
     def test_goal_plan_inspection_and_patch(self, client, admin_auth_header):
         create_res = client.post(
             "/goals",

@@ -299,12 +299,28 @@ class InstructionLayerService:
     def task_selection_summary(self, task_payload: dict | None) -> dict[str, Any]:
         task = dict(task_payload or {})
         context = dict((task.get("worker_execution_context") or {}).get("instruction_context") or {})
+        owner_username = str(context.get("owner_username") or "").strip() or None
+        profile_id = str(context.get("profile_id") or "").strip() or None
+        overlay_id = str(context.get("overlay_id") or "").strip() or None
+        profile, overlay = self._resolve_selection_entities(
+            owner_username=owner_username,
+            profile_id=profile_id,
+            overlay_id=overlay_id,
+        )
         return {
-            "owner_username": str(context.get("owner_username") or "").strip() or None,
-            "profile_id": str(context.get("profile_id") or "").strip() or None,
-            "overlay_id": str(context.get("overlay_id") or "").strip() or None,
-            "attachment_kind": "task" if str(context.get("overlay_id") or "").strip() else None,
-            "attachment_id": str(task.get("id") or "").strip() or None,
+            "owner_username": owner_username,
+            "profile_id": profile_id,
+            "overlay_id": overlay_id,
+            "attachment_kind": (
+                str((overlay.attachment_kind if overlay else "") or "").strip() or ("task" if overlay_id else None)
+            ),
+            "attachment_id": (
+                str((overlay.attachment_id if overlay else "") or "").strip() or str(task.get("id") or "").strip() or None
+                if overlay_id
+                else None
+            ),
+            "selected_profile": self._profile_summary(profile),
+            "selected_overlay": self._overlay_summary(overlay),
         }
 
     def goal_selection_summary(self, goal_payload: GoalDB | dict | None) -> dict[str, Any]:
@@ -314,12 +330,28 @@ class InstructionLayerService:
             data = dict(goal_payload or {})
         execution_preferences = dict(data.get("execution_preferences") or {})
         context = dict(execution_preferences.get("instruction_context") or {})
+        owner_username = str(context.get("owner_username") or data.get("requested_by") or "").strip() or None
+        profile_id = str(context.get("profile_id") or "").strip() or None
+        overlay_id = str(context.get("overlay_id") or "").strip() or None
+        profile, overlay = self._resolve_selection_entities(
+            owner_username=owner_username,
+            profile_id=profile_id,
+            overlay_id=overlay_id,
+        )
         return {
-            "owner_username": str(context.get("owner_username") or data.get("requested_by") or "").strip() or None,
-            "profile_id": str(context.get("profile_id") or "").strip() or None,
-            "overlay_id": str(context.get("overlay_id") or "").strip() or None,
-            "attachment_kind": "goal" if str(context.get("overlay_id") or "").strip() else None,
-            "attachment_id": str(data.get("id") or "").strip() or None,
+            "owner_username": owner_username,
+            "profile_id": profile_id,
+            "overlay_id": overlay_id,
+            "attachment_kind": (
+                str((overlay.attachment_kind if overlay else "") or "").strip() or ("goal" if overlay_id else None)
+            ),
+            "attachment_id": (
+                str((overlay.attachment_id if overlay else "") or "").strip() or str(data.get("id") or "").strip() or None
+                if overlay_id
+                else None
+            ),
+            "selected_profile": self._profile_summary(profile),
+            "selected_overlay": self._overlay_summary(overlay),
         }
 
     def set_task_selection(
@@ -615,6 +647,27 @@ class InstructionLayerService:
             or str(goal_context.get("owner_username") or "").strip()
             or str((goal_payload or {}).get("requested_by") or "").strip()
         )
+
+    def _resolve_selection_entities(
+        self,
+        *,
+        owner_username: str | None,
+        profile_id: str | None,
+        overlay_id: str | None,
+    ) -> tuple[UserInstructionProfileDB | None, InstructionOverlayDB | None]:
+        repos = get_repository_registry()
+        owner = str(owner_username or "").strip() or None
+        profile: UserInstructionProfileDB | None = None
+        overlay: InstructionOverlayDB | None = None
+        if profile_id:
+            candidate = repos.user_instruction_profile_repo.get_by_id(profile_id)
+            if candidate is not None and (not owner or str(candidate.owner_username or "").strip() == owner):
+                profile = candidate
+        if overlay_id:
+            candidate = repos.instruction_overlay_repo.get_by_id(overlay_id)
+            if candidate is not None and (not owner or str(candidate.owner_username or "").strip() == owner):
+                overlay = candidate
+        return profile, overlay
 
     def _load_goal_for_task(self, task_payload: dict) -> dict | None:
         goal_id = str(task_payload.get("goal_id") or "").strip()
