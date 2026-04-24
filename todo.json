@@ -29,7 +29,7 @@
         {
           "id": "EDT-COM-T01",
           "title": "Shared UI boundary model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -41,7 +41,7 @@
         {
           "id": "EDT-COM-T02",
           "title": "Shared frontend contract inventory create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -53,7 +53,7 @@
         {
           "id": "EDT-COM-T03",
           "title": "Common object model for task artifact approval log entries define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -65,7 +65,7 @@
         {
           "id": "EDT-COM-T04",
           "title": "Connection profile abstraction create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -77,7 +77,7 @@
         {
           "id": "EDT-COM-T05",
           "title": "Shared permission and capability surface define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -89,7 +89,7 @@
         {
           "id": "EDT-COM-T06",
           "title": "Common error and degraded-state model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -101,7 +101,7 @@
         {
           "id": "EDT-COM-T07",
           "title": "Shared trace and audit linking rules define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -113,7 +113,7 @@
         {
           "id": "EDT-COM-T08",
           "title": "First-run and onboarding split define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -125,7 +125,7 @@
         {
           "id": "EDT-COM-T09",
           "title": "Shared release and smoke strategy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -145,7 +145,7 @@
         {
           "id": "NVIM-T01",
           "title": "Plugin architecture decide",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -157,7 +157,7 @@
         {
           "id": "NVIM-T02",
           "title": "Minimum supported editor matrix define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -169,7 +169,7 @@
         {
           "id": "NVIM-T03",
           "title": "Connection and authentication support implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -181,7 +181,7 @@
         {
           "id": "NVIM-T04",
           "title": "Plugin command surface define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -193,7 +193,7 @@
         {
           "id": "NVIM-T05",
           "title": "Editor context collection implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -205,7 +205,7 @@
         {
           "id": "NVIM-T06",
           "title": "Goal submission from editor implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -915,15 +915,15 @@
     "EDT-REL-T02"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T15:02:00+02:00",
+    "updated_at": "2026-04-24T16:20:00+02:00",
     "total": 65,
     "by_status": {
-      "todo": 65,
+      "todo": 50,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 15
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 23.08,
     "by_priority": {
       "P0": 23,
       "P1": 37,
@@ -937,8 +937,8 @@
       "critical": 1
     },
     "by_group": {
-      "COMMON-FOUNDATION": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
-      "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0},
+      "COMMON-FOUNDATION": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
+      "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 1, "in_progress": 0, "blocked": 0, "done": 6},
       "NVIM-CODING-REVIEW-CONTEXT": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
       "NVIM-ADVANCED": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
       "TUI-FOUNDATION": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
@@ -950,15 +950,15 @@
     },
     "critical_path": {
       "total": 23,
-      "done": 0,
-      "remaining": 23
+      "done": 6,
+      "remaining": 17
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T15:02:00+02:00",
+    "updated_at": "2026-04-24T16:20:00+02:00",
     "stages": {
-      "stage_1_foundation": {"scope_groups": ["COMMON-FOUNDATION"], "total": 9, "done": 0, "todo": 9},
-      "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 0, "todo": 12},
+      "stage_1_foundation": {"scope_groups": ["COMMON-FOUNDATION"], "total": 9, "done": 9, "todo": 0},
+      "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 6, "todo": 6},
       "stage_3_core_workflows_parallel": {"scope_groups": ["NVIM-CODING-REVIEW-CONTEXT", "TUI-ADMIN-TASKS-ARTIFACTS"], "total": 15, "done": 0, "todo": 15},
       "stage_4_advanced_ops_parallel": {"scope_groups": ["TUI-LOGS-APPROVALS-AUDIT", "NVIM-ADVANCED"], "total": 11, "done": 0, "todo": 11},
       "stage_5_kritis_navigation_parallel": {"scope_groups": ["TUI-KRITIS-REPAIR-ADMIN", "TUI-USABILITY-NAVIGATION"], "total": 9, "done": 0, "todo": 9},
@@ -966,8 +966,8 @@
     }
   },
   "summary_notes": [
-    "Track reset from prior deterministic-repair completion to a new dual-surface editor-and-terminal program.",
-    "All tasks are currently planned and grouped into a clear execution order with explicit critical path focus.",
-    "Highest delivery risk is concentrated in shared contracts, orchestration-safe integration boundaries, approval/audit handling and end-to-end UX reliability."
+    "The first 15 priority tasks are complete: common foundation EDT-COM-T01..T09 and Neovim foundation NVIM-T01..T06.",
+    "Shared boundary, contract, capability, error, trace, onboarding and release-smoke contracts are now codified for both surfaces.",
+    "Next delivery focus remains on NVIM-T07 and then parallel core workflows for NVIM coding/review and TUI operations."
   ]
 }
