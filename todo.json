@@ -324,7 +324,7 @@
         {
           "id": "REP-T21",
           "title": "Initial deterministic repair catalog create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -336,7 +336,7 @@
         {
           "id": "REP-T22",
           "title": "Repair step executor implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "critical",
           "acceptance_criteria": [
@@ -348,7 +348,7 @@
         {
           "id": "REP-T23",
           "title": "Dry-run and preview support add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -360,7 +360,7 @@
         {
           "id": "REP-T24",
           "title": "Safe stop and abort conditions add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -379,7 +379,7 @@
         {
           "id": "REP-T25",
           "title": "Verification model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -391,7 +391,7 @@
         {
           "id": "REP-T26",
           "title": "Per-step verification hooks add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -403,7 +403,7 @@
         {
           "id": "REP-T27",
           "title": "Final repair success verification add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -415,7 +415,7 @@
         {
           "id": "REP-T28",
           "title": "Rollback or recovery hint model add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
@@ -434,7 +434,7 @@
         {
           "id": "REP-T29",
           "title": "Repair outcome memory model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -446,7 +446,7 @@
         {
           "id": "REP-T30",
           "title": "Fix success and failure tracking add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -779,15 +779,15 @@
     "REP-T50"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T20:33:00+02:00",
+    "updated_at": "2026-04-24T20:45:00+02:00",
     "total": 51,
     "by_status": {
-      "todo": 31,
+      "todo": 21,
       "in_progress": 0,
       "blocked": 0,
-      "done": 20
+      "done": 30
     },
-    "progress_percent_done": 39.22,
+    "progress_percent_done": 58.82,
     "by_priority": {
       "P0": 24,
       "P1": 22,
@@ -805,9 +805,9 @@
       "REP-SIGNAL-INGESTION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "REP-SIGNATURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 4, "in_progress": 0, "blocked": 0, "done": 1},
-      "REP-VERIFICATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
-      "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-VERIFICATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 3, "in_progress": 0, "blocked": 0, "done": 2},
       "REP-LLM-ESCALATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-UX-AND-OPERATOR-FLOWS": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
@@ -815,23 +815,23 @@
     },
     "critical_path": {
       "total": 28,
-      "done": 14,
-      "remaining": 14
+      "done": 21,
+      "remaining": 7
     }
   },
   "milestone_status_summary": {
-    "updated_at": "2026-04-24T20:33:00+02:00",
+    "updated_at": "2026-04-24T20:45:00+02:00",
     "by_milestone": {
       "REP-M1": {"total": 9, "done": 9, "todo": 0},
       "REP-M2": {"total": 10, "done": 10, "todo": 0},
-      "REP-M3": {"total": 9, "done": 1, "todo": 8},
-      "REP-M4": {"total": 13, "done": 0, "todo": 13},
+      "REP-M3": {"total": 9, "done": 9, "todo": 0},
+      "REP-M4": {"total": 13, "done": 2, "todo": 11},
       "REP-M5": {"total": 10, "done": 0, "todo": 10}
     }
   },
   "summary_notes": [
-    "Deterministic repair foundations plus signature catalog/matching, branching diagnosis playbooks and repair-procedure model (REP-T01 to REP-T20) are implemented.",
-    "Milestone REP-M1 and REP-M2 are completed; REP-M3 has started while remaining execution stays aligned to execution_order_summary and critical_path_tasks.",
-    "Risk-heavy remaining work is concentrated in executable repair catalog/executor depth, verification hardening, governance enforcement and rollout safety."
+    "Deterministic repair foundations through repair execution, verification hooks and outcome memory/tracking (REP-T01 to REP-T30) are implemented.",
+    "Milestones REP-M1, REP-M2 and REP-M3 are completed; REP-M4 has started while remaining execution stays aligned to execution_order_summary and critical_path_tasks.",
+    "Risk-heavy remaining work is concentrated in recommendation learning depth, governance enforcement, operator rollout and KRITIS-oriented hardening hooks."
   ]
 }

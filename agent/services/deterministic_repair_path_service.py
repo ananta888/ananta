@@ -421,6 +421,36 @@ REPAIR_PROCEDURE_MODEL: dict[str, Any] = {
     "execution_policy": "bounded_stepwise_with_verification",
 }
 
+REPAIR_EXECUTION_SAFETY_POLICY: dict[str, Any] = {
+    "schema": "deterministic_repair_safety_policy_v1",
+    "requires_approval_for_safety_classes": ["review_first", "high_risk"],
+    "allow_unbounded_actions": False,
+    "allow_unknown_actions": False,
+}
+
+REPAIR_VERIFICATION_MODEL: dict[str, Any] = {
+    "schema": "deterministic_repair_verification_v1",
+    "step_verification_required_for_mutations": True,
+    "allowed_probes": ["health_check", "service_status", "command_result", "functional_probe"],
+    "final_verification_required": True,
+}
+
+REPAIR_OUTCOME_MEMORY_MODEL: dict[str, Any] = {
+    "schema": "deterministic_repair_outcome_memory_v1",
+    "required_fields": [
+        "signature_id",
+        "problem_class",
+        "environment_facts",
+        "procedure_id",
+        "execution_status",
+        "outcome_label",
+        "verification_evidence",
+    ],
+    "query_keys": ["problem_class", "platform_target", "outcome_label", "procedure_id", "signature_id"],
+}
+
+STANDARD_OUTCOME_LABELS: tuple[str, ...] = ("succeeded", "partially_helped", "failed", "regressed")
+
 
 @dataclass(frozen=True)
 class FailureSignature:
@@ -906,6 +936,331 @@ def build_repair_procedure_template(*, problem_class: str, platform_target: str)
     }
 
 
+def build_initial_repair_procedure_catalog(
+    *, signature_catalog: tuple[FailureSignature, ...] | None = None
+) -> dict[str, Any]:
+    catalog = signature_catalog or build_initial_failure_signature_catalog()
+    signature_ids_by_problem_class: dict[str, list[str]] = {}
+    for signature in catalog:
+        signature_ids_by_problem_class.setdefault(signature.problem_class, []).append(signature.id)
+
+    entries: list[dict[str, Any]] = []
+    for problem_class in REPAIR_PROBLEM_CLASS_INVENTORY.keys():
+        template = build_repair_procedure_template(problem_class=problem_class, platform_target="cross_platform")
+        entries.append(
+            {
+                "id": f"repair-catalog-{problem_class}-v1",
+                "problem_class": problem_class,
+                "trigger_signature_ids": signature_ids_by_problem_class.get(problem_class, []),
+                "trigger_diagnosis_outcomes": [problem_class, f"{problem_class}_review_required"],
+                "bounded_scope_only": True,
+                "procedure": template,
+            }
+        )
+    return {
+        "schema": "deterministic_repair_catalog_v1",
+        "entries": entries,
+        "bounded_scope_only": True,
+    }
+
+
+def select_repair_procedure_from_catalog(
+    *,
+    repair_catalog: dict[str, Any],
+    matching_outcome: dict[str, Any],
+) -> dict[str, Any]:
+    entries = list(repair_catalog.get("entries") or [])
+    if not entries:
+        return {}
+    target_problem_class = str(matching_outcome.get("best_problem_class") or "service_start_failure")
+    for entry in entries:
+        if str(entry.get("problem_class") or "") == target_problem_class:
+            return entry
+    return entries[0]
+
+
+def build_repair_procedure_preview(
+    *,
+    selected_catalog_entry: dict[str, Any],
+    matching_outcome: dict[str, Any],
+) -> dict[str, Any]:
+    procedure = dict(selected_catalog_entry.get("procedure") or {})
+    steps = list(procedure.get("steps") or [])
+    return {
+        "schema": "deterministic_repair_preview_v1",
+        "procedure_id": procedure.get("id"),
+        "problem_class": selected_catalog_entry.get("problem_class"),
+        "step_count": len(steps),
+        "dry_run_supported": any(bool(step.get("dry_run_supported")) for step in steps),
+        "mutation_step_ids": [step.get("id") for step in steps if bool(step.get("mutation_candidate"))],
+        "matching_outcome": matching_outcome.get("outcome"),
+        "limitations": [
+            "preview_only_does_not_apply_state_changes",
+            "verification_results_in_preview_are_predictive_not_observed",
+        ],
+    }
+
+
+def _detect_contradictory_evidence(normalized_evidence: dict[str, Any]) -> bool:
+    text = _extract_evidence_text(normalized_evidence)
+    has_healthy = bool(re.search(r"\b(healthy|running|ok|resolved)\b", text))
+    has_failure = bool(re.search(r"\b(failed|error|denied|panic|unhealthy)\b", text))
+    return has_healthy and has_failure
+
+
+def _detect_worsening_signals(normalized_evidence: dict[str, Any]) -> bool:
+    text = _extract_evidence_text(normalized_evidence)
+    return bool(re.search(r"\b(regressed|worse|panic|fatal|crash loop)\b", text))
+
+
+def run_step_verification(
+    *,
+    step: dict[str, Any],
+    normalized_evidence: dict[str, Any],
+    environment_facts: dict[str, Any],
+) -> dict[str, Any]:
+    evidence_text = _extract_evidence_text(normalized_evidence)
+    contradictory = _detect_contradictory_evidence(normalized_evidence)
+    worsening = _detect_worsening_signals(normalized_evidence)
+    requires_strict = bool(step.get("mutation_candidate"))
+    platform_target = str(environment_facts.get("platform_target") or "unknown")
+    has_failure_signals = bool(re.search(r"\b(failed|error|denied|unhealthy)\b", evidence_text))
+    status = "pass"
+    if worsening:
+        status = "fail"
+    elif contradictory:
+        status = "warning"
+    elif requires_strict and has_failure_signals:
+        status = "needs_review"
+    return {
+        "schema": "deterministic_step_verification_v1",
+        "step_id": step.get("id"),
+        "platform_target": platform_target,
+        "status": status,
+        "checks": {
+            "contradictory_evidence": contradictory,
+            "worsening_signals": worsening,
+            "failure_signals_present": has_failure_signals,
+            "mutation_candidate": requires_strict,
+        },
+    }
+
+
+def execute_repair_procedure(
+    *,
+    selected_catalog_entry: dict[str, Any],
+    normalized_evidence: dict[str, Any],
+    environment_facts: dict[str, Any],
+    dry_run: bool,
+    approval_policy: dict[str, Any] | None = None,
+    safety_policy: dict[str, Any] | None = None,
+    stop_on_contradictory_evidence: bool = True,
+    stop_on_worsening_signals: bool = True,
+) -> dict[str, Any]:
+    policy = dict(REPAIR_EXECUTION_SAFETY_POLICY)
+    if safety_policy:
+        policy.update(dict(safety_policy))
+    procedure = dict(selected_catalog_entry.get("procedure") or {})
+    steps = list(procedure.get("steps") or [])
+    safety_class = str(procedure.get("safety_class") or "safe")
+    approval_required = safety_class in set(policy.get("requires_approval_for_safety_classes") or [])
+    approval_context = {
+        "required": approval_required,
+        "approved_mutations": bool((approval_policy or {}).get("approved_mutations", False)),
+    }
+    contradictory = _detect_contradictory_evidence(normalized_evidence)
+    worsening = _detect_worsening_signals(normalized_evidence)
+    step_records: list[dict[str, Any]] = []
+    abort_conditions: list[dict[str, Any]] = []
+    stop_reason = None
+
+    for step in steps:
+        step_id = str(step.get("id") or "")
+        mutation_candidate = bool(step.get("mutation_candidate"))
+        verification = run_step_verification(
+            step=step,
+            normalized_evidence=normalized_evidence,
+            environment_facts=environment_facts,
+        )
+        record = {
+            "step_id": step_id,
+            "title": step.get("title"),
+            "mutation_candidate": mutation_candidate,
+            "dry_run_supported": bool(step.get("dry_run_supported")),
+            "verification": verification,
+            "state": "previewed" if dry_run else "executed",
+            "verifiable": True,
+        }
+        if mutation_candidate and approval_required and not approval_context["approved_mutations"]:
+            record["state"] = "blocked"
+            stop_reason = "approval_required"
+            abort_conditions.append(
+                {
+                    "code": "approval_required_for_mutation",
+                    "severity": "high",
+                    "step_id": step_id,
+                    "message": "Mutation step blocked because approval is required and missing.",
+                }
+            )
+            step_records.append(record)
+            break
+        if mutation_candidate and stop_on_worsening_signals and verification["checks"]["worsening_signals"]:
+            record["state"] = "aborted"
+            stop_reason = "worsening_signals"
+            abort_conditions.append(
+                {
+                    "code": "abort_on_worsening_signals",
+                    "severity": "critical",
+                    "step_id": step_id,
+                    "message": "Execution aborted due to worsening signals before mutation.",
+                }
+            )
+            step_records.append(record)
+            break
+        if mutation_candidate and stop_on_contradictory_evidence and verification["checks"]["contradictory_evidence"]:
+            record["state"] = "aborted"
+            stop_reason = "contradictory_evidence"
+            abort_conditions.append(
+                {
+                    "code": "abort_on_contradictory_evidence",
+                    "severity": "high",
+                    "step_id": step_id,
+                    "message": "Execution aborted due to contradictory evidence that makes repair unsafe.",
+                }
+            )
+            step_records.append(record)
+            break
+        step_records.append(record)
+
+    if dry_run:
+        status = "preview_only"
+    elif abort_conditions:
+        status = "aborted"
+    else:
+        status = "completed"
+    return {
+        "schema": "deterministic_repair_execution_v1",
+        "procedure_id": procedure.get("id"),
+        "problem_class": selected_catalog_entry.get("problem_class"),
+        "execution_mode": "dry_run" if dry_run else "apply",
+        "status": status,
+        "safety_policy": policy,
+        "approval": approval_context,
+        "steps": step_records,
+        "abort_conditions": abort_conditions,
+        "stop_reason": stop_reason,
+        "clean_stop": bool(abort_conditions),
+        "worsening_signals_detected": worsening,
+        "contradictory_evidence_detected": contradictory,
+    }
+
+
+def verify_final_repair_outcome(
+    *,
+    execution_result: dict[str, Any],
+    normalized_evidence: dict[str, Any],
+    matching_outcome: dict[str, Any],
+) -> dict[str, Any]:
+    step_results = list(execution_result.get("steps") or [])
+    statuses = [str((step.get("verification") or {}).get("status") or "needs_review") for step in step_results]
+    has_fail = "fail" in statuses
+    has_review = "needs_review" in statuses or "warning" in statuses
+    contradictory = bool(execution_result.get("contradictory_evidence_detected"))
+    worsening = bool(execution_result.get("worsening_signals_detected"))
+    status = str(execution_result.get("status") or "aborted")
+    if worsening:
+        outcome_label = "regressed"
+    elif status == "completed" and not has_fail and not contradictory and not has_review:
+        outcome_label = "succeeded"
+    elif status in {"completed", "preview_only"} and not has_fail:
+        outcome_label = "partially_helped"
+    else:
+        outcome_label = "failed"
+    return {
+        "schema": "deterministic_repair_final_verification_v1",
+        "outcome_label": outcome_label,
+        "allowed_outcome_labels": list(STANDARD_OUTCOME_LABELS),
+        "problem_class": execution_result.get("problem_class"),
+        "matching_outcome": matching_outcome.get("outcome"),
+        "evidence_based": True,
+        "verification_summary": {
+            "step_verification_statuses": statuses,
+            "contradictory_evidence": contradictory,
+            "worsening_signals": worsening,
+            "execution_status": status,
+        },
+    }
+
+
+def build_recovery_hint_bundle(
+    *,
+    selected_catalog_entry: dict[str, Any],
+    execution_result: dict[str, Any],
+) -> dict[str, Any]:
+    procedure = dict(selected_catalog_entry.get("procedure") or {})
+    rollback_hints = list(procedure.get("rollback_hints") or [])
+    non_reversible = [step.get("step_id") for step in list(execution_result.get("steps") or []) if bool(step.get("mutation_candidate"))]
+    return {
+        "schema": "deterministic_repair_recovery_hints_v1",
+        "procedure_id": procedure.get("id"),
+        "rollback_hints": rollback_hints,
+        "manual_recovery_required": bool(non_reversible),
+        "non_reversible_step_ids": non_reversible,
+        "linked_execution_status": execution_result.get("status"),
+    }
+
+
+def build_repair_outcome_memory_entry(
+    *,
+    signature_matching: dict[str, Any],
+    selected_catalog_entry: dict[str, Any],
+    environment_facts: dict[str, Any],
+    execution_result: dict[str, Any],
+    final_verification: dict[str, Any],
+) -> dict[str, Any]:
+    top_match = (list(signature_matching.get("matches") or [{}]) or [{}])[0]
+    return {
+        "schema": "deterministic_repair_outcome_memory_entry_v1",
+        "signature_id": top_match.get("signature_id"),
+        "problem_class": selected_catalog_entry.get("problem_class"),
+        "environment_facts": {
+            "platform_target": environment_facts.get("platform_target"),
+            "os_family": environment_facts.get("os_family"),
+            "package_manager": environment_facts.get("package_manager"),
+            "service_state": environment_facts.get("service_state"),
+        },
+        "procedure_id": execution_result.get("procedure_id"),
+        "execution_status": execution_result.get("status"),
+        "outcome_label": final_verification.get("outcome_label"),
+        "verification_evidence": final_verification.get("verification_summary"),
+    }
+
+
+def track_repair_outcomes(memory_entries: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {label: 0 for label in STANDARD_OUTCOME_LABELS}
+    for entry in memory_entries:
+        label = str(entry.get("outcome_label") or "failed")
+        if label not in counts:
+            counts[label] = 0
+        counts[label] += 1
+    total = sum(counts.values())
+    recommendation_score = 0.0
+    if total > 0:
+        recommendation_score = (
+            (counts.get("succeeded", 0) * 1.0)
+            + (counts.get("partially_helped", 0) * 0.4)
+            - (counts.get("failed", 0) * 0.5)
+            - (counts.get("regressed", 0) * 1.0)
+        ) / total
+    return {
+        "schema": "deterministic_repair_outcome_tracking_v1",
+        "allowed_outcome_labels": list(STANDARD_OUTCOME_LABELS),
+        "counts_by_outcome": counts,
+        "total": total,
+        "recommendation_score": round(recommendation_score, 3),
+    }
+
+
 def evaluate_repair_confidence(
     *,
     signature_strength: float,
@@ -1123,6 +1478,46 @@ def build_deterministic_repair_foundation_snapshot(
         problem_class=selected_problem_class,
         platform_target=str(environment_facts.get("platform_target") or "unknown"),
     )
+    repair_catalog = build_initial_repair_procedure_catalog(signature_catalog=signature_catalog)
+    selected_catalog_entry = select_repair_procedure_from_catalog(
+        repair_catalog=repair_catalog,
+        matching_outcome=matching_outcome,
+    )
+    repair_preview = build_repair_procedure_preview(
+        selected_catalog_entry=selected_catalog_entry,
+        matching_outcome=matching_outcome,
+    )
+    repair_execution_dry_run = execute_repair_procedure(
+        selected_catalog_entry=selected_catalog_entry,
+        normalized_evidence=normalized_evidence,
+        environment_facts=environment_facts,
+        dry_run=True,
+        approval_policy={"approved_mutations": False},
+    )
+    repair_execution_apply = execute_repair_procedure(
+        selected_catalog_entry=selected_catalog_entry,
+        normalized_evidence=normalized_evidence,
+        environment_facts=environment_facts,
+        dry_run=False,
+        approval_policy={"approved_mutations": True},
+    )
+    final_verification = verify_final_repair_outcome(
+        execution_result=repair_execution_apply,
+        normalized_evidence=normalized_evidence,
+        matching_outcome=matching_outcome,
+    )
+    recovery_hints = build_recovery_hint_bundle(
+        selected_catalog_entry=selected_catalog_entry,
+        execution_result=repair_execution_apply,
+    )
+    memory_entry = build_repair_outcome_memory_entry(
+        signature_matching=signature_matching,
+        selected_catalog_entry=selected_catalog_entry,
+        environment_facts=environment_facts,
+        execution_result=repair_execution_apply,
+        final_verification=final_verification,
+    )
+    outcome_tracking = track_repair_outcomes([memory_entry])
     return {
         "target_model": dict(REPAIR_PATH_TARGET_MODEL),
         "problem_class_inventory": dict(REPAIR_PROBLEM_CLASS_INVENTORY),
@@ -1169,4 +1564,17 @@ def build_deterministic_repair_foundation_snapshot(
         },
         "repair_procedure_model": dict(REPAIR_PROCEDURE_MODEL),
         "repair_procedure_template": repair_procedure_template,
+        "repair_catalog": repair_catalog,
+        "selected_repair_catalog_entry": selected_catalog_entry,
+        "repair_preview": repair_preview,
+        "repair_execution": {
+            "dry_run": repair_execution_dry_run,
+            "apply_run": repair_execution_apply,
+        },
+        "verification_model": dict(REPAIR_VERIFICATION_MODEL),
+        "final_repair_verification": final_verification,
+        "recovery_hints": recovery_hints,
+        "outcome_memory_model": dict(REPAIR_OUTCOME_MEMORY_MODEL),
+        "outcome_memory_entry": memory_entry,
+        "outcome_tracking": outcome_tracking,
     }
