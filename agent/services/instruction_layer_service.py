@@ -8,6 +8,7 @@ from typing import Any
 from agent.common.audit import log_audit
 from agent.db_models import GoalDB, InstructionOverlayDB, TaskDB, UserInstructionProfileDB
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_template_resolution import resolve_task_role_template
 
 _LAYER_MODEL_VERSION = "instruction-layer-model-v1"
 _STACK_VERSION = "instruction-stack-v1"
@@ -77,6 +78,17 @@ _PROFILE_EXAMPLES = [
         ],
     },
 ]
+_TEMPLATE_CONTEXT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "review": ("review", "qa", "quality", "audit", "compliance"),
+    "research": ("research", "analysis", "analyst", "investigation", "discovery"),
+    "implementation": ("implement", "development", "developer", "coding", "engineer", "build"),
+    "security": ("security", "sec", "hardening", "threat"),
+}
+_LAYER_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "review": ("review", "qa", "quality", "risk", "audit", "test first", "test-first"),
+    "research": ("research", "analysis", "investigate", "explore", "compare"),
+    "implementation": ("implement", "coding", "build", "ship", "develop"),
+}
 
 
 class InstructionLayerService:
@@ -296,6 +308,29 @@ class InstructionLayerService:
                 return candidates[0]
         return None
 
+    def evaluate_selection_compatibility(
+        self,
+        *,
+        task: dict | TaskDB | None,
+        owner_username: str | None,
+        profile_id: str | None,
+        overlay_id: str | None,
+    ) -> dict[str, Any]:
+        task_payload = task.model_dump() if isinstance(task, TaskDB) else dict(task or {})
+        profile, overlay = self._resolve_selection_entities(
+            owner_username=owner_username,
+            profile_id=profile_id,
+            overlay_id=overlay_id,
+        )
+        compatibility = self._evaluate_role_template_compatibility(
+            task_payload=task_payload,
+            profile=profile,
+            overlay=overlay,
+        )
+        compatibility["selected_profile"] = self._profile_summary(profile)
+        compatibility["selected_overlay"] = self._overlay_summary(overlay)
+        return compatibility
+
     def task_selection_summary(self, task_payload: dict | None) -> dict[str, Any]:
         task = dict(task_payload or {})
         context = dict((task.get("worker_execution_context") or {}).get("instruction_context") or {})
@@ -306,6 +341,11 @@ class InstructionLayerService:
             owner_username=owner_username,
             profile_id=profile_id,
             overlay_id=overlay_id,
+        )
+        compatibility = self._evaluate_role_template_compatibility(
+            task_payload=task,
+            profile=profile,
+            overlay=overlay,
         )
         return {
             "owner_username": owner_username,
@@ -321,6 +361,7 @@ class InstructionLayerService:
             ),
             "selected_profile": self._profile_summary(profile),
             "selected_overlay": self._overlay_summary(overlay),
+            "template_compatibility": compatibility,
         }
 
     def goal_selection_summary(self, goal_payload: GoalDB | dict | None) -> dict[str, Any]:
@@ -338,6 +379,11 @@ class InstructionLayerService:
             profile_id=profile_id,
             overlay_id=overlay_id,
         )
+        compatibility = self._evaluate_role_template_compatibility(
+            task_payload={},
+            profile=profile,
+            overlay=overlay,
+        )
         return {
             "owner_username": owner_username,
             "profile_id": profile_id,
@@ -352,6 +398,7 @@ class InstructionLayerService:
             ),
             "selected_profile": self._profile_summary(profile),
             "selected_overlay": self._overlay_summary(overlay),
+            "template_compatibility": compatibility,
         }
 
     def set_task_selection(
@@ -590,6 +637,11 @@ class InstructionLayerService:
                 task_id=str(task_payload.get("id") or "").strip() or None,
                 goal_id=str(task_payload.get("goal_id") or "").strip() or None,
             )
+        compatibility = self._evaluate_role_template_compatibility(
+            task_payload=task_payload,
+            profile=profile,
+            overlay=overlay,
+        )
 
         diagnostics = {
             "version": _STACK_VERSION,
@@ -602,6 +654,7 @@ class InstructionLayerService:
             "owner_username": owner_username or None,
             "task_id": str(task_payload.get("id") or "").strip() or None,
             "goal_id": str(task_payload.get("goal_id") or "").strip() or None,
+            "template_compatibility": compatibility,
         }
         if emit_audit and (profile or overlay):
             log_audit(
@@ -675,6 +728,222 @@ class InstructionLayerService:
             return None
         goal = get_repository_registry().goal_repo.get_by_id(goal_id)
         return goal.model_dump() if goal else None
+
+    def _evaluate_role_template_compatibility(
+        self,
+        *,
+        task_payload: dict,
+        profile: UserInstructionProfileDB | None,
+        overlay: InstructionOverlayDB | None,
+    ) -> dict[str, Any]:
+        repos = get_repository_registry()
+        role_template_context = resolve_task_role_template(task_payload, repos=repos)
+        template_text = " ".join(
+            value
+            for value in (
+                str(role_template_context.get("template_name") or "").strip(),
+                str(role_template_context.get("role_name") or "").strip(),
+            )
+            if value
+        ).lower()
+        detected_contexts = sorted(
+            {
+                context
+                for context, keywords in _TEMPLATE_CONTEXT_KEYWORDS.items()
+                if template_text and any(keyword in template_text for keyword in keywords)
+            }
+        )
+        issues: list[dict[str, Any]] = []
+        if profile is not None:
+            issues.extend(
+                self._collect_layer_compatibility_issues(
+                    layer="user_profile",
+                    layer_id=profile.id,
+                    layer_name=profile.name,
+                    prompt_content=str(profile.prompt_content or ""),
+                    metadata=dict(profile.profile_metadata or {}),
+                    template_text=template_text,
+                    detected_template_contexts=detected_contexts,
+                )
+            )
+        if overlay is not None:
+            issues.extend(
+                self._collect_layer_compatibility_issues(
+                    layer="task_overlay",
+                    layer_id=overlay.id,
+                    layer_name=overlay.name,
+                    prompt_content=str(overlay.prompt_content or ""),
+                    metadata=dict(overlay.overlay_metadata or {}),
+                    template_text=template_text,
+                    detected_template_contexts=detected_contexts,
+                )
+            )
+        blocks = [issue for issue in issues if str(issue.get("severity") or "") == "block"]
+        warnings = [issue for issue in issues if str(issue.get("severity") or "") == "warn"]
+        status = "block" if blocks else ("warn" if warnings else "ok")
+        return {
+            "status": status,
+            "role_template_context": role_template_context,
+            "context_available": bool(role_template_context.get("role_name") or role_template_context.get("template_name")),
+            "detected_template_contexts": detected_contexts,
+            "issues": issues,
+            "warning_count": len(warnings),
+            "block_count": len(blocks),
+        }
+
+    def _collect_layer_compatibility_issues(
+        self,
+        *,
+        layer: str,
+        layer_id: str,
+        layer_name: str,
+        prompt_content: str,
+        metadata: dict[str, Any],
+        template_text: str,
+        detected_template_contexts: list[str],
+    ) -> list[dict[str, Any]]:
+        issues: list[dict[str, Any]] = []
+        layer_intents = self._infer_layer_intents(prompt_content=prompt_content, metadata=metadata)
+        compatibility = dict(metadata.get("compatibility") or {})
+        blocked_contexts = {
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("blocked_template_contexts") or [])
+            if str(item or "").strip()
+        }
+        allowed_contexts = {
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("allowed_template_contexts") or [])
+            if str(item or "").strip()
+        }
+        forbidden_keywords = [
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("forbidden_template_keywords") or [])
+            if str(item or "").strip()
+        ]
+        required_keywords = [
+            str(item or "").strip().lower()
+            for item in list(compatibility.get("required_template_keywords") or [])
+            if str(item or "").strip()
+        ]
+
+        for context in detected_template_contexts:
+            if context in blocked_contexts:
+                issues.append(
+                    self._compatibility_issue(
+                        severity="block",
+                        code="blocked_template_context",
+                        message=f"{layer_name} blocks template context '{context}'.",
+                        layer=layer,
+                        layer_id=layer_id,
+                        details={"context": context},
+                    )
+                )
+        if allowed_contexts and detected_template_contexts and not (allowed_contexts & set(detected_template_contexts)):
+            issues.append(
+                self._compatibility_issue(
+                    severity="block",
+                    code="template_context_not_allowed",
+                    message=f"{layer_name} allows only {sorted(allowed_contexts)}, current context is {detected_template_contexts}.",
+                    layer=layer,
+                    layer_id=layer_id,
+                    details={"allowed_template_contexts": sorted(allowed_contexts)},
+                )
+            )
+        for keyword in forbidden_keywords:
+            if template_text and keyword in template_text:
+                issues.append(
+                    self._compatibility_issue(
+                        severity="block",
+                        code="forbidden_template_keyword",
+                        message=f"{layer_name} blocks template keyword '{keyword}'.",
+                        layer=layer,
+                        layer_id=layer_id,
+                        details={"keyword": keyword},
+                    )
+                )
+        if required_keywords and template_text and not any(keyword in template_text for keyword in required_keywords):
+            issues.append(
+                self._compatibility_issue(
+                    severity="block",
+                    code="required_template_keyword_missing",
+                    message=f"{layer_name} requires one of {required_keywords} in role/template naming.",
+                    layer=layer,
+                    layer_id=layer_id,
+                    details={"required_template_keywords": required_keywords},
+                )
+            )
+
+        mismatch_pairs = {
+            "review": {"implementation"},
+            "research": {"implementation"},
+            "implementation": {"review"},
+        }
+        for template_context in detected_template_contexts:
+            mismatching_intents = mismatch_pairs.get(template_context) or set()
+            if layer_intents & mismatching_intents:
+                issues.append(
+                    self._compatibility_issue(
+                        severity="warn",
+                        code="working_mode_template_mismatch",
+                        message=(
+                            f"{layer_name} suggests {sorted(layer_intents)} while template context is '{template_context}'. "
+                            "Review expected behavior before execution."
+                        ),
+                        layer=layer,
+                        layer_id=layer_id,
+                        details={
+                            "template_context": template_context,
+                            "layer_intents": sorted(layer_intents),
+                        },
+                    )
+                )
+                break
+        return issues
+
+    def _infer_layer_intents(self, *, prompt_content: str, metadata: dict[str, Any]) -> set[str]:
+        intents: set[str] = set()
+        preferences = dict(metadata.get("preferences") or {})
+        working_mode = str(preferences.get("working_mode") or "").strip().lower()
+        if working_mode:
+            intents.add(self._normalize_intent(working_mode))
+        prompt_text = str(prompt_content or "").strip().lower()
+        if prompt_text:
+            for context, keywords in _LAYER_INTENT_KEYWORDS.items():
+                if any(keyword in prompt_text for keyword in keywords):
+                    intents.add(context)
+        return {intent for intent in intents if intent}
+
+    @staticmethod
+    def _normalize_intent(raw: str) -> str:
+        value = str(raw or "").strip().lower()
+        if value in {"code", "coding", "implementation", "implement", "build", "delivery"}:
+            return "implementation"
+        if value in {"review", "qa", "quality", "audit", "test_first", "test-first"}:
+            return "review"
+        if value in {"research", "analysis", "investigation"}:
+            return "research"
+        if value in {"security", "secure", "hardening"}:
+            return "security"
+        return value
+
+    @staticmethod
+    def _compatibility_issue(
+        *,
+        severity: str,
+        code: str,
+        message: str,
+        layer: str,
+        layer_id: str,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "severity": severity,
+            "code": code,
+            "message": message,
+            "layer": layer,
+            "layer_id": layer_id,
+            "details": dict(details or {}),
+        }
 
     @staticmethod
     def _profile_summary(profile: UserInstructionProfileDB | None) -> dict[str, Any] | None:

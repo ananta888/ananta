@@ -49,6 +49,32 @@ import { interval, Subscription } from 'rxjs';
           </div>
         </div>
 
+        @if (goal?.instruction_layers) {
+          <div class="card mt-md">
+            <div class="row space-between">
+              <div>
+                <h3 class="no-margin">Instruction Summary</h3>
+                <p class="muted font-sm mt-xs no-margin">Profil und Overlay fuer dieses Goal bleiben vor Ausfuehrung sichtbar.</p>
+              </div>
+              <button class="secondary btn-small" [routerLink]="['/instruction-layers']">Instruction Workbench</button>
+            </div>
+            <div class="grid cols-3 gap-sm mt-sm">
+              <div>
+                <div class="muted font-sm">Profil</div>
+                <strong>{{ goal?.instruction_layers?.selected_profile?.name || '-' }}</strong>
+              </div>
+              <div>
+                <div class="muted font-sm">Overlay</div>
+                <strong>{{ goal?.instruction_layers?.selected_overlay?.name || '-' }}</strong>
+              </div>
+              <div>
+                <div class="muted font-sm">Compatibility</div>
+                <strong>{{ goal?.instruction_layers?.template_compatibility?.status || 'ok' }}</strong>
+              </div>
+            </div>
+          </div>
+        }
+
         <app-section-card class="block mt-md result-summary" eyebrow="Abschluss & naechste Schritte" [title]="resultHeadline()" [subtitle]="resultDescription()">
           <button section-actions class="secondary btn-small" [routerLink]="['/board']">Aufgaben oeffnen</button>
           <button section-actions class="secondary btn-small" [routerLink]="['/artifacts']">Ergebnisse oeffnen</button>

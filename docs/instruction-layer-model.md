@@ -74,6 +74,14 @@ When user-controlled layers violate forbidden scope, the API responds with `inst
 - `forbidden_scope`
 - `suggested_fix`
 
+## Role/template compatibility checks
+
+- Effective stack diagnostics now include `template_compatibility`.
+- Compatibility can return `ok`, `warn` or `block`.
+- `warn` signals soft mismatches (for example implementation-focused profile on review template context).
+- `block` is triggered when profile/overlay compatibility metadata explicitly disallows the detected role/template context.
+- Task selection API (`/tasks/{task_id}/instruction-selection`) rejects blocked compatibility with `instruction_template_incompatible`.
+
 ## Overlay attachment points
 
 Supported attachment kinds:

@@ -181,6 +181,35 @@ import { ModeCardOption, ModeCardPickerComponent, PresetOption } from '../shared
       }
 
       <section class="card card-primary mb-md" id="quick-goal">
+        @if (isHintVisible('instruction-layers-start')) {
+          <app-explanation-notice class="block mb-md inline-help" title="Profile vs Overlay" message="Profile wirken dauerhaft fuer deinen Arbeitsstil. Overlays sind bewusst task-, goal- oder session-spezifisch und bleiben explizit sichtbar.">
+            <button class="secondary btn-small" type="button" (click)="dismissHint('instruction-layers-start')">Ausblenden</button>
+          </app-explanation-notice>
+        }
+        <div class="card card-light mb-md">
+          <div class="row space-between">
+            <strong>Instruction-Layer Auswahl (optional)</strong>
+            <a [routerLink]="['/instruction-layers']" class="button-outline">Verwalten</a>
+          </div>
+          <div class="grid cols-2 mt-sm">
+            <label>Profil
+              <select [(ngModel)]="selectedInstructionProfileId">
+                <option value="">- kein Profil -</option>
+                @for (profile of instructionProfiles; track profile.id) {
+                  <option [value]="profile.id">{{ profile.name }}</option>
+                }
+              </select>
+            </label>
+            <label>Overlay
+              <select [(ngModel)]="selectedInstructionOverlayId">
+                <option value="">- kein Overlay -</option>
+                @for (overlay of instructionOverlays; track overlay.id) {
+                  <option [value]="overlay.id">{{ overlay.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        </div>
         <app-dashboard-quick-goal-panel
           [text]="quickGoalText"
           [busy]="quickGoalBusy"
@@ -481,6 +510,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalText = '';
   quickGoalContext = '';
   selectedPresetId = '';
+  selectedInstructionProfileId = '';
+  selectedInstructionOverlayId = '';
+  instructionProfiles: Array<{ id: string; name: string }> = [];
+  instructionOverlays: Array<{ id: string; name: string }> = [];
   quickGoalBusy = false;
   quickGoalResult: QuickGoalResult | null = null;
   quickGoalError = '';
@@ -495,6 +528,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     if (this.hub?.url) this.ensureTaskCollection();
     this.refreshGoalModes();
+    this.refreshInstructionSelectionOptions();
     this.refreshRuntime.start(() => this.refresh(), 10000);
   }
 
@@ -512,6 +546,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.hub) return;
     this.liveState.ensureSystemEvents(this.hub.url);
     this.ensureTaskCollection();
+    if (!this.instructionProfiles.length && !this.instructionOverlays.length) {
+      this.refreshInstructionSelectionOptions();
+    }
 
     this.facade.refresh(this.hub.url, this.benchmarkTaskKind);
     this.refreshAutopilot();
@@ -540,6 +577,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  refreshInstructionSelectionOptions() {
+    if (!this.hub) return;
+    this.hubApi.listInstructionProfiles(this.hub.url).subscribe({
+      next: profiles => {
+        this.instructionProfiles = Array.isArray(profiles) ? profiles : [];
+        const known = new Set(this.instructionProfiles.map(item => item.id));
+        if (this.selectedInstructionProfileId && !known.has(this.selectedInstructionProfileId)) this.selectedInstructionProfileId = '';
+      },
+      error: () => this.ns.error('Instruction-Profile konnten nicht geladen werden')
+    });
+    this.hubApi.listInstructionOverlays(this.hub.url).subscribe({
+      next: overlays => {
+        this.instructionOverlays = Array.isArray(overlays) ? overlays : [];
+        const known = new Set(this.instructionOverlays.map(item => item.id));
+        if (this.selectedInstructionOverlayId && !known.has(this.selectedInstructionOverlayId)) this.selectedInstructionOverlayId = '';
+      },
+      error: () => this.ns.error('Instruction-Overlays konnten nicht geladen werden')
+    });
+  }
+
   isHintVisible(key: string): boolean {
     return !this.hiddenHints.has(key);
   }
@@ -553,6 +610,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.hub || !request.mode) return;
     this.quickGoalBusy = true;
     this.quickGoalResult = null;
+    const selection = this.currentInstructionSelection();
 
     this.hubApi.createGoal(this.hub.url, {
       mode: request.mode.id,
@@ -564,6 +622,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           context: request.modeData['context'] || '',
         },
       },
+      instruction_profile_id: selection.profile_id || undefined,
+      instruction_overlay_id: selection.overlay_id || undefined,
       create_tasks: true
     }).subscribe({
       next: (result: any) => {
@@ -1093,6 +1153,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.quickGoalBusy = true;
     this.quickGoalResult = null;
     this.quickGoalError = '';
+    const selection = this.currentInstructionSelection();
 
     this.hubApi.planGoal(this.hub.url, {
       goal: this.quickGoalText.trim(),
@@ -1100,18 +1161,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
       create_tasks: true
     }).subscribe({
       next: (result: any) => {
-        this.completeFirstStartWizard();
-        this.quickGoalBusy = false;
-        this.quickGoalResult = {
-          tasks_created: result?.created_task_ids?.length || 0,
-          task_ids: result?.created_task_ids || [],
-          goal_id: result?.goal_id
+        const completeSuccess = () => {
+          this.completeFirstStartWizard();
+          this.quickGoalBusy = false;
+          this.quickGoalResult = {
+            tasks_created: result?.created_task_ids?.length || 0,
+            task_ids: result?.created_task_ids || [],
+            goal_id: result?.goal_id
+          };
+          this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
+          this.quickGoalText = '';
+          this.quickGoalContext = '';
+          this.selectedPresetId = '';
+          this.refresh();
         };
-        this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
-        this.quickGoalText = '';
-        this.quickGoalContext = '';
-        this.selectedPresetId = '';
-        this.refresh();
+        const goalId = String(result?.goal_id || '').trim();
+        if (goalId && (selection.profile_id || selection.overlay_id)) {
+          this.hubApi.setGoalInstructionSelection(this.hub.url, goalId, {
+            profile_id: selection.profile_id || null,
+            overlay_id: selection.overlay_id || null,
+          }).subscribe({
+            next: () => completeSuccess(),
+            error: (err) => {
+              this.quickGoalBusy = false;
+              this.quickGoalError = this.quickGoalFailureMessage(err);
+              this.toast.error('Instruction-Auswahl konnte dem Goal nicht zugewiesen werden');
+            }
+          });
+          return;
+        }
+        completeSuccess();
       },
       error: (err) => {
         this.quickGoalBusy = false;
@@ -1119,6 +1198,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.toast.error('Ziel konnte nicht geplant werden');
       }
     });
+  }
+
+  private currentInstructionSelection(): { profile_id: string | null; overlay_id: string | null } {
+    return {
+      profile_id: String(this.selectedInstructionProfileId || '').trim() || null,
+      overlay_id: String(this.selectedInstructionOverlayId || '').trim() || null,
+    };
   }
 
   currentQuickGoalExpectation(): QuickGoalExpectation | null {

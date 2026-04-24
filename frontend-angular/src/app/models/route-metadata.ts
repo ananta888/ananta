@@ -32,6 +32,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'auto-planner': { label: 'Auto-Planner', area: 'Automate', navGroup: 'Automatisierung', navOrder: 10, expertOnly: true },
   webhooks: { label: 'Webhooks', area: 'Automate', navGroup: 'Automatisierung', navOrder: 20, expertOnly: true },
   templates: { label: 'Vorlagen', area: 'Configure', navGroup: 'Arbeiten', navOrder: 40, simpleNav: true },
+  'instruction-layers': { label: 'Instruction Layers', area: 'Configure', navGroup: 'Konfiguration', navOrder: 35, expertOnly: true },
   teams: { label: 'Teams', area: 'Configure', navGroup: 'Konfiguration', navOrder: 20, expertOnly: true },
   'audit-log': { label: 'Audit-Logs', area: 'System', navGroup: 'Konfiguration', navOrder: 30, adminOnly: true, expertOnly: true },
   settings: { label: 'Einstellungen', area: 'System', navGroup: 'Konfiguration', navOrder: 40, expertOnly: true },

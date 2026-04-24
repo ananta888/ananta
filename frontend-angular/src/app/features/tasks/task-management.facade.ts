@@ -112,6 +112,47 @@ export class TaskManagementFacade {
     return this.hubApi.listProviders(hubUrl, token);
   }
 
+  listInstructionProfiles(hubUrl: string, ownerUsername?: string, token?: string) {
+    return this.hubApi.listInstructionProfiles(hubUrl, ownerUsername, token);
+  }
+
+  listInstructionOverlays(
+    hubUrl: string,
+    filters?: { owner_username?: string; attachment_kind?: string; attachment_id?: string },
+    token?: string,
+  ) {
+    return this.hubApi.listInstructionOverlays(hubUrl, filters, token);
+  }
+
+  setTaskInstructionSelection(hubUrl: string, taskId: string, body: any, token?: string) {
+    return this.hubApi.setTaskInstructionSelection(hubUrl, taskId, body, token);
+  }
+
+  attachInstructionOverlay(hubUrl: string, overlayId: string, body: any, token?: string) {
+    return this.hubApi.attachInstructionOverlay(hubUrl, overlayId, body, token);
+  }
+
+  detachInstructionOverlay(hubUrl: string, overlayId: string, token?: string) {
+    return this.hubApi.detachInstructionOverlay(hubUrl, overlayId, token);
+  }
+
+  getInstructionLayersEffective(
+    hubUrl: string,
+    params?: {
+      owner_username?: string;
+      task_id?: string;
+      goal_id?: string;
+      session_id?: string;
+      usage_key?: string;
+      base_prompt?: string;
+      profile_id?: string;
+      overlay_id?: string;
+    },
+    token?: string,
+  ) {
+    return this.hubApi.getInstructionLayersEffective(hubUrl, params, token);
+  }
+
   getTask(hubUrl: string, taskId: string, token?: string) {
     return this.hubApi.getTask(hubUrl, taskId, token);
   }

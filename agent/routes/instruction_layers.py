@@ -605,8 +605,25 @@ def set_task_instruction_selection(task_id: str):
         return owner_error
     profile_id = str(payload.get("profile_id") or "").strip() or None
     overlay_id = str(payload.get("overlay_id") or "").strip() or None
+    service = get_instruction_layer_service()
+    task = _repos().task_repo.get_by_id(task_id)
+    if task is None:
+        return api_response(status="error", message="task_not_found", code=404)
+    compatibility = service.evaluate_selection_compatibility(
+        task=task,
+        owner_username=owner_username,
+        profile_id=profile_id,
+        overlay_id=overlay_id,
+    )
+    if str(compatibility.get("status") or "") == "block":
+        return api_response(
+            status="error",
+            message="instruction_template_incompatible",
+            data=compatibility,
+            code=409,
+        )
     try:
-        summary = get_instruction_layer_service().set_task_selection(
+        summary = service.set_task_selection(
             task_id=task_id,
             owner_username=owner_username,
             profile_id=profile_id,

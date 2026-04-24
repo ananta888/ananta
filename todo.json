@@ -321,7 +321,7 @@
         {
           "id": "UPT-T25",
           "title": "User profile management UI add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The UI allows users to create and manage their persistent profiles.",
@@ -332,7 +332,7 @@
         {
           "id": "UPT-T26",
           "title": "Task overlay editor UI add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Users can attach an overlay while creating or editing a goal/task/session where applicable.",
@@ -343,7 +343,7 @@
         {
           "id": "UPT-T27",
           "title": "Effective instruction summary UI add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The user can inspect a summary of the effective instruction stack before or during execution.",
@@ -354,7 +354,7 @@
         {
           "id": "UPT-T28",
           "title": "Profile and overlay templates or presets add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "The UI can offer a few presets to accelerate adoption.",
@@ -365,7 +365,7 @@
         {
           "id": "UPT-T29",
           "title": "First-run guidance for user profile prompts add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "New users get a lightweight explanation of the difference between profile and overlay.",
@@ -405,7 +405,7 @@
         {
           "id": "UPT-T32",
           "title": "Role template compatibility checks add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "The system can detect when a user profile or overlay is incompatible with a role or template context.",
@@ -416,7 +416,7 @@
         {
           "id": "UPT-T33",
           "title": "Task and session reuse flows add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "Existing tasks or sessions can reuse an existing overlay where appropriate.",
@@ -516,15 +516,15 @@
     "UPT-T37"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T11:36:00+02:00",
+    "updated_at": "2026-04-24T12:30:00+02:00",
     "total": 38,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 31
+      "done": 38
     },
-    "progress_percent_done": 81.6,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 12,
       "P1": 20,
@@ -559,13 +559,13 @@
       },
       "UPT-UI-AND-UX": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 5,
+        "todo": 0
       },
       "UPT-INTEGRATION-WITH-BLUEPRINTS": {
         "total": 4,
-        "done": 2,
-        "todo": 2
+        "done": 4,
+        "todo": 0
       },
       "UPT-TESTING-DOCS": {
         "total": 5,
@@ -575,8 +575,8 @@
     },
     "critical_path": {
       "total": 17,
-      "done": 16,
-      "remaining": 1
+      "done": 17,
+      "remaining": 0
     }
   }
 }
