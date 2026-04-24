@@ -27,4 +27,4 @@ Run:
 
 `python3 scripts/smoke_client_golden_paths.py`
 
-The golden path verifies TUI and Neovim goal->task/artifact flow on fixture transport. Eclipse runtime bootstrap is started in this track, but full Eclipse runtime flow smoke remains pending until command/view runtime delivery lands.
+The golden path verifies TUI and Neovim goal->task/artifact flow on fixture transport. Eclipse runtime now has command/view MVP delivery and a headless runtime smoke gate (`python3 scripts/smoke_eclipse_runtime_headless.py`) for CI/runtime hardening.

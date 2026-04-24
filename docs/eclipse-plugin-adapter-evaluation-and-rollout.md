@@ -40,4 +40,4 @@ These are explicitly out of MVP scope to keep the adapter maintainable and thin.
 
 - Eclipse runtime command/view MVP is active for the EAC track.
 - Runtime artifacts include plugin metadata, deterministic dockerized build command, command registry, bounded context capture, runtime views extension registry and runtime smoke checks.
-- Follow-up block focuses on hardening: deeper runtime test coverage, CI lane and merge-readiness evidence.
+- Hardening block is implemented: deeper runtime Java test coverage, headless smoke gate, CI lane and merge-readiness evidence.

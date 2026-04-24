@@ -56,7 +56,7 @@
       "surface": "eclipse_plugin",
       "classification": "real_implementation",
       "delivery_status": "runtime_mvp_operational",
-      "decision": "runtime_commands_and_views_mvp_delivered_hardening_pending",
+      "decision": "runtime_commands_views_and_hardening_delivered",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -88,8 +88,13 @@
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/core/EclipseRuntimeUnitTest.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/integration/EclipseRuntimeIntegrationUiTest.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/security/EclipseRuntimeSecurityGovernanceTest.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/core/EclipseRuntimeApiContractCompatibilityTest.java",
           "scripts/build_eclipse_runtime_plugin.py",
-          "scripts/smoke_eclipse_runtime_bootstrap.py"
+          "scripts/smoke_eclipse_runtime_bootstrap.py",
+          "scripts/smoke_eclipse_runtime_headless.py"
         ]
       }
     },
@@ -97,7 +102,7 @@
       "surface": "eclipse_views_extension",
       "classification": "real_implementation",
       "delivery_status": "runtime_mvp_operational",
-      "decision": "views_runtime_delivery_completed_for_m9_core_scope",
+      "decision": "views_runtime_delivery_completed_with_hardening_gates",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -115,7 +120,8 @@
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
-          "scripts/smoke_eclipse_runtime_bootstrap.py"
+          "scripts/smoke_eclipse_runtime_bootstrap.py",
+          "scripts/smoke_eclipse_runtime_headless.py"
         ]
       }
     },
@@ -161,7 +167,6 @@
   ],
   "gap_summary": {
     "missing_runtime_artifacts": [
-      "Eclipse runtime hardening gates (Java unit tests, integration/UI tests, security/contract tests, CI lane) are still pending in M10.",
       "No Vim runtime plugin/autoload files available in a runtime plugin directory while Vim remains deferred.",
       "TUI runtime exists as MVP but still needs expanded feature coverage and release packaging."
     ]

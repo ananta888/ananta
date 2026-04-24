@@ -52,6 +52,7 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.properties",
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
             "scripts/smoke_eclipse_runtime_bootstrap.py",
+            "scripts/smoke_eclipse_runtime_headless.py",
         ],
         "foundation_patterns": [
             "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -70,6 +71,7 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
         "runtime_required_patterns": [
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
             "scripts/smoke_eclipse_runtime_bootstrap.py",
+            "scripts/smoke_eclipse_runtime_headless.py",
         ],
         "foundation_patterns": [
             "agent/services/eclipse_plugin_adapter_foundation_service.py",

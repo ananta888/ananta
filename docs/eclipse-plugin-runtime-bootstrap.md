@@ -14,8 +14,9 @@ Runtime bootstrap and operations currently cover:
 - bounded workspace/editor context capture with user-review preview
 - runtime goal submission panel model with task/artifact result links
 - runtime views registry for task/artifact/approval/audit/repair/TUI/policy-fallback surfaces
+- Java unit/integration/security/contract tests for runtime hardening
 
-Runtime implementation exists, but test/CI hardening and merge-readiness tasks are still pending in the follow-up block.
+Runtime implementation includes test/CI hardening and merge-readiness evidence for the current delivery scope.
 
 ## Build Command
 
@@ -34,6 +35,10 @@ If Docker credential helpers are misconfigured in WSL-like environments:
 ## Smoke Command
 
 `python3 scripts/smoke_eclipse_runtime_bootstrap.py`
+
+Headless hardening smoke (runs runtime bootstrap smoke + Java runtime tests + audit gate):
+
+`python3 scripts/smoke_eclipse_runtime_headless.py`
 
 ## Security and Governance Notes
 

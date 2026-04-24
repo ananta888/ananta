@@ -54,6 +54,47 @@ REQUIRED_PATHS = [
     / "runtime"
     / "security"
     / "TokenRedaction.java",
+    PLUGIN_ROOT
+    / "src"
+    / "test"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "core"
+    / "EclipseRuntimeUnitTest.java",
+    PLUGIN_ROOT
+    / "src"
+    / "test"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "integration"
+    / "EclipseRuntimeIntegrationUiTest.java",
+    PLUGIN_ROOT
+    / "src"
+    / "test"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "security"
+    / "EclipseRuntimeSecurityGovernanceTest.java",
+    PLUGIN_ROOT
+    / "src"
+    / "test"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "core"
+    / "EclipseRuntimeApiContractCompatibilityTest.java",
+    ROOT / "scripts" / "smoke_eclipse_runtime_headless.py",
 ]
 
 

@@ -5,7 +5,7 @@ This document captures the Eclipse views extension track as a **contract-first b
 There is currently no shipped standalone Eclipse update-site bundle in this repository.  
 The implemented service contracts model and validate the view behavior that a thin Eclipse plugin must follow, and the runtime registry/handlers now implement the core M9 command/view delivery path.
 
-This document remains the foundation contract reference; release hardening and CI depth are tracked in the runtime hardening block.
+This document remains the foundation contract reference; runtime hardening and CI depth are now implemented in the runtime hardening block.
 
 ## Covered tasks (ECL-T27..ECL-T50)
 

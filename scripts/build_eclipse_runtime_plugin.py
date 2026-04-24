@@ -27,7 +27,7 @@ def _missing_required_files(project_dir: Path) -> list[str]:
     return missing
 
 
-def _docker_build_command(project_dir: Path, *, gradle_image: str) -> list[str]:
+def _docker_gradle_command(project_dir: Path, *, gradle_image: str, gradle_tasks: list[str]) -> list[str]:
     return [
         "docker",
         "run",
@@ -39,14 +39,13 @@ def _docker_build_command(project_dir: Path, *, gradle_image: str) -> list[str]:
         gradle_image,
         "gradle",
         "--no-daemon",
-        "clean",
-        "build",
+        *gradle_tasks,
     ]
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build or validate Eclipse runtime plugin bootstrap project.")
-    parser.add_argument("--mode", choices=["validate", "build"], default="validate")
+    parser.add_argument("--mode", choices=["validate", "build", "test"], default="validate")
     parser.add_argument("--project-dir", default=str(PROJECT_DIR))
     parser.add_argument("--gradle-image", default=DEFAULT_GRADLE_IMAGE)
     return parser.parse_args()
@@ -69,7 +68,12 @@ def main() -> int:
         print(f"missing_required_files={missing}")
         return 2
 
-    command = _docker_build_command(project_dir, gradle_image=str(args.gradle_image))
+    gradle_tasks = ["clean", "build"] if args.mode == "build" else ["clean", "test"]
+    command = _docker_gradle_command(
+        project_dir,
+        gradle_image=str(args.gradle_image),
+        gradle_tasks=gradle_tasks,
+    )
     print("eclipse-runtime-build-command")
     print(shlex.join(command))
 
@@ -91,11 +95,13 @@ def main() -> int:
         env=_docker_env(),
     )
     if result.returncode != 0:
-        print("eclipse-runtime-build-failed")
+        failure_prefix = "eclipse-runtime-test-failed" if args.mode == "test" else "eclipse-runtime-build-failed"
+        print(failure_prefix)
         print((result.stdout + "\n" + result.stderr).strip())
         return result.returncode
 
-    print("eclipse-runtime-build-ok")
+    success_prefix = "eclipse-runtime-test-ok" if args.mode == "test" else "eclipse-runtime-build-ok"
+    print(success_prefix)
     print(result.stdout.strip())
     return 0
 
