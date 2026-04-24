@@ -383,3 +383,134 @@ def test_overlay_lifecycle_summary_is_visible_in_api(client, user_auth_header):
     lifecycle = dict(data.get("lifecycle") or {})
     assert lifecycle.get("kind") == "project"
     assert "consumed_count" in lifecycle
+
+
+def test_instruction_overlay_attach_detach_and_select_flow(client, user_auth_header):
+    create_res = client.post(
+        "/instruction-overlays",
+        headers=user_auth_header,
+        json={
+            "name": "overlay-reuse-flow",
+            "prompt_content": "Reusable overlay for multiple targets.",
+            "scope": "task",
+            "attachment_kind": "task",
+            "attachment_id": "task-a",
+        },
+    )
+    assert create_res.status_code == 201
+    overlay_id = create_res.get_json()["data"]["id"]
+
+    attach_res = client.post(
+        f"/instruction-overlays/{overlay_id}/attach",
+        headers=user_auth_header,
+        json={"attachment_kind": "session", "attachment_id": "session-1"},
+    )
+    assert attach_res.status_code == 200
+    assert attach_res.get_json()["data"]["attachment_kind"] == "session"
+    assert attach_res.get_json()["data"]["attachment_id"] == "session-1"
+
+    select_res = client.post(
+        f"/instruction-overlays/{overlay_id}/select",
+        headers=user_auth_header,
+        json={"attachment_kind": "usage", "attachment_id": "project:reuse"},
+    )
+    assert select_res.status_code == 200
+    assert select_res.get_json()["data"]["attachment_kind"] == "usage"
+    assert select_res.get_json()["data"]["attachment_id"] == "project:reuse"
+
+    detach_res = client.post(f"/instruction-overlays/{overlay_id}/detach", headers=user_auth_header)
+    assert detach_res.status_code == 200
+    assert detach_res.get_json()["data"]["attachment_kind"] is None
+    assert detach_res.get_json()["data"]["attachment_id"] is None
+
+
+def test_task_read_model_exposes_selected_overlay_summary(client, user_auth_header, app):
+    with app.app_context():
+        repos = get_repository_registry()
+        repos.task_repo.save(TaskDB(id="inst-task-read-model", title="Read model task", status="todo"))
+
+    profile_res = client.post(
+        "/instruction-profiles",
+        headers=user_auth_header,
+        json={"name": "task-read-profile", "prompt_content": "Use concise style."},
+    )
+    assert profile_res.status_code == 201
+    profile_id = profile_res.get_json()["data"]["id"]
+
+    overlay_res = client.post(
+        "/instruction-overlays",
+        headers=user_auth_header,
+        json={
+            "name": "task-read-overlay",
+            "prompt_content": "Task read model overlay.",
+            "attachment_kind": "task",
+            "attachment_id": "inst-task-read-model",
+        },
+    )
+    assert overlay_res.status_code == 201
+    overlay_id = overlay_res.get_json()["data"]["id"]
+
+    selection_res = client.post(
+        "/tasks/inst-task-read-model/instruction-selection",
+        headers=user_auth_header,
+        json={"profile_id": profile_id, "overlay_id": overlay_id},
+    )
+    assert selection_res.status_code == 200
+
+    task_res = client.get("/tasks/inst-task-read-model", headers=user_auth_header)
+    assert task_res.status_code == 200
+    layers = task_res.get_json()["data"]["instruction_layers"]
+    assert layers["selected_profile"]["id"] == profile_id
+    assert layers["selected_overlay"]["id"] == overlay_id
+    assert layers["selected_overlay"]["attachment_kind"] == "task"
+    assert layers["selected_overlay"]["attachment_id"] == "inst-task-read-model"
+
+
+def test_goal_read_model_exposes_selected_overlay_summary(client, user_auth_header, app):
+    with app.app_context():
+        repos = get_repository_registry()
+        repos.goal_repo.save(
+            GoalDB(
+                id="inst-goal-read-model",
+                goal="Instruction goal read model test",
+                requested_by="testuser",
+                status="received",
+                source="ui",
+            )
+        )
+
+    profile_res = client.post(
+        "/instruction-profiles",
+        headers=user_auth_header,
+        json={"name": "goal-read-profile", "prompt_content": "Prefer concise rationale."},
+    )
+    assert profile_res.status_code == 201
+    profile_id = profile_res.get_json()["data"]["id"]
+
+    overlay_res = client.post(
+        "/instruction-overlays",
+        headers=user_auth_header,
+        json={
+            "name": "goal-read-overlay",
+            "prompt_content": "Goal read model overlay.",
+            "attachment_kind": "goal",
+            "attachment_id": "inst-goal-read-model",
+        },
+    )
+    assert overlay_res.status_code == 201
+    overlay_id = overlay_res.get_json()["data"]["id"]
+
+    selection_res = client.post(
+        "/goals/inst-goal-read-model/instruction-selection",
+        headers=user_auth_header,
+        json={"owner_username": "testuser", "profile_id": profile_id, "overlay_id": overlay_id},
+    )
+    assert selection_res.status_code == 200
+
+    goal_res = client.get("/goals/inst-goal-read-model", headers=user_auth_header)
+    assert goal_res.status_code == 200
+    layers = goal_res.get_json()["data"]["instruction_layers"]
+    assert layers["selected_profile"]["id"] == profile_id
+    assert layers["selected_overlay"]["id"] == overlay_id
+    assert layers["selected_overlay"]["attachment_kind"] == "goal"
+    assert layers["selected_overlay"]["attachment_id"] == "inst-goal-read-model"

@@ -108,8 +108,15 @@ def _validate_user_layer_or_conflict(*, prompt_content: str, metadata: dict | No
         message="instruction_policy_conflict",
         data={
             "reason": validation.get("blocked_reason"),
+            "policy_domain": "instruction_layer_safety",
             "forbidden_directives": validation.get("forbidden_directives"),
             "forbidden_metadata_keys": validation.get("forbidden_metadata_keys"),
+            "allowed_scope": validation.get("allowed_user_influence_scope"),
+            "forbidden_scope": validation.get("forbidden_user_influence_scope"),
+            "suggested_fix": [
+                "Entferne Direktiven, die Governance/Approval/Security umgehen.",
+                "Beschraenke Profil/Overlay-Anweisungen auf Stil, Sprache, Detaillierungsgrad oder Arbeitsmodus.",
+            ],
             "hint": (
                 "User profile and overlay prompts may influence style/language/detail level only. "
                 "Governance, approval, security and tool policy are not overridable."
