@@ -1,424 +1,444 @@
 {
   "version": 2,
   "owner": "ananta",
-  "track": "blueprint_template_team_simplification",
-  "updated_at": "2026-04-23T23:10:17+02:00",
-  "purpose": "Simplify the outward-facing blueprint/template/team model without losing the strong internal structure, auditability and blueprint-first architecture.",
-  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
+  "track": "generic_agent_control_and_ml_intern_worker",
+  "updated_at": "2026-04-24T03:44:00+02:00",
+  "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Users should understand and use the blueprint/template/team system through a few clear product concepts, while internal drift, snapshot, reconcile and admin complexity remain available but mostly hidden.",
+  "goal": "Ananta should gain stronger generic safeguards and loop-control primitives across CLI, research, evolution and future workers, without coupling the platform to one external agent implementation.",
   "non_goals": [
-    "Do not remove internal lifecycle mechanics like snapshot, drift and reconcile.",
-    "Do not force a big-bang migration of internal APIs or persistence model.",
-    "Do not reduce governance, auditability or safety controls for convenience."
+    "Do not move orchestration ownership away from the hub.",
+    "Do not hard-couple core platform control logic to ml-intern internals.",
+    "Do not introduce silent or non-auditable auto-mitigation behavior."
   ],
   "architecture_constraints": [
-    "Keep blueprint-first orchestration semantics compatible with existing hub-worker architecture.",
-    "UI simplification must stay additive and keep admin-depth behavior available behind explicit advanced surfaces.",
-    "Prefer read-model and presentation-layer simplification over destructive domain model rewrites."
+    "All routing, approval, loop-handling and context policies stay hub-governed.",
+    "Optional specialized workers remain bounded execution backends.",
+    "New control services must be reusable across CLI, task propose/execute, research and evolution paths."
   ],
   "success_criteria": [
-    "The outward model is reduced to a few understandable concepts.",
-    "Blueprints become the obvious primary product entry for structured work.",
-    "Templates become clearer in meaning and less ambiguous.",
-    "Teams are easy to understand as instantiated running work structures.",
-    "Advanced/admin-only lifecycle details remain available without polluting the main UX."
+    "Doom-loop detection works as a generic platform mechanism across task and tool execution paths.",
+    "Tool routing becomes a clearer reusable subsystem instead of scattered per-path logic.",
+    "Sensitive operations use one consistent approval model across Ananta subsystems.",
+    "Context collection, budgeting and compaction are handled by a clearer shared context management layer.",
+    "ml-intern can be evaluated or integrated only as an optional specialized worker/backend, not as a competing control plane."
   ],
   "milestones": [
     {
-      "id": "BTS-M1",
-      "title": "Core model and wording clarity",
-      "target_outcome": "Public model and terminology are consistent across UX and docs."
+      "id": "GAC-M1",
+      "title": "Control foundation and loop safety",
+      "target_outcome": "Shared control architecture and generic doom-loop handling are defined and implemented."
     },
     {
-      "id": "BTS-M2",
-      "title": "Blueprint productization",
-      "target_outcome": "Standard blueprint catalog, profile summaries and default recommendations are user-ready."
+      "id": "GAC-M2",
+      "title": "Routing and approval unification",
+      "target_outcome": "Reusable tool routing and approval services govern execution decisions consistently."
     },
     {
-      "id": "BTS-M3",
-      "title": "UX simplification and rollout safety",
-      "target_outcome": "Guided setup, simplified flows, documentation split and regression safety are in place."
+      "id": "GAC-M3",
+      "title": "Context management and observability",
+      "target_outcome": "Shared context manager, diagnostics and rollout guardrails are operational."
+    },
+    {
+      "id": "GAC-M4",
+      "title": "Optional specialized worker boundary",
+      "target_outcome": "ml-intern fit and adapter boundaries are defined without changing the control plane."
     }
   ],
   "tasks": [
     {
-      "id": "BTS-T01",
-      "title": "Outward mental model define",
+      "id": "GAC-T01",
+      "title": "Cross-cutting control layer design define",
       "status": "done",
       "priority": "P0",
       "phase": "foundation_model",
       "depends_on": [],
       "acceptance_criteria": [
-        "A short product note defines the public-facing model as Template, Blueprint and Team.",
-        "Internal concepts like snapshot, drift and reconcile are explicitly treated as advanced/admin concepts.",
-        "The explanation is short enough to use in UI and docs."
+        "A design note explains how doom-loop detection, tool routing, approval checks and context management fit into Ananta as platform concerns.",
+        "The design states clearly which logic belongs to hub, execution backends and optional specialized workers.",
+        "The design avoids creating a second orchestration system inside a worker."
       ]
     },
     {
-      "id": "BTS-T02",
-      "title": "Terminology cleanup for templates define",
+      "id": "GAC-T02",
+      "title": "Doom-loop detection target model define",
       "status": "done",
       "priority": "P0",
-      "phase": "foundation_model",
-      "depends_on": ["BTS-T01"],
+      "phase": "loop_control",
+      "depends_on": ["GAC-T01"],
       "acceptance_criteria": [
-        "A decision is made whether 'Template' stays public or becomes 'Role Template' or 'Agent Template' in the UI.",
-        "The chosen wording reduces ambiguity with prompt snippets or generic text templates.",
-        "The terminology stays consistent across UI, API docs and read-model descriptions."
+        "A target model defines what counts as a doom loop across tasks, tools, retries and repeated execution patterns.",
+        "The model covers repeated tool calls, repeated failures, no-progress loops and oscillating retry patterns.",
+        "The model defines escalating outcomes such as warn, inject correction, require review, pause and abort."
       ]
     },
     {
-      "id": "BTS-T03",
-      "title": "Blueprints as the default product entry path promote",
+      "id": "GAC-T03",
+      "title": "Loop signal collection add",
       "status": "done",
       "priority": "P0",
-      "phase": "foundation_model",
-      "depends_on": ["BTS-T01"],
+      "phase": "loop_control",
+      "depends_on": ["GAC-T02"],
       "acceptance_criteria": [
-        "UI and docs clearly present blueprint selection as the default path for starting structured work.",
-        "Users are not pushed to manually assemble teams or templates first.",
-        "Blueprint-first stays aligned with the existing architecture."
+        "Execution paths emit enough structured signals to detect repeated patterns.",
+        "Signals include task id, trace id, tool/backend name, action type, failure type and iteration count.",
+        "The collected signals are reusable across CLI, DeerFlow, Evolver and future workers."
       ]
     },
     {
-      "id": "BTS-T04",
-      "title": "Standard seed blueprints define as product-grade entries",
+      "id": "GAC-T04",
+      "title": "Generic doom-loop detector implement",
       "status": "done",
       "priority": "P0",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T03"],
+      "phase": "loop_control",
+      "depends_on": ["GAC-T02", "GAC-T03"],
       "acceptance_criteria": [
-        "A small official set of standard blueprints is defined and visible.",
-        "Each standard blueprint has a name, short description, intended use, safety/review stance and expected outputs.",
-        "The standard set maps directly to the main Ananta use cases."
+        "A reusable detector can evaluate repeated execution patterns across runs.",
+        "Detection works without being tied to a single backend implementation.",
+        "The detector can emit structured outcomes for routing, review or policy handling."
       ]
     },
     {
-      "id": "BTS-T05",
-      "title": "Blueprint card/view model simplify",
+      "id": "GAC-T05",
+      "title": "Loop handling policy add",
       "status": "done",
       "priority": "P0",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T04"],
+      "phase": "loop_control",
+      "depends_on": ["GAC-T04"],
       "acceptance_criteria": [
-        "Blueprint list/detail views show only product-relevant information by default.",
-        "Default blueprint presentation includes what it is for, when to use it and what it produces.",
-        "Internal child object complexity is not the first thing users see."
+        "A policy defines how strongly different loop classes are handled.",
+        "The policy supports conservative defaults for local and admin-safe operation.",
+        "Loop handling is visible in diagnostics and audit trails."
       ]
     },
     {
-      "id": "BTS-T06",
-      "title": "Work-profile surface move to the front",
+      "id": "GAC-T06",
+      "title": "Corrective prompt or corrective context injection define",
+      "status": "done",
+      "priority": "P1",
+      "phase": "loop_control",
+      "depends_on": ["GAC-T04", "GAC-T05"],
+      "acceptance_criteria": [
+        "The system can optionally inject corrective guidance when a loop is detected.",
+        "Correction behavior is bounded and configurable.",
+        "The mechanism never hides that loop mitigation occurred."
+      ]
+    },
+    {
+      "id": "GAC-T07",
+      "title": "ToolRouter target architecture define",
       "status": "done",
       "priority": "P0",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T03", "BTS-T04"],
+      "phase": "tool_routing",
+      "depends_on": ["GAC-T01"],
       "acceptance_criteria": [
-        "Blueprint work-profile becomes a visible first-class summary in UI or read model.",
-        "The work-profile shows recommended goal modes, playbook hints, capability hints and governance profile in plain language.",
-        "Users can understand how a blueprint works without reading low-level child structures."
+        "A dedicated tool routing concept is documented for Ananta.",
+        "The design explains how routing decisions use task kind, capabilities, policy, governance and backend availability.",
+        "The design makes clear that routing stays hub-controlled."
       ]
     },
     {
-      "id": "BTS-T07",
-      "title": "Role and artifact language soften for normal users",
-      "status": "done",
-      "priority": "P1",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T02", "BTS-T03"],
-      "acceptance_criteria": [
-        "User-facing text shifts from internal object names toward understandable labels like work roles, start tasks and expected outputs.",
-        "Internal API/data model naming can remain unchanged.",
-        "This improves comprehension without weakening the model."
-      ]
-    },
-    {
-      "id": "BTS-T08",
-      "title": "Admin and standard modes separate in UI",
+      "id": "GAC-T08",
+      "title": "Tool capability catalog normalize",
       "status": "done",
       "priority": "P0",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T03"],
+      "phase": "tool_routing",
+      "depends_on": ["GAC-T07"],
       "acceptance_criteria": [
-        "A standard mode focuses on choosing a blueprint and starting work.",
-        "An admin/studio mode exposes blueprint/template editing and lifecycle details.",
-        "Normal users are not overloaded by management internals."
+        "Available tools/backends expose normalized capability metadata.",
+        "Capabilities can distinguish research, patching, shell execution, planning, review, admin repair and other classes.",
+        "The catalog can be consumed by routing and approval logic."
       ]
     },
     {
-      "id": "BTS-T09",
-      "title": "Snapshot, drift and reconcile visibility demote",
+      "id": "GAC-T09",
+      "title": "Reusable tool routing service implement",
       "status": "done",
       "priority": "P0",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T08"],
+      "phase": "tool_routing",
+      "depends_on": ["GAC-T07", "GAC-T08"],
       "acceptance_criteria": [
-        "Snapshot/drift/reconcile are hidden or summarized in the normal user flow.",
-        "Normal users see only simple state labels such as standard, customized or outdated when helpful.",
-        "Admins can still inspect full details on demand."
+        "Tool and backend selection is available through a reusable service rather than scattered conditional logic.",
+        "The router can explain why a tool/backend was chosen or rejected.",
+        "The router supports fallbacks without bypassing governance."
       ]
     },
     {
-      "id": "BTS-T10",
-      "title": "Team concept explain as running instance only",
+      "id": "GAC-T10",
+      "title": "Routing diagnostics and decision traces expose",
       "status": "done",
       "priority": "P1",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T03"],
+      "phase": "tool_routing",
+      "depends_on": ["GAC-T09"],
       "acceptance_criteria": [
-        "The UI and docs explain teams as instantiated running work structures derived from blueprints.",
-        "The distinction between blueprint and team is visually obvious.",
-        "Users understand that changing a running team is not the same as editing the base blueprint."
+        "Routing decisions can be inspected through existing trace/read-model surfaces.",
+        "The output includes chosen tool/backend, alternatives and key reasons.",
+        "This remains readable and does not become debug noise for standard users."
       ]
     },
     {
-      "id": "BTS-T11",
-      "title": "Guided setup on blueprint level add",
+      "id": "GAC-T11",
+      "title": "Unified approval model define",
       "status": "done",
       "priority": "P0",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T03"],
+      "phase": "approval_governance",
+      "depends_on": ["GAC-T01"],
       "acceptance_criteria": [
-        "A guided setup helps users choose the right blueprint based on what they want to do.",
-        "The setup asks about goal type, strictness, domain and execution style rather than internal model details.",
-        "The result is a blueprint + work-profile + instantiation suggestion."
+        "A single approval model defines low-risk, confirm-required and blocked action classes.",
+        "The model applies consistently to shell execution, file mutation, service mutation, install/remove operations, evolver apply and future repair steps.",
+        "The approval model is compatible with current governance modes."
       ]
     },
     {
-      "id": "BTS-T12",
-      "title": "Template editing and blueprint editing responsibilities separate",
-      "status": "done",
-      "priority": "P1",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T02", "BTS-T03"],
-      "acceptance_criteria": [
-        "The system makes clear whether the user is editing a reusable role template or a blueprint structure.",
-        "Users do not accidentally confuse role behavior changes with structural team composition changes.",
-        "The distinction is visible in UI labels and flows."
-      ]
-    },
-    {
-      "id": "BTS-T13",
-      "title": "Default blueprint selection for main use cases wire up",
+      "id": "GAC-T12",
+      "title": "Approval check service implement",
       "status": "done",
       "priority": "P0",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T04", "BTS-T11"],
+      "phase": "approval_governance",
+      "depends_on": ["GAC-T11"],
       "acceptance_criteria": [
-        "Main use cases can map to a recommended default blueprint.",
-        "The system can surface this recommendation in first-run and wizard flows.",
-        "The recommendation is explainable and reviewable."
+        "A reusable approval service can evaluate proposed actions before execution.",
+        "The service returns structured reasons and required confirmation level.",
+        "Subsystems stop duplicating ad hoc approval checks."
       ]
     },
     {
-      "id": "BTS-T14",
-      "title": "Blueprint instantiation flow simplify",
+      "id": "GAC-T13",
+      "title": "Approval state UX/read-model surface add",
       "status": "done",
       "priority": "P1",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T11", "BTS-T13"],
+      "phase": "approval_governance",
+      "depends_on": ["GAC-T12"],
       "acceptance_criteria": [
-        "Instantiating a blueprint into a team becomes understandable from one screen or one concise flow.",
-        "Users can see what start tasks and roles will be created before confirming.",
-        "The flow uses product language rather than only internal object language."
+        "Pending approvals, blocked actions and approved actions are visible in relevant views or artifacts.",
+        "Users can understand what is waiting for confirmation.",
+        "The system remains explicit and auditable."
       ]
     },
     {
-      "id": "BTS-T15",
-      "title": "Default outputs for standard blueprints define",
-      "status": "done",
-      "priority": "P1",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T04", "BTS-T06"],
-      "acceptance_criteria": [
-        "Each standard blueprint declares expected initial outputs such as analysis summary, backlog, review checklist or plan.",
-        "These outputs are visible in blueprint summaries and post-instantiation screens.",
-        "Users know what they are getting before starting."
-      ]
-    },
-    {
-      "id": "BTS-T16",
-      "title": "Read-model for blueprint summaries refine",
-      "status": "done",
-      "priority": "P1",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T05", "BTS-T06"],
-      "acceptance_criteria": [
-        "Assistant/dashboard read-models expose compact blueprint summaries suitable for standard users.",
-        "The summary includes purpose, recommended use, governance stance and expected outputs.",
-        "Admin-only complexity remains in deeper views."
-      ]
-    },
-    {
-      "id": "BTS-T17",
-      "title": "Seed blueprint lifecycle messaging improve",
-      "status": "done",
-      "priority": "P1",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T04", "BTS-T09"],
-      "acceptance_criteria": [
-        "Seed/default blueprint behavior is described in plain language for product users.",
-        "Users can tell whether a blueprint is standard, customized or drifting without reading backend jargon.",
-        "Admin detail pages still expose reconcile/audit depth."
-      ]
-    },
-    {
-      "id": "BTS-T18",
-      "title": "Documentation rewrite for public blueprint usage add",
+      "id": "GAC-T14",
+      "title": "ContextManager target model define",
       "status": "done",
       "priority": "P0",
-      "phase": "documentation_rollout",
-      "depends_on": ["BTS-T01", "BTS-T02", "BTS-T03", "BTS-T10"],
+      "phase": "context_management",
+      "depends_on": ["GAC-T01"],
       "acceptance_criteria": [
-        "There is a concise user-facing guide explaining when to use blueprints, templates and teams.",
-        "The guide avoids overwhelming admin and migration details.",
-        "The guide matches the simplified outward model."
+        "A shared context management model is documented for Ananta.",
+        "The model explains how result memory, task neighborhood, repo retrieval, research artifacts and future wiki knowledge are assembled.",
+        "The model defines context budgets, priorities and compaction behavior."
       ]
     },
     {
-      "id": "BTS-T19",
-      "title": "Keep admin rollout and migration docs separate",
-      "status": "done",
-      "priority": "P1",
-      "phase": "documentation_rollout",
-      "depends_on": ["BTS-T18"],
-      "acceptance_criteria": [
-        "Migration/rollout/constraint docs remain available but clearly separated from product-facing usage docs.",
-        "Standard users do not land on rollout content first.",
-        "Admin docs still preserve full operational rigor."
-      ]
-    },
-    {
-      "id": "BTS-T20",
-      "title": "Standard blueprint examples package",
-      "status": "done",
-      "priority": "P1",
-      "phase": "blueprint_catalog",
-      "depends_on": ["BTS-T04", "BTS-T15"],
-      "acceptance_criteria": [
-        "Each standard blueprint includes one concrete example input and one expected result sketch.",
-        "Examples are short and directly useful in demos and first-run guidance.",
-        "They help make the model tangible."
-      ]
-    },
-    {
-      "id": "BTS-T21",
-      "title": "UI copy audit for internal jargon reduce",
-      "status": "done",
-      "priority": "P1",
-      "phase": "ux_simplification",
-      "depends_on": ["BTS-T07", "BTS-T10"],
-      "acceptance_criteria": [
-        "Visible UI labels and descriptions are reviewed for unnecessary internal jargon.",
-        "The audit reduces cognitive load without hiding useful meaning.",
-        "The result improves first-run comprehension."
-      ]
-    },
-    {
-      "id": "BTS-T22",
-      "title": "Behavior regression tests for blueprint/template internals keep",
+      "id": "GAC-T15",
+      "title": "Shared context budget enforcement add",
       "status": "done",
       "priority": "P0",
-      "phase": "documentation_rollout",
-      "depends_on": ["BTS-T08", "BTS-T09", "BTS-T12"],
+      "phase": "context_management",
+      "depends_on": ["GAC-T14"],
       "acceptance_criteria": [
-        "Simplification work does not remove or weaken auditability, reconciliation or validation behavior.",
-        "Existing backend guarantees remain protected by tests.",
-        "UI simplification is decoupled from internal correctness."
+        "Context assembly enforces budgets instead of blindly appending more material.",
+        "Budget logic can reserve space per source or priority class.",
+        "Budget use is observable for diagnostics."
       ]
     },
     {
-      "id": "BTS-T23",
-      "title": "Smoke tests for standard blueprint onboarding add",
+      "id": "GAC-T16",
+      "title": "Auto-compaction strategy implement",
       "status": "done",
       "priority": "P1",
-      "phase": "documentation_rollout",
-      "depends_on": ["BTS-T13", "BTS-T14", "BTS-T15"],
+      "phase": "context_management",
+      "depends_on": ["GAC-T14", "GAC-T15"],
       "acceptance_criteria": [
-        "A smoke path verifies that a user can choose a standard blueprint and instantiate it successfully.",
-        "The test confirms visibility of expected outputs and next steps.",
-        "The path works without requiring admin-level model knowledge."
+        "The platform can compact older or lower-priority context into bounded summaries or retrieval documents.",
+        "Compaction preserves provenance and does not silently discard critical state.",
+        "Compaction is reusable across multi-turn flows."
       ]
     },
     {
-      "id": "BTS-T24",
-      "title": "Future advanced studio roadmap isolate",
+      "id": "GAC-T17",
+      "title": "Context source prioritization rules define",
+      "status": "done",
+      "priority": "P1",
+      "phase": "context_management",
+      "depends_on": ["GAC-T14"],
+      "acceptance_criteria": [
+        "A rule set defines how repo context, task memory, artifacts, research and future wiki sources are prioritized.",
+        "The rules reduce context pollution and repeated irrelevance.",
+        "The prioritization is explainable in diagnostics."
+      ]
+    },
+    {
+      "id": "GAC-T18",
+      "title": "ContextManager service expose to execution paths",
+      "status": "done",
+      "priority": "P1",
+      "phase": "context_management",
+      "depends_on": ["GAC-T14", "GAC-T15", "GAC-T17"],
+      "acceptance_criteria": [
+        "Relevant execution paths consume the same context manager service or contract.",
+        "The service is usable from CLI, task propose/execute, research flows and future repair flows.",
+        "Existing retrieval functionality is preserved or improved."
+      ]
+    },
+    {
+      "id": "GAC-T19",
+      "title": "Observability for loop routing approval and context add",
+      "status": "done",
+      "priority": "P1",
+      "phase": "observability_and_rollout",
+      "depends_on": ["GAC-T05", "GAC-T09", "GAC-T12", "GAC-T18"],
+      "acceptance_criteria": [
+        "Metrics or read-model summaries cover loop detections, approval blocks, routing choices and context compaction outcomes.",
+        "Operators can see which subsystem is misbehaving.",
+        "The observability data remains structured and low-noise."
+      ]
+    },
+    {
+      "id": "GAC-T20",
+      "title": "Contract tests for generic control services add",
+      "status": "done",
+      "priority": "P1",
+      "phase": "observability_and_rollout",
+      "depends_on": ["GAC-T05", "GAC-T09", "GAC-T12", "GAC-T16"],
+      "acceptance_criteria": [
+        "Tests protect core behavior for doom-loop detection, approval classification, routing output and context compaction.",
+        "The services can evolve without silent regression.",
+        "The tests do not depend on one specific external worker."
+      ]
+    },
+    {
+      "id": "GAC-T21",
+      "title": "Golden path documentation for safer agentic loops add",
+      "status": "done",
+      "priority": "P1",
+      "phase": "observability_and_rollout",
+      "depends_on": ["GAC-T10", "GAC-T13", "GAC-T19"],
+      "acceptance_criteria": [
+        "There is one documented standard path showing routing, approval, context assembly and loop protection in action.",
+        "The example is understandable for reviewers.",
+        "The path demonstrates the value of the generic control layer."
+      ]
+    },
+    {
+      "id": "GAC-T22",
+      "title": "ml-intern fit assessment document",
+      "status": "done",
+      "priority": "P1",
+      "phase": "optional_ml_intern",
+      "depends_on": ["GAC-T01"],
+      "acceptance_criteria": [
+        "A short document evaluates ml-intern as an optional specialized worker/backend for Ananta.",
+        "The evaluation distinguishes reusable ideas from direct code reuse.",
+        "The document explains why ml-intern should not become a second control plane inside Ananta."
+      ]
+    },
+    {
+      "id": "GAC-T23",
+      "title": "Optional ml-intern worker adapter boundary define",
+      "status": "done",
+      "priority": "P2",
+      "phase": "optional_ml_intern",
+      "depends_on": ["GAC-T22"],
+      "acceptance_criteria": [
+        "A worker adapter boundary is defined for ml-intern-style specialized execution.",
+        "The boundary limits what Ananta delegates and what remains hub-owned.",
+        "The adapter model avoids leaking external worker autonomy into platform governance."
+      ]
+    },
+    {
+      "id": "GAC-T24",
+      "title": "ml-intern capability profile model add",
+      "status": "done",
+      "priority": "P2",
+      "phase": "optional_ml_intern",
+      "depends_on": ["GAC-T08", "GAC-T09", "GAC-T12", "GAC-T23"],
+      "acceptance_criteria": [
+        "If enabled, ml-intern can be described through a capability profile such as ML research, docs, datasets and code support.",
+        "The profile is visible to routing and approval logic.",
+        "The profile makes it clear that this worker is specialized, not general-purpose default execution."
+      ]
+    },
+    {
+      "id": "GAC-T25",
+      "title": "Optional ml-intern backend spike implement",
       "status": "done",
       "priority": "P3",
-      "phase": "documentation_rollout",
-      "depends_on": ["BTS-T08", "BTS-T19"],
+      "phase": "optional_ml_intern",
+      "depends_on": ["GAC-T23", "GAC-T24"],
       "acceptance_criteria": [
-        "More powerful admin/studio editing ideas are documented separately.",
-        "They do not block the main simplification work.",
-        "The main user experience remains intentionally compact."
+        "A minimal spike proves whether ml-intern can be invoked as a bounded external worker/backend.",
+        "The spike does not bypass Ananta governance or context rules.",
+        "The spike can be discarded cleanly if maintenance cost is too high."
+      ]
+    },
+    {
+      "id": "GAC-T26",
+      "title": "Future specialized worker guidance isolate",
+      "status": "done",
+      "priority": "P3",
+      "phase": "optional_ml_intern",
+      "depends_on": ["GAC-T22"],
+      "acceptance_criteria": [
+        "The architecture leaves room for future specialized workers beyond ml-intern.",
+        "The guidance keeps Ananta generic and worker-agnostic.",
+        "This roadmap remains separate from the core control-layer rollout."
       ]
     }
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:22:15+02:00",
-    "total": 24,
+    "updated_at": "2026-04-24T03:44:00+02:00",
+    "total": 26,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "partial": 0,
-      "done": 24
+      "done": 26
     },
     "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 12,
-      "P1": 11,
-      "P2": 0,
-      "P3": 1
+      "P1": 10,
+      "P2": 2,
+      "P3": 2
     },
     "by_phase": {
       "foundation_model": {
-        "total": 3,
-        "done": 3,
-        "partial": 0,
+        "total": 1,
+        "done": 1,
         "todo": 0
       },
-      "blueprint_catalog": {
-        "total": 7,
-        "done": 7,
-        "partial": 0,
-        "todo": 0
-      },
-      "ux_simplification": {
-        "total": 9,
-        "done": 9,
-        "partial": 0,
-        "todo": 0
-      },
-      "documentation_rollout": {
+      "loop_control": {
         "total": 5,
         "done": 5,
-        "partial": 0,
+        "todo": 0
+      },
+      "tool_routing": {
+        "total": 4,
+        "done": 4,
+        "todo": 0
+      },
+      "approval_governance": {
+        "total": 3,
+        "done": 3,
+        "todo": 0
+      },
+      "context_management": {
+        "total": 5,
+        "done": 5,
+        "todo": 0
+      },
+      "observability_and_rollout": {
+        "total": 3,
+        "done": 3,
+        "todo": 0
+      },
+      "optional_ml_intern": {
+        "total": 5,
+        "done": 5,
         "todo": 0
       }
     },
-    "recommended_first_bundle": [
-      "BTS-T01",
-      "BTS-T02",
-      "BTS-T03",
-      "BTS-T04",
-      "BTS-T05",
-      "BTS-T06"
-    ],
-    "first_bundle_completed_tasks": [
-      "BTS-T01",
-      "BTS-T02",
-      "BTS-T03",
-      "BTS-T04",
-      "BTS-T05",
-      "BTS-T06"
-    ],
-    "second_bundle_completed_tasks": [
-      "BTS-T07",
-      "BTS-T08",
-      "BTS-T09",
-      "BTS-T10"
-    ]
+    "recommended_first_bundle": []
   }
 }
