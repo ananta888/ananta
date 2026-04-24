@@ -25,6 +25,7 @@ from .core import AgentRepository, ConfigRepository, PlaybookRepository, Schedul
 from .evolution import EvolutionProposalRepository, EvolutionRunRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import ActionPackRepository, AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
+from .instructions import InstructionOverlayRepository, UserInstructionProfileRepository
 from .memory import MemoryEntryRepository
 from .operations import StatsRepository
 from .organization import (
@@ -58,6 +59,7 @@ __all__ = [
     "KnowledgeIndexRepository",
     "KnowledgeIndexRunRepository",
     "KnowledgeLinkRepository",
+    "InstructionOverlayRepository",
     "LoginAttemptRepository",
     "MemoryEntryRepository",
     "PasswordHistoryRepository",
@@ -76,6 +78,7 @@ __all__ = [
     "TeamTypeRepository",
     "TeamTypeRoleLinkRepository",
     "TemplateRepository",
+    "UserInstructionProfileRepository",
     "UserRepository",
     "VerificationRecordRepository",
     "RetrievalRunRepository",

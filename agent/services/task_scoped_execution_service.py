@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import inspect
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,7 @@ from agent.security_risk import (
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service
 from agent.services.live_terminal_session_service import get_live_terminal_session_service
+from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
@@ -2031,11 +2033,19 @@ class TaskScopedExecutionService:
 
         prompt_sections: list[str] = []
         system_prompt = self._get_system_prompt_for_task(tid)
+        instruction_stack = get_instruction_layer_service().assemble_for_task(
+            task=task,
+            base_prompt=base_prompt,
+            system_prompt=system_prompt,
+            emit_audit=True,
+        )
+        effective_system_prompt = str(instruction_stack.get("rendered_system_prompt") or "").strip() or None
+        stack_diagnostics = dict(instruction_stack.get("diagnostics") or {})
         opencode_context_files = get_worker_workspace_service().prepare_opencode_context_files(
             task=task,
             workspace_context=workspace_context,
             base_prompt=base_prompt,
-            system_prompt=system_prompt,
+            system_prompt=effective_system_prompt,
             context_text=context_text,
             expected_output_schema=expected_output_schema,
             tool_definitions=tool_definitions,
@@ -2056,6 +2066,27 @@ class TaskScopedExecutionService:
                 "Lies zuerst die bereitgestellten Workspace-Dateien und verwende diesen Dateikontext "
                 "statt lange Inhalte zu wiederholen:\n" + "\n".join(f"- {item}" for item in read_paths)
             )
+        if context_text:
+            context_preview = " ".join(str(context_text).split()).strip().lower()[:240]
+            prompt_sections.append(
+                "Selektierter Hub-Kontext ist ausgelagert in "
+                f"{str(opencode_context_files.get('hub_context_path') or '.ananta/hub-context.md')}. "
+                "Nutze diesen Kontext als verbindliche Grundlage."
+            )
+            if context_preview:
+                prompt_sections.append(f"Kurzvorschau Hub-Kontext: {context_preview}")
+        if allowed_tools:
+            prompt_sections.append(
+                "Tool-Scope fuer diesen Task (nur diese Tools verwenden): "
+                + ", ".join(str(item) for item in allowed_tools)
+            )
+        if expected_output_schema:
+            prompt_sections.append(
+                "Erwartetes Output-Schema (Kurzfassung): "
+                + json.dumps(expected_output_schema, ensure_ascii=False)[:400]
+            )
+        if stack_diagnostics:
+            prompt_sections.append(get_instruction_layer_service().render_diagnostics_brief(stack_diagnostics))
         prompt_sections.append(
             "Arbeitsverzeichnis fuer Datei-/Shell-Aktionen:\n"
             f"- workspace: {workspace_context.workspace_dir}\n"
@@ -2090,6 +2121,7 @@ class TaskScopedExecutionService:
             },
             "context_chunk_count": len(context_payload.get("chunks") or []),
             "has_context_text": bool(context_text),
+            "instruction_layers": stack_diagnostics,
             "research_context": {
                 "artifact_ids": list((research_context or {}).get("artifact_ids") or []),
                 "knowledge_collection_ids": list((research_context or {}).get("knowledge_collection_ids") or []),

@@ -19,6 +19,7 @@ from agent.routes.tasks.orchestration_policy import (
 )
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.task_status_service import normalize_task_status
 
@@ -29,6 +30,59 @@ class TaskManagementService:
     def actor_username(self) -> str:
         user = getattr(g, "user", {}) or {}
         return str(user.get("sub") or user.get("username") or "system")
+
+    def _apply_instruction_selection_to_payload(self, payload: dict[str, Any], *, default_owner: str | None = None) -> None:
+        owner_username = str(payload.pop("instruction_owner_username", "") or "").strip() or default_owner
+        profile_id = str(payload.pop("instruction_profile_id", "") or "").strip() or None
+        overlay_id = str(payload.pop("instruction_overlay_id", "") or "").strip() or None
+        if not owner_username and not profile_id and not overlay_id:
+            return
+        worker_execution_context = dict(payload.get("worker_execution_context") or {})
+        instruction_context = dict(worker_execution_context.get("instruction_context") or {})
+        if owner_username:
+            instruction_context["owner_username"] = owner_username
+        instruction_context["profile_id"] = profile_id
+        instruction_context["overlay_id"] = overlay_id
+        instruction_context["updated_at"] = time.time()
+        worker_execution_context["instruction_context"] = instruction_context
+        payload["worker_execution_context"] = worker_execution_context
+
+    def _validate_instruction_selection(self, payload: dict[str, Any]) -> tuple[str | None, int]:
+        worker_execution_context = dict(payload.get("worker_execution_context") or {})
+        instruction_context = dict(worker_execution_context.get("instruction_context") or {})
+        owner_username = str(instruction_context.get("owner_username") or "").strip() or None
+        profile_id = str(instruction_context.get("profile_id") or "").strip() or None
+        overlay_id = str(instruction_context.get("overlay_id") or "").strip() or None
+        if not (profile_id or overlay_id):
+            return None, 200
+        if not owner_username:
+            return "instruction_owner_username_required", 400
+        repos = get_repository_registry()
+        if profile_id:
+            profile = repos.user_instruction_profile_repo.get_by_id(profile_id)
+            if profile is None:
+                return "instruction_profile_not_found", 404
+            if str(profile.owner_username or "").strip() != owner_username:
+                return "instruction_profile_owner_mismatch", 409
+            validation = get_instruction_layer_service().validate_user_layer_payload(
+                prompt_content=str(profile.prompt_content or ""),
+                metadata=dict(profile.profile_metadata or {}),
+            )
+            if not validation.get("ok"):
+                return "instruction_profile_policy_conflict", 409
+        if overlay_id:
+            overlay = repos.instruction_overlay_repo.get_by_id(overlay_id)
+            if overlay is None:
+                return "instruction_overlay_not_found", 404
+            if str(overlay.owner_username or "").strip() != owner_username:
+                return "instruction_overlay_owner_mismatch", 409
+            validation = get_instruction_layer_service().validate_user_layer_payload(
+                prompt_content=str(overlay.prompt_content or ""),
+                metadata=dict(overlay.overlay_metadata or {}),
+            )
+            if not validation.get("ok"):
+                return "instruction_overlay_policy_conflict", 409
+        return None, 200
 
     def derivation_backfill(self) -> dict[str, Any]:
         repos = get_repository_registry()
@@ -70,6 +124,28 @@ class TaskManagementService:
         task_id = data.id or str(uuid.uuid4())
         status = normalize_task_status(data.status, default="created")
         safe_data = {k: v for k, v in data.model_dump().items() if v is not None and k not in ["id", "status"]}
+        self._apply_instruction_selection_to_payload(
+            safe_data,
+            default_owner=self.actor_username(),
+        )
+        selection_error, selection_code = self._validate_instruction_selection(safe_data)
+        if selection_error:
+            return {"error": selection_error, "code": selection_code}
+        instruction_context = dict((safe_data.get("worker_execution_context") or {}).get("instruction_context") or {})
+        owner_username = str(instruction_context.get("owner_username") or "").strip() or None
+        profile_id = str(instruction_context.get("profile_id") or "").strip() or None
+        overlay_id = str(instruction_context.get("overlay_id") or "").strip() or None
+        if owner_username and (profile_id or overlay_id):
+            validation = get_instruction_layer_service().assemble_for_task(
+                task={"id": task_id, "goal_id": safe_data.get("goal_id"), "worker_execution_context": safe_data.get("worker_execution_context")},
+                base_prompt=str(safe_data.get("description") or safe_data.get("title") or ""),
+                system_prompt=None,
+            )
+            safe_data.setdefault("verification_status", {})
+            safe_data["verification_status"] = {
+                **dict(safe_data.get("verification_status") or {}),
+                "instruction_layers": dict(validation.get("diagnostics") or {}),
+            }
         safe_data["depends_on"] = normalize_depends_on(safe_data.get("depends_on"), tid=task_id)
         ok, reason = validate_dependencies_and_cycles(task_id, safe_data.get("depends_on") or [])
         if not ok:
@@ -93,6 +169,13 @@ class TaskManagementService:
 
     def patch_task(self, *, task_id: str, data: Any) -> dict[str, Any]:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        self._apply_instruction_selection_to_payload(
+            update_data,
+            default_owner=self.actor_username(),
+        )
+        selection_error, selection_code = self._validate_instruction_selection(update_data)
+        if selection_error:
+            return {"error": selection_error, "code": selection_code}
         status = normalize_task_status(update_data.pop("status", None), default="updated")
         if "depends_on" in update_data:
             update_data["depends_on"] = normalize_depends_on(update_data.get("depends_on"), tid=task_id)

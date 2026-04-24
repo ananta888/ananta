@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from flask import Blueprint, current_app, g, request
@@ -9,6 +10,7 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
 from agent.services.product_event_service import record_product_event
+from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
@@ -224,6 +226,55 @@ def create_goal():
         )
         return api_response(status="error", message=precondition_error, code=status_code)
 
+    owner_username = str(payload.instruction_owner_username or _current_username()).strip() or _current_username()
+    profile_id = str(payload.instruction_profile_id or "").strip() or None
+    overlay_id = str(payload.instruction_overlay_id or "").strip() or None
+    if not _is_admin_request() and owner_username != _current_username():
+        return api_response(status="error", message="forbidden_instruction_owner_scope", code=403)
+    if profile_id:
+        profile = _repos().user_instruction_profile_repo.get_by_id(profile_id)
+        if profile is None:
+            return api_response(status="error", message="instruction_profile_not_found", code=404)
+        if str(profile.owner_username or "").strip() != owner_username:
+            return api_response(status="error", message="instruction_profile_owner_mismatch", code=409)
+        profile_validation = get_instruction_layer_service().validate_user_layer_payload(
+            prompt_content=str(profile.prompt_content or ""),
+            metadata=dict(profile.profile_metadata or {}),
+        )
+        if not profile_validation.get("ok"):
+            return api_response(
+                status="error",
+                message="instruction_policy_conflict",
+                data={"source": "profile", **profile_validation},
+                code=409,
+            )
+    if overlay_id:
+        overlay = _repos().instruction_overlay_repo.get_by_id(overlay_id)
+        if overlay is None:
+            return api_response(status="error", message="instruction_overlay_not_found", code=404)
+        if str(overlay.owner_username or "").strip() != owner_username:
+            return api_response(status="error", message="instruction_overlay_owner_mismatch", code=409)
+        overlay_validation = get_instruction_layer_service().validate_user_layer_payload(
+            prompt_content=str(overlay.prompt_content or ""),
+            metadata=dict(overlay.overlay_metadata or {}),
+        )
+        if not overlay_validation.get("ok"):
+            return api_response(
+                status="error",
+                message="instruction_policy_conflict",
+                data={"source": "overlay", **overlay_validation},
+                code=409,
+            )
+
+    execution_preferences = dict(payload.execution_preferences or {})
+    if profile_id or overlay_id:
+        execution_preferences["instruction_context"] = {
+            "owner_username": owner_username,
+            "profile_id": profile_id,
+            "overlay_id": overlay_id,
+            "updated_at": time.time(),
+        }
+
     goal_record = GoalDB(
         goal=goal_text,
         summary=goal_text[:200],
@@ -234,7 +285,7 @@ def create_goal():
         context=mode_context,
         constraints=[*mode_constraints, *list(payload.constraints or [])],
         acceptance_criteria=[*mode_acceptance, *list(payload.acceptance_criteria or [])],
-        execution_preferences=dict(payload.execution_preferences or {}),
+        execution_preferences=execution_preferences,
         visibility=dict(payload.visibility or {}),
         workflow_defaults=defaults,
         workflow_overrides=overrides,
@@ -245,6 +296,10 @@ def create_goal():
         mode_data=dict(payload.mode_data or {}),
     )
     goal_record = _repos().goal_repo.save(goal_record)
+    if profile_id or overlay_id:
+        goal_record.execution_preferences = dict(goal_record.execution_preferences or {})
+        goal_record.execution_preferences["instruction_layers"] = get_instruction_layer_service().goal_selection_summary(goal_record)
+        goal_record = _repos().goal_repo.save(goal_record)
     record_product_event(
         "product_flow_started",
         actor=_current_username(),

@@ -9,6 +9,7 @@ from agent.routes.config import register_config_blueprints
 from agent.routes.demo import demo_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
+from agent.routes.instruction_layers import instruction_layers_bp
 from agent.routes.knowledge import knowledge_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ollama_benchmark import ollama_benchmark_bp
@@ -35,6 +36,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(evolution_bp)
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(instruction_layers_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     register_ws_terminal(app)
 

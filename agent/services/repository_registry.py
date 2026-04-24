@@ -20,6 +20,7 @@ from agent.repository import (
     evolution_proposal_repo,
     evolution_run_repo,
     goal_repo,
+    instruction_overlay_repo,
     knowledge_collection_repo,
     knowledge_index_repo,
     knowledge_index_run_repo,
@@ -43,6 +44,7 @@ from agent.repository import (
     team_type_repo,
     team_type_role_link_repo,
     template_repo,
+    user_instruction_profile_repo,
     user_repo,
     verification_record_repo,
     worker_job_repo,
@@ -67,6 +69,7 @@ class RepositoryRegistry:
     evolution_proposal_repo: object
     evolution_run_repo: object
     goal_repo: object
+    instruction_overlay_repo: object
     knowledge_collection_repo: object
     knowledge_index_repo: object
     knowledge_index_run_repo: object
@@ -90,6 +93,7 @@ class RepositoryRegistry:
     team_type_repo: object
     team_type_role_link_repo: object
     template_repo: object
+    user_instruction_profile_repo: object
     user_repo: object
     verification_record_repo: object
     worker_job_repo: object
@@ -113,6 +117,7 @@ def build_repository_registry() -> RepositoryRegistry:
         evolution_proposal_repo=evolution_proposal_repo,
         evolution_run_repo=evolution_run_repo,
         goal_repo=goal_repo,
+        instruction_overlay_repo=instruction_overlay_repo,
         knowledge_collection_repo=knowledge_collection_repo,
         knowledge_index_repo=knowledge_index_repo,
         knowledge_index_run_repo=knowledge_index_run_repo,
@@ -136,6 +141,7 @@ def build_repository_registry() -> RepositoryRegistry:
         team_type_repo=team_type_repo,
         team_type_role_link_repo=team_type_role_link_repo,
         template_repo=template_repo,
+        user_instruction_profile_repo=user_instruction_profile_repo,
         user_repo=user_repo,
         verification_record_repo=verification_record_repo,
         worker_job_repo=worker_job_repo,

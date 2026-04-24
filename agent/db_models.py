@@ -18,6 +18,40 @@ class UserDB(SQLModel, table=True):
     lockout_until: Optional[float] = Field(default=None)
 
 
+class UserInstructionProfileDB(SQLModel, table=True):
+    __tablename__ = "user_instruction_profiles"
+    __table_args__ = (sa.UniqueConstraint("owner_username", "name", name="uq_user_instruction_profiles_owner_name"),)
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    owner_username: str = Field(index=True, foreign_key="users.username")
+    name: str
+    prompt_content: str
+    profile_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    is_active: bool = True
+    is_default: bool = False
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class InstructionOverlayDB(SQLModel, table=True):
+    __tablename__ = "instruction_overlays"
+    __table_args__ = (
+        sa.UniqueConstraint("owner_username", "name", name="uq_instruction_overlays_owner_name"),
+        sa.Index("ix_instruction_overlays_attachment", "owner_username", "attachment_kind", "attachment_id"),
+    )
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    owner_username: str = Field(index=True, foreign_key="users.username")
+    name: str
+    prompt_content: str
+    overlay_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    scope: str = "task"
+    attachment_kind: Optional[str] = Field(default=None, index=True)
+    attachment_id: Optional[str] = Field(default=None, index=True)
+    is_active: bool = True
+    expires_at: Optional[float] = None
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class LoginAttemptDB(SQLModel, table=True):
     __tablename__ = "login_attempts"
     id: Optional[int] = Field(default=None, primary_key=True)

@@ -6,6 +6,7 @@ from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.routes.tasks.status import normalize_task_status
+from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.governance_read_model_service import get_governance_read_model_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
@@ -417,6 +418,8 @@ def get_task(tid):
     task = get_core_services().task_runtime_service.get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
+    task = dict(task)
+    task["instruction_layers"] = get_instruction_layer_service().task_selection_summary(task)
     return api_response(data=task)
 
 
