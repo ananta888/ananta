@@ -38,3 +38,4 @@ This document captures the first implementation block of the Eclipse plugin adap
 - First-run UX, golden path demo, manual smoke checklist and future roadmap are tracked as rollout artifacts.
 
 See `docs/eclipse-plugin-adapter-evaluation-and-rollout.md` for the evaluation and rollout details.
+For the views extension foundation, see `docs/eclipse-plugin-views-extension-foundation.md`.

@@ -30,19 +30,19 @@
       "id": "M1",
       "title": "View MVP and navigation baseline",
       "task_ids": ["ECL-T27", "ECL-T28", "ECL-T29", "ECL-T30", "ECL-T31", "ECL-T36"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
       "title": "Core interaction and rendering quality",
       "task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M3",
       "title": "Operational robustness and UX safeguards",
       "task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -55,7 +55,7 @@
     {
       "id": "ECL-T27",
       "title": "View strategy for Eclipse plugin define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A short design note defines which views belong to the Eclipse plugin MVP, which belong to phase 2 and which stay browser-only.",
@@ -66,7 +66,7 @@
     {
       "id": "ECL-T28",
       "title": "Goal and quick action view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A dedicated Eclipse view allows entering a goal or selecting a quick action.",
@@ -77,7 +77,7 @@
     {
       "id": "ECL-T29",
       "title": "Task list view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A dedicated Eclipse view lists current Ananta tasks.",
@@ -88,7 +88,7 @@
     {
       "id": "ECL-T30",
       "title": "Artifact view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A dedicated Eclipse view lists returned artifacts such as analysis summaries, review outputs, research artifacts or proposals.",
@@ -99,7 +99,7 @@
     {
       "id": "ECL-T31",
       "title": "Context inspection view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A dedicated view shows which editor selection, file path, project context or extra files will be sent to Ananta.",
@@ -110,7 +110,7 @@
     {
       "id": "ECL-T32",
       "title": "Basic task detail view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Users can inspect a selected task in a richer detail view.",
@@ -121,7 +121,7 @@
     {
       "id": "ECL-T33",
       "title": "Review and proposal view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "A dedicated view can display change review results, findings and proposals.",
@@ -132,7 +132,7 @@
     {
       "id": "ECL-T34",
       "title": "Blueprint and work-profile view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "A dedicated view exposes standard blueprints and their work-profile summaries.",
@@ -143,7 +143,7 @@
     {
       "id": "ECL-T35",
       "title": "Connection and runtime status view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "An optional view shows connection status, selected Ananta endpoint and basic runtime health.",
@@ -154,7 +154,7 @@
     {
       "id": "ECL-T36",
       "title": "View navigation and linking model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A small navigation model defines how goal, task, artifact and review views link to one another.",
@@ -341,15 +341,15 @@
     "ECL-T48"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T16:21:30+02:00",
+    "updated_at": "2026-04-24T16:24:04+02:00",
     "total": 24,
     "by_status": {
-      "todo": 24,
+      "todo": 14,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 41.67,
     "by_priority": {
       "P0": 7,
       "P1": 12,
@@ -358,30 +358,30 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 7,
+      "remaining": 7
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T16:21:30+02:00",
+    "updated_at": "2026-04-24T16:24:04+02:00",
     "stages": {
-      "stage_1_mvp_views_navigation": {"scope_task_ids": ["ECL-T27", "ECL-T28", "ECL-T29", "ECL-T30", "ECL-T31", "ECL-T36"], "total": 6, "done": 0, "todo": 6},
-      "stage_2_detail_review_render": {"scope_task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"], "total": 6, "done": 0, "todo": 6},
-      "stage_3_robustness_and_ux": {"scope_task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"], "total": 8, "done": 0, "todo": 8},
+      "stage_1_mvp_views_navigation": {"scope_task_ids": ["ECL-T27", "ECL-T28", "ECL-T29", "ECL-T30", "ECL-T31", "ECL-T36"], "total": 6, "done": 6, "todo": 0},
+      "stage_2_detail_review_render": {"scope_task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"], "total": 6, "done": 3, "todo": 3},
+      "stage_3_robustness_and_ux": {"scope_task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"], "total": 8, "done": 1, "todo": 7},
       "stage_4_validation_rollout": {"scope_task_ids": ["ECL-T47", "ECL-T48"], "total": 2, "done": 0, "todo": 2},
       "stage_5_future_scope_boundary": {"scope_task_ids": ["ECL-T49", "ECL-T50"], "total": 2, "done": 0, "todo": 2}
     }
   },
   "summary_notes": [
-    "The extension track is now normalized to the enhanced todo schema with explicit milestones, critical path and staged execution summaries.",
-    "All 24 tasks are currently planned (0 done), with delivery focus on view strategy, navigation, review rendering quality and browser-fallback boundaries.",
-    "Highest risk concentration is around cross-view synchronization, rendering quality, and preserving thin-adapter scope while expanding IDE-native usability."
+    "The first 10 tasks are complete (ECL-T27..ECL-T36), establishing the initial view strategy, MVP view contracts and navigation model.",
+    "Stage 1 is fully complete; stage 2 and stage 3 are now partially advanced with rendering and runtime-status foundations in place.",
+    "Remaining risk focuses on synchronization hardening, advanced rendering quality, fallback boundaries and validation/rollout checks."
   ]
 }

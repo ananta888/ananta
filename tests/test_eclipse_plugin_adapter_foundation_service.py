@@ -1,11 +1,17 @@
 from agent.services.eclipse_plugin_adapter_foundation_service import (
+    build_eclipse_artifact_view,
+    build_eclipse_basic_task_detail_view,
+    build_eclipse_blueprint_work_profile_view,
     build_eclipse_connection_auth_support,
+    build_eclipse_connection_runtime_status_view,
+    build_eclipse_context_inspection_view,
     build_eclipse_context_packaging_rules,
     build_eclipse_diff_review_render,
     build_eclipse_error_degraded_mode,
     build_eclipse_first_run_ux,
     build_eclipse_future_roadmap,
     build_eclipse_goal_input_panel,
+    build_eclipse_goal_quick_action_view,
     build_eclipse_golden_path_demo,
     build_eclipse_health_capability_handshake,
     build_eclipse_manual_smoke_checklist,
@@ -15,12 +21,16 @@ from agent.services.eclipse_plugin_adapter_foundation_service import (
     build_eclipse_openai_fallback_evaluation,
     build_eclipse_plugin_adapter_foundation_snapshot,
     build_eclipse_review_approval_action_support,
+    build_eclipse_review_proposal_view,
     build_eclipse_security_privacy_guardrails,
     build_eclipse_selection_editor_handoff,
     build_eclipse_sgpt_cli_operation_bridge,
     build_eclipse_task_artifact_view,
+    build_eclipse_task_list_view,
     build_eclipse_task_refresh_flow,
     build_eclipse_trace_visibility,
+    build_eclipse_view_navigation_linking_model,
+    build_eclipse_view_strategy,
     collect_eclipse_workspace_project_context,
 )
 
@@ -175,6 +185,77 @@ def test_eclipse_extension_and_safety_contracts_cover_last_block() -> None:
     assert roadmap["mvp_scope_protected"] is True
 
 
+def test_eclipse_views_extension_contracts_cover_first_ten_tasks() -> None:
+    workspace = collect_eclipse_workspace_project_context(
+        {"workspace_path": "/workspace", "project_name": "demo", "active_file_path": "/workspace/src/main.py"}
+    )
+    handoff = build_eclipse_selection_editor_handoff(
+        {"file_path": "/workspace/src/main.py", "selection_text": "print('x')"}
+    )
+    strategy = build_eclipse_view_strategy()
+    goal_view = build_eclipse_goal_quick_action_view(
+        goal_text="Analyze this project",
+        workspace_context=workspace,
+    )
+    task_list = build_eclipse_task_list_view(
+        [{"id": "T-1", "title": "Task", "status": "todo", "review_required": True, "next_step": "inspect"}]
+    )
+    artifact_view = build_eclipse_artifact_view(
+        [{"id": "A-1", "title": "Artifact", "type": "markdown", "task_id": "T-1"}]
+    )
+    context_view = build_eclipse_context_inspection_view(
+        workspace_context=workspace,
+        handoff_context=handoff,
+    )
+    detail_view = build_eclipse_basic_task_detail_view(
+        {"id": "T-1", "title": "Task", "status": "todo", "summary": "Inspect detail"},
+        artifacts=[{"id": "A-1", "title": "Artifact", "type": "markdown", "task_id": "T-1"}],
+        routing_hints=["hub_queue_worker_path"],
+    )
+    review_view = build_eclipse_review_proposal_view(
+        proposals=[{"id": "P-1", "title": "Proposal", "hunks": [{"path": "src/main.py", "line": 2}]}],
+        approval_actions_supported=True,
+    )
+    blueprint_view = build_eclipse_blueprint_work_profile_view(
+        [
+            {
+                "id": "bp-default",
+                "purpose": "Default path",
+                "recommended_goal_modes": ["analyze", "review"],
+                "typical_outputs": ["task_plan"],
+            }
+        ]
+    )
+    runtime_view = build_eclipse_connection_runtime_status_view(
+        profile={"id": "dev-local", "base_url": "http://localhost:8080", "auth_method": "session_token"},
+        connected=True,
+        health_state="ready",
+        required_capabilities=["goals", "tasks"],
+    )
+    nav_model = build_eclipse_view_navigation_linking_model()
+
+    assert strategy["schema"] == "eclipse_view_strategy_v1"
+    assert strategy["does_not_replace_web_ui"] is True
+    assert goal_view["schema"] == "eclipse_goal_quick_action_view_v1"
+    assert "analyze" in goal_view["quick_actions"]
+    assert task_list["schema"] == "eclipse_task_list_view_v1"
+    assert task_list["detail_view_link_available"] is True
+    assert artifact_view["schema"] == "eclipse_artifact_view_v1"
+    assert artifact_view["open_in_browser_available"] is True
+    assert context_view["schema"] == "eclipse_context_inspection_view_v1"
+    assert context_view["can_remove_or_adjust_context"] is True
+    assert detail_view["schema"] == "eclipse_basic_task_detail_view_v1"
+    assert detail_view["not_an_ops_dashboard"] is True
+    assert review_view["schema"] == "eclipse_review_proposal_view_v1"
+    assert review_view["auditable_review_workflow"] is True
+    assert blueprint_view["schema"] == "eclipse_blueprint_work_profile_view_v1"
+    assert blueprint_view["supports_starting_path_selection"] is True
+    assert runtime_view["schema"] == "eclipse_connection_runtime_status_view_v1"
+    assert runtime_view["lightweight_not_full_admin_surface"] is True
+    assert nav_model["schema"] == "eclipse_view_navigation_linking_model_v1"
+    assert nav_model["preserves_task_context"] is True
+
+
 def test_foundation_snapshot_covers_full_eclipse_track() -> None:
     snapshot = build_eclipse_plugin_adapter_foundation_snapshot(
         profile={"id": "dev-local", "base_url": "http://localhost:8080", "auth_method": "session_token"},
@@ -221,3 +302,30 @@ def test_foundation_snapshot_covers_full_eclipse_track() -> None:
     assert snapshot["golden_path_demo"]["schema"] == "eclipse_golden_path_demo_v1"
     assert snapshot["manual_smoke_checklist"]["schema"] == "eclipse_manual_smoke_checklist_v1"
     assert snapshot["future_roadmap"]["schema"] == "eclipse_future_roadmap_v1"
+    assert snapshot["views_extension_snapshot"]["schema"] == "eclipse_views_extension_snapshot_v1"
+    assert snapshot["views_extension_snapshot"]["view_strategy"]["schema"] == "eclipse_view_strategy_v1"
+    assert (
+        snapshot["views_extension_snapshot"]["goal_quick_action_view"]["schema"] == "eclipse_goal_quick_action_view_v1"
+    )
+    assert snapshot["views_extension_snapshot"]["task_list_view"]["schema"] == "eclipse_task_list_view_v1"
+    assert snapshot["views_extension_snapshot"]["artifact_view"]["schema"] == "eclipse_artifact_view_v1"
+    assert (
+        snapshot["views_extension_snapshot"]["context_inspection_view"]["schema"]
+        == "eclipse_context_inspection_view_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["basic_task_detail_view"]["schema"] == "eclipse_basic_task_detail_view_v1"
+    )
+    assert snapshot["views_extension_snapshot"]["review_proposal_view"]["schema"] == "eclipse_review_proposal_view_v1"
+    assert (
+        snapshot["views_extension_snapshot"]["blueprint_work_profile_view"]["schema"]
+        == "eclipse_blueprint_work_profile_view_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["connection_runtime_status_view"]["schema"]
+        == "eclipse_connection_runtime_status_view_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["view_navigation_linking_model"]["schema"]
+        == "eclipse_view_navigation_linking_model_v1"
+    )
