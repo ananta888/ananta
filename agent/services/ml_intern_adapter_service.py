@@ -17,7 +17,8 @@ class MlInternAdapterService:
     @staticmethod
     def _resolve_config(agent_cfg: dict[str, Any] | None) -> dict[str, Any]:
         cfg = dict(agent_cfg or {})
-        return normalize_ml_intern_spike_config(cfg.get("ml_intern_spike") if isinstance(cfg.get("ml_intern_spike"), dict) else {})
+        spike_cfg = cfg.get("ml_intern_spike") if isinstance(cfg.get("ml_intern_spike"), dict) else {}
+        return normalize_ml_intern_spike_config(spike_cfg)
 
     @staticmethod
     def _resolve_working_dir(value: str | None) -> Path:

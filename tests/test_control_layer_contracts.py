@@ -47,7 +47,10 @@ def test_control_layer_contract_router_honors_capabilities_and_fallbacks():
         )
     decision = routed["decision"]
     assert decision["selected_target"] == "opencode"
-    assert any(item["target"] == "sgpt" and item["reason"].startswith("missing_capabilities") for item in decision["alternatives"])
+    assert any(
+        item["target"] == "sgpt" and item["reason"].startswith("missing_capabilities")
+        for item in decision["alternatives"]
+    )
 
 
 def test_control_layer_contract_approval_enforces_specialized_backend_confirmation():
