@@ -22,7 +22,7 @@
         {
           "id": "UPT-T01",
           "title": "Instruction layer model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A clear layer model is defined for system/governance, blueprint or role template, user profile prompt, task/session overlay and current goal input.",
@@ -33,7 +33,7 @@
         {
           "id": "UPT-T02",
           "title": "Precedence and conflict rules define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A precedence order is defined for all instruction layers.",
@@ -44,7 +44,7 @@
         {
           "id": "UPT-T03",
           "title": "Allowed versus forbidden user influence scope define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system defines what user prompts may influence such as style, language, detail level or working mode.",
@@ -73,7 +73,7 @@
         {
           "id": "UPT-T05",
           "title": "User profile prompt data model add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A persistent user profile prompt model exists in the backend.",
@@ -84,7 +84,7 @@
         {
           "id": "UPT-T06",
           "title": "Multiple user profiles support design",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The design supports more than one profile per user such as coding, research or strict mode.",
@@ -95,7 +95,7 @@
         {
           "id": "UPT-T07",
           "title": "CRUD API for user profiles implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "Users can create, read, update and select their own profile prompts through an API.",
@@ -106,7 +106,7 @@
         {
           "id": "UPT-T08",
           "title": "Safe defaults for empty user profile define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The system behaves predictably when no user profile prompt exists.",
@@ -135,7 +135,7 @@
         {
           "id": "UPT-T10",
           "title": "Task or session overlay data model add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A distinct data model exists for a task/session/usage overlay.",
@@ -146,7 +146,7 @@
         {
           "id": "UPT-T11",
           "title": "Overlay attachment points define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system defines which objects can carry an overlay such as goal, task, session or project context.",
@@ -157,7 +157,7 @@
         {
           "id": "UPT-T12",
           "title": "Overlay lifecycle define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The system defines when an overlay begins, expires and stops applying.",
@@ -516,15 +516,15 @@
     "UPT-T37"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T10:43:00+02:00",
+    "updated_at": "2026-04-24T10:56:00+02:00",
     "total": 38,
     "by_status": {
-      "todo": 29,
+      "todo": 19,
       "in_progress": 0,
       "blocked": 0,
-      "done": 9
+      "done": 19
     },
-    "progress_percent_done": 23.7,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 12,
       "P1": 20,
@@ -534,18 +534,18 @@
     "by_group": {
       "UPT-FOUNDATION": {
         "total": 4,
-        "done": 1,
-        "todo": 3
+        "done": 4,
+        "todo": 0
       },
       "UPT-USER-PROFILE": {
         "total": 5,
-        "done": 1,
-        "todo": 4
+        "done": 5,
+        "todo": 0
       },
       "UPT-TASK-OVERLAY": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 3,
+        "todo": 2
       },
       "UPT-GOVERNANCE-SAFETY": {
         "total": 5,
@@ -575,8 +575,8 @@
     },
     "critical_path": {
       "total": 17,
-      "done": 3,
-      "remaining": 14
+      "done": 10,
+      "remaining": 7
     }
   }
 }

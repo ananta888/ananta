@@ -65,6 +65,25 @@ Supported attachment kinds:
 
 First practical release focuses on task/goal/session.
 
+## Overlay lifecycle modes
+
+Supported `scope` values:
+
+- `task`
+- `goal`
+- `session`
+- `usage`
+- `one_shot`
+- `project`
+
+Lifecycle behavior:
+
+- `one_shot`: overlay is consumed on first runtime application and auto-deactivated.
+- `session`: overlay should be bound to `attachment_kind=session` and a session id.
+- `project`: overlay should be bound to `attachment_kind=usage` with a project usage key.
+
+Lifecycle state is visible in API read models via the `lifecycle` object (`kind`, `started_at`, `expires_at`, `is_expired`, `consumed_count`, `remaining_uses`).
+
 ## Safe defaults
 
 - No profile selected: use governance + template + task input.
