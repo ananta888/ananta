@@ -1,54 +1,245 @@
 {
   "version": 2,
   "owner": "ananta",
-  "track": "client_surface_reality_hardening",
-  "purpose": "Convert the completed-looking TUI and Eclipse tracks from foundation-only status into verifiably runnable client surfaces, or explicitly downgrade their completion claims before merging to main.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Ananta must have truthful completion status for TUI and Eclipse integration. Claimed client surfaces must either be implemented as runnable clients with tests and smoke checks, or reclassified as foundation/contract work.",
+  "track": "client_surface_reality_plus_tui_vim_runtime_delivery",
+  "source_tracks": [
+    {
+      "track": "client_surface_reality_hardening",
+      "task_count": 26,
+      "milestone_count": 5
+    },
+    {
+      "track": "tui_vim_runtime_delivery",
+      "task_count": 56,
+      "milestone_count": 8
+    }
+  ],
+  "purpose": "Unify client-surface reality hardening with full TUI/Vim runtime delivery in one execution backlog and close all runnable-client gaps with evidence-based completion.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "goal": "Deliver truthful and runnable client surfaces: real Neovim/Vim plugin runtime, real TUI runtime, and evidence-backed status for all client-facing claims.",
   "success_criteria": [
     "The repository contains a real runnable TUI entrypoint if TUI is claimed as implemented.",
     "The repository contains a real buildable Eclipse plugin project if Eclipse plugin is claimed as implemented.",
     "Existing foundation services remain useful but are not mistaken for finished clients.",
     "Unit, integration and smoke tests prove the runnable paths.",
-    "Todo status matches implementation evidence before merge to main."
+    "Todo status matches implementation evidence before merge to main.",
+    "Repository contains runnable Neovim/Vim plugin runtime files and documented install/start commands.",
+    "Repository contains runnable TUI app entrypoint with core views working against backend APIs.",
+    "Both surfaces preserve explicit approval, audit and bounded-context behavior.",
+    "Contract layer remains aligned with runtime behavior and is not misrepresented as full implementation.",
+    "Todo completion status is backed by executable evidence."
+  ],
+  "program_success_criteria": [
+    "The repository contains a real runnable TUI entrypoint if TUI is claimed as implemented.",
+    "The repository contains a real buildable Eclipse plugin project if Eclipse plugin is claimed as implemented.",
+    "Existing foundation services remain useful but are not mistaken for finished clients.",
+    "Unit, integration and smoke tests prove the runnable paths.",
+    "Todo status matches implementation evidence before merge to main.",
+    "Repository contains runnable Neovim/Vim plugin runtime files and documented install/start commands.",
+    "Repository contains runnable TUI app entrypoint with core views working against backend APIs.",
+    "Both surfaces preserve explicit approval, audit and bounded-context behavior.",
+    "Contract layer remains aligned with runtime behavior and is not misrepresented as full implementation.",
+    "Todo completion status is backed by executable evidence."
   ],
   "architecture_guardrails": [
     "Do not mark adapter foundation, contracts or documentation as a complete client implementation.",
     "TUI and Eclipse must stay thin clients; orchestration, governance and policy remain in Ananta.",
     "All client actions must go through existing backend approval, audit and task APIs.",
-    "No client may silently bypass policy, approval, audit or bounded context rules."
+    "No client may silently bypass policy, approval, audit or bounded context rules.",
+    "Hub stays control plane; plugin and TUI stay thin clients.",
+    "No client-side bypass of approval, governance, audit or mutation gates.",
+    "Use additive migration from contracts to runtime implementations, no big-bang rewrite.",
+    "Keep browser-first fallback for deep admin/configuration surfaces."
   ],
   "milestones": [
     {
       "id": "CSH-M1",
       "title": "Reality audit and status correction",
-      "task_ids": ["CSH-T01", "CSH-T02", "CSH-T03", "CSH-T04"],
+      "task_ids": [
+        "CSH-T01",
+        "CSH-T02",
+        "CSH-T03",
+        "CSH-T04"
+      ],
       "status": "todo"
     },
     {
       "id": "CSH-M2",
       "title": "Runnable TUI implementation",
-      "task_ids": ["CSH-T05", "CSH-T06", "CSH-T07", "CSH-T08", "CSH-T09", "CSH-T10"],
+      "task_ids": [
+        "CSH-T05",
+        "CSH-T06",
+        "CSH-T07",
+        "CSH-T08",
+        "CSH-T09",
+        "CSH-T10"
+      ],
       "status": "todo"
     },
     {
       "id": "CSH-M3",
       "title": "Buildable Eclipse plugin implementation",
-      "task_ids": ["CSH-T11", "CSH-T12", "CSH-T13", "CSH-T14", "CSH-T15", "CSH-T16", "CSH-T17"],
+      "task_ids": [
+        "CSH-T11",
+        "CSH-T12",
+        "CSH-T13",
+        "CSH-T14",
+        "CSH-T15",
+        "CSH-T16",
+        "CSH-T17"
+      ],
       "status": "todo"
     },
     {
       "id": "CSH-M4",
       "title": "Cross-client tests and safety checks",
-      "task_ids": ["CSH-T18", "CSH-T19", "CSH-T20", "CSH-T21", "CSH-T22"],
+      "task_ids": [
+        "CSH-T18",
+        "CSH-T19",
+        "CSH-T20",
+        "CSH-T21",
+        "CSH-T22"
+      ],
       "status": "todo"
     },
     {
       "id": "CSH-M5",
       "title": "Release evidence and merge readiness",
-      "task_ids": ["CSH-T23", "CSH-T24", "CSH-T25", "CSH-T26"],
+      "task_ids": [
+        "CSH-T23",
+        "CSH-T24",
+        "CSH-T25",
+        "CSH-T26"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M1",
+      "title": "Reality baseline and implementation contract",
+      "task_ids": [
+        "TVM-T01",
+        "TVM-T02",
+        "TVM-T03",
+        "TVM-T04",
+        "TVM-T05",
+        "TVM-T06"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M2",
+      "title": "Shared runtime client infrastructure",
+      "task_ids": [
+        "TVM-T07",
+        "TVM-T08",
+        "TVM-T09",
+        "TVM-T10",
+        "TVM-T11",
+        "TVM-T12"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M3",
+      "title": "Neovim runnable MVP",
+      "task_ids": [
+        "TVM-T13",
+        "TVM-T14",
+        "TVM-T15",
+        "TVM-T16",
+        "TVM-T17",
+        "TVM-T18",
+        "TVM-T19",
+        "TVM-T20",
+        "TVM-T21",
+        "TVM-T22"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M4",
+      "title": "Vim compatibility layer",
+      "task_ids": [
+        "TVM-T23",
+        "TVM-T24",
+        "TVM-T25",
+        "TVM-T26",
+        "TVM-T27",
+        "TVM-T28"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M5",
+      "title": "TUI runnable MVP",
+      "task_ids": [
+        "TVM-T29",
+        "TVM-T30",
+        "TVM-T31",
+        "TVM-T32",
+        "TVM-T33",
+        "TVM-T34",
+        "TVM-T35",
+        "TVM-T36",
+        "TVM-T37",
+        "TVM-T38"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M6",
+      "title": "Safety and governance hardening",
+      "task_ids": [
+        "TVM-T39",
+        "TVM-T40",
+        "TVM-T41",
+        "TVM-T42",
+        "TVM-T43",
+        "TVM-T44"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M7",
+      "title": "Test and CI hardening",
+      "task_ids": [
+        "TVM-T45",
+        "TVM-T46",
+        "TVM-T47",
+        "TVM-T48",
+        "TVM-T49",
+        "TVM-T50",
+        "TVM-T51",
+        "TVM-T52"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TVM-M8",
+      "title": "Packaging, release and status sync",
+      "task_ids": [
+        "TVM-T53",
+        "TVM-T54",
+        "TVM-T55",
+        "TVM-T56"
+      ],
       "status": "todo"
     }
   ],
@@ -101,7 +292,6 @@
         "Foundation-only, MVP-client and production-ready are defined separately."
       ]
     },
-
     {
       "id": "CSH-T05",
       "title": "TUI package and entrypoint implement",
@@ -174,7 +364,6 @@
         "If full terminal automation is not feasible, a short manual smoke checklist is added and marked as required before merge."
       ]
     },
-
     {
       "id": "CSH-T11",
       "title": "Eclipse plugin project skeleton add",
@@ -259,7 +448,6 @@
         "A manual Eclipse checklist verifies install/start, connect, send selection, create goal and inspect returned task/artifact."
       ]
     },
-
     {
       "id": "CSH-T18",
       "title": "External client API contract tests add",
@@ -320,7 +508,6 @@
         "No client silently hangs or reports success on failed backend operations."
       ]
     },
-
     {
       "id": "CSH-T23",
       "title": "Main merge gate update",
@@ -368,14 +555,696 @@
         "The report separates blockers for main from later enhancements.",
         "The report can seed follow-up todos for ref-profile and KRITIS without mixing concerns."
       ]
+    },
+    {
+      "id": "TVM-T01",
+      "title": "Runtime evidence inventory finalize",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Inventory explicitly lists contract-only artifacts and runtime artifacts.",
+        "Inventory includes exact file paths for Neovim/Vim/TUI evidence.",
+        "Inventory is linked in this track documentation."
+      ]
+    },
+    {
+      "id": "TVM-T02",
+      "title": "Foundation versus runtime status labels normalize",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Track terminology distinguishes foundation_complete from runtime_complete.",
+        "Current done claims are reconciled against executable evidence.",
+        "No runtime claim remains ambiguous."
+      ]
+    },
+    {
+      "id": "TVM-T03",
+      "title": "Completion definition for plugin and TUI formalize",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Definition includes required entrypoints, smoke tests and packaging evidence.",
+        "Definition includes required degraded/error behavior and audit expectations.",
+        "Definition is reusable for future client tracks."
+      ]
+    },
+    {
+      "id": "TVM-T04",
+      "title": "Contract-to-runtime mapping table create",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Each existing editor/TUI contract maps to one runtime UI module or is marked deferred.",
+        "Mapping identifies missing runtime modules explicitly.",
+        "Mapping avoids duplicate responsibilities across client surfaces."
+      ]
+    },
+    {
+      "id": "TVM-T05",
+      "title": "Runtime architecture decision record write",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "ADR confirms Neovim-first plus Vim compatibility strategy.",
+        "ADR selects concrete TUI runtime stack and why.",
+        "ADR includes constraints from hub-worker architecture."
+      ]
+    },
+    {
+      "id": "TVM-T06",
+      "title": "Repository layout for plugin and TUI runtime create",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Clear directories exist for nvim plugin, vim compatibility and TUI app.",
+        "Layout separates runtime code from contract-only services.",
+        "Paths are documented for contributors and CI."
+      ]
+    },
+    {
+      "id": "TVM-T07",
+      "title": "Shared client API module implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Reusable client module handles health/goals/tasks/artifacts/approvals endpoints.",
+        "Module supports retries/timeouts with explicit error signaling.",
+        "Module is reused by both plugin and TUI runtimes."
+      ]
+    },
+    {
+      "id": "TVM-T08",
+      "title": "Shared auth and session handling implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Auth/session manager supports configured modes without secret leakage.",
+        "Token/session refresh failures become visible in clients.",
+        "No client writes secrets to logs or history."
+      ]
+    },
+    {
+      "id": "TVM-T09",
+      "title": "Connection profile persistence harden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Profile persistence restores non-sensitive fields only.",
+        "Per-environment profile switching is deterministic.",
+        "Corrupt profile state fails safely with repair guidance."
+      ]
+    },
+    {
+      "id": "TVM-T10",
+      "title": "Capability handshake and degraded model implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Client startup validates backend health and capability availability.",
+        "Missing capabilities switch clients into explicit degraded modes.",
+        "Degraded mode blocks unsupported actions with clear rationale."
+      ]
+    },
+    {
+      "id": "TVM-T11",
+      "title": "Trace and audit linking helper implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Client operations propagate trace/task context fields consistently.",
+        "UI surfaces can show trace references for troubleshooting.",
+        "Audit-sensitive actions include sufficient linkage metadata."
+      ]
+    },
+    {
+      "id": "TVM-T12",
+      "title": "Client action dispatcher implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Dispatcher supports explicit action types analyze/review/patch/new/evolve.",
+        "Dispatcher enforces bounded context payload assembly.",
+        "Dispatcher rejects unknown action names fail-closed."
+      ]
+    },
+    {
+      "id": "TVM-T13",
+      "title": "Neovim Lua plugin skeleton add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Runtime files are added under lua/ananta/ with loadable module structure.",
+        "Core modules include init, commands, api, state and render helpers.",
+        "Plugin loads in headless Neovim without runtime errors."
+      ]
+    },
+    {
+      "id": "TVM-T14",
+      "title": "Plugin entrypoint and commands register",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "plugin/ananta.vim (or equivalent) registers user commands.",
+        "Commands include AnantaGoalSubmit, AnantaAnalyze, AnantaReview, AnantaPatchPlan, AnantaProjectNew, AnantaProjectEvolve.",
+        "Command help text and argument behavior are deterministic."
+      ]
+    },
+    {
+      "id": "TVM-T15",
+      "title": "Goal submission command runtime implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "AnantaGoalSubmit sends bounded editor context to backend.",
+        "Success and failure outputs are rendered in editor-safe views.",
+        "No hidden file mutation is performed."
+      ]
+    },
+    {
+      "id": "TVM-T16",
+      "title": "Analyze review patch commands runtime implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Analyze/review/patch commands call backend action dispatcher.",
+        "Patch command remains review-first with explicit apply path only.",
+        "Failures are surfaced with actionable messages."
+      ]
+    },
+    {
+      "id": "TVM-T17",
+      "title": "Editor context capture runtime implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Selection, file path and buffer excerpts are captured with strict bounds.",
+        "Visual-mode and normal-mode captures are both supported.",
+        "Users can inspect what context will be sent."
+      ]
+    },
+    {
+      "id": "TVM-T18",
+      "title": "Result rendering surfaces implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Results can render to scratch buffer and/or floating view.",
+        "Long output handling remains readable and navigable.",
+        "Render path handles unsupported artifacts with safe fallback."
+      ]
+    },
+    {
+      "id": "TVM-T19",
+      "title": "Task artifact navigation in plugin implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Plugin supports opening linked task/artifact summaries.",
+        "Navigation preserves current editor context where possible.",
+        "Browser handoff is available for deep detail surfaces."
+      ]
+    },
+    {
+      "id": "TVM-T20",
+      "title": "Approval awareness and blocked UX in plugin implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Approval-required and blocked states are clearly visible.",
+        "No command path silently executes blocked mutations.",
+        "User gets explicit next step guidance for approvals."
+      ]
+    },
+    {
+      "id": "TVM-T21",
+      "title": "First-run setup and diagnostics commands add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Setup command validates endpoint and auth configuration.",
+        "Diagnostics command checks health and capability handshake.",
+        "Command output is concise and actionable."
+      ]
+    },
+    {
+      "id": "TVM-T22",
+      "title": "Neovim runtime smoke flow script add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Automated or semi-automated script validates plugin load plus one action.",
+        "Smoke flow captures artifacts for CI debugging.",
+        "Failure blocks runtime_complete claim."
+      ]
+    },
+    {
+      "id": "TVM-T23",
+      "title": "Vim compatibility strategy finalize",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Compatibility scope defines what works in Vim versus Neovim only.",
+        "Fallback behavior for missing Neovim APIs is explicit.",
+        "Strategy avoids hidden behavior divergence."
+      ]
+    },
+    {
+      "id": "TVM-T24",
+      "title": "Vim command wrapper layer implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Vim commands map to supported backend actions through a safe bridge.",
+        "Wrapper layer keeps command names consistent where practical.",
+        "Unsupported actions return explicit not-supported messaging."
+      ]
+    },
+    {
+      "id": "TVM-T25",
+      "title": "Neovim-only feature guards implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Neovim-only features are detected at runtime.",
+        "Vim users receive deterministic fallback guidance.",
+        "No hard crash due to unavailable APIs."
+      ]
+    },
+    {
+      "id": "TVM-T26",
+      "title": "Vim Neovim support matrix tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Matrix tests cover minimum supported Neovim and Vim variants.",
+        "Tests verify command registration and graceful degradations.",
+        "Matrix expectations are documented for release notes."
+      ]
+    },
+    {
+      "id": "TVM-T27",
+      "title": "Vim compatibility docs add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Docs list supported commands and known limitations by editor.",
+        "Setup and troubleshooting are editor-specific where needed.",
+        "Docs avoid claiming unsupported parity."
+      ]
+    },
+    {
+      "id": "TVM-T28",
+      "title": "Plugin help tags and runtime docs package",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Plugin ships with installable help documentation.",
+        "Help includes command reference and safety caveats.",
+        "Help text is synchronized with runtime behavior."
+      ]
+    },
+    {
+      "id": "TVM-T29",
+      "title": "TUI app package and entrypoint implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Dedicated TUI app package exists with runnable entrypoint command.",
+        "Entry command starts app loop and handles startup failures cleanly.",
+        "Entry command supports configurable backend profile."
+      ]
+    },
+    {
+      "id": "TVM-T30",
+      "title": "TUI framework bootstrap and app shell implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "App shell includes global layout regions and keyboard routing.",
+        "View switching and refresh behavior are deterministic.",
+        "Terminal-size degradation path is implemented."
+      ]
+    },
+    {
+      "id": "TVM-T31",
+      "title": "Runtime status header implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Header shows active profile, endpoint and connection health.",
+        "Header updates when auth or connectivity changes.",
+        "Status labels are concise and unambiguous."
+      ]
+    },
+    {
+      "id": "TVM-T32",
+      "title": "Task board and task detail runtime views implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Task board supports refresh, selection and grouping baseline.",
+        "Task detail view shows summary, status, routing and linked artifacts.",
+        "Views handle empty and error states without crashing."
+      ]
+    },
+    {
+      "id": "TVM-T33",
+      "title": "Artifact runtime view and rendering modes implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Artifact list and selected detail rendering are implemented.",
+        "Known types render meaningfully; unknown types degrade to raw/browser fallback.",
+        "Rendering never implies automatic mutation."
+      ]
+    },
+    {
+      "id": "TVM-T34",
+      "title": "Goal submission runtime flow in TUI implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "TUI supports explicit goal submission with bounded context.",
+        "Goal submission result links into task/artifact navigation.",
+        "Validation errors are clear and recoverable."
+      ]
+    },
+    {
+      "id": "TVM-T35",
+      "title": "Approval queue runtime view implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Approval queue lists pending items with scope and risk hints.",
+        "Approval details can be inspected safely.",
+        "No hidden approve/reject side effects occur."
+      ]
+    },
+    {
+      "id": "TVM-T36",
+      "title": "Logs and audit runtime view implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Log stream view supports at least level filtering.",
+        "Audit trace references are visible for selected operations.",
+        "Sensitive values are redacted in rendered entries."
+      ]
+    },
+    {
+      "id": "TVM-T37",
+      "title": "Connection and profile runtime screen implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Users can select profile and validate connectivity.",
+        "Auth failures show specific remediation hints.",
+        "Profile switch updates all dependent views safely."
+      ]
+    },
+    {
+      "id": "TVM-T38",
+      "title": "TUI resume state persistence implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Last profile and last active view can be restored safely.",
+        "Sensitive fields are excluded from persisted state.",
+        "Corrupt state fallback path is deterministic."
+      ]
+    },
+    {
+      "id": "TVM-T39",
+      "title": "Mutation-safe client action gates enforce",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Plugin and TUI mutation-capable actions require explicit backend approval state.",
+        "Disallowed actions fail closed with user-visible reason.",
+        "Client-side shortcuts cannot bypass backend policy."
+      ]
+    },
+    {
+      "id": "TVM-T40",
+      "title": "Secret and token redaction layer harden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Runtime logs and UI text sanitize token-like values.",
+        "Debug mode does not expose secrets by default.",
+        "Redaction behavior is covered by tests."
+      ]
+    },
+    {
+      "id": "TVM-T41",
+      "title": "Error and degraded state UX harden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "No data, disconnected, auth failed and permission denied are distinct states.",
+        "Each state provides actionable next steps.",
+        "Clients avoid silent hangs in degraded conditions."
+      ]
+    },
+    {
+      "id": "TVM-T42",
+      "title": "Context provenance and bounds visibility in runtime UIs add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Runtime UIs show source classes for context payload parts.",
+        "Users can inspect bounded payload before submit.",
+        "Visibility remains compact and readable."
+      ]
+    },
+    {
+      "id": "TVM-T43",
+      "title": "Minimal optional telemetry for runtime diagnostics add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Telemetry is opt-in and excludes secrets/content payloads.",
+        "Trace IDs and operation class are sufficient for diagnostics.",
+        "Telemetry can be disabled completely."
+      ]
+    },
+    {
+      "id": "TVM-T44",
+      "title": "Browser fallback policy centralize and enforce",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Policy defines which deep screens stay browser-first.",
+        "Plugin and TUI use consistent fallback behavior.",
+        "Fallback links preserve task/trace context where possible."
+      ]
+    },
+    {
+      "id": "TVM-T45",
+      "title": "Neovim Lua unit tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests cover command dispatch, context capture and renderer paths.",
+        "Tests include error and degraded scenarios.",
+        "Tests run headless in CI."
+      ]
+    },
+    {
+      "id": "TVM-T46",
+      "title": "Plugin backend integration tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Integration tests use mocked backend endpoints for core commands.",
+        "Tests verify auth failure and missing capability behavior.",
+        "Tests verify no silent mutation on review-only paths."
+      ]
+    },
+    {
+      "id": "TVM-T47",
+      "title": "TUI component and view-model tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests cover task, artifact, approval and log view-model logic.",
+        "Tests include keyboard navigation and filtering behavior.",
+        "Tests cover empty and error state rendering."
+      ]
+    },
+    {
+      "id": "TVM-T48",
+      "title": "Cross-surface smoke workflow tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Smoke workflow validates plugin startup plus one action.",
+        "Smoke workflow validates TUI startup plus one task/artifact flow.",
+        "Smoke outputs are archived for CI debugging."
+      ]
+    },
+    {
+      "id": "TVM-T49",
+      "title": "CI lanes for plugin and TUI runtime add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "CI includes jobs for plugin tests and TUI tests.",
+        "CI fails on missing runtime files required by completion criteria.",
+        "CI publishes smoke artifacts on failure."
+      ]
+    },
+    {
+      "id": "TVM-T50",
+      "title": "Golden render snapshots for major views add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Stable snapshots exist for key plugin and TUI result surfaces.",
+        "Snapshots make regressions visible in review.",
+        "Snapshots avoid embedding sensitive dynamic content."
+      ]
+    },
+    {
+      "id": "TVM-T51",
+      "title": "Security focused tests for client runtimes add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Tests verify secret redaction and bounded context enforcement.",
+        "Tests verify blocked mutation paths fail closed.",
+        "Tests verify approval-required paths do not auto-execute."
+      ]
+    },
+    {
+      "id": "TVM-T52",
+      "title": "Contract-runtime consistency checker add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Checker reports contracts that have no runtime implementation.",
+        "Checker reports runtime modules missing contract coverage where expected.",
+        "Checker output is integrated into release checklist."
+      ]
+    },
+    {
+      "id": "TVM-T53",
+      "title": "Plugin and TUI packaging artifacts ship",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Neovim/Vim plugin package artifact is buildable and installable.",
+        "TUI package artifact is buildable and installable.",
+        "Versioning metadata is consistent across artifacts."
+      ]
+    },
+    {
+      "id": "TVM-T54",
+      "title": "Install and quickstart docs verify against real runtime",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Install docs are validated on clean environment.",
+        "Quickstart reaches first successful action for plugin and TUI.",
+        "Known limitations are clearly documented."
+      ]
+    },
+    {
+      "id": "TVM-T55",
+      "title": "Release checklist and rollback plan add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Checklist includes build, tests, smoke, docs and artifact verification.",
+        "Rollback steps exist for bad client release.",
+        "Checklist is short enough for practical release cadence."
+      ]
+    },
+    {
+      "id": "TVM-T56",
+      "title": "Status synchronization and evidence report finalize",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "todo status is updated only after evidence links are attached.",
+        "Final report lists executable files, commands and test results.",
+        "Track can be audited without relying on implicit assumptions."
+      ]
     }
   ],
   "execution_order_summary": [
+    "Program 1: Client surface reality hardening (CSH-T01..T26).",
     "Stage 1: Audit and correct completion claims before writing more feature code.",
     "Stage 2: Implement or explicitly downgrade the TUI surface.",
     "Stage 3: Implement or explicitly downgrade the Eclipse plugin surface.",
     "Stage 4: Add client-facing contract, security, context and degraded-state tests.",
-    "Stage 5: Update merge gates and documentation so main only receives truthful capabilities."
+    "Stage 5: Update merge gates and documentation so main only receives truthful capabilities.",
+    "Program 2: TUI/Vim runtime delivery (TVM-T01..T56).",
+    "Stage 1: Reality baseline and completion definitions (TVM-T01..T06)",
+    "Stage 2: Shared runtime infrastructure (TVM-T07..T12)",
+    "Stage 3: Neovim runnable MVP (TVM-T13..T22)",
+    "Stage 4: Vim compatibility layer (TVM-T23..T28)",
+    "Stage 5: TUI runnable MVP (TVM-T29..T38)",
+    "Stage 6: Safety and governance hardening (TVM-T39..T44)",
+    "Stage 7: Tests and CI hardening (TVM-T45..T52)",
+    "Stage 8: Packaging and release sync (TVM-T53..T56)"
   ],
   "critical_path_tasks": [
     "CSH-T01",
@@ -389,46 +1258,282 @@
     "CSH-T18",
     "CSH-T19",
     "CSH-T23",
-    "CSH-T24"
+    "CSH-T24",
+    "TVM-T01",
+    "TVM-T03",
+    "TVM-T05",
+    "TVM-T06",
+    "TVM-T07",
+    "TVM-T08",
+    "TVM-T10",
+    "TVM-T12",
+    "TVM-T13",
+    "TVM-T14",
+    "TVM-T15",
+    "TVM-T16",
+    "TVM-T17",
+    "TVM-T20",
+    "TVM-T29",
+    "TVM-T30",
+    "TVM-T32",
+    "TVM-T34",
+    "TVM-T39",
+    "TVM-T41",
+    "TVM-T44",
+    "TVM-T48",
+    "TVM-T49",
+    "TVM-T51",
+    "TVM-T53",
+    "TVM-T56"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:00:00+02:00",
-    "total": 26,
+    "updated_at": "2026-04-24T17:25:57+02:00",
+    "total": 82,
     "by_status": {
-      "todo": 26,
+      "todo": 82,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 16,
-      "P1": 10,
-      "P2": 0,
+      "P0": 46,
+      "P1": 32,
+      "P2": 4,
       "P3": 0
     },
     "by_risk": {
-      "low": 0,
-      "medium": 3,
-      "high": 13,
-      "critical": 10
+      "low": 2,
+      "medium": 20,
+      "high": 41,
+      "critical": 19
     },
     "critical_path": {
-      "total": 12,
+      "total": 38,
       "done": 0,
-      "remaining": 12
+      "remaining": 38
     },
     "milestones": {
-      "total": 5,
-      "todo": 5,
+      "total": 13,
+      "todo": 13,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     }
   },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-24T17:25:57+02:00",
+    "stages": {
+      "CSH-M1_reality_audit_and_status_correction": {
+        "scope_task_ids": [
+          "CSH-T01",
+          "CSH-T02",
+          "CSH-T03",
+          "CSH-T04"
+        ],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CSH-M2_runnable_tui_implementation": {
+        "scope_task_ids": [
+          "CSH-T05",
+          "CSH-T06",
+          "CSH-T07",
+          "CSH-T08",
+          "CSH-T09",
+          "CSH-T10"
+        ],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CSH-M3_buildable_eclipse_plugin_implementation": {
+        "scope_task_ids": [
+          "CSH-T11",
+          "CSH-T12",
+          "CSH-T13",
+          "CSH-T14",
+          "CSH-T15",
+          "CSH-T16",
+          "CSH-T17"
+        ],
+        "total": 7,
+        "done": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CSH-M4_cross_client_tests_and_safety_checks": {
+        "scope_task_ids": [
+          "CSH-T18",
+          "CSH-T19",
+          "CSH-T20",
+          "CSH-T21",
+          "CSH-T22"
+        ],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CSH-M5_release_evidence_and_merge_readiness": {
+        "scope_task_ids": [
+          "CSH-T23",
+          "CSH-T24",
+          "CSH-T25",
+          "CSH-T26"
+        ],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M1_reality_baseline_and_implementation_contract": {
+        "scope_task_ids": [
+          "TVM-T01",
+          "TVM-T02",
+          "TVM-T03",
+          "TVM-T04",
+          "TVM-T05",
+          "TVM-T06"
+        ],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M2_shared_runtime_client_infrastructure": {
+        "scope_task_ids": [
+          "TVM-T07",
+          "TVM-T08",
+          "TVM-T09",
+          "TVM-T10",
+          "TVM-T11",
+          "TVM-T12"
+        ],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M3_neovim_runnable_mvp": {
+        "scope_task_ids": [
+          "TVM-T13",
+          "TVM-T14",
+          "TVM-T15",
+          "TVM-T16",
+          "TVM-T17",
+          "TVM-T18",
+          "TVM-T19",
+          "TVM-T20",
+          "TVM-T21",
+          "TVM-T22"
+        ],
+        "total": 10,
+        "done": 0,
+        "todo": 10,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M4_vim_compatibility_layer": {
+        "scope_task_ids": [
+          "TVM-T23",
+          "TVM-T24",
+          "TVM-T25",
+          "TVM-T26",
+          "TVM-T27",
+          "TVM-T28"
+        ],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M5_tui_runnable_mvp": {
+        "scope_task_ids": [
+          "TVM-T29",
+          "TVM-T30",
+          "TVM-T31",
+          "TVM-T32",
+          "TVM-T33",
+          "TVM-T34",
+          "TVM-T35",
+          "TVM-T36",
+          "TVM-T37",
+          "TVM-T38"
+        ],
+        "total": 10,
+        "done": 0,
+        "todo": 10,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M6_safety_and_governance_hardening": {
+        "scope_task_ids": [
+          "TVM-T39",
+          "TVM-T40",
+          "TVM-T41",
+          "TVM-T42",
+          "TVM-T43",
+          "TVM-T44"
+        ],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M7_test_and_ci_hardening": {
+        "scope_task_ids": [
+          "TVM-T45",
+          "TVM-T46",
+          "TVM-T47",
+          "TVM-T48",
+          "TVM-T49",
+          "TVM-T50",
+          "TVM-T51",
+          "TVM-T52"
+        ],
+        "total": 8,
+        "done": 0,
+        "todo": 8,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TVM-M8_packaging,_release_and_status_sync": {
+        "scope_task_ids": [
+          "TVM-T53",
+          "TVM-T54",
+          "TVM-T55",
+          "TVM-T56"
+        ],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
   "summary_notes": [
+    "This merged todo.json unifies the existing client-surface reality-hardening track and the TUI/Vim runtime-delivery track.",
+    "Completion claims must stay evidence-driven: foundation contracts are not equivalent to runnable client runtimes.",
+    "Use this merged file as the single execution source for client-surface closure before further feature expansion.",
     "todo.json and todo_last.json currently claim completed Eclipse client surfaces, but repository evidence visible in the diff points mainly to Python foundation services, docs and tests.",
     "This todo intentionally focuses on truthfulness, runnable clients and tests rather than adding new product scope.",
-    "KRITIS and ref-profile work should remain out of scope until this client-surface reality gap is resolved."
+    "KRITIS and ref-profile work should remain out of scope until this client-surface reality gap is resolved.",
+    "This track explicitly captures the currently missing runtime implementation surface for Neovim/Vim plugin and TUI app.",
+    "Existing editor-tui foundation contracts remain useful, but are tracked as implementation input rather than completion evidence.",
+    "Runtime completion requires executable entrypoints, runnable flows, tests, CI evidence and release artifacts."
   ]
 }
