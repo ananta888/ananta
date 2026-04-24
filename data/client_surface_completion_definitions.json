@@ -54,7 +54,8 @@
       "runtime_mvp": [
         "Lua runtime plugin modules exist and load in Neovim.",
         "Core commands (goal/analyze/review/patch/new/evolve) are registered.",
-        "Bounded context and explicit result rendering are functional."
+        "Bounded context and explicit result rendering are functional.",
+        "Headless Neovim smoke check exists and exercises at least one mocked command path."
       ],
       "runtime_complete": [
         "Headless Neovim tests and smoke checks pass in CI.",

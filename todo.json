@@ -123,7 +123,7 @@
         "CRT-T18",
         "CRT-T19"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -149,7 +149,7 @@
         "CRT-T30",
         "CRT-T32"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -336,7 +336,7 @@
     {
       "id": "CRT-T14",
       "title": "Neovim runtime files implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -349,7 +349,7 @@
     {
       "id": "CRT-T15",
       "title": "Neovim Ananta commands implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -362,7 +362,7 @@
     {
       "id": "CRT-T16",
       "title": "Neovim bounded editor context implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -375,7 +375,7 @@
     {
       "id": "CRT-T17",
       "title": "Neovim result rendering implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -401,7 +401,7 @@
     {
       "id": "CRT-T19",
       "title": "Neovim/Vim smoke checks add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -478,7 +478,7 @@
     {
       "id": "CRT-T25",
       "title": "External client API contract tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -491,7 +491,7 @@
     {
       "id": "CRT-T26",
       "title": "Client-originated security tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -556,7 +556,7 @@
     {
       "id": "CRT-T32",
       "title": "Todo summary and stage consistency guard add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -599,15 +599,15 @@
     "CRT-T30"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T18:39:30+02:00",
+    "updated_at": "2026-04-24T18:53:19+02:00",
     "total": 32,
     "by_status": {
-      "todo": 17,
+      "todo": 9,
       "in_progress": 0,
       "blocked": 0,
-      "done": 15
+      "done": 23
     },
-    "progress_percent_done": 46.88,
+    "progress_percent_done": 71.88,
     "by_priority": {
       "P0": 25,
       "P1": 7,
@@ -622,34 +622,34 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 10,
-      "remaining": 11
+      "done": 16,
+      "remaining": 5
     },
     "milestones": {
       "total": 6,
-      "todo": 2,
+      "todo": 1,
       "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "code_validation_snapshot": {
-    "updated_at": "2026-04-24T18:39:30+02:00",
+    "updated_at": "2026-04-24T18:53:19+02:00",
     "audit_script": "scripts/audit_client_surface_entrypoints.py",
     "latest_audit_output_file": "/tmp/client_surface_audit_output_latest.json",
     "latest_audit_result": {
       "tui_surface": "real_implementation",
-      "nvim_plugin": "foundation_only",
+      "nvim_plugin": "real_implementation",
       "vim_plugin": "foundation_only",
       "eclipse_plugin": "foundation_only",
       "eclipse_views_extension": "foundation_only"
     },
     "alignment_issues_found": [
-      "TUI runtime MVP is now executable and tested; Neovim/Eclipse remain foundation-only and Vim remains deferred via surface status policy."
+      "TUI and Neovim runtime MVPs are executable and covered by smoke/contract checks; Vim remains deferred and Eclipse remains foundation-only."
     ]
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T18:39:30+02:00",
+    "updated_at": "2026-04-24T18:53:19+02:00",
     "stages": {
       "M1_audit_hardening_and_truthful_status": {
         "scope_task_ids": [
@@ -702,8 +702,8 @@
           "CRT-T19"
         ],
         "total": 6,
-        "done": 1,
-        "todo": 5,
+        "done": 6,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -732,16 +732,16 @@
           "CRT-T32"
         ],
         "total": 7,
-        "done": 0,
-        "todo": 7,
+        "done": 3,
+        "todo": 4,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "summary_notes": [
-    "Completed block: CRT-T01..CRT-T13 plus CRT-T18 and CRT-T31 (TUI runtime MVP + Vim status enforcement + audit/definitions alignment).",
-    "TUI runtime now has executable entrypoint, shared client layer, bounded context, degraded-state handling, tests and smoke script.",
+    "Completed block: CRT-T14, CRT-T15, CRT-T16, CRT-T17, CRT-T19, CRT-T25, CRT-T26 and CRT-T32 (Neovim runtime MVP + cross-client contracts/security + summary guard).",
+    "TUI and Neovim runtime now have executable entrypoints, bounded context handling, degraded-state behavior and smoke scripts.",
     "Vim compatibility is explicitly deferred and enforced via runtime status + audit checks.",
     "This todo assumes skeleton directories and audit/inventory files already exist.",
     "The main remaining work is real runtime implementation and executable evidence.",

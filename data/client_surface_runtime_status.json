@@ -2,13 +2,14 @@
   "schema": "client_surface_runtime_status_v1",
   "surface_status": {
     "tui_surface": "runtime_mvp",
-    "nvim_plugin": "foundation_only",
+    "nvim_plugin": "runtime_mvp",
     "vim_plugin": "deferred",
     "eclipse_plugin": "foundation_only",
     "eclipse_views_extension": "foundation_only"
   },
   "notes": [
     "TUI runtime has executable MVP entrypoint and smoke check.",
+    "Neovim runtime has executable plugin modules, command registration and headless smoke coverage.",
     "Vim compatibility is intentionally deferred until Neovim runtime delivery reaches stability.",
     "Eclipse surfaces remain foundation-only until a real plugin project exists."
   ]

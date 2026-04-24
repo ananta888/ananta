@@ -31,5 +31,5 @@ If it starts in operations/governance, start in TUI.
 ## Current delivery status
 
 - TUI runtime MVP: available.
-- Neovim runtime: in progress.
+- Neovim runtime MVP: available.
 - Vim compatibility: deferred until Neovim runtime baseline is stable.

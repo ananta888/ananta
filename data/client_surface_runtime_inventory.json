@@ -82,7 +82,7 @@
     },
     {
       "surface": "nvim_plugin",
-      "classification": "foundation_only",
+      "classification": "real_implementation",
       "evidence": {
         "foundation": [
           "agent/services/editor_tui_surface_foundation_service.py",
@@ -92,7 +92,15 @@
           "docs/nvim-plugin-user-guide.md",
           "docs/editor-tui-foundation.md"
         ],
-        "runtime": []
+        "runtime": [
+          "client_surfaces/nvim_runtime/plugin/ananta.vim",
+          "client_surfaces/nvim_runtime/lua/ananta/init.lua",
+          "client_surfaces/nvim_runtime/lua/ananta/client.lua",
+          "client_surfaces/nvim_runtime/lua/ananta/context.lua",
+          "client_surfaces/nvim_runtime/lua/ananta/render.lua",
+          "client_surfaces/nvim_runtime/ananta_bridge.py",
+          "scripts/smoke_nvim_runtime.py"
+        ]
       }
     },
     {
@@ -114,7 +122,6 @@
   "gap_summary": {
     "missing_runtime_artifacts": [
       "No installable Eclipse plugin project markers (plugin.xml, META-INF/MANIFEST.MF).",
-      "No Neovim runtime lua plugin modules available in a runtime plugin directory.",
       "No Vim runtime plugin/autoload files available in a runtime plugin directory while Vim remains deferred.",
       "TUI runtime exists as MVP but still needs expanded feature coverage and release packaging."
     ]

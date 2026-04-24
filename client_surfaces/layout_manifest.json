@@ -5,12 +5,12 @@
     {
       "path": "client_surfaces/nvim_runtime/lua/ananta",
       "purpose": "Neovim runtime Lua modules (commands, dispatch, rendering).",
-      "status": "skeleton_created"
+      "status": "runtime_mvp_started"
     },
     {
       "path": "client_surfaces/nvim_runtime/plugin",
       "purpose": "Neovim/Vim plugin command registration entrypoints.",
-      "status": "skeleton_created"
+      "status": "runtime_mvp_started"
     },
     {
       "path": "client_surfaces/vim_compat/plugin",
@@ -34,7 +34,7 @@
     }
   ],
   "notes": [
-    "TUI runtime now contains executable MVP modules while Neovim/Vim/Eclipse remain skeleton or deferred.",
+    "TUI and Neovim runtime now contain executable MVP modules while Vim stays deferred and Eclipse remains foundation-only.",
     "Runtime completion is tracked by CRT tasks and completion definitions."
   ]
 }

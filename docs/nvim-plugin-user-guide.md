@@ -6,7 +6,7 @@ Use the Neovim plugin for developer-centric workflows: analyze, review, patch pl
 
 ## Runtime status
 
-- Neovim runtime delivery is in progress.
+- Neovim runtime MVP is available with Lua runtime modules and command registration.
 - Vim compatibility is currently deferred until Neovim runtime stabilization.
 
 ## Setup
@@ -14,6 +14,10 @@ Use the Neovim plugin for developer-centric workflows: analyze, review, patch pl
 1. Configure a connection profile (`endpoint`, `environment`, `auth_mode`).
 2. Authenticate with your supported Ananta auth flow.
 3. Run a first useful command (`AnantaAnalyze` or `AnantaReview`).
+
+For headless smoke verification:
+
+`python3 scripts/smoke_nvim_runtime.py`
 
 ## Core commands
 
