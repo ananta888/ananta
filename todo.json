@@ -458,7 +458,7 @@
         {
           "id": "REP-T31",
           "title": "Environment similarity model add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -470,7 +470,7 @@
         {
           "id": "REP-T32",
           "title": "Success-weighted repair recommendation add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -482,7 +482,7 @@
         {
           "id": "REP-T33",
           "title": "Negative learning and anti-pattern recording add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -501,7 +501,7 @@
         {
           "id": "REP-T34",
           "title": "LLM escalation policy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -513,7 +513,7 @@
         {
           "id": "REP-T35",
           "title": "Bounded repair escalation prompt model add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -525,7 +525,7 @@
         {
           "id": "REP-T36",
           "title": "LLM proposal-to-procedure conversion path add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "high",
           "acceptance_criteria": [
@@ -537,7 +537,7 @@
         {
           "id": "REP-T37",
           "title": "Escalation feedback loop into repair knowledge add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "medium",
           "acceptance_criteria": [
@@ -556,7 +556,7 @@
         {
           "id": "REP-T38",
           "title": "Repair action safety classes define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "critical",
           "acceptance_criteria": [
@@ -568,7 +568,7 @@
         {
           "id": "REP-T39",
           "title": "Approval integration for repair procedures add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "critical",
           "acceptance_criteria": [
@@ -580,7 +580,7 @@
         {
           "id": "REP-T40",
           "title": "Repair audit chain add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -779,15 +779,15 @@
     "REP-T50"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T20:45:00+02:00",
+    "updated_at": "2026-04-24T20:55:00+02:00",
     "total": 51,
     "by_status": {
-      "todo": 21,
+      "todo": 11,
       "in_progress": 0,
       "blocked": 0,
-      "done": 30
+      "done": 40
     },
-    "progress_percent_done": 58.82,
+    "progress_percent_done": 78.43,
     "by_priority": {
       "P0": 24,
       "P1": 22,
@@ -807,31 +807,31 @@
       "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "REP-VERIFICATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 3, "in_progress": 0, "blocked": 0, "done": 2},
-      "REP-LLM-ESCALATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
-      "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
+      "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-LLM-ESCALATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 1, "in_progress": 0, "blocked": 0, "done": 3},
       "REP-UX-AND-OPERATOR-FLOWS": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-TESTING-DOCS-ROLLOUT": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
     },
     "critical_path": {
       "total": 28,
-      "done": 21,
-      "remaining": 7
+      "done": 25,
+      "remaining": 3
     }
   },
   "milestone_status_summary": {
-    "updated_at": "2026-04-24T20:45:00+02:00",
+    "updated_at": "2026-04-24T20:55:00+02:00",
     "by_milestone": {
       "REP-M1": {"total": 9, "done": 9, "todo": 0},
       "REP-M2": {"total": 10, "done": 10, "todo": 0},
       "REP-M3": {"total": 9, "done": 9, "todo": 0},
-      "REP-M4": {"total": 13, "done": 2, "todo": 11},
+      "REP-M4": {"total": 13, "done": 12, "todo": 1},
       "REP-M5": {"total": 10, "done": 0, "todo": 10}
     }
   },
   "summary_notes": [
-    "Deterministic repair foundations through repair execution, verification hooks and outcome memory/tracking (REP-T01 to REP-T30) are implemented.",
-    "Milestones REP-M1, REP-M2 and REP-M3 are completed; REP-M4 has started while remaining execution stays aligned to execution_order_summary and critical_path_tasks.",
-    "Risk-heavy remaining work is concentrated in recommendation learning depth, governance enforcement, operator rollout and KRITIS-oriented hardening hooks."
+    "Deterministic repair foundations through recommendation learning, LLM-escalation control and governance/approval/audit contracts (REP-T01 to REP-T40) are implemented.",
+    "Milestones REP-M1, REP-M2 and REP-M3 are completed; REP-M4 is nearly complete with one remaining guardrail task while execution_order_summary and critical_path_tasks stay aligned.",
+    "Remaining risk-heavy work is concentrated in unsafe-action guardrails, operator UX transparency, rollout hardening and final integration documentation."
   ]
 }

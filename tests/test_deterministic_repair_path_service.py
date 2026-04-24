@@ -1,7 +1,11 @@
 import pytest
 
 from agent.services.deterministic_repair_path_service import (
+    APPROVAL_REQUIREMENT_MODEL,
     DIAGNOSIS_PROCEDURE_MODEL,
+    ENVIRONMENT_SIMILARITY_MODEL,
+    LLM_ESCALATION_POLICY_MODEL,
+    REPAIR_ACTION_SAFETY_CLASSES,
     REPAIR_EXECUTION_SAFETY_POLICY,
     REPAIR_OUTCOME_MEMORY_MODEL,
     REPAIR_PROCEDURE_MODEL,
@@ -10,6 +14,14 @@ from agent.services.deterministic_repair_path_service import (
     REPAIR_STATE_MODEL,
     REPAIR_VERIFICATION_MODEL,
     STANDARD_OUTCOME_LABELS,
+    build_bounded_escalation_prompt,
+    build_negative_learning_model,
+    build_repair_audit_chain,
+    build_success_weighted_repair_recommendations,
+    compute_environment_similarity,
+    convert_llm_proposal_to_reviewed_procedure,
+    curate_escalation_feedback,
+    decide_llm_escalation,
     build_initial_repair_procedure_catalog,
     build_deterministic_repair_foundation_snapshot,
     build_initial_failure_signature_catalog,
@@ -411,7 +423,174 @@ def test_verification_and_outcome_memory_tracking_are_standardized():
     assert tracking["counts_by_outcome"][memory_entry["outcome_label"]] >= 1
 
 
-def test_foundation_snapshot_contains_first_thirty_task_artifacts():
+def test_environment_similarity_model_is_explainable_and_reusable():
+    current = {
+        "platform_target": "ubuntu",
+        "os_family": "linux",
+        "package_manager": "apt_dpkg",
+        "service_state": "degraded",
+        "container_state": "running",
+    }
+    reference = {
+        "platform_target": "ubuntu",
+        "os_family": "linux",
+        "package_manager": "apt_dpkg",
+        "service_state": "healthy",
+        "container_state": "running",
+    }
+    similarity = compute_environment_similarity(
+        current_environment_facts=current,
+        reference_environment_facts=reference,
+    )
+
+    assert ENVIRONMENT_SIMILARITY_MODEL["schema"] == "deterministic_environment_similarity_v1"
+    assert similarity["schema"] == "deterministic_environment_similarity_result_v1"
+    assert similarity["score"] > 0.7
+    assert "platform_target" in similarity["matched_fields"]
+    assert similarity["comparisons"]
+
+
+def test_success_weighted_recommendation_respects_safety_and_negative_learning():
+    catalog = build_initial_repair_procedure_catalog()
+    selected = select_repair_procedure_from_catalog(
+        repair_catalog=catalog,
+        matching_outcome={"best_problem_class": "service_start_failure"},
+    )
+    procedure_id = selected["procedure"]["id"]
+    memory_entries = [
+        {
+            "procedure_id": procedure_id,
+            "problem_class": "service_start_failure",
+            "outcome_label": "succeeded",
+            "environment_facts": {"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "healthy"},
+        },
+        {
+            "procedure_id": procedure_id,
+            "problem_class": "service_start_failure",
+            "outcome_label": "regressed",
+            "environment_facts": {"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "degraded"},
+        },
+        {
+            "procedure_id": procedure_id,
+            "problem_class": "service_start_failure",
+            "outcome_label": "failed",
+            "environment_facts": {"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "failed"},
+        },
+    ]
+    negative = build_negative_learning_model(memory_entries=memory_entries, min_negative_count=2)
+    recommendations = build_success_weighted_repair_recommendations(
+        repair_catalog=catalog,
+        signature_matching={"matches": [{"problem_class": "service_start_failure", "score": 0.9}]},
+        current_environment_facts={"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "degraded"},
+        memory_entries=memory_entries,
+        negative_learning_model=negative,
+    )
+
+    assert negative["schema"] == "deterministic_negative_learning_v1"
+    assert negative["anti_patterns"]
+    first = recommendations["ranked_recommendations"][0]
+    assert recommendations["schema"] == "deterministic_success_weighted_recommendation_v1"
+    assert first["safety_override"] is True
+    assert first["blocked_by_negative_learning"] is True
+    assert "approval_or_negative_learning" in recommendations["safety_override_rule"]
+
+
+def test_llm_escalation_policy_and_prompt_are_bounded_and_auditable():
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "unknown failure and contradictory states"},
+            {"type": "log_entry", "source": "service_status", "severity": "info", "message": "service healthy but failed"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    escalation = decide_llm_escalation(
+        matching_outcome={"outcome": "no_match"},
+        repair_execution_result={"status": "aborted", "contradictory_evidence_detected": True},
+        deterministic_paths_exhausted=True,
+    )
+    prompt = build_bounded_escalation_prompt(
+        escalation_decision=escalation,
+        normalized_evidence=normalized,
+        signature_matching={"matches": [{"signature_id": "sig-x", "problem_class": "service_start_failure", "score": 0.55}]},
+        attempted_paths=["diag-service-start-failure-v1", "repair-procedure-service_start_failure-v1"],
+        confidence_model={"score": 0.41, "decision": "llm_escalation", "thresholds": {"deterministic_execute": 0.78, "review_required": 0.55}},
+    )
+
+    assert LLM_ESCALATION_POLICY_MODEL["schema"] == "deterministic_llm_escalation_policy_v1"
+    assert escalation["schema"] == "deterministic_llm_escalation_decision_v1"
+    assert escalation["should_escalate"] is True
+    assert "unknown_signature" in escalation["reasons"]
+    assert prompt["schema"] == "deterministic_bounded_llm_escalation_prompt_v1"
+    assert prompt["constraints"]["require_structured_proposal_output"] is True
+    assert len(prompt["known_evidence"]) <= 6
+
+
+def test_llm_proposal_conversion_and_feedback_require_explicit_curation():
+    conversion = convert_llm_proposal_to_reviewed_procedure(
+        llm_proposal={"proposal_id": "proposal-42", "steps": ["restart service", "clear package cache"]},
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    curation = curate_escalation_feedback(
+        escalation_decision={"should_escalate": True},
+        proposal_conversion=conversion,
+        final_verification={"outcome_label": "partially_helped"},
+    )
+
+    assert conversion["schema"] == "deterministic_llm_proposal_conversion_v1"
+    assert conversion["review_required"] is True
+    assert conversion["approval_required"] is True
+    assert conversion["execution_allowed_without_review"] is False
+    assert curation["schema"] == "deterministic_escalation_feedback_curation_v1"
+    assert curation["explicit_curation_step_required"] is True
+    assert curation["candidates"]
+
+
+def test_governance_safety_approval_and_audit_chain_are_traceable():
+    catalog = build_initial_repair_procedure_catalog()
+    selected = select_repair_procedure_from_catalog(
+        repair_catalog=catalog,
+        matching_outcome={"best_problem_class": "package_install_failure"},
+    )
+    selected["procedure"]["safety_class"] = "high_risk"
+    normalized = normalize_evidence_bundle(
+        evidence_items=[
+            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "package repair needed"},
+        ],
+        environment_facts={"platform_target": "ubuntu"},
+    )
+    blocked = execute_repair_procedure(
+        selected_catalog_entry=selected,
+        normalized_evidence=normalized,
+        environment_facts={"platform_target": "ubuntu"},
+        dry_run=False,
+        approval_policy={"approved_mutations": False, "approved_scopes": []},
+        session_id="session-1",
+        target_scope="runtime",
+    )
+    verified = verify_final_repair_outcome(
+        execution_result=blocked,
+        normalized_evidence=normalized,
+        matching_outcome={"outcome": "low_confidence"},
+    )
+    audit_chain = build_repair_audit_chain(
+        diagnosis_run={"playbook_id": "diag-package-install-failure-v1", "classification": "package_install_failure", "final_state": "classified"},
+        matching_outcome={"outcome": "low_confidence", "best_problem_class": "package_install_failure", "best_score": 0.49},
+        repair_execution_result=blocked,
+        final_verification=verified,
+        llm_escalation_decision={"should_escalate": True, "reasons": ["low_confidence"]},
+    )
+
+    assert REPAIR_ACTION_SAFETY_CLASSES["schema"] == "deterministic_repair_action_safety_classes_v1"
+    assert APPROVAL_REQUIREMENT_MODEL["schema"] == "deterministic_repair_approval_requirement_v1"
+    assert blocked["approval"]["required"] is True
+    assert blocked["status"] in {"aborted", "completed"}
+    assert blocked["bounded_execution_enforced"] is True
+    assert audit_chain["schema"] == "deterministic_repair_audit_chain_v1"
+    assert audit_chain["events"]
+    assert audit_chain["traceability"]["llm_escalation_used"] is True
+
+
+def test_foundation_snapshot_contains_first_forty_task_artifacts():
     snapshot = build_deterministic_repair_foundation_snapshot(
         mode_data={"platform_target": "windows11"},
         issue_symptom="Service failed to start after update",
@@ -451,3 +630,15 @@ def test_foundation_snapshot_contains_first_thirty_task_artifacts():
     assert snapshot["outcome_memory_model"]["schema"] == "deterministic_repair_outcome_memory_v1"
     assert snapshot["outcome_memory_entry"]["schema"] == "deterministic_repair_outcome_memory_entry_v1"
     assert snapshot["outcome_tracking"]["schema"] == "deterministic_repair_outcome_tracking_v1"
+    assert snapshot["environment_similarity_model"]["schema"] == "deterministic_environment_similarity_v1"
+    assert snapshot["success_weighted_recommendations"]["schema"] == "deterministic_success_weighted_recommendation_v1"
+    assert snapshot["negative_learning_model"]["schema"] == "deterministic_negative_learning_v1"
+    assert snapshot["repair_action_safety_classes"]["schema"] == "deterministic_repair_action_safety_classes_v1"
+    assert snapshot["approval_requirement_model"]["schema"] == "deterministic_repair_approval_requirement_v1"
+    assert snapshot["bounded_execution_policy"]["enforced"] is True
+    assert snapshot["llm_escalation_policy"]["schema"] == "deterministic_llm_escalation_policy_v1"
+    assert snapshot["llm_escalation_decision"]["schema"] == "deterministic_llm_escalation_decision_v1"
+    assert snapshot["llm_escalation_prompt"]["schema"] == "deterministic_bounded_llm_escalation_prompt_v1"
+    assert snapshot["llm_proposal_conversion"]["schema"] == "deterministic_llm_proposal_conversion_v1"
+    assert snapshot["escalation_feedback_curation"]["schema"] == "deterministic_escalation_feedback_curation_v1"
+    assert snapshot["repair_audit_chain"]["schema"] == "deterministic_repair_audit_chain_v1"

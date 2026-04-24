@@ -424,6 +424,7 @@ REPAIR_PROCEDURE_MODEL: dict[str, Any] = {
 REPAIR_EXECUTION_SAFETY_POLICY: dict[str, Any] = {
     "schema": "deterministic_repair_safety_policy_v1",
     "requires_approval_for_safety_classes": ["review_first", "high_risk"],
+    "requires_approval_for_action_safety_classes": ["confirm_required", "high_risk"],
     "allow_unbounded_actions": False,
     "allow_unknown_actions": False,
 }
@@ -447,6 +448,49 @@ REPAIR_OUTCOME_MEMORY_MODEL: dict[str, Any] = {
         "verification_evidence",
     ],
     "query_keys": ["problem_class", "platform_target", "outcome_label", "procedure_id", "signature_id"],
+}
+
+ENVIRONMENT_SIMILARITY_MODEL: dict[str, Any] = {
+    "schema": "deterministic_environment_similarity_v1",
+    "weights": {
+        "platform_target": 0.3,
+        "os_family": 0.2,
+        "package_manager": 0.2,
+        "service_state": 0.2,
+        "container_state": 0.1,
+    },
+}
+
+REPAIR_ACTION_SAFETY_CLASSES: dict[str, Any] = {
+    "schema": "deterministic_repair_action_safety_classes_v1",
+    "classes": ["inspect_only", "bounded_low_risk", "confirm_required", "high_risk"],
+    "rules": {
+        "inspect_only": "non_mutating observation or verification step",
+        "bounded_low_risk": "bounded mutation with low blast radius",
+        "confirm_required": "mutation requires explicit confirmation and scoped approval",
+        "high_risk": "mutation has high impact or weak rollback guarantees",
+    },
+}
+
+APPROVAL_REQUIREMENT_MODEL: dict[str, Any] = {
+    "schema": "deterministic_repair_approval_requirement_v1",
+    "scope_dimensions": ["procedure_id", "target_scope", "session_id"],
+    "enforcement": "backend_enforced",
+}
+
+LLM_ESCALATION_POLICY_MODEL: dict[str, Any] = {
+    "schema": "deterministic_llm_escalation_policy_v1",
+    "allowed_reasons": [
+        "unknown_signature",
+        "ambiguous_high_confidence",
+        "low_confidence",
+        "contradictory_evidence",
+        "exhausted_deterministic_paths",
+    ],
+    "forbidden_when": [
+        "single_high_confidence_without_contradictions",
+        "deterministic_path_succeeded",
+    ],
 }
 
 STANDARD_OUTCOME_LABELS: tuple[str, ...] = ("succeeded", "partially_helped", "failed", "regressed")
@@ -1054,6 +1098,8 @@ def execute_repair_procedure(
     dry_run: bool,
     approval_policy: dict[str, Any] | None = None,
     safety_policy: dict[str, Any] | None = None,
+    session_id: str = "repair-session-default",
+    target_scope: str = "service_runtime",
     stop_on_contradictory_evidence: bool = True,
     stop_on_worsening_signals: bool = True,
 ) -> dict[str, Any]:
@@ -1061,12 +1107,26 @@ def execute_repair_procedure(
     if safety_policy:
         policy.update(dict(safety_policy))
     procedure = dict(selected_catalog_entry.get("procedure") or {})
+    procedure_id = str(procedure.get("id") or "unknown_procedure")
     steps = list(procedure.get("steps") or [])
-    safety_class = str(procedure.get("safety_class") or "safe")
-    approval_required = safety_class in set(policy.get("requires_approval_for_safety_classes") or [])
+    procedure_safety_class = str(procedure.get("safety_class") or "safe")
+    procedure_requires_approval = procedure_safety_class in set(policy.get("requires_approval_for_safety_classes") or [])
+    scope_key = _approval_scope_key(
+        procedure_id=procedure_id,
+        target_scope=str(target_scope),
+        session_id=str(session_id),
+    )
+    approved_scopes = {str(item) for item in list((approval_policy or {}).get("approved_scopes") or []) if str(item)}
     approval_context = {
-        "required": approval_required,
+        "required": procedure_requires_approval,
         "approved_mutations": bool((approval_policy or {}).get("approved_mutations", False)),
+        "scope_key": scope_key,
+        "scope_dimensions": {
+            "procedure_id": procedure_id,
+            "target_scope": str(target_scope),
+            "session_id": str(session_id),
+        },
+        "approved_scopes": sorted(approved_scopes),
     }
     contradictory = _detect_contradictory_evidence(normalized_evidence)
     worsening = _detect_worsening_signals(normalized_evidence)
@@ -1077,6 +1137,23 @@ def execute_repair_procedure(
     for step in steps:
         step_id = str(step.get("id") or "")
         mutation_candidate = bool(step.get("mutation_candidate"))
+        action_safety_class = classify_repair_action_safety(
+            step=step,
+            procedure_safety_class=procedure_safety_class,
+        )
+        if action_safety_class not in set(REPAIR_ACTION_SAFETY_CLASSES["classes"]):
+            abort_conditions.append(
+                {
+                    "code": "unknown_action_safety_class",
+                    "severity": "critical",
+                    "step_id": step_id,
+                    "message": "Unknown action safety class rejected by bounded execution policy.",
+                }
+            )
+            stop_reason = "unknown_action_safety_class"
+            break
+        action_requires_approval = action_safety_class in set(policy.get("requires_approval_for_action_safety_classes") or [])
+        scope_approved = approval_context["approved_mutations"] or scope_key in approved_scopes
         verification = run_step_verification(
             step=step,
             normalized_evidence=normalized_evidence,
@@ -1086,12 +1163,15 @@ def execute_repair_procedure(
             "step_id": step_id,
             "title": step.get("title"),
             "mutation_candidate": mutation_candidate,
+            "action_safety_class": action_safety_class,
+            "requires_approval": action_requires_approval,
             "dry_run_supported": bool(step.get("dry_run_supported")),
             "verification": verification,
             "state": "previewed" if dry_run else "executed",
             "verifiable": True,
+            "audit_hint": f"repair_execution:{procedure_id}:{step_id}",
         }
-        if mutation_candidate and approval_required and not approval_context["approved_mutations"]:
+        if mutation_candidate and action_requires_approval and not scope_approved:
             record["state"] = "blocked"
             stop_reason = "approval_required"
             abort_conditions.append(
@@ -1099,7 +1179,7 @@ def execute_repair_procedure(
                     "code": "approval_required_for_mutation",
                     "severity": "high",
                     "step_id": step_id,
-                    "message": "Mutation step blocked because approval is required and missing.",
+                    "message": "Mutation step blocked because scoped approval is required and missing.",
                 }
             )
             step_records.append(record)
@@ -1140,8 +1220,9 @@ def execute_repair_procedure(
         status = "completed"
     return {
         "schema": "deterministic_repair_execution_v1",
-        "procedure_id": procedure.get("id"),
+        "procedure_id": procedure_id,
         "problem_class": selected_catalog_entry.get("problem_class"),
+        "procedure_safety_class": procedure_safety_class,
         "execution_mode": "dry_run" if dry_run else "apply",
         "status": status,
         "safety_policy": policy,
@@ -1150,6 +1231,7 @@ def execute_repair_procedure(
         "abort_conditions": abort_conditions,
         "stop_reason": stop_reason,
         "clean_stop": bool(abort_conditions),
+        "bounded_execution_enforced": True,
         "worsening_signals_detected": worsening,
         "contradictory_evidence_detected": contradictory,
     }
@@ -1258,6 +1340,385 @@ def track_repair_outcomes(memory_entries: list[dict[str, Any]]) -> dict[str, Any
         "counts_by_outcome": counts,
         "total": total,
         "recommendation_score": round(recommendation_score, 3),
+    }
+
+
+def compute_environment_similarity(
+    *,
+    current_environment_facts: dict[str, Any],
+    reference_environment_facts: dict[str, Any],
+) -> dict[str, Any]:
+    weights = dict(ENVIRONMENT_SIMILARITY_MODEL["weights"])
+    matched_fields: list[str] = []
+    comparisons: list[dict[str, Any]] = []
+    score = 0.0
+    for field, weight in weights.items():
+        current_value = str(current_environment_facts.get(field) or "").strip().lower()
+        reference_value = str(reference_environment_facts.get(field) or "").strip().lower()
+        matched = bool(current_value and reference_value and current_value == reference_value)
+        if matched:
+            matched_fields.append(field)
+            score += float(weight)
+        comparisons.append(
+            {
+                "field": field,
+                "weight": float(weight),
+                "current_value": current_value or None,
+                "reference_value": reference_value or None,
+                "matched": matched,
+            }
+        )
+    return {
+        "schema": "deterministic_environment_similarity_result_v1",
+        "score": round(min(1.0, score), 3),
+        "matched_fields": matched_fields,
+        "comparisons": comparisons,
+    }
+
+
+def build_negative_learning_model(
+    *,
+    memory_entries: list[dict[str, Any]],
+    min_negative_count: int = 2,
+) -> dict[str, Any]:
+    negative_counts: dict[str, dict[str, int]] = {}
+    for entry in memory_entries:
+        procedure_id = str(entry.get("procedure_id") or "unknown_procedure")
+        outcome = str(entry.get("outcome_label") or "failed")
+        if outcome not in {"failed", "regressed"}:
+            continue
+        bucket = negative_counts.setdefault(procedure_id, {"failed": 0, "regressed": 0, "total_negative": 0})
+        bucket[outcome] = bucket.get(outcome, 0) + 1
+        bucket["total_negative"] += 1
+
+    anti_patterns: list[dict[str, Any]] = []
+    for procedure_id, counts in negative_counts.items():
+        if counts["total_negative"] < int(min_negative_count):
+            continue
+        severity = "high" if counts.get("regressed", 0) > 0 else "medium"
+        anti_patterns.append(
+            {
+                "procedure_id": procedure_id,
+                "negative_counts": counts,
+                "severity": severity,
+                "recommended_action": "block_for_review" if severity == "high" else "deprioritize",
+            }
+        )
+    return {
+        "schema": "deterministic_negative_learning_v1",
+        "anti_patterns": anti_patterns,
+        "tracked_negative_outcomes": ["failed", "regressed"],
+        "min_negative_count": int(min_negative_count),
+    }
+
+
+def build_success_weighted_repair_recommendations(
+    *,
+    repair_catalog: dict[str, Any],
+    signature_matching: dict[str, Any],
+    current_environment_facts: dict[str, Any],
+    memory_entries: list[dict[str, Any]],
+    negative_learning_model: dict[str, Any],
+    top_k: int = 3,
+) -> dict[str, Any]:
+    top_matches = list(signature_matching.get("matches") or [])
+    match_by_problem_class = {
+        str(match.get("problem_class") or ""): float(match.get("score") or 0.0)
+        for match in top_matches
+    }
+    anti_patterns = {
+        str(item.get("procedure_id") or ""): item
+        for item in list(negative_learning_model.get("anti_patterns") or [])
+    }
+    ranked: list[dict[str, Any]] = []
+    for entry in list(repair_catalog.get("entries") or []):
+        procedure = dict(entry.get("procedure") or {})
+        procedure_id = str(procedure.get("id") or "")
+        problem_class = str(entry.get("problem_class") or "")
+        safety_class = str(procedure.get("safety_class") or "safe")
+        relevant_history = [item for item in memory_entries if str(item.get("procedure_id") or "") == procedure_id]
+        successful = [item for item in relevant_history if str(item.get("outcome_label") or "") == "succeeded"]
+        partial = [item for item in relevant_history if str(item.get("outcome_label") or "") == "partially_helped"]
+        total_history = len(relevant_history)
+        success_rate = ((len(successful) + (len(partial) * 0.5)) / total_history) if total_history > 0 else 0.0
+
+        similarity_scores: list[float] = []
+        for history_entry in relevant_history:
+            history_env = dict(history_entry.get("environment_facts") or {})
+            similarity = compute_environment_similarity(
+                current_environment_facts=current_environment_facts,
+                reference_environment_facts=history_env,
+            )
+            similarity_scores.append(float(similarity["score"]))
+        similarity_score = (sum(similarity_scores) / len(similarity_scores)) if similarity_scores else 0.0
+        signature_score = match_by_problem_class.get(problem_class, 0.0)
+
+        anti_pattern = anti_patterns.get(procedure_id)
+        negative_penalty = 0.0
+        blocked_by_negative_learning = False
+        if anti_pattern:
+            severity = str(anti_pattern.get("severity") or "medium")
+            negative_penalty = 0.6 if severity == "high" else 0.25
+            blocked_by_negative_learning = severity == "high"
+
+        weighted_score = (signature_score * 0.55) + (success_rate * 0.3) + (similarity_score * 0.15) - negative_penalty
+        bounded_score = round(max(0.0, min(1.0, weighted_score)), 3)
+        requires_approval = safety_class in {"review_first", "high_risk"}
+
+        ranked.append(
+            {
+                "procedure_id": procedure_id,
+                "problem_class": problem_class,
+                "safety_class": safety_class,
+                "weighted_score": bounded_score,
+                "score_components": {
+                    "signature_score": round(signature_score, 3),
+                    "success_rate": round(success_rate, 3),
+                    "environment_similarity": round(similarity_score, 3),
+                    "negative_penalty": round(negative_penalty, 3),
+                },
+                "requires_approval": requires_approval,
+                "blocked_by_negative_learning": blocked_by_negative_learning,
+                "safety_override": requires_approval or blocked_by_negative_learning,
+                "explanation": (
+                    "Ranking combines signature match, historical success and environment similarity; "
+                    "safety and negative-learning guardrails remain enforced."
+                ),
+            }
+        )
+    ranked.sort(key=lambda item: (-float(item["weighted_score"]), item["procedure_id"]))
+    return {
+        "schema": "deterministic_success_weighted_recommendation_v1",
+        "ranked_recommendations": ranked[: max(1, int(top_k))],
+        "safety_override_rule": "ranking_never_overrides_approval_or_negative_learning_blocks",
+    }
+
+
+def classify_repair_action_safety(*, step: dict[str, Any], procedure_safety_class: str) -> str:
+    if not bool(step.get("mutation_candidate")):
+        return "inspect_only"
+    if procedure_safety_class == "high_risk":
+        return "high_risk"
+    if procedure_safety_class == "review_first":
+        return "confirm_required"
+    return "bounded_low_risk"
+
+
+def _approval_scope_key(*, procedure_id: str, target_scope: str, session_id: str) -> str:
+    return f"{procedure_id}|{target_scope}|{session_id}"
+
+
+def decide_llm_escalation(
+    *,
+    matching_outcome: dict[str, Any],
+    repair_execution_result: dict[str, Any],
+    deterministic_paths_exhausted: bool,
+) -> dict[str, Any]:
+    outcome = str(matching_outcome.get("outcome") or "no_match")
+    execution_status = str(repair_execution_result.get("status") or "unknown")
+    contradictory = bool(repair_execution_result.get("contradictory_evidence_detected"))
+    reasons: list[str] = []
+    if outcome == "no_match":
+        reasons.append("unknown_signature")
+    if outcome == "ambiguous_high_confidence":
+        reasons.append("ambiguous_high_confidence")
+    if outcome == "low_confidence":
+        reasons.append("low_confidence")
+    if contradictory:
+        reasons.append("contradictory_evidence")
+    if deterministic_paths_exhausted:
+        reasons.append("exhausted_deterministic_paths")
+    if outcome == "single_high_confidence" and execution_status == "completed" and not contradictory:
+        reasons = []
+    should_escalate = bool(reasons)
+    return {
+        "schema": "deterministic_llm_escalation_decision_v1",
+        "should_escalate": should_escalate,
+        "reasons": reasons,
+        "matching_outcome": outcome,
+        "execution_status": execution_status,
+        "audit": {
+            "policy_schema": LLM_ESCALATION_POLICY_MODEL["schema"],
+            "allowed_reasons": list(LLM_ESCALATION_POLICY_MODEL["allowed_reasons"]),
+            "forbidden_when": list(LLM_ESCALATION_POLICY_MODEL["forbidden_when"]),
+        },
+    }
+
+
+def build_bounded_escalation_prompt(
+    *,
+    escalation_decision: dict[str, Any],
+    normalized_evidence: dict[str, Any],
+    signature_matching: dict[str, Any],
+    attempted_paths: list[str],
+    confidence_model: dict[str, Any],
+) -> dict[str, Any]:
+    bounded_evidence = []
+    for entry in list(normalized_evidence.get("evidence") or [])[:6]:
+        bounded_evidence.append(
+            {
+                "type": entry.get("type"),
+                "source": entry.get("source"),
+                "severity": entry.get("severity"),
+                "summary": str(entry.get("summary") or "")[:200],
+            }
+        )
+    top_matches = [
+        {
+            "signature_id": match.get("signature_id"),
+            "problem_class": match.get("problem_class"),
+            "score": match.get("score"),
+        }
+        for match in list(signature_matching.get("matches") or [])[:3]
+    ]
+    return {
+        "schema": "deterministic_bounded_llm_escalation_prompt_v1",
+        "enabled": bool(escalation_decision.get("should_escalate")),
+        "reasons": list(escalation_decision.get("reasons") or []),
+        "known_evidence": bounded_evidence,
+        "attempted_paths": list(attempted_paths or []),
+        "confidence": {
+            "score": confidence_model.get("score"),
+            "decision": confidence_model.get("decision"),
+            "thresholds": confidence_model.get("thresholds"),
+        },
+        "top_signature_matches": top_matches,
+        "constraints": {
+            "max_evidence_items": 6,
+            "max_chars_per_item": 200,
+            "require_structured_proposal_output": True,
+        },
+    }
+
+
+def convert_llm_proposal_to_reviewed_procedure(
+    *,
+    llm_proposal: dict[str, Any],
+    environment_facts: dict[str, Any],
+) -> dict[str, Any]:
+    proposal_steps = list(llm_proposal.get("steps") or [])
+    structured_steps: list[dict[str, Any]] = []
+    for index, step in enumerate(proposal_steps[:5], start=1):
+        text = str(step).strip()
+        if not text:
+            continue
+        structured_steps.append(
+            {
+                "id": f"llm-proposal-step-{index:02d}",
+                "title": text[:180],
+                "mutation_candidate": True,
+                "requires_review": True,
+                "requires_approval": True,
+                "execution_allowed": False,
+            }
+        )
+    if not structured_steps:
+        structured_steps.append(
+            {
+                "id": "llm-proposal-step-01",
+                "title": "No concrete step supplied; requires operator curation.",
+                "mutation_candidate": False,
+                "requires_review": True,
+                "requires_approval": True,
+                "execution_allowed": False,
+            }
+        )
+    return {
+        "schema": "deterministic_llm_proposal_conversion_v1",
+        "proposal_id": str(llm_proposal.get("proposal_id") or "llm-proposal-unknown"),
+        "platform_target": environment_facts.get("platform_target"),
+        "review_required": True,
+        "approval_required": True,
+        "execution_allowed_without_review": False,
+        "structured_candidate_procedure": {
+            "id": f"reviewed-{str(llm_proposal.get('proposal_id') or 'candidate')}",
+            "source": "llm_escalation",
+            "steps": structured_steps,
+        },
+    }
+
+
+def curate_escalation_feedback(
+    *,
+    escalation_decision: dict[str, Any],
+    proposal_conversion: dict[str, Any],
+    final_verification: dict[str, Any],
+) -> dict[str, Any]:
+    should_curate = bool(escalation_decision.get("should_escalate"))
+    outcome_label = str(final_verification.get("outcome_label") or "failed")
+    candidates: list[dict[str, Any]] = []
+    if should_curate:
+        candidates.append(
+            {
+                "candidate_type": "procedure",
+                "source_proposal_id": proposal_conversion.get("proposal_id"),
+                "curation_required": True,
+                "target_catalog": "deterministic_repair_catalog_v1",
+                "outcome_label": outcome_label,
+            }
+        )
+        candidates.append(
+            {
+                "candidate_type": "signature",
+                "source_proposal_id": proposal_conversion.get("proposal_id"),
+                "curation_required": True,
+                "target_catalog": "deterministic_failure_signature_catalog_v1",
+                "outcome_label": outcome_label,
+            }
+        )
+    return {
+        "schema": "deterministic_escalation_feedback_curation_v1",
+        "should_curate": should_curate,
+        "candidates": candidates,
+        "explicit_curation_step_required": True,
+    }
+
+
+def build_repair_audit_chain(
+    *,
+    diagnosis_run: dict[str, Any],
+    matching_outcome: dict[str, Any],
+    repair_execution_result: dict[str, Any],
+    final_verification: dict[str, Any],
+    llm_escalation_decision: dict[str, Any],
+) -> dict[str, Any]:
+    events = [
+        {
+            "event": "diagnosis_completed",
+            "playbook_id": diagnosis_run.get("playbook_id"),
+            "classification": diagnosis_run.get("classification"),
+            "state": diagnosis_run.get("final_state"),
+        },
+        {
+            "event": "matching_outcome",
+            "outcome": matching_outcome.get("outcome"),
+            "best_problem_class": matching_outcome.get("best_problem_class"),
+            "best_score": matching_outcome.get("best_score"),
+        },
+        {
+            "event": "repair_execution",
+            "procedure_id": repair_execution_result.get("procedure_id"),
+            "status": repair_execution_result.get("status"),
+            "stop_reason": repair_execution_result.get("stop_reason"),
+        },
+        {
+            "event": "verification_completed",
+            "outcome_label": final_verification.get("outcome_label"),
+            "execution_status": (final_verification.get("verification_summary") or {}).get("execution_status"),
+        },
+        {
+            "event": "escalation_decision",
+            "should_escalate": llm_escalation_decision.get("should_escalate"),
+            "reasons": llm_escalation_decision.get("reasons"),
+        },
+    ]
+    return {
+        "schema": "deterministic_repair_audit_chain_v1",
+        "events": events,
+        "traceability": {
+            "deterministic_used": not bool(llm_escalation_decision.get("should_escalate")),
+            "llm_escalation_used": bool(llm_escalation_decision.get("should_escalate")),
+        },
     }
 
 
@@ -1487,19 +1948,33 @@ def build_deterministic_repair_foundation_snapshot(
         selected_catalog_entry=selected_catalog_entry,
         matching_outcome=matching_outcome,
     )
+    execution_session_id = "deterministic-repair-session-v1"
+    execution_target_scope = "service_runtime"
+    approval_scope = _approval_scope_key(
+        procedure_id=str((selected_catalog_entry.get("procedure") or {}).get("id") or "unknown_procedure"),
+        target_scope=execution_target_scope,
+        session_id=execution_session_id,
+    )
     repair_execution_dry_run = execute_repair_procedure(
         selected_catalog_entry=selected_catalog_entry,
         normalized_evidence=normalized_evidence,
         environment_facts=environment_facts,
         dry_run=True,
         approval_policy={"approved_mutations": False},
+        session_id=execution_session_id,
+        target_scope=execution_target_scope,
     )
     repair_execution_apply = execute_repair_procedure(
         selected_catalog_entry=selected_catalog_entry,
         normalized_evidence=normalized_evidence,
         environment_facts=environment_facts,
         dry_run=False,
-        approval_policy={"approved_mutations": True},
+        approval_policy={
+            "approved_mutations": True,
+            "approved_scopes": [approval_scope],
+        },
+        session_id=execution_session_id,
+        target_scope=execution_target_scope,
     )
     final_verification = verify_final_repair_outcome(
         execution_result=repair_execution_apply,
@@ -1518,6 +1993,59 @@ def build_deterministic_repair_foundation_snapshot(
         final_verification=final_verification,
     )
     outcome_tracking = track_repair_outcomes([memory_entry])
+    environment_similarity = compute_environment_similarity(
+        current_environment_facts=environment_facts,
+        reference_environment_facts=dict(memory_entry.get("environment_facts") or {}),
+    )
+    negative_learning_model = build_negative_learning_model(memory_entries=[memory_entry])
+    success_weighted_recommendations = build_success_weighted_repair_recommendations(
+        repair_catalog=repair_catalog,
+        signature_matching=signature_matching,
+        current_environment_facts=environment_facts,
+        memory_entries=[memory_entry],
+        negative_learning_model=negative_learning_model,
+    )
+    deterministic_paths_exhausted = (
+        matching_outcome.get("outcome") in {"no_match", "low_confidence", "ambiguous_high_confidence"}
+        and str(repair_execution_apply.get("status") or "") != "completed"
+    )
+    llm_escalation_decision = decide_llm_escalation(
+        matching_outcome=matching_outcome,
+        repair_execution_result=repair_execution_apply,
+        deterministic_paths_exhausted=bool(deterministic_paths_exhausted),
+    )
+    llm_escalation_prompt = build_bounded_escalation_prompt(
+        escalation_decision=llm_escalation_decision,
+        normalized_evidence=normalized_evidence,
+        signature_matching=signature_matching,
+        attempted_paths=[
+            str(diagnosis_run.get("playbook_id") or ""),
+            str((selected_catalog_entry.get("procedure") or {}).get("id") or ""),
+        ],
+        confidence_model=confidence,
+    )
+    llm_proposal_conversion = convert_llm_proposal_to_reviewed_procedure(
+        llm_proposal={
+            "proposal_id": "llm-repair-proposal-v1",
+            "steps": [
+                "Collect additional bounded evidence for ambiguous branch",
+                "Prepare reviewed repair candidate with explicit approval gate",
+            ],
+        },
+        environment_facts=environment_facts,
+    )
+    escalation_feedback_curation = curate_escalation_feedback(
+        escalation_decision=llm_escalation_decision,
+        proposal_conversion=llm_proposal_conversion,
+        final_verification=final_verification,
+    )
+    repair_audit_chain = build_repair_audit_chain(
+        diagnosis_run=diagnosis_run,
+        matching_outcome=matching_outcome,
+        repair_execution_result=repair_execution_apply,
+        final_verification=final_verification,
+        llm_escalation_decision=llm_escalation_decision,
+    )
     return {
         "target_model": dict(REPAIR_PATH_TARGET_MODEL),
         "problem_class_inventory": dict(REPAIR_PROBLEM_CLASS_INVENTORY),
@@ -1577,4 +2105,22 @@ def build_deterministic_repair_foundation_snapshot(
         "outcome_memory_model": dict(REPAIR_OUTCOME_MEMORY_MODEL),
         "outcome_memory_entry": memory_entry,
         "outcome_tracking": outcome_tracking,
+        "environment_similarity_model": dict(ENVIRONMENT_SIMILARITY_MODEL),
+        "environment_similarity": environment_similarity,
+        "success_weighted_recommendations": success_weighted_recommendations,
+        "negative_learning_model": negative_learning_model,
+        "repair_action_safety_classes": dict(REPAIR_ACTION_SAFETY_CLASSES),
+        "approval_requirement_model": dict(APPROVAL_REQUIREMENT_MODEL),
+        "bounded_execution_policy": {
+            "schema": "deterministic_bounded_execution_policy_v1",
+            "allow_unbounded_actions": False,
+            "allow_unknown_actions": False,
+            "enforced": True,
+        },
+        "llm_escalation_policy": dict(LLM_ESCALATION_POLICY_MODEL),
+        "llm_escalation_decision": llm_escalation_decision,
+        "llm_escalation_prompt": llm_escalation_prompt,
+        "llm_proposal_conversion": llm_proposal_conversion,
+        "escalation_feedback_curation": escalation_feedback_curation,
+        "repair_audit_chain": repair_audit_chain,
     }
