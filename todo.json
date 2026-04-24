@@ -44,13 +44,13 @@
       "id": "VSC-M1",
       "title": "Scope, architecture and project bootstrap",
       "task_ids": ["VSC-T01", "VSC-T02", "VSC-T03", "VSC-T04", "VSC-T05"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VSC-M2",
       "title": "Connection, auth and backend client",
       "task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "VSC-M3",
@@ -88,7 +88,7 @@
     {
       "id": "VSC-T01",
       "title": "VS Code plugin scope boundary define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -101,7 +101,7 @@
     {
       "id": "VSC-T02",
       "title": "VS Code extension project skeleton create",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -114,7 +114,7 @@
     {
       "id": "VSC-T03",
       "title": "Build and packaging setup implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -127,7 +127,7 @@
     {
       "id": "VSC-T04",
       "title": "Extension architecture document create",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -140,7 +140,7 @@
     {
       "id": "VSC-T05",
       "title": "Frontend API reuse mapping create",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -154,7 +154,7 @@
     {
       "id": "VSC-T06",
       "title": "VS Code configuration settings implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -167,7 +167,7 @@
     {
       "id": "VSC-T07",
       "title": "Secret storage and auth handling implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -180,7 +180,7 @@
     {
       "id": "VSC-T08",
       "title": "Backend client implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -596,15 +596,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:53:38+02:00",
+    "updated_at": "2026-04-25T01:31:55+02:00",
     "total": 36,
     "by_status": {
-      "todo": 36,
+      "todo": 28,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 22.22,
     "by_priority": {
       "P0": 25,
       "P1": 11,
@@ -619,27 +619,27 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 0,
-      "remaining": 21
+      "done": 6,
+      "remaining": 15
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 5,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T00:53:38+02:00",
+    "updated_at": "2026-04-25T01:31:55+02:00",
     "stages": {
       "VSC-M1": {
         "title": "Scope, architecture and project bootstrap",
         "scope_task_ids": ["VSC-T01", "VSC-T02", "VSC-T03", "VSC-T04", "VSC-T05"],
         "total": 5,
-        "done": 0,
-        "todo": 5,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -647,8 +647,8 @@
         "title": "Connection, auth and backend client",
         "scope_task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
         "total": 5,
-        "done": 0,
-        "todo": 5,
+        "done": 3,
+        "todo": 2,
         "in_progress": 0,
         "blocked": 0
       },
@@ -701,12 +701,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T00:53:38+02:00",
+    "checked_at": "2026-04-25T01:31:55+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "Priority and risk counters in tasks_status_summary were corrected to match the current task list.",
-      "Execution stage summary was added to make milestone progress explicitly machine-readable.",
-      "Track remains in planning baseline state (all tasks todo) with synchronized counters."
+      "First implementation bundle VSC-T01..VSC-T08 was completed and tracked to done state.",
+      "tasks_status_summary and execution_stage_summary were synchronized with task and milestone status changes.",
+      "VSIX packaging command was made non-blocking on Node 18 by pinning cheerio to rc.12 and ensuring dist output directory creation."
     ]
   },
 
@@ -715,7 +715,8 @@
     "VS Code is likely the most important mainstream editor integration and should probably run before Eclipse Advanced.",
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
     "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
-    "Current todo file now contains synchronized status counters and explicit stage-level rollup data."
+    "Current todo file now contains synchronized status counters and explicit stage-level rollup data.",
+    "Milestone VSC-M1 is complete and VSC-M2 is in progress after shipping the first 8-task bootstrap bundle."
   ],
 
   "end_summaries": [
@@ -749,8 +750,8 @@
       "summary_id": "VSC-S4",
       "title": "Status am Ende",
       "items": [
-        "Der Track ist weiterhin im Planungs-Baseline-Status (36 todo, 0 in_progress, 0 done).",
-        "Die Datei ist nun für Validatoren konsistent und enthält die angeforderten End-Summaries."
+        "Erstes Umsetzungsbündel ist abgeschlossen: 8 done, 1 milestone done (VSC-M1), 1 milestone in_progress (VSC-M2).",
+        "Die Datei bleibt validator-konsistent und enthält aktualisierte Stage- sowie End-Summaries."
       ]
     }
   ]

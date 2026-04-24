@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "ananta888",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ananta888/ananta.git"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -15,6 +19,7 @@
   "files": [
     "out/**",
     "resources/**",
+    "LICENSE",
     "README.md",
     "package.json"
   ],
@@ -113,13 +118,14 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "vitest run",
-    "package": "npm run compile && vsce package --out dist/ananta-vscode-extension.vsix"
+    "package": "npm run compile && mkdir -p dist && vsce package --out dist/ananta-vscode-extension.vsix"
   },
   "devDependencies": {
     "@types/node": "^22.15.2",
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^8.32.0",
     "@typescript-eslint/parser": "^8.32.0",
+    "cheerio": "^1.0.0-rc.12",
     "eslint": "^8.57.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.2",
