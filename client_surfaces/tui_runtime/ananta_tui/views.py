@@ -64,7 +64,9 @@ def render_navigation_shell(state: TuiViewState, sections: list[str], fallback_l
             f"selected_team={state.selected_team_id or '-'} "
             f"selected_blueprint={state.selected_blueprint_id or '-'} "
             f"selected_profile={state.selected_instruction_profile_id or '-'} "
-            f"selected_overlay={state.selected_instruction_overlay_id or '-'}"
+            f"selected_overlay={state.selected_instruction_overlay_id or '-'} "
+            f"selected_approval={state.selected_approval_id or '-'} "
+            f"selected_repair={state.selected_repair_session_id or '-'}"
         )
     )
     lines.append(f"refresh_count={state.refresh_count}")
@@ -650,14 +652,53 @@ def render_audit_view(audit_logs: ClientResponse, audit_analysis: ClientResponse
     return "\n".join(lines)
 
 
-def render_approval_repair_view(approvals: ClientResponse, repairs: ClientResponse) -> str:
+def render_approval_repair_view(
+    approvals: ClientResponse,
+    repairs: ClientResponse,
+    tasks: ClientResponse,
+    approval_action_summary: str | None,
+    repair_action_summary: str | None,
+) -> str:
     lines = ["[APPROVALS]"]
     approval_items = _safe_items(approvals.data)
+    pending = 0
+    stale = 0
+    denied = 0
+    already_handled = 0
     if approval_items:
         for item in approval_items[:10]:
-            lines.append(f"- {item.get('id')} scope={item.get('scope')} state={item.get('state')}")
+            state = str(item.get("state") or "")
+            lowered = state.lower()
+            if lowered in {"pending", "awaiting_review"}:
+                pending += 1
+            elif lowered in {"stale", "expired"}:
+                stale += 1
+            elif lowered in {"denied", "policy_denied"}:
+                denied += 1
+            elif lowered in {"approved", "rejected", "already_handled"}:
+                already_handled += 1
+            lines.append(
+                (
+                    f"- {item.get('id')} scope={item.get('scope')} state={state} "
+                    f"risk={item.get('risk_level')} task={item.get('task_id')} goal={item.get('goal_id')}"
+                )
+            )
     else:
         lines.append("- no_approval_items")
+    reviewable_tasks = 0
+    for task in _safe_items(tasks.data)[:50]:
+        proposal_state = str(task.get("proposal_state") or "").lower()
+        if proposal_state in {"pending", "pending_review", "awaiting_review", "proposed"}:
+            reviewable_tasks += 1
+    lines.append(
+        (
+            f"approval_pending={pending} approval_stale={stale} approval_denied={denied} "
+            f"approval_already_handled={already_handled} reviewable_proposals={reviewable_tasks}"
+        )
+    )
+    if approval_action_summary:
+        lines.append(approval_action_summary)
+    lines.append("approval_actions_confirmation=required")
     lines.append("[REPAIR]")
     lines.append("[REPAIRS]")
     repair_items = _safe_items(repairs.data)
@@ -666,12 +707,19 @@ def render_approval_repair_view(approvals: ClientResponse, repairs: ClientRespon
             lines.append(
                 (
                     f"- {repair.get('session_id')} diagnosis={repair.get('diagnosis')} "
-                    f"verification={repair.get('verification_result')} outcome={repair.get('outcome')}"
+                    f"risk={repair.get('risk_level')} dry_run={repair.get('dry_run_status')} "
+                    f"approval={repair.get('approval_state')} execution={repair.get('execution_result')} "
+                    f"verification={repair.get('verification_result')} outcome={repair.get('outcome')} "
+                    f"blocked={repair.get('blocked_reason')}"
                 )
             )
     else:
         lines.append("- no_repair_sessions")
-    lines.append("note=view_only_no_implicit_execution")
+    if repair_action_summary:
+        lines.append(repair_action_summary)
+    lines.append("repair_execution_mode=explicit_only_never_implicit")
+    lines.append("repair_unknown_or_unsafe_actions=blocked_visible")
+    lines.append("repair_complex_drilldown=browser_fallback")
     return "\n".join(lines)
 
 
@@ -679,12 +727,22 @@ def render_help_view(fallback_snapshot: dict[str, Any]) -> str:
     lines = ["[HELP]"]
     lines.append("shortcuts=up/down select_section | enter open_detail | r refresh | b open_browser_link")
     lines.append("dangerous_actions=explicit_confirmation_and_backend_validation")
+    lines.append("approval_review=confirm_approval_action repair_execution=browser_first")
+    lines.append("live_refresh=live_refresh_target+live_refresh_cycles+live_refresh_interval_seconds")
     browser_first = list(_safe_dict(fallback_snapshot).get("browser_first_operations") or [])
     if browser_first:
         lines.append(f"browser_first={','.join(str(item) for item in browser_first)}")
     links = _safe_dict(fallback_snapshot).get("links")
     if isinstance(links, dict):
-        for key in ("selected_goal", "selected_task", "selected_artifact", "config", "audit"):
+        for key in (
+            "selected_goal",
+            "selected_task",
+            "selected_artifact",
+            "selected_approval",
+            "selected_repair",
+            "config",
+            "audit",
+        ):
             value = links.get(key)
             if value:
                 lines.append(f"{key}_browser_link={value}")

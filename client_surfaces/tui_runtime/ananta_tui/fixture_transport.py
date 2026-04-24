@@ -66,6 +66,7 @@ def build_fixture_transport():  # noqa: C901
                 "status": "in_progress",
                 "team_id": "team-core",
                 "agent": "agent-alpha",
+                "proposal_state": "pending_review",
                 "execution_state": "running",
                 "artifact_ids": ["A-1"],
             },
@@ -75,7 +76,18 @@ def build_fixture_transport():  # noqa: C901
                 "status": "todo",
                 "team_id": "team-core",
                 "agent": "agent-beta",
+                "proposal_state": "stale",
                 "execution_state": "queued",
+                "artifact_ids": [],
+            },
+            {
+                "id": "T-3",
+                "title": "Policy-gated review case",
+                "status": "in_progress",
+                "team_id": "team-core",
+                "agent": "agent-gamma",
+                "proposal_state": "pending_review",
+                "execution_state": "running",
                 "artifact_ids": [],
             },
         ]
@@ -86,10 +98,32 @@ def build_fixture_transport():  # noqa: C901
         "status": "in_progress",
         "owner": "team-core",
         "agent": "agent-alpha",
-        "proposal_state": "accepted",
+        "proposal_state": "pending_review",
         "execution_state": "running",
         "artifact_ids": ["A-1"],
         "timeline_ref": "TL-1",
+    }
+    task_detail_stale_payload = {
+        "id": "T-2",
+        "title": "Run smoke flow",
+        "status": "todo",
+        "owner": "team-core",
+        "agent": "agent-beta",
+        "proposal_state": "stale",
+        "execution_state": "queued",
+        "artifact_ids": [],
+        "timeline_ref": "TL-2",
+    }
+    task_detail_denied_payload = {
+        "id": "T-3",
+        "title": "Policy-gated review case",
+        "status": "in_progress",
+        "owner": "team-core",
+        "agent": "agent-gamma",
+        "proposal_state": "pending_review",
+        "execution_state": "running",
+        "artifact_ids": [],
+        "timeline_ref": "TL-3",
     }
     task_timeline_payload = {
         "items": [
@@ -289,15 +323,47 @@ def build_fixture_transport():  # noqa: C901
         },
         "/tasks/auto-planner/status": {"enabled": True, "last_plan_at": "2026-04-24T20:00:00Z"},
         "/triggers/status": {"enabled": True, "sources": ["webhook", "schedule"]},
-        "/approvals": {"items": [{"id": "AP-1", "scope": "repair_step", "state": "pending"}]},
+        "/approvals": {
+            "items": [
+                {
+                    "id": "AP-1",
+                    "scope": "task_proposal",
+                    "state": "pending",
+                    "risk_level": "high",
+                    "task_id": "T-1",
+                    "goal_id": "G-1",
+                },
+                {
+                    "id": "AP-2",
+                    "scope": "task_proposal",
+                    "state": "stale",
+                    "risk_level": "medium",
+                    "task_id": "T-2",
+                    "goal_id": "G-1",
+                },
+                {
+                    "id": "AP-3",
+                    "scope": "task_proposal",
+                    "state": "denied",
+                    "risk_level": "critical",
+                    "task_id": "T-3",
+                    "goal_id": "G-1",
+                },
+            ]
+        },
         "/repairs": {
             "items": [
                 {
                     "session_id": "R-1",
                     "diagnosis": "disk pressure",
                     "proposed_steps": ["clean temp data"],
+                    "risk_level": "high",
+                    "dry_run_status": "available",
+                    "approval_state": "pending",
+                    "execution_result": "not_started",
                     "verification_result": "pending",
                     "outcome": "not_executed",
+                    "blocked_reason": "approval_required",
                 }
             ]
         },
@@ -340,11 +406,29 @@ def build_fixture_transport():  # noqa: C901
 
         if path.endswith("/tasks/T-1"):
             return 200, json.dumps(task_detail_payload)
+        if path.endswith("/tasks/T-2"):
+            return 200, json.dumps(task_detail_stale_payload)
+        if path.endswith("/tasks/T-3"):
+            return 200, json.dumps(task_detail_denied_payload)
         if path.endswith("/tasks/T-1/logs"):
             return 200, json.dumps(task_logs_payload)
+        if path.endswith("/tasks/T-2/logs"):
+            return 200, json.dumps({"items": [{"ts": "2026-04-24T22:01:00Z", "line": "waiting for review"}]})
+        if path.endswith("/tasks/T-3/logs"):
+            return 200, json.dumps({"items": [{"ts": "2026-04-24T22:02:00Z", "line": "review gated by policy"}]})
 
         if path.endswith("/tasks/T-1/assign") and method == "POST":
             return 200, json.dumps({"updated": True, "action": "assign"})
+        if path.endswith("/tasks/T-1/review") and method == "POST":
+            payload = json.loads((body or b"{}").decode("utf-8", "replace"))
+            action = str(payload.get("action") or "").strip().lower()
+            if action not in {"approve", "reject"}:
+                return 400, json.dumps({"error": "invalid_review_action"})
+            return 200, json.dumps({"updated": True, "action": action})
+        if path.endswith("/tasks/T-2/review") and method == "POST":
+            return 409, json.dumps({"error": "stale_proposal"})
+        if path.endswith("/tasks/T-3/review") and method == "POST":
+            return 403, json.dumps({"error": "policy_denied"})
         if path.endswith("/tasks/T-1/step/propose") and method == "POST":
             return 200, json.dumps({"updated": True, "action": "propose"})
         if path.endswith("/tasks/T-1/step/execute") and method == "POST":

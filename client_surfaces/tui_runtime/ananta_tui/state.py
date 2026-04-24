@@ -19,6 +19,8 @@ class TuiViewState:
     selected_team_type_id: str | None = None
     selected_instruction_profile_id: str | None = None
     selected_instruction_overlay_id: str | None = None
+    selected_approval_id: str | None = None
+    selected_repair_session_id: str | None = None
     filters: dict[str, str] = field(default_factory=dict)
     refresh_count: int = 0
     last_refresh_epoch: float = 0.0
@@ -51,6 +53,8 @@ class TuiViewState:
         team_type_id: str | None = None,
         instruction_profile_id: str | None = None,
         instruction_overlay_id: str | None = None,
+        approval_id: str | None = None,
+        repair_session_id: str | None = None,
     ) -> "TuiViewState":
         return replace(
             self,
@@ -68,6 +72,10 @@ class TuiViewState:
             selected_instruction_overlay_id=instruction_overlay_id
             if instruction_overlay_id is not None
             else self.selected_instruction_overlay_id,
+            selected_approval_id=approval_id if approval_id is not None else self.selected_approval_id,
+            selected_repair_session_id=repair_session_id
+            if repair_session_id is not None
+            else self.selected_repair_session_id,
         )
 
     def mark_refresh(self) -> "TuiViewState":
@@ -89,6 +97,8 @@ class TuiViewState:
         team_type_ids: set[str],
         instruction_profile_ids: set[str],
         instruction_overlay_ids: set[str],
+        approval_ids: set[str],
+        repair_session_ids: set[str],
     ) -> "TuiViewState":
         return replace(
             self,
@@ -107,5 +117,9 @@ class TuiViewState:
             else None,
             selected_instruction_overlay_id=self.selected_instruction_overlay_id
             if self.selected_instruction_overlay_id in instruction_overlay_ids
+            else None,
+            selected_approval_id=self.selected_approval_id if self.selected_approval_id in approval_ids else None,
+            selected_repair_session_id=self.selected_repair_session_id
+            if self.selected_repair_session_id in repair_session_ids
             else None,
         )

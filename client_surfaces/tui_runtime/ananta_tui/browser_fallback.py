@@ -31,6 +31,8 @@ def build_browser_fallback_snapshot(base_url: str, state: TuiViewState) -> dict[
         "selected_goal": build_object_browser_url(base_url, "goal", state.selected_goal_id),
         "selected_task": build_object_browser_url(base_url, "task", state.selected_task_id),
         "selected_artifact": build_object_browser_url(base_url, "artifact", state.selected_artifact_id),
+        "selected_approval": build_object_browser_url(base_url, "approval", state.selected_approval_id),
+        "selected_repair": build_object_browser_url(base_url, "repair", state.selected_repair_session_id),
         "config": build_object_browser_url(base_url, "config"),
         "audit": build_object_browser_url(base_url, "audit"),
     }

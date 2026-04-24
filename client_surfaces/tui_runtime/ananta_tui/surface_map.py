@@ -156,6 +156,14 @@ def _entries() -> tuple[ApiSurfaceMethod, ...]:
         ),
         ApiSurfaceMethod(
             "Tasks",
+            "review_task_proposal",
+            "POST",
+            "/tasks/{id}/review",
+            CLASS_BROWSER_FALLBACK,
+            "Approve/reject proposal review is explicit and auditable.",
+        ),
+        ApiSurfaceMethod(
+            "Tasks",
             "get_task_orchestration_read_model",
             "GET",
             "/tasks/orchestration/read-model",
@@ -376,7 +384,7 @@ def _entries() -> tuple[ApiSurfaceMethod, ...]:
             "GET",
             "/api/system/stats/history",
             CLASS_TUI_ADVANCED,
-            "Trend snapshot for metrics.",
+            "Trend snapshot for metrics and optional live refresh polling.",
         ),
         ApiSurfaceMethod("Teams", "list_teams", "GET", "/teams", CLASS_TUI_ADVANCED, "Team visibility baseline."),
         ApiSurfaceMethod(
@@ -597,6 +605,14 @@ def _entries() -> tuple[ApiSurfaceMethod, ...]:
         ),
         ApiSurfaceMethod("Repair", "list_repairs", "GET", "/repairs", CLASS_TUI_MVP, "Repair session overview."),
         ApiSurfaceMethod("Repair", "list_approvals", "GET", "/approvals", CLASS_TUI_MVP, "Approval queue visibility."),
+        ApiSurfaceMethod(
+            "Repair",
+            "repair_execution_strategy",
+            "N/A",
+            "browser://repairs/{id}",
+            CLASS_BROWSER_FALLBACK,
+            "Repair execution/drilldown remains browser-first unless explicit backend APIs are available.",
+        ),
         ApiSurfaceMethod(
             "Help",
             "open_in_browser",

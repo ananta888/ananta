@@ -1,0 +1,83 @@
+{
+  "schema": "tui_frontend_parity_readiness_report_v1",
+  "track": "tui_full_surface_frontend_parity",
+  "updated_at": "2026-04-25T00:37:13+02:00",
+  "areas": [
+    {
+      "area": "Dashboard and assistant read models",
+      "status": "supported",
+      "notes": "Health, profile, governance and warning visibility are implemented."
+    },
+    {
+      "area": "Goals and goal plan/governance",
+      "status": "supported",
+      "notes": "Goal list/detail, plan tree and governance summary are available."
+    },
+    {
+      "area": "Task workbench and orchestration",
+      "status": "supported",
+      "notes": "Task list/detail, timeline/logs and orchestration state are rendered."
+    },
+    {
+      "area": "Artifact explorer and RAG preview",
+      "status": "supported",
+      "notes": "Artifact detail, extract/index controls and RAG status/preview are available."
+    },
+    {
+      "area": "Knowledge and template workflows",
+      "status": "supported",
+      "notes": "Collection inspect/index/search and template diagnostics/preview are available."
+    },
+    {
+      "area": "Config/provider/benchmark visibility",
+      "status": "supported",
+      "notes": "Safe config read and allowlisted write flow with redaction are implemented."
+    },
+    {
+      "area": "Teams, blueprints and instruction layers",
+      "status": "supported",
+      "notes": "Teams/blueprints plus instruction model/effective stack and guarded selection actions exist."
+    },
+    {
+      "area": "Automation and audit operations",
+      "status": "supported",
+      "notes": "Autopilot/planner/trigger actions are guarded; audit log analyze and redaction are available."
+    },
+    {
+      "area": "Approval and proposal review queue",
+      "status": "supported",
+      "notes": "Pending/stale queue visibility and guarded approve/reject via existing task review API are implemented."
+    },
+    {
+      "area": "Repair operator depth",
+      "status": "partial",
+      "notes": "Risk and execution state visibility are in place; complex execution remains browser-first."
+    },
+    {
+      "area": "Live refresh/event stream behavior",
+      "status": "partial",
+      "notes": "Rate-limited, bounded polling for system/task logs is available; no dedicated push stream endpoint yet."
+    },
+    {
+      "area": "Complex admin and rich/binary rendering",
+      "status": "browser-fallback",
+      "notes": "High-risk and complex workflows remain intentionally browser-first."
+    }
+  ],
+  "api_gaps": [
+    "No explicit dedicated terminal-safe repair execution endpoint is mapped in the current TUI client contract.",
+    "No dedicated push-based event stream endpoint is mapped for terminal usage; polling mode is used."
+  ],
+  "merge_blockers": [],
+  "future_polish": [
+    "Add explicit backend repair execution APIs with dry-run/verify semantics and policy traces.",
+    "Add optional push-stream adapter once stable server-side event stream contracts are available."
+  ],
+  "references": [
+    "client_surfaces/tui_runtime/ananta_tui/app.py",
+    "client_surfaces/tui_runtime/ananta_tui/views.py",
+    "client_surfaces/common/client_api.py",
+    "data/tui_frontend_api_surface_map.json",
+    "scripts/smoke_tui_runtime.py"
+  ]
+}

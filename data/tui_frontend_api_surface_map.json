@@ -165,6 +165,14 @@
       },
       {
         "section": "Tasks",
+        "method": "review_task_proposal",
+        "http_method": "POST",
+        "endpoint": "/tasks/{id}/review",
+        "classification": "browser-fallback",
+        "notes": "Approve/reject proposal review is explicit and auditable."
+      },
+      {
+        "section": "Tasks",
         "method": "get_task_orchestration_read_model",
         "http_method": "GET",
         "endpoint": "/tasks/orchestration/read-model",
@@ -441,7 +449,7 @@
         "http_method": "GET",
         "endpoint": "/api/system/stats/history",
         "classification": "tui-advanced",
-        "notes": "Trend snapshot for metrics."
+        "notes": "Trend snapshot for metrics and optional live refresh polling."
       }
     ],
     "Teams": [
@@ -692,6 +700,14 @@
         "endpoint": "/approvals",
         "classification": "tui-mvp",
         "notes": "Approval queue visibility."
+      },
+      {
+        "section": "Repair",
+        "method": "repair_execution_strategy",
+        "http_method": "N/A",
+        "endpoint": "browser://repairs/{id}",
+        "classification": "browser-fallback",
+        "notes": "Repair execution/drilldown remains browser-first unless explicit backend APIs are available."
       }
     ],
     "Help": [
