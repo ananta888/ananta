@@ -99,6 +99,8 @@ class TestGoalsAPI:
         assert persisted_goal.mode_data["deterministic_repair_foundation"]["repair_procedure_model"]["schema"] == "deterministic_repair_procedure_v1"
         assert persisted_goal.mode_data["deterministic_repair_foundation"]["repair_catalog"]["schema"] == "deterministic_repair_catalog_v1"
         assert persisted_goal.mode_data["deterministic_repair_foundation"]["final_repair_verification"]["schema"] == "deterministic_repair_final_verification_v1"
+        assert persisted_goal.mode_data["deterministic_repair_foundation"]["success_weighted_recommendations"]["schema"] == "deterministic_success_weighted_recommendation_v1"
+        assert persisted_goal.mode_data["deterministic_repair_foundation"]["llm_escalation_decision"]["schema"] == "deterministic_llm_escalation_decision_v1"
         assert persisted_goal.mode_data["session_trail"]["entries"]
         assert persisted_goal.mode_data["cli_output"]["sections"][0]["id"] == "diagnosis"
         assert persisted_goal.mode_data["smoke_scenarios"]
