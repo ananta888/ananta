@@ -496,7 +496,7 @@ LLM_ESCALATION_POLICY_MODEL: dict[str, Any] = {
 UNSAFE_ACTION_GUARDRAIL_MODEL: dict[str, Any] = {
     "schema": "deterministic_unsafe_action_guardrails_v1",
     "blocked_patterns": [
-        r"\brm\s+-rf\s+/\b",
+        r"rm\s+-rf\s+/",
         r"\bmkfs\b",
         r"\bdd\s+if=",
         r"\bshutdown\b",

@@ -592,7 +592,7 @@
         {
           "id": "REP-T41",
           "title": "Unsafe action guardrails add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "critical",
           "acceptance_criteria": [
@@ -611,7 +611,7 @@
         {
           "id": "REP-T42",
           "title": "Repair session summary view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -623,7 +623,7 @@
         {
           "id": "REP-T43",
           "title": "Deterministic versus escalated path visibility add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -635,7 +635,7 @@
         {
           "id": "REP-T44",
           "title": "Repair proposal preview UX add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -647,7 +647,7 @@
         {
           "id": "REP-T45",
           "title": "Repair history inspection view add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "low",
           "acceptance_criteria": [
@@ -666,7 +666,7 @@
         {
           "id": "REP-T46",
           "title": "Signature matching tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -678,7 +678,7 @@
         {
           "id": "REP-T47",
           "title": "Diagnosis and repair procedure tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "acceptance_criteria": [
@@ -690,7 +690,7 @@
         {
           "id": "REP-T48",
           "title": "Repair memory and ranking tests add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -702,7 +702,7 @@
         {
           "id": "REP-T49",
           "title": "Operator guide for deterministic repair path write",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -714,7 +714,7 @@
         {
           "id": "REP-T50",
           "title": "Golden path examples for common repair classes add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -726,7 +726,7 @@
         {
           "id": "REP-T51",
           "title": "Rollout plan define",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "risk": "low",
           "acceptance_criteria": [
@@ -779,15 +779,15 @@
     "REP-T50"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T20:55:00+02:00",
+    "updated_at": "2026-04-24T21:10:00+02:00",
     "total": 51,
     "by_status": {
-      "todo": 11,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 40
+      "done": 51
     },
-    "progress_percent_done": 78.43,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 24,
       "P1": 22,
@@ -809,29 +809,29 @@
       "REP-VERIFICATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
       "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
       "REP-LLM-ESCALATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 1, "in_progress": 0, "blocked": 0, "done": 3},
-      "REP-UX-AND-OPERATOR-FLOWS": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
-      "REP-TESTING-DOCS-ROLLOUT": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+      "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-UX-AND-OPERATOR-FLOWS": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-TESTING-DOCS-ROLLOUT": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
     },
     "critical_path": {
       "total": 28,
-      "done": 25,
-      "remaining": 3
+      "done": 28,
+      "remaining": 0
     }
   },
   "milestone_status_summary": {
-    "updated_at": "2026-04-24T20:55:00+02:00",
+    "updated_at": "2026-04-24T21:10:00+02:00",
     "by_milestone": {
       "REP-M1": {"total": 9, "done": 9, "todo": 0},
       "REP-M2": {"total": 10, "done": 10, "todo": 0},
       "REP-M3": {"total": 9, "done": 9, "todo": 0},
-      "REP-M4": {"total": 13, "done": 12, "todo": 1},
-      "REP-M5": {"total": 10, "done": 0, "todo": 10}
+      "REP-M4": {"total": 13, "done": 13, "todo": 0},
+      "REP-M5": {"total": 10, "done": 10, "todo": 0}
     }
   },
   "summary_notes": [
-    "Deterministic repair foundations through recommendation learning, LLM-escalation control and governance/approval/audit contracts (REP-T01 to REP-T40) are implemented.",
-    "Milestones REP-M1, REP-M2 and REP-M3 are completed; REP-M4 is nearly complete with one remaining guardrail task while execution_order_summary and critical_path_tasks stay aligned.",
-    "Remaining risk-heavy work is concentrated in unsafe-action guardrails, operator UX transparency, rollout hardening and final integration documentation."
+    "Deterministic repair foundations and governance are fully implemented across REP-T01 to REP-T51.",
+    "Milestones REP-M1 through REP-M5 are completed and the critical path is fully closed.",
+    "The track now includes guardrails, operator transparency views, expanded test coverage, operator guide, golden paths and phased rollout planning."
   ]
 }
