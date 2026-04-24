@@ -10,7 +10,7 @@
     "legacy_claim_progress_percent": 100.0,
     "legacy_claim_done_tasks": 24,
     "current_unified_track": "client_runtime_delivery_after_skeletons",
-    "current_status": "tui_runtime_mvp_started_with_vim_deferred"
+    "current_status": "tui_and_nvim_runtime_mvp_with_vim_deferred"
   },
   "reclassification": [
     {
@@ -22,8 +22,8 @@
     {
       "area": "tui_and_editor_plugin",
       "before_label": "foundation_complete_mixed_with_runtime_expectation",
-      "after_label": "tui_runtime_mvp_started_vim_deferred",
-      "reason": "Repository now includes a runnable TUI MVP entrypoint and smoke script; Vim compatibility is explicitly deferred and Neovim remains foundation-only."
+      "after_label": "tui_and_nvim_runtime_mvp_with_vim_deferred",
+      "reason": "Repository now includes runnable TUI and Neovim MVP runtime entrypoints with smoke evidence; Vim compatibility remains explicitly deferred."
     }
   ],
   "correction_note": "Earlier completion claims overstated runnable client status. Runtime claims now require executable evidence, while deferred surfaces are marked explicitly."

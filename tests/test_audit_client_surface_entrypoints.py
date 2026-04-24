@@ -93,6 +93,21 @@ def test_done_claims_include_current_crt_runtime_ranges() -> None:
     }
     done_claims = collect_done_claims(todo_payload)
     assert done_claims["tui_surface"] == ["CRT-T09"]
-    assert done_claims["nvim_plugin"] == ["CRT-T14"]
+    assert done_claims["nvim_plugin"] == ["CRT-T14", "CRT-T19"]
     assert done_claims["eclipse_plugin"] == ["CRT-T20"]
-    assert done_claims["vim_plugin"] == ["CRT-T19"]
+    assert done_claims["vim_plugin"] == []
+
+
+def test_nvim_requires_smoke_evidence_for_runtime_classification() -> None:
+    without_smoke = {
+        "client_surfaces/nvim_runtime/plugin/ananta.vim",
+        "client_surfaces/nvim_runtime/lua/ananta/init.lua",
+        "agent/services/editor_tui_surface_foundation_service.py",
+    }
+    with_smoke = without_smoke | {"scripts/smoke_nvim_runtime.py"}
+
+    report_without_smoke = classify_surface("nvim_plugin", without_smoke)
+    report_with_smoke = classify_surface("nvim_plugin", with_smoke)
+
+    assert report_without_smoke["classification"] == "foundation_only"
+    assert report_with_smoke["classification"] == "real_implementation"

@@ -101,3 +101,20 @@ class AnantaApiClient:
     def submit_goal(self, goal_text: str, context_payload: dict[str, Any]) -> ClientResponse:
         payload = {"goal_text": goal_text, "context": context_payload}
         return self._request_json("POST", "/goals", payload=payload)
+
+    def analyze_context(self, context_payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/tasks/analyze", payload={"context": context_payload})
+
+    def review_context(self, context_payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/tasks/review", payload={"context": context_payload})
+
+    def patch_plan(self, context_payload: dict[str, Any]) -> ClientResponse:
+        return self._request_json("POST", "/tasks/patch-plan", payload={"context": context_payload})
+
+    def create_project_new(self, goal_text: str, context_payload: dict[str, Any]) -> ClientResponse:
+        payload = {"goal_text": goal_text, "context": context_payload}
+        return self._request_json("POST", "/projects/new", payload=payload)
+
+    def create_project_evolve(self, goal_text: str, context_payload: dict[str, Any]) -> ClientResponse:
+        payload = {"goal_text": goal_text, "context": context_payload}
+        return self._request_json("POST", "/projects/evolve", payload=payload)

@@ -5,8 +5,8 @@ from typing import Any
 
 from client_surfaces.common.types import ClientProfile
 
-_SECRET_KEY_PARTS = ("token", "secret", "password", "private_key", "credential")
-_SECRET_INLINE = re.compile(r"(?i)(token|secret|password|private[_-]?key|credential)[=:]\S+")
+_SECRET_KEY_PARTS = ("token", "secret", "password", "private_key", "credential", "api_key", "api-key")
+_SECRET_INLINE = re.compile(r"(?i)(token|secret|password|private[_-]?key|credential|api[_-]?key)[=:]\S+")
 
 
 def _clean_text(value: Any, *, max_chars: int) -> str:
