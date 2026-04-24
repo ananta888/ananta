@@ -1370,7 +1370,7 @@ def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
     if "research-evolution" in name or "research-evolution" in team_type:
         return ["project_evolution", "repo_analysis", "doc_summary", "code_review"]
     if "repair" in name:
-        return ["code_fix", "docker_compose_repair", "runtime_repair", "sys_diag"]
+        return ["admin_repair", "code_fix", "docker_compose_repair", "runtime_repair", "sys_diag"]
     if "research" in name:
         return ["repo_analysis", "doc_summary", "doc_gen"]
     if "security" in name:

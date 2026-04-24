@@ -7,11 +7,14 @@ import agent.cli_goals as cli
 
 
 def test_cli_shortcuts_cover_product_entry_commands():
-    assert {"ask", "plan", "analyze", "review", "diagnose", "patch", "new-project", "evolve-project"}.issubset(cli.SHORTCUT_GOALS)
+    assert {"ask", "plan", "analyze", "review", "diagnose", "patch", "new-project", "evolve-project", "repair-admin"}.issubset(
+        cli.SHORTCUT_GOALS
+    )
     assert cli.SHORTCUT_GOALS["review"]["mode"] == "code_review"
     assert cli.SHORTCUT_GOALS["diagnose"]["mode"] == "docker_compose_repair"
     assert cli.SHORTCUT_GOALS["new-project"]["mode"] == "new_software_project"
     assert cli.SHORTCUT_GOALS["evolve-project"]["mode"] == "project_evolution"
+    assert cli.SHORTCUT_GOALS["repair-admin"]["mode"] == "admin_repair"
     assert cli.SHORTCUT_GOALS["ask"]["mode"] is None
     assert cli.SHORTCUT_GOALS["plan"]["mode"] is None
 
@@ -27,6 +30,7 @@ def test_cli_shortcuts_cover_product_entry_commands():
         ("patch", "code_fix"),
         ("new-project", "new_software_project"),
         ("evolve-project", "project_evolution"),
+        ("repair-admin", "admin_repair"),
     ],
 )
 def test_submit_shortcut_maps_to_goal_model(monkeypatch, shortcut, mode):
@@ -66,6 +70,11 @@ def test_product_shortcuts_pass_structured_mode_data(monkeypatch):
     cli.submit_shortcut("evolve-project", "Dashboard erweitern")
     assert captured["mode"] == "project_evolution"
     assert captured["mode_data"]["change_goal"] == "Dashboard erweitern"
+
+    cli.submit_shortcut("repair-admin", "Service restart loop")
+    assert captured["mode"] == "admin_repair"
+    assert captured["mode_data"]["issue_symptom"] == "Service restart loop"
+    assert captured["mode_data"]["dry_run"] is True
 
 
 def test_main_routes_shortcut_words_to_submit_shortcut(monkeypatch):

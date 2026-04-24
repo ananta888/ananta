@@ -31,6 +31,7 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 - `analyze`: Repo-/Systemanalyse
 - `review`: Aenderungen bewerten
 - `diagnose`: Start-/Compose-/Health-Diagnose
+- `repair-admin`: Admin-Repair Shared Foundation (bounded diagnosis + dry-run-first bounded repair)
 - `patch`: kleinen Patch planen
 - `new-project`: neues Softwareprojekt aus einer Idee anlegen
 - `evolve-project`: bestehendes Projekt kontrolliert weiterentwickeln
@@ -58,5 +59,6 @@ Erwartetes Erfolgssignal: ein Goal mit Modus `project_evolution`, kleinen Aender
 - Status/Readiness: `python -m agent.cli_goals --status`
 - Task-Liste: `python -m agent.cli_goals --tasks --task-status todo`
 - Diagnose-Fokus: `python -m agent.cli_goals diagnose "..."`
+- Admin-Repair Shared Foundation: `python -m agent.cli_goals repair-admin "Service restart loop nach Paketupdate"`
 
 Der CLI-Pfad ist abgeschlossen, wenn `--first-run` den Einstieg erklaert, `--status` die Bereitschaft prueft und ein Shortcut-Goal Goal-ID, Status, Task-Anzahl und naechstes Detailkommando ausgibt.

@@ -30,7 +30,7 @@ class TestGoalsAPI:
         res = client.get("/goals/modes", headers=admin_auth_header)
         assert res.status_code == 200
         mode_ids = {item["id"] for item in res.get_json()["data"]}
-        assert {"docker_compose_repair", "runtime_repair"}.issubset(mode_ids)
+        assert {"docker_compose_repair", "runtime_repair", "admin_repair"}.issubset(mode_ids)
         assert {"new_software_project", "project_evolution"}.issubset(mode_ids)
 
     def test_create_goal_from_docker_compose_mode(self, client, admin_auth_header, monkeypatch):
@@ -53,6 +53,46 @@ class TestGoalsAPI:
         assert "Container restart loop on boot" in goal_payload["goal"]
         assert "docker-compose.yml" in goal_payload["goal"]
         assert "Fokus-Service: hub" in goal_payload["goal"]
+
+    def test_create_goal_from_admin_repair_mode(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "admin_repair",
+                "mode_data": {
+                    "issue_symptom": "Service restart loop after package update",
+                    "platform_target": "ubuntu",
+                    "execution_scope": "bounded_repair",
+                    "evidence_sources": "error_logs,service_status,runtime_state",
+                    "affected_targets": "api-service",
+                },
+            },
+        )
+        assert res.status_code == 201
+        payload = res.get_json()["data"]
+        goal_payload = payload["goal"]
+        assert "Shared Foundation" in goal_payload["goal"]
+        assert "Dry-run default: True" in goal_payload["goal"]
+        workflow = payload["workflow"]["effective"]
+        assert workflow["planning"]["use_repo_context"] is False
+        assert workflow["verification"]["review_required"] is True
+        assert workflow["policy"]["runtime_execution"] == "bounded_preview_only"
+        persisted_goal = goal_repo.get_by_id(goal_payload["id"])
+        assert persisted_goal is not None
+        assert persisted_goal.mode == "admin_repair"
+        assert persisted_goal.mode_data["repair_plan"]["dry_run_default"] is True
+        steps = persisted_goal.mode_data["repair_plan"]["steps"]
+        assert steps
+        first_step = steps[0]
+        assert first_step["repair_action_class"] == "inspect_state"
+        assert "risk_class" in first_step
+        assert "requires_approval" in first_step
+        assert "evidence_sources" in first_step
+        assert "expected_verification" in first_step
+        tasks = task_repo.get_by_goal_id(goal_payload["id"])
+        assert "Dry-run-first bounded repair plan erzeugen" in {task.title for task in tasks}
 
     def test_create_goal_from_new_software_project_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)

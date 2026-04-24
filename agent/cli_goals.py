@@ -63,6 +63,11 @@ SHORTCUT_GOALS = {
         "prefix": "Plane eine kontrollierte Weiterentwicklung fuer ein bestehendes Projekt:",
         "context": "Kurzkommando: Projekt weiterentwickeln. Fokus auf betroffene Bereiche, Risiken, Tests und kleine reviewbare Schritte.",
     },
+    "repair-admin": {
+        "mode": "admin_repair",
+        "prefix": "Plane eine bounded Admin-Reparatur als Shared Foundation fuer:",
+        "context": "Kurzkommando: Admin Repair. Fokus auf bounded evidence, dry-run-first, advisory Klassifikation und verifizierbare Repair-Schritte.",
+    },
 }
 
 
@@ -258,6 +263,11 @@ def _shortcut_mode_data(kind: str, text: str) -> dict:
         data["project_idea"] = text
     elif kind == "evolve-project":
         data["change_goal"] = text
+    elif kind == "repair-admin":
+        data["issue_symptom"] = text
+        data["platform_target"] = "auto"
+        data["execution_scope"] = "bounded_repair"
+        data["dry_run"] = True
     return data
 
 
@@ -430,6 +440,7 @@ Examples:
     python -m agent.cli_goals patch "Fix failing login validation"
     python -m agent.cli_goals new-project "Build a small release-check tool for maintainers"
     python -m agent.cli_goals evolve-project "Add a guided project-start mode to the dashboard"
+    python -m agent.cli_goals repair-admin "Service restart loop after update"
 
   Profile/Governance (GOV-051/PRF-080):
     python -m agent.cli_goals --config-show
@@ -458,7 +469,11 @@ Examples:
 """,
     )
 
-    parser.add_argument("goal", nargs="?", help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch")
+    parser.add_argument(
+        "goal",
+        nargs="?",
+        help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch/new-project/evolve-project/repair-admin",
+    )
     parser.add_argument("extra", nargs="*", help="Additional words for shortcut goals")
     parser.add_argument("--goal", "-g", dest="goal_flag", help="Goal description (alternative)")
     parser.add_argument("--context", "-c", help="Additional context for the goal")

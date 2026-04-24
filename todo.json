@@ -71,7 +71,7 @@
         {
           "id": "ARC-T01",
           "title": "Use-case and shared mode definition",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": [],
           "acceptance_criteria": [
@@ -84,7 +84,7 @@
         {
           "id": "ARC-T02",
           "title": "CLI entrypoint and mode options",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T01"],
           "acceptance_criteria": [
@@ -97,7 +97,7 @@
         {
           "id": "ARC-T03",
           "title": "OS detection and environment summary",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T02"],
           "acceptance_criteria": [
@@ -110,7 +110,7 @@
         {
           "id": "ARC-T04",
           "title": "Bounded evidence collection contract",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T01"],
           "acceptance_criteria": [
@@ -123,7 +123,7 @@
         {
           "id": "ARC-T07",
           "title": "Problem taxonomy for admin repair",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T04"],
           "acceptance_criteria": [
@@ -136,7 +136,7 @@
         {
           "id": "ARC-T08",
           "title": "Diagnosis artifact model",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T03", "ARC-T07"],
           "acceptance_criteria": [
@@ -149,7 +149,7 @@
         {
           "id": "ARC-T23",
           "title": "Repair action schema hooks prepare",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T08"],
           "acceptance_criteria": [
@@ -169,7 +169,7 @@
         {
           "id": "ARC-T09",
           "title": "Bounded repair plan generation",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T08"],
           "acceptance_criteria": [
@@ -182,7 +182,7 @@
         {
           "id": "ARC-T10",
           "title": "Advisory repair action classification policy",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T09"],
           "acceptance_criteria": [
@@ -195,7 +195,7 @@
         {
           "id": "ARC-T11",
           "title": "Dry-run by default for repair plans",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T09", "ARC-T10"],
           "acceptance_criteria": [
@@ -430,15 +430,15 @@
     "ARC-T21"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T12:56:00+02:00",
+    "updated_at": "2026-04-24T13:24:00+02:00",
     "total": 24,
     "by_status": {
-      "todo": 24,
+      "todo": 14,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 41.7,
     "by_priority": {
       "P0": 13,
       "P1": 10,
@@ -448,13 +448,13 @@
     "by_group": {
       "ARC-FOUNDATION": {
         "total": 7,
-        "done": 0,
-        "todo": 7
+        "done": 7,
+        "todo": 0
       },
       "ARC-REPAIR-FLOW": {
         "total": 7,
-        "done": 0,
-        "todo": 7
+        "done": 3,
+        "todo": 4
       },
       "ARC-PLATFORM-ADAPTERS": {
         "total": 4,
@@ -469,8 +469,8 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 10,
+      "remaining": 4
     }
   }
 }
