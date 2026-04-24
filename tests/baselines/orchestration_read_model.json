@@ -29,7 +29,6 @@
     "ui": "int",
     "unknown": "int"
   },
-  "dispatch_queue": [],
   "control_layer_observability": {
     "approval": {
       "status_counts": {}
@@ -58,6 +57,7 @@
     "updated_at": "float",
     "version": "str"
   },
+  "dispatch_queue": [],
   "queue": {
     "assigned": "int",
     "blocked": "int",

@@ -90,7 +90,15 @@
       },
       "has_explicit_override": "bool",
       "is_recommendation_active": "bool",
-      "recommended": "NoneType"
+      "recommended": {
+        "model": "str",
+        "provider": "str",
+        "replaces": {
+          "model": "str",
+          "provider": "str"
+        },
+        "selection_source": "str"
+      }
     },
     "task_kind": "str",
     "updated_at": "int"
@@ -1139,8 +1147,13 @@
           {
             "decision": "str",
             "details": {
-              "model_source": "str",
-              "provider_source": "str"
+              "model": "str",
+              "provider": "str",
+              "replaces": {
+                "model": "str",
+                "provider": "str"
+              },
+              "selection_source": "str"
             },
             "reason": "str",
             "step": "str"
@@ -1427,7 +1440,12 @@
         "lmstudio": {
           "base_url": "str",
           "candidate_count": "int",
-          "candidates": [],
+          "candidates": [
+            {
+              "context_length": "NoneType",
+              "id": "str"
+            }
+          ],
           "configured": "bool",
           "host_kind": "str",
           "is_local": "bool",
