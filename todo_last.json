@@ -1,581 +1,475 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "user_profile_prompt_and_task_overlay",
-  "purpose": "Add a structured user-level preference prompt and a task/session-level instruction overlay to Ananta so users can persistently shape working style while still applying explicit task-specific constraints without bypassing governance.",
+  "track": "admin_repair_shared_foundation",
+  "purpose": "Build a shared admin-repair feature foundation for Windows 11 and Ubuntu diagnosis and bounded repair flows, without enforcing full KRITIS hardening in this phase.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Users should be able to manage persistent personal operating preferences and separate task/session-specific instruction overlays in a controlled, visible and auditable way.",
-  "success_criteria": [
-    "A persistent user profile prompt exists and can be managed safely.",
-    "A task or session instruction overlay exists separately from the persistent user profile.",
-    "The precedence between governance, blueprint/template logic, user profile and task overlay is explicit.",
-    "User-defined instructions cannot bypass governance, approval or security policy.",
-    "The resulting instruction stack is understandable, reviewable and auditable."
+  "goal": "Ananta can guide admins through bounded diagnosis, repair planning, preview-first execution and verification with explicit evidence and future-ready hardening hooks.",
+  "two_line_strategy": {
+    "fast_product_line": "Deliver useful shared admin-repair capabilities quickly (diagnosis, plans, dry-run, guided execution, verification).",
+    "kritis_line": "Later harden proven capabilities with Audit, MutationGate, ApprovalPolicy, deterministic workflows, sandboxing and RBAC.",
+    "current_track_position": "This admin repair track is shared feature foundation work; full KRITIS enforcement is intentionally deferred."
+  },
+  "non_goals": [
+    "Do not implement full KRITIS hardening in this track.",
+    "Do not create a separate repair-specific security architecture.",
+    "Do not build unrestricted autonomous shell repair.",
+    "Do not bypass hub-governed policy boundaries for risky mutations.",
+    "Do not treat advisory repair classification as final KRITIS-grade enforcement."
+  ],
+  "kritis_hardening_hooks": {
+    "repair_action_model_fields": [
+      "risk_class",
+      "requires_approval",
+      "dry_run_supported",
+      "verification_required",
+      "mutation_candidate",
+      "evidence_sources",
+      "execution_scope",
+      "audit_hint",
+      "repair_action_class",
+      "affected_targets",
+      "expected_verification"
+    ],
+    "integration_targets_later": ["Audit", "MutationGate", "ApprovalPolicy", "Sandboxing", "RBAC"],
+    "hook_policy": "Fields are prepared and surfaced now; strict KRITIS gates are connected later."
+  },
+  "milestones": [
+    {
+      "id": "ARC-M1",
+      "title": "Shared repair foundation",
+      "target_outcome": "Mode definition, entrypoint, environment summary and bounded evidence model are stable."
+    },
+    {
+      "id": "ARC-M2",
+      "title": "Diagnosis and planning",
+      "target_outcome": "Problem taxonomy, diagnosis artifact and bounded repair plan generation are operational."
+    },
+    {
+      "id": "ARC-M3",
+      "title": "Controlled preview and execution",
+      "target_outcome": "Dry-run, preview-first, bounded step-confirmed execution and verification flow are available."
+    },
+    {
+      "id": "ARC-M4",
+      "title": "Platform adapters and playbooks",
+      "target_outcome": "Windows/Ubuntu evidence adapters and first repair playbooks are usable, with fixture-based test paths available first."
+    },
+    {
+      "id": "ARC-M5",
+      "title": "Hook-ready quality baseline",
+      "target_outcome": "Compatibility hooks, audit-ready outputs and smoke/contract tests are in place."
+    }
   ],
   "groups": [
     {
-      "id": "UPT-FOUNDATION",
+      "id": "ARC-FOUNDATION",
       "priority": "P0",
-      "title": "Grundmodell und Prioritaetslogik",
+      "title": "Shared foundation and diagnosis baseline",
       "tasks": [
         {
-          "id": "UPT-T01",
-          "title": "Instruction layer model define",
+          "id": "ARC-T01",
+          "title": "Use-case and shared mode definition",
           "status": "done",
           "priority": "P0",
+          "depends_on": [],
           "acceptance_criteria": [
-            "A clear layer model is defined for system/governance, blueprint or role template, user profile prompt, task/session overlay and current goal input.",
-            "The model is short enough to explain in docs and UI.",
-            "The model avoids one giant merged prompt concept."
+            "Admin repair mode is documented as shared feature foundation for product line and future KRITIS line.",
+            "Windows 11 and Ubuntu diagnosis scope is explicit.",
+            "Review-first behavior is default and autonomous unrestricted shell behavior is excluded.",
+            "The mode is explicitly marked as not KRITIS-hardened yet."
           ]
         },
         {
-          "id": "UPT-T02",
-          "title": "Precedence and conflict rules define",
+          "id": "ARC-T02",
+          "title": "CLI entrypoint and mode options",
           "status": "done",
           "priority": "P0",
+          "depends_on": ["ARC-T01"],
           "acceptance_criteria": [
-            "A precedence order is defined for all instruction layers.",
-            "Conflicts between user profile and task overlay are handled predictably.",
-            "Governance and security policy remain highest priority and cannot be overridden by user layers."
+            "A discoverable CLI entrypoint exists for diagnose/repair mode.",
+            "Dry-run and bounded execution options are available at entry level.",
+            "Help text explains shared foundation scope and deferred KRITIS hardening.",
+            "Help text warns that mutation-capable repair remains preview-first and bounded."
           ]
         },
         {
-          "id": "UPT-T03",
-          "title": "Allowed versus forbidden user influence scope define",
+          "id": "ARC-T03",
+          "title": "OS detection and environment summary",
           "status": "done",
           "priority": "P0",
+          "depends_on": ["ARC-T02"],
           "acceptance_criteria": [
-            "The system defines what user prompts may influence such as style, language, detail level or working mode.",
-            "The system defines what they may not override such as approval requirements, security policy and hard governance constraints.",
-            "The scope is explicit and testable."
+            "CLI detects Windows 11 vs Ubuntu reliably for supported paths.",
+            "Environment summary includes shell/runtime/package/service basics.",
+            "Summary is shown before planning mutations.",
+            "Unsupported or unknown environments degrade into diagnosis-only behavior."
           ]
         },
         {
-          "id": "UPT-T04",
-          "title": "Terminology cleanup decide",
+          "id": "ARC-T04",
+          "title": "Bounded evidence collection contract",
           "status": "done",
-          "priority": "P1",
+          "priority": "P0",
+          "depends_on": ["ARC-T01"],
           "acceptance_criteria": [
-            "A decision is made whether these features are named user profile prompt, preference profile, operating profile, task overlay or similar.",
-            "The chosen terminology is consistent across backend, UI, docs and API.",
-            "The naming reduces confusion with role templates or blueprint templates."
+            "Allowed evidence sources and bounded collection rules are explicit.",
+            "Sensitive/irrelevant data is redacted or excluded by default.",
+            "Evidence list is visible and reviewable before repair actions.",
+            "The first implementation may use fixture/mock evidence adapters before platform-specific live collection is enabled."
+          ]
+        },
+        {
+          "id": "ARC-T07",
+          "title": "Problem taxonomy for admin repair",
+          "status": "done",
+          "priority": "P0",
+          "depends_on": ["ARC-T04"],
+          "acceptance_criteria": [
+            "Problem classes cover package/runtime, PATH, permissions, services, ports and container/runtime setup issues.",
+            "Taxonomy supports diagnosis, routing and repair planning.",
+            "Taxonomy wording is platform-neutral with OS-specific examples.",
+            "Each class can later map to deterministic repair signatures without requiring a separate model rewrite."
+          ]
+        },
+        {
+          "id": "ARC-T08",
+          "title": "Diagnosis artifact model",
+          "status": "done",
+          "priority": "P0",
+          "depends_on": ["ARC-T03", "ARC-T07"],
+          "acceptance_criteria": [
+            "Diagnosis artifact includes likely causes, evidence links, confidence and next steps.",
+            "Artifact is readable for operators and reusable in follow-up planning.",
+            "Artifact structure is stable enough for later contract testing.",
+            "Artifact can be generated from fixture/mock evidence to support safe development before live adapters."
+          ]
+        },
+        {
+          "id": "ARC-T23",
+          "title": "Repair action schema hooks prepare",
+          "status": "done",
+          "priority": "P0",
+          "depends_on": ["ARC-T08"],
+          "acceptance_criteria": [
+            "Repair actions carry hook-ready fields: risk_class, requires_approval, dry_run_supported, verification_required, mutation_candidate.",
+            "Repair actions also carry evidence_sources, execution_scope, audit_hint, repair_action_class, affected_targets, expected_verification.",
+            "Fields are informational in this phase and do not force full KRITIS gating yet.",
+            "The schema avoids repair-specific security concepts that would conflict with later Audit, MutationGate, ApprovalPolicy or sandboxing."
           ]
         }
       ]
     },
     {
-      "id": "UPT-USER-PROFILE",
+      "id": "ARC-REPAIR-FLOW",
       "priority": "P0",
-      "title": "Persistenter User Profile Prompt",
+      "title": "Planning execution verification flow",
       "tasks": [
         {
-          "id": "UPT-T05",
-          "title": "User profile prompt data model add",
+          "id": "ARC-T09",
+          "title": "Bounded repair plan generation",
           "status": "done",
           "priority": "P0",
+          "depends_on": ["ARC-T08"],
           "acceptance_criteria": [
-            "A persistent user profile prompt model exists in the backend.",
-            "The model can store prompt content, metadata, owner and active/inactive state.",
-            "The model is compatible with future multi-profile support."
+            "Diagnosis can be transformed into ordered bounded repair actions.",
+            "Each action includes expected effect and verification hint.",
+            "Plan distinguishes low-risk suggestions from higher-risk mutation candidates.",
+            "Generated plans prefer inspect, explain and dry-run steps before mutation-capable steps."
           ]
         },
         {
-          "id": "UPT-T06",
-          "title": "Multiple user profiles support design",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The design supports more than one profile per user such as coding, research or strict mode.",
-            "One profile can be marked default.",
-            "The design remains simple enough for first implementation."
-          ]
-        },
-        {
-          "id": "UPT-T07",
-          "title": "CRUD API for user profiles implement",
+          "id": "ARC-T10",
+          "title": "Advisory repair action classification policy",
           "status": "done",
           "priority": "P0",
+          "depends_on": ["ARC-T09"],
           "acceptance_criteria": [
-            "Users can create, read, update and select their own profile prompts through an API.",
-            "Permissions prevent users from editing others' profile prompts unless explicitly allowed.",
-            "The API behavior is validated by tests."
+            "Actions are classified into advisory classes such as allow, confirm-required and blocked.",
+            "Classification maps to risk_class, requires_approval and execution_scope fields.",
+            "Classification is hook-ready and advisory in this track unless existing guardrails already enforce it.",
+            "Policy is compatible with future ApprovalPolicy/MutationGate integration without becoming a separate repair-specific security layer."
           ]
         },
         {
-          "id": "UPT-T08",
-          "title": "Safe defaults for empty user profile define",
+          "id": "ARC-T11",
+          "title": "Dry-run by default for repair plans",
+          "status": "done",
+          "priority": "P0",
+          "depends_on": ["ARC-T09", "ARC-T10"],
+          "acceptance_criteria": [
+            "Repair plans can be previewed without mutation.",
+            "Planned commands/actions are explicit and inspectable.",
+            "dry_run_supported is surfaced per action.",
+            "Mutation-capable actions must have a preview form or be marked as not executable in this phase."
+          ]
+        },
+        {
+          "id": "ARC-T12",
+          "title": "Bounded step-confirmed execution mode",
+          "status": "done",
+          "priority": "P0",
+          "depends_on": ["ARC-T10", "ARC-T11"],
+          "acceptance_criteria": [
+            "Actions can be executed one step at a time with explicit confirmation.",
+            "Execution supports only bounded, modeled and previewed actions in this phase.",
+            "Accepted, skipped and blocked actions are recorded.",
+            "Execution can be stopped safely between steps.",
+            "The implementation does not provide unrestricted autonomous shell repair."
+          ]
+        },
+        {
+          "id": "ARC-T13",
+          "title": "Post-repair verification phase",
+          "status": "done",
+          "priority": "P0",
+          "depends_on": ["ARC-T12"],
+          "acceptance_criteria": [
+            "Verification checks run after executed actions.",
+            "Result states clearly: resolved, improved, unchanged or regressed.",
+            "verification_required and expected_verification are reflected in results.",
+            "Command success alone is not treated as proof of repair success when verification is required."
+          ]
+        },
+        {
+          "id": "ARC-T18",
+          "title": "Rollback and caution model",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T10"],
           "acceptance_criteria": [
-            "The system behaves predictably when no user profile prompt exists.",
-            "Empty profile state does not degrade into strange hidden defaults.",
-            "The default is documented."
+            "Reversible vs non-reversible actions are explicit in plan output.",
+            "High-risk mutation_candidate actions show stronger caution language.",
+            "Rollback limitations are visible before confirmation.",
+            "Missing rollback support prevents the system from presenting a risky action as safe."
           ]
         },
         {
-          "id": "UPT-T09",
-          "title": "Profile examples package add",
+          "id": "ARC-T24",
+          "title": "Future hardening bridge contracts",
           "status": "done",
-          "priority": "P2",
+          "priority": "P0",
+          "depends_on": ["ARC-T10", "ARC-T13", "ARC-T23"],
           "acceptance_criteria": [
-            "A few safe example profiles exist such as concise coding, research helper or review-first.",
-            "Examples do not encourage bypassing governance.",
-            "Examples help users understand the feature."
+            "Repair action and verification outputs expose stable identifiers for later Audit and MutationGate linkage.",
+            "Approval-ready metadata is emitted without enforcing full KRITIS workflow now.",
+            "No second orchestration loop is introduced; hub remains control plane.",
+            "Later KRITIS hardening can attach Audit, MutationGate, ApprovalPolicy and sandboxing without replacing the repair action model."
           ]
         }
       ]
     },
     {
-      "id": "UPT-TASK-OVERLAY",
-      "priority": "P0",
-      "title": "Task Session Usage Overlay",
-      "tasks": [
-        {
-          "id": "UPT-T10",
-          "title": "Task or session overlay data model add",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A distinct data model exists for a task/session/usage overlay.",
-            "The model is separate from the persistent user profile prompt.",
-            "The model can be attached to goal, task, session or explicit usage flow."
-          ]
-        },
-        {
-          "id": "UPT-T11",
-          "title": "Overlay attachment points define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The system defines which objects can carry an overlay such as goal, task, session or project context.",
-            "The attachment rules are explicit and avoid ambiguity.",
-            "The first release supports a practical subset of attachment points."
-          ]
-        },
-        {
-          "id": "UPT-T12",
-          "title": "Overlay lifecycle define",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The system defines when an overlay begins, expires and stops applying.",
-            "The lifecycle distinguishes one-shot use, session use and project-scoped use.",
-            "Overlay lifetime is visible to the user."
-          ]
-        },
-        {
-          "id": "UPT-T13",
-          "title": "CRUD and selection API for overlays implement",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The backend supports creating, reading, updating and attaching overlays.",
-            "The API clearly distinguishes overlays from user profiles.",
-            "The flow is testable and auditable."
-          ]
-        },
-        {
-          "id": "UPT-T14",
-          "title": "Overlay visibility in task and goal read models add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Relevant read models expose which overlay is active for a goal, task or session.",
-            "Users can see that an overlay is in effect.",
-            "The output is understandable and not too verbose."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "UPT-GOVERNANCE-SAFETY",
-      "priority": "P0",
-      "title": "Governance und Sicherheitsgrenzen",
-      "tasks": [
-        {
-          "id": "UPT-T15",
-          "title": "Governance override prevention implement",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "User profile prompts and task overlays cannot override approval, policy or hard safety constraints.",
-            "The enforcement is backend-side and not only UI-side.",
-            "Violations are blocked explicitly."
-          ]
-        },
-        {
-          "id": "UPT-T16",
-          "title": "Prompt layer validation rules add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The system validates profile prompts and overlays for forbidden directives where applicable.",
-            "Validation behavior is explicit and not surprising.",
-            "The validation can evolve without breaking the full model."
-          ]
-        },
-        {
-          "id": "UPT-T17",
-          "title": "Audit integration for profile and overlay usage add",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "Audit records show whether a user profile prompt or task overlay influenced an operation.",
-            "Audit output identifies which profile or overlay was active.",
-            "The feature supports later incident reconstruction."
-          ]
-        },
-        {
-          "id": "UPT-T18",
-          "title": "Redaction strategy for stored prompts define",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Stored user profile prompts and overlays follow a redaction/storage policy where needed.",
-            "Sensitive content is handled safely in logs and audit views.",
-            "The policy is aligned with broader Ananta redaction behavior."
-          ]
-        },
-        {
-          "id": "UPT-T19",
-          "title": "Policy conflict feedback UX define",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Users receive understandable feedback when their profile or overlay conflicts with governance.",
-            "The feedback is helpful rather than cryptic.",
-            "The UX does not imply that policy can simply be ignored."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "UPT-RUNTIME-ASSEMBLY",
-      "priority": "P0",
-      "title": "Laufzeit-Zusammenbau der Instruction Layers",
-      "tasks": [
-        {
-          "id": "UPT-T20",
-          "title": "Instruction assembly service implement",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A central service assembles the active instruction stack from all relevant layers.",
-            "Assembly does not happen ad hoc in many places.",
-            "The service is testable and explainable."
-          ]
-        },
-        {
-          "id": "UPT-T21",
-          "title": "Layer merge strategy define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The system defines whether layers are concatenated, normalized, structured or merged in another controlled way.",
-            "The merge strategy preserves governance precedence.",
-            "The result avoids chaotic prompt stacking."
-          ]
-        },
-        {
-          "id": "UPT-T22",
-          "title": "Structured instruction rendering add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The assembled instruction set can be represented in a structured internal form before final rendering.",
-            "The approach supports future explainability and diagnostics.",
-            "The structure remains practical."
-          ]
-        },
-        {
-          "id": "UPT-T23",
-          "title": "Context-aware scope selection add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The runtime can decide which user profile and which overlay apply in a given execution context.",
-            "The choice is deterministic and visible in diagnostics.",
-            "The logic handles missing or ambiguous context cleanly."
-          ]
-        },
-        {
-          "id": "UPT-T24",
-          "title": "Instruction stack diagnostics add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Operators or advanced users can inspect the effective instruction stack summary.",
-            "The diagnostics show which layers were applied and which were suppressed.",
-            "The output remains safe and readable."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "UPT-UI-AND-UX",
+      "id": "ARC-PLATFORM-ADAPTERS",
       "priority": "P1",
-      "title": "UI und Nutzbarkeit",
+      "title": "Windows Ubuntu adapters and playbooks",
       "tasks": [
         {
-          "id": "UPT-T25",
-          "title": "User profile management UI add",
+          "id": "ARC-T05",
+          "title": "Windows evidence adapters",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T04"],
           "acceptance_criteria": [
-            "The UI allows users to create and manage their persistent profiles.",
-            "The UI makes profile purpose and active/default state clear.",
-            "The UI remains simple enough for real use."
+            "Windows evidence adapters collect bounded event/service/runtime context.",
+            "Collection errors degrade cleanly and remain visible.",
+            "Evidence is normalized into artifacts and evidence_sources.",
+            "Live collection can be disabled or replaced by fixture input for tests and demos."
           ]
         },
         {
-          "id": "UPT-T26",
-          "title": "Task overlay editor UI add",
+          "id": "ARC-T06",
+          "title": "Ubuntu evidence adapters",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T04"],
           "acceptance_criteria": [
-            "Users can attach an overlay while creating or editing a goal/task/session where applicable.",
-            "The UI clearly distinguishes overlay from persistent user profile.",
-            "The active overlay is visible."
+            "Ubuntu evidence adapters collect bounded journal/service/package context.",
+            "Collection errors degrade cleanly and remain visible.",
+            "Evidence is normalized into artifacts and evidence_sources.",
+            "Live collection can be disabled or replaced by fixture input for tests and demos."
           ]
         },
         {
-          "id": "UPT-T27",
-          "title": "Effective instruction summary UI add",
+          "id": "ARC-T14",
+          "title": "Windows repair playbooks",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T05", "ARC-T09"],
           "acceptance_criteria": [
-            "The user can inspect a summary of the effective instruction stack before or during execution.",
-            "The summary is understandable without showing raw internals only.",
-            "The UI helps build trust."
+            "Initial Windows playbooks cover runtime/path, service and container/WSL-like issues.",
+            "Playbooks produce bounded action plans with affected_targets.",
+            "Playbooks stay compatible with dry-run and confirmation flow.",
+            "Playbooks avoid speculative or broad system mutation."
           ]
         },
         {
-          "id": "UPT-T28",
-          "title": "Profile and overlay templates or presets add",
+          "id": "ARC-T15",
+          "title": "Ubuntu repair playbooks",
           "status": "done",
-          "priority": "P2",
+          "priority": "P1",
+          "depends_on": ["ARC-T06", "ARC-T09"],
           "acceptance_criteria": [
-            "The UI can offer a few presets to accelerate adoption.",
-            "Presets are safe and aligned with product use cases.",
-            "Users can adapt them rather than starting from scratch every time."
-          ]
-        },
-        {
-          "id": "UPT-T29",
-          "title": "First-run guidance for user profile prompts add",
-          "status": "done",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "New users get a lightweight explanation of the difference between profile and overlay.",
-            "The guidance helps avoid misuse.",
-            "The first-run experience stays compact."
+            "Initial Ubuntu playbooks cover apt/dpkg, service and runtime/toolchain issues.",
+            "Playbooks produce bounded action plans with affected_targets.",
+            "Playbooks stay compatible with dry-run and confirmation flow.",
+            "Playbooks avoid speculative or broad system mutation."
           ]
         }
       ]
     },
     {
-      "id": "UPT-INTEGRATION-WITH-BLUEPRINTS",
+      "id": "ARC-UX-DOCS-QUALITY",
       "priority": "P1",
-      "title": "Integration mit Blueprints Templates Goals",
+      "title": "Operator UX observability docs and quality",
       "tasks": [
         {
-          "id": "UPT-T30",
-          "title": "Blueprint interaction rules define",
+          "id": "ARC-T16",
+          "title": "Admin-facing output structure",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T08", "ARC-T09"],
           "acceptance_criteria": [
-            "The system defines how user profiles and overlays interact with blueprints and role templates.",
-            "The rules avoid ambiguity between product-level defaults and user-level preferences.",
-            "The interaction model is documented."
+            "CLI output separates diagnosis, plan, risk and verification clearly.",
+            "Raw log dumps are contextualized with concise interpretation.",
+            "Output remains readable in terminal-first workflows.",
+            "Output makes advisory vs enforced decisions visibly distinct."
           ]
         },
         {
-          "id": "UPT-T31",
-          "title": "Goal input schema integration add",
+          "id": "ARC-T17",
+          "title": "Audit-ready repair session trail",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T10", "ARC-T12"],
           "acceptance_criteria": [
-            "Relevant goal input flows can carry overlay or profile selection explicitly.",
-            "The schema remains usable and not bloated.",
-            "The change is reflected consistently in API and UI."
+            "Session records include evidence, proposed actions, confirmations and verification outcomes.",
+            "audit_hint is emitted per action/session for later KRITIS audit integration.",
+            "Sensitive material handling remains explicit.",
+            "Session trail is useful even before the full KRITIS audit subsystem is attached."
           ]
         },
         {
-          "id": "UPT-T32",
-          "title": "Role template compatibility checks add",
-          "status": "done",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "The system can detect when a user profile or overlay is incompatible with a role or template context.",
-            "The system can warn or block appropriately.",
-            "The behavior is understandable to admins and users."
-          ]
-        },
-        {
-          "id": "UPT-T33",
-          "title": "Task and session reuse flows add",
-          "status": "done",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "Existing tasks or sessions can reuse an existing overlay where appropriate.",
-            "Reuse remains explicit rather than magical.",
-            "The feature supports recurring workflows."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "UPT-TESTING-DOCS",
-      "priority": "P1",
-      "title": "Tests Doku Rollout",
-      "tasks": [
-        {
-          "id": "UPT-T34",
-          "title": "Unit and contract tests for instruction precedence add",
+          "id": "ARC-T19",
+          "title": "Golden path Windows",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T05", "ARC-T16"],
           "acceptance_criteria": [
-            "Tests prove precedence and conflict rules across all instruction layers.",
-            "Governance override prevention is covered explicitly.",
-            "Regression risk is reduced."
+            "One reproducible Windows flow exists from evidence to verification.",
+            "Flow documents where confirmation gates occur.",
+            "Flow demonstrates shared foundation behavior without full KRITIS enforcement.",
+            "Flow can run from fixture evidence if live Windows collection is unavailable."
           ]
         },
         {
-          "id": "UPT-T35",
-          "title": "Integration tests for profile plus overlay flows add",
+          "id": "ARC-T20",
+          "title": "Golden path Ubuntu",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T06", "ARC-T16"],
           "acceptance_criteria": [
-            "End-to-end tests cover profile selection, overlay attachment and resulting execution behavior.",
-            "The tests verify that effective instructions are applied correctly.",
-            "The suite includes negative cases."
+            "One reproducible Ubuntu flow exists from evidence to verification.",
+            "Flow documents where confirmation gates occur.",
+            "Flow demonstrates shared foundation behavior without full KRITIS enforcement.",
+            "Flow can run from fixture evidence if live Ubuntu collection is unavailable."
           ]
         },
         {
-          "id": "UPT-T36",
-          "title": "Authoring guide for user profiles and overlays write",
+          "id": "ARC-T21",
+          "title": "Contract and smoke tests",
           "status": "done",
           "priority": "P1",
+          "depends_on": ["ARC-T11", "ARC-T12", "ARC-T13"],
           "acceptance_criteria": [
-            "A guide explains how to write useful profile prompts and overlays.",
-            "The guide includes safe examples and anti-patterns.",
-            "The guide clearly explains that governance remains dominant."
+            "Diagnosis/plan/action/verification output contracts are tested.",
+            "At least one bounded smoke scenario exists for Windows and Ubuntu.",
+            "Tests verify confirmation gating and dry-run behavior.",
+            "Tests verify advisory classification is emitted without pretending to be full KRITIS enforcement.",
+            "Tests prove unrestricted shell repair is not exposed by the shared foundation flow."
           ]
         },
         {
-          "id": "UPT-T37",
-          "title": "Golden path example for persistent profile plus session overlay add",
+          "id": "ARC-T22",
+          "title": "Future extension boundaries",
           "status": "done",
-          "priority": "P1",
+          "priority": "P3",
+          "depends_on": ["ARC-T21"],
           "acceptance_criteria": [
-            "There is one official example showing how a user profile and a task/session overlay work together.",
-            "The example is reproducible.",
-            "The example makes the feature tangible."
-          ]
-        },
-        {
-          "id": "UPT-T38",
-          "title": "Migration and rollout plan define",
-          "status": "done",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "A rollout plan exists for introducing the feature without confusing current users.",
-            "The plan covers defaults, UI exposure and backward compatibility.",
-            "The plan avoids sudden hidden behavior changes."
+            "Future domains (network/container/app-specific repair) stay explicitly outside MVP scope.",
+            "Expansion path is documented without inflating current track complexity.",
+            "Shared foundation stays maintainable and reviewable.",
+            "Future extensions must reuse the same repair action schema instead of creating parallel repair models."
           ]
         }
       ]
     }
   ],
   "execution_order_summary": [
-    "UPT-FOUNDATION first",
-    "Then UPT-USER-PROFILE, UPT-TASK-OVERLAY and UPT-GOVERNANCE-SAFETY",
-    "Then UPT-RUNTIME-ASSEMBLY",
-    "Then UPT-UI-AND-UX and UPT-INTEGRATION-WITH-BLUEPRINTS",
-    "Finish with UPT-TESTING-DOCS"
+    "Start with ARC-FOUNDATION to stabilize shared mode, evidence bounds, fixture-capable diagnosis and diagnosis model.",
+    "Continue with ARC-REPAIR-FLOW to deliver dry-run, advisory classification, bounded step-confirmed execution and verification.",
+    "Build ARC-PLATFORM-ADAPTERS for Windows and Ubuntu evidence/playbook coverage, keeping fixture/mock paths available for safe tests.",
+    "Finish ARC-UX-DOCS-QUALITY with operator output, audit-ready traces, docs and tests.",
+    "Keep KRITIS hardening as next-line integration on top of produced hooks, not in this track."
   ],
   "critical_path_tasks": [
-    "UPT-T01",
-    "UPT-T02",
-    "UPT-T03",
-    "UPT-T05",
-    "UPT-T07",
-    "UPT-T10",
-    "UPT-T11",
-    "UPT-T13",
-    "UPT-T15",
-    "UPT-T17",
-    "UPT-T20",
-    "UPT-T21",
-    "UPT-T23",
-    "UPT-T27",
-    "UPT-T34",
-    "UPT-T35",
-    "UPT-T37"
+    "ARC-T01",
+    "ARC-T02",
+    "ARC-T04",
+    "ARC-T03",
+    "ARC-T07",
+    "ARC-T08",
+    "ARC-T23",
+    "ARC-T09",
+    "ARC-T10",
+    "ARC-T11",
+    "ARC-T12",
+    "ARC-T13",
+    "ARC-T24",
+    "ARC-T21"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T12:30:00+02:00",
-    "total": 38,
+    "updated_at": "2026-04-24T13:40:00+02:00",
+    "total": 24,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 38
+      "done": 24
     },
     "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 12,
-      "P1": 20,
-      "P2": 6,
-      "P3": 0
+      "P0": 13,
+      "P1": 10,
+      "P2": 0,
+      "P3": 1
     },
     "by_group": {
-      "UPT-FOUNDATION": {
+      "ARC-FOUNDATION": {
+        "total": 7,
+        "done": 7,
+        "todo": 0
+      },
+      "ARC-REPAIR-FLOW": {
+        "total": 7,
+        "done": 7,
+        "todo": 0
+      },
+      "ARC-PLATFORM-ADAPTERS": {
         "total": 4,
         "done": 4,
         "todo": 0
       },
-      "UPT-USER-PROFILE": {
-        "total": 5,
-        "done": 5,
-        "todo": 0
-      },
-      "UPT-TASK-OVERLAY": {
-        "total": 5,
-        "done": 5,
-        "todo": 0
-      },
-      "UPT-GOVERNANCE-SAFETY": {
-        "total": 5,
-        "done": 5,
-        "todo": 0
-      },
-      "UPT-RUNTIME-ASSEMBLY": {
-        "total": 5,
-        "done": 5,
-        "todo": 0
-      },
-      "UPT-UI-AND-UX": {
-        "total": 5,
-        "done": 5,
-        "todo": 0
-      },
-      "UPT-INTEGRATION-WITH-BLUEPRINTS": {
-        "total": 4,
-        "done": 4,
-        "todo": 0
-      },
-      "UPT-TESTING-DOCS": {
-        "total": 5,
-        "done": 5,
+      "ARC-UX-DOCS-QUALITY": {
+        "total": 6,
+        "done": 6,
         "todo": 0
       }
     },
     "critical_path": {
-      "total": 17,
-      "done": 17,
+      "total": 14,
+      "done": 14,
       "remaining": 0
     }
   }
