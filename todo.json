@@ -78,7 +78,7 @@
         "CSH-T03",
         "CSH-T04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CSH-M2",
@@ -141,7 +141,7 @@
         "TVM-T05",
         "TVM-T06"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TVM-M2",
@@ -247,7 +247,7 @@
     {
       "id": "CSH-T01",
       "title": "Client surface implementation inventory create",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -259,7 +259,7 @@
     {
       "id": "CSH-T02",
       "title": "Todo completion claims reconcile",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -271,7 +271,7 @@
     {
       "id": "CSH-T03",
       "title": "Client entrypoint audit script add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -283,7 +283,7 @@
     {
       "id": "CSH-T04",
       "title": "Client completion definitions document",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -559,7 +559,7 @@
     {
       "id": "TVM-T01",
       "title": "Runtime evidence inventory finalize",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -571,7 +571,7 @@
     {
       "id": "TVM-T02",
       "title": "Foundation versus runtime status labels normalize",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -583,7 +583,7 @@
     {
       "id": "TVM-T03",
       "title": "Completion definition for plugin and TUI formalize",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -595,7 +595,7 @@
     {
       "id": "TVM-T04",
       "title": "Contract-to-runtime mapping table create",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -607,7 +607,7 @@
     {
       "id": "TVM-T05",
       "title": "Runtime architecture decision record write",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -619,7 +619,7 @@
     {
       "id": "TVM-T06",
       "title": "Repository layout for plugin and TUI runtime create",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -1287,15 +1287,15 @@
     "TVM-T56"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T17:25:57+02:00",
+    "updated_at": "2026-04-24T17:29:43+02:00",
     "total": 82,
     "by_status": {
-      "todo": 82,
+      "todo": 72,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 12.2,
     "by_priority": {
       "P0": 46,
       "P1": 32,
@@ -1310,19 +1310,19 @@
     },
     "critical_path": {
       "total": 38,
-      "done": 0,
-      "remaining": 38
+      "done": 7,
+      "remaining": 31
     },
     "milestones": {
       "total": 13,
-      "todo": 13,
+      "todo": 11,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 2
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T17:25:57+02:00",
+    "updated_at": "2026-04-24T17:29:43+02:00",
     "stages": {
       "CSH-M1_reality_audit_and_status_correction": {
         "scope_task_ids": [
@@ -1332,8 +1332,8 @@
           "CSH-T04"
         ],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -1405,8 +1405,8 @@
           "TVM-T06"
         ],
         "total": 6,
-        "done": 0,
-        "todo": 6,
+        "done": 6,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -1526,6 +1526,9 @@
     }
   },
   "summary_notes": [
+    "Completed in this execution block: CSH-M1 (CSH-T01..T04) and TVM-M1 (TVM-T01..T06).",
+    "Added explicit inventory, reconciliation, completion definitions, contract-runtime mapping, runtime ADR and client-surface layout skeleton.",
+    "Added entrypoint audit script plus tests so runtime claims can be validated against executable evidence.",
     "This merged todo.json unifies the existing client-surface reality-hardening track and the TUI/Vim runtime-delivery track.",
     "Completion claims must stay evidence-driven: foundation contracts are not equivalent to runnable client runtimes.",
     "Use this merged file as the single execution source for client-surface closure before further feature expansion.",
@@ -1535,5 +1538,15 @@
     "This track explicitly captures the currently missing runtime implementation surface for Neovim/Vim plugin and TUI app.",
     "Existing editor-tui foundation contracts remain useful, but are tracked as implementation input rather than completion evidence.",
     "Runtime completion requires executable entrypoints, runnable flows, tests, CI evidence and release artifacts."
-  ]
+  ],
+  "completion_label_scale": [
+    "foundation_complete",
+    "runtime_mvp_complete",
+    "production_ready"
+  ],
+  "completion_label_policy": {
+    "foundation_complete": "contracts_tests_docs_present_without_runtime_entrypoint",
+    "runtime_mvp_complete": "runtime_entrypoint_plus_core_flow_smoke_present",
+    "production_ready": "runtime_mvp_plus_security_ci_packaging_release_evidence"
+  }
 }

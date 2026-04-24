@@ -1,0 +1,40 @@
+{
+  "schema": "client_surfaces_layout_manifest_v1",
+  "layout_version": 1,
+  "directories": [
+    {
+      "path": "client_surfaces/nvim_runtime/lua/ananta",
+      "purpose": "Neovim runtime Lua modules (commands, dispatch, rendering).",
+      "status": "skeleton_created"
+    },
+    {
+      "path": "client_surfaces/nvim_runtime/plugin",
+      "purpose": "Neovim/Vim plugin command registration entrypoints.",
+      "status": "skeleton_created"
+    },
+    {
+      "path": "client_surfaces/vim_compat/plugin",
+      "purpose": "Vim compatibility plugin wrappers.",
+      "status": "skeleton_created"
+    },
+    {
+      "path": "client_surfaces/vim_compat/autoload",
+      "purpose": "Vim compatibility autoload functions.",
+      "status": "skeleton_created"
+    },
+    {
+      "path": "client_surfaces/tui_runtime/ananta_tui",
+      "purpose": "TUI runtime app package and view modules.",
+      "status": "skeleton_created"
+    },
+    {
+      "path": "client_surfaces/tui_runtime/tests",
+      "purpose": "TUI runtime-specific tests.",
+      "status": "skeleton_created"
+    }
+  ],
+  "notes": [
+    "Skeleton directories are intentionally runtime-ready but do not yet imply runnable implementation.",
+    "Runtime completion is tracked by TVM tasks and completion definitions."
+  ]
+}
