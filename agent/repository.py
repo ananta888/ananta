@@ -20,6 +20,7 @@ from agent.repositories import (
     EvolutionProposalRepository,
     EvolutionRunRepository,
     GoalRepository,
+    InstructionOverlayRepository,
     KnowledgeCollectionRepository,
     KnowledgeIndexRepository,
     KnowledgeIndexRunRepository,
@@ -42,6 +43,7 @@ from agent.repositories import (
     TeamTypeRepository,
     TeamTypeRoleLinkRepository,
     TemplateRepository,
+    UserInstructionProfileRepository,
     UserRepository,
     VerificationRecordRepository,
     RetrievalRunRepository,
@@ -62,6 +64,8 @@ knowledge_collection_repo = KnowledgeCollectionRepository()
 knowledge_index_repo = KnowledgeIndexRepository()
 knowledge_index_run_repo = KnowledgeIndexRunRepository()
 knowledge_link_repo = KnowledgeLinkRepository()
+user_instruction_profile_repo = UserInstructionProfileRepository()
+instruction_overlay_repo = InstructionOverlayRepository()
 retrieval_run_repo = RetrievalRunRepository()
 context_bundle_repo = ContextBundleRepository()
 worker_job_repo = WorkerJobRepository()
@@ -113,6 +117,7 @@ __all__ = [
     "KnowledgeIndexRepository",
     "KnowledgeIndexRunRepository",
     "KnowledgeLinkRepository",
+    "InstructionOverlayRepository",
     "LoginAttemptRepository",
     "MemoryEntryRepository",
     "PasswordHistoryRepository",
@@ -131,6 +136,7 @@ __all__ = [
     "TeamTypeRepository",
     "TeamTypeRoleLinkRepository",
     "TemplateRepository",
+    "UserInstructionProfileRepository",
     "UserRepository",
     "VerificationRecordRepository",
     "RetrievalRunRepository",
@@ -155,6 +161,7 @@ __all__ = [
     "knowledge_index_repo",
     "knowledge_index_run_repo",
     "knowledge_link_repo",
+    "instruction_overlay_repo",
     "login_attempt_repo",
     "memory_entry_repo",
     "password_history_repo",
@@ -174,6 +181,7 @@ __all__ = [
     "team_type_repo",
     "team_type_role_link_repo",
     "template_repo",
+    "user_instruction_profile_repo",
     "user_repo",
     "verification_record_repo",
     "worker_job_repo",

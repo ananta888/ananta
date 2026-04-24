@@ -1,0 +1,374 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "reference_profiles_initial_pack",
+  "purpose": "Introduce the first language and framework reference profiles for Ananta so new-project and project-evolution flows can use curated real-world reference systems instead of relying only on generic language knowledge.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "Provide a first practical reference-pack system using Keycloak for Java and Ananta itself for Python backend and Angular frontend so Ananta can better guide project creation and project evolution in those ecosystems.",
+  "success_criteria": [
+    "The system can recognize and expose initial reference profiles for Java, Python and Angular.",
+    "Reference profiles are used as guidance and retrieval sources, not as blind copy templates.",
+    "New-project and project-evolution flows can choose suitable reference packs explicitly.",
+    "Reference usage remains bounded, explainable and auditable."
+  ],
+  "groups": [
+    {
+      "id": "REF-FOUNDATION",
+      "priority": "P0",
+      "title": "Grundmodell fuer Referenzprofile",
+      "tasks": [
+        {
+          "id": "REF-T01",
+          "title": "Reference profile model define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A reference profile model is defined with fields such as language, framework, project_type, reference_source, strengths, limitations and intended usage.",
+            "The model is small enough for a first implementation.",
+            "The model can grow later without breaking initial profiles."
+          ]
+        },
+        {
+          "id": "REF-T02",
+          "title": "Reference usage boundary define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system explicitly treats references as pattern and architecture guidance rather than blind copy sources.",
+            "The design explains what kinds of reuse are intended such as structure, conventions, layering and test patterns.",
+            "The design avoids presenting references as canonical truth for every project."
+          ]
+        },
+        {
+          "id": "REF-T03",
+          "title": "Reference selection strategy define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first strategy exists for selecting references by language and project type.",
+            "The strategy supports new-project and project-evolution flows.",
+            "The strategy remains deterministic enough for explanation and debugging."
+          ]
+        },
+        {
+          "id": "REF-T04",
+          "title": "Reference provenance and audit visibility define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system can show which reference profile influenced a task or recommendation.",
+            "Reference influence is visible in traces or read models where useful.",
+            "The design supports auditability later."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-STARTER-PROFILES",
+      "priority": "P0",
+      "title": "Erste drei Start-Referenzprofile",
+      "tasks": [
+        {
+          "id": "REF-T05",
+          "title": "Java Keycloak reference profile define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first Java reference profile exists based on Keycloak.",
+            "The profile documents why Keycloak is useful such as large Java codebase, security-heavy architecture and enterprise backend patterns.",
+            "The profile also documents limitations so it is not treated as the universal Java template."
+          ]
+        },
+        {
+          "id": "REF-T06",
+          "title": "Python Ananta backend reference profile define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first Python reference profile exists based on the Ananta backend.",
+            "The profile highlights strengths such as orchestration, API layering, governance-aware backend structure and local runtime integration.",
+            "The profile states clearly for which Python project types it is suitable."
+          ]
+        },
+        {
+          "id": "REF-T07",
+          "title": "Angular Ananta frontend reference profile define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first Angular reference profile exists based on the Ananta frontend.",
+            "The profile highlights strengths such as admin-heavy UI structure, workflow surfaces and Angular application organization.",
+            "The profile documents where it fits and where it does not."
+          ]
+        },
+        {
+          "id": "REF-T08",
+          "title": "Starter reference catalog expose",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The initial three profiles are available through a catalog or read-model surface.",
+            "The catalog is understandable for users and operators.",
+            "The catalog distinguishes language, framework and intended usage."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-RETRIEVAL-AND-PATTERNS",
+      "priority": "P0",
+      "title": "Retrieval und Musterableitung",
+      "tasks": [
+        {
+          "id": "REF-T09",
+          "title": "Reference retrieval entry points define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system defines how reference material enters retrieval and prompt assembly.",
+            "The design is bounded and avoids dumping entire repositories into context.",
+            "Relevant slices can be selected by architecture, file type or use case."
+          ]
+        },
+        {
+          "id": "REF-T10",
+          "title": "Pattern extraction categories define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A small set of pattern categories is defined such as project structure, module organization, configuration style, test structure, API layout and security conventions.",
+            "The categories are reusable across the three initial profiles.",
+            "The categories support meaningful retrieval."
+          ]
+        },
+        {
+          "id": "REF-T11",
+          "title": "Reference chunking and indexing strategy add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Reference repositories can be indexed in a way suitable for bounded retrieval.",
+            "The indexing retains provenance and enough metadata to explain why a chunk was selected.",
+            "The strategy avoids uncontrolled context bloat."
+          ]
+        },
+        {
+          "id": "REF-T12",
+          "title": "Reference recommendation reason output add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "When Ananta uses a reference profile, it can explain why it chose it.",
+            "The explanation includes language, project type and one or more pattern reasons.",
+            "The explanation is compact and useful."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-NEW-PROJECT-INTEGRATION",
+      "priority": "P0",
+      "title": "Integration fuer neues Projekt anlegen",
+      "tasks": [
+        {
+          "id": "REF-T13",
+          "title": "New-project reference selection flow add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The new-project flow can choose or recommend one of the starter reference profiles.",
+            "The recommendation can depend on language and project type.",
+            "The chosen reference remains visible to the user."
+          ]
+        },
+        {
+          "id": "REF-T14",
+          "title": "Blueprint and work-profile integration for references add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Reference profile choice can influence blueprint or work-profile selection where useful.",
+            "The integration stays explicit and explainable.",
+            "Reference usage does not silently override product logic."
+          ]
+        },
+        {
+          "id": "REF-T15",
+          "title": "Reference-aware project skeleton guidance add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "New-project output can use selected reference profiles to suggest structure, modules and conventions.",
+            "The output remains guidance and not a blind clone.",
+            "The result is more concrete than generic language-only advice."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-PROJECT-EVOLUTION-INTEGRATION",
+      "priority": "P0",
+      "title": "Integration fuer existierendes Projekt weiterentwickeln",
+      "tasks": [
+        {
+          "id": "REF-T16",
+          "title": "Project-evolution reference matching add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The project-evolution flow can infer or recommend a matching starter reference profile for the current repository.",
+            "Matching uses at least language and coarse project shape.",
+            "The result can be inspected by the user."
+          ]
+        },
+        {
+          "id": "REF-T17",
+          "title": "Reference-aware review and evolution hints add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "During project evolution, Ananta can use reference profiles to suggest structure, conventions or likely missing patterns.",
+            "Hints are framed as recommendations, not absolute judgments.",
+            "The output is actionable and not vague."
+          ]
+        },
+        {
+          "id": "REF-T18",
+          "title": "Reference-aware diagnostics for mismatch cases add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "The system can indicate when a selected or inferred reference profile fits poorly.",
+            "Mismatch feedback helps prevent forcing bad patterns onto the project.",
+            "The output remains understandable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-GOVERNANCE-SAFETY",
+      "priority": "P1",
+      "title": "Governance und Sicherheitsgrenzen",
+      "tasks": [
+        {
+          "id": "REF-T19",
+          "title": "Reference influence boundaries define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system defines where references may influence recommendations and where they may not bypass governance.",
+            "Reference material cannot override approval, policy or security constraints.",
+            "The boundary is explicit in implementation and docs."
+          ]
+        },
+        {
+          "id": "REF-T20",
+          "title": "Reference source quality rules define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system documents why the chosen starter references are considered high-signal enough for initial use.",
+            "The rules can later help decide which additional references are acceptable.",
+            "The selection process remains curated rather than random."
+          ]
+        },
+        {
+          "id": "REF-T21",
+          "title": "Reference usage audit markers add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "Relevant operations can record which reference profile was used.",
+            "The marker is visible in diagnostics or audit where useful.",
+            "The feature supports later explainability."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-UX-DOCS-TESTING",
+      "priority": "P1",
+      "title": "UX Doku Tests",
+      "tasks": [
+        {
+          "id": "REF-T22",
+          "title": "UI and CLI visibility for reference profiles add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Users can see the selected or recommended reference profile in UI and relevant CLI flows.",
+            "The presentation is compact and useful.",
+            "Users are not surprised by hidden reference influence."
+          ]
+        },
+        {
+          "id": "REF-T23",
+          "title": "Starter reference profile docs write",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Documentation exists for the three starter reference profiles.",
+            "The docs explain strengths, fit and limitations of each profile.",
+            "The docs are useful for users and maintainers."
+          ]
+        },
+        {
+          "id": "REF-T24",
+          "title": "Golden path examples for each starter reference add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "There is one concrete example for Java/Keycloak, Python/Ananta backend and Angular/Ananta frontend usage.",
+            "The examples are tied to new-project or project-evolution flows.",
+            "The examples are reproducible."
+          ]
+        },
+        {
+          "id": "REF-T25",
+          "title": "Tests for reference selection and bounded usage add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Tests protect reference selection logic and bounded retrieval behavior.",
+            "The suite verifies that references are used as guidance rather than uncontrolled full-context injection.",
+            "The suite covers at least one flow per starter profile."
+          ]
+        },
+        {
+          "id": "REF-T26",
+          "title": "Roadmap for later additional references isolate",
+          "status": "todo",
+          "priority": "P3",
+          "acceptance_criteria": [
+            "Further possible references are documented separately from the first rollout.",
+            "The first release stays focused on Keycloak and Ananta as starter references.",
+            "The roadmap does not bloat the MVP."
+          ]
+        }
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "REF-FOUNDATION first",
+    "Then REF-STARTER-PROFILES and REF-RETRIEVAL-AND-PATTERNS",
+    "Then REF-NEW-PROJECT-INTEGRATION and REF-PROJECT-EVOLUTION-INTEGRATION",
+    "Then REF-GOVERNANCE-SAFETY",
+    "Finish with REF-UX-DOCS-TESTING"
+  ],
+  "critical_path_tasks": [
+    "REF-T01",
+    "REF-T02",
+    "REF-T03",
+    "REF-T05",
+    "REF-T06",
+    "REF-T07",
+    "REF-T09",
+    "REF-T10",
+    "REF-T13",
+    "REF-T16",
+    "REF-T19",
+    "REF-T22",
+    "REF-T25"
+  ]
+}

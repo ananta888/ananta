@@ -8,6 +8,7 @@ from agent.db_models import GoalDB
 from agent.services.planning_service import get_goal_feature_flags, get_plan_generation_limits, get_planning_service
 from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
+from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -256,6 +257,7 @@ class GoalService:
         repos = get_repository_registry()
         data = goal.model_dump()
         data["task_count"] = len(repos.task_repo.get_by_goal_id(goal.id))
+        data["instruction_layers"] = get_instruction_layer_service().goal_selection_summary(data)
         return data
 
     def team_scope_allows(self, goal: GoalDB, user_payload: dict[str, Any] | None, is_admin: bool) -> bool:

@@ -55,7 +55,7 @@
         {
           "id": "UPT-T04",
           "title": "Terminology cleanup decide",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "A decision is made whether these features are named user profile prompt, preference profile, operating profile, task overlay or similar.",
@@ -117,7 +117,7 @@
         {
           "id": "UPT-T09",
           "title": "Profile examples package add",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "A few safe example profiles exist such as concise coding, research helper or review-first.",
@@ -230,7 +230,7 @@
         {
           "id": "UPT-T18",
           "title": "Redaction strategy for stored prompts define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Stored user profile prompts and overlays follow a redaction/storage policy where needed.",
@@ -383,7 +383,7 @@
         {
           "id": "UPT-T30",
           "title": "Blueprint interaction rules define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The system defines how user profiles and overlays interact with blueprints and role templates.",
@@ -434,7 +434,7 @@
         {
           "id": "UPT-T34",
           "title": "Unit and contract tests for instruction precedence add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Tests prove precedence and conflict rules across all instruction layers.",
@@ -445,7 +445,7 @@
         {
           "id": "UPT-T35",
           "title": "Integration tests for profile plus overlay flows add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "End-to-end tests cover profile selection, overlay attachment and resulting execution behavior.",
@@ -456,7 +456,7 @@
         {
           "id": "UPT-T36",
           "title": "Authoring guide for user profiles and overlays write",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "A guide explains how to write useful profile prompts and overlays.",
@@ -467,7 +467,7 @@
         {
           "id": "UPT-T37",
           "title": "Golden path example for persistent profile plus session overlay add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "There is one official example showing how a user profile and a task/session overlay work together.",
@@ -478,7 +478,7 @@
         {
           "id": "UPT-T38",
           "title": "Migration and rollout plan define",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "acceptance_criteria": [
             "A rollout plan exists for introducing the feature without confusing current users.",
@@ -516,15 +516,15 @@
     "UPT-T37"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T09:14:50+02:00",
+    "updated_at": "2026-04-24T10:43:00+02:00",
     "total": 38,
     "by_status": {
-      "todo": 38,
+      "todo": 29,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 9
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 23.7,
     "by_priority": {
       "P0": 12,
       "P1": 20,
@@ -534,13 +534,13 @@
     "by_group": {
       "UPT-FOUNDATION": {
         "total": 4,
-        "done": 0,
-        "todo": 4
+        "done": 1,
+        "todo": 3
       },
       "UPT-USER-PROFILE": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 1,
+        "todo": 4
       },
       "UPT-TASK-OVERLAY": {
         "total": 5,
@@ -549,8 +549,8 @@
       },
       "UPT-GOVERNANCE-SAFETY": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 1,
+        "todo": 4
       },
       "UPT-RUNTIME-ASSEMBLY": {
         "total": 5,
@@ -564,19 +564,19 @@
       },
       "UPT-INTEGRATION-WITH-BLUEPRINTS": {
         "total": 4,
-        "done": 0,
-        "todo": 4
+        "done": 1,
+        "todo": 3
       },
       "UPT-TESTING-DOCS": {
         "total": 5,
-        "done": 0,
-        "todo": 5
+        "done": 5,
+        "todo": 0
       }
     },
     "critical_path": {
       "total": 17,
-      "done": 0,
-      "remaining": 17
+      "done": 3,
+      "remaining": 14
     }
   }
 }

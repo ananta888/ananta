@@ -110,6 +110,7 @@ class TaskWorkerContextSummaryContract(SQLModel):
     expected_output_schema: dict = Field(default_factory=dict)
     context_chunk_count: int = 0
     has_context_text: bool = False
+    instruction_layers: dict = Field(default_factory=dict)
 
 
 class TaskArtifactReferenceContract(SQLModel):
@@ -738,6 +739,9 @@ class TaskCreateRequest(SQLModel):
     context_bundle_id: Optional[str] = None
     worker_execution_context: Optional[dict] = None
     current_worker_job_id: Optional[str] = None
+    instruction_owner_username: Optional[str] = None
+    instruction_profile_id: Optional[str] = None
+    instruction_overlay_id: Optional[str] = None
 
 
 class TaskUpdateRequest(SQLModel):
@@ -759,6 +763,10 @@ class TaskUpdateRequest(SQLModel):
     required_context_scope: Optional[str] = None
     preferred_bundle_mode: Optional[str] = None
     required_capabilities: Optional[List[str]] = None
+    worker_execution_context: Optional[dict] = None
+    instruction_owner_username: Optional[str] = None
+    instruction_profile_id: Optional[str] = None
+    instruction_overlay_id: Optional[str] = None
 
 
 class TaskAssignmentRequest(SQLModel):
@@ -815,6 +823,9 @@ class GoalCreateRequest(SQLModel):
     workflow: dict = Field(default_factory=dict)
     mode: Optional[str] = "generic"
     mode_data: dict = Field(default_factory=dict)
+    instruction_owner_username: Optional[str] = None
+    instruction_profile_id: Optional[str] = None
+    instruction_overlay_id: Optional[str] = None
 
 
 class SgptExecuteRequest(SQLModel):
