@@ -1,453 +1,437 @@
 {
-  "version": 2,
+  "version": 3,
   "owner": "ananta",
-  "track": "implementation_verification_test_hardening",
-  "purpose": "Verify that recently implemented Ananta features are real, runnable and safely integrated by expanding unit, integration, contract, smoke and e2e coverage, with special focus on TUI and Eclipse plugin claims.",
+  "track": "client_runtime_test_hardening",
+  "purpose": "Verify the completed client runtime delivery for TUI, Neovim/Vim and Eclipse with unit, integration, smoke, e2e, security and release-gate tests.",
+  "assumption": "todo.json track client_runtime_delivery_after_skeletons is fully implemented correctly before this test track is executed.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Before merging feature-driven work to main, Ananta must distinguish real runnable features from foundation-only work and prove core behavior through automated tests, manual smoke checks and explicit release gates.",
+
+  "goal": "Prove that the implemented TUI, Neovim/Vim and Eclipse client surfaces are runnable, thin, safe, test-covered and merge-ready.",
+
   "success_criteria": [
-    "The test suite clearly verifies implemented behavior instead of only testing design helpers or static contracts.",
-    "TUI functionality is either proven runnable through tests/smoke checks or explicitly reclassified as foundation-only.",
-    "Eclipse plugin functionality is either proven as an actual plugin project or explicitly reclassified as adapter foundation-only.",
-    "Core flows have unit, integration and e2e/smoke coverage for success, failure and degraded states.",
-    "Merge readiness is based on executable evidence, not only completed todo status."
+    "TUI runtime starts in automated or scripted smoke mode.",
+    "Neovim plugin loads headlessly and exposes expected Ananta commands.",
+    "Vim compatibility is either tested or explicitly marked deferred and enforced.",
+    "Eclipse plugin project existence/build/install path is tested or explicitly deferred/blocked according to runtime inventory.",
+    "All client surfaces use backend APIs and cannot bypass policy, approval, audit or bounded-context rules.",
+    "Golden path tests verify client goal submission to task/artifact result with mocked worker/LLM execution.",
+    "Release gate blocks false runtime claims."
   ],
+
   "architecture_guardrails": [
-    "Tests must not mark features as complete if no executable entrypoint or real integration exists.",
-    "Foundation, contract, documentation and real runnable implementation must be classified separately.",
-    "Safety, approval, audit and verification behavior must include negative tests.",
-    "TUI and Eclipse tests must avoid silently validating only backend placeholder services."
+    "Tests must verify executable behavior, not only foundation services.",
+    "Tests must fail on .keep-only or docs-only client surfaces if runtime_mvp is claimed.",
+    "No test may treat foundation_only as runtime_complete.",
+    "Security and approval tests must include negative cases.",
+    "Manual smoke checks are allowed only where automation is impractical, and must be explicitly marked."
   ],
+
   "milestones": [
     {
       "id": "TEST-M1",
-      "title": "Reality audit and classification",
+      "title": "Runtime evidence and audit verification",
       "task_ids": ["TEST-T01", "TEST-T02", "TEST-T03", "TEST-T04"],
       "status": "todo"
     },
     {
       "id": "TEST-M2",
-      "title": "Core backend unit and contract coverage",
-      "task_ids": ["TEST-T05", "TEST-T06", "TEST-T07", "TEST-T08", "TEST-T09"],
+      "title": "Shared client contract and security tests",
+      "task_ids": ["TEST-T05", "TEST-T06", "TEST-T07", "TEST-T08"],
       "status": "todo"
     },
     {
       "id": "TEST-M3",
-      "title": "Integration and e2e coverage",
-      "task_ids": ["TEST-T10", "TEST-T11", "TEST-T12", "TEST-T13", "TEST-T14"],
+      "title": "TUI runtime tests",
+      "task_ids": ["TEST-T09", "TEST-T10", "TEST-T11", "TEST-T12"],
       "status": "todo"
     },
     {
       "id": "TEST-M4",
-      "title": "TUI verification",
-      "task_ids": ["TEST-T15", "TEST-T16", "TEST-T17", "TEST-T18", "TEST-T19"],
+      "title": "Neovim and Vim runtime tests",
+      "task_ids": ["TEST-T13", "TEST-T14", "TEST-T15", "TEST-T16"],
       "status": "todo"
     },
     {
       "id": "TEST-M5",
-      "title": "Eclipse plugin verification",
-      "task_ids": ["TEST-T20", "TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24"],
+      "title": "Eclipse plugin tests",
+      "task_ids": ["TEST-T17", "TEST-T18", "TEST-T19", "TEST-T20"],
       "status": "todo"
     },
     {
       "id": "TEST-M6",
-      "title": "Release gate and merge readiness",
-      "task_ids": ["TEST-T25", "TEST-T26", "TEST-T27", "TEST-T28"],
+      "title": "End-to-end and merge readiness",
+      "task_ids": ["TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24", "TEST-T25"],
       "status": "todo"
     }
   ],
+
   "tasks": [
     {
       "id": "TEST-T01",
-      "title": "Feature reality inventory create",
+      "title": "Runtime inventory evidence tests add",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "A machine-readable or documented inventory classifies recent features as real_implementation, foundation_only, docs_only, test_only or missing.",
-        "The inventory covers deterministic repair, instruction layers, tool routing, context manager, TUI, Neovim/Vim, Eclipse plugin and Eclipse extended views.",
-        "No feature may remain ambiguously marked as done without implementation evidence."
+        "Tests verify data/client_surface_runtime_inventory.json contains runtime evidence for every surface classified as runtime_mvp or runtime_complete.",
+        "Tests fail if runtime evidence contains only .keep files, docs or foundation services.",
+        "Tests verify TUI, Neovim/Vim and Eclipse status values match actual repository artifacts."
       ]
     },
     {
       "id": "TEST-T02",
-      "title": "Executable entrypoint audit add",
+      "title": "Client surface audit script tests expand",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "A script or test checks for real executable entrypoints for TUI, CLI, plugin or service features where claimed.",
-        "The audit fails or warns when todo status claims a runnable feature but only foundation services or docs exist.",
-        "The audit output is suitable for release review."
+        "tests/test_audit_client_surface_entrypoints.py covers CRT task mappings.",
+        "Tests verify audit_client_surface_entrypoints.py fails on skeleton-only runtime claims.",
+        "Tests verify audit passes when real runtime files and required commands/build metadata exist."
       ]
     },
     {
       "id": "TEST-T03",
-      "title": "Todo status versus implementation evidence check add",
+      "title": "Todo summary consistency tests add",
       "status": "todo",
-      "priority": "P0",
-      "risk": "high",
+      "priority": "P1",
+      "risk": "medium",
       "acceptance_criteria": [
-        "A validation check compares done tasks against expected files, entrypoints, tests or docs evidence.",
-        "The check can flag likely false-positive done tasks such as Eclipse plugin done without plugin.xml or TUI done without a TUI entrypoint.",
-        "The check is documented and can be run locally before merge."
+        "Tests verify tasks_status_summary matches actual task counts.",
+        "Tests verify milestone and execution_stage_summary counters match referenced task IDs.",
+        "Tests fail if done/todo counters drift from real task status."
       ]
     },
     {
       "id": "TEST-T04",
-      "title": "Foundation-only reclassification rules define",
+      "title": "Documentation command verification add",
       "status": "todo",
-      "priority": "P0",
-      "risk": "high",
+      "priority": "P1",
+      "risk": "medium",
       "acceptance_criteria": [
-        "Rules define when a feature must be called foundation-only instead of complete.",
-        "TUI, Eclipse plugin and editor integration tracks have explicit completion definitions.",
-        "The rules are added to release or contributor documentation."
+        "Documented TUI start command is validated or explicitly marked manual.",
+        "Documented Neovim/Vim load/test commands are validated or explicitly marked manual.",
+        "Documented Eclipse build/install commands are validated or explicitly marked manual/deferred."
       ]
     },
 
     {
       "id": "TEST-T05",
-      "title": "Deterministic repair negative unit tests expand",
+      "title": "External client API contract tests add",
       "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "acceptance_criteria": [
-        "Tests cover unsafe action rejection, low-confidence handling, failed verification and abort conditions.",
-        "Tests verify that approval-required repair steps cannot execute without approval.",
-        "Tests verify that audit and outcome memory are updated for success and failure cases."
+        "Contract tests cover health, capabilities, goals, tasks, artifacts, approvals, traces and errors.",
+        "Tests verify fields used by TUI, Neovim/Vim and Eclipse clients remain stable.",
+        "Tests include degraded-state response shapes."
       ]
     },
     {
       "id": "TEST-T06",
-      "title": "Approval policy unit tests expand",
+      "title": "Client auth and degraded-state tests add",
       "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "acceptance_criteria": [
-        "Tests cover allow, deny, approval-required and capability-missing cases.",
-        "Tests verify fail-closed behavior for unknown or malformed actions.",
-        "Tests cover repair, task execution and IDE-originated operations."
+        "Tests cover missing token, invalid token, backend unreachable and capability missing.",
+        "Tests verify each client receives explicit degraded state rather than success.",
+        "Tests verify no token or secret appears in rendered errors/logs."
       ]
     },
     {
       "id": "TEST-T07",
-      "title": "Instruction layer and profile precedence tests add",
+      "title": "Bounded context and provenance tests add",
       "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
+      "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "Tests verify stable precedence between system, user profile, task overlay and session instructions.",
-        "Tests verify that user/task overlays cannot override governance, approval or safety rules.",
-        "Tests cover invalid, missing and conflicting instruction-layer input."
+        "Tests cover selection, current file, buffer excerpt and project metadata packaging.",
+        "Tests verify payload size limits.",
+        "Tests verify provenance metadata is present.",
+        "Tests verify unrelated files and likely secrets are not silently included."
       ]
     },
     {
       "id": "TEST-T08",
-      "title": "Tool routing and doom-loop tests expand",
+      "title": "Client-originated policy and approval tests add",
       "status": "todo",
-      "priority": "P1",
-      "risk": "high",
+      "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "Tool routing tests cover allowed, denied, unknown and degraded backend cases.",
-        "Doom-loop tests cover repeated failed actions, repeated same-tool calls and correction-path triggering.",
-        "Tests verify that loop detection produces explicit state instead of silent continuation."
-      ]
-    },
-    {
-      "id": "TEST-T09",
-      "title": "Context bundle and bounded context tests expand",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Tests verify context size limits, source prioritization and provenance tracking.",
-        "Tests cover editor/TUI/Eclipse-originated context packages.",
-        "Tests verify that secrets or unrelated project content are not included implicitly."
+        "Tests verify client-originated actions cannot bypass backend approval or policy.",
+        "Tests cover denied, stale, malformed and unauthorized approval/action requests.",
+        "Tests verify mutation-like actions remain explicit and auditable."
       ]
     },
 
     {
+      "id": "TEST-T09",
+      "title": "TUI import and startup tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Test imports the TUI package without side effects.",
+        "Test starts TUI in scripted/headless/smoke mode.",
+        "Startup works with mocked backend configuration.",
+        "Startup failure path is readable and structured."
+      ]
+    },
+    {
       "id": "TEST-T10",
-      "title": "Goal to task to artifact integration test add",
+      "title": "TUI view model tests add",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "An integration test covers Goal -> Plan -> Task -> Execution -> Verification -> Artifact at least with mocked/safe execution.",
-        "The test verifies state transitions and artifact creation.",
-        "The test verifies that audit/trace identifiers link the flow together."
+        "Tests cover health/connection view.",
+        "Tests cover task list and task detail views.",
+        "Tests cover artifact list and artifact detail views.",
+        "Tests cover empty, malformed, auth-failed and backend-unreachable states."
       ]
     },
     {
       "id": "TEST-T11",
-      "title": "Repair flow integration test add",
+      "title": "TUI approval and repair safety tests add",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "An integration test covers known signature -> diagnosis -> proposed repair -> approval gate -> execution -> verification -> memory update.",
-        "A second integration test covers unsafe/denied repair where execution must not happen.",
-        "The tests use safe fake commands or controlled test doubles."
+        "Tests verify approval-required and policy-denied states render clearly.",
+        "Tests verify approval/reject actions call backend approval APIs only.",
+        "Tests verify repair session views do not execute repair actions implicitly.",
+        "Tests cover dry-run-first behavior where applicable."
       ]
     },
     {
       "id": "TEST-T12",
-      "title": "API contract tests for external clients add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Contract tests cover endpoints/read models used by Web UI, CLI, TUI and Eclipse plugin surfaces.",
-        "Tests verify stable fields for goals, tasks, artifacts, approvals, health, capabilities and traces.",
-        "Breaking API changes become visible before merge."
-      ]
-    },
-    {
-      "id": "TEST-T13",
-      "title": "Degraded backend integration tests add",
+      "title": "TUI smoke checklist or automated terminal smoke add",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
-        "Tests cover unreachable LLM backend, unavailable worker, failed tool call and unavailable storage/retrieval component where applicable.",
-        "The system returns explicit degraded states instead of crashing or hanging.",
-        "Client-facing read models remain understandable under degraded conditions."
+        "Automated smoke verifies health plus task/artifact rendering, or manual smoke checklist exists.",
+        "Smoke evidence is referenced from runtime inventory or release report.",
+        "Failure blocks runtime_complete claim."
+      ]
+    },
+
+    {
+      "id": "TEST-T13",
+      "title": "Neovim headless load test add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Headless Neovim loads the plugin from client_surfaces/nvim_runtime.",
+        "Expected Ananta commands are registered.",
+        "Load test fails on missing Lua modules or plugin entrypoint.",
+        "Test can run locally without a real backend by using mocked command paths."
       ]
     },
     {
       "id": "TEST-T14",
-      "title": "Security and privacy regression tests add",
+      "title": "Neovim command behavior tests add",
       "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "acceptance_criteria": [
-        "Tests verify token redaction in logs, traces and client error messages.",
-        "Tests cover context packaging with likely secret patterns.",
-        "Tests verify that restricted actions remain blocked from UI/client-originated requests."
+        "Tests cover AnantaGoalSubmit, AnantaAnalyze and AnantaReview command paths.",
+        "Tests verify commands call backend/client layer rather than local orchestration.",
+        "Tests verify degraded states render visibly.",
+        "Tests verify no command mutates files silently."
       ]
     },
-
     {
       "id": "TEST-T15",
-      "title": "TUI existence and entrypoint test add",
+      "title": "Neovim context packaging tests add",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "A test or audit verifies whether a real TUI package and executable entrypoint exists.",
-        "If no executable TUI exists, the track is explicitly marked foundation-only and not complete.",
-        "The check looks for a runnable command such as ananta tui or an equivalent module entrypoint."
+        "Tests cover current file path, buffer excerpt and visual selection packaging.",
+        "Tests verify bounded size and provenance metadata.",
+        "Tests verify context inspection/confirmation path exists before send."
       ]
     },
     {
       "id": "TEST-T16",
-      "title": "TUI view model unit tests add",
+      "title": "Vim compatibility tests or deferred enforcement add",
       "status": "todo",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
-        "TUI view models for task list, task detail, artifact list/detail, approvals, logs and health are unit tested where implemented.",
-        "Tests cover empty, normal, error and permission-denied states.",
-        "Tests avoid depending on terminal rendering when pure view models are enough."
+        "If Vim support is claimed, Vim plugin/autoload files are tested or manually smoke-checked.",
+        "If Vim is deferred, tests verify inventory/docs mark Vim as deferred and not runtime_mvp.",
+        "Audit script enforces the chosen Vim status."
       ]
     },
+
     {
       "id": "TEST-T17",
-      "title": "TUI terminal smoke test add",
+      "title": "Eclipse plugin project metadata tests add",
       "status": "todo",
       "priority": "P0",
-      "risk": "high",
+      "risk": "critical",
       "acceptance_criteria": [
-        "A smoke test starts the TUI in a non-interactive or scripted mode if implementation exists.",
-        "The smoke test verifies startup, backend connection handling and at least one rendered core view.",
-        "If scripted terminal automation is not practical, a documented manual smoke checklist is required."
+        "If Eclipse runtime_mvp is claimed, tests verify plugin project directory exists.",
+        "Tests verify plugin.xml and META-INF/MANIFEST.MF or equivalent build metadata.",
+        "If Eclipse is deferred/blocked, tests verify inventory/docs do not claim runtime availability."
       ]
     },
     {
       "id": "TEST-T18",
-      "title": "TUI approval and repair safety tests add",
+      "title": "Eclipse build smoke test add",
       "status": "todo",
-      "priority": "P1",
+      "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "Tests verify that TUI approval actions call backend approval paths and do not bypass policy.",
-        "Tests verify that repair execution review stays explicit and dry-run-first where applicable.",
-        "Tests cover rejected, denied and stale approval states."
+        "If Eclipse plugin is implemented, a build smoke command verifies compilation/packaging.",
+        "Build smoke validates target Eclipse/Java baseline metadata.",
+        "If build automation is not possible, manual build checklist is required and runtime_complete is blocked."
       ]
     },
     {
       "id": "TEST-T19",
-      "title": "TUI documentation and runnable demo verify",
+      "title": "Eclipse context and command tests add",
       "status": "todo",
       "priority": "P1",
-      "risk": "medium",
+      "risk": "high",
       "acceptance_criteria": [
-        "The TUI user guide includes exact commands to start and use the TUI if implemented.",
-        "A golden path demo covers connection, task inspection and artifact inspection.",
-        "The demo is either automated or manually smoke-tested and recorded as release evidence."
+        "Tests cover selection/file/project metadata handoff where practical.",
+        "Tests cover analyze/review/custom goal command mapping.",
+        "Tests verify context is bounded and user-visible before send.",
+        "Tests verify commands call Ananta backend APIs only."
+      ]
+    },
+    {
+      "id": "TEST-T20",
+      "title": "Eclipse task artifact view smoke checklist add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Checklist covers install/open, configure backend, send selection, create goal and inspect task/artifact.",
+        "Checklist includes expected results and known failure symptoms.",
+        "Checklist is required for runtime_mvp if automated Eclipse UI tests are not implemented."
       ]
     },
 
     {
-      "id": "TEST-T20",
-      "title": "Eclipse plugin project existence test add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "A test or audit verifies whether a real Eclipse plugin project exists with plugin.xml, MANIFEST.MF or equivalent PDE/build metadata.",
-        "If no plugin project exists, Eclipse work is explicitly reclassified as adapter foundation only.",
-        "The audit output names the expected plugin project path."
-      ]
-    },
-    {
       "id": "TEST-T21",
-      "title": "Eclipse plugin build smoke test add",
+      "title": "Client golden path e2e suite add",
       "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "acceptance_criteria": [
-        "If a real Eclipse plugin exists, CI or local script can build it with the chosen Eclipse/PDE/Tycho/Gradle setup.",
-        "The build verifies plugin metadata, dependencies and packaging.",
-        "If build automation is not ready, a documented manual build checklist is required and the feature is not marked fully release-ready."
+        "E2E suite covers client goal submission to task/artifact result with mocked worker/LLM execution.",
+        "TUI and Neovim paths are included when runtime_mvp is claimed.",
+        "Eclipse path is included as automated or manual smoke when runtime_mvp is claimed.",
+        "Visible status transitions and artifact availability are verified."
       ]
     },
     {
       "id": "TEST-T22",
-      "title": "Eclipse adapter service unit tests expand",
+      "title": "Core platform regression tests expand",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
-        "Tests cover connection profiles, health/capability handshake, context packaging and task/artifact parsing.",
-        "Tests cover failure cases such as auth failure, unreachable backend and malformed task response.",
-        "Tests verify that Eclipse-originated actions stay mapped to official Ananta flows."
+        "Regression suite covers CLI goal, repair flow, approval flow, artifact flow and degraded backend behavior.",
+        "Repair tests include unsafe/denied repair where execution must not happen.",
+        "Approval tests include allow, deny, approval-required and malformed action cases."
       ]
     },
     {
       "id": "TEST-T23",
-      "title": "Eclipse view model and synchronization tests add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "If Eclipse views exist, tests cover goal, task, artifact, context and review view models.",
-        "Tests verify selection synchronization and stale-state handling across views.",
-        "If views do not exist, the test task records that extended views are not implemented yet."
-      ]
-    },
-    {
-      "id": "TEST-T24",
-      "title": "Eclipse manual e2e smoke checklist add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "A manual checklist covers installing/opening the plugin, configuring Ananta URL/token, sending selected code, creating a goal and viewing returned task/artifact state.",
-        "The checklist includes expected results and known failure symptoms.",
-        "The checklist is short enough to run before merging the branch."
-      ]
-    },
-
-    {
-      "id": "TEST-T25",
-      "title": "Merge readiness test gate define",
+      "title": "Release gate test runner consolidate",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "A merge gate defines minimum required passing tests for main.",
-        "The gate explicitly separates blocking tests from advisory tests.",
-        "TUI and Eclipse claims must pass existence/build/smoke checks or be downgraded before merge."
+        "One documented command runs audit, unit tests, contract tests and smoke checks where available.",
+        "Gate separates blocking automated checks from manual/advisory checks.",
+        "Gate fails on false runtime claims."
       ]
     },
     {
-      "id": "TEST-T26",
-      "title": "CI or local test runner command consolidate",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "There is one documented command or script to run the relevant test suite locally.",
-        "The command includes unit and integration tests and optionally skips manual/Eclipse-only smoke checks with clear reporting.",
-        "Test output is suitable for deciding whether the branch is merge-ready."
-      ]
-    },
-    {
-      "id": "TEST-T27",
-      "title": "Golden path regression suite add",
+      "id": "TEST-T24",
+      "title": "Merge readiness report tests add",
       "status": "todo",
       "priority": "P1",
-      "risk": "high",
+      "risk": "medium",
       "acceptance_criteria": [
-        "A small regression suite covers the most important product paths: CLI goal, repair flow, approval flow, artifact flow, UI/client read model and degraded backend behavior.",
-        "The suite runs without requiring destructive local system changes.",
-        "The suite is documented as the minimum sanity check before release."
+        "Tests verify merge readiness report includes final status for TUI, Neovim, Vim and Eclipse.",
+        "Report includes runtime file evidence, commands and test/smoke results.",
+        "Report separates blockers from later enhancements."
       ]
     },
     {
-      "id": "TEST-T28",
+      "id": "TEST-T25",
       "title": "Post-test cleanup todo generate",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "After tests are added, remaining gaps are written into a cleanup todo or issue list.",
+        "Remaining gaps are written into a cleanup todo or issue list.",
         "Gaps distinguish missing implementation, weak test coverage, documentation drift and future enhancements.",
-        "The cleanup list is suitable for deciding what can merge now and what must wait."
+        "Cleanup list excludes KRITIS and ref-profile unless directly impacted by client runtime tests."
       ]
     }
   ],
+
   "execution_order_summary": [
-    "Stage 1: Reality audit first, so false-complete features are exposed before more code is added.",
-    "Stage 2: Expand backend unit and contract tests for safety-critical services.",
-    "Stage 3: Add integration and e2e tests for core product flows.",
-    "Stage 4: Verify TUI as runnable implementation or reclassify it as foundation-only.",
-    "Stage 5: Verify Eclipse plugin as real plugin project or reclassify it as foundation-only.",
-    "Stage 6: Define merge gate and produce cleanup todo from test evidence."
+    "Stage 1: Verify runtime evidence, audit behavior and todo consistency.",
+    "Stage 2: Test shared client contracts, auth, context and security.",
+    "Stage 3: Test TUI runtime startup and views.",
+    "Stage 4: Test Neovim/Vim runtime behavior.",
+    "Stage 5: Test or explicitly defer Eclipse plugin runtime.",
+    "Stage 6: Add e2e/golden-path and release-gate coverage."
   ],
+
   "critical_path_tasks": [
     "TEST-T01",
     "TEST-T02",
-    "TEST-T03",
     "TEST-T05",
     "TEST-T06",
+    "TEST-T07",
+    "TEST-T08",
+    "TEST-T09",
     "TEST-T10",
     "TEST-T11",
-    "TEST-T12",
+    "TEST-T13",
     "TEST-T14",
     "TEST-T15",
     "TEST-T17",
-    "TEST-T20",
+    "TEST-T18",
     "TEST-T21",
-    "TEST-T24",
-    "TEST-T25",
-    "TEST-T26"
+    "TEST-T23"
   ],
+
   "tasks_status_summary": {
     "updated_at": "2026-04-24T00:00:00+02:00",
-    "total": 28,
+    "total": 25,
     "by_status": {
-      "todo": 28,
+      "todo": 25,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 14,
-      "P1": 12,
+      "P0": 15,
+      "P1": 10,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
-      "medium": 3,
+      "medium": 4,
       "high": 13,
-      "critical": 12
+      "critical": 8
     },
     "critical_path": {
       "total": 16,
@@ -462,9 +446,11 @@
       "done": 0
     }
   },
+
   "summary_notes": [
-    "This track intentionally prioritizes verification over new features.",
-    "TUI and Eclipse must be proven runnable or explicitly downgraded to foundation-only.",
-    "The goal is to prevent false-positive done status before merging feature-driven work into main."
+    "This test todo assumes the runtime delivery todo.json has been fully and correctly implemented.",
+    "It no longer treats missing clients as the normal path; it verifies implemented runtime behavior.",
+    "Eclipse may still be deferred/blocked only if todo.json explicitly chose that path and inventory/docs agree.",
+    "The main purpose is to prove runtime evidence, safety boundaries and merge readiness."
   ]
 }
