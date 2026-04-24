@@ -23,6 +23,10 @@ Run dockerized Gradle build:
 
 `python3 scripts/build_eclipse_runtime_plugin.py --mode build`
 
+If Docker credential helpers are misconfigured in WSL-like environments:
+
+`ANANTA_DOCKER_CLEAN_PATH=1 python3 scripts/build_eclipse_runtime_plugin.py --mode build`
+
 ## Smoke Command
 
 `python3 scripts/smoke_eclipse_runtime_bootstrap.py`

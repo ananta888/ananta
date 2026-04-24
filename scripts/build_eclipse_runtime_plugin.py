@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import shutil
 import subprocess
@@ -51,6 +52,14 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _docker_env() -> dict[str, str]:
+    env = dict(os.environ)
+    if env.get("ANANTA_DOCKER_CLEAN_PATH") == "1":
+        env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        env.setdefault("DOCKER_CONFIG", "/tmp/ananta-docker-config")
+    return env
+
+
 def main() -> int:
     args = _parse_args()
     project_dir = Path(args.project_dir).resolve()
@@ -73,7 +82,14 @@ def main() -> int:
         print("docker-not-found")
         return 2
 
-    result = subprocess.run(command, check=False, capture_output=True, text=True, cwd=str(ROOT))
+    result = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        env=_docker_env(),
+    )
     if result.returncode != 0:
         print("eclipse-runtime-build-failed")
         print((result.stdout + "\n" + result.stderr).strip())
