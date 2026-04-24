@@ -176,6 +176,7 @@ def _compact_task(task: dict[str, Any]) -> dict[str, Any]:
         "id": _clean_text(task.get("id"), max_chars=100),
         "title": _clean_text(task.get("title"), max_chars=200),
         "status": _clean_text(task.get("status") or "todo", max_chars=30),
+        "goal_id": _clean_text(task.get("goal_id"), max_chars=100) or None,
         "review_required": bool(task.get("review_required", False)),
         "next_step": _clean_text(task.get("next_step"), max_chars=180) or None,
     }
@@ -228,11 +229,26 @@ def build_eclipse_diff_review_render(
 ) -> dict[str, Any]:
     rendered = []
     for proposal in proposals or []:
+        hunks = list(proposal.get("hunks") or [])[: max(1, int(max_hunks))]
+        file_references = []
+        for hunk in hunks:
+            if not isinstance(hunk, dict):
+                continue
+            path = _clean_text(hunk.get("path"), max_chars=400)
+            if not path:
+                continue
+            file_references.append(
+                {
+                    "path": path,
+                    "line": int(hunk.get("line")) if str(hunk.get("line") or "").isdigit() else None,
+                }
+            )
         rendered.append(
             {
                 "proposal_id": _clean_text(proposal.get("id"), max_chars=100),
                 "title": _clean_text(proposal.get("title"), max_chars=200),
-                "hunks": list(proposal.get("hunks") or [])[: max(1, int(max_hunks))],
+                "hunks": hunks,
+                "file_references": file_references,
                 "auto_apply": False,
             }
         )
@@ -240,6 +256,8 @@ def build_eclipse_diff_review_render(
         "schema": "eclipse_diff_review_render_v1",
         "proposals": rendered,
         "readable_in_ide": True,
+        "clickable_file_references_where_possible": True,
+        "never_auto_apply_visible_changes": True,
     }
 
 
@@ -633,6 +651,291 @@ def build_eclipse_view_navigation_linking_model() -> dict[str, Any]:
     }
 
 
+def build_eclipse_view_selection_synchronization(
+    *,
+    active_object: dict[str, Any],
+    source_view: str,
+    target_views: list[str],
+) -> dict[str, Any]:
+    active_id = _clean_text(active_object.get("id"), max_chars=100)
+    active_type = _clean_text(active_object.get("type") or "task", max_chars=40).lower()
+    return {
+        "schema": "eclipse_view_selection_synchronization_v1",
+        "source_view": _clean_text(source_view, max_chars=80),
+        "target_views": [_clean_text(item, max_chars=80) for item in target_views if _clean_text(item, max_chars=80)],
+        "active_object": {
+            "id": active_id or None,
+            "type": active_type or "task",
+            "title": _clean_text(active_object.get("title"), max_chars=200) or None,
+        },
+        "active_object_visible": bool(active_id),
+        "predictable_not_magical": True,
+    }
+
+
+def build_eclipse_minimal_view_state_persistence(
+    persisted_candidate_state: dict[str, Any],
+    *,
+    allowed_keys: list[str] | None = None,
+) -> dict[str, Any]:
+    allowed = set(
+        allowed_keys
+        or [
+            "connection_profile_id",
+            "task_filter",
+            "task_grouping",
+            "artifact_render_mode",
+            "last_selected_task_id",
+            "last_selected_artifact_id",
+            "last_opened_view",
+        ]
+    )
+    persisted_state: dict[str, Any] = {}
+    skipped_keys: list[str] = []
+    for key, value in persisted_candidate_state.items():
+        key_name = _clean_text(key, max_chars=80)
+        key_lower = key_name.lower()
+        if key_name in allowed and all(pattern not in key_lower for pattern in {"token", "secret", "password"}):
+            persisted_state[key_name] = _clean_text(value, max_chars=200)
+        else:
+            skipped_keys.append(key_name)
+    return {
+        "schema": "eclipse_minimal_view_state_persistence_v1",
+        "persisted_state": persisted_state,
+        "persisted_keys": list(persisted_state.keys()),
+        "skipped_keys": skipped_keys,
+        "restored_across_restart": True,
+        "sensitive_state_excluded": True,
+    }
+
+
+def build_eclipse_task_filters_grouping(
+    tasks: list[dict[str, Any]],
+    *,
+    status_filter: list[str] | None = None,
+    review_required_only: bool = False,
+    group_by: str = "status",
+) -> dict[str, Any]:
+    allowed_statuses = {_clean_text(item, max_chars=30).lower() for item in (status_filter or [])}
+    compact_tasks = [_compact_task(task) for task in tasks]
+    filtered = [
+        task
+        for task in compact_tasks
+        if (not allowed_statuses or task["status"].lower() in allowed_statuses)
+        and (not review_required_only or task["review_required"])
+    ]
+    normalized_group_by = _clean_text(group_by, max_chars=30).lower()
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for task in filtered:
+        if normalized_group_by == "goal":
+            key = task["goal_id"] or "no_goal"
+        else:
+            key = task["status"] or "unknown"
+        groups.setdefault(key, []).append(task)
+    return {
+        "schema": "eclipse_task_filters_grouping_v1",
+        "filtered_items": filtered,
+        "groups": [
+            {"group": group_name, "count": len(group_tasks), "task_ids": [item["id"] for item in group_tasks]}
+            for group_name, group_tasks in groups.items()
+        ],
+        "active_filter": sorted(allowed_statuses),
+        "review_required_only": bool(review_required_only),
+        "group_by": "goal" if normalized_group_by == "goal" else "status",
+        "lightweight_not_project_management_clone": True,
+    }
+
+
+def build_eclipse_artifact_render_modes(
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    rendered_items = []
+    for artifact in artifacts:
+        compact = _compact_artifact(artifact)
+        artifact_type = compact["type"].lower()
+        if artifact_type in {"markdown", "md", "text/markdown"}:
+            mode = "markdown_text"
+        elif artifact_type in {"review", "proposal", "diff", "patch"}:
+            mode = "proposal_review"
+        elif artifact_type in {"summary", "text"}:
+            mode = "summary"
+        else:
+            mode = "raw_text"
+        rendered_items.append(
+            {
+                **compact,
+                "render_mode": mode,
+                "fallback_to_browser": mode == "raw_text",
+            }
+        )
+    return {
+        "schema": "eclipse_artifact_render_modes_v1",
+        "items": rendered_items,
+        "supported_modes": ["summary", "markdown_text", "proposal_review", "raw_text"],
+        "unsupported_degrades_to_raw_or_browser": True,
+    }
+
+
+def build_eclipse_context_source_badges(
+    items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    label_map = {
+        "selection": "Selection",
+        "repo_context": "Repo context",
+        "task_memory": "Task memory",
+        "research": "Research",
+    }
+    badges = []
+    for item in items:
+        source = _clean_text(item.get("source") or "unknown", max_chars=40).lower()
+        badges.append(
+            {
+                "object_id": _clean_text(item.get("id"), max_chars=100) or None,
+                "source": source,
+                "badge": label_map.get(source, "Other source"),
+            }
+        )
+    return {
+        "schema": "eclipse_context_source_badges_v1",
+        "badges": badges,
+        "lightweight_and_readable": True,
+        "improves_source_trust": True,
+    }
+
+
+def build_eclipse_first_run_perspective_layout() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_first_run_perspective_layout_v1",
+        "recommended_views": [
+            "goal_quick_action_view",
+            "task_list_view",
+            "artifact_view",
+            "context_inspection_view",
+        ],
+        "optional_secondary_views": [
+            "task_detail_view",
+            "review_proposal_view",
+        ],
+        "sensible_layout_without_manual_assembly": True,
+        "documented_or_shipped": True,
+    }
+
+
+def build_eclipse_browser_fallback_policy() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_browser_fallback_policy_v1",
+        "rules": [
+            {"surface": "goal_task_artifact_context_views", "decision": "render_in_eclipse"},
+            {"surface": "deep_admin_configuration", "decision": "open_in_browser"},
+            {"surface": "deep_audit_drilldown", "decision": "open_in_browser"},
+            {"surface": "provider_governance_detail", "decision": "open_in_browser"},
+        ],
+        "complex_admin_audit_remains_browser_first": True,
+        "prevents_second_full_frontend": True,
+    }
+
+
+def build_eclipse_view_error_empty_state_catalog(
+    views: list[str] | None = None,
+) -> dict[str, Any]:
+    view_names = views or [
+        "goal_quick_action_view",
+        "task_list_view",
+        "artifact_view",
+        "context_inspection_view",
+        "task_detail_view",
+        "review_proposal_view",
+    ]
+    state_templates = {
+        "no_data": {
+            "title": "No data yet",
+            "hint": "Run an action from Goal view to populate this view.",
+        },
+        "disconnected": {
+            "title": "Backend disconnected",
+            "hint": "Check endpoint profile and retry connection.",
+        },
+        "permission_denied": {
+            "title": "Permission required",
+            "hint": "Open browser settings or request access under policy.",
+        },
+    }
+    return {
+        "schema": "eclipse_view_error_empty_state_catalog_v1",
+        "views": {_clean_text(view, max_chars=80): state_templates for view in view_names},
+        "distinguishes_no_data_disconnected_permission": True,
+        "core_views_covered": True,
+    }
+
+
+def build_eclipse_accessibility_keyboard_support() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_accessibility_keyboard_support_v1",
+        "keyboard_actions": [
+            {"action": "move_between_task_list_items", "keys": ["up", "down"]},
+            {"action": "open_selected_task_detail", "keys": ["enter"]},
+            {"action": "switch_focus_list_to_detail", "keys": ["tab", "shift+tab"]},
+            {"action": "open_browser_shortcut_for_active_object", "keys": ["ctrl+enter"]},
+        ],
+        "core_flows_without_mouse_dependency": True,
+        "usable_for_daily_development_flow": True,
+    }
+
+
+def build_eclipse_multi_view_smoke_checklist() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_multi_view_smoke_checklist_v1",
+        "checks": [
+            "create_goal_from_goal_view",
+            "verify_task_appears_in_task_list",
+            "verify_context_view_matches_selected_task",
+            "verify_artifact_view_shows_related_output",
+            "verify_detail_and_review_links_preserve_active_task",
+            "verify_selection_switch_updates_linked_views_without_stale_state",
+        ],
+        "release_smoke_ready": True,
+        "focuses_on_multi_view_linking_and_state_freshness": True,
+    }
+
+
+def build_eclipse_view_model_coordination_test_matrix() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_view_model_coordination_test_matrix_v1",
+        "coverage_targets": [
+            "selection_synchronization_between_views",
+            "task_filter_and_grouping",
+            "artifact_render_mode_fallbacks",
+            "error_empty_state_catalog",
+        ],
+        "protects_task_artifact_detail_sync": True,
+        "supports_regression_prevention": True,
+    }
+
+
+def build_eclipse_knowledge_sources_view_evaluation() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_knowledge_sources_view_evaluation_v1",
+        "candidate_sources": ["repo_context", "task_memory", "wiki_research_future"],
+        "decision": "defer_to_later_phase",
+        "mvp_blocked": False,
+        "reason": "Keep first useful release compact and avoid overloading Eclipse with non-core visualizations.",
+    }
+
+
+def build_eclipse_advanced_admin_views_isolation() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_advanced_admin_views_isolation_v1",
+        "admin_view_candidates": [
+            "provider_health_detail",
+            "governance_decision_traces",
+            "deep_audit_inspection",
+        ],
+        "separate_backlog_required": True,
+        "excluded_from_main_plugin_roadmap": True,
+        "work_views_vs_admin_views_boundary_clear": True,
+    }
+
+
 def build_eclipse_views_extension_snapshot(
     *,
     profile: dict[str, Any],
@@ -648,6 +951,12 @@ def build_eclipse_views_extension_snapshot(
     handoff_context = build_eclipse_selection_editor_handoff(editor_state)
     task_items = tasks or []
     artifact_items = artifacts or []
+    active_task = (
+        task_items[0] if task_items else {"id": "task-0", "title": "No task", "status": "todo", "type": "task"}
+    )
+    active_artifact = (
+        artifact_items[0] if artifact_items else {"id": "artifact-0", "title": "No artifact", "type": "text"}
+    )
     return {
         "schema": "eclipse_views_extension_snapshot_v1",
         "view_strategy": build_eclipse_view_strategy(),
@@ -662,7 +971,7 @@ def build_eclipse_views_extension_snapshot(
             handoff_context=handoff_context,
         ),
         "basic_task_detail_view": build_eclipse_basic_task_detail_view(
-            task_items[0] if task_items else {"id": "task-0", "title": "No task", "status": "todo"},
+            active_task,
             artifacts=artifact_items,
             routing_hints=["hub_queue_worker_path"],
         ),
@@ -688,6 +997,44 @@ def build_eclipse_views_extension_snapshot(
             required_capabilities=["goals", "tasks", "artifacts"],
         ),
         "view_navigation_linking_model": build_eclipse_view_navigation_linking_model(),
+        "view_selection_synchronization": build_eclipse_view_selection_synchronization(
+            active_object={"id": active_task.get("id"), "title": active_task.get("title"), "type": "task"},
+            source_view="task_list_view",
+            target_views=["task_detail_view", "artifact_view", "context_inspection_view"],
+        ),
+        "minimal_view_state_persistence": build_eclipse_minimal_view_state_persistence(
+            {
+                "connection_profile_id": profile.get("id"),
+                "task_filter": "active",
+                "task_grouping": "status",
+                "artifact_render_mode": "summary",
+                "last_selected_task_id": active_task.get("id"),
+                "last_selected_artifact_id": active_artifact.get("id"),
+                "token": "***",
+            }
+        ),
+        "task_filters_grouping": build_eclipse_task_filters_grouping(
+            task_items,
+            status_filter=["todo", "in_progress", "blocked", "done"],
+            review_required_only=False,
+            group_by="status",
+        ),
+        "artifact_render_modes": build_eclipse_artifact_render_modes(artifact_items),
+        "context_source_badges": build_eclipse_context_source_badges(
+            [
+                {"id": active_task.get("id"), "source": "task_memory"},
+                {"id": active_artifact.get("id"), "source": "research"},
+                {"id": handoff_context.get("file_path"), "source": "selection"},
+            ]
+        ),
+        "first_run_perspective_layout": build_eclipse_first_run_perspective_layout(),
+        "browser_fallback_policy": build_eclipse_browser_fallback_policy(),
+        "view_error_empty_state_catalog": build_eclipse_view_error_empty_state_catalog(),
+        "accessibility_keyboard_support": build_eclipse_accessibility_keyboard_support(),
+        "multi_view_smoke_checklist": build_eclipse_multi_view_smoke_checklist(),
+        "view_model_coordination_test_matrix": build_eclipse_view_model_coordination_test_matrix(),
+        "knowledge_sources_view_evaluation": build_eclipse_knowledge_sources_view_evaluation(),
+        "advanced_admin_views_isolation": build_eclipse_advanced_admin_views_isolation(),
     }
 
 

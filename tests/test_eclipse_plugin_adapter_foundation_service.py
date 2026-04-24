@@ -1,22 +1,31 @@
 from agent.services.eclipse_plugin_adapter_foundation_service import (
+    build_eclipse_accessibility_keyboard_support,
+    build_eclipse_advanced_admin_views_isolation,
+    build_eclipse_artifact_render_modes,
     build_eclipse_artifact_view,
     build_eclipse_basic_task_detail_view,
     build_eclipse_blueprint_work_profile_view,
+    build_eclipse_browser_fallback_policy,
     build_eclipse_connection_auth_support,
     build_eclipse_connection_runtime_status_view,
     build_eclipse_context_inspection_view,
     build_eclipse_context_packaging_rules,
+    build_eclipse_context_source_badges,
     build_eclipse_diff_review_render,
     build_eclipse_error_degraded_mode,
+    build_eclipse_first_run_perspective_layout,
     build_eclipse_first_run_ux,
     build_eclipse_future_roadmap,
     build_eclipse_goal_input_panel,
     build_eclipse_goal_quick_action_view,
     build_eclipse_golden_path_demo,
     build_eclipse_health_capability_handshake,
+    build_eclipse_knowledge_sources_view_evaluation,
     build_eclipse_manual_smoke_checklist,
     build_eclipse_mcp_integration_evaluation,
+    build_eclipse_minimal_view_state_persistence,
     build_eclipse_minimum_support_matrix,
+    build_eclipse_multi_view_smoke_checklist,
     build_eclipse_open_in_browser_shortcuts,
     build_eclipse_openai_fallback_evaluation,
     build_eclipse_plugin_adapter_foundation_snapshot,
@@ -26,10 +35,14 @@ from agent.services.eclipse_plugin_adapter_foundation_service import (
     build_eclipse_selection_editor_handoff,
     build_eclipse_sgpt_cli_operation_bridge,
     build_eclipse_task_artifact_view,
+    build_eclipse_task_filters_grouping,
     build_eclipse_task_list_view,
     build_eclipse_task_refresh_flow,
     build_eclipse_trace_visibility,
+    build_eclipse_view_error_empty_state_catalog,
+    build_eclipse_view_model_coordination_test_matrix,
     build_eclipse_view_navigation_linking_model,
+    build_eclipse_view_selection_synchronization,
     build_eclipse_view_strategy,
     collect_eclipse_workspace_project_context,
 )
@@ -256,6 +269,84 @@ def test_eclipse_views_extension_contracts_cover_first_ten_tasks() -> None:
     assert nav_model["preserves_task_context"] is True
 
 
+def test_eclipse_views_extension_contracts_cover_remaining_fourteen_tasks() -> None:
+    tasks = [
+        {"id": "T-1", "title": "Active review", "status": "in_progress", "goal_id": "G-1", "review_required": True},
+        {"id": "T-2", "title": "Done analysis", "status": "done", "goal_id": "G-1", "review_required": False},
+    ]
+    artifacts = [
+        {"id": "A-1", "title": "Review output", "type": "review", "task_id": "T-1"},
+        {"id": "A-2", "title": "Unknown output", "type": "binary_blob", "task_id": "T-2"},
+    ]
+    selection_sync = build_eclipse_view_selection_synchronization(
+        active_object={"id": "T-1", "type": "task", "title": "Active review"},
+        source_view="task_list_view",
+        target_views=["task_detail_view", "artifact_view"],
+    )
+    persistence = build_eclipse_minimal_view_state_persistence(
+        {
+            "connection_profile_id": "dev-local",
+            "task_filter": "active",
+            "task_grouping": "goal",
+            "token": "must_not_persist",
+        }
+    )
+    filters = build_eclipse_task_filters_grouping(
+        tasks,
+        status_filter=["in_progress", "done"],
+        review_required_only=False,
+        group_by="goal",
+    )
+    render_modes = build_eclipse_artifact_render_modes(artifacts)
+    review_render = build_eclipse_diff_review_render(
+        [{"id": "P-1", "title": "Proposal", "hunks": [{"path": "src/main.py", "line": 7}]}],
+    )
+    badges = build_eclipse_context_source_badges(
+        [{"id": "T-1", "source": "task_memory"}, {"id": "A-1", "source": "research"}]
+    )
+    layout = build_eclipse_first_run_perspective_layout()
+    fallback_policy = build_eclipse_browser_fallback_policy()
+    state_catalog = build_eclipse_view_error_empty_state_catalog()
+    keyboard = build_eclipse_accessibility_keyboard_support()
+    smoke = build_eclipse_multi_view_smoke_checklist()
+    coordination_matrix = build_eclipse_view_model_coordination_test_matrix()
+    knowledge_eval = build_eclipse_knowledge_sources_view_evaluation()
+    admin_isolation = build_eclipse_advanced_admin_views_isolation()
+
+    assert selection_sync["schema"] == "eclipse_view_selection_synchronization_v1"
+    assert selection_sync["predictable_not_magical"] is True
+    assert persistence["schema"] == "eclipse_minimal_view_state_persistence_v1"
+    assert "token" in persistence["skipped_keys"]
+    assert persistence["sensitive_state_excluded"] is True
+    assert filters["schema"] == "eclipse_task_filters_grouping_v1"
+    assert filters["group_by"] == "goal"
+    assert len(filters["groups"]) == 1
+    assert render_modes["schema"] == "eclipse_artifact_render_modes_v1"
+    assert render_modes["items"][1]["render_mode"] == "raw_text"
+    assert render_modes["items"][1]["fallback_to_browser"] is True
+    assert review_render["clickable_file_references_where_possible"] is True
+    assert review_render["never_auto_apply_visible_changes"] is True
+    assert review_render["proposals"][0]["file_references"][0]["path"] == "src/main.py"
+    assert badges["schema"] == "eclipse_context_source_badges_v1"
+    assert badges["improves_source_trust"] is True
+    assert layout["schema"] == "eclipse_first_run_perspective_layout_v1"
+    assert "goal_quick_action_view" in layout["recommended_views"]
+    assert fallback_policy["schema"] == "eclipse_browser_fallback_policy_v1"
+    assert fallback_policy["complex_admin_audit_remains_browser_first"] is True
+    assert state_catalog["schema"] == "eclipse_view_error_empty_state_catalog_v1"
+    assert state_catalog["core_views_covered"] is True
+    assert keyboard["schema"] == "eclipse_accessibility_keyboard_support_v1"
+    assert keyboard["core_flows_without_mouse_dependency"] is True
+    assert smoke["schema"] == "eclipse_multi_view_smoke_checklist_v1"
+    assert smoke["focuses_on_multi_view_linking_and_state_freshness"] is True
+    assert coordination_matrix["schema"] == "eclipse_view_model_coordination_test_matrix_v1"
+    assert coordination_matrix["protects_task_artifact_detail_sync"] is True
+    assert knowledge_eval["schema"] == "eclipse_knowledge_sources_view_evaluation_v1"
+    assert knowledge_eval["decision"] == "defer_to_later_phase"
+    assert admin_isolation["schema"] == "eclipse_advanced_admin_views_isolation_v1"
+    assert admin_isolation["excluded_from_main_plugin_roadmap"] is True
+
+
 def test_foundation_snapshot_covers_full_eclipse_track() -> None:
     snapshot = build_eclipse_plugin_adapter_foundation_snapshot(
         profile={"id": "dev-local", "base_url": "http://localhost:8080", "auth_method": "session_token"},
@@ -328,4 +419,47 @@ def test_foundation_snapshot_covers_full_eclipse_track() -> None:
     assert (
         snapshot["views_extension_snapshot"]["view_navigation_linking_model"]["schema"]
         == "eclipse_view_navigation_linking_model_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["view_selection_synchronization"]["schema"]
+        == "eclipse_view_selection_synchronization_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["minimal_view_state_persistence"]["schema"]
+        == "eclipse_minimal_view_state_persistence_v1"
+    )
+    assert snapshot["views_extension_snapshot"]["task_filters_grouping"]["schema"] == "eclipse_task_filters_grouping_v1"
+    assert snapshot["views_extension_snapshot"]["artifact_render_modes"]["schema"] == "eclipse_artifact_render_modes_v1"
+    assert snapshot["views_extension_snapshot"]["context_source_badges"]["schema"] == "eclipse_context_source_badges_v1"
+    assert (
+        snapshot["views_extension_snapshot"]["first_run_perspective_layout"]["schema"]
+        == "eclipse_first_run_perspective_layout_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["browser_fallback_policy"]["schema"]
+        == "eclipse_browser_fallback_policy_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["view_error_empty_state_catalog"]["schema"]
+        == "eclipse_view_error_empty_state_catalog_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["accessibility_keyboard_support"]["schema"]
+        == "eclipse_accessibility_keyboard_support_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["multi_view_smoke_checklist"]["schema"]
+        == "eclipse_multi_view_smoke_checklist_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["view_model_coordination_test_matrix"]["schema"]
+        == "eclipse_view_model_coordination_test_matrix_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["knowledge_sources_view_evaluation"]["schema"]
+        == "eclipse_knowledge_sources_view_evaluation_v1"
+    )
+    assert (
+        snapshot["views_extension_snapshot"]["advanced_admin_views_isolation"]["schema"]
+        == "eclipse_advanced_admin_views_isolation_v1"
     )

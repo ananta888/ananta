@@ -1,8 +1,11 @@
 # Eclipse Plugin Views Extension Foundation
 
-This document captures the first meaningful implementation block of the Eclipse views extension track.
+This document captures the Eclipse views extension track as a **contract-first backend implementation**.
 
-## Covered tasks (ECL-T27..ECL-T36)
+There is currently no shipped standalone Eclipse plugin UI binary in this repository.  
+The implemented service contracts model and validate the view behavior that a thin Eclipse plugin must follow.
+
+## Covered tasks (ECL-T27..ECL-T50)
 
 - View strategy with MVP/phase-2/browser-only split
 - Goal and quick action view contract
@@ -14,6 +17,17 @@ This document captures the first meaningful implementation block of the Eclipse 
 - Blueprint/work-profile view contract
 - Connection/runtime status view contract
 - View navigation and linking model
+- Unified selection synchronization across linked views
+- Minimal safe view-state persistence (without sensitive state persistence)
+- Task filters/grouping and artifact rendering mode contracts
+- Diff/review rendering hardening with clickable file references and explicit non-auto-apply guard
+- Context source badges/provenance hints
+- First-run perspective/layout recommendation
+- Browser fallback policy for complex/admin surfaces
+- View-specific error/empty-state catalog
+- Accessibility and keyboard usage baseline contract
+- Multi-view smoke checklist and view-coordination test matrix
+- Later-phase evaluation contracts for knowledge/sources view and advanced admin views isolation
 
 ## Design constraints
 
