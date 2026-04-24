@@ -1,476 +1,837 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
-  "track": "admin_repair_shared_foundation",
-  "purpose": "Build a shared admin-repair feature foundation for Windows 11 and Ubuntu diagnosis and bounded repair flows, without enforcing full KRITIS hardening in this phase.",
+  "track": "deterministic_repair_path",
+  "purpose": "Build a deterministic-first repair path for Ananta that prefers structured diagnostics, known failure signatures, verified repair procedures and success memory over unnecessary LLM calls, while still allowing bounded LLM escalation for unknown or ambiguous situations.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Ananta can guide admins through bounded diagnosis, repair planning, preview-first execution and verification with explicit evidence and future-ready hardening hooks.",
-  "two_line_strategy": {
-    "fast_product_line": "Deliver useful shared admin-repair capabilities quickly (diagnosis, plans, dry-run, guided execution, verification).",
-    "kritis_line": "Later harden proven capabilities with Audit, MutationGate, ApprovalPolicy, deterministic workflows, sandboxing and RBAC.",
-    "current_track_position": "This admin repair track is shared feature foundation work; full KRITIS enforcement is intentionally deferred."
-  },
-  "non_goals": [
-    "Do not implement full KRITIS hardening in this track.",
-    "Do not create a separate repair-specific security architecture.",
-    "Do not build unrestricted autonomous shell repair.",
-    "Do not bypass hub-governed policy boundaries for risky mutations.",
-    "Do not treat advisory repair classification as final KRITIS-grade enforcement."
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Ananta should diagnose and repair common local system and development environment problems through structured, repeatable and increasingly evidence-based flows, using LLM reasoning only when deterministic knowledge and bounded procedural logic are insufficient.",
+  "success_criteria": [
+    "Known repair cases can be recognized through signatures without requiring LLM interpretation.",
+    "Deterministic diagnosis and repair flows exist for a useful subset of high-value failure classes.",
+    "The system records which fixes actually succeeded, failed or were unsafe in real contexts.",
+    "Each repair step is verified explicitly before the next step is attempted.",
+    "LLM escalation happens only when deterministic paths are insufficient or confidence is too low.",
+    "Repair behavior remains auditable, bounded and approval-aware."
   ],
-  "kritis_hardening_hooks": {
-    "repair_action_model_fields": [
-      "risk_class",
-      "requires_approval",
-      "dry_run_supported",
-      "verification_required",
-      "mutation_candidate",
-      "evidence_sources",
-      "execution_scope",
-      "audit_hint",
-      "repair_action_class",
-      "affected_targets",
-      "expected_verification"
-    ],
-    "integration_targets_later": ["Audit", "MutationGate", "ApprovalPolicy", "Sandboxing", "RBAC"],
-    "hook_policy": "Fields are prepared and surfaced now; strict KRITIS gates are connected later."
-  },
   "milestones": [
     {
-      "id": "ARC-M1",
-      "title": "Shared repair foundation",
-      "target_outcome": "Mode definition, entrypoint, environment summary and bounded evidence model are stable."
+      "id": "REP-M1",
+      "title": "Foundation and signal ingestion",
+      "scope_groups": ["REP-FOUNDATION", "REP-SIGNAL-INGESTION"],
+      "target_outcome": "Repair target/state/confidence models and bounded evidence ingestion are defined."
     },
     {
-      "id": "ARC-M2",
-      "title": "Diagnosis and planning",
-      "target_outcome": "Problem taxonomy, diagnosis artifact and bounded repair plan generation are operational."
+      "id": "REP-M2",
+      "title": "Signatures and diagnosis",
+      "scope_groups": ["REP-SIGNATURES", "REP-RULE-BASED-DIAGNOSIS"],
+      "target_outcome": "Deterministic signature matching and structured diagnosis runners/playbooks exist."
     },
     {
-      "id": "ARC-M3",
-      "title": "Controlled preview and execution",
-      "target_outcome": "Dry-run, preview-first, bounded step-confirmed execution and verification flow are available."
+      "id": "REP-M3",
+      "title": "Repair and verification execution",
+      "scope_groups": ["REP-REPAIR-PROCEDURES", "REP-VERIFICATION"],
+      "target_outcome": "Bounded repair execution and per-step/final verification are integrated."
     },
     {
-      "id": "ARC-M4",
-      "title": "Platform adapters and playbooks",
-      "target_outcome": "Windows/Ubuntu evidence adapters and first repair playbooks are usable, with fixture-based test paths available first."
+      "id": "REP-M4",
+      "title": "Memory, escalation and governance",
+      "scope_groups": ["REP-MEMORY-AND-LEARNING", "REP-LLM-ESCALATION", "REP-GOVERNANCE-APPROVAL-SAFETY"],
+      "target_outcome": "Outcome memory, controlled LLM escalation and hard safety/approval rails are in place."
     },
     {
-      "id": "ARC-M5",
-      "title": "Hook-ready quality baseline",
-      "target_outcome": "Compatibility hooks, audit-ready outputs and smoke/contract tests are in place."
+      "id": "REP-M5",
+      "title": "Operator enablement and rollout",
+      "scope_groups": ["REP-UX-AND-OPERATOR-FLOWS", "REP-TESTING-DOCS-ROLLOUT"],
+      "target_outcome": "Operator views, tests, docs and phased rollout are complete."
     }
   ],
   "groups": [
     {
-      "id": "ARC-FOUNDATION",
+      "id": "REP-FOUNDATION",
       "priority": "P0",
-      "title": "Shared foundation and diagnosis baseline",
+      "title": "Grundmodell fuer Repair Path",
       "tasks": [
         {
-          "id": "ARC-T01",
-          "title": "Use-case and shared mode definition",
+          "id": "REP-T01",
+          "title": "Repair path target model define",
           "status": "done",
           "priority": "P0",
-          "depends_on": [],
+          "risk": "high",
           "acceptance_criteria": [
-            "Admin repair mode is documented as shared feature foundation for product line and future KRITIS line.",
-            "Windows 11 and Ubuntu diagnosis scope is explicit.",
-            "Review-first behavior is default and autonomous unrestricted shell behavior is excluded.",
-            "The mode is explicitly marked as not KRITIS-hardened yet."
+            "A target model defines deterministic-first repair behavior for Ananta.",
+            "The model distinguishes diagnosis, repair proposal, repair execution and verification.",
+            "The model explicitly defines when the system may escalate to an LLM."
           ]
         },
         {
-          "id": "ARC-T02",
-          "title": "CLI entrypoint and mode options",
+          "id": "REP-T02",
+          "title": "Repair problem class inventory create",
           "status": "done",
           "priority": "P0",
-          "depends_on": ["ARC-T01"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "A discoverable CLI entrypoint exists for diagnose/repair mode.",
-            "Dry-run and bounded execution options are available at entry level.",
-            "Help text explains shared foundation scope and deferred KRITIS hardening.",
-            "Help text warns that mutation-capable repair remains preview-first and bounded."
+            "A first inventory exists for high-value repair classes such as package install failures, service start failures, port conflicts, path issues, permission issues, compose failures and runtime health failures.",
+            "Each class has examples, signals and likely safe action ranges.",
+            "The inventory is realistic for Ananta's intended local/admin use."
           ]
         },
         {
-          "id": "ARC-T03",
-          "title": "OS detection and environment summary",
+          "id": "REP-T03",
+          "title": "Repair state model define",
           "status": "done",
           "priority": "P0",
-          "depends_on": ["ARC-T02"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "CLI detects Windows 11 vs Ubuntu reliably for supported paths.",
-            "Environment summary includes shell/runtime/package/service basics.",
-            "Summary is shown before planning mutations.",
-            "Unsupported or unknown environments degrade into diagnosis-only behavior."
+            "A state model exists for repair sessions such as detected, diagnosing, proposing, approval_required, executing, verifying, succeeded, failed and escalated.",
+            "State transitions are explicit and support auditability.",
+            "The model fits later KRITIS and approval work."
           ]
         },
         {
-          "id": "ARC-T04",
-          "title": "Bounded evidence collection contract",
+          "id": "REP-T04",
+          "title": "Repair confidence model define",
           "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T01"],
+          "priority": "P1",
+          "risk": "medium",
           "acceptance_criteria": [
-            "Allowed evidence sources and bounded collection rules are explicit.",
-            "Sensitive/irrelevant data is redacted or excluded by default.",
-            "Evidence list is visible and reviewable before repair actions.",
-            "The first implementation may use fixture/mock evidence adapters before platform-specific live collection is enabled."
-          ]
-        },
-        {
-          "id": "ARC-T07",
-          "title": "Problem taxonomy for admin repair",
-          "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T04"],
-          "acceptance_criteria": [
-            "Problem classes cover package/runtime, PATH, permissions, services, ports and container/runtime setup issues.",
-            "Taxonomy supports diagnosis, routing and repair planning.",
-            "Taxonomy wording is platform-neutral with OS-specific examples.",
-            "Each class can later map to deterministic repair signatures without requiring a separate model rewrite."
-          ]
-        },
-        {
-          "id": "ARC-T08",
-          "title": "Diagnosis artifact model",
-          "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T03", "ARC-T07"],
-          "acceptance_criteria": [
-            "Diagnosis artifact includes likely causes, evidence links, confidence and next steps.",
-            "Artifact is readable for operators and reusable in follow-up planning.",
-            "Artifact structure is stable enough for later contract testing.",
-            "Artifact can be generated from fixture/mock evidence to support safe development before live adapters."
-          ]
-        },
-        {
-          "id": "ARC-T23",
-          "title": "Repair action schema hooks prepare",
-          "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T08"],
-          "acceptance_criteria": [
-            "Repair actions carry hook-ready fields: risk_class, requires_approval, dry_run_supported, verification_required, mutation_candidate.",
-            "Repair actions also carry evidence_sources, execution_scope, audit_hint, repair_action_class, affected_targets, expected_verification.",
-            "Fields are informational in this phase and do not force full KRITIS gating yet.",
-            "The schema avoids repair-specific security concepts that would conflict with later Audit, MutationGate, ApprovalPolicy or sandboxing."
+            "A confidence model defines when the system trusts deterministic matches, when it asks for review and when it escalates to LLM reasoning.",
+            "Confidence can combine signature strength, platform match and past fix success.",
+            "The model is explainable."
           ]
         }
       ]
     },
     {
-      "id": "ARC-REPAIR-FLOW",
+      "id": "REP-SIGNAL-INGESTION",
       "priority": "P0",
-      "title": "Planning execution verification flow",
+      "title": "Signal- und Datenerfassung",
       "tasks": [
         {
-          "id": "ARC-T09",
-          "title": "Bounded repair plan generation",
+          "id": "REP-T05",
+          "title": "Repair evidence ingestion model define",
           "status": "done",
           "priority": "P0",
-          "depends_on": ["ARC-T08"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "Diagnosis can be transformed into ordered bounded repair actions.",
-            "Each action includes expected effect and verification hint.",
-            "Plan distinguishes low-risk suggestions from higher-risk mutation candidates.",
-            "Generated plans prefer inspect, explain and dry-run steps before mutation-capable steps."
+            "The system defines which evidence types can enter a repair session such as logs, exit codes, health checks, config snippets, service status and environment facts.",
+            "Evidence classes are normalized enough for deterministic matching.",
+            "The design remains bounded and privacy-aware."
           ]
         },
         {
-          "id": "ARC-T10",
-          "title": "Advisory repair action classification policy",
+          "id": "REP-T06",
+          "title": "Environment fact collection add",
           "status": "done",
           "priority": "P0",
-          "depends_on": ["ARC-T09"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "Actions are classified into advisory classes such as allow, confirm-required and blocked.",
-            "Classification maps to risk_class, requires_approval and execution_scope fields.",
-            "Classification is hook-ready and advisory in this track unless existing guardrails already enforce it.",
-            "Policy is compatible with future ApprovalPolicy/MutationGate integration without becoming a separate repair-specific security layer."
+            "Repair sessions can collect structured environment facts such as OS, distro, package manager, runtime versions, container state and relevant service state.",
+            "Fact collection is bounded and reproducible.",
+            "The fact set is usable for platform-specific matching."
           ]
         },
         {
-          "id": "ARC-T11",
-          "title": "Dry-run by default for repair plans",
+          "id": "REP-T07",
+          "title": "Structured log ingestion add",
           "status": "done",
           "priority": "P0",
-          "depends_on": ["ARC-T09", "ARC-T10"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "Repair plans can be previewed without mutation.",
-            "Planned commands/actions are explicit and inspectable.",
-            "dry_run_supported is surfaced per action.",
-            "Mutation-capable actions must have a preview form or be marked as not executable in this phase."
+            "The repair path can ingest logs from selected sources in a structured way.",
+            "The ingestion preserves source provenance, timestamps and severity where available.",
+            "The result supports later signature matching."
           ]
         },
         {
-          "id": "ARC-T12",
-          "title": "Bounded step-confirmed execution mode",
-          "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T10", "ARC-T11"],
-          "acceptance_criteria": [
-            "Actions can be executed one step at a time with explicit confirmation.",
-            "Execution supports only bounded, modeled and previewed actions in this phase.",
-            "Accepted, skipped and blocked actions are recorded.",
-            "Execution can be stopped safely between steps.",
-            "The implementation does not provide unrestricted autonomous shell repair."
-          ]
-        },
-        {
-          "id": "ARC-T13",
-          "title": "Post-repair verification phase",
-          "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T12"],
-          "acceptance_criteria": [
-            "Verification checks run after executed actions.",
-            "Result states clearly: resolved, improved, unchanged or regressed.",
-            "verification_required and expected_verification are reflected in results.",
-            "Command success alone is not treated as proof of repair success when verification is required."
-          ]
-        },
-        {
-          "id": "ARC-T18",
-          "title": "Rollback and caution model",
+          "id": "REP-T08",
+          "title": "Health and command result capture add",
           "status": "done",
           "priority": "P1",
-          "depends_on": ["ARC-T10"],
+          "risk": "low",
           "acceptance_criteria": [
-            "Reversible vs non-reversible actions are explicit in plan output.",
-            "High-risk mutation_candidate actions show stronger caution language.",
-            "Rollback limitations are visible before confirmation.",
-            "Missing rollback support prevents the system from presenting a risky action as safe."
+            "Repair sessions can store relevant command outputs, exit codes and health-check results in a normalized form.",
+            "These results are linked to the current repair session.",
+            "The captured data is available to deterministic rules."
           ]
         },
         {
-          "id": "ARC-T24",
-          "title": "Future hardening bridge contracts",
+          "id": "REP-T09",
+          "title": "Evidence normalization pipeline implement",
           "status": "done",
-          "priority": "P0",
-          "depends_on": ["ARC-T10", "ARC-T13", "ARC-T23"],
+          "priority": "P1",
+          "risk": "medium",
           "acceptance_criteria": [
-            "Repair action and verification outputs expose stable identifiers for later Audit and MutationGate linkage.",
-            "Approval-ready metadata is emitted without enforcing full KRITIS workflow now.",
-            "No second orchestration loop is introduced; hub remains control plane.",
-            "Later KRITIS hardening can attach Audit, MutationGate, ApprovalPolicy and sandboxing without replacing the repair action model."
+            "Ingested evidence is normalized into a stable internal representation.",
+            "The normalization supports pattern matching and history comparison.",
+            "Noise reduction does not destroy important diagnostic detail."
           ]
         }
       ]
     },
     {
-      "id": "ARC-PLATFORM-ADAPTERS",
-      "priority": "P1",
-      "title": "Windows Ubuntu adapters and playbooks",
+      "id": "REP-SIGNATURES",
+      "priority": "P0",
+      "title": "Signaturen und deterministic matching",
       "tasks": [
         {
-          "id": "ARC-T05",
-          "title": "Windows evidence adapters",
+          "id": "REP-T10",
+          "title": "Failure signature model define",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T04"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "Windows evidence adapters collect bounded event/service/runtime context.",
-            "Collection errors degrade cleanly and remain visible.",
-            "Evidence is normalized into artifacts and evidence_sources.",
-            "Live collection can be disabled or replaced by fixture input for tests and demos."
+            "A formal model exists for failure signatures.",
+            "Signatures can include regex patterns, structured fields, environment constraints and confidence weights.",
+            "The model can express platform- or tool-specific failures."
           ]
         },
         {
-          "id": "ARC-T06",
-          "title": "Ubuntu evidence adapters",
+          "id": "REP-T11",
+          "title": "Initial signature catalog create",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T04"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "Ubuntu evidence adapters collect bounded journal/service/package context.",
-            "Collection errors degrade cleanly and remain visible.",
-            "Evidence is normalized into artifacts and evidence_sources.",
-            "Live collection can be disabled or replaced by fixture input for tests and demos."
+            "A first catalog exists for common failures in Windows, Ubuntu or common development stacks relevant to Ananta.",
+            "The catalog includes enough metadata to drive diagnosis and repair selection.",
+            "The first catalog focuses on high-value and reasonably safe cases."
           ]
         },
         {
-          "id": "ARC-T14",
-          "title": "Windows repair playbooks",
+          "id": "REP-T12",
+          "title": "Signature matching engine implement",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T05", "ARC-T09"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "Initial Windows playbooks cover runtime/path, service and container/WSL-like issues.",
-            "Playbooks produce bounded action plans with affected_targets.",
-            "Playbooks stay compatible with dry-run and confirmation flow.",
-            "Playbooks avoid speculative or broad system mutation."
+            "A matching engine can score ingested evidence against known failure signatures.",
+            "Multiple matches can be ranked and explained.",
+            "The engine does not require LLM calls for normal matching."
           ]
         },
         {
-          "id": "ARC-T15",
-          "title": "Ubuntu repair playbooks",
+          "id": "REP-T13",
+          "title": "Ambiguous and low-confidence match handling add",
           "status": "done",
           "priority": "P1",
-          "depends_on": ["ARC-T06", "ARC-T09"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "Initial Ubuntu playbooks cover apt/dpkg, service and runtime/toolchain issues.",
-            "Playbooks produce bounded action plans with affected_targets.",
-            "Playbooks stay compatible with dry-run and confirmation flow.",
-            "Playbooks avoid speculative or broad system mutation."
+            "The system can detect ambiguity or weak matches.",
+            "Low-confidence cases lead to bounded next steps instead of blind repair.",
+            "The behavior is consistent with the repair confidence model."
+          ]
+        },
+        {
+          "id": "REP-T14",
+          "title": "Signature explanation output add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "The system can explain which signature matched and why.",
+            "The explanation includes key evidence and platform constraints.",
+            "The output is short and useful for operator trust."
           ]
         }
       ]
     },
     {
-      "id": "ARC-UX-DOCS-QUALITY",
-      "priority": "P1",
-      "title": "Operator UX observability docs and quality",
+      "id": "REP-RULE-BASED-DIAGNOSIS",
+      "priority": "P0",
+      "title": "Regelbasierte Diagnosepfade",
       "tasks": [
         {
-          "id": "ARC-T16",
-          "title": "Admin-facing output structure",
+          "id": "REP-T15",
+          "title": "Diagnosis procedure model define",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T08", "ARC-T09"],
+          "priority": "P0",
+          "risk": "medium",
           "acceptance_criteria": [
-            "CLI output separates diagnosis, plan, risk and verification clearly.",
-            "Raw log dumps are contextualized with concise interpretation.",
-            "Output remains readable in terminal-first workflows.",
-            "Output makes advisory vs enforced decisions visibly distinct."
+            "A procedure model exists for deterministic diagnosis flows.",
+            "Procedures can encode ordered checks, branching checks and stop conditions.",
+            "The model supports verification checkpoints."
           ]
         },
         {
-          "id": "ARC-T17",
-          "title": "Audit-ready repair session trail",
+          "id": "REP-T16",
+          "title": "Initial diagnosis playbooks create",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T10", "ARC-T12"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "Session records include evidence, proposed actions, confirmations and verification outcomes.",
-            "audit_hint is emitted per action/session for later KRITIS audit integration.",
-            "Sensitive material handling remains explicit.",
-            "Session trail is useful even before the full KRITIS audit subsystem is attached."
+            "A first set of deterministic diagnosis playbooks exists for the highest-value repair classes.",
+            "Playbooks are structured and not just prose notes.",
+            "Each playbook includes safe stop conditions."
           ]
         },
         {
-          "id": "ARC-T19",
-          "title": "Golden path Windows",
+          "id": "REP-T17",
+          "title": "Diagnosis runner implement",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T05", "ARC-T16"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "One reproducible Windows flow exists from evidence to verification.",
-            "Flow documents where confirmation gates occur.",
-            "Flow demonstrates shared foundation behavior without full KRITIS enforcement.",
-            "Flow can run from fixture evidence if live Windows collection is unavailable."
+            "The system can execute diagnosis playbooks step by step.",
+            "Each step can collect new evidence or classify the case further.",
+            "The runner produces structured state updates."
           ]
         },
         {
-          "id": "ARC-T20",
-          "title": "Golden path Ubuntu",
+          "id": "REP-T18",
+          "title": "Diagnosis branching and fallback behavior add",
           "status": "done",
           "priority": "P1",
-          "depends_on": ["ARC-T06", "ARC-T16"],
+          "risk": "medium",
           "acceptance_criteria": [
-            "One reproducible Ubuntu flow exists from evidence to verification.",
-            "Flow documents where confirmation gates occur.",
-            "Flow demonstrates shared foundation behavior without full KRITIS enforcement.",
-            "Flow can run from fixture evidence if live Ubuntu collection is unavailable."
+            "Diagnosis procedures can branch based on observed evidence.",
+            "Fallback behavior is explicit and not hidden.",
+            "The runner can stop early when sufficient evidence exists."
           ]
         },
         {
-          "id": "ARC-T21",
-          "title": "Contract and smoke tests",
+          "id": "REP-T19",
+          "title": "Non-destructive first strategy enforce",
           "status": "done",
-          "priority": "P1",
-          "depends_on": ["ARC-T11", "ARC-T12", "ARC-T13"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "Diagnosis/plan/action/verification output contracts are tested.",
-            "At least one bounded smoke scenario exists for Windows and Ubuntu.",
-            "Tests verify confirmation gating and dry-run behavior.",
-            "Tests verify advisory classification is emitted without pretending to be full KRITIS enforcement.",
-            "Tests prove unrestricted shell repair is not exposed by the shared foundation flow."
+            "Diagnosis defaults to non-destructive checks before proposing mutation.",
+            "Destructive or state-changing steps are never treated as normal diagnosis.",
+            "The strategy is enforced, not just documented."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-REPAIR-PROCEDURES",
+      "priority": "P0",
+      "title": "Deterministische Reparaturprozeduren",
+      "tasks": [
+        {
+          "id": "REP-T20",
+          "title": "Repair procedure model define",
+          "status": "done",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "A repair procedure model exists for executable fixes.",
+            "The model includes preconditions, steps, postconditions, verification and rollback hints where possible.",
+            "The model can mark procedures as safe, review-first or high-risk."
           ]
         },
         {
-          "id": "ARC-T22",
-          "title": "Future extension boundaries",
+          "id": "REP-T21",
+          "title": "Initial deterministic repair catalog create",
           "status": "done",
-          "priority": "P3",
-          "depends_on": ["ARC-T21"],
+          "priority": "P0",
+          "risk": "high",
           "acceptance_criteria": [
-            "Future domains (network/container/app-specific repair) stay explicitly outside MVP scope.",
-            "Expansion path is documented without inflating current track complexity.",
-            "Shared foundation stays maintainable and reviewable.",
-            "Future extensions must reuse the same repair action schema instead of creating parallel repair models."
+            "A first catalog of deterministic repair procedures exists for common failure classes.",
+            "Each procedure is tied to specific signatures or diagnosis outcomes.",
+            "The catalog is bounded to well-understood repairs rather than speculative fixes."
+          ]
+        },
+        {
+          "id": "REP-T22",
+          "title": "Repair step executor implement",
+          "status": "done",
+          "priority": "P0",
+          "risk": "critical",
+          "acceptance_criteria": [
+            "Repair procedures can be executed through a bounded step executor.",
+            "Execution is integrated with approval and safety policy layers.",
+            "Each executed step is recorded and verifiable."
+          ]
+        },
+        {
+          "id": "REP-T23",
+          "title": "Dry-run and preview support add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Repair procedures support dry-run or preview where meaningful.",
+            "Users can inspect intended actions before execution.",
+            "The preview is explicit about limitations."
+          ]
+        },
+        {
+          "id": "REP-T24",
+          "title": "Safe stop and abort conditions add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Repair execution can stop cleanly when conditions worsen or become unsafe.",
+            "Abort conditions are explicit and logged.",
+            "The system avoids blindly continuing after contradictory evidence."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-VERIFICATION",
+      "priority": "P0",
+      "title": "Verifikation nach jedem Schritt",
+      "tasks": [
+        {
+          "id": "REP-T25",
+          "title": "Verification model define",
+          "status": "done",
+          "priority": "P0",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "A verification model exists for repair procedures and diagnosis milestones.",
+            "Verification can use health checks, service status, command outputs or functional probes.",
+            "Verification is mandatory for state-changing repair actions."
+          ]
+        },
+        {
+          "id": "REP-T26",
+          "title": "Per-step verification hooks add",
+          "status": "done",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Each important repair step can trigger specific verification checks.",
+            "Verification results decide whether to continue, stop or roll back.",
+            "The model avoids fire-and-forget repair execution."
+          ]
+        },
+        {
+          "id": "REP-T27",
+          "title": "Final repair success verification add",
+          "status": "done",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Every repair flow ends with an explicit success or failure verification.",
+            "The final result is based on evidence, not just command completion.",
+            "The result updates repair history."
+          ]
+        },
+        {
+          "id": "REP-T28",
+          "title": "Rollback or recovery hint model add",
+          "status": "done",
+          "priority": "P2",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Where full rollback is not possible, the system can at least record recovery hints or manual undo guidance.",
+            "Recovery information is linked to the repair procedure.",
+            "The feature improves operator safety."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-MEMORY-AND-LEARNING",
+      "priority": "P0",
+      "title": "Repair Memory und Erfolgstracking",
+      "tasks": [
+        {
+          "id": "REP-T29",
+          "title": "Repair outcome memory model define",
+          "status": "done",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "A structured model exists for storing repair attempts and outcomes.",
+            "The model records signature, environment facts, chosen procedure, result and verification evidence.",
+            "The model is queryable later."
+          ]
+        },
+        {
+          "id": "REP-T30",
+          "title": "Fix success and failure tracking add",
+          "status": "done",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "The system records whether a fix succeeded, partially helped, failed or made things worse.",
+            "Outcome labels are explicit and standardized.",
+            "The tracking supports future recommendation scoring."
+          ]
+        },
+        {
+          "id": "REP-T31",
+          "title": "Environment similarity model add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Repair history can reason about similarity across environment facts such as OS, version, package manager and service context.",
+            "The model helps reuse successful procedures in similar contexts.",
+            "The logic remains explainable."
+          ]
+        },
+        {
+          "id": "REP-T32",
+          "title": "Success-weighted repair recommendation add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "high",
+          "acceptance_criteria": [
+            "The system can rank repair procedures partly by past success in similar cases.",
+            "Ranking does not override hard safety rules.",
+            "The recommendation explains both signature match and historical confidence."
+          ]
+        },
+        {
+          "id": "REP-T33",
+          "title": "Negative learning and anti-pattern recording add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "The system can remember procedures or steps that repeatedly fail or worsen a class of issue.",
+            "Negative history can reduce or block certain suggestions later.",
+            "The feature supports safer long-term behavior."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-LLM-ESCALATION",
+      "priority": "P1",
+      "title": "LLM als Eskalation statt Standardpfad",
+      "tasks": [
+        {
+          "id": "REP-T34",
+          "title": "LLM escalation policy define",
+          "status": "done",
+          "priority": "P1",
+          "risk": "high",
+          "acceptance_criteria": [
+            "A policy defines when LLM escalation is allowed such as unknown signatures, contradictory evidence or exhausted deterministic paths.",
+            "The policy explicitly prevents unnecessary LLM use in known cases.",
+            "Escalation reasons are auditable."
+          ]
+        },
+        {
+          "id": "REP-T35",
+          "title": "Bounded repair escalation prompt model add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "When escalation occurs, the LLM receives a bounded structured repair context instead of raw uncontrolled logs only.",
+            "The prompt includes known evidence, attempted paths and confidence information.",
+            "The model supports safer and more targeted LLM output."
+          ]
+        },
+        {
+          "id": "REP-T36",
+          "title": "LLM proposal-to-procedure conversion path add",
+          "status": "done",
+          "priority": "P2",
+          "risk": "high",
+          "acceptance_criteria": [
+            "An LLM-suggested fix can be converted into a reviewed or structured repair proposal instead of being executed blindly.",
+            "The path favors explicit procedure generation and review.",
+            "The feature does not bypass approval."
+          ]
+        },
+        {
+          "id": "REP-T37",
+          "title": "Escalation feedback loop into repair knowledge add",
+          "status": "done",
+          "priority": "P2",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Useful escalated outcomes can later be curated into deterministic signatures or procedures.",
+            "The system supports moving repeated LLM-learned cases into structured knowledge.",
+            "The curation step remains explicit."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-GOVERNANCE-APPROVAL-SAFETY",
+      "priority": "P0",
+      "title": "Governance Approval Safety",
+      "tasks": [
+        {
+          "id": "REP-T38",
+          "title": "Repair action safety classes define",
+          "status": "done",
+          "priority": "P0",
+          "risk": "critical",
+          "acceptance_criteria": [
+            "Repair actions are classified into safety classes such as inspect-only, bounded low-risk, confirm-required and high-risk.",
+            "The classes are enforced consistently.",
+            "The classification integrates with broader approval logic."
+          ]
+        },
+        {
+          "id": "REP-T39",
+          "title": "Approval integration for repair procedures add",
+          "status": "done",
+          "priority": "P0",
+          "risk": "critical",
+          "acceptance_criteria": [
+            "Repair steps that require approval cannot execute without it.",
+            "Approval scope is tied to procedure, target and session where appropriate.",
+            "The integration is backend-enforced."
+          ]
+        },
+        {
+          "id": "REP-T40",
+          "title": "Repair audit chain add",
+          "status": "done",
+          "priority": "P0",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Repair sessions produce a traceable audit chain from diagnosis through execution and verification.",
+            "Audit records show whether deterministic logic or LLM escalation was used.",
+            "The chain supports later incident review."
+          ]
+        },
+        {
+          "id": "REP-T41",
+          "title": "Unsafe action guardrails add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "critical",
+          "acceptance_criteria": [
+            "The system has explicit guardrails for obviously dangerous or out-of-scope repair actions.",
+            "Guardrails fail closed where appropriate.",
+            "The behavior is visible and testable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-UX-AND-OPERATOR-FLOWS",
+      "priority": "P1",
+      "title": "UX und Operator-Sichten",
+      "tasks": [
+        {
+          "id": "REP-T42",
+          "title": "Repair session summary view add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Operators can see a concise summary of a repair session.",
+            "The summary includes current state, detected signature, chosen path and verification status.",
+            "The presentation is useful in UI or TUI."
+          ]
+        },
+        {
+          "id": "REP-T43",
+          "title": "Deterministic versus escalated path visibility add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Users can tell whether the current repair path is deterministic, mixed or LLM-escalated.",
+            "The visibility helps trust and review.",
+            "The presentation is simple."
+          ]
+        },
+        {
+          "id": "REP-T44",
+          "title": "Repair proposal preview UX add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Before mutation-capable repair actions, users can inspect the proposed steps and expected verification.",
+            "The preview is good enough for approval decisions.",
+            "The UX remains compact."
+          ]
+        },
+        {
+          "id": "REP-T45",
+          "title": "Repair history inspection view add",
+          "status": "done",
+          "priority": "P2",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Operators can inspect prior repair outcomes and reuse evidence.",
+            "History can be filtered by issue class or environment.",
+            "The view is practical for recurring problems."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REP-TESTING-DOCS-ROLLOUT",
+      "priority": "P1",
+      "title": "Tests Doku Rollout",
+      "tasks": [
+        {
+          "id": "REP-T46",
+          "title": "Signature matching tests add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Tests verify deterministic signature matching for representative failure classes.",
+            "Ambiguous and no-match cases are covered.",
+            "Regression risk is reduced."
+          ]
+        },
+        {
+          "id": "REP-T47",
+          "title": "Diagnosis and repair procedure tests add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "high",
+          "acceptance_criteria": [
+            "Tests cover representative diagnosis and repair flows.",
+            "Verification and approval gating are included in the suite.",
+            "The suite protects the deterministic-first model."
+          ]
+        },
+        {
+          "id": "REP-T48",
+          "title": "Repair memory and ranking tests add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "medium",
+          "acceptance_criteria": [
+            "Tests verify success recording, failure recording and recommendation ranking behavior.",
+            "The suite covers similar-environment reuse at least minimally.",
+            "The behavior stays predictable."
+          ]
+        },
+        {
+          "id": "REP-T49",
+          "title": "Operator guide for deterministic repair path write",
+          "status": "done",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "Documentation explains how deterministic repair works, when approval is needed and when LLM escalation occurs.",
+            "The guide includes examples and safety notes.",
+            "The guide is useful for local admin scenarios."
+          ]
+        },
+        {
+          "id": "REP-T50",
+          "title": "Golden path examples for common repair classes add",
+          "status": "done",
+          "priority": "P1",
+          "risk": "low",
+          "acceptance_criteria": [
+            "At least a few reproducible repair golden paths exist for common classes such as service start failure or package issue.",
+            "Each example shows diagnosis, proposal, verification and result recording.",
+            "The examples demonstrate the deterministic-first value."
+          ]
+        },
+        {
+          "id": "REP-T51",
+          "title": "Rollout plan define",
+          "status": "done",
+          "priority": "P2",
+          "risk": "low",
+          "acceptance_criteria": [
+            "A rollout plan exists that introduces deterministic repair in phases rather than all at once.",
+            "The plan identifies the first supported repair classes.",
+            "The rollout remains manageable."
           ]
         }
       ]
     }
   ],
   "execution_order_summary": [
-    "Start with ARC-FOUNDATION to stabilize shared mode, evidence bounds, fixture-capable diagnosis and diagnosis model.",
-    "Continue with ARC-REPAIR-FLOW to deliver dry-run, advisory classification, bounded step-confirmed execution and verification.",
-    "Build ARC-PLATFORM-ADAPTERS for Windows and Ubuntu evidence/playbook coverage, keeping fixture/mock paths available for safe tests.",
-    "Finish ARC-UX-DOCS-QUALITY with operator output, audit-ready traces, docs and tests.",
-    "Keep KRITIS hardening as next-line integration on top of produced hooks, not in this track."
+    "REP-FOUNDATION first",
+    "Then REP-SIGNAL-INGESTION and REP-SIGNATURES",
+    "Then REP-RULE-BASED-DIAGNOSIS and REP-REPAIR-PROCEDURES",
+    "Then REP-VERIFICATION and REP-MEMORY-AND-LEARNING",
+    "Then REP-GOVERNANCE-APPROVAL-SAFETY",
+    "Then REP-LLM-ESCALATION",
+    "Then REP-UX-AND-OPERATOR-FLOWS",
+    "Finish with REP-TESTING-DOCS-ROLLOUT"
   ],
   "critical_path_tasks": [
-    "ARC-T01",
-    "ARC-T02",
-    "ARC-T04",
-    "ARC-T03",
-    "ARC-T07",
-    "ARC-T08",
-    "ARC-T23",
-    "ARC-T09",
-    "ARC-T10",
-    "ARC-T11",
-    "ARC-T12",
-    "ARC-T13",
-    "ARC-T24",
-    "ARC-T21"
+    "REP-T01",
+    "REP-T02",
+    "REP-T03",
+    "REP-T05",
+    "REP-T06",
+    "REP-T07",
+    "REP-T10",
+    "REP-T11",
+    "REP-T12",
+    "REP-T15",
+    "REP-T16",
+    "REP-T17",
+    "REP-T19",
+    "REP-T20",
+    "REP-T21",
+    "REP-T22",
+    "REP-T25",
+    "REP-T26",
+    "REP-T27",
+    "REP-T29",
+    "REP-T30",
+    "REP-T32",
+    "REP-T38",
+    "REP-T39",
+    "REP-T40",
+    "REP-T46",
+    "REP-T47",
+    "REP-T50"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T13:40:00+02:00",
-    "total": 24,
+    "updated_at": "2026-04-24T21:10:00+02:00",
+    "total": 51,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 24
+      "done": 51
     },
     "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 13,
-      "P1": 10,
-      "P2": 0,
-      "P3": 1
+      "P0": 24,
+      "P1": 22,
+      "P2": 5,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 8,
+      "medium": 19,
+      "high": 20,
+      "critical": 4
     },
     "by_group": {
-      "ARC-FOUNDATION": {
-        "total": 7,
-        "done": 7,
-        "todo": 0
-      },
-      "ARC-REPAIR-FLOW": {
-        "total": 7,
-        "done": 7,
-        "todo": 0
-      },
-      "ARC-PLATFORM-ADAPTERS": {
-        "total": 4,
-        "done": 4,
-        "todo": 0
-      },
-      "ARC-UX-DOCS-QUALITY": {
-        "total": 6,
-        "done": 6,
-        "todo": 0
-      }
+      "REP-FOUNDATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-SIGNAL-INGESTION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-SIGNATURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-VERIFICATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-MEMORY-AND-LEARNING": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-LLM-ESCALATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-GOVERNANCE-APPROVAL-SAFETY": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-UX-AND-OPERATOR-FLOWS": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-TESTING-DOCS-ROLLOUT": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
     },
     "critical_path": {
-      "total": 14,
-      "done": 14,
+      "total": 28,
+      "done": 28,
       "remaining": 0
     }
-  }
+  },
+  "milestone_status_summary": {
+    "updated_at": "2026-04-24T21:10:00+02:00",
+    "by_milestone": {
+      "REP-M1": {"total": 9, "done": 9, "todo": 0},
+      "REP-M2": {"total": 10, "done": 10, "todo": 0},
+      "REP-M3": {"total": 9, "done": 9, "todo": 0},
+      "REP-M4": {"total": 13, "done": 13, "todo": 0},
+      "REP-M5": {"total": 10, "done": 10, "todo": 0}
+    }
+  },
+  "summary_notes": [
+    "Deterministic repair foundations and governance are fully implemented across REP-T01 to REP-T51.",
+    "Milestones REP-M1 through REP-M5 are completed and the critical path is fully closed.",
+    "The track now includes guardrails, operator transparency views, expanded test coverage, operator guide, golden paths and phased rollout planning."
+  ]
 }
