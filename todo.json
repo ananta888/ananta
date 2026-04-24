@@ -235,7 +235,7 @@
         {
           "id": "ARC-T18",
           "title": "Rollback and caution model",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T10"],
           "acceptance_criteria": [
@@ -353,7 +353,7 @@
         {
           "id": "ARC-T19",
           "title": "Golden path Windows",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T05", "ARC-T16"],
           "acceptance_criteria": [
@@ -366,7 +366,7 @@
         {
           "id": "ARC-T20",
           "title": "Golden path Ubuntu",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T06", "ARC-T16"],
           "acceptance_criteria": [
@@ -393,7 +393,7 @@
         {
           "id": "ARC-T22",
           "title": "Future extension boundaries",
-          "status": "todo",
+          "status": "done",
           "priority": "P3",
           "depends_on": ["ARC-T21"],
           "acceptance_criteria": [
@@ -430,15 +430,15 @@
     "ARC-T21"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T13:35:00+02:00",
+    "updated_at": "2026-04-24T13:40:00+02:00",
     "total": 24,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 20
+      "done": 24
     },
-    "progress_percent_done": 83.3,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 13,
       "P1": 10,
@@ -453,8 +453,8 @@
       },
       "ARC-REPAIR-FLOW": {
         "total": 7,
-        "done": 6,
-        "todo": 1
+        "done": 7,
+        "todo": 0
       },
       "ARC-PLATFORM-ADAPTERS": {
         "total": 4,
@@ -463,8 +463,8 @@
       },
       "ARC-UX-DOCS-QUALITY": {
         "total": 6,
-        "done": 3,
-        "todo": 3
+        "done": 6,
+        "todo": 0
       }
     },
     "critical_path": {

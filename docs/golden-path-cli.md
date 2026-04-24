@@ -65,5 +65,14 @@ Erwartetes Repair-Output-Signal:
 - sichtbare Abschnitte fuer `Diagnosis`, `Repair Plan`, `Risk and Approval`, `Verification`
 - step-confirmed Ausfuehrungsmodell mit bounded Aktionen
 - audit-ready Session-Trail und hook-ready Bridge-IDs fuer spaetere KRITIS-Haertung
+- Rollback/Caution-Modell zeigt reversible vs. nicht-reversible Schritte; riskante Schritte werden nicht als sicher dargestellt
+
+Fixture-basierte Golden Paths:
+- Windows 11: reproduzierbarer Flow von bounded evidence -> dry-run preview -> bestaetigte Ausfuehrung -> verification
+- Ubuntu: reproduzierbarer Flow von bounded evidence -> dry-run preview -> bestaetigte Ausfuehrung -> verification
+
+Future Extension Boundaries:
+- Netzwerk-/Container-Orchestrator-/App-spezifische Repair-Architekturen sind ausserhalb des MVP
+- Erweiterungen muessen dasselbe Repair-Action-Schema wiederverwenden (keine parallelen Modelle)
 
 Der CLI-Pfad ist abgeschlossen, wenn `--first-run` den Einstieg erklaert, `--status` die Bereitschaft prueft und ein Shortcut-Goal Goal-ID, Status, Task-Anzahl und naechstes Detailkommando ausgibt.
