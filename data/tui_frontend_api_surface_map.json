@@ -9,6 +9,7 @@
     "Config",
     "System",
     "Teams",
+    "Instruction",
     "Automation",
     "Audit",
     "Repair",
@@ -451,6 +452,144 @@
         "endpoint": "/teams",
         "classification": "tui-advanced",
         "notes": "Team visibility baseline."
+      },
+      {
+        "section": "Teams",
+        "method": "list_blueprints",
+        "http_method": "GET",
+        "endpoint": "/teams/blueprints",
+        "classification": "tui-advanced",
+        "notes": "Blueprint inventory for team composition review."
+      },
+      {
+        "section": "Teams",
+        "method": "list_blueprint_catalog",
+        "http_method": "GET",
+        "endpoint": "/teams/blueprints/catalog",
+        "classification": "tui-advanced",
+        "notes": "Blueprint catalog index."
+      },
+      {
+        "section": "Teams",
+        "method": "get_blueprint",
+        "http_method": "GET",
+        "endpoint": "/teams/blueprints/{id}",
+        "classification": "tui-advanced",
+        "notes": "Blueprint detail for selected blueprint."
+      },
+      {
+        "section": "Teams",
+        "method": "list_team_types",
+        "http_method": "GET",
+        "endpoint": "/teams/types",
+        "classification": "tui-advanced",
+        "notes": "Team type inventory."
+      },
+      {
+        "section": "Teams",
+        "method": "list_team_roles",
+        "http_method": "GET",
+        "endpoint": "/teams/roles",
+        "classification": "tui-advanced",
+        "notes": "Global role catalog."
+      },
+      {
+        "section": "Teams",
+        "method": "list_roles_for_team_type",
+        "http_method": "GET",
+        "endpoint": "/teams/types/{id}/roles",
+        "classification": "tui-advanced",
+        "notes": "Role subset for selected team type."
+      },
+      {
+        "section": "Teams",
+        "method": "activate_team",
+        "http_method": "POST",
+        "endpoint": "/teams/{id}/activate",
+        "classification": "browser-fallback",
+        "notes": "Activation remains confirmation-gated and auditable."
+      }
+    ],
+    "Instruction": [
+      {
+        "section": "Instruction",
+        "method": "get_instruction_layer_model",
+        "http_method": "GET",
+        "endpoint": "/instruction-layers/model",
+        "classification": "tui-advanced",
+        "notes": "Layer schema and overridability metadata."
+      },
+      {
+        "section": "Instruction",
+        "method": "get_instruction_layers_effective",
+        "http_method": "GET",
+        "endpoint": "/instruction-layers/effective",
+        "classification": "tui-advanced",
+        "notes": "Effective instruction stack projection."
+      },
+      {
+        "section": "Instruction",
+        "method": "list_instruction_profiles",
+        "http_method": "GET",
+        "endpoint": "/instruction-profiles",
+        "classification": "tui-advanced",
+        "notes": "Instruction profile inventory."
+      },
+      {
+        "section": "Instruction",
+        "method": "list_instruction_overlays",
+        "http_method": "GET",
+        "endpoint": "/instruction-overlays",
+        "classification": "tui-advanced",
+        "notes": "Instruction overlay inventory."
+      },
+      {
+        "section": "Instruction",
+        "method": "select_instruction_profile",
+        "http_method": "POST",
+        "endpoint": "/instruction-profiles/{id}/select",
+        "classification": "browser-fallback",
+        "notes": "Selection changes require explicit confirmation."
+      },
+      {
+        "section": "Instruction",
+        "method": "select_instruction_overlay",
+        "http_method": "POST",
+        "endpoint": "/instruction-overlays/{id}/select",
+        "classification": "browser-fallback",
+        "notes": "Overlay selection changes are guarded."
+      },
+      {
+        "section": "Instruction",
+        "method": "link_instruction_overlay",
+        "http_method": "POST",
+        "endpoint": "/instruction-overlays/{id}/attach",
+        "classification": "browser-fallback",
+        "notes": "Overlay linking remains confirmation-gated."
+      },
+      {
+        "section": "Instruction",
+        "method": "unlink_instruction_overlay",
+        "http_method": "POST",
+        "endpoint": "/instruction-overlays/{id}/detach",
+        "classification": "browser-fallback",
+        "notes": "Overlay detaching remains confirmation-gated."
+      },
+      {
+        "section": "Instruction",
+        "method": "set_goal_instruction_selection",
+        "http_method": "POST",
+        "endpoint": "/goals/{id}/instruction-selection",
+        "classification": "browser-fallback",
+        "notes": "Goal-level selection writes remain explicit."
+      },
+      {
+        "section": "Instruction",
+        "method": "set_task_instruction_selection",
+        "http_method": "POST",
+        "endpoint": "/tasks/{id}/instruction-selection",
+        "classification": "browser-fallback",
+        "notes": "Task-level selection writes remain explicit."
       }
     ],
     "Automation": [
@@ -477,6 +616,46 @@
         "endpoint": "/triggers/status",
         "classification": "tui-advanced",
         "notes": "Trigger subsystem status."
+      },
+      {
+        "section": "Automation",
+        "method": "start_autopilot",
+        "http_method": "POST",
+        "endpoint": "/tasks/autopilot/start",
+        "classification": "browser-fallback",
+        "notes": "Autopilot start is explicit and confirmation-gated."
+      },
+      {
+        "section": "Automation",
+        "method": "stop_autopilot",
+        "http_method": "POST",
+        "endpoint": "/tasks/autopilot/stop",
+        "classification": "browser-fallback",
+        "notes": "Autopilot stop is explicit and confirmation-gated."
+      },
+      {
+        "section": "Automation",
+        "method": "tick_autopilot",
+        "http_method": "POST",
+        "endpoint": "/tasks/autopilot/tick",
+        "classification": "browser-fallback",
+        "notes": "Manual tick is explicit and auditable."
+      },
+      {
+        "section": "Automation",
+        "method": "configure_auto_planner",
+        "http_method": "POST",
+        "endpoint": "/tasks/auto-planner/configure",
+        "classification": "browser-fallback",
+        "notes": "Planner config writes remain guarded."
+      },
+      {
+        "section": "Automation",
+        "method": "configure_triggers",
+        "http_method": "POST",
+        "endpoint": "/triggers/configure",
+        "classification": "browser-fallback",
+        "notes": "Trigger config writes remain guarded."
       }
     ],
     "Audit": [
@@ -487,6 +666,14 @@
         "endpoint": "/api/system/audit-logs",
         "classification": "tui-advanced",
         "notes": "Paged audit list in terminal."
+      },
+      {
+        "section": "Audit",
+        "method": "analyze_audit_logs",
+        "http_method": "POST",
+        "endpoint": "/api/system/audit/analyze",
+        "classification": "tui-advanced",
+        "notes": "Audit pattern analysis with summary counters."
       }
     ],
     "Repair": [

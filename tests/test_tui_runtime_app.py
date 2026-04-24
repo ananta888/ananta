@@ -35,6 +35,11 @@ def test_tui_runtime_app_renders_fixture_sections() -> None:
         "[BENCHMARKS]",
         "[SYSTEM]",
         "[TEAMS]",
+        "[BLUEPRINTS]",
+        "[INSTRUCTION-LAYERS]",
+        "[INSTRUCTION-EFFECTIVE]",
+        "[INSTRUCTION-PROFILES]",
+        "[INSTRUCTION-OVERLAYS]",
         "[AUTOMATION]",
         "[AUDIT]",
         "[APPROVALS]",
@@ -68,6 +73,14 @@ def test_tui_runtime_compact_navigation_and_selected_context() -> None:
             "KC-1",
             "--selected-template-id",
             "TPL-1",
+            "--selected-team-id",
+            "team-core",
+            "--selected-blueprint-id",
+            "BP-1",
+            "--selected-instruction-profile-id",
+            "IP-1",
+            "--selected-instruction-overlay-id",
+            "IO-1",
         ],
         check=False,
         capture_output=True,
@@ -78,6 +91,10 @@ def test_tui_runtime_compact_navigation_and_selected_context() -> None:
     assert "selected_task=T-1" in result.stdout
     assert "selected_collection=KC-1" in result.stdout
     assert "selected_template=TPL-1" in result.stdout
+    assert "selected_team=team-core" in result.stdout
+    assert "selected_blueprint=BP-1" in result.stdout
+    assert "selected_profile=IP-1" in result.stdout
+    assert "selected_overlay=IO-1" in result.stdout
 
 
 def test_tui_runtime_safe_config_edit_preview_and_apply() -> None:
@@ -211,6 +228,65 @@ def test_tui_runtime_knowledge_and_template_operations() -> None:
     assert result.returncode == 0
     assert "[KNOWLEDGE-ACTION] index_state=healthy search_state=healthy search_hits=1" in result.stdout
     assert "[TEMPLATE-OP] operation=diagnostics state=healthy" in result.stdout
+
+
+def test_tui_runtime_team_instruction_automation_actions() -> None:
+    preview = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-team-id",
+            "team-core",
+            "--team-action",
+            "activate",
+            "--selected-instruction-profile-id",
+            "IP-1",
+            "--instruction-action",
+            "select_profile",
+            "--automation-action",
+            "autopilot_start",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert preview.returncode == 0
+    assert "[TEAM-ACTION] preview_only action=activate team_id=team-core" in preview.stdout
+    assert "[INSTRUCTION-ACTION] preview_only action=select_profile" in preview.stdout
+    assert "[AUTOMATION-ACTION] preview_only action=autopilot_start" in preview.stdout
+
+    apply_actions = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-team-id",
+            "team-core",
+            "--team-action",
+            "activate",
+            "--confirm-team-action",
+            "--selected-instruction-overlay-id",
+            "IO-1",
+            "--instruction-action",
+            "select_overlay",
+            "--instruction-action-json",
+            '{"reason":"operator_override"}',
+            "--confirm-instruction-action",
+            "--automation-action",
+            "autopilot_tick",
+            "--confirm-automation-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert apply_actions.returncode == 0
+    assert "[TEAM-ACTION] applied action=activate team_id=team-core state=healthy" in apply_actions.stdout
+    assert "[INSTRUCTION-ACTION] applied action=select_overlay state=healthy" in apply_actions.stdout
+    assert "[AUTOMATION-ACTION] applied action=autopilot_tick state=healthy" in apply_actions.stdout
 
 
 def test_tui_runtime_app_shows_degraded_health_state() -> None:

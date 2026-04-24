@@ -14,6 +14,11 @@ def test_tui_view_state_sanitizes_stale_selection() -> None:
         artifact_id="A-1",
         collection_id="KC-1",
         template_id="TPL-1",
+        team_id="TEAM-1",
+        blueprint_id="BP-1",
+        team_type_id="TT-1",
+        instruction_profile_id="IP-1",
+        instruction_overlay_id="IO-1",
     )
     sanitized = state.sanitize_selection(
         goal_ids={"G-1"},
@@ -21,6 +26,11 @@ def test_tui_view_state_sanitizes_stale_selection() -> None:
         artifact_ids=set(),
         collection_ids={"KC-2"},
         template_ids=set(),
+        team_ids={"TEAM-2"},
+        blueprint_ids=set(),
+        team_type_ids={"TT-2"},
+        instruction_profile_ids=set(),
+        instruction_overlay_ids={"IO-2"},
     )
 
     assert sanitized.selected_goal_id == "G-1"
@@ -28,6 +38,11 @@ def test_tui_view_state_sanitizes_stale_selection() -> None:
     assert sanitized.selected_artifact_id is None
     assert sanitized.selected_collection_id is None
     assert sanitized.selected_template_id is None
+    assert sanitized.selected_team_id is None
+    assert sanitized.selected_blueprint_id is None
+    assert sanitized.selected_team_type_id is None
+    assert sanitized.selected_instruction_profile_id is None
+    assert sanitized.selected_instruction_overlay_id is None
 
 
 def test_tui_view_state_compact_mode_switches_for_small_width() -> None:

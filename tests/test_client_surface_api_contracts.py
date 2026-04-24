@@ -76,9 +76,38 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
             ("POST", "/templates/preview"): (200, {"rendered": "ok"}),
             ("POST", "/templates/validation-diagnostics"): (200, {"diagnostics": []}),
             ("GET", "/teams"): (200, {"items": [{"id": "team-1"}]}),
+            ("GET", "/teams/blueprints"): (200, {"items": [{"id": "bp-1"}]}),
+            ("GET", "/teams/blueprints/catalog"): (200, {"items": [{"id": "catalog-1"}]}),
+            ("GET", "/teams/blueprints/bp-1"): (200, {"id": "bp-1", "name": "Core BP"}),
+            ("GET", "/teams/types"): (200, {"items": [{"id": "tt-1"}]}),
+            ("GET", "/teams/roles"): (200, {"items": [{"id": "role-1"}]}),
+            ("GET", "/teams/types/tt-1/roles"): (200, {"items": [{"id": "role-1"}]}),
+            ("POST", "/teams/team-1/activate"): (200, {"updated": True}),
+            ("GET", "/instruction-layers/model"): (200, {"layers": [{"id": "base"}]}),
+            (
+                "GET",
+                "/instruction-layers/effective?owner_username=ops&task_id=task-1&goal_id=goal-1&session_id=s1&usage_key=u1&profile_id=ip-1&overlay_id=io-1",
+            ): (200, {"effective_stack": [{"layer": "base"}]}),
+            ("GET", "/instruction-profiles?owner_username=ops"): (200, {"items": [{"id": "ip-1"}]}),
+            (
+                "GET",
+                "/instruction-overlays?owner_username=ops&attachment_kind=task&attachment_id=task-1",
+            ): (200, {"items": [{"id": "io-1"}]}),
+            ("POST", "/instruction-profiles/ip-1/select"): (200, {"updated": True}),
+            ("POST", "/instruction-overlays/io-1/select"): (200, {"updated": True}),
+            ("POST", "/instruction-overlays/io-1/attach"): (200, {"updated": True}),
+            ("POST", "/instruction-overlays/io-1/detach"): (200, {"updated": True}),
+            ("POST", "/goals/goal-1/instruction-selection"): (200, {"updated": True}),
+            ("POST", "/tasks/task-1/instruction-selection"): (200, {"updated": True}),
             ("GET", "/tasks/autopilot/status"): (200, {"running": False}),
             ("GET", "/tasks/auto-planner/status"): (200, {"enabled": True}),
             ("GET", "/triggers/status"): (200, {"enabled": True}),
+            ("POST", "/tasks/autopilot/start"): (200, {"updated": True}),
+            ("POST", "/tasks/autopilot/stop"): (200, {"updated": True}),
+            ("POST", "/tasks/autopilot/tick"): (200, {"updated": True}),
+            ("POST", "/tasks/auto-planner/configure"): (200, {"updated": True}),
+            ("POST", "/triggers/configure"): (200, {"updated": True}),
+            ("POST", "/api/system/audit/analyze?limit=25"): (200, {"summary": {"total": 1}}),
             ("GET", "/approvals"): (200, {"items": [{"id": "approval-1", "scope": "deploy", "state": "pending"}]}),
             ("GET", "/repairs"): (200, {"items": [{"session_id": "repair-1"}]}),
             ("POST", "/goals"): (200, {"goal_id": "goal-1", "task_id": "task-1"}),
@@ -156,9 +185,48 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
     assert client.preview_template({"template": "x"}).data["rendered"] == "ok"
     assert client.template_validation_diagnostics({"template": "x"}).data["diagnostics"] == []
     assert client.list_teams().data["items"][0]["id"] == "team-1"
+    assert client.list_blueprints().data["items"][0]["id"] == "bp-1"
+    assert client.list_blueprint_catalog().data["items"][0]["id"] == "catalog-1"
+    assert client.get_blueprint("bp-1").data["id"] == "bp-1"
+    assert client.list_team_types().data["items"][0]["id"] == "tt-1"
+    assert client.list_team_roles().data["items"][0]["id"] == "role-1"
+    assert client.list_roles_for_team_type("tt-1").data["items"][0]["id"] == "role-1"
+    assert client.activate_team("team-1").data["updated"] is True
+    assert client.get_instruction_layer_model().data["layers"][0]["id"] == "base"
+    assert (
+        client.get_instruction_layers_effective(
+            owner_username="ops",
+            task_id="task-1",
+            goal_id="goal-1",
+            session_id="s1",
+            usage_key="u1",
+            profile_id="ip-1",
+            overlay_id="io-1",
+        ).data["effective_stack"][0]["layer"]
+        == "base"
+    )
+    assert client.list_instruction_profiles(owner_username="ops").data["items"][0]["id"] == "ip-1"
+    assert (
+        client.list_instruction_overlays(owner_username="ops", attachment_kind="task", attachment_id="task-1").data[
+            "items"
+        ][0]["id"]
+        == "io-1"
+    )
+    assert client.select_instruction_profile("ip-1").data["updated"] is True
+    assert client.select_instruction_overlay("io-1").data["updated"] is True
+    assert client.link_instruction_overlay("io-1", {"attachment_kind": "task"}).data["updated"] is True
+    assert client.unlink_instruction_overlay("io-1").data["updated"] is True
+    assert client.set_goal_instruction_selection("goal-1", {"profile_id": "ip-1"}).data["updated"] is True
+    assert client.set_task_instruction_selection("task-1", {"overlay_id": "io-1"}).data["updated"] is True
     assert client.get_autopilot_status().data["running"] is False
     assert client.get_auto_planner_status().data["enabled"] is True
     assert client.get_triggers_status().data["enabled"] is True
+    assert client.start_autopilot({"max_concurrency": 2}).data["updated"] is True
+    assert client.stop_autopilot().data["updated"] is True
+    assert client.tick_autopilot().data["updated"] is True
+    assert client.configure_auto_planner({"enabled": True}).data["updated"] is True
+    assert client.configure_triggers({"enabled": True}).data["updated"] is True
+    assert client.analyze_audit_logs(limit=25).data["summary"]["total"] == 1
     assert client.list_approvals().data["items"][0]["state"] == "pending"
     assert client.list_repairs().data["items"][0]["session_id"] == "repair-1"
     assert client.submit_goal("Demo Goal", context).data["goal_id"] == "goal-1"
@@ -222,9 +290,35 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
     assert ("POST", "/templates/preview") in called_paths
     assert ("POST", "/templates/validation-diagnostics") in called_paths
     assert ("GET", "/teams") in called_paths
+    assert ("GET", "/teams/blueprints") in called_paths
+    assert ("GET", "/teams/blueprints/catalog") in called_paths
+    assert ("GET", "/teams/blueprints/bp-1") in called_paths
+    assert ("GET", "/teams/types") in called_paths
+    assert ("GET", "/teams/roles") in called_paths
+    assert ("GET", "/teams/types/tt-1/roles") in called_paths
+    assert ("POST", "/teams/team-1/activate") in called_paths
+    assert ("GET", "/instruction-layers/model") in called_paths
+    assert (
+        "GET",
+        "/instruction-layers/effective?owner_username=ops&task_id=task-1&goal_id=goal-1&session_id=s1&usage_key=u1&profile_id=ip-1&overlay_id=io-1",
+    ) in called_paths
+    assert ("GET", "/instruction-profiles?owner_username=ops") in called_paths
+    assert ("GET", "/instruction-overlays?owner_username=ops&attachment_kind=task&attachment_id=task-1") in called_paths
+    assert ("POST", "/instruction-profiles/ip-1/select") in called_paths
+    assert ("POST", "/instruction-overlays/io-1/select") in called_paths
+    assert ("POST", "/instruction-overlays/io-1/attach") in called_paths
+    assert ("POST", "/instruction-overlays/io-1/detach") in called_paths
+    assert ("POST", "/goals/goal-1/instruction-selection") in called_paths
+    assert ("POST", "/tasks/task-1/instruction-selection") in called_paths
     assert ("GET", "/tasks/autopilot/status") in called_paths
     assert ("GET", "/tasks/auto-planner/status") in called_paths
     assert ("GET", "/triggers/status") in called_paths
+    assert ("POST", "/tasks/autopilot/start") in called_paths
+    assert ("POST", "/tasks/autopilot/stop") in called_paths
+    assert ("POST", "/tasks/autopilot/tick") in called_paths
+    assert ("POST", "/tasks/auto-planner/configure") in called_paths
+    assert ("POST", "/triggers/configure") in called_paths
+    assert ("POST", "/api/system/audit/analyze?limit=25") in called_paths
     assert ("GET", "/approvals") in called_paths
     assert ("GET", "/repairs") in called_paths
     assert ("POST", "/goals") in called_paths
