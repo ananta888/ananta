@@ -18,6 +18,8 @@ def test_admin_repair_mode_data_contains_hook_ready_contract_fields():
     assert payload["diagnosis_artifact"]["schema"] == "admin_repair_diagnosis_v1"
     assert payload["repair_plan"]["schema"] == "admin_repair_plan_v1"
     assert payload["repair_plan"]["dry_run_default"] is True
+    assert payload["deterministic_repair_foundation"]["target_model"]["model_id"] == "deterministic_repair_path_v1"
+    assert payload["deterministic_repair_foundation"]["normalized_evidence"]["schema"] == "deterministic_repair_evidence_v1"
 
     required_fields = {
         "risk_class",

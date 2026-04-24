@@ -93,6 +93,8 @@ class TestGoalsAPI:
         assert persisted_goal.mode_data["golden_paths"]["windows"]["platform_target"] == "windows11"
         assert persisted_goal.mode_data["golden_paths"]["ubuntu"]["platform_target"] == "ubuntu"
         assert persisted_goal.mode_data["future_extension_boundaries"]["schema"] == "admin_repair_extension_boundaries_v1"
+        assert persisted_goal.mode_data["deterministic_repair_foundation"]["target_model"]["model_id"] == "deterministic_repair_path_v1"
+        assert persisted_goal.mode_data["deterministic_repair_foundation"]["evidence_ingestion_model"]["allowed_evidence_types"]
         assert persisted_goal.mode_data["session_trail"]["entries"]
         assert persisted_goal.mode_data["cli_output"]["sections"][0]["id"] == "diagnosis"
         assert persisted_goal.mode_data["smoke_scenarios"]
