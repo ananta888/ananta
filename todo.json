@@ -56,7 +56,7 @@
         {
           "id": "REP-T01",
           "title": "Repair path target model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -68,7 +68,7 @@
         {
           "id": "REP-T02",
           "title": "Repair problem class inventory create",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -80,7 +80,7 @@
         {
           "id": "REP-T03",
           "title": "Repair state model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -92,7 +92,7 @@
         {
           "id": "REP-T04",
           "title": "Repair confidence model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -111,7 +111,7 @@
         {
           "id": "REP-T05",
           "title": "Repair evidence ingestion model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -123,7 +123,7 @@
         {
           "id": "REP-T06",
           "title": "Environment fact collection add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -135,7 +135,7 @@
         {
           "id": "REP-T07",
           "title": "Structured log ingestion add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "acceptance_criteria": [
@@ -147,7 +147,7 @@
         {
           "id": "REP-T08",
           "title": "Health and command result capture add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "low",
           "acceptance_criteria": [
@@ -159,7 +159,7 @@
         {
           "id": "REP-T09",
           "title": "Evidence normalization pipeline implement",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "acceptance_criteria": [
@@ -178,7 +178,7 @@
         {
           "id": "REP-T10",
           "title": "Failure signature model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "acceptance_criteria": [
@@ -779,15 +779,15 @@
     "REP-T50"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T13:52:00+02:00",
+    "updated_at": "2026-04-24T20:10:00+02:00",
     "total": 51,
     "by_status": {
-      "todo": 51,
+      "todo": 41,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 19.61,
     "by_priority": {
       "P0": 24,
       "P1": 22,
@@ -801,9 +801,9 @@
       "critical": 4
     },
     "by_group": {
-      "REP-FOUNDATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
-      "REP-SIGNAL-INGESTION": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
-      "REP-SIGNATURES": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
+      "REP-FOUNDATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
+      "REP-SIGNAL-INGESTION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
+      "REP-SIGNATURES": {"total": 5, "todo": 4, "in_progress": 0, "blocked": 0, "done": 1},
       "REP-RULE-BASED-DIAGNOSIS": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-REPAIR-PROCEDURES": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0},
       "REP-VERIFICATION": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0},
@@ -815,23 +815,23 @@
     },
     "critical_path": {
       "total": 28,
-      "done": 0,
-      "remaining": 28
+      "done": 7,
+      "remaining": 21
     }
   },
   "milestone_status_summary": {
-    "updated_at": "2026-04-24T13:52:00+02:00",
+    "updated_at": "2026-04-24T20:10:00+02:00",
     "by_milestone": {
-      "REP-M1": {"total": 9, "done": 0, "todo": 9},
-      "REP-M2": {"total": 10, "done": 0, "todo": 10},
+      "REP-M1": {"total": 9, "done": 9, "todo": 0},
+      "REP-M2": {"total": 10, "done": 1, "todo": 9},
       "REP-M3": {"total": 9, "done": 0, "todo": 9},
       "REP-M4": {"total": 13, "done": 0, "todo": 13},
       "REP-M5": {"total": 10, "done": 0, "todo": 10}
     }
   },
   "summary_notes": [
-    "Track reset from prior completed admin-repair foundation to a new deterministic-repair execution track.",
-    "All REP tasks are currently planned (todo) and ready for implementation sequencing via execution_order_summary and critical_path_tasks.",
-    "Risk-heavy work is concentrated in signature matching, repair execution, governance enforcement and deterministic verification."
+    "Deterministic repair foundations, evidence ingestion and first signature modeling wave (REP-T01 to REP-T10) are implemented.",
+    "Milestone REP-M1 is completed and REP-M2 is started, while the remaining execution track stays aligned to execution_order_summary and critical_path_tasks.",
+    "Risk-heavy remaining work is concentrated in signature matching engine depth, repair execution, governance enforcement and deterministic verification."
   ]
 }

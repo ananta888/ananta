@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from agent.services.deterministic_repair_path_service import build_deterministic_repair_foundation_snapshot
 
 SUPPORTED_PLATFORM_PROFILES: dict[str, dict[str, Any]] = {
     "windows11": {
@@ -963,6 +964,11 @@ def build_admin_repair_mode_data(mode_data: dict[str, Any]) -> dict[str, Any]:
     normalized["verification_phase"] = verification_phase
     normalized["bridge_contract"] = bridge_contract
     normalized["future_extension_boundaries"] = _build_future_extension_boundaries()
+    normalized["deterministic_repair_foundation"] = build_deterministic_repair_foundation_snapshot(
+        mode_data=normalized,
+        issue_symptom=issue_symptom,
+        evidence_sources=evidence_sources,
+    )
     normalized["session_trail"] = _build_session_trail(
         evidence_contract=normalized["evidence_contract"],
         repair_plan=repair_plan,
