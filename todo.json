@@ -1,387 +1,434 @@
 {
   "version": 2,
   "owner": "ananta",
-  "extends": "todo.eclipse.json",
-  "track": "eclipse_plugin_views_extension",
-  "purpose": "Extend the existing Eclipse plugin adapter with a small set of useful Eclipse-native views while keeping Ananta as the control plane.",
+  "track": "client_surface_reality_hardening",
+  "purpose": "Convert the completed-looking TUI and Eclipse tracks from foundation-only status into verifiably runnable client surfaces, or explicitly downgrade their completion claims before merging to main.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "The Eclipse plugin should manage Ananta work through a few clear Eclipse views for goals, tasks, artifacts, context, review and blueprint/work-profile usage without turning into a second standalone frontend.",
+  "goal": "Ananta must have truthful completion status for TUI and Eclipse integration. Claimed client surfaces must either be implemented as runnable clients with tests and smoke checks, or reclassified as foundation/contract work.",
   "success_criteria": [
-    "The plugin offers a compact set of Eclipse-native views that map to real Ananta workflows.",
-    "Views remain thin and reuse existing Ananta APIs and read models instead of duplicating orchestration logic.",
-    "Users can manage daily IDE work without constantly switching to the browser.",
-    "The plugin still stays maintainable and does not become a full second web UI inside Eclipse."
-  ],
-  "program_success_criteria": [
-    "The plugin offers a compact set of Eclipse-native views that map to real Ananta workflows.",
-    "Views remain thin and reuse existing Ananta APIs and read models instead of duplicating orchestration logic.",
-    "Users can manage daily IDE work without constantly switching to the browser.",
-    "The plugin still stays maintainable and does not become a full second web UI inside Eclipse."
+    "The repository contains a real runnable TUI entrypoint if TUI is claimed as implemented.",
+    "The repository contains a real buildable Eclipse plugin project if Eclipse plugin is claimed as implemented.",
+    "Existing foundation services remain useful but are not mistaken for finished clients.",
+    "Unit, integration and smoke tests prove the runnable paths.",
+    "Todo status matches implementation evidence before merge to main."
   ],
   "architecture_guardrails": [
-    "Eclipse remains a thin work-surface adapter; hub orchestration, routing and governance stay in Ananta.",
-    "Complex admin/audit deep screens remain browser-first unless there is clear IDE value.",
-    "View synchronization and convenience features must stay deterministic and auditable."
+    "Do not mark adapter foundation, contracts or documentation as a complete client implementation.",
+    "TUI and Eclipse must stay thin clients; orchestration, governance and policy remain in Ananta.",
+    "All client actions must go through existing backend approval, audit and task APIs.",
+    "No client may silently bypass policy, approval, audit or bounded context rules."
   ],
   "milestones": [
     {
-      "id": "M1",
-      "title": "View MVP and navigation baseline",
-      "task_ids": ["ECL-T27", "ECL-T28", "ECL-T29", "ECL-T30", "ECL-T31", "ECL-T36"],
-      "status": "done"
+      "id": "CSH-M1",
+      "title": "Reality audit and status correction",
+      "task_ids": ["CSH-T01", "CSH-T02", "CSH-T03", "CSH-T04"],
+      "status": "todo"
     },
     {
-      "id": "M2",
-      "title": "Core interaction and rendering quality",
-      "task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"],
-      "status": "done"
+      "id": "CSH-M2",
+      "title": "Runnable TUI implementation",
+      "task_ids": ["CSH-T05", "CSH-T06", "CSH-T07", "CSH-T08", "CSH-T09", "CSH-T10"],
+      "status": "todo"
     },
     {
-      "id": "M3",
-      "title": "Operational robustness and UX safeguards",
-      "task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"],
-      "status": "done"
+      "id": "CSH-M3",
+      "title": "Buildable Eclipse plugin implementation",
+      "task_ids": ["CSH-T11", "CSH-T12", "CSH-T13", "CSH-T14", "CSH-T15", "CSH-T16", "CSH-T17"],
+      "status": "todo"
     },
     {
-      "id": "M4",
-      "title": "Validation and forward boundaries",
-      "task_ids": ["ECL-T47", "ECL-T48", "ECL-T49", "ECL-T50"],
-      "status": "done"
+      "id": "CSH-M4",
+      "title": "Cross-client tests and safety checks",
+      "task_ids": ["CSH-T18", "CSH-T19", "CSH-T20", "CSH-T21", "CSH-T22"],
+      "status": "todo"
+    },
+    {
+      "id": "CSH-M5",
+      "title": "Release evidence and merge readiness",
+      "task_ids": ["CSH-T23", "CSH-T24", "CSH-T25", "CSH-T26"],
+      "status": "todo"
     }
   ],
   "tasks": [
     {
-      "id": "ECL-T27",
-      "title": "View strategy for Eclipse plugin define",
-      "status": "done",
+      "id": "CSH-T01",
+      "title": "Client surface implementation inventory create",
+      "status": "todo",
       "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "A short design note defines which views belong to the Eclipse plugin MVP, which belong to phase 2 and which stay browser-only.",
-        "The note states that Eclipse views are work-oriented and do not replace the full Ananta web UI.",
-        "Each planned view is mapped to concrete Ananta backend flows."
+        "A repository inventory classifies TUI, Eclipse plugin and Eclipse views as real implementation, foundation-only, docs-only or missing.",
+        "The inventory lists exact file paths used as evidence.",
+        "The inventory explicitly distinguishes backend foundation services from runnable client code."
       ]
     },
     {
-      "id": "ECL-T28",
-      "title": "Goal and quick action view implement",
-      "status": "done",
+      "id": "CSH-T02",
+      "title": "Todo completion claims reconcile",
+      "status": "todo",
       "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "A dedicated Eclipse view allows entering a goal or selecting a quick action.",
-        "The view supports official actions such as analyze, review, patch, new-project and evolve-project.",
-        "The view can include bounded editor/project context before submission."
+        "todo.json and todo_last.json claims are compared against actual implementation evidence.",
+        "Tasks that only produced Python foundation services or docs are reclassified as foundation-complete, not client-complete.",
+        "A short correction note explains which Eclipse/TUI claims were overstated."
       ]
     },
     {
-      "id": "ECL-T29",
-      "title": "Task list view implement",
-      "status": "done",
+      "id": "CSH-T03",
+      "title": "Client entrypoint audit script add",
+      "status": "todo",
       "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "A dedicated Eclipse view lists current Ananta tasks.",
-        "The view shows status, title, review-required state and next step summary.",
-        "Users can open a selected task for more detail without leaving Eclipse."
+        "A script checks for real TUI entrypoints such as a CLI command, Python module or executable package.",
+        "The same script checks for Eclipse plugin markers such as plugin.xml, META-INF/MANIFEST.MF and build metadata.",
+        "The script fails or reports blocking warnings when a claimed client surface has no executable evidence."
       ]
     },
     {
-      "id": "ECL-T30",
-      "title": "Artifact view implement",
-      "status": "done",
+      "id": "CSH-T04",
+      "title": "Client completion definitions document",
+      "status": "todo",
       "priority": "P0",
+      "risk": "high",
       "acceptance_criteria": [
-        "A dedicated Eclipse view lists returned artifacts such as analysis summaries, review outputs, research artifacts or proposals.",
-        "Artifacts are readable inside Eclipse in a bounded form.",
-        "Users can jump from artifact entries to related tasks/goals or open the full object in the browser."
+        "Completion criteria define when TUI is considered runnable.",
+        "Completion criteria define when Eclipse plugin is considered buildable/installable.",
+        "Foundation-only, MVP-client and production-ready are defined separately."
       ]
     },
+
     {
-      "id": "ECL-T31",
-      "title": "Context inspection view implement",
-      "status": "done",
+      "id": "CSH-T05",
+      "title": "TUI package and entrypoint implement",
+      "status": "todo",
       "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "A dedicated view shows which editor selection, file path, project context or extra files will be sent to Ananta.",
-        "Users can remove or adjust context before submission.",
-        "The view makes context packaging transparent and bounded."
+        "A real TUI package exists in the repository.",
+        "A documented command can start it, for example ananta tui or python -m ananta_tui.",
+        "The entrypoint handles backend URL/profile configuration without crashing."
       ]
     },
     {
-      "id": "ECL-T32",
-      "title": "Basic task detail view implement",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Users can inspect a selected task in a richer detail view.",
-        "The detail view shows summary, pipeline/routing hints, artifacts and latest status.",
-        "The detail view is readable without becoming a full ops dashboard."
-      ]
-    },
-    {
-      "id": "ECL-T33",
-      "title": "Review and proposal view implement",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "A dedicated view can display change review results, findings and proposals.",
-        "Where applicable, the view supports explicit approve/reject actions under existing policy constraints.",
-        "The view keeps review work visible and auditable."
-      ]
-    },
-    {
-      "id": "ECL-T34",
-      "title": "Blueprint and work-profile view implement",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "A dedicated view exposes standard blueprints and their work-profile summaries.",
-        "Users can see what a blueprint is for, which goal modes it recommends and what outputs it tends to produce.",
-        "The view helps users choose a suitable starting path from inside Eclipse."
-      ]
-    },
-    {
-      "id": "ECL-T35",
-      "title": "Connection and runtime status view implement",
-      "status": "done",
-      "priority": "P2",
-      "acceptance_criteria": [
-        "An optional view shows connection status, selected Ananta endpoint and basic runtime health.",
-        "The view can surface whether the backend is reachable and whether required capabilities are available.",
-        "The view remains lightweight and does not duplicate the full admin settings surface."
-      ]
-    },
-    {
-      "id": "ECL-T36",
-      "title": "View navigation and linking model define",
-      "status": "done",
+      "id": "CSH-T06",
+      "title": "TUI backend client adapter implement",
+      "status": "todo",
       "priority": "P0",
+      "risk": "high",
       "acceptance_criteria": [
-        "A small navigation model defines how goal, task, artifact and review views link to one another.",
-        "The user can move between core views without losing task context.",
-        "Cross-links to the Ananta web UI remain available for deeper inspection."
+        "The TUI can call existing Ananta APIs for health, goals, tasks, artifacts and approvals.",
+        "The adapter handles auth failure, connection failure and malformed responses.",
+        "The adapter does not duplicate orchestration or policy logic."
       ]
     },
     {
-      "id": "ECL-T37",
-      "title": "Unified selection synchronization across views add",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Selecting a task or artifact in one view can update related detail panes or linked views.",
-        "The synchronization stays predictable and not overly magical.",
-        "Users can always tell which object is currently active."
-      ]
-    },
-    {
-      "id": "ECL-T38",
-      "title": "Minimal view state persistence add",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Core view state such as selected connection profile or last opened filters is restored reasonably across IDE restarts.",
-        "Sensitive state is not persisted unsafely.",
-        "Persistence reduces friction without adding hidden complexity."
-      ]
-    },
-    {
-      "id": "ECL-T39",
-      "title": "Task filters and grouping add",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Task view supports useful filters such as active, done, blocked or review-required.",
-        "Grouping by goal or status is possible where helpful.",
-        "The feature improves usability without becoming a full project-management clone."
-      ]
-    },
-    {
-      "id": "ECL-T40",
-      "title": "Artifact rendering modes define",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Artifact view supports a small number of rendering modes such as summary, markdown-like text and proposal/review output.",
-        "The plugin can render common artifact types meaningfully.",
-        "Unsupported types degrade cleanly to raw text or open-in-browser."
-      ]
-    },
-    {
-      "id": "ECL-T41",
-      "title": "Review and diff rendering improve for Eclipse",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "Change-oriented artifacts can be shown in a form suitable for IDE review work.",
-        "File references are clickable where possible.",
-        "The plugin does not silently apply changes just because they are visible."
-      ]
-    },
-    {
-      "id": "ECL-T42",
-      "title": "Context source badges and provenance hints add",
-      "status": "done",
-      "priority": "P2",
-      "acceptance_criteria": [
-        "Views can show whether context or outputs came from selection, repo context, task memory, research or other sources when applicable.",
-        "This remains lightweight and readable.",
-        "The feature improves trust in what the plugin is showing."
-      ]
-    },
-    {
-      "id": "ECL-T43",
-      "title": "First-run perspective/layout define",
-      "status": "done",
-      "priority": "P1",
-      "acceptance_criteria": [
-        "A recommended Eclipse layout or perspective for Ananta views is documented or shipped.",
-        "The first-run layout favors Goal, Task, Artifact and Context views.",
-        "Users do not need to manually assemble a sensible working layout."
-      ]
-    },
-    {
-      "id": "ECL-T44",
-      "title": "Browser fallback policy for complex views define",
-      "status": "done",
+      "id": "CSH-T07",
+      "title": "TUI core views implement",
+      "status": "todo",
       "priority": "P0",
+      "risk": "high",
       "acceptance_criteria": [
-        "A clear rule defines when Eclipse should show data directly and when it should send users to the Ananta web UI.",
-        "Complex admin or deep audit screens remain browser-first unless there is strong IDE value.",
-        "This policy prevents the plugin from becoming a second full frontend."
+        "The TUI has at least task list, task detail, artifact list/detail and health/status views.",
+        "Views have empty, loading and error states.",
+        "The TUI can run against mocked or local Ananta data."
       ]
     },
     {
-      "id": "ECL-T45",
-      "title": "View-specific error and empty-state UX add",
-      "status": "done",
+      "id": "CSH-T08",
+      "title": "TUI approval and repair visibility implement",
+      "status": "todo",
       "priority": "P1",
+      "risk": "critical",
       "acceptance_criteria": [
-        "Each core view has helpful empty and error states.",
-        "Users can distinguish no data, disconnected backend and permission issues.",
-        "The plugin stays understandable under degraded conditions."
+        "The TUI can display approval-required states without implying automatic execution.",
+        "Approval actions, if implemented, call backend approval APIs only.",
+        "Repair session visibility shows diagnosis, proposed steps, verification and final outcome where backend data exists."
       ]
     },
     {
-      "id": "ECL-T46",
-      "title": "Accessibility and keyboard usage pass for views add",
-      "status": "done",
-      "priority": "P2",
+      "id": "CSH-T09",
+      "title": "TUI unit and snapshot-style tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
       "acceptance_criteria": [
-        "Core actions in major views can be reached without excessive mouse dependency.",
-        "Basic keyboard navigation across list/detail interactions works.",
-        "The initial view set remains usable in everyday development flow."
+        "TUI view models are tested without requiring a real terminal where possible.",
+        "Tests cover normal, empty, backend-failure and permission-denied cases.",
+        "Tests verify that sensitive values are not rendered in obvious output surfaces."
       ]
     },
     {
-      "id": "ECL-T47",
-      "title": "Manual smoke checklist for multi-view workflow add",
-      "status": "done",
+      "id": "CSH-T10",
+      "title": "TUI smoke test add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "A smoke test or scripted mode starts the TUI successfully.",
+        "The smoke test verifies at least one health/status screen and one task/artifact screen.",
+        "If full terminal automation is not feasible, a short manual smoke checklist is added and marked as required before merge."
+      ]
+    },
+
+    {
+      "id": "CSH-T11",
+      "title": "Eclipse plugin project skeleton add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "A real Eclipse plugin project exists under a clear path such as eclipse-plugin or plugins/org.ananta.eclipse.",
+        "The project contains required Eclipse metadata such as plugin.xml and META-INF/MANIFEST.MF or equivalent modern build configuration.",
+        "The plugin has a stable symbolic name and package namespace."
+      ]
+    },
+    {
+      "id": "CSH-T12",
+      "title": "Eclipse plugin build setup add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "The plugin can be built locally using a documented command.",
+        "The build setup declares Eclipse/PDE/Tycho/Gradle/Maven requirements.",
+        "A failed build blocks claiming Eclipse plugin completion."
+      ]
+    },
+    {
+      "id": "CSH-T13",
+      "title": "Eclipse connection and health UI implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "The plugin exposes settings for Ananta base URL and auth/profile configuration.",
+        "The plugin can call a health/capability endpoint.",
+        "Connected, disconnected and auth-failed states are visible inside Eclipse."
+      ]
+    },
+    {
+      "id": "CSH-T14",
+      "title": "Eclipse context handoff implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "The plugin can collect selected text, current file and project root from Eclipse.",
+        "Users can inspect or confirm bounded context before sending.",
+        "Large or sensitive context is clipped, excluded or warned about according to existing Ananta rules."
+      ]
+    },
+    {
+      "id": "CSH-T15",
+      "title": "Eclipse commands and goal submission implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Eclipse commands exist for at least analyze, review and custom goal submission.",
+        "Commands map to existing Ananta goal/task APIs.",
+        "Commands do not implement independent planning, routing or policy logic in Eclipse."
+      ]
+    },
+    {
+      "id": "CSH-T16",
+      "title": "Eclipse task and artifact views implement",
+      "status": "todo",
       "priority": "P1",
+      "risk": "high",
       "acceptance_criteria": [
-        "A manual checklist covers realistic flow across Goal, Task, Context and Artifact views.",
-        "The checklist is short enough for release smoke testing.",
-        "The checklist catches broken linking and stale state between views."
+        "A real Eclipse view lists Ananta tasks returned by the backend.",
+        "A real Eclipse view or detail area displays artifacts or summaries.",
+        "Open-in-browser links exist for deeper Ananta inspection."
       ]
     },
     {
-      "id": "ECL-T48",
-      "title": "Automated tests for view models and view coordination add",
-      "status": "done",
+      "id": "CSH-T17",
+      "title": "Eclipse plugin tests and smoke checklist add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Unit tests cover plugin-side context packaging and response parsing where practical.",
+        "A build smoke test verifies the plugin project compiles/packages.",
+        "A manual Eclipse checklist verifies install/start, connect, send selection, create goal and inspect returned task/artifact."
+      ]
+    },
+
+    {
+      "id": "CSH-T18",
+      "title": "External client API contract tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Contract tests cover API/read-model fields needed by TUI and Eclipse.",
+        "Tests include goals, tasks, artifacts, approvals, health, capabilities, traces and errors.",
+        "Breaking changes to client-facing contracts become visible before merge."
+      ]
+    },
+    {
+      "id": "CSH-T19",
+      "title": "Client-originated security tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Tests verify that TUI/Eclipse-originated requests cannot bypass approval or policy.",
+        "Tests verify token and secret redaction in client-facing error/log paths.",
+        "Tests cover denied, stale and malformed approval/action requests."
+      ]
+    },
+    {
+      "id": "CSH-T20",
+      "title": "Client context packaging tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests cover file, selection and project-context packaging from editor-like sources.",
+        "Tests verify size limits and explicit provenance metadata.",
+        "Tests verify that unrelated files are not silently included."
+      ]
+    },
+    {
+      "id": "CSH-T21",
+      "title": "Golden path e2e test add",
+      "status": "todo",
       "priority": "P1",
+      "risk": "high",
       "acceptance_criteria": [
-        "Core view-model logic is covered by tests.",
-        "Tests protect synchronization between selected task, artifact and detail views.",
-        "Tests reduce regressions as more views are added."
+        "An e2e or high-level integration test covers client goal submission to task/artifact result.",
+        "The test can run with mocked worker/LLM execution.",
+        "The test validates visible status transitions and artifact availability."
       ]
     },
     {
-      "id": "ECL-T49",
-      "title": "Knowledge and sources view evaluate for later phase",
-      "status": "done",
-      "priority": "P3",
+      "id": "CSH-T22",
+      "title": "Degraded client behavior tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
       "acceptance_criteria": [
-        "A later-phase evaluation explores whether repo context, task memory and future wiki/research sources deserve their own Eclipse view.",
-        "The result stays separate from the first useful plugin release.",
-        "The MVP is not blocked by this richer knowledge visualization."
+        "Tests cover backend unavailable, auth failed, capability missing and malformed response cases.",
+        "TUI and Eclipse adapters surface explicit degraded states.",
+        "No client silently hangs or reports success on failed backend operations."
+      ]
+    },
+
+    {
+      "id": "CSH-T23",
+      "title": "Main merge gate update",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "The release/merge gate distinguishes foundation-only from runnable client features.",
+        "TUI runnable checks are required before claiming TUI complete.",
+        "Eclipse build/smoke checks are required before claiming Eclipse plugin complete."
       ]
     },
     {
-      "id": "ECL-T50",
-      "title": "Future advanced admin views isolate",
-      "status": "done",
-      "priority": "P3",
+      "id": "CSH-T24",
+      "title": "Documentation truth pass perform",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
       "acceptance_criteria": [
-        "Possible advanced views such as provider health, governance detail or deeper audit inspection are documented separately.",
-        "These ideas do not bloat the main Eclipse plugin roadmap.",
-        "The plugin keeps a clear difference between work views and operator/admin views."
+        "README and docs do not claim installable TUI/Eclipse clients unless they exist.",
+        "Docs clearly state what is implemented, what is foundation-only and what remains planned.",
+        "Commands shown in docs are executable or explicitly marked future/planned."
+      ]
+    },
+    {
+      "id": "CSH-T25",
+      "title": "False-complete regression test add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "A test or validation script prevents future todo tracks from marking client implementations done without expected evidence.",
+        "The script can be extended for future IDE/TUI/plugin surfaces.",
+        "The validation result is included in local release checks."
+      ]
+    },
+    {
+      "id": "CSH-T26",
+      "title": "Cleanup report generate",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "A cleanup report lists remaining gaps after implementing or reclassifying TUI and Eclipse.",
+        "The report separates blockers for main from later enhancements.",
+        "The report can seed follow-up todos for ref-profile and KRITIS without mixing concerns."
       ]
     }
   ],
   "execution_order_summary": [
-    "Stage 1: View strategy and core MVP views (ECL-T27..T31, ECL-T36)",
-    "Stage 2: Core detail/review/render quality (ECL-T32..T34, ECL-T39..T41)",
-    "Stage 3: Robustness, fallback and first-run UX (ECL-T35, ECL-T37..T38, ECL-T42..T46)",
-    "Stage 4: Validation and rollout hardening (ECL-T47..T48)",
-    "Stage 5: Future-scope boundaries (ECL-T49..T50)"
+    "Stage 1: Audit and correct completion claims before writing more feature code.",
+    "Stage 2: Implement or explicitly downgrade the TUI surface.",
+    "Stage 3: Implement or explicitly downgrade the Eclipse plugin surface.",
+    "Stage 4: Add client-facing contract, security, context and degraded-state tests.",
+    "Stage 5: Update merge gates and documentation so main only receives truthful capabilities."
   ],
   "critical_path_tasks": [
-    "ECL-T27",
-    "ECL-T28",
-    "ECL-T29",
-    "ECL-T30",
-    "ECL-T31",
-    "ECL-T36",
-    "ECL-T33",
-    "ECL-T39",
-    "ECL-T40",
-    "ECL-T41",
-    "ECL-T44",
-    "ECL-T45",
-    "ECL-T47",
-    "ECL-T48"
+    "CSH-T01",
+    "CSH-T02",
+    "CSH-T03",
+    "CSH-T05",
+    "CSH-T10",
+    "CSH-T11",
+    "CSH-T12",
+    "CSH-T17",
+    "CSH-T18",
+    "CSH-T19",
+    "CSH-T23",
+    "CSH-T24"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T16:34:05+02:00",
-    "total": 24,
+    "updated_at": "2026-04-24T00:00:00+02:00",
+    "total": 26,
     "by_status": {
-      "todo": 0,
+      "todo": 26,
       "in_progress": 0,
       "blocked": 0,
-      "done": 24
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 7,
-      "P1": 12,
-      "P2": 3,
-      "P3": 2
+      "P0": 16,
+      "P1": 10,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 3,
+      "high": 13,
+      "critical": 10
     },
     "critical_path": {
-      "total": 14,
-      "done": 14,
-      "remaining": 0
+      "total": 12,
+      "done": 0,
+      "remaining": 12
     },
     "milestones": {
-      "total": 4,
-      "todo": 0,
+      "total": 5,
+      "todo": 5,
       "in_progress": 0,
       "blocked": 0,
-      "done": 4
-    }
-  },
-  "execution_stage_summary": {
-    "updated_at": "2026-04-24T16:34:05+02:00",
-    "stages": {
-      "stage_1_mvp_views_navigation": {"scope_task_ids": ["ECL-T27", "ECL-T28", "ECL-T29", "ECL-T30", "ECL-T31", "ECL-T36"], "total": 6, "done": 6, "todo": 0},
-      "stage_2_detail_review_render": {"scope_task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"], "total": 6, "done": 6, "todo": 0},
-      "stage_3_robustness_and_ux": {"scope_task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"], "total": 8, "done": 8, "todo": 0},
-      "stage_4_validation_rollout": {"scope_task_ids": ["ECL-T47", "ECL-T48"], "total": 2, "done": 2, "todo": 0},
-      "stage_5_future_scope_boundary": {"scope_task_ids": ["ECL-T49", "ECL-T50"], "total": 2, "done": 2, "todo": 0}
+      "done": 0
     }
   },
   "summary_notes": [
-    "All tasks are complete (ECL-T27..ECL-T50), including synchronization, persistence, filtering/rendering quality and rollout/boundary safeguards.",
-    "The Eclipse views extension is intentionally modeled as thin, auditable backend contracts that keep orchestration, governance and deep admin/audit flows in Ananta or browser surfaces.",
-    "Validation artifacts now include multi-view smoke guidance, coordination test matrix contracts, and explicit future-scope separation for knowledge/admin-heavy views."
+    "todo.json and todo_last.json currently claim completed Eclipse client surfaces, but repository evidence visible in the diff points mainly to Python foundation services, docs and tests.",
+    "This todo intentionally focuses on truthfulness, runnable clients and tests rather than adding new product scope.",
+    "KRITIS and ref-profile work should remain out of scope until this client-surface reality gap is resolved."
   ]
 }
