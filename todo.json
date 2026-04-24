@@ -5,16 +5,18 @@
   "purpose": "Build a shared admin-repair feature foundation for Windows 11 and Ubuntu diagnosis and bounded repair flows, without enforcing full KRITIS hardening in this phase.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Ananta can guide admins through bounded diagnosis, repair planning, controlled execution and verification with explicit evidence and future-ready hardening hooks.",
+  "goal": "Ananta can guide admins through bounded diagnosis, repair planning, preview-first execution and verification with explicit evidence and future-ready hardening hooks.",
   "two_line_strategy": {
     "fast_product_line": "Deliver useful shared admin-repair capabilities quickly (diagnosis, plans, dry-run, guided execution, verification).",
     "kritis_line": "Later harden proven capabilities with Audit, MutationGate, ApprovalPolicy, deterministic workflows, sandboxing and RBAC.",
-    "current_track_position": "This admin repair track is shared foundation work; full KRITIS enforcement is intentionally deferred."
+    "current_track_position": "This admin repair track is shared feature foundation work; full KRITIS enforcement is intentionally deferred."
   },
   "non_goals": [
     "Do not implement full KRITIS hardening in this track.",
     "Do not create a separate repair-specific security architecture.",
-    "Do not bypass hub-governed policy boundaries for risky mutations."
+    "Do not build unrestricted autonomous shell repair.",
+    "Do not bypass hub-governed policy boundaries for risky mutations.",
+    "Do not treat advisory repair classification as final KRITIS-grade enforcement."
   ],
   "kritis_hardening_hooks": {
     "repair_action_model_fields": [
@@ -46,13 +48,13 @@
     },
     {
       "id": "ARC-M3",
-      "title": "Controlled execution",
-      "target_outcome": "Dry-run, step-confirmed execution and verification flow are available."
+      "title": "Controlled preview and execution",
+      "target_outcome": "Dry-run, preview-first, bounded step-confirmed execution and verification flow are available."
     },
     {
       "id": "ARC-M4",
       "title": "Platform adapters and playbooks",
-      "target_outcome": "Windows/Ubuntu evidence adapters and first repair playbooks are usable."
+      "target_outcome": "Windows/Ubuntu evidence adapters and first repair playbooks are usable, with fixture-based test paths available first."
     },
     {
       "id": "ARC-M5",
@@ -75,7 +77,8 @@
           "acceptance_criteria": [
             "Admin repair mode is documented as shared feature foundation for product line and future KRITIS line.",
             "Windows 11 and Ubuntu diagnosis scope is explicit.",
-            "Review-first behavior is default and autonomous unrestricted shell behavior is excluded."
+            "Review-first behavior is default and autonomous unrestricted shell behavior is excluded.",
+            "The mode is explicitly marked as not KRITIS-hardened yet."
           ]
         },
         {
@@ -87,7 +90,8 @@
           "acceptance_criteria": [
             "A discoverable CLI entrypoint exists for diagnose/repair mode.",
             "Dry-run and bounded execution options are available at entry level.",
-            "Help text explains shared foundation scope and deferred KRITIS hardening."
+            "Help text explains shared foundation scope and deferred KRITIS hardening.",
+            "Help text warns that mutation-capable repair remains preview-first and bounded."
           ]
         },
         {
@@ -99,7 +103,8 @@
           "acceptance_criteria": [
             "CLI detects Windows 11 vs Ubuntu reliably for supported paths.",
             "Environment summary includes shell/runtime/package/service basics.",
-            "Summary is shown before planning mutations."
+            "Summary is shown before planning mutations.",
+            "Unsupported or unknown environments degrade into diagnosis-only behavior."
           ]
         },
         {
@@ -111,7 +116,8 @@
           "acceptance_criteria": [
             "Allowed evidence sources and bounded collection rules are explicit.",
             "Sensitive/irrelevant data is redacted or excluded by default.",
-            "Evidence list is visible and reviewable before repair actions."
+            "Evidence list is visible and reviewable before repair actions.",
+            "The first implementation may use fixture/mock evidence adapters before platform-specific live collection is enabled."
           ]
         },
         {
@@ -123,7 +129,8 @@
           "acceptance_criteria": [
             "Problem classes cover package/runtime, PATH, permissions, services, ports and container/runtime setup issues.",
             "Taxonomy supports diagnosis, routing and repair planning.",
-            "Taxonomy wording is platform-neutral with OS-specific examples."
+            "Taxonomy wording is platform-neutral with OS-specific examples.",
+            "Each class can later map to deterministic repair signatures without requiring a separate model rewrite."
           ]
         },
         {
@@ -135,7 +142,8 @@
           "acceptance_criteria": [
             "Diagnosis artifact includes likely causes, evidence links, confidence and next steps.",
             "Artifact is readable for operators and reusable in follow-up planning.",
-            "Artifact structure is stable enough for later contract testing."
+            "Artifact structure is stable enough for later contract testing.",
+            "Artifact can be generated from fixture/mock evidence to support safe development before live adapters."
           ]
         },
         {
@@ -147,7 +155,8 @@
           "acceptance_criteria": [
             "Repair actions carry hook-ready fields: risk_class, requires_approval, dry_run_supported, verification_required, mutation_candidate.",
             "Repair actions also carry evidence_sources, execution_scope, audit_hint, repair_action_class, affected_targets, expected_verification.",
-            "Fields are informational in this phase and do not force full KRITIS gating yet."
+            "Fields are informational in this phase and do not force full KRITIS gating yet.",
+            "The schema avoids repair-specific security concepts that would conflict with later Audit, MutationGate, ApprovalPolicy or sandboxing."
           ]
         }
       ]
@@ -166,19 +175,21 @@
           "acceptance_criteria": [
             "Diagnosis can be transformed into ordered bounded repair actions.",
             "Each action includes expected effect and verification hint.",
-            "Plan distinguishes low-risk suggestions from higher-risk mutation candidates."
+            "Plan distinguishes low-risk suggestions from higher-risk mutation candidates.",
+            "Generated plans prefer inspect, explain and dry-run steps before mutation-capable steps."
           ]
         },
         {
           "id": "ARC-T10",
-          "title": "Repair action classification policy",
+          "title": "Advisory repair action classification policy",
           "status": "todo",
           "priority": "P0",
           "depends_on": ["ARC-T09"],
           "acceptance_criteria": [
-            "Actions are classified into allow, confirm-required and blocked.",
+            "Actions are classified into advisory classes such as allow, confirm-required and blocked.",
             "Classification maps to risk_class, requires_approval and execution_scope fields.",
-            "Policy is compatible with future ApprovalPolicy/MutationGate integration."
+            "Classification is hook-ready and advisory in this track unless existing guardrails already enforce it.",
+            "Policy is compatible with future ApprovalPolicy/MutationGate integration without becoming a separate repair-specific security layer."
           ]
         },
         {
@@ -190,19 +201,22 @@
           "acceptance_criteria": [
             "Repair plans can be previewed without mutation.",
             "Planned commands/actions are explicit and inspectable.",
-            "dry_run_supported is surfaced per action."
+            "dry_run_supported is surfaced per action.",
+            "Mutation-capable actions must have a preview form or be marked as not executable in this phase."
           ]
         },
         {
           "id": "ARC-T12",
-          "title": "Step-confirmed execution mode",
+          "title": "Bounded step-confirmed execution mode",
           "status": "todo",
           "priority": "P0",
           "depends_on": ["ARC-T10", "ARC-T11"],
           "acceptance_criteria": [
             "Actions can be executed one step at a time with explicit confirmation.",
+            "Execution supports only bounded, modeled and previewed actions in this phase.",
             "Accepted, skipped and blocked actions are recorded.",
-            "Execution can be stopped safely between steps."
+            "Execution can be stopped safely between steps.",
+            "The implementation does not provide unrestricted autonomous shell repair."
           ]
         },
         {
@@ -214,7 +228,8 @@
           "acceptance_criteria": [
             "Verification checks run after executed actions.",
             "Result states clearly: resolved, improved, unchanged or regressed.",
-            "verification_required and expected_verification are reflected in results."
+            "verification_required and expected_verification are reflected in results.",
+            "Command success alone is not treated as proof of repair success when verification is required."
           ]
         },
         {
@@ -226,7 +241,8 @@
           "acceptance_criteria": [
             "Reversible vs non-reversible actions are explicit in plan output.",
             "High-risk mutation_candidate actions show stronger caution language.",
-            "Rollback limitations are visible before confirmation."
+            "Rollback limitations are visible before confirmation.",
+            "Missing rollback support prevents the system from presenting a risky action as safe."
           ]
         },
         {
@@ -238,7 +254,8 @@
           "acceptance_criteria": [
             "Repair action and verification outputs expose stable identifiers for later Audit and MutationGate linkage.",
             "Approval-ready metadata is emitted without enforcing full KRITIS workflow now.",
-            "No second orchestration loop is introduced; hub remains control plane."
+            "No second orchestration loop is introduced; hub remains control plane.",
+            "Later KRITIS hardening can attach Audit, MutationGate, ApprovalPolicy and sandboxing without replacing the repair action model."
           ]
         }
       ]
@@ -257,7 +274,8 @@
           "acceptance_criteria": [
             "Windows evidence adapters collect bounded event/service/runtime context.",
             "Collection errors degrade cleanly and remain visible.",
-            "Evidence is normalized into artifacts and evidence_sources."
+            "Evidence is normalized into artifacts and evidence_sources.",
+            "Live collection can be disabled or replaced by fixture input for tests and demos."
           ]
         },
         {
@@ -269,7 +287,8 @@
           "acceptance_criteria": [
             "Ubuntu evidence adapters collect bounded journal/service/package context.",
             "Collection errors degrade cleanly and remain visible.",
-            "Evidence is normalized into artifacts and evidence_sources."
+            "Evidence is normalized into artifacts and evidence_sources.",
+            "Live collection can be disabled or replaced by fixture input for tests and demos."
           ]
         },
         {
@@ -281,7 +300,8 @@
           "acceptance_criteria": [
             "Initial Windows playbooks cover runtime/path, service and container/WSL-like issues.",
             "Playbooks produce bounded action plans with affected_targets.",
-            "Playbooks stay compatible with dry-run and confirmation flow."
+            "Playbooks stay compatible with dry-run and confirmation flow.",
+            "Playbooks avoid speculative or broad system mutation."
           ]
         },
         {
@@ -293,7 +313,8 @@
           "acceptance_criteria": [
             "Initial Ubuntu playbooks cover apt/dpkg, service and runtime/toolchain issues.",
             "Playbooks produce bounded action plans with affected_targets.",
-            "Playbooks stay compatible with dry-run and confirmation flow."
+            "Playbooks stay compatible with dry-run and confirmation flow.",
+            "Playbooks avoid speculative or broad system mutation."
           ]
         }
       ]
@@ -312,7 +333,8 @@
           "acceptance_criteria": [
             "CLI output separates diagnosis, plan, risk and verification clearly.",
             "Raw log dumps are contextualized with concise interpretation.",
-            "Output remains readable in terminal-first workflows."
+            "Output remains readable in terminal-first workflows.",
+            "Output makes advisory vs enforced decisions visibly distinct."
           ]
         },
         {
@@ -324,7 +346,8 @@
           "acceptance_criteria": [
             "Session records include evidence, proposed actions, confirmations and verification outcomes.",
             "audit_hint is emitted per action/session for later KRITIS audit integration.",
-            "Sensitive material handling remains explicit."
+            "Sensitive material handling remains explicit.",
+            "Session trail is useful even before the full KRITIS audit subsystem is attached."
           ]
         },
         {
@@ -336,7 +359,8 @@
           "acceptance_criteria": [
             "One reproducible Windows flow exists from evidence to verification.",
             "Flow documents where confirmation gates occur.",
-            "Flow demonstrates shared foundation behavior without full KRITIS enforcement."
+            "Flow demonstrates shared foundation behavior without full KRITIS enforcement.",
+            "Flow can run from fixture evidence if live Windows collection is unavailable."
           ]
         },
         {
@@ -348,7 +372,8 @@
           "acceptance_criteria": [
             "One reproducible Ubuntu flow exists from evidence to verification.",
             "Flow documents where confirmation gates occur.",
-            "Flow demonstrates shared foundation behavior without full KRITIS enforcement."
+            "Flow demonstrates shared foundation behavior without full KRITIS enforcement.",
+            "Flow can run from fixture evidence if live Ubuntu collection is unavailable."
           ]
         },
         {
@@ -360,7 +385,9 @@
           "acceptance_criteria": [
             "Diagnosis/plan/action/verification output contracts are tested.",
             "At least one bounded smoke scenario exists for Windows and Ubuntu.",
-            "Tests verify confirmation gating and dry-run behavior."
+            "Tests verify confirmation gating and dry-run behavior.",
+            "Tests verify advisory classification is emitted without pretending to be full KRITIS enforcement.",
+            "Tests prove unrestricted shell repair is not exposed by the shared foundation flow."
           ]
         },
         {
@@ -372,16 +399,17 @@
           "acceptance_criteria": [
             "Future domains (network/container/app-specific repair) stay explicitly outside MVP scope.",
             "Expansion path is documented without inflating current track complexity.",
-            "Shared foundation stays maintainable and reviewable."
+            "Shared foundation stays maintainable and reviewable.",
+            "Future extensions must reuse the same repair action schema instead of creating parallel repair models."
           ]
         }
       ]
     }
   ],
   "execution_order_summary": [
-    "Start with ARC-FOUNDATION to stabilize shared mode, evidence bounds and diagnosis model.",
-    "Continue with ARC-REPAIR-FLOW to deliver dry-run, confirmation-gated execution and verification.",
-    "Build ARC-PLATFORM-ADAPTERS for Windows and Ubuntu evidence/playbook coverage.",
+    "Start with ARC-FOUNDATION to stabilize shared mode, evidence bounds, fixture-capable diagnosis and diagnosis model.",
+    "Continue with ARC-REPAIR-FLOW to deliver dry-run, advisory classification, bounded step-confirmed execution and verification.",
+    "Build ARC-PLATFORM-ADAPTERS for Windows and Ubuntu evidence/playbook coverage, keeping fixture/mock paths available for safe tests.",
     "Finish ARC-UX-DOCS-QUALITY with operator output, audit-ready traces, docs and tests.",
     "Keep KRITIS hardening as next-line integration on top of produced hooks, not in this track."
   ],
@@ -392,17 +420,17 @@
     "ARC-T03",
     "ARC-T07",
     "ARC-T08",
+    "ARC-T23",
     "ARC-T09",
     "ARC-T10",
     "ARC-T11",
     "ARC-T12",
     "ARC-T13",
-    "ARC-T23",
     "ARC-T24",
     "ARC-T21"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T12:41:33+02:00",
+    "updated_at": "2026-04-24T12:56:00+02:00",
     "total": 24,
     "by_status": {
       "todo": 24,
