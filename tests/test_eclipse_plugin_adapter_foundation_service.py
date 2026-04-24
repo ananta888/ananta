@@ -1,16 +1,26 @@
 from agent.services.eclipse_plugin_adapter_foundation_service import (
     build_eclipse_connection_auth_support,
+    build_eclipse_context_packaging_rules,
     build_eclipse_diff_review_render,
+    build_eclipse_error_degraded_mode,
+    build_eclipse_first_run_ux,
+    build_eclipse_future_roadmap,
     build_eclipse_goal_input_panel,
+    build_eclipse_golden_path_demo,
     build_eclipse_health_capability_handshake,
+    build_eclipse_manual_smoke_checklist,
+    build_eclipse_mcp_integration_evaluation,
     build_eclipse_minimum_support_matrix,
     build_eclipse_open_in_browser_shortcuts,
+    build_eclipse_openai_fallback_evaluation,
     build_eclipse_plugin_adapter_foundation_snapshot,
     build_eclipse_review_approval_action_support,
+    build_eclipse_security_privacy_guardrails,
     build_eclipse_selection_editor_handoff,
     build_eclipse_sgpt_cli_operation_bridge,
     build_eclipse_task_artifact_view,
     build_eclipse_task_refresh_flow,
+    build_eclipse_trace_visibility,
     collect_eclipse_workspace_project_context,
 )
 
@@ -124,7 +134,48 @@ def test_review_render_approval_actions_shortcuts_and_bridge_contracts() -> None
     assert bridge["secondary_path_only"] is True
 
 
-def test_foundation_snapshot_covers_first_fifteen_eclipse_tasks() -> None:
+def test_eclipse_extension_and_safety_contracts_cover_last_block() -> None:
+    openai_eval = build_eclipse_openai_fallback_evaluation(
+        endpoint_compatible=True,
+        decision="keep_as_optional_fallback",
+    )
+    mcp_eval = build_eclipse_mcp_integration_evaluation(
+        feasibility="medium",
+        rest_preference_reason="REST path is thinner",
+    )
+    context_rules = build_eclipse_context_packaging_rules(max_selection_chars=3000, max_files=15)
+    security = build_eclipse_security_privacy_guardrails()
+    degraded = build_eclipse_error_degraded_mode(auth_failed=True, backend_reachable=False, policy_denied=False)
+    trace = build_eclipse_trace_visibility(
+        trace_id="trace-1",
+        routing_summary="hub->worker",
+        advanced_mode=True,
+    )
+    first_run = build_eclipse_first_run_ux(recommended_use_case="review")
+    demo = build_eclipse_golden_path_demo()
+    smoke = build_eclipse_manual_smoke_checklist()
+    roadmap = build_eclipse_future_roadmap()
+
+    assert openai_eval["schema"] == "eclipse_openai_fallback_evaluation_v1"
+    assert openai_eval["must_not_replace_main_task_flows"] is True
+    assert mcp_eval["schema"] == "eclipse_mcp_integration_evaluation_v1"
+    assert context_rules["schema"] == "eclipse_context_packaging_rules_v1"
+    assert context_rules["max_files"] == 15
+    assert security["schema"] == "eclipse_security_privacy_guardrails_v1"
+    assert security["redact_sensitive_logs"] is True
+    assert degraded["schema"] == "eclipse_error_degraded_mode_v1"
+    assert degraded["mode"] == "auth_failure"
+    assert trace["schema"] == "eclipse_trace_visibility_v1"
+    assert trace["visible_only_in_advanced_mode"] is True
+    assert first_run["schema"] == "eclipse_first_run_ux_v1"
+    assert first_run["minimal_manual_setup"] is True
+    assert demo["schema"] == "eclipse_golden_path_demo_v1"
+    assert smoke["schema"] == "eclipse_manual_smoke_checklist_v1"
+    assert roadmap["schema"] == "eclipse_future_roadmap_v1"
+    assert roadmap["mvp_scope_protected"] is True
+
+
+def test_foundation_snapshot_covers_full_eclipse_track() -> None:
     snapshot = build_eclipse_plugin_adapter_foundation_snapshot(
         profile={"id": "dev-local", "base_url": "http://localhost:8080", "auth_method": "session_token"},
         workspace_state={
@@ -160,3 +211,13 @@ def test_foundation_snapshot_covers_first_fifteen_eclipse_tasks() -> None:
     assert snapshot["open_in_browser_shortcuts"]["schema"] == "eclipse_open_in_browser_shortcuts_v1"
     assert snapshot["operation_presets"]["schema"] == "eclipse_operation_presets_v1"
     assert snapshot["sgpt_cli_operation_bridge"]["schema"] == "eclipse_sgpt_cli_operation_bridge_v1"
+    assert snapshot["openai_fallback_evaluation"]["schema"] == "eclipse_openai_fallback_evaluation_v1"
+    assert snapshot["mcp_integration_evaluation"]["schema"] == "eclipse_mcp_integration_evaluation_v1"
+    assert snapshot["context_packaging_rules"]["schema"] == "eclipse_context_packaging_rules_v1"
+    assert snapshot["security_privacy_guardrails"]["schema"] == "eclipse_security_privacy_guardrails_v1"
+    assert snapshot["error_degraded_mode"]["schema"] == "eclipse_error_degraded_mode_v1"
+    assert snapshot["trace_visibility"]["schema"] == "eclipse_trace_visibility_v1"
+    assert snapshot["first_run_ux"]["schema"] == "eclipse_first_run_ux_v1"
+    assert snapshot["golden_path_demo"]["schema"] == "eclipse_golden_path_demo_v1"
+    assert snapshot["manual_smoke_checklist"]["schema"] == "eclipse_manual_smoke_checklist_v1"
+    assert snapshot["future_roadmap"]["schema"] == "eclipse_future_roadmap_v1"

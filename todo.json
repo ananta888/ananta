@@ -37,19 +37,19 @@
       "id": "M2",
       "title": "Core IDE workflows and safety baseline",
       "task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M3",
       "title": "Extension decisions and observability",
       "task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
       "title": "Validation and rollout",
       "task_ids": ["ECL-T23", "ECL-T24", "ECL-T25", "ECL-T26"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -221,7 +221,7 @@
     {
       "id": "ECL-T16",
       "title": "OpenAI-compatible fallback experiment evaluate",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "A short evaluation checks whether Eclipse-side integrations could reuse Ananta's OpenAI-compatible endpoints.",
@@ -232,7 +232,7 @@
     {
       "id": "ECL-T17",
       "title": "Optional MCP-based integration path evaluate",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "A short evaluation checks whether an MCP-based Eclipse path is realistic.",
@@ -243,7 +243,7 @@
     {
       "id": "ECL-T18",
       "title": "Bounded context packaging rules define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "The plugin defines how much editor/workspace content may be sent for one operation.",
@@ -254,7 +254,7 @@
     {
       "id": "ECL-T19",
       "title": "Security and privacy guardrails for IDE handoff add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "The plugin warns before sending sensitive content when possible.",
@@ -265,7 +265,7 @@
     {
       "id": "ECL-T20",
       "title": "Error handling and degraded mode implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "The plugin handles auth failures, connection problems and backend errors cleanly.",
@@ -276,7 +276,7 @@
     {
       "id": "ECL-T21",
       "title": "Task/goal trace visibility expose lightly",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "Advanced users can inspect trace_id or routing summary when needed.",
@@ -287,7 +287,7 @@
     {
       "id": "ECL-T22",
       "title": "First-run UX inside Eclipse define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "A new user can connect Eclipse to Ananta and run a first useful flow quickly.",
@@ -298,7 +298,7 @@
     {
       "id": "ECL-T23",
       "title": "Golden path demo for Eclipse plugin document",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "There is one official reproducible demo from Eclipse to Ananta.",
@@ -309,7 +309,7 @@
     {
       "id": "ECL-T24",
       "title": "Automated tests for plugin core flows add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Core plugin services have basic automated tests.",
@@ -320,7 +320,7 @@
     {
       "id": "ECL-T25",
       "title": "Manual smoke checklist for real Eclipse use add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "A small manual checklist verifies connection, send-selection, analyze and review flows.",
@@ -331,7 +331,7 @@
     {
       "id": "ECL-T26",
       "title": "Future roadmap for richer IDE support prepare",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "acceptance_criteria": [
         "Later ideas such as inline suggestions, richer diff views or deeper task boards are documented separately.",
@@ -364,15 +364,15 @@
     "ECL-T25"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T16:03:50+02:00",
+    "updated_at": "2026-04-24T16:14:52+02:00",
     "total": 26,
     "by_status": {
-      "todo": 11,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 15
+      "done": 26
     },
-    "progress_percent_done": 57.69,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 10,
       "P1": 11,
@@ -381,30 +381,30 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 8,
-      "remaining": 6
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 1,
-      "in_progress": 2,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 4
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T16:03:50+02:00",
+    "updated_at": "2026-04-24T16:14:52+02:00",
     "stages": {
       "stage_1_foundation_connectivity": {"scope_task_ids": ["ECL-T01", "ECL-T02", "ECL-T03", "ECL-T04"], "total": 4, "done": 4, "todo": 0},
       "stage_2_context_commands_handoff": {"scope_task_ids": ["ECL-T05", "ECL-T06", "ECL-T07", "ECL-T08"], "total": 4, "done": 4, "todo": 0},
-      "stage_3_results_and_safety": {"scope_task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"], "total": 9, "done": 6, "todo": 3},
-      "stage_4_extensions_observability": {"scope_task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"], "total": 5, "done": 1, "todo": 4},
-      "stage_5_validation_rollout": {"scope_task_ids": ["ECL-T23", "ECL-T24", "ECL-T25", "ECL-T26"], "total": 4, "done": 0, "todo": 4}
+      "stage_3_results_and_safety": {"scope_task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"], "total": 9, "done": 9, "todo": 0},
+      "stage_4_extensions_observability": {"scope_task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"], "total": 5, "done": 5, "todo": 0},
+      "stage_5_validation_rollout": {"scope_task_ids": ["ECL-T23", "ECL-T24", "ECL-T25", "ECL-T26"], "total": 4, "done": 4, "todo": 0}
     }
   },
   "summary_notes": [
-    "First 15 tasks (ECL-T01..ECL-T15) are completed with adapter contracts, tests and foundation documentation.",
-    "Stages 1 and 2 are fully complete; stage 3 and 4 are partially advanced while preserving thin-adapter boundaries.",
-    "Remaining delivery risk is concentrated in safety hardening (ECL-T18..T20), extension decisions (ECL-T16..T17, ECL-T21..T22) and rollout validation tasks."
+    "The eclipse_plugin_adapter track is fully complete: all 26 tasks are done.",
+    "Coverage now includes fallback-path evaluations, context/security guardrails, degraded-mode handling, trace visibility, first-run UX and rollout artifacts.",
+    "Critical path and all milestones are complete with thin-adapter boundaries preserved."
   ]
 }
