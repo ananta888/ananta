@@ -4,6 +4,11 @@
 
 Use the Neovim plugin for developer-centric workflows: analyze, review, patch planning, and goal submission.
 
+## Runtime status
+
+- Neovim runtime delivery is in progress.
+- Vim compatibility is currently deferred until Neovim runtime stabilization.
+
 ## Setup
 
 1. Configure a connection profile (`endpoint`, `environment`, `auth_mode`).

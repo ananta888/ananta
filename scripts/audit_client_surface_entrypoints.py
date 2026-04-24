@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+SURFACE_STATUS_FILE = "data/client_surface_runtime_status.json"
 SKIP_PATH_PARTS = {
     ".git",
     ".venv",
@@ -97,11 +98,11 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
 
 
 DONE_CLAIM_RULES: dict[str, list[tuple[str, int, int]]] = {
-    "tui_surface": [("CSH-T", 5, 10), ("TVM-T", 29, 38)],
-    "eclipse_plugin": [("CSH-T", 11, 17)],
+    "tui_surface": [("CSH-T", 5, 10), ("TVM-T", 29, 38), ("CRT-T", 9, 13)],
+    "eclipse_plugin": [("CSH-T", 11, 17), ("CRT-T", 20, 24)],
     "eclipse_views_extension": [("ECL-T", 27, 50)],
-    "nvim_plugin": [("TVM-T", 13, 22)],
-    "vim_plugin": [("TVM-T", 23, 28)],
+    "nvim_plugin": [("TVM-T", 13, 22), ("CRT-T", 14, 17)],
+    "vim_plugin": [("TVM-T", 23, 28), ("CRT-T", 19, 19)],
 }
 
 
@@ -178,9 +179,33 @@ def collect_done_claims(todo_payload: dict[str, Any]) -> dict[str, list[str]]:
     return claims
 
 
+def collect_done_task_ids(todo_payload: dict[str, Any]) -> set[str]:
+    return {
+        str(task.get("id"))
+        for task in list(todo_payload.get("tasks") or [])
+        if task.get("status") == "done" and task.get("id")
+    }
+
+
+def load_surface_status(root: Path) -> dict[str, str]:
+    path = root / SURFACE_STATUS_FILE
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    status = payload.get("surface_status")
+    if not isinstance(status, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, value in status.items():
+        out[str(key)] = str(value).strip().lower()
+    return out
+
+
 def build_blocking_warnings(
     surface_reports: dict[str, dict[str, Any]],
     done_claims: dict[str, list[str]],
+    done_task_ids: set[str],
+    surface_status: dict[str, str],
 ) -> list[str]:
     warnings: list[str] = []
     for surface_name, claimed_ids in done_claims.items():
@@ -194,18 +219,39 @@ def build_blocking_warnings(
                     f"but classification={classification}"
                 )
             )
+    for surface_name, declared_status in surface_status.items():
+        classification = str(surface_reports.get(surface_name, {}).get("classification", "missing"))
+        if declared_status in {"runtime_mvp", "runtime_complete"} and classification != "real_implementation":
+            warnings.append(
+                (f"surface={surface_name} declared_status={declared_status} but classification={classification}")
+            )
+        if declared_status == "deferred" and done_claims.get(surface_name):
+            warnings.append(
+                (
+                    f"surface={surface_name} is deferred but runtime claim tasks are marked done: "
+                    f"{done_claims[surface_name]}"
+                )
+            )
+    if "CRT-T18" in done_task_ids:
+        vim_status = surface_status.get("vim_plugin", "")
+        if vim_status != "deferred":
+            warnings.append("CRT-T18 done requires surface_status.vim_plugin=deferred")
     return warnings
 
 
 def generate_report(root: Path, todo_payload: dict[str, Any] | None) -> dict[str, Any]:
     paths = collect_existing_paths(root)
     surfaces = {surface_name: classify_surface(surface_name, paths) for surface_name in sorted(SURFACE_RULES.keys())}
-    done_claims = collect_done_claims(todo_payload or {})
-    warnings = build_blocking_warnings(surfaces, done_claims)
+    parsed_todo = todo_payload or {}
+    done_claims = collect_done_claims(parsed_todo)
+    done_task_ids = collect_done_task_ids(parsed_todo)
+    surface_status = load_surface_status(root)
+    warnings = build_blocking_warnings(surfaces, done_claims, done_task_ids, surface_status)
     return {
         "schema": "client_surface_entrypoint_audit_v1",
         "repository_root": str(root),
         "surfaces": surfaces,
+        "surface_status": surface_status,
         "done_claims": done_claims,
         "blocking_warnings": warnings,
         "ok": not warnings,

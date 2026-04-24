@@ -8,7 +8,6 @@ from typing import Any, Callable
 from client_surfaces.common.degraded_state import is_retriable_state, map_status_to_degraded_state
 from client_surfaces.common.types import ClientProfile, ClientResponse
 
-
 TransportFn = Callable[[str, str, dict[str, str], bytes | None, float], tuple[int, str]]
 
 
@@ -102,4 +101,3 @@ class AnantaApiClient:
     def submit_goal(self, goal_text: str, context_payload: dict[str, Any]) -> ClientResponse:
         payload = {"goal_text": goal_text, "context": context_payload}
         return self._request_json("POST", "/goals", payload=payload)
-

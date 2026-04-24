@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-
 DegradedState = Literal[
     "healthy",
     "backend_unreachable",
@@ -33,4 +32,3 @@ class ClientResponse:
     data: Any
     error: str | None = None
     retriable: bool = False
-

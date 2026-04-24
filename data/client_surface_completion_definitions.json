@@ -2,21 +2,26 @@
   "schema": "client_surface_completion_definitions_v1",
   "completion_label_scale": [
     "foundation_complete",
-    "runtime_mvp_complete",
-    "production_ready"
+    "runtime_mvp",
+    "runtime_complete"
   ],
+  "audit_class_mapping": {
+    "foundation_complete": ["foundation_only", "docs_only", "missing"],
+    "runtime_mvp": ["real_implementation"],
+    "runtime_complete": ["real_implementation"]
+  },
   "global_rules": {
     "foundation_complete": [
       "Contract/read-model design exists and is tested.",
       "No requirement for executable client entrypoint yet.",
       "Must not be reported as runnable client delivery."
     ],
-    "runtime_mvp_complete": [
+    "runtime_mvp": [
       "Executable client entrypoint exists and starts successfully.",
       "Core user flows run against backend API with explicit degraded-state behavior.",
       "Smoke test evidence exists for startup and one end-to-end happy path."
     ],
-    "production_ready": [
+    "runtime_complete": [
       "Runtime MVP checks pass consistently in CI.",
       "Security, approval, audit and redaction behaviors are tested.",
       "Packaging, versioning and rollback guidance are available."
@@ -24,45 +29,45 @@
   },
   "surface_specific_requirements": {
     "tui_surface": {
-      "runtime_mvp_complete": [
+      "runtime_mvp": [
         "Dedicated TUI package and start command exist.",
         "Task/artifact/core status views are available.",
         "Connection/auth/degraded states are explicit."
       ],
-      "production_ready": [
+      "runtime_complete": [
         "CI lane runs TUI tests and smoke flow.",
         "Release artifact and install docs are validated."
       ]
     },
     "eclipse_plugin": {
-      "runtime_mvp_complete": [
+      "runtime_mvp": [
         "Plugin project markers exist (plugin.xml, META-INF/MANIFEST.MF or equivalent build metadata).",
         "Plugin builds with documented command.",
         "At least one context handoff and one task/artifact view flow works."
       ],
-      "production_ready": [
+      "runtime_complete": [
         "Build + smoke checks are enforced in CI.",
         "Install/run instructions validated on clean Eclipse setup."
       ]
     },
     "nvim_plugin": {
-      "runtime_mvp_complete": [
+      "runtime_mvp": [
         "Lua runtime plugin modules exist and load in Neovim.",
         "Core commands (goal/analyze/review/patch/new/evolve) are registered.",
         "Bounded context and explicit result rendering are functional."
       ],
-      "production_ready": [
+      "runtime_complete": [
         "Headless Neovim tests and smoke checks pass in CI.",
         "Versioned plugin packaging and help docs are shipped."
       ]
     },
     "vim_plugin": {
-      "runtime_mvp_complete": [
+      "runtime_mvp": [
         "Vim plugin/autoload runtime files exist.",
         "Compatibility subset is explicit and tested.",
         "Unsupported features degrade with explicit guidance."
       ],
-      "production_ready": [
+      "runtime_complete": [
         "Compatibility matrix checks run in CI.",
         "Editor-specific install and troubleshooting docs are verified."
       ]

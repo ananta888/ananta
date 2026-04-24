@@ -1,6 +1,6 @@
 {
   "schema": "client_surface_runtime_inventory_v1",
-  "generated_for_track": "client_surface_reality_plus_tui_vim_runtime_delivery",
+  "generated_for_track": "client_runtime_delivery_after_skeletons",
   "inventory_focus": [
     "tui_surface",
     "eclipse_plugin",
@@ -11,13 +11,25 @@
   "classification_scale": [
     "real_implementation",
     "foundation_only",
+    "deferred",
     "docs_only",
     "missing"
   ],
+  "classification_rules": {
+    "foundation_only": [
+      "Only contracts/tests/docs are present and runtime entrypoints are missing.",
+      "Skeleton directories or .keep files never count as runtime evidence."
+    ],
+    "real_implementation": [
+      "Runtime evidence includes non-.keep implementation files.",
+      "At least one executable startup/load command exists.",
+      "Smoke evidence exists for startup and one core view flow."
+    ]
+  },
   "surfaces": [
     {
       "surface": "tui_surface",
-      "classification": "foundation_only",
+      "classification": "real_implementation",
       "evidence": {
         "foundation": [
           "agent/services/editor_tui_surface_foundation_service.py",
@@ -30,7 +42,13 @@
           "docs/editor-tui-foundation.md",
           "docs/editor-tui-smoke-checklists.md"
         ],
-        "runtime": []
+        "runtime": [
+          "client_surfaces/tui_runtime/ananta_tui/__main__.py",
+          "client_surfaces/tui_runtime/ananta_tui/app.py",
+          "client_surfaces/tui_runtime/ananta_tui/views.py",
+          "client_surfaces/tui_runtime/ananta_tui/fixture_transport.py",
+          "scripts/smoke_tui_runtime.py"
+        ]
       }
     },
     {
@@ -79,7 +97,7 @@
     },
     {
       "surface": "vim_plugin",
-      "classification": "foundation_only",
+      "classification": "deferred",
       "evidence": {
         "foundation": [
           "agent/services/editor_tui_surface_foundation_service.py"
@@ -89,15 +107,16 @@
           "docs/editor-tui-foundation.md"
         ],
         "runtime": []
-      }
+      },
+      "decision": "deferred_until_neovim_runtime_stabilized"
     }
   ],
   "gap_summary": {
     "missing_runtime_artifacts": [
       "No installable Eclipse plugin project markers (plugin.xml, META-INF/MANIFEST.MF).",
       "No Neovim runtime lua plugin modules available in a runtime plugin directory.",
-      "No Vim runtime plugin/autoload files available in a runtime plugin directory.",
-      "No dedicated runnable TUI app entrypoint package currently shipped."
+      "No Vim runtime plugin/autoload files available in a runtime plugin directory while Vim remains deferred.",
+      "TUI runtime exists as MVP but still needs expanded feature coverage and release packaging."
     ]
   }
 }

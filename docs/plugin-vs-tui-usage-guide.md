@@ -27,3 +27,9 @@ Use browser views when deep configuration or large detailed screens are needed.
 
 If the task starts in source code, start in plugin.
 If it starts in operations/governance, start in TUI.
+
+## Current delivery status
+
+- TUI runtime MVP: available.
+- Neovim runtime: in progress.
+- Vim compatibility: deferred until Neovim runtime baseline is stable.

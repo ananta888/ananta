@@ -5,7 +5,6 @@ from typing import Any
 
 from client_surfaces.common.types import ClientProfile
 
-
 _SECRET_KEY_PARTS = ("token", "secret", "password", "private_key", "credential")
 _SECRET_INLINE = re.compile(r"(?i)(token|secret|password|private[_-]?key|credential)[=:]\S+")
 
@@ -57,4 +56,3 @@ def redact_sensitive_text(value: Any) -> str:
 def contains_secret_key(name: str) -> bool:
     key = str(name or "").strip().lower()
     return any(part in key for part in _SECRET_KEY_PARTS)
-
