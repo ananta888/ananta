@@ -36,19 +36,19 @@
       "id": "M2",
       "title": "Core interaction and rendering quality",
       "task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M3",
       "title": "Operational robustness and UX safeguards",
       "task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
       "title": "Validation and forward boundaries",
       "task_ids": ["ECL-T47", "ECL-T48", "ECL-T49", "ECL-T50"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -165,7 +165,7 @@
     {
       "id": "ECL-T37",
       "title": "Unified selection synchronization across views add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Selecting a task or artifact in one view can update related detail panes or linked views.",
@@ -176,7 +176,7 @@
     {
       "id": "ECL-T38",
       "title": "Minimal view state persistence add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Core view state such as selected connection profile or last opened filters is restored reasonably across IDE restarts.",
@@ -187,7 +187,7 @@
     {
       "id": "ECL-T39",
       "title": "Task filters and grouping add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Task view supports useful filters such as active, done, blocked or review-required.",
@@ -198,7 +198,7 @@
     {
       "id": "ECL-T40",
       "title": "Artifact rendering modes define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Artifact view supports a small number of rendering modes such as summary, markdown-like text and proposal/review output.",
@@ -209,7 +209,7 @@
     {
       "id": "ECL-T41",
       "title": "Review and diff rendering improve for Eclipse",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Change-oriented artifacts can be shown in a form suitable for IDE review work.",
@@ -220,7 +220,7 @@
     {
       "id": "ECL-T42",
       "title": "Context source badges and provenance hints add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "Views can show whether context or outputs came from selection, repo context, task memory, research or other sources when applicable.",
@@ -231,7 +231,7 @@
     {
       "id": "ECL-T43",
       "title": "First-run perspective/layout define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "A recommended Eclipse layout or perspective for Ananta views is documented or shipped.",
@@ -242,7 +242,7 @@
     {
       "id": "ECL-T44",
       "title": "Browser fallback policy for complex views define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A clear rule defines when Eclipse should show data directly and when it should send users to the Ananta web UI.",
@@ -253,7 +253,7 @@
     {
       "id": "ECL-T45",
       "title": "View-specific error and empty-state UX add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Each core view has helpful empty and error states.",
@@ -264,7 +264,7 @@
     {
       "id": "ECL-T46",
       "title": "Accessibility and keyboard usage pass for views add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "Core actions in major views can be reached without excessive mouse dependency.",
@@ -275,7 +275,7 @@
     {
       "id": "ECL-T47",
       "title": "Manual smoke checklist for multi-view workflow add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "A manual checklist covers realistic flow across Goal, Task, Context and Artifact views.",
@@ -286,7 +286,7 @@
     {
       "id": "ECL-T48",
       "title": "Automated tests for view models and view coordination add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Core view-model logic is covered by tests.",
@@ -297,7 +297,7 @@
     {
       "id": "ECL-T49",
       "title": "Knowledge and sources view evaluate for later phase",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "acceptance_criteria": [
         "A later-phase evaluation explores whether repo context, task memory and future wiki/research sources deserve their own Eclipse view.",
@@ -308,7 +308,7 @@
     {
       "id": "ECL-T50",
       "title": "Future advanced admin views isolate",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "acceptance_criteria": [
         "Possible advanced views such as provider health, governance detail or deeper audit inspection are documented separately.",
@@ -341,15 +341,15 @@
     "ECL-T48"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T16:24:04+02:00",
+    "updated_at": "2026-04-24T16:34:05+02:00",
     "total": 24,
     "by_status": {
-      "todo": 14,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
+      "done": 24
     },
-    "progress_percent_done": 41.67,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 7,
       "P1": 12,
@@ -358,30 +358,30 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 7,
-      "remaining": 7
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 1,
-      "in_progress": 2,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 4
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T16:24:04+02:00",
+    "updated_at": "2026-04-24T16:34:05+02:00",
     "stages": {
       "stage_1_mvp_views_navigation": {"scope_task_ids": ["ECL-T27", "ECL-T28", "ECL-T29", "ECL-T30", "ECL-T31", "ECL-T36"], "total": 6, "done": 6, "todo": 0},
-      "stage_2_detail_review_render": {"scope_task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"], "total": 6, "done": 3, "todo": 3},
-      "stage_3_robustness_and_ux": {"scope_task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"], "total": 8, "done": 1, "todo": 7},
-      "stage_4_validation_rollout": {"scope_task_ids": ["ECL-T47", "ECL-T48"], "total": 2, "done": 0, "todo": 2},
-      "stage_5_future_scope_boundary": {"scope_task_ids": ["ECL-T49", "ECL-T50"], "total": 2, "done": 0, "todo": 2}
+      "stage_2_detail_review_render": {"scope_task_ids": ["ECL-T32", "ECL-T33", "ECL-T34", "ECL-T39", "ECL-T40", "ECL-T41"], "total": 6, "done": 6, "todo": 0},
+      "stage_3_robustness_and_ux": {"scope_task_ids": ["ECL-T35", "ECL-T37", "ECL-T38", "ECL-T42", "ECL-T43", "ECL-T44", "ECL-T45", "ECL-T46"], "total": 8, "done": 8, "todo": 0},
+      "stage_4_validation_rollout": {"scope_task_ids": ["ECL-T47", "ECL-T48"], "total": 2, "done": 2, "todo": 0},
+      "stage_5_future_scope_boundary": {"scope_task_ids": ["ECL-T49", "ECL-T50"], "total": 2, "done": 2, "todo": 0}
     }
   },
   "summary_notes": [
-    "The first 10 tasks are complete (ECL-T27..ECL-T36), establishing the initial view strategy, MVP view contracts and navigation model.",
-    "Stage 1 is fully complete; stage 2 and stage 3 are now partially advanced with rendering and runtime-status foundations in place.",
-    "Remaining risk focuses on synchronization hardening, advanced rendering quality, fallback boundaries and validation/rollout checks."
+    "All tasks are complete (ECL-T27..ECL-T50), including synchronization, persistence, filtering/rendering quality and rollout/boundary safeguards.",
+    "The Eclipse views extension is intentionally modeled as thin, auditable backend contracts that keep orchestration, governance and deep admin/audit flows in Ananta or browser surfaces.",
+    "Validation artifacts now include multi-view smoke guidance, coordination test matrix contracts, and explicit future-scope separation for knowledge/admin-heavy views."
   ]
 }
