@@ -55,6 +55,46 @@
         "endpoint": "/goals/modes",
         "classification": "tui-advanced",
         "notes": "Mode-aware goal creation hints."
+      },
+      {
+        "section": "Goals",
+        "method": "create_goal",
+        "http_method": "POST",
+        "endpoint": "/goals",
+        "classification": "tui-advanced",
+        "notes": "Explicit goal creation with mode/context payload."
+      },
+      {
+        "section": "Goals",
+        "method": "get_goal_detail",
+        "http_method": "GET",
+        "endpoint": "/goals/{id}/detail",
+        "classification": "tui-advanced",
+        "notes": "Goal detail with trace and related entities."
+      },
+      {
+        "section": "Goals",
+        "method": "get_goal_plan",
+        "http_method": "GET",
+        "endpoint": "/goals/{id}/plan",
+        "classification": "tui-advanced",
+        "notes": "Readable terminal plan tree representation."
+      },
+      {
+        "section": "Goals",
+        "method": "patch_goal_plan_node",
+        "http_method": "PATCH",
+        "endpoint": "/goals/{id}/plan/nodes/{node_id}",
+        "classification": "browser-fallback",
+        "notes": "Node patching remains browser-first for safety."
+      },
+      {
+        "section": "Goals",
+        "method": "get_goal_governance_summary",
+        "http_method": "GET",
+        "endpoint": "/goals/{id}/governance-summary",
+        "classification": "tui-advanced",
+        "notes": "Goal governance summary and risk state."
       }
     ],
     "Tasks": [
@@ -65,6 +105,102 @@
         "endpoint": "/tasks",
         "classification": "tui-mvp",
         "notes": "Task board baseline."
+      },
+      {
+        "section": "Tasks",
+        "method": "get_task",
+        "http_method": "GET",
+        "endpoint": "/tasks/{id}",
+        "classification": "tui-advanced",
+        "notes": "Task detail with owner/agent/execution state."
+      },
+      {
+        "section": "Tasks",
+        "method": "get_task_timeline",
+        "http_method": "GET",
+        "endpoint": "/tasks/timeline",
+        "classification": "tui-advanced",
+        "notes": "Task timeline with status/team/agent filters."
+      },
+      {
+        "section": "Tasks",
+        "method": "get_task_logs",
+        "http_method": "GET",
+        "endpoint": "/tasks/{id}/logs",
+        "classification": "tui-advanced",
+        "notes": "Task log view with refresh workflow."
+      },
+      {
+        "section": "Tasks",
+        "method": "patch_task",
+        "http_method": "PATCH",
+        "endpoint": "/tasks/{id}",
+        "classification": "browser-fallback",
+        "notes": "Task patch action requires explicit confirmation."
+      },
+      {
+        "section": "Tasks",
+        "method": "assign_task",
+        "http_method": "POST",
+        "endpoint": "/tasks/{id}/assign",
+        "classification": "browser-fallback",
+        "notes": "Task assignment is guarded and confirmation-based."
+      },
+      {
+        "section": "Tasks",
+        "method": "propose_task_step",
+        "http_method": "POST",
+        "endpoint": "/tasks/{id}/step/propose",
+        "classification": "browser-fallback",
+        "notes": "Proposal action is guarded and auditable."
+      },
+      {
+        "section": "Tasks",
+        "method": "execute_task_step",
+        "http_method": "POST",
+        "endpoint": "/tasks/{id}/step/execute",
+        "classification": "browser-fallback",
+        "notes": "Execution action is guarded and auditable."
+      },
+      {
+        "section": "Tasks",
+        "method": "get_task_orchestration_read_model",
+        "http_method": "GET",
+        "endpoint": "/tasks/orchestration/read-model",
+        "classification": "tui-advanced",
+        "notes": "Orchestration state split by normal/blocked/failed/stale."
+      },
+      {
+        "section": "Tasks",
+        "method": "list_archived_tasks",
+        "http_method": "GET",
+        "endpoint": "/tasks/archived",
+        "classification": "tui-advanced",
+        "notes": "Archived task list for restore/cleanup workflow."
+      },
+      {
+        "section": "Tasks",
+        "method": "restore_archived_task",
+        "http_method": "POST",
+        "endpoint": "/tasks/archived/{id}/restore",
+        "classification": "browser-fallback",
+        "notes": "Restore archived task with explicit confirmation."
+      },
+      {
+        "section": "Tasks",
+        "method": "cleanup_archived_tasks",
+        "http_method": "POST",
+        "endpoint": "/tasks/archived/cleanup",
+        "classification": "browser-fallback",
+        "notes": "Bulk cleanup requires impact summary and confirmation."
+      },
+      {
+        "section": "Tasks",
+        "method": "delete_archived_task",
+        "http_method": "DELETE",
+        "endpoint": "/tasks/archived/{id}",
+        "classification": "browser-fallback",
+        "notes": "Archived delete is risky and guarded."
       }
     ],
     "Artifacts": [
@@ -75,6 +211,46 @@
         "endpoint": "/artifacts",
         "classification": "tui-mvp",
         "notes": "Artifact list baseline."
+      },
+      {
+        "section": "Artifacts",
+        "method": "get_artifact",
+        "http_method": "GET",
+        "endpoint": "/artifacts/{id}",
+        "classification": "tui-advanced",
+        "notes": "Artifact detail for selected object."
+      },
+      {
+        "section": "Artifacts",
+        "method": "extract_artifact",
+        "http_method": "POST",
+        "endpoint": "/artifacts/{id}/extract",
+        "classification": "browser-fallback",
+        "notes": "Extract action is explicit and confirmation-based."
+      },
+      {
+        "section": "Artifacts",
+        "method": "index_artifact",
+        "http_method": "POST",
+        "endpoint": "/artifacts/{id}/rag-index",
+        "classification": "browser-fallback",
+        "notes": "RAG indexing action is explicit and confirmation-based."
+      },
+      {
+        "section": "Artifacts",
+        "method": "get_artifact_rag_status",
+        "http_method": "GET",
+        "endpoint": "/artifacts/{id}/rag-status",
+        "classification": "tui-advanced",
+        "notes": "RAG indexing status for selected artifact."
+      },
+      {
+        "section": "Artifacts",
+        "method": "get_artifact_rag_preview",
+        "http_method": "GET",
+        "endpoint": "/artifacts/{id}/rag-preview",
+        "classification": "tui-advanced",
+        "notes": "RAG preview snippet view."
       }
     ],
     "Knowledge": [
@@ -93,6 +269,86 @@
         "endpoint": "/knowledge/index-profiles",
         "classification": "tui-advanced",
         "notes": "Index profile visibility."
+      },
+      {
+        "section": "Knowledge",
+        "method": "get_knowledge_collection",
+        "http_method": "GET",
+        "endpoint": "/knowledge/collections/{id}",
+        "classification": "tui-advanced",
+        "notes": "Collection detail and indexing metadata."
+      },
+      {
+        "section": "Knowledge",
+        "method": "index_knowledge_collection",
+        "http_method": "POST",
+        "endpoint": "/knowledge/collections/{id}/index",
+        "classification": "browser-fallback",
+        "notes": "Collection indexing is explicit and guarded."
+      },
+      {
+        "section": "Knowledge",
+        "method": "search_knowledge_collection",
+        "http_method": "POST",
+        "endpoint": "/knowledge/collections/{id}/search",
+        "classification": "tui-advanced",
+        "notes": "Knowledge search with query/top_k and provenance."
+      },
+      {
+        "section": "Knowledge",
+        "method": "list_templates",
+        "http_method": "GET",
+        "endpoint": "/templates",
+        "classification": "tui-advanced",
+        "notes": "Template inventory and inspection list."
+      },
+      {
+        "section": "Knowledge",
+        "method": "get_template_variable_registry",
+        "http_method": "GET",
+        "endpoint": "/templates/variable-registry",
+        "classification": "tui-advanced",
+        "notes": "Template variable registry view."
+      },
+      {
+        "section": "Knowledge",
+        "method": "get_template_sample_contexts",
+        "http_method": "GET",
+        "endpoint": "/templates/sample-contexts",
+        "classification": "tui-advanced",
+        "notes": "Template sample contexts for operator guidance."
+      },
+      {
+        "section": "Knowledge",
+        "method": "validate_template",
+        "http_method": "POST",
+        "endpoint": "/templates/validate",
+        "classification": "tui-advanced",
+        "notes": "Template validation workflow."
+      },
+      {
+        "section": "Knowledge",
+        "method": "preview_template",
+        "http_method": "POST",
+        "endpoint": "/templates/preview",
+        "classification": "tui-advanced",
+        "notes": "Template preview workflow."
+      },
+      {
+        "section": "Knowledge",
+        "method": "template_validation_diagnostics",
+        "http_method": "POST",
+        "endpoint": "/templates/validation-diagnostics",
+        "classification": "tui-advanced",
+        "notes": "Template diagnostics workflow."
+      },
+      {
+        "section": "Knowledge",
+        "method": "upload_artifact_strategy",
+        "http_method": "N/A",
+        "endpoint": "browser://artifacts/upload",
+        "classification": "browser-fallback",
+        "notes": "Direct terminal upload deferred; browser fallback is explicit strategy."
       }
     ],
     "Config": [

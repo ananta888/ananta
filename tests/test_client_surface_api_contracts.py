@@ -34,13 +34,47 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
             ("GET", "/api/system/audit-logs?limit=30&offset=0"): (200, {"items": [{"id": "audit-1"}]}),
             ("GET", "/goals"): (200, {"items": [{"id": "goal-1"}]}),
             ("GET", "/goals/modes"): (200, {"items": [{"id": "guided"}]}),
+            ("GET", "/goals/goal-1"): (200, {"id": "goal-1", "title": "Goal"}),
+            ("GET", "/goals/goal-1/detail"): (200, {"id": "goal-1", "trace_ref": "trace-1"}),
+            ("GET", "/goals/goal-1/plan"): (200, {"nodes": [{"id": "n-1"}]}),
+            ("PATCH", "/goals/goal-1/plan/nodes/n-1"): (200, {"updated": True}),
+            ("GET", "/goals/goal-1/governance-summary"): (200, {"governance_mode": "strict"}),
             ("GET", "/tasks"): (200, {"items": [{"id": "task-1", "status": "queued", "title": "Analyze file"}]}),
+            ("GET", "/tasks/task-1"): (200, {"id": "task-1", "status": "queued"}),
+            ("PATCH", "/tasks/task-1"): (200, {"updated": True}),
+            ("POST", "/tasks/task-1/assign"): (200, {"updated": True}),
+            ("POST", "/tasks/task-1/step/propose"): (200, {"updated": True}),
+            ("POST", "/tasks/task-1/step/execute"): (200, {"updated": True}),
+            ("GET", "/tasks/timeline?limit=10&team_id=team-1&agent=agent-a&status=queued&error_only=1"): (
+                200,
+                {"items": [{"task_id": "task-1"}]},
+            ),
+            ("GET", "/tasks/orchestration/read-model"): (200, {"state": "active"}),
+            ("GET", "/tasks/task-1/logs"): (200, {"items": [{"line": "ok"}]}),
+            ("GET", "/tasks/archived?limit=5&offset=2"): (200, {"items": [{"id": "task-archived-1"}]}),
+            ("POST", "/tasks/archived/task-archived-1/restore"): (200, {"updated": True}),
+            ("POST", "/tasks/archived/cleanup"): (200, {"updated": True}),
+            ("DELETE", "/tasks/archived/task-archived-1"): (200, {"updated": True}),
             ("GET", "/artifacts"): (
                 200,
                 {"items": [{"id": "artifact-1", "type": "report", "title": "Result summary"}]},
             ),
+            ("GET", "/artifacts/artifact-1"): (200, {"id": "artifact-1", "type": "report"}),
+            ("POST", "/artifacts/artifact-1/extract"): (200, {"updated": True}),
+            ("POST", "/artifacts/artifact-1/rag-index"): (200, {"updated": True}),
+            ("GET", "/artifacts/artifact-1/rag-status"): (200, {"indexed": True}),
+            ("GET", "/artifacts/artifact-1/rag-preview?limit=2"): (200, {"items": [{"chunk_id": "c1"}]}),
             ("GET", "/knowledge/collections"): (200, {"items": [{"id": "kc-1"}]}),
             ("GET", "/knowledge/index-profiles"): (200, {"items": [{"id": "kip-1"}]}),
+            ("GET", "/knowledge/collections/kc-1"): (200, {"id": "kc-1"}),
+            ("POST", "/knowledge/collections/kc-1/index"): (200, {"updated": True}),
+            ("POST", "/knowledge/collections/kc-1/search"): (200, {"items": [{"source": "doc-1"}]}),
+            ("GET", "/templates"): (200, {"items": [{"id": "tpl-1"}]}),
+            ("GET", "/templates/variable-registry"): (200, {"variables": [{"name": "goal_text"}]}),
+            ("GET", "/templates/sample-contexts"): (200, {"samples": [{"name": "sample-1"}]}),
+            ("POST", "/templates/validate"): (200, {"valid": True}),
+            ("POST", "/templates/preview"): (200, {"rendered": "ok"}),
+            ("POST", "/templates/validation-diagnostics"): (200, {"diagnostics": []}),
             ("GET", "/teams"): (200, {"items": [{"id": "team-1"}]}),
             ("GET", "/tasks/autopilot/status"): (200, {"running": False}),
             ("GET", "/tasks/auto-planner/status"): (200, {"enabled": True}),
@@ -80,10 +114,47 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
     assert client.get_audit_logs(limit=30).data["items"][0]["id"] == "audit-1"
     assert client.list_goals().data["items"][0]["id"] == "goal-1"
     assert client.list_goal_modes().data["items"][0]["id"] == "guided"
+    assert client.get_goal("goal-1").data["id"] == "goal-1"
+    assert client.get_goal_detail("goal-1").data["trace_ref"] == "trace-1"
+    assert client.get_goal_plan("goal-1").data["nodes"][0]["id"] == "n-1"
+    assert client.patch_goal_plan_node("goal-1", "n-1", {"status": "done"}).data["updated"] is True
+    assert client.get_goal_governance_summary("goal-1").data["governance_mode"] == "strict"
+    assert client.create_goal({"goal_text": "Ship parity", "mode": "guided"}).data["goal_id"] == "goal-1"
     assert client.list_tasks().data["items"][0]["id"] == "task-1"
+    assert client.get_task("task-1").data["id"] == "task-1"
+    assert client.patch_task("task-1", {"status": "in_progress"}).data["updated"] is True
+    assert client.assign_task("task-1", {"agent": "agent-a"}).data["updated"] is True
+    assert client.propose_task_step("task-1", {"proposal": "x"}).data["updated"] is True
+    assert client.execute_task_step("task-1", {"dry_run": True}).data["updated"] is True
+    assert (
+        client.get_task_timeline(team_id="team-1", agent="agent-a", status="queued", error_only=True, limit=10).data[
+            "items"
+        ][0]["task_id"]
+        == "task-1"
+    )
+    assert client.get_task_orchestration_read_model().data["state"] == "active"
+    assert client.get_task_logs("task-1").data["items"][0]["line"] == "ok"
+    assert client.list_archived_tasks(limit=5, offset=2).data["items"][0]["id"] == "task-archived-1"
+    assert client.restore_archived_task("task-archived-1").data["updated"] is True
+    assert client.cleanup_archived_tasks({"dry_run": True}).data["updated"] is True
+    assert client.delete_archived_task("task-archived-1").data["updated"] is True
     assert client.list_artifacts().data["items"][0]["type"] == "report"
+    assert client.get_artifact("artifact-1").data["id"] == "artifact-1"
+    assert client.extract_artifact("artifact-1").data["updated"] is True
+    assert client.index_artifact("artifact-1", {"profile": "default"}).data["updated"] is True
+    assert client.get_artifact_rag_status("artifact-1").data["indexed"] is True
+    assert client.get_artifact_rag_preview("artifact-1", limit=2).data["items"][0]["chunk_id"] == "c1"
     assert client.list_knowledge_collections().data["items"][0]["id"] == "kc-1"
     assert client.list_knowledge_index_profiles().data["items"][0]["id"] == "kip-1"
+    assert client.get_knowledge_collection("kc-1").data["id"] == "kc-1"
+    assert client.index_knowledge_collection("kc-1", {"profile": "default"}).data["updated"] is True
+    assert client.search_knowledge_collection("kc-1", query="parity", top_k=5).data["items"][0]["source"] == "doc-1"
+    assert client.list_templates().data["items"][0]["id"] == "tpl-1"
+    assert client.get_template_variable_registry().data["variables"][0]["name"] == "goal_text"
+    assert client.get_template_sample_contexts().data["samples"][0]["name"] == "sample-1"
+    assert client.validate_template({"template": "x"}).data["valid"] is True
+    assert client.preview_template({"template": "x"}).data["rendered"] == "ok"
+    assert client.template_validation_diagnostics({"template": "x"}).data["diagnostics"] == []
     assert client.list_teams().data["items"][0]["id"] == "team-1"
     assert client.get_autopilot_status().data["running"] is False
     assert client.get_auto_planner_status().data["enabled"] is True
@@ -115,10 +186,41 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
     assert ("GET", "/api/system/audit-logs?limit=30&offset=0") in called_paths
     assert ("GET", "/goals") in called_paths
     assert ("GET", "/goals/modes") in called_paths
+    assert ("GET", "/goals/goal-1") in called_paths
+    assert ("GET", "/goals/goal-1/detail") in called_paths
+    assert ("GET", "/goals/goal-1/plan") in called_paths
+    assert ("PATCH", "/goals/goal-1/plan/nodes/n-1") in called_paths
+    assert ("GET", "/goals/goal-1/governance-summary") in called_paths
     assert ("GET", "/tasks") in called_paths
+    assert ("GET", "/tasks/task-1") in called_paths
+    assert ("PATCH", "/tasks/task-1") in called_paths
+    assert ("POST", "/tasks/task-1/assign") in called_paths
+    assert ("POST", "/tasks/task-1/step/propose") in called_paths
+    assert ("POST", "/tasks/task-1/step/execute") in called_paths
+    assert ("GET", "/tasks/timeline?limit=10&team_id=team-1&agent=agent-a&status=queued&error_only=1") in called_paths
+    assert ("GET", "/tasks/orchestration/read-model") in called_paths
+    assert ("GET", "/tasks/task-1/logs") in called_paths
+    assert ("GET", "/tasks/archived?limit=5&offset=2") in called_paths
+    assert ("POST", "/tasks/archived/task-archived-1/restore") in called_paths
+    assert ("POST", "/tasks/archived/cleanup") in called_paths
+    assert ("DELETE", "/tasks/archived/task-archived-1") in called_paths
     assert ("GET", "/artifacts") in called_paths
+    assert ("GET", "/artifacts/artifact-1") in called_paths
+    assert ("POST", "/artifacts/artifact-1/extract") in called_paths
+    assert ("POST", "/artifacts/artifact-1/rag-index") in called_paths
+    assert ("GET", "/artifacts/artifact-1/rag-status") in called_paths
+    assert ("GET", "/artifacts/artifact-1/rag-preview?limit=2") in called_paths
     assert ("GET", "/knowledge/collections") in called_paths
     assert ("GET", "/knowledge/index-profiles") in called_paths
+    assert ("GET", "/knowledge/collections/kc-1") in called_paths
+    assert ("POST", "/knowledge/collections/kc-1/index") in called_paths
+    assert ("POST", "/knowledge/collections/kc-1/search") in called_paths
+    assert ("GET", "/templates") in called_paths
+    assert ("GET", "/templates/variable-registry") in called_paths
+    assert ("GET", "/templates/sample-contexts") in called_paths
+    assert ("POST", "/templates/validate") in called_paths
+    assert ("POST", "/templates/preview") in called_paths
+    assert ("POST", "/templates/validation-diagnostics") in called_paths
     assert ("GET", "/teams") in called_paths
     assert ("GET", "/tasks/autopilot/status") in called_paths
     assert ("GET", "/tasks/auto-planner/status") in called_paths

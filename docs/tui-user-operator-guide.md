@@ -18,6 +18,10 @@ For compact terminals and explicit section focus:
 
 `python -m client_surfaces.tui_runtime.ananta_tui --fixture --section Tasks --terminal-width 80`
 
+For selected-object drilldown and guarded actions:
+
+`python -m client_surfaces.tui_runtime.ananta_tui --fixture --selected-goal-id G-1 --selected-task-id T-1 --selected-artifact-id A-1`
+
 ## Core views
 
 - Dashboard
@@ -41,6 +45,10 @@ For compact terminals and explicit section focus:
 - Keep actions explicit and auditable.
 - Deep admin and high-risk operations stay browser-first via fallback links.
 - Config edits from terminal are allowlisted and require explicit `--apply-safe-config`.
+- Task patch/assign/propose/execute actions require explicit `--confirm-task-action`.
+- Archived restore/cleanup/delete actions require explicit `--confirm-archived-action`.
+- Artifact extract/index actions require explicit `--confirm-artifact-action`.
+- Artifact upload is intentionally deferred in terminal and handled via browser fallback.
 
 ## Navigation
 
@@ -48,3 +56,18 @@ For compact terminals and explicit section focus:
 - Cross-view search/filtering
 - Resume state support for profile/last-view continuity
 - Navigation shell always shows current section and selected object context.
+- Goal/task/artifact/knowledge/template selections are visible in the navigation header.
+
+## Goal/task/artifact workflows
+
+- Goal list/detail includes governance and plan tree context.
+- Task workbench includes timeline and logs.
+- Orchestration state is read-only in terminal (normal/blocked/failed/stale queues).
+- Archived task actions are confirmation-gated.
+- Artifact explorer includes detail, extract/index controls, RAG status, and RAG preview.
+
+## Knowledge and templates
+
+- Knowledge collections support inspect, explicit index action, and search (`query`, `top_k`).
+- Templates support list/detail, variable registry, sample contexts, validation, diagnostics, and preview.
+- Template writes remain browser-first unless a later guarded terminal flow is introduced.

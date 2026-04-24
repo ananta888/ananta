@@ -45,13 +45,13 @@
       "id": "TFS-M3",
       "title": "Goals, tasks and execution",
       "task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TFS-M4",
       "title": "Artifacts, knowledge and templates",
       "task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TFS-M5",
@@ -195,7 +195,7 @@
     {
       "id": "TFS-T10",
       "title": "Goals list and detail views expand",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -208,7 +208,7 @@
     {
       "id": "TFS-T11",
       "title": "Goal plan tree view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -221,7 +221,7 @@
     {
       "id": "TFS-T12",
       "title": "Task workbench view expand",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -234,7 +234,7 @@
     {
       "id": "TFS-T13",
       "title": "Task orchestration view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -247,7 +247,7 @@
     {
       "id": "TFS-T14",
       "title": "Archived task management view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -261,7 +261,7 @@
     {
       "id": "TFS-T15",
       "title": "Artifact explorer expand",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -274,7 +274,7 @@
     {
       "id": "TFS-T16",
       "title": "Knowledge collections view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -287,7 +287,7 @@
     {
       "id": "TFS-T17",
       "title": "Template management view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -300,7 +300,7 @@
     {
       "id": "TFS-T18",
       "title": "Artifact upload strategy decide",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -536,15 +536,15 @@
     "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T23:37:02+02:00",
+    "updated_at": "2026-04-25T00:07:15+02:00",
     "total": 33,
     "by_status": {
-      "todo": 16,
-      "in_progress": 7,
+      "todo": 9,
+      "in_progress": 5,
       "blocked": 0,
-      "done": 10
+      "done": 19
     },
-    "progress_percent_done": 30.3,
+    "progress_percent_done": 57.58,
     "by_priority": {
       "P0": 18,
       "P1": 12,
@@ -559,19 +559,19 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 4,
-      "remaining": 12
+      "done": 7,
+      "remaining": 9
     },
     "milestones": {
       "total": 7,
       "todo": 1,
-      "in_progress": 4,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T23:37:02+02:00",
+    "updated_at": "2026-04-25T00:07:15+02:00",
     "stages": {
       "TFS-M1": {
         "title": "Navigation and API mapping",
@@ -595,18 +595,18 @@
         "title": "Goals, tasks and execution",
         "scope_task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
         "total": 5,
-        "done": 0,
-        "todo": 4,
-        "in_progress": 1,
+        "done": 5,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       },
       "TFS-M4": {
         "title": "Artifacts, knowledge and templates",
         "scope_task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
         "total": 4,
-        "done": 0,
-        "todo": 3,
-        "in_progress": 1,
+        "done": 4,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       },
       "TFS-M5": {
@@ -639,9 +639,11 @@
     }
   },
   "code_evidence_snapshot": {
-    "updated_at": "2026-04-24T23:37:02+02:00",
+    "updated_at": "2026-04-25T00:07:15+02:00",
     "runtime_baseline_evidence": [
+      "client_surfaces/common/client_api.py",
       "client_surfaces/tui_runtime/ananta_tui/app.py",
+      "client_surfaces/tui_runtime/ananta_tui/fixture_transport.py",
       "client_surfaces/tui_runtime/ananta_tui/surface_map.py",
       "client_surfaces/tui_runtime/ananta_tui/state.py",
       "client_surfaces/tui_runtime/ananta_tui/browser_fallback.py",
@@ -650,6 +652,7 @@
       "scripts/smoke_client_golden_paths.py",
       "tests/test_tui_runtime_app.py",
       "tests/test_tui_runtime_state.py",
+      "tests/test_client_surface_api_contracts.py",
       "docs/tui-user-operator-guide.md"
     ],
     "planning_and_validation_evidence": [
@@ -663,9 +666,18 @@
     "detected_runtime_sections": [
       "dashboard",
       "goals",
+      "goal_detail",
+      "goal_plan",
+      "goal_governance",
       "tasks",
+      "task_workbench",
+      "task_orchestration",
+      "archived_tasks",
       "artifacts",
+      "artifact_detail",
+      "artifact_rag",
       "knowledge",
+      "templates",
       "config",
       "providers",
       "benchmarks",
@@ -678,14 +690,15 @@
       "help"
     ],
     "major_gaps_vs_track_goal": [
-      "Navigation, mapping and baseline multi-section runtime views are now present, but deeper object drill-down remains partial.",
+      "Goal/task/artifact/knowledge/template deep views now exist for core workflows, but advanced write paths are intentionally guarded or browser-first.",
       "Config editing is intentionally allowlisted; advanced governance/config operations stay browser-first.",
-      "Instruction-layer, team/blueprint deep workflows and advanced automation/audit actions are still pending beyond status/read models.",
-      "Golden-path and view tests now cover broad runtime shell, but full frontend-parity workflow depth is still open."
+      "Instruction-layer and teams/blueprint deep workflows are still pending in later milestones.",
+      "Advanced automation/audit operator actions beyond status/read models remain in the next bundle.",
+      "Golden-path and API-contract coverage improved, but full frontend-parity workflow depth is still open."
     ]
   },
   "analysis_checks": {
-    "checked_at": "2026-04-24T23:37:02+02:00",
+    "checked_at": "2026-04-25T00:07:15+02:00",
     "internal_consistency": "ok",
     "notes": [
       "Task IDs are unique and all milestone task references resolve to existing tasks.",
@@ -696,6 +709,9 @@
   "summary_notes": [
     "First bundle (TFS-T01..T09 + TFS-T33) is completed with concrete runtime and validation evidence in repository code and tests.",
     "TUI now provides a broad multi-section navigation shell with shared state, browser fallback links and compact terminal mode.",
+    "Second bundle (TFS-T10..T18) is completed with goal/task/artifact deep views, orchestration/archived task visibility, knowledge search/index and template diagnostics/preview support.",
+    "Goal creation now supports explicit mode/context payload, and task/artifact/archive write actions are confirmation-gated.",
+    "Artifact upload strategy is explicitly set to deferred browser fallback to prevent accidental terminal uploads.",
     "Dashboard/system/config/provider/benchmark surfaces are now rendered through existing backend API contracts with degraded-state visibility.",
     "Safe config editing is now allowlisted, preview-first and explicit-apply only; dangerous or complex operations remain browser-first.",
     "todo schema validation drift is resolved for active track format via format detection and dedicated track schema support.",
@@ -729,10 +745,18 @@
     },
     {
       "summary_id": "TFS-S4",
+      "title": "Second bundle completion",
+      "items": [
+        "Completed tasks: TFS-T10, TFS-T11, TFS-T12, TFS-T13, TFS-T14, TFS-T15, TFS-T16, TFS-T17 and TFS-T18.",
+        "Milestones TFS-M3 and TFS-M4 are now done; summary counters and execution stage counters were synchronized."
+      ]
+    },
+    {
+      "summary_id": "TFS-S5",
       "title": "Next focus recommendation",
       "items": [
-        "Next execution block should focus on deep workflows (TFS-T10..T18) and orchestration/instruction layers (TFS-T19..T22).",
-        "Keep validation and smoke suites expanding in parallel to preserve parity confidence as write/action depth increases."
+        "Next execution block should focus on teams/blueprints/instruction layers (TFS-T19..T22) and automation/audit operator depth (TFS-T23..T24).",
+        "Continue expanding smoke and contract suites in parallel to preserve parity confidence as write/action depth increases."
       ]
     }
   ]
