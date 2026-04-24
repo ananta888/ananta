@@ -1,973 +1,410 @@
 {
   "version": 2,
   "owner": "ananta",
-  "track": "vim_plugin_and_tui_program",
-  "purpose": "Build two complementary operator surfaces for Ananta: a Vim/Neovim plugin for developer-centric coding workflows and a terminal UI for admin, task, artifact, approval, audit and KRITIS-style operations.",
+  "track": "eclipse_plugin_adapter",
+  "purpose": "Build a thin Eclipse plugin that acts as an IDE adapter for Ananta rather than duplicating orchestration inside the IDE.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Developers should be able to use Ananta directly from Vim/Neovim for coding and review workflows, while operators and advanced users can manage goals, tasks, artifacts, approvals, logs, repair flows and KRITIS-related visibility through a dedicated Ananta TUI.",
+  "goal": "Eclipse users can start and inspect Ananta-controlled project work directly from the IDE using existing Ananta APIs and control-plane flows.",
   "success_criteria": [
-    "The Vim/Neovim plugin acts as an editor-native adapter to Ananta and does not duplicate orchestration logic.",
-    "The Ananta TUI provides a practical terminal-native control surface for admin and operational workflows.",
-    "Both surfaces use the same backend contracts, approval model, audit model and task/artifact logic.",
-    "The plugin and TUI together improve usability without fragmenting the platform into inconsistent interfaces."
+    "The plugin can authenticate against Ananta and store endpoint/profile settings safely.",
+    "Users can send file, selection and project context from Eclipse to Ananta.",
+    "Users can trigger core flows such as analyze, review, patch, new-project and evolve-project from the IDE.",
+    "Returned tasks, proposals, artifacts and statuses are visible inside Eclipse without rebuilding Ananta logic in the plugin.",
+    "The plugin stays thin and delegates planning, routing, review and governance to Ananta."
   ],
   "program_success_criteria": [
-    "The Vim/Neovim plugin acts as an editor-native adapter to Ananta and does not duplicate orchestration logic.",
-    "The Ananta TUI provides a practical terminal-native control surface for admin and operational workflows.",
-    "Both surfaces use the same backend contracts, approval model, audit model and task/artifact logic.",
-    "The plugin and TUI together improve usability without fragmenting the platform into inconsistent interfaces."
+    "The plugin can authenticate against Ananta and store endpoint/profile settings safely.",
+    "Users can send file, selection and project context from Eclipse to Ananta.",
+    "Users can trigger core flows such as analyze, review, patch, new-project and evolve-project from the IDE.",
+    "Returned tasks, proposals, artifacts and statuses are visible inside Eclipse without rebuilding Ananta logic in the plugin.",
+    "The plugin stays thin and delegates planning, routing, review and governance to Ananta."
   ],
-  "groups": [
+  "architecture_guardrails": [
+    "The plugin is an adapter UI only; hub orchestration, governance and policy decisions stay in Ananta.",
+    "No duplicate worker orchestration or policy engine is introduced inside Eclipse.",
+    "Sensitive data handling remains explicit, bounded and auditable."
+  ],
+  "milestones": [
     {
-      "id": "COMMON-FOUNDATION",
+      "id": "M1",
+      "title": "Thin adapter baseline",
+      "task_ids": ["ECL-T01", "ECL-T02", "ECL-T03", "ECL-T04", "ECL-T05", "ECL-T06", "ECL-T07", "ECL-T08"],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Core IDE workflows and safety baseline",
+      "task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Extension decisions and observability",
+      "task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Validation and rollout",
+      "task_ids": ["ECL-T23", "ECL-T24", "ECL-T25", "ECL-T26"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ECL-T01",
+      "title": "Plugin target model define",
+      "status": "todo",
       "priority": "P0",
-      "title": "Gemeinsame Grundlage fuer Plugin und TUI",
-      "goal": "Create shared frontend contracts, API assumptions, view-model semantics and UX boundaries for both terminal-facing surfaces.",
-      "tasks": [
-        {
-          "id": "EDT-COM-T01",
-          "title": "Shared UI boundary model define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "A design note defines what belongs in the Vim/Neovim plugin, what belongs in the TUI and what remains browser-first.",
-            "The model states that orchestration, routing, governance and approvals remain in Ananta.",
-            "The split between developer-facing and operator-facing views is explicit."
-          ]
-        },
-        {
-          "id": "EDT-COM-T02",
-          "title": "Shared frontend contract inventory create",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A contract inventory maps the required backend endpoints and read models for plugin and TUI usage.",
-            "The inventory covers auth, goals, tasks, artifacts, approvals, logs, health, runtime diagnostics and relevant KRITIS views.",
-            "The inventory identifies missing API surfaces before UI implementation starts."
-          ]
-        },
-        {
-          "id": "EDT-COM-T03",
-          "title": "Common object model for task artifact approval log entries define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A normalized object model is defined for task, artifact, approval, log and trace items used by both UIs.",
-            "The object model is stable enough to avoid each frontend inventing different interpretations.",
-            "The model supports compact rendering and detailed drill-down."
-          ]
-        },
-        {
-          "id": "EDT-COM-T04",
-          "title": "Connection profile abstraction create",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Both the plugin and the TUI can use a consistent connection profile concept for endpoint, auth and environment selection.",
-            "Connection profiles can distinguish local, team and KRITIS-oriented targets.",
-            "The design supports future multiple Ananta instances."
-          ]
-        },
-        {
-          "id": "EDT-COM-T05",
-          "title": "Shared permission and capability surface define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "Both UIs can understand capability availability and permission limits in a consistent way.",
-            "Sensitive operations such as approvals, writes, repair actions, terminal usage and admin actions are clearly modeled.",
-            "The design aligns with existing platform governance and auth semantics."
-          ]
-        },
-        {
-          "id": "EDT-COM-T06",
-          "title": "Common error and degraded-state model define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Both UIs distinguish auth failure, backend unreachability, missing capability, policy denial and runtime failure cleanly.",
-            "Error semantics remain understandable to real users.",
-            "The design avoids silent fallbacks."
-          ]
-        },
-        {
-          "id": "EDT-COM-T07",
-          "title": "Shared trace and audit linking rules define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Plugin and TUI both know how to link tasks, approvals, artifacts, logs and audit traces.",
-            "The linking model is consistent across both surfaces.",
-            "The model supports future KRITIS evidence visibility."
-          ]
-        },
-        {
-          "id": "EDT-COM-T08",
-          "title": "First-run and onboarding split define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "A clear onboarding split exists: plugin for coding workflows, TUI for operations/admin flows.",
-            "Users are not forced into the wrong interface for the wrong job.",
-            "The documentation can explain the choice quickly."
-          ]
-        },
-        {
-          "id": "EDT-COM-T09",
-          "title": "Shared release and smoke strategy define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "There is a shared smoke and release approach for plugin and TUI.",
-            "The approach covers both local and containerized Ananta targets.",
-            "Core flows are validated before claiming usability."
-          ]
-        }
+      "acceptance_criteria": [
+        "A design note explains that the Eclipse plugin is a thin IDE adapter and not a second control plane.",
+        "The document lists what stays in Eclipse and what stays in Ananta.",
+        "The design explicitly forbids duplicate orchestration logic inside the plugin."
       ]
     },
     {
-      "id": "NVIM-PLUGIN-FOUNDATION",
-      "priority": "P0",
-      "title": "Vim/Neovim Plugin Grundlage",
-      "goal": "Create a real editor-native integration for coding, review, context and goal submission.",
-      "tasks": [
-        {
-          "id": "NVIM-T01",
-          "title": "Plugin architecture decide",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A concrete architecture choice is made for Vim and/or Neovim support.",
-            "The decision covers whether to support Neovim first and Vim later or both from the beginning.",
-            "The architecture is maintainable and not overengineered."
-          ]
-        },
-        {
-          "id": "NVIM-T02",
-          "title": "Minimum supported editor matrix define",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Supported Neovim/Vim versions are documented.",
-            "Plugin dependencies and optional runtime requirements are listed.",
-            "The first release path is practical for installation."
-          ]
-        },
-        {
-          "id": "NVIM-T03",
-          "title": "Connection and authentication support implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The plugin can store and use Ananta connection profiles safely.",
-            "Authentication works with the supported Ananta auth path.",
-            "Secrets are not leaked into command history or logs."
-          ]
-        },
-        {
-          "id": "NVIM-T04",
-          "title": "Plugin command surface define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A coherent command set exists for the plugin.",
-            "The first command set covers goal submission, analyze, review, patch, new project and evolve project.",
-            "Command naming is editor-appropriate and aligned with Ananta concepts."
-          ]
-        },
-        {
-          "id": "NVIM-T05",
-          "title": "Editor context collection implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The plugin can collect current file, buffer, cursor context, selection and project root.",
-            "Context collection stays bounded and visible to the user.",
-            "The plugin avoids dumping excessive unrelated workspace content."
-          ]
-        },
-        {
-          "id": "NVIM-T06",
-          "title": "Goal submission from editor implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Users can send a goal directly from the editor.",
-            "Goal submission can include current file or selected text context.",
-            "The flow favors official Ananta use cases rather than arbitrary hidden behavior."
-          ]
-        },
-        {
-          "id": "NVIM-T07",
-          "title": "Quick action palette or command wrappers add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Common operations can be invoked quickly from editor commands or a lightweight picker.",
-            "The first useful operations are obvious and easy to trigger.",
-            "The plugin does not require users to memorize too much before becoming useful."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "NVIM-CODING-REVIEW-CONTEXT",
-      "priority": "P0",
-      "title": "Vim/Neovim Plugin - Coding Review Kontext Goals",
-      "goal": "Deliver the core developer-facing workflows inside the editor.",
-      "tasks": [
-        {
-          "id": "NVIM-T08",
-          "title": "Analyze current file or project flow add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin supports asking Ananta to analyze the current file or project context.",
-            "Results are shown in a readable editor-native way.",
-            "The flow can be triggered without leaving the editor."
-          ]
-        },
-        {
-          "id": "NVIM-T09",
-          "title": "Review selected code flow add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin supports sending a visual selection or current block for review.",
-            "Review output is linked back to the relevant code area.",
-            "The review flow supports safe, bounded context submission."
-          ]
-        },
-        {
-          "id": "NVIM-T10",
-          "title": "Patch planning and fix suggestion flow add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin can request patch planning or fix suggestions for the current context.",
-            "Results do not silently mutate files.",
-            "Suggestions are presented with clear user control."
-          ]
-        },
-        {
-          "id": "NVIM-T11",
-          "title": "Task list and current task context view add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin can show current Ananta tasks relevant to the current project or user.",
-            "The user can inspect task summaries and status without leaving the editor.",
-            "Task navigation is editor-friendly and compact."
-          ]
-        },
-        {
-          "id": "NVIM-T12",
-          "title": "Artifact preview inside editor add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Relevant artifacts can be previewed in a scratch buffer, split or floating window.",
-            "The artifact rendering is readable for text-heavy outputs such as summaries and review results.",
-            "Unsupported artifact types degrade gracefully."
-          ]
-        },
-        {
-          "id": "NVIM-T13",
-          "title": "Context inspection panel add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The user can inspect what context will be sent to Ananta before submission.",
-            "The panel shows file path, selection size and included project information.",
-            "The user can trim or cancel context submission."
-          ]
-        },
-        {
-          "id": "NVIM-T14",
-          "title": "Diff and proposal rendering add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Review proposals or diff-like outputs can be rendered in a Vim-friendly form.",
-            "The user can inspect changes before any application step.",
-            "The plugin preserves a review-first posture."
-          ]
-        },
-        {
-          "id": "NVIM-T15",
-          "title": "Navigation between tasks artifacts and source locations add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin can jump from task or artifact items back to the relevant file or location where possible.",
-            "Cross-navigation feels editor-native instead of web-like.",
-            "The navigation model remains predictable."
-          ]
-        },
-        {
-          "id": "NVIM-T16",
-          "title": "Open in browser or open in Ananta shortcuts add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "The plugin can open deeper task, artifact or goal views in the browser when editor rendering is insufficient.",
-            "The shortcut is available but not forced.",
-            "The plugin stays thin where browser views are better."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "NVIM-ADVANCED",
+      "id": "ECL-T02",
+      "title": "Minimum supported Eclipse distribution define",
+      "status": "todo",
       "priority": "P1",
-      "title": "Vim/Neovim Plugin - Erweiterte Features",
-      "goal": "Add richer features without turning the plugin into a second orchestration system or IDE clone.",
-      "tasks": [
-        {
-          "id": "NVIM-T17",
-          "title": "Blueprint-aware project start commands add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin can surface standard blueprint or work-profile choices for new or evolving project flows.",
-            "The user can start official product paths from the editor.",
-            "The plugin reflects product terminology consistently."
-          ]
-        },
-        {
-          "id": "NVIM-T18",
-          "title": "Approval awareness for risky actions add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The plugin can show when an action is pending approval or blocked by policy.",
-            "The UI does not imply that writes will happen immediately.",
-            "Approval state remains explicit."
-          ]
-        },
-        {
-          "id": "NVIM-T19",
-          "title": "Trace and diagnostic summary view add",
-          "status": "done",
-          "priority": "P2",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Advanced users can inspect compact trace or routing summaries.",
-            "The view helps debugging without overwhelming ordinary use.",
-            "The feature remains optional."
-          ]
-        },
-        {
-          "id": "NVIM-T20",
-          "title": "Knowledge and context source summary add",
-          "status": "done",
-          "priority": "P2",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The plugin can show from which source classes context came when relevant.",
-            "The summary is compact and understandable.",
-            "The feature supports trust in responses."
-          ]
-        },
-        {
-          "id": "NVIM-T21",
-          "title": "First-run guided setup inside editor add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "A first-run flow helps users connect the plugin and perform one useful operation quickly.",
-            "The flow recommends an official use case such as analyze or review.",
-            "The setup does not demand browser use for the first success."
-          ]
-        }
+      "acceptance_criteria": [
+        "Supported Eclipse versions and Java baseline are documented.",
+        "Required target platform or plugin dependencies are listed.",
+        "A simple local dev setup for the plugin exists."
       ]
     },
     {
-      "id": "TUI-FOUNDATION",
+      "id": "ECL-T03",
+      "title": "Connection profile and authentication support add",
+      "status": "todo",
       "priority": "P0",
-      "title": "Ananta TUI Grundlage",
-      "goal": "Build a dedicated terminal UI for operational use without trying to become a full editor.",
-      "tasks": [
-        {
-          "id": "TUI-T01",
-          "title": "TUI framework and architecture decide",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A concrete TUI stack is selected.",
-            "The decision fits long-lived admin and dashboard-like workflows.",
-            "The architecture supports multiple views without becoming brittle."
-          ]
-        },
-        {
-          "id": "TUI-T02",
-          "title": "TUI information architecture define",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The TUI information architecture is defined clearly.",
-            "The design covers dashboard-like overview, drill-down views and action flows.",
-            "The TUI remains operation-focused and does not attempt to replace the browser for everything."
-          ]
-        },
-        {
-          "id": "TUI-T03",
-          "title": "Authentication and session handling implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The TUI can authenticate securely against Ananta.",
-            "Session handling is safe for long-running terminal use.",
-            "Sensitive credentials are handled carefully and not echoed."
-          ]
-        },
-        {
-          "id": "TUI-T04",
-          "title": "Global navigation and layout implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The TUI has a coherent layout and navigation model.",
-            "Users can move between key views without getting lost.",
-            "The layout works in realistic terminal sizes."
-          ]
-        },
-        {
-          "id": "TUI-T05",
-          "title": "Connection and runtime status header add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "The TUI shows current connection profile, target instance and basic health signals.",
-            "The header makes the current context obvious.",
-            "The status presentation is compact and useful."
-          ]
-        }
+      "acceptance_criteria": [
+        "Users can configure Ananta base URL and auth method.",
+        "The plugin can login via the canonical auth flow or use a token profile.",
+        "Sensitive values are stored safely and not dumped into logs."
       ]
     },
     {
-      "id": "TUI-ADMIN-TASKS-ARTIFACTS",
+      "id": "ECL-T04",
+      "title": "Basic health and capability handshake implement",
+      "status": "todo",
       "priority": "P0",
-      "title": "Ananta TUI - Admin Tasks Artifacts",
-      "goal": "Provide the core terminal-native operational workflows.",
-      "tasks": [
-        {
-          "id": "TUI-T06",
-          "title": "Task board or task list view implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The TUI has a practical task list or board view.",
-            "Users can inspect status, priority, review-needed state and recent progress.",
-            "The view supports real operational use."
-          ]
-        },
-        {
-          "id": "TUI-T07",
-          "title": "Task detail view implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A selected task can be inspected in detail.",
-            "The detail view includes summary, stage/routing hints, artifacts and latest state.",
-            "The view stays readable in terminal form."
-          ]
-        },
-        {
-          "id": "TUI-T08",
-          "title": "Artifact list and artifact detail view implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The TUI can list artifacts and open artifact details.",
-            "Text-heavy artifacts render clearly in terminal format.",
-            "Users can move between artifacts and related tasks."
-          ]
-        },
-        {
-          "id": "TUI-T09",
-          "title": "Goal list and goal detail view add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Goals can be listed and inspected in the TUI.",
-            "The operator can see how goals relate to tasks and artifacts.",
-            "The view is useful for current operational monitoring."
-          ]
-        },
-        {
-          "id": "TUI-T10",
-          "title": "Goal submission and quick action entry add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Users can submit a goal or launch a few key actions from the TUI.",
-            "The TUI supports the most important official use cases.",
-            "The flow remains controlled and explicit."
-          ]
-        },
-        {
-          "id": "TUI-T11",
-          "title": "Task filtering and grouping add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Tasks can be filtered by status, review-required, blocked or similar useful classes.",
-            "Grouping remains practical and not overly complex.",
-            "The filtering model improves daily use."
-          ]
-        }
+      "acceptance_criteria": [
+        "The plugin can query health/ready or equivalent capability endpoints.",
+        "The plugin can detect whether the target Ananta instance is reachable and usable.",
+        "The UI shows a clear connected/disconnected state."
       ]
     },
     {
-      "id": "TUI-LOGS-APPROVALS-AUDIT",
+      "id": "ECL-T05",
+      "title": "Workspace and project context collection implement",
+      "status": "todo",
       "priority": "P0",
-      "title": "Ananta TUI - Logs Approvals Audit",
-      "goal": "Make the TUI the strong terminal surface for high-signal operational visibility.",
-      "tasks": [
-        {
-          "id": "TUI-T12",
-          "title": "Log stream and log detail views implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The TUI can display relevant logs in an operator-friendly way.",
-            "Users can inspect current and recent logs without leaving the terminal.",
-            "The log view stays readable and filterable."
-          ]
-        },
-        {
-          "id": "TUI-T13",
-          "title": "Approval queue view implement",
-          "status": "done",
-          "priority": "P0",
-          "risk": "high",
-          "acceptance_criteria": [
-            "Pending approvals can be listed in a dedicated TUI view.",
-            "The view shows enough context to make safe decisions.",
-            "The queue supports real approval workflows."
-          ]
-        },
-        {
-          "id": "TUI-T14",
-          "title": "Approval detail and action flow add",
-          "status": "done",
-          "priority": "P0",
-          "risk": "critical",
-          "acceptance_criteria": [
-            "A selected approval item can be reviewed and explicitly approved or rejected when policy allows.",
-            "The action flow is safe, explicit and auditable.",
-            "The TUI does not encourage blind approval."
-          ]
-        },
-        {
-          "id": "TUI-T15",
-          "title": "Audit summary view implement",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The TUI can display compact audit summaries suitable for operators.",
-            "The view can highlight sensitive actions, blocked actions and recent critical chains.",
-            "The view stays high-signal and not overwhelming."
-          ]
-        },
-        {
-          "id": "TUI-T16",
-          "title": "Audit trace drill-down add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Operators can inspect more detailed trace-linked audit information from the TUI.",
-            "The drill-down supports incident and approval review work.",
-            "The feature respects redaction and RBAC."
-          ]
-        },
-        {
-          "id": "TUI-T17",
-          "title": "Policy denial and blocked action view add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "The TUI can surface blocked actions and policy denials in a dedicated or filtered view.",
-            "Operators can tell why an action was denied.",
-            "The feature is helpful for debugging and governance review."
-          ]
-        }
+      "acceptance_criteria": [
+        "The plugin can detect current workspace, project name and selected file.",
+        "Context collection is explicit and bounded.",
+        "Users can review what will be sent before requesting an operation."
       ]
     },
     {
-      "id": "TUI-KRITIS-REPAIR-ADMIN",
-      "priority": "P1",
-      "title": "Ananta TUI - KRITIS Repair Admin",
-      "goal": "Make the TUI the preferred terminal surface for hardened operational and repair-oriented flows.",
-      "tasks": [
-        {
-          "id": "TUI-T18",
-          "title": "KRITIS dashboard summary view add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A KRITIS-oriented overview exists for audit health, approval backlog, mutation status and policy posture.",
-            "The view helps operators quickly understand system trust posture.",
-            "The summary is compact enough for real terminal use."
-          ]
-        },
-        {
-          "id": "TUI-T19",
-          "title": "Repair session list and detail views add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "If system repair flows exist, the TUI can inspect repair sessions and their state.",
-            "The operator can review diagnosis, plan, applied steps and verification results.",
-            "The view is useful for local admin scenarios."
-          ]
-        },
-        {
-          "id": "TUI-T20",
-          "title": "Repair approval and execution review flow add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "high",
-          "acceptance_criteria": [
-            "The TUI can support bounded approval and review for repair-related steps when policy allows.",
-            "The flow is explicit and auditable.",
-            "The TUI supports dry-run-first usage where applicable."
-          ]
-        },
-        {
-          "id": "TUI-T21",
-          "title": "Health and runtime diagnostics view add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "The TUI shows health, readiness and important runtime diagnostics for the current instance.",
-            "The view is good enough for daily operational checking.",
-            "The information is well structured."
-          ]
-        },
-        {
-          "id": "TUI-T22",
-          "title": "Provider and backend visibility view add",
-          "status": "done",
-          "priority": "P2",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Operators can inspect current providers, backends and important capability states.",
-            "The view supports runtime troubleshooting and policy review.",
-            "The view is operator-focused and not too noisy."
-          ]
-        }
+      "id": "ECL-T06",
+      "title": "Selection and current editor content handoff add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin can send current text selection or current file path/context to Ananta.",
+        "Operations can target either selection-level or file-level scope.",
+        "Large content is clipped or summarized safely before sending."
       ]
     },
     {
-      "id": "TUI-USABILITY-NAVIGATION",
-      "priority": "P1",
-      "title": "Ananta TUI - Navigation Bedienbarkeit Robustheit",
-      "goal": "Make the TUI genuinely usable over time rather than only technically possible.",
-      "tasks": [
-        {
-          "id": "TUI-T23",
-          "title": "Keyboard navigation and shortcuts refine",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Important actions are available through keyboard-friendly navigation.",
-            "The TUI feels natural for terminal-heavy users.",
-            "The shortcut model is learnable."
-          ]
-        },
-        {
-          "id": "TUI-T24",
-          "title": "Search and filtering across key views add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Users can search or filter tasks, artifacts, approvals and logs where appropriate.",
-            "The filtering behavior remains consistent across views.",
-            "The feature materially improves navigation."
-          ]
-        },
-        {
-          "id": "TUI-T25",
-          "title": "State persistence and resume behavior add",
-          "status": "done",
-          "priority": "P2",
-          "risk": "low",
-          "acceptance_criteria": [
-            "The TUI can restore useful session state such as selected profile or last active view.",
-            "Sensitive data is not persisted unsafely.",
-            "Resume behavior reduces friction."
-          ]
-        },
-        {
-          "id": "TUI-T26",
-          "title": "Empty and error state UX add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Each major TUI view has practical empty and error states.",
-            "The user can distinguish no data, permission denial and backend failure.",
-            "The interface stays understandable under degraded conditions."
-          ]
-        }
+      "id": "ECL-T07",
+      "title": "Thin command set for core Ananta flows add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin exposes commands for analyze, review, patch, new-project and evolve-project.",
+        "Commands map to existing Ananta goal/task flows rather than custom plugin behavior.",
+        "Commands are accessible from editor context menu or command palette equivalent."
       ]
     },
     {
-      "id": "INTEGRATION-DOCS-TESTING",
+      "id": "ECL-T08",
+      "title": "Quick prompt / goal input panel implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "A small input panel allows users to describe a goal from Eclipse.",
+        "The panel supports sending project-aware context to Ananta.",
+        "The panel favors the official product paths rather than ad hoc raw prompting."
+      ]
+    },
+    {
+      "id": "ECL-T09",
+      "title": "Task and artifact view inside Eclipse implement",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Returned tasks and artifacts can be listed in a dedicated view.",
+        "The user can open task details and inspect summaries without leaving the IDE.",
+        "The view distinguishes status, review requirements and next steps."
+      ]
+    },
+    {
+      "id": "ECL-T10",
+      "title": "Status polling or refresh flow for tasks add",
+      "status": "todo",
       "priority": "P1",
-      "title": "Integration Dokumentation Tests Releases",
-      "goal": "Harden both surfaces with docs, tests and release discipline.",
-      "tasks": [
-        {
-          "id": "EDT-TST-T01",
-          "title": "Plugin automated tests add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Core plugin flows are protected by automated tests.",
-            "Tests cover connection handling, context collection and command result parsing.",
-            "The suite is practical for ongoing maintenance."
-          ]
-        },
-        {
-          "id": "EDT-TST-T02",
-          "title": "TUI automated tests add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "Core TUI view models and interaction flows have automated coverage.",
-            "The suite covers task, artifact, log and approval handling at minimum.",
-            "The suite protects against regressions as the TUI grows."
-          ]
-        },
-        {
-          "id": "EDT-TST-T03",
-          "title": "Plugin manual smoke checklist add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "A short manual smoke checklist exists for the Vim/Neovim plugin.",
-            "The checklist covers connect, analyze, review and task/artifact viewing.",
-            "The checklist is usable before releases."
-          ]
-        },
-        {
-          "id": "EDT-TST-T04",
-          "title": "TUI manual smoke checklist add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "A short manual smoke checklist exists for the TUI.",
-            "The checklist covers task view, artifact view, log view and approval flow.",
-            "The checklist is suitable for terminal-centric release validation."
-          ]
-        },
-        {
-          "id": "EDT-DOC-T01",
-          "title": "Plugin user guide write",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "A practical user guide exists for the Vim/Neovim plugin.",
-            "The guide explains installation, setup and first useful workflows.",
-            "The guide matches the actual shipped command set."
-          ]
-        },
-        {
-          "id": "EDT-DOC-T02",
-          "title": "TUI user and operator guide write",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "A guide exists for using the TUI in admin and operational contexts.",
-            "The guide explains navigation, core views and common operator tasks.",
-            "The guide includes safety notes for approval and repair flows."
-          ]
-        },
-        {
-          "id": "EDT-DOC-T03",
-          "title": "Common docs explaining when to use plugin versus TUI write",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "Documentation clearly explains which interface is intended for which class of work.",
-            "Users can choose the right interface quickly.",
-            "The split between coding and operations is obvious."
-          ]
-        },
-        {
-          "id": "EDT-REL-T01",
-          "title": "Release packaging and versioning strategy define",
-          "status": "done",
-          "priority": "P2",
-          "risk": "medium",
-          "acceptance_criteria": [
-            "A packaging and versioning strategy exists for the plugin and the TUI.",
-            "Compatibility with Ananta backend versions is documented.",
-            "The strategy supports maintainable releases."
-          ]
-        },
-        {
-          "id": "EDT-REL-T02",
-          "title": "Golden path demos for plugin and TUI add",
-          "status": "done",
-          "priority": "P1",
-          "risk": "low",
-          "acceptance_criteria": [
-            "There is one official golden path for the Vim/Neovim plugin.",
-            "There is one official golden path for the TUI.",
-            "Both demos are reproducible by another developer."
-          ]
-        }
+      "acceptance_criteria": [
+        "Users can refresh running task state from Eclipse.",
+        "The plugin shows whether work is pending, blocked, done or review-required.",
+        "Refresh behavior is lightweight and does not spam the backend."
+      ]
+    },
+    {
+      "id": "ECL-T11",
+      "title": "Diff/review result rendering add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Review or change proposals can be rendered readably inside Eclipse.",
+        "Users can inspect proposed changes with file/path references where available.",
+        "The plugin does not apply changes automatically by default."
+      ]
+    },
+    {
+      "id": "ECL-T12",
+      "title": "Review and approval action support add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Where Ananta requires review, the plugin can surface that state.",
+        "Users can approve/reject applicable review items from the IDE when policy allows.",
+        "Review actions remain explicit and auditable."
+      ]
+    },
+    {
+      "id": "ECL-T13",
+      "title": "Open in browser / open in Ananta shortcuts add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Users can open the corresponding task/goal/artifact in the Ananta web UI.",
+        "Cross-linking works from Eclipse to Ananta for deeper inspection.",
+        "The plugin stays thin by delegating richer visualization to the web UI when useful."
+      ]
+    },
+    {
+      "id": "ECL-T14",
+      "title": "Operation presets matching official use cases add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Plugin actions clearly reflect official Ananta product paths.",
+        "At minimum, repository understanding, change review, bugfix planning, new project and project evolution are supported.",
+        "Terminology remains aligned with README/use-case language."
+      ]
+    },
+    {
+      "id": "ECL-T15",
+      "title": "Optional SGPT/CLI direct operation bridge add",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "The plugin can optionally invoke a bounded SGPT/CLI-backed operation through Ananta.",
+        "This path remains secondary to task/goal-based flows.",
+        "The plugin does not assume direct shell privileges."
+      ]
+    },
+    {
+      "id": "ECL-T16",
+      "title": "OpenAI-compatible fallback experiment evaluate",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "A short evaluation checks whether Eclipse-side integrations could reuse Ananta's OpenAI-compatible endpoints.",
+        "The result documents whether this is worth keeping as a fallback path.",
+        "The fallback does not replace the main plugin-controlled task flows."
+      ]
+    },
+    {
+      "id": "ECL-T17",
+      "title": "Optional MCP-based integration path evaluate",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "A short evaluation checks whether an MCP-based Eclipse path is realistic.",
+        "The document compares MCP versus direct REST integration for Eclipse.",
+        "The result helps avoid unnecessary plugin complexity."
+      ]
+    },
+    {
+      "id": "ECL-T18",
+      "title": "Bounded context packaging rules define",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin defines how much editor/workspace content may be sent for one operation.",
+        "Large project state is not blindly dumped to the backend.",
+        "Users can see and control the packaged context."
+      ]
+    },
+    {
+      "id": "ECL-T19",
+      "title": "Security and privacy guardrails for IDE handoff add",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "The plugin warns before sending sensitive content when possible.",
+        "Tokens, secrets and unrelated files are not sent implicitly.",
+        "Logs redact sensitive configuration values."
+      ]
+    },
+    {
+      "id": "ECL-T20",
+      "title": "Error handling and degraded mode implement",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "The plugin handles auth failures, connection problems and backend errors cleanly.",
+        "The UI gives actionable error messages instead of generic failures.",
+        "Operations fail visibly rather than silently hanging."
+      ]
+    },
+    {
+      "id": "ECL-T21",
+      "title": "Task/goal trace visibility expose lightly",
+      "status": "todo",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "Advanced users can inspect trace_id or routing summary when needed.",
+        "Default views remain simple and not overloaded.",
+        "The feature supports debugging without turning Eclipse into an ops console."
+      ]
+    },
+    {
+      "id": "ECL-T22",
+      "title": "First-run UX inside Eclipse define",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A new user can connect Eclipse to Ananta and run a first useful flow quickly.",
+        "The first-run path recommends one of the official standard use cases.",
+        "No deep manual setup is required beyond endpoint and auth."
+      ]
+    },
+    {
+      "id": "ECL-T23",
+      "title": "Golden path demo for Eclipse plugin document",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "There is one official reproducible demo from Eclipse to Ananta.",
+        "The demo covers selecting code, sending a goal and viewing returned tasks/artifacts.",
+        "Another developer can reproduce it from documentation."
+      ]
+    },
+    {
+      "id": "ECL-T24",
+      "title": "Automated tests for plugin core flows add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Core plugin services have basic automated tests.",
+        "At minimum, config/auth, context packaging and task response parsing are tested.",
+        "Tests protect the thin-adapter design from accidental scope creep."
+      ]
+    },
+    {
+      "id": "ECL-T25",
+      "title": "Manual smoke checklist for real Eclipse use add",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "A small manual checklist verifies connection, send-selection, analyze and review flows.",
+        "Checklist is short enough for release smoke testing.",
+        "Known failure cases are documented."
+      ]
+    },
+    {
+      "id": "ECL-T26",
+      "title": "Future roadmap for richer IDE support prepare",
+      "status": "todo",
+      "priority": "P3",
+      "acceptance_criteria": [
+        "Later ideas such as inline suggestions, richer diff views or deeper task boards are documented separately.",
+        "These ideas are not required for the first useful plugin release.",
+        "The MVP remains intentionally small and maintainable."
       ]
     }
   ],
   "execution_order_summary": [
-    "COMMON-FOUNDATION first",
-    "Then NVIM-PLUGIN-FOUNDATION and TUI-FOUNDATION in parallel",
-    "Then NVIM-CODING-REVIEW-CONTEXT and TUI-ADMIN-TASKS-ARTIFACTS",
-    "Then TUI-LOGS-APPROVALS-AUDIT and NVIM-ADVANCED",
-    "Then TUI-KRITIS-REPAIR-ADMIN and TUI-USABILITY-NAVIGATION",
-    "Finish with INTEGRATION-DOCS-TESTING"
+    "Stage 1: Adapter foundation and connectivity (ECL-T01..T04)",
+    "Stage 2: Context, command and goal handoff baseline (ECL-T05..T08)",
+    "Stage 3: Task/artifact UX and safety controls (ECL-T09..T14, ECL-T18..T20)",
+    "Stage 4: Extension paths and observability (ECL-T15..T17, ECL-T21..T22)",
+    "Stage 5: Validation, demos and rollout docs (ECL-T23..T26)"
   ],
   "critical_path_tasks": [
-    "EDT-COM-T01",
-    "EDT-COM-T02",
-    "EDT-COM-T03",
-    "NVIM-T03",
-    "NVIM-T05",
-    "NVIM-T06",
-    "NVIM-T08",
-    "NVIM-T09",
-    "NVIM-T11",
-    "NVIM-T13",
-    "TUI-T01",
-    "TUI-T02",
-    "TUI-T03",
-    "TUI-T04",
-    "TUI-T06",
-    "TUI-T07",
-    "TUI-T08",
-    "TUI-T12",
-    "TUI-T13",
-    "TUI-T14",
-    "EDT-TST-T01",
-    "EDT-TST-T02",
-    "EDT-REL-T02"
+    "ECL-T01",
+    "ECL-T03",
+    "ECL-T04",
+    "ECL-T05",
+    "ECL-T06",
+    "ECL-T07",
+    "ECL-T08",
+    "ECL-T09",
+    "ECL-T18",
+    "ECL-T19",
+    "ECL-T20",
+    "ECL-T23",
+    "ECL-T24",
+    "ECL-T25"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T16:32:00+02:00",
-    "total": 65,
+    "updated_at": "2026-04-24T15:58:34+02:00",
+    "total": 26,
     "by_status": {
-      "todo": 0,
+      "todo": 26,
       "in_progress": 0,
       "blocked": 0,
-      "done": 65
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 23,
-      "P1": 37,
-      "P2": 5,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 18,
-      "medium": 36,
-      "high": 10,
-      "critical": 1
-    },
-    "by_group": {
-      "COMMON-FOUNDATION": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
-      "NVIM-PLUGIN-FOUNDATION": {"total": 7, "todo": 0, "in_progress": 0, "blocked": 0, "done": 7},
-      "NVIM-CODING-REVIEW-CONTEXT": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
-      "NVIM-ADVANCED": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "TUI-FOUNDATION": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "TUI-ADMIN-TASKS-ARTIFACTS": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6},
-      "TUI-LOGS-APPROVALS-AUDIT": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6},
-      "TUI-KRITIS-REPAIR-ADMIN": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5},
-      "TUI-USABILITY-NAVIGATION": {"total": 4, "todo": 0, "in_progress": 0, "blocked": 0, "done": 4},
-      "INTEGRATION-DOCS-TESTING": {"total": 9, "todo": 0, "in_progress": 0, "blocked": 0, "done": 9}
+      "P0": 10,
+      "P1": 11,
+      "P2": 4,
+      "P3": 1
     },
     "critical_path": {
-      "total": 23,
-      "done": 23,
-      "remaining": 0
+      "total": 14,
+      "done": 0,
+      "remaining": 14
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T16:32:00+02:00",
+    "updated_at": "2026-04-24T15:58:34+02:00",
     "stages": {
-      "stage_1_foundation": {"scope_groups": ["COMMON-FOUNDATION"], "total": 9, "done": 9, "todo": 0},
-      "stage_2_surface_foundations_parallel": {"scope_groups": ["NVIM-PLUGIN-FOUNDATION", "TUI-FOUNDATION"], "total": 12, "done": 12, "todo": 0},
-      "stage_3_core_workflows_parallel": {"scope_groups": ["NVIM-CODING-REVIEW-CONTEXT", "TUI-ADMIN-TASKS-ARTIFACTS"], "total": 15, "done": 15, "todo": 0},
-      "stage_4_advanced_ops_parallel": {"scope_groups": ["TUI-LOGS-APPROVALS-AUDIT", "NVIM-ADVANCED"], "total": 11, "done": 11, "todo": 0},
-      "stage_5_kritis_navigation_parallel": {"scope_groups": ["TUI-KRITIS-REPAIR-ADMIN", "TUI-USABILITY-NAVIGATION"], "total": 9, "done": 9, "todo": 0},
-      "stage_6_docs_tests_release": {"scope_groups": ["INTEGRATION-DOCS-TESTING"], "total": 9, "done": 9, "todo": 0}
+      "stage_1_foundation_connectivity": {"scope_task_ids": ["ECL-T01", "ECL-T02", "ECL-T03", "ECL-T04"], "total": 4, "done": 0, "todo": 4},
+      "stage_2_context_commands_handoff": {"scope_task_ids": ["ECL-T05", "ECL-T06", "ECL-T07", "ECL-T08"], "total": 4, "done": 0, "todo": 4},
+      "stage_3_results_and_safety": {"scope_task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"], "total": 9, "done": 0, "todo": 9},
+      "stage_4_extensions_observability": {"scope_task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"], "total": 5, "done": 0, "todo": 5},
+      "stage_5_validation_rollout": {"scope_task_ids": ["ECL-T23", "ECL-T24", "ECL-T25", "ECL-T26"], "total": 4, "done": 0, "todo": 4}
     }
   },
   "summary_notes": [
-    "The vim_plugin_and_tui_program track is complete: all 65 tasks are done.",
-    "Coverage includes foundation, advanced workflows, KRITIS/repair visibility, usability hardening, and full integration docs/tests/release artifacts.",
-    "Critical path is fully complete (23/23)."
+    "The plan is now normalized to the broader todo schema with explicit milestones, critical path and staged execution summaries.",
+    "Current track starts at 0/26 done and emphasizes thin-adapter boundaries, safe context handoff and orchestration delegation to Ananta.",
+    "Most delivery risk clusters around auth/connection correctness, bounded context packaging and review/approval UX semantics."
   ]
 }
