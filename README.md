@@ -174,6 +174,13 @@ Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer 
 - Backend-/Provider-Contracts und Drittintegrationsregeln: `docs/backend-provider-contracts.md`, `docs/third-party-integration-guidelines.md`
 - Oekosystem-/Marktplatz-Ideen sind bewusst nachgelagert und setzen reife Kern-Contracts voraus.
 
+## Client Surface Runtime Status (aktueller Stand)
+
+- TUI: `runtime_mvp` (Start: `python -m client_surfaces.tui_runtime.ananta_tui --fixture`)
+- Neovim: `runtime_mvp` (Smoke: `python3 scripts/smoke_nvim_runtime.py`)
+- Vim: `deferred` bis Neovim-Runtime-Stabilisierung
+- Eclipse Plugin/Views: `blocked` fuer diesen Track, aktuell nur foundation/contracts (kein buildbares Plugin-Artefakt im Repo)
+
 ## Architektur
 - Angular Frontend fuer Visualisierung und Steuerung
 - Hub-Agent fuer Orchestrierung (Tasks, Teams, Role Templates)

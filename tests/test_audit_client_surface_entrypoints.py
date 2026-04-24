@@ -94,7 +94,7 @@ def test_done_claims_include_current_crt_runtime_ranges() -> None:
     done_claims = collect_done_claims(todo_payload)
     assert done_claims["tui_surface"] == ["CRT-T09"]
     assert done_claims["nvim_plugin"] == ["CRT-T14", "CRT-T19"]
-    assert done_claims["eclipse_plugin"] == ["CRT-T20"]
+    assert done_claims["eclipse_plugin"] == []
     assert done_claims["vim_plugin"] == []
 
 

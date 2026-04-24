@@ -18,12 +18,14 @@ Goal: release candidates, final releases and operator communication follow one p
 3. Run the standard quality path:
    - `make check`
    - `python scripts/release_gate.py --strict --compose-config --report release-verification-report.json`
+   - Keep `ci-artifacts/client-surface-release-gate.json` from the release gate as merge-review evidence.
 4. Run the full local rebuild gate for RCs that publish images or build artifacts:
    - `python scripts/release_gate.py --strict --compose-config --frontend-build --build-images --report release-verification-report.json`
 5. Trigger `.github/workflows/nightly-rc-validation.yml` with `validation_depth=release-candidate`.
 6. Store release evidence:
-   - release verification report
-   - release candidate verification report when image gate is used
+    - release verification report
+    - client surface release gate report (`ci-artifacts/client-surface-release-gate.json`)
+    - release candidate verification report when image gate is used
    - SBOM
    - checksums
    - relevant CI run links
@@ -64,6 +66,10 @@ Standard gate:
 ```bash
 python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
 ```
+
+The command also runs `scripts/audit_client_surface_entrypoints.py` and writes the surface status report to:
+
+`ci-artifacts/client-surface-release-gate.json`
 
 Full local rebuild gate:
 

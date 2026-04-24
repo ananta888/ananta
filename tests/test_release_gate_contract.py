@@ -35,6 +35,7 @@ def test_release_gate_non_strict_skips_final_strict_checks(monkeypatch, capsys):
         "ci_release_paths",
         "apt_snapshots",
         "todo_status",
+        "client_surface_release_gate",
     ):
         monkeypatch.setattr(release_gate, f"check_{name}", make_check(name.replace("_", "-")))
     monkeypatch.setattr(sys, "argv", ["release_gate.py"])
@@ -63,6 +64,7 @@ def test_release_gate_strict_keeps_actions_and_apt_snapshot_failures(monkeypatch
         "ci_release_paths": make_check("ci-release-paths"),
         "apt_snapshots": make_check("apt-snapshots", ok=False),
         "todo_status": make_check("todo-status"),
+        "client_surface_release_gate": make_check("client-surface-release-gate"),
     }
     for attr, replacement in replacements.items():
         monkeypatch.setattr(release_gate, f"check_{attr}", replacement)

@@ -114,7 +114,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ananta-release-verification-report
-          path: release-verification-report.json
+          path: |
+            release-verification-report.json
+            ci-artifacts/client-surface-release-gate.json
           retention-days: 14
 
   e2e-compose:

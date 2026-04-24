@@ -1,0 +1,73 @@
+{
+  "schema": "client_surface_merge_readiness_report_v1",
+  "track_id": "client_runtime_delivery_after_skeletons",
+  "updated_at": "2026-04-24T19:11:24+02:00",
+  "surface_status": {
+    "tui_surface": {
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
+    },
+    "nvim_plugin": {
+      "classification": "real_implementation",
+      "declared_status": "runtime_mvp"
+    },
+    "vim_plugin": {
+      "classification": "foundation_only",
+      "declared_status": "deferred"
+    },
+    "eclipse_plugin": {
+      "classification": "foundation_only",
+      "declared_status": "blocked"
+    },
+    "eclipse_views_extension": {
+      "classification": "foundation_only",
+      "declared_status": "blocked"
+    }
+  },
+  "runtime_evidence": {
+    "tui_surface": [
+      "client_surfaces/tui_runtime/ananta_tui/__main__.py",
+      "client_surfaces/tui_runtime/ananta_tui/app.py",
+      "scripts/smoke_tui_runtime.py",
+      "scripts/smoke_client_golden_paths.py"
+    ],
+    "nvim_plugin": [
+      "client_surfaces/nvim_runtime/plugin/ananta.vim",
+      "client_surfaces/nvim_runtime/lua/ananta/init.lua",
+      "client_surfaces/nvim_runtime/lua/ananta/client.lua",
+      "client_surfaces/nvim_runtime/lua/ananta/context.lua",
+      "client_surfaces/nvim_runtime/lua/ananta/render.lua",
+      "client_surfaces/nvim_runtime/ananta_bridge.py",
+      "scripts/smoke_nvim_runtime.py",
+      "scripts/smoke_client_golden_paths.py"
+    ]
+  },
+  "verification": {
+    "audit_command": "python3 scripts/audit_client_surface_entrypoints.py --todo todo.json --fail-on-warning",
+    "smoke_commands": [
+      "python3 scripts/smoke_tui_runtime.py",
+      "python3 scripts/smoke_nvim_runtime.py",
+      "python3 scripts/smoke_client_golden_paths.py"
+    ],
+    "test_targets": [
+      "tests/test_tui_runtime_app.py",
+      "tests/test_nvim_runtime_surface.py",
+      "tests/test_client_surface_api_contracts.py",
+      "tests/test_client_surface_security_contracts.py",
+      "tests/test_client_surface_golden_path_smoke.py",
+      "tests/test_audit_client_surface_entrypoints.py",
+      "tests/test_release_gate_contract.py"
+    ]
+  },
+  "main_merge_blockers": [],
+  "later_enhancements": [
+    "Eclipse runtime remains blocked until a buildable plugin project with plugin.xml, MANIFEST and CI-capable build/smoke evidence is implemented.",
+    "Vim compatibility remains deferred until Neovim runtime stabilization and explicit compatibility subset tests."
+  ],
+  "references": [
+    "data/client_surface_runtime_inventory.json",
+    "data/client_surface_runtime_status.json",
+    "data/client_surface_runtime_decisions.json",
+    "data/client_surface_claim_reconciliation.json"
+  ]
+}

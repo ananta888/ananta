@@ -10,6 +10,7 @@ Use this register to reference release-candidate and final-release evidence. It 
 | RC validation workflow run | yes | no | `.github/workflows/nightly-rc-validation.yml` with `validation_depth=release-candidate` |
 | Release workflow run | no | yes | `.github/workflows/release.yml` |
 | Release verification report | yes | yes | `release-verification-report.json` artifact |
+| Client surface release gate report | yes | yes | `ci-artifacts/client-surface-release-gate.json` artifact |
 | Release candidate image report | image RCs only | image releases only | `release-candidate-verification-report.json` artifact |
 | SBOM | yes | yes | `release-sbom.json` artifact |
 | Checksums | yes | yes | `release-assets/SHA256SUMS` |
@@ -29,6 +30,7 @@ Candidate or final tag:
 RC validation workflow run:
 Release workflow run:
 Release verification report artifact:
+Client surface release gate report artifact:
 Release candidate verification report artifact:
 SBOM artifact:
 Checksum artifact:
