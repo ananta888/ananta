@@ -1,785 +1,640 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "tui_full_surface_frontend_parity",
-  "purpose": "Expand the existing Ananta TUI MVP into a broad operator/developer terminal surface that reuses existing Angular/Hub APIs where practical, without becoming an unsafe duplicate control plane.",
+  "track_id": "vscode_plugin_runtime_delivery",
+  "track": "vscode_plugin",
+  "purpose": "Deliver a real Visual Studio Code extension for Ananta as a first-class developer surface: goal submission, analysis/review commands, task/artifact visibility, approvals, audit/repair visibility, TUI launch and safe backend-driven workflows.",
   "depends_on": [
     "client_runtime_delivery_after_skeletons",
-    "TUI runtime MVP"
+    "TUI runtime MVP",
+    "shared client API concepts",
+    "existing Angular Hub API surface",
+    "Neovim runtime MVP as editor-integration reference"
   ],
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "The TUI should cover most daily Ananta frontend workflows: dashboard/status, goals, tasks, artifacts, knowledge, config, teams/blueprints, automation, audit, approvals and repair visibility, using terminal-appropriate screens and safe backend-gated actions.",
+
+  "goal": "VS Code should become the main mainstream editor integration for Ananta, supporting common developer workflows without duplicating hub orchestration, governance, approval, audit or repair logic.",
+
   "success_criteria": [
-    "TUI provides navigable top-level sections similar to the Angular frontend surface.",
-    "TUI reuses existing Hub APIs/read models instead of adding duplicate backend logic.",
-    "Users can inspect and operate common Goals/Tasks/Artifacts workflows without browser.",
-    "Users can inspect System/Config/Audit/Automation state from terminal.",
-    "Dangerous writes remain backend-permissioned, explicit and auditable.",
-    "Deep/complex operations degrade to browser fallback where terminal UX would be unsafe.",
-    "TUI has smoke tests and view-model tests for all major sections."
+    "VS Code extension project exists with reproducible build/package/test setup.",
+    "Extension can configure Ananta endpoint/profile/auth safely.",
+    "Extension can check backend health and capabilities.",
+    "Command Palette exposes Ananta goal/analyze/review/patch/new/evolve workflows.",
+    "Editor context capture is bounded, visible and user-confirmed before send.",
+    "Sidebar or activity view shows tasks, artifacts, approvals and runtime status.",
+    "TUI can be launched safely from VS Code terminal.",
+    "No file mutation, repair execution or approval action happens implicitly.",
+    "Tests and smoke checks prove core runtime behavior."
   ],
+
   "architecture_guardrails": [
-    "TUI remains a thin client.",
-    "No planning, routing, approval, repair execution or policy logic is duplicated in TUI.",
-    "All writes use existing backend APIs and preserve backend validation/audit.",
-    "Read-heavy first; write actions require confirmation and risk labels.",
-    "Secrets, tokens and sensitive config values are redacted.",
-    "Browser fallback remains available for complex admin/configuration screens."
+    "VS Code extension is a thin client, not a second Ananta control plane.",
+    "All orchestration, planning, policy, approval, audit and repair enforcement stay in the Ananta backend.",
+    "All risky actions require explicit user confirmation and backend permission.",
+    "Editor context must be bounded and inspectable.",
+    "Secrets/tokens must not be logged, shown in errors or passed unsafely via command line.",
+    "Browser fallback remains available for deep/high-risk admin workflows.",
+    "TUI launch must be explicit and observable."
   ],
+
   "milestones": [
     {
-      "id": "TFS-M1",
-      "title": "Navigation and API mapping",
-      "task_ids": ["TFS-T01", "TFS-T02", "TFS-T03", "TFS-T04"],
-      "status": "done"
+      "id": "VSC-M1",
+      "title": "Scope, architecture and project bootstrap",
+      "task_ids": ["VSC-T01", "VSC-T02", "VSC-T03", "VSC-T04", "VSC-T05"],
+      "status": "todo"
     },
     {
-      "id": "TFS-M2",
-      "title": "Dashboard, system and config",
-      "task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
-      "status": "done"
+      "id": "VSC-M2",
+      "title": "Connection, auth and backend client",
+      "task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
+      "status": "todo"
     },
     {
-      "id": "TFS-M3",
-      "title": "Goals, tasks and execution",
-      "task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
-      "status": "done"
+      "id": "VSC-M3",
+      "title": "Editor context and command palette workflows",
+      "task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
+      "status": "todo"
     },
     {
-      "id": "TFS-M4",
-      "title": "Artifacts, knowledge and templates",
-      "task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
-      "status": "done"
+      "id": "VSC-M4",
+      "title": "Sidebar views for tasks, artifacts and approvals",
+      "task_ids": ["VSC-T17", "VSC-T18", "VSC-T19", "VSC-T20", "VSC-T21"],
+      "status": "todo"
     },
     {
-      "id": "TFS-M5",
-      "title": "Teams, blueprints and instruction layers",
-      "task_ids": ["TFS-T19", "TFS-T20", "TFS-T21", "TFS-T22"],
-      "status": "done"
+      "id": "VSC-M5",
+      "title": "Runtime, audit, repair and TUI integration",
+      "task_ids": ["VSC-T22", "VSC-T23", "VSC-T24", "VSC-T25", "VSC-T26"],
+      "status": "todo"
     },
     {
-      "id": "TFS-M6",
-      "title": "Automation, audit, approvals and repair",
-      "task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
-      "status": "done"
+      "id": "VSC-M6",
+      "title": "Safety, tests and packaging",
+      "task_ids": ["VSC-T27", "VSC-T28", "VSC-T29", "VSC-T30", "VSC-T31", "VSC-T32"],
+      "status": "todo"
     },
     {
-      "id": "TFS-M7",
-      "title": "Testing, docs and release gate",
-      "task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
-      "status": "done"
+      "id": "VSC-M7",
+      "title": "Docs, smoke checks and release readiness",
+      "task_ids": ["VSC-T33", "VSC-T34", "VSC-T35", "VSC-T36"],
+      "status": "todo"
     }
   ],
+
   "tasks": [
     {
-      "id": "TFS-T01",
-      "title": "Frontend API surface mapping create",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Map Angular HubApiService methods to TUI sections.",
-        "Classify each feature as TUI-MVP, TUI-advanced, browser-fallback or not-suitable-for-terminal.",
-        "No existing frontend API is reimplemented blindly without UX/risk decision.",
-        "Mapping identifies missing or unstable endpoints, if any."
-      ]
-    },
-    {
-      "id": "TFS-T02",
-      "title": "TUI section navigation shell expand",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "TUI has top-level navigation for Dashboard, Goals, Tasks, Artifacts, Knowledge, Config, System, Teams, Automation, Audit, Repair and Help.",
-        "Keyboard navigation is consistent.",
-        "Current section and selected object are always visible.",
-        "Small terminal sizes degrade gracefully."
-      ]
-    },
-    {
-      "id": "TFS-T03",
-      "title": "Shared TUI view-state model implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Selected goal/task/artifact/context can be shared across sections.",
-        "Refresh state, filters and last selected objects are tracked predictably.",
-        "No stale object is silently treated as current.",
-        "View-state model is unit tested."
-      ]
-    },
-    {
-      "id": "TFS-T04",
-      "title": "Browser fallback and deep-link helper implement",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Every complex object can expose an open-in-browser link where backend/frontend supports it.",
-        "TUI clearly marks browser-first operations.",
-        "Fallback is available for deep admin, rich artifact rendering and risky config workflows.",
-        "Fallback helper is tested."
-      ]
-    },
-
-    {
-      "id": "TFS-T05",
-      "title": "Dashboard read model view implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "TUI consumes the same dashboard/assistant read models used by frontend where available.",
-        "View shows health, readiness, active profile/governance, recent tasks and important warnings.",
-        "View handles degraded backend state.",
-        "View has fixture and live-mode tests."
-      ]
-    },
-    {
-      "id": "TFS-T06",
-      "title": "System health and contracts view implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "TUI shows system health, contracts, agents, stats and stats history where available.",
-        "System events stream is supported if terminal runtime can handle it safely; otherwise polling fallback exists.",
-        "Unavailable endpoints show explicit degraded state.",
-        "View does not crash on partial backend responses."
-      ]
-    },
-    {
-      "id": "TFS-T07",
-      "title": "Config read-only view implement",
-      "status": "done",
+      "id": "VSC-T01",
+      "title": "VS Code plugin scope boundary define",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "TUI shows safe config categories including runtime_profile, governance_mode, providers/model summary and benchmark config where available.",
-        "Secrets/tokens are redacted.",
-        "Dangerous or complex config stays read-only or browser-first.",
-        "Config view is permission-aware."
+        "Document defines MVP, advanced and browser-fallback features.",
+        "VS Code is explicitly defined as thin client surface.",
+        "Dangerous workflows such as repair execution, config writes and file mutation are backend-gated or deferred.",
+        "Scope separates editor workflows from operator/admin workflows."
       ]
     },
     {
-      "id": "TFS-T08",
-      "title": "Safe config edit flow implement",
-      "status": "done",
-      "priority": "P1",
+      "id": "VSC-T02",
+      "title": "VS Code extension project skeleton create",
+      "status": "todo",
+      "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "Only explicitly safe config fields can be edited from TUI.",
-        "Changes show preview/diff before submit.",
-        "Backend validation/audit is required for every config write.",
-        "Failed writes do not update local assumed state."
+        "Repository contains real VS Code extension project directory, e.g. client_surfaces/vscode_extension.",
+        "package.json exists with activationEvents, contributes.commands and contributes.views where needed.",
+        "TypeScript project config exists.",
+        "Extension can compile from clean checkout."
       ]
     },
     {
-      "id": "TFS-T09",
-      "title": "Provider and benchmark views implement",
-      "status": "done",
+      "id": "VSC-T03",
+      "title": "Build and packaging setup implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "npm scripts exist for compile, test, lint and package.",
+        "VSIX packaging path is documented.",
+        "Build is deterministic and CI-friendly.",
+        "Build failure blocks runtime_mvp claim."
+      ]
+    },
+    {
+      "id": "VSC-T04",
+      "title": "Extension architecture document create",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "TUI can list providers, provider catalog and LLM benchmark summaries.",
-        "Benchmark filters are supported where backend supports them.",
-        "Provider secrets are never rendered.",
-        "Large benchmark output is summarized with detail drilldown."
+        "Docs explain extension modules: backend client, context capture, commands, views, webviews, terminal/TUI integration.",
+        "Docs show which existing Ananta APIs are reused.",
+        "Docs explicitly forbid client-side policy/orchestration duplication.",
+        "Docs list future advanced features separately."
+      ]
+    },
+    {
+      "id": "VSC-T05",
+      "title": "Frontend API reuse mapping create",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Angular Hub API surface is mapped to VS Code extension features.",
+        "Each planned view/action lists the backend endpoint/read model it uses.",
+        "Missing endpoints are listed explicitly.",
+        "No fake local-only data model is used for runtime claims."
       ]
     },
 
     {
-      "id": "TFS-T10",
-      "title": "Goals list and detail views expand",
-      "status": "done",
+      "id": "VSC-T06",
+      "title": "VS Code configuration settings implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Extension settings include Ananta base URL and profile/runtime target.",
+        "Auth mode is defined safely.",
+        "Raw tokens are not stored in normal plain settings if secret storage is available.",
+        "Invalid config is visible and actionable."
+      ]
+    },
+    {
+      "id": "VSC-T07",
+      "title": "Secret storage and auth handling implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "VS Code SecretStorage or equivalent safe mechanism is used for tokens/secrets.",
+        "Logs and errors redact secrets.",
+        "Missing/invalid auth returns explicit degraded state.",
+        "Tests cover missing token, invalid token and redaction."
+      ]
+    },
+    {
+      "id": "VSC-T08",
+      "title": "Backend client implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "TUI lists goals with status, team, mode and summary.",
-        "Goal detail shows plan, governance summary, trace and related tasks/artifacts where available.",
-        "Goal modes are listable and selectable for new goals.",
-        "Create goal flow supports explicit context and mode data."
+        "TypeScript backend client supports health, capabilities, goals, tasks, artifacts, approvals, audit, repair and config read endpoints where available.",
+        "Client has timeout handling.",
+        "Client maps backend failures to typed degraded states.",
+        "Client does not silently swallow backend errors."
       ]
     },
     {
-      "id": "TFS-T11",
-      "title": "Goal plan tree view implement",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "TUI can display goal plan nodes/tree in readable terminal form.",
-        "Plan node patching is either safely supported or browser-first.",
-        "Node state and dependencies are visible.",
-        "Malformed plans degrade to raw readable text."
-      ]
-    },
-    {
-      "id": "TFS-T12",
-      "title": "Task workbench view expand",
-      "status": "done",
+      "id": "VSC-T09",
+      "title": "Capability and permission handshake implement",
+      "status": "todo",
       "priority": "P0",
-      "risk": "high",
+      "risk": "critical",
       "acceptance_criteria": [
-        "TUI supports task list filters by status/team/agent/error-only where backend supports them.",
-        "Task detail shows status, owner/agent, proposal, execution state, artifacts, logs and timeline references.",
-        "Task logs can be viewed and optionally streamed or refreshed.",
-        "Task patch/assign/propose/execute actions are guarded and confirmation-based."
+        "Extension checks backend health/capabilities before enabling commands.",
+        "Denied or unsupported actions are disabled or clearly marked.",
+        "Command execution rechecks capability where needed.",
+        "No action appears available when backend denies it."
       ]
     },
     {
-      "id": "TFS-T13",
-      "title": "Task orchestration view implement",
-      "status": "done",
+      "id": "VSC-T10",
+      "title": "Runtime status bar and diagnostics implement",
+      "status": "todo",
       "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "TUI shows orchestration read model and worker/task flow state.",
-        "Ingest/claim/complete orchestration operations are read-only or guarded by explicit permission and confirmation.",
-        "View distinguishes normal, blocked, failed and stale states.",
-        "No orchestration operation is performed implicitly."
-      ]
-    },
-    {
-      "id": "TFS-T14",
-      "title": "Archived task management view implement",
-      "status": "done",
-      "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
-        "TUI can list archived tasks.",
-        "Restore/cleanup/delete archived task actions require confirmation.",
-        "Bulk cleanup shows impact summary before submit.",
-        "Browser fallback exists for risky cleanup operations."
+        "Status bar shows connected/disconnected/degraded state.",
+        "Click opens Ananta status/details view.",
+        "Diagnostics show backend unreachable, auth failed, capability missing and policy denied states.",
+        "Status never shows success if backend is degraded."
       ]
     },
 
     {
-      "id": "TFS-T15",
-      "title": "Artifact explorer expand",
-      "status": "done",
+      "id": "VSC-T11",
+      "title": "Bounded editor context capture implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Extension captures active file path, selected text, language id and workspace root.",
+        "Context size is bounded.",
+        "No unrelated files are included implicitly.",
+        "Likely secrets are blocked, redacted or warned before send."
+      ]
+    },
+    {
+      "id": "VSC-T12",
+      "title": "Context preview and confirmation UI implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "User can preview what context will be sent.",
+        "Preview shows file path, selection length, excerpt and metadata.",
+        "Sensitive or large context warnings are visible.",
+        "Goal submission can be cancelled before sending."
+      ]
+    },
+    {
+      "id": "VSC-T13",
+      "title": "Command Palette goal workflows implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "TUI lists artifacts and shows artifact detail.",
-        "Extract/index/RAG status/RAG preview are supported where backend supports them.",
-        "Large text artifacts have paging or summary mode.",
+        "Commands exist for Ananta: Submit Goal, Analyze Selection, Review File, Patch Plan, New Project and Evolve Project.",
+        "Commands map to official backend goal/task flows.",
+        "Command payload includes explicit mode/profile/context metadata.",
+        "Success result links to task/artifact views or web UI."
+      ]
+    },
+    {
+      "id": "VSC-T14",
+      "title": "Quick goal input panel implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Quick input supports goal text and optional mode selection.",
+        "Input validates empty/too-large values.",
+        "Selected context is summarized before submit.",
+        "Submission shows status and created task IDs."
+      ]
+    },
+    {
+      "id": "VSC-T15",
+      "title": "Editor context menu actions implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Context menu actions exist for selected text/current file where appropriate.",
+        "Actions remain capability-aware.",
+        "No action mutates files directly.",
+        "Context menu actions reuse the same safe context preview flow."
+      ]
+    },
+    {
+      "id": "VSC-T16",
+      "title": "Result rendering and notification flow implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Command results show clear success/failure/degraded notification.",
+        "Results can open task/artifact detail in VS Code side view.",
+        "Browser fallback is available.",
+        "Unsupported result types degrade to text/browser fallback."
+      ]
+    },
+
+    {
+      "id": "VSC-T17",
+      "title": "Ananta activity bar and sidebar container implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "VS Code activity bar container exists for Ananta.",
+        "Sidebar has sections for Status, Goals/Tasks, Artifacts, Approvals and Runtime.",
+        "Views refresh manually.",
+        "Views handle empty/degraded states."
+      ]
+    },
+    {
+      "id": "VSC-T18",
+      "title": "Tasks and goals tree view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tree view lists recent goals and tasks.",
+        "Items show status, mode, team/profile where available.",
+        "Selecting item opens detail panel or webview.",
+        "Refresh and filter by status are supported."
+      ]
+    },
+    {
+      "id": "VSC-T19",
+      "title": "Task detail and log view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Task detail shows title, status, summary, trace, related artifacts and next step.",
+        "Task logs can be loaded or refreshed where backend supports them.",
+        "Stale/missing task state is explicit.",
+        "No task execution happens implicitly."
+      ]
+    },
+    {
+      "id": "VSC-T20",
+      "title": "Artifact view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Artifact list/detail is available in sidebar or panel.",
+        "Text artifacts render inside VS Code.",
+        "Diff/review artifacts render read-only.",
         "Binary/rich artifacts use browser fallback."
       ]
     },
     {
-      "id": "TFS-T16",
-      "title": "Knowledge collections view implement",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
+      "id": "VSC-T21",
+      "title": "Approval and review queue view implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "TUI can list knowledge collections and index profiles.",
-        "TUI can inspect a collection and trigger indexing where safe.",
-        "Knowledge search works with query/top_k.",
-        "Results show source/provenance where available."
-      ]
-    },
-    {
-      "id": "TFS-T17",
-      "title": "Template management view implement",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "TUI can list templates and inspect template detail.",
-        "Template validation, diagnostics and preview are supported.",
-        "Create/update/delete are either browser-first or guarded with confirmation.",
-        "Variable registry and sample contexts can be viewed."
-      ]
-    },
-    {
-      "id": "TFS-T18",
-      "title": "Artifact upload strategy decide",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Decision defines whether TUI supports artifact upload directly.",
-        "If supported, upload path validates file path, size and collection name.",
-        "If deferred, TUI clearly links to browser fallback.",
-        "No accidental file upload can happen from selection/navigation alone."
+        "Pending approval/review items are visible with enough context.",
+        "Approve/reject actions require explicit confirmation.",
+        "Actions call backend approval APIs only.",
+        "Stale/denied/already-handled states are handled safely."
       ]
     },
 
     {
-      "id": "TFS-T19",
-      "title": "Teams and blueprint catalog views implement",
-      "status": "done",
+      "id": "VSC-T22",
+      "title": "System and runtime overview view implement",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "TUI can list teams, blueprints, blueprint catalog, team types and roles.",
-        "TUI can inspect blueprint detail and team composition.",
-        "Instantiate/create/update/delete actions are guarded or browser-first.",
-        "Activate team action requires confirmation."
-      ]
-    },
-    {
-      "id": "TFS-T20",
-      "title": "Instruction layer workbench view implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "TUI can show instruction layer model and effective instruction stack.",
-        "Profiles and overlays can be listed and inspected.",
-        "Selection/attachment actions are explicit and permission-aware.",
-        "Governance/safety layers are visibly non-overridable."
-      ]
-    },
-    {
-      "id": "TFS-T21",
-      "title": "Instruction profile and overlay editing strategy implement",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Editing profiles/overlays is either supported with preview/validation or kept browser-first.",
-        "Attach/detach/select operations require explicit confirmation.",
-        "Task/goal instruction selection is visible and auditable.",
-        "Invalid instruction input is rejected before submit when possible."
-      ]
-    },
-    {
-      "id": "TFS-T22",
-      "title": "Reference profile placeholder integration prepare",
-      "status": "done",
-      "priority": "P2",
-      "risk": "low",
-      "acceptance_criteria": [
-        "TUI has a placeholder/read-only section for future reference profiles if backend exposes them.",
-        "Section does not block current TUI work.",
-        "No fake reference profile data is shown.",
-        "Browser fallback exists until ref-profile integration is real."
-      ]
-    },
-
-    {
-      "id": "TFS-T23",
-      "title": "Automation and autopilot views implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "TUI shows autopilot status, auto-planner status and triggers status.",
-        "Start/stop/tick autopilot actions are backend-gated and confirmation-based.",
-        "Configure auto-planner/triggers is guarded or browser-first.",
-        "Security level and concurrency/budget fields are shown clearly."
-      ]
-    },
-    {
-      "id": "TFS-T24",
-      "title": "Audit log explorer implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "TUI lists audit logs with pagination.",
-        "Audit analyze action is available where backend supports it.",
+        "View shows backend health, capabilities, active profile/governance and provider/model summary where available.",
+        "View is read-only by default.",
         "Sensitive values are redacted.",
-        "Audit entries link to task/goal/artifact/trace references where possible."
+        "Unavailable endpoints degrade clearly."
       ]
     },
     {
-      "id": "TFS-T25",
-      "title": "Approval and proposal review queue implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "TUI shows tasks/proposals requiring review or approval.",
-        "Review/approve/reject actions call existing backend APIs only.",
-        "Every action shows summary, risk and confirmation before submit.",
-        "Stale/denied/already-handled states are handled."
-      ]
-    },
-    {
-      "id": "TFS-T26",
-      "title": "Repair operator view deepen",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "TUI shows repair diagnosis, proposed steps, dry-run status, approval state, execution result and verification result where backend exposes them.",
-        "Repair execution is never implicit.",
-        "Unsafe or unknown repair actions are blocked visibly.",
-        "Browser fallback exists for complex repair session detail."
-      ]
-    },
-    {
-      "id": "TFS-T27",
-      "title": "Event stream and live refresh model implement",
-      "status": "done",
+      "id": "VSC-T23",
+      "title": "Audit explorer MVP implement",
+      "status": "todo",
       "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Extension can list audit log summaries where backend supports it.",
+        "Audit entries redact sensitive data.",
+        "Entries can link to related goal/task/artifact/trace where available.",
+        "Deep audit analysis uses browser fallback if needed."
+      ]
+    },
+    {
+      "id": "VSC-T24",
+      "title": "Repair visibility MVP implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Repair sessions or repair-related task states are visible where backend exposes them.",
+        "Diagnosis, proposed steps, dry-run status, approval state and verification result are shown where available.",
+        "No repair execution is triggered by opening or refreshing the view.",
+        "Repair approval/execution actions are deferred unless backend-gated and explicitly confirmed."
+      ]
+    },
+    {
+      "id": "VSC-T25",
+      "title": "Launch Ananta TUI in VS Code terminal implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Command launches documented Ananta TUI command in VS Code integrated terminal.",
+        "Launch is explicit and user-triggered.",
+        "Endpoint/profile context is passed safely.",
+        "Tokens/secrets are not exposed in command line where avoidable."
+      ]
+    },
+    {
+      "id": "VSC-T26",
+      "title": "Open Ananta Web UI fallback implement",
+      "status": "todo",
+      "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
-        "TUI supports manual refresh everywhere.",
-        "Optional live refresh/streaming is available for system events/task logs if stable.",
-        "Live refresh is rate-limited and stoppable.",
-        "Connection loss is visible and recoverable."
+        "Commands can open relevant Ananta Web UI pages.",
+        "Fallback exists for tasks, artifacts, audit, config and repair views.",
+        "Browser fallback is clearly labeled and never bypasses policy.",
+        "URLs are generated safely from configured base URL."
       ]
     },
 
     {
-      "id": "TFS-T28",
-      "title": "TUI view-model test suite expand",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "View-model tests cover every major TUI section.",
-        "Tests include empty, normal, degraded and permission-denied states.",
-        "Tests use fixture transports and do not require live backend.",
-        "Tests cover dangerous action confirmation logic."
-      ]
-    },
-    {
-      "id": "TFS-T29",
-      "title": "TUI API contract tests expand",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Tests verify TUI client expectations against backend response shapes.",
-        "Tests cover config, dashboard, tasks, goals, artifacts, knowledge, system, teams, automation and audit APIs.",
-        "Breaking API changes produce clear test failures.",
-        "Tests do not duplicate frontend TypeScript logic blindly."
-      ]
-    },
-    {
-      "id": "TFS-T30",
-      "title": "TUI golden path smoke suite add",
-      "status": "done",
+      "id": "VSC-T27",
+      "title": "Security and governance negative tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
-        "Smoke suite covers dashboard -> goal -> task -> artifact.",
-        "Smoke suite covers config read-only, audit list, automation status and repair/approval visibility.",
-        "Smoke suite can run against fixture backend.",
-        "Smoke suite is part of release gate or clearly documented as manual."
+        "Tests verify no client-side approval/policy bypass.",
+        "Tests verify denied, unauthorized, stale and malformed backend responses.",
+        "Tests verify no implicit file mutation.",
+        "Tests verify no implicit repair execution."
       ]
     },
     {
-      "id": "TFS-T31",
-      "title": "TUI user and operator docs update",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
+      "id": "VSC-T28",
+      "title": "Secret redaction and context safety tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
       "acceptance_criteria": [
-        "Docs list available sections and keyboard shortcuts.",
-        "Docs explain safe write actions and browser fallback.",
-        "Docs show start command and fixture/live modes.",
-        "Docs clearly state what is not yet supported."
+        "Tests verify tokens/secrets are redacted in logs/errors/output.",
+        "Tests cover likely secret patterns in selected text/context.",
+        "Tests verify size limits and provenance metadata.",
+        "Tests verify unrelated files are not included implicitly."
       ]
     },
     {
-      "id": "TFS-T32",
-      "title": "TUI frontend-parity readiness report generate",
-      "status": "done",
+      "id": "VSC-T29",
+      "title": "Backend client unit and contract tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
-        "Report maps Angular frontend areas to TUI support status.",
-        "Report marks each area as supported, partial, browser-fallback or deferred.",
-        "Report lists remaining backend/API gaps if any.",
-        "Report separates merge blockers from future polish."
+        "Tests cover health, capabilities, goals, tasks, artifacts, approvals and degraded responses.",
+        "Backend response shape assumptions are locked by fixtures.",
+        "Timeout and malformed response behavior is tested.",
+        "Tests run without live backend."
       ]
     },
     {
-      "id": "TFS-T33",
-      "title": "Todo schema alignment and stats sync hardening",
-      "status": "done",
+      "id": "VSC-T30",
+      "title": "VS Code command and view tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests cover command registration.",
+        "Tests cover command dispatch with mocked backend client.",
+        "Tests cover view model rendering inputs.",
+        "Tests cover capability-disabled commands."
+      ]
+    },
+    {
+      "id": "VSC-T31",
+      "title": "Extension smoke test add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Smoke test verifies extension activation.",
+        "Smoke test verifies command registration.",
+        "Smoke test verifies mocked health check and one goal submission flow.",
+        "Smoke test is runnable locally and suitable for CI."
+      ]
+    },
+    {
+      "id": "VSC-T32",
+      "title": "CI lane for VS Code extension add",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
-        "Chosen todo.json format and validation schema are explicitly aligned or versioned with a compatibility adapter.",
-        "Release and developer validators use the same todo format assumptions.",
-        "Counter synchronization is automated for the active todo format and covered by tests.",
-        "Documentation explains how to keep status summaries and stage summaries consistent."
+        "CI runs extension compile/tests.",
+        "CI reports extension failures separately from Python backend failures.",
+        "VS Code extension runtime claims are blocked if CI/smoke evidence is missing.",
+        "Packaging step is optional but documented."
+      ]
+    },
+
+    {
+      "id": "VSC-T33",
+      "title": "VS Code user guide write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Docs explain install/build/run for development.",
+        "Docs explain settings, auth and connection status.",
+        "Docs list available commands and views.",
+        "Docs explain safe context preview and browser/TUI fallback."
+      ]
+    },
+    {
+      "id": "VSC-T34",
+      "title": "Developer smoke checklist write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Checklist covers install extension, configure backend, health check, analyze selection, review file, submit goal, view task/artifact and launch TUI.",
+        "Checklist includes expected success and failure signals.",
+        "Checklist distinguishes automated vs manual checks.",
+        "Checklist is short enough for release review."
+      ]
+    },
+    {
+      "id": "VSC-T35",
+      "title": "Runtime inventory and audit integration update",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Client surface runtime inventory includes vscode_plugin status.",
+        "Audit script checks VS Code extension runtime evidence.",
+        "Runtime evidence includes package.json, source files, build command and smoke/test evidence.",
+        "Foundation-only VS Code files cannot satisfy runtime_mvp."
+      ]
+    },
+    {
+      "id": "VSC-T36",
+      "title": "VS Code merge readiness report generate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Report lists implemented commands, views and deferred features.",
+        "Report includes build/test/smoke evidence.",
+        "Report lists known backend/API gaps if any.",
+        "Report states merge-safe vs feature-flag-only recommendation."
       ]
     }
   ],
+
   "execution_order_summary": [
-    "Stage 1: Map Angular API surface to terminal-appropriate TUI sections.",
-    "Stage 2: Expand navigation, dashboard, system and config.",
-    "Stage 3: Deepen goal/task/artifact workflows.",
-    "Stage 4: Add knowledge, templates, teams, blueprints and instruction layers.",
-    "Stage 5: Add automation, audit, approvals and repair views.",
-    "Stage 6: Add tests, docs, parity/readiness report and todo-governance hardening."
+    "Stage 1: Define VS Code scope and bootstrap real extension project.",
+    "Stage 2: Implement secure connection/auth and backend client.",
+    "Stage 3: Implement bounded editor context and command palette workflows.",
+    "Stage 4: Implement sidebar views for goals/tasks/artifacts/approvals.",
+    "Stage 5: Add runtime/audit/repair visibility and TUI/Web UI fallback.",
+    "Stage 6: Add security, contract, command, view and smoke tests.",
+    "Stage 7: Update docs, inventory, audit and merge-readiness report."
   ],
+
   "critical_path_tasks": [
-    "TFS-T01",
-    "TFS-T02",
-    "TFS-T05",
-    "TFS-T07",
-    "TFS-T10",
-    "TFS-T12",
-    "TFS-T15",
-    "TFS-T20",
-    "TFS-T23",
-    "TFS-T24",
-    "TFS-T25",
-    "TFS-T26",
-    "TFS-T28",
-    "TFS-T29",
-    "TFS-T30",
-    "TFS-T32"
+    "VSC-T01",
+    "VSC-T02",
+    "VSC-T03",
+    "VSC-T06",
+    "VSC-T07",
+    "VSC-T08",
+    "VSC-T09",
+    "VSC-T11",
+    "VSC-T12",
+    "VSC-T13",
+    "VSC-T17",
+    "VSC-T18",
+    "VSC-T20",
+    "VSC-T21",
+    "VSC-T25",
+    "VSC-T27",
+    "VSC-T28",
+    "VSC-T29",
+    "VSC-T31",
+    "VSC-T35",
+    "VSC-T36"
   ],
+
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:37:13+02:00",
-    "total": 33,
+    "updated_at": "2026-04-24T00:00:00+02:00",
+    "total": 36,
     "by_status": {
-      "todo": 0,
+      "todo": 36,
       "in_progress": 0,
       "blocked": 0,
-      "done": 33
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 18,
-      "P1": 12,
-      "P2": 3,
+      "P0": 23,
+      "P1": 13,
+      "P2": 0,
       "P3": 0
     },
     "by_risk": {
-      "low": 1,
-      "medium": 12,
-      "high": 12,
-      "critical": 8
+      "low": 0,
+      "medium": 11,
+      "high": 15,
+      "critical": 10
     },
     "critical_path": {
-      "total": 16,
-      "done": 16,
-      "remaining": 0
+      "total": 21,
+      "done": 0,
+      "remaining": 21
     },
     "milestones": {
       "total": 7,
-      "todo": 0,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 7
+      "done": 0
     }
   },
-  "execution_stage_summary": {
-    "updated_at": "2026-04-25T00:37:13+02:00",
-    "stages": {
-      "TFS-M1": {
-        "title": "Navigation and API mapping",
-        "scope_task_ids": ["TFS-T01", "TFS-T02", "TFS-T03", "TFS-T04"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TFS-M2": {
-        "title": "Dashboard, system and config",
-        "scope_task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TFS-M3": {
-        "title": "Goals, tasks and execution",
-        "scope_task_ids": ["TFS-T10", "TFS-T11", "TFS-T12", "TFS-T13", "TFS-T14"],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TFS-M4": {
-        "title": "Artifacts, knowledge and templates",
-        "scope_task_ids": ["TFS-T15", "TFS-T16", "TFS-T17", "TFS-T18"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TFS-M5": {
-        "title": "Teams, blueprints and instruction layers",
-        "scope_task_ids": ["TFS-T19", "TFS-T20", "TFS-T21", "TFS-T22"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TFS-M6": {
-        "title": "Automation, audit, approvals and repair",
-        "scope_task_ids": ["TFS-T23", "TFS-T24", "TFS-T25", "TFS-T26", "TFS-T27"],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TFS-M7": {
-        "title": "Testing, docs and release gate",
-        "scope_task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
-        "total": 6,
-        "done": 6,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      }
-    }
-  },
-  "code_evidence_snapshot": {
-    "updated_at": "2026-04-25T00:37:13+02:00",
-    "runtime_baseline_evidence": [
-      "client_surfaces/common/client_api.py",
-      "client_surfaces/tui_runtime/ananta_tui/app.py",
-      "client_surfaces/tui_runtime/ananta_tui/fixture_transport.py",
-      "client_surfaces/tui_runtime/ananta_tui/surface_map.py",
-      "client_surfaces/tui_runtime/ananta_tui/state.py",
-      "client_surfaces/tui_runtime/ananta_tui/browser_fallback.py",
-      "client_surfaces/tui_runtime/ananta_tui/views.py",
-      "scripts/smoke_tui_runtime.py",
-      "scripts/smoke_client_golden_paths.py",
-      "tests/test_tui_runtime_app.py",
-      "tests/test_tui_runtime_state.py",
-      "tests/test_client_surface_api_contracts.py",
-      "docs/tui-user-operator-guide.md"
-    ],
-    "planning_and_validation_evidence": [
-      "scripts/validate_todo_consistency.py",
-      "tests/test_validate_todo_consistency.py",
-      "devtools/validate_todo_schema.py",
-      "todo.track.schema.json",
-      "tests/test_validate_todo_schema.py",
-      "data/tui_frontend_api_surface_map.json",
-      "data/tui_frontend_parity_readiness_report.json"
-    ],
-    "detected_runtime_sections": [
-      "dashboard",
-      "goals",
-      "goal_detail",
-      "goal_plan",
-      "goal_governance",
-      "tasks",
-      "task_workbench",
-      "task_orchestration",
-      "archived_tasks",
-      "artifacts",
-      "artifact_detail",
-      "artifact_rag",
-      "knowledge",
-      "templates",
-      "config",
-      "providers",
-      "benchmarks",
-      "system",
-      "teams",
-      "team_blueprints",
-      "instruction_layers",
-      "automation",
-      "audit",
-      "approvals",
-      "repairs",
-      "live_refresh",
-      "help"
-    ],
-    "major_gaps_vs_track_goal": [
-      "No merge blockers for the tracked parity scope; remaining gaps are explicitly marked as browser-first safety boundaries.",
-      "Repair execution APIs are intentionally not bypassed from terminal when backend contracts are not explicit.",
-      "Event streaming remains polling-based in terminal until dedicated push stream contracts are stabilized."
-    ]
-  },
-  "analysis_checks": {
-    "checked_at": "2026-04-25T00:37:13+02:00",
-    "internal_consistency": "ok",
-    "notes": [
-      "Task IDs are unique and all milestone task references resolve to existing tasks.",
-      "Task status, priority and risk counters were recalculated and synchronized.",
-      "todo schema validation now auto-detects task-track format and validates against todo.track.schema.json.",
-      "Frontend parity readiness report is available at data/tui_frontend_parity_readiness_report.json."
-    ]
-  },
+
   "summary_notes": [
-    "First bundle (TFS-T01..T09 + TFS-T33) is completed with concrete runtime and validation evidence in repository code and tests.",
-    "TUI now provides a broad multi-section navigation shell with shared state, browser fallback links and compact terminal mode.",
-    "Second bundle (TFS-T10..T18) is completed with goal/task/artifact deep views, orchestration/archived task visibility, knowledge search/index and template diagnostics/preview support.",
-    "Goal creation now supports explicit mode/context payload, and task/artifact/archive write actions are confirmation-gated.",
-    "Artifact upload strategy is explicitly set to deferred browser fallback to prevent accidental terminal uploads.",
-    "Third bundle (TFS-T19..T24) is completed with teams/blueprint deep views, instruction layer workbench/selection flows, automation guarded actions and audit analyze/redaction support.",
-    "Final bundle (TFS-T25..T32) is completed with approval/proposal queue actions, deeper repair operator visibility, optional live refresh polling, expanded smoke/contract/view tests and updated operator docs.",
-    "Frontend parity readiness report has been generated at data/tui_frontend_parity_readiness_report.json with supported/partial/browser-fallback mapping and residual polish notes.",
-    "Dashboard/system/config/provider/benchmark surfaces are now rendered through existing backend API contracts with degraded-state visibility.",
-    "Safe config editing is now allowlisted, preview-first and explicit-apply only; dangerous or complex operations remain browser-first.",
-    "todo schema validation drift is resolved for active track format via format detection and dedicated track schema support.",
-    "Dangerous write/admin operations remain confirmation-based, backend-gated and auditable; browser fallback stays preferred for complex or risky workflows."
-  ],
-  "end_summaries": [
-    {
-      "summary_id": "TFS-S1",
-      "title": "Analysis outcome",
-      "items": [
-        "First implementation bundle selected: TFS-T01..T09 plus TFS-T33 as the earliest coherent dependency cluster.",
-        "Repository baseline already contained MVP runtime; this bundle expanded it to a multi-section parity shell."
-      ]
-    },
-    {
-      "summary_id": "TFS-S2",
-      "title": "Corrections",
-      "items": [
-        "Statuses were updated to reflect completed work: TFS-T01..T09 and TFS-T33 are now done.",
-        "Milestones TFS-M1 and TFS-M2 are now done; summary counters and critical-path progress were synchronized."
-      ]
-    },
-    {
-      "summary_id": "TFS-S3",
-      "title": "Improvements and extensions",
-      "items": [
-        "Added TUI API mapping artifact, navigation/state/fallback architecture, and expanded section renderers for dashboard/goals/knowledge/config/system/teams/automation/audit/help.",
-        "Added safe config edit flow with allowlist, preview and explicit apply mode.",
-        "Added track-aware schema validation (todo.track.schema.json + validate_todo_schema auto-detection) and dedicated tests."
-      ]
-    },
-    {
-      "summary_id": "TFS-S4",
-      "title": "Second bundle completion",
-      "items": [
-        "Completed tasks: TFS-T10, TFS-T11, TFS-T12, TFS-T13, TFS-T14, TFS-T15, TFS-T16, TFS-T17 and TFS-T18.",
-        "Milestones TFS-M3 and TFS-M4 are now done; summary counters and execution stage counters were synchronized."
-      ]
-    },
-    {
-      "summary_id": "TFS-S5",
-      "title": "Next focus recommendation",
-      "items": [
-        "Next execution block should focus on approvals/repair depth and live refresh hardening (TFS-T25..T27).",
-        "Continue expanding smoke and contract suites in parallel to preserve parity confidence as write/action depth increases."
-      ]
-    },
-    {
-      "summary_id": "TFS-S6",
-      "title": "Third bundle completion",
-      "items": [
-        "Completed tasks: TFS-T19, TFS-T20, TFS-T21, TFS-T22, TFS-T23 and TFS-T24.",
-        "Milestone TFS-M5 is now done; TFS-M6 moved forward with automation/audit baseline complete while approvals/repair/live-refresh remain open."
-      ]
-    },
-    {
-      "summary_id": "TFS-S7",
-      "title": "Track completion",
-      "items": [
-        "Completed tasks: TFS-T25, TFS-T26, TFS-T27, TFS-T28, TFS-T29, TFS-T30, TFS-T31 and TFS-T32.",
-        "Milestones TFS-M6 and TFS-M7 are now done; full track status is synchronized at done=33, in_progress=0, todo=0."
-      ]
-    }
+    "This track should not be mixed into the Eclipse advanced runtime track.",
+    "VS Code is likely the most important mainstream editor integration and should probably run before Eclipse Advanced.",
+    "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
+    "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened."
   ]
 }
