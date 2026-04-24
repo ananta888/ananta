@@ -596,7 +596,7 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:00:00+02:00",
+    "updated_at": "2026-04-25T00:53:38+02:00",
     "total": 36,
     "by_status": {
       "todo": 36,
@@ -606,16 +606,16 @@
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 23,
-      "P1": 13,
+      "P0": 25,
+      "P1": 11,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
-      "medium": 11,
+      "medium": 10,
       "high": 15,
-      "critical": 10
+      "critical": 11
     },
     "critical_path": {
       "total": 21,
@@ -631,10 +631,127 @@
     }
   },
 
+  "execution_stage_summary": {
+    "updated_at": "2026-04-25T00:53:38+02:00",
+    "stages": {
+      "VSC-M1": {
+        "title": "Scope, architecture and project bootstrap",
+        "scope_task_ids": ["VSC-T01", "VSC-T02", "VSC-T03", "VSC-T04", "VSC-T05"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "VSC-M2": {
+        "title": "Connection, auth and backend client",
+        "scope_task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "VSC-M3": {
+        "title": "Editor context and command palette workflows",
+        "scope_task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "VSC-M4": {
+        "title": "Sidebar views for tasks, artifacts and approvals",
+        "scope_task_ids": ["VSC-T17", "VSC-T18", "VSC-T19", "VSC-T20", "VSC-T21"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "VSC-M5": {
+        "title": "Runtime, audit, repair and TUI integration",
+        "scope_task_ids": ["VSC-T22", "VSC-T23", "VSC-T24", "VSC-T25", "VSC-T26"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "VSC-M6": {
+        "title": "Safety, tests and packaging",
+        "scope_task_ids": ["VSC-T27", "VSC-T28", "VSC-T29", "VSC-T30", "VSC-T31", "VSC-T32"],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "VSC-M7": {
+        "title": "Docs, smoke checks and release readiness",
+        "scope_task_ids": ["VSC-T33", "VSC-T34", "VSC-T35", "VSC-T36"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+
+  "analysis_checks": {
+    "checked_at": "2026-04-25T00:53:38+02:00",
+    "internal_consistency": "corrected",
+    "notes": [
+      "Priority and risk counters in tasks_status_summary were corrected to match the current task list.",
+      "Execution stage summary was added to make milestone progress explicitly machine-readable.",
+      "Track remains in planning baseline state (all tasks todo) with synchronized counters."
+    ]
+  },
+
   "summary_notes": [
     "This track should not be mixed into the Eclipse advanced runtime track.",
     "VS Code is likely the most important mainstream editor integration and should probably run before Eclipse Advanced.",
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
-    "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened."
+    "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
+    "Current todo file now contains synchronized status counters and explicit stage-level rollup data."
+  ],
+
+  "end_summaries": [
+    {
+      "summary_id": "VSC-S1",
+      "title": "Analyseergebnis",
+      "items": [
+        "Die aktuelle todo.json beschreibt den VS-Code-Track mit 36 Tasks in 7 Meilensteinen.",
+        "Inhaltlich war der Track konsistent strukturiert, aber einzelne Summary-Counter waren numerisch falsch."
+      ]
+    },
+    {
+      "summary_id": "VSC-S2",
+      "title": "Korrekturen",
+      "items": [
+        "tasks_status_summary.by_priority wurde auf P0=25 und P1=11 korrigiert.",
+        "tasks_status_summary.by_risk wurde auf medium=10 und critical=11 korrigiert.",
+        "updated_at/checked_at wurden auf den aktuellen Bearbeitungszeitpunkt aktualisiert."
+      ]
+    },
+    {
+      "summary_id": "VSC-S3",
+      "title": "Verbesserungen und Erweiterungen",
+      "items": [
+        "execution_stage_summary ergänzt (pro Meilenstein: total/done/todo/in_progress/blocked + scope_task_ids).",
+        "analysis_checks ergänzt, damit Korrekturen und Prüfstatus nachvollziehbar dokumentiert sind.",
+        "summary_notes erweitert, um den jetzt synchronisierten Status der Datei explizit festzuhalten."
+      ]
+    },
+    {
+      "summary_id": "VSC-S4",
+      "title": "Status am Ende",
+      "items": [
+        "Der Track ist weiterhin im Planungs-Baseline-Status (36 todo, 0 in_progress, 0 done).",
+        "Die Datei ist nun für Validatoren konsistent und enthält die angeforderten End-Summaries."
+      ]
+    }
   ]
 }
