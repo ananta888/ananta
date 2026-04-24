@@ -32,3 +32,26 @@ Primary command surface:
 - `AnantaProjectEvolve`
 
 Context capture is bounded (selection and buffer limits) and goal submission is user-triggered.
+
+## Neovim core workflow layer
+
+The current contract layer now also includes:
+
+- Quick action palette and command wrappers for common operations.
+- Analyze flow for file/project scope with editor-native rendering.
+- Review flow for selection-oriented bounded context.
+- Patch-planning flow with explicit review-first and no silent auto-apply.
+- Task context view, artifact preview, context inspection panel, diff render and navigation links.
+- Optional browser handoff shortcuts for deeper task/artifact/goal views.
+
+## TUI foundation and core operational flows
+
+The TUI contract baseline now captures:
+
+- Framework decision and information architecture.
+- Auth/session model for long-running terminal usage.
+- Global layout and navigation conventions.
+- Runtime status header with profile, endpoint and health signal.
+- Task board and task detail views.
+- Artifact list/detail and goal list/submission entry.
+- Task filtering and grouping model.
