@@ -25,6 +25,7 @@ _FORBIDDEN_METADATA_KEYS = {
     "runtime_execution",
 }
 _OVERLAY_ATTACHMENT_KINDS = {"goal", "task", "session", "usage"}
+_OVERLAY_SCOPES = {"task", "goal", "session", "usage", "one_shot", "project"}
 _FORBIDDEN_DIRECTIVE_PATTERNS = [
     re.compile(
         r"(ignore|bypass|override|disable|skip)\s+(all\s+)?(approval|governance|policy|security|guardrail)",
@@ -101,7 +102,13 @@ class InstructionLayerService:
             "allowed_user_influence_scope": sorted(_ALLOWED_USER_INFLUENCE),
             "forbidden_user_influence_scope": sorted(_FORBIDDEN_METADATA_KEYS),
             "supported_overlay_attachment_kinds": sorted(_OVERLAY_ATTACHMENT_KINDS),
+            "supported_overlay_scopes": sorted(_OVERLAY_SCOPES),
             "first_release_attachment_subset": ["task", "goal", "session"],
+            "overlay_lifecycle_modes": {
+                "one_shot": "auto-deactivates after first runtime application",
+                "session": "active while the referenced session context is valid",
+                "project": "active for a project usage key until explicit deactivation/expiry",
+            },
             "safe_defaults": {
                 "when_no_profile": "only_governance_and_template_and_task_input",
                 "when_no_overlay": "profile_or_template_without_overlay",
@@ -164,7 +171,54 @@ class InstructionLayerService:
         return meta
 
     def normalize_overlay_metadata(self, metadata: dict | None) -> dict[str, Any]:
-        return self.normalize_profile_metadata(metadata)
+        meta = self.normalize_profile_metadata(metadata)
+        lifecycle = meta.get("lifecycle")
+        if isinstance(lifecycle, dict):
+            normalized_lifecycle: dict[str, Any] = {}
+            max_uses_raw = lifecycle.get("max_uses")
+            consumed_count_raw = lifecycle.get("consumed_count")
+            if isinstance(max_uses_raw, int) and max_uses_raw > 0:
+                normalized_lifecycle["max_uses"] = int(max_uses_raw)
+            if isinstance(consumed_count_raw, int) and consumed_count_raw >= 0:
+                normalized_lifecycle["consumed_count"] = int(consumed_count_raw)
+            for key in ("last_consumed_at", "consumed_task_id", "consumed_goal_id"):
+                value = lifecycle.get(key)
+                if value is not None:
+                    normalized_lifecycle[key] = value
+            if normalized_lifecycle:
+                meta["lifecycle"] = normalized_lifecycle
+            else:
+                meta.pop("lifecycle", None)
+        else:
+            meta.pop("lifecycle", None)
+        return meta
+
+    def normalize_overlay_scope(self, scope: str | None) -> str:
+        normalized = str(scope or "").strip().lower()
+        return normalized if normalized in _OVERLAY_SCOPES else "task"
+
+    def overlay_lifecycle_summary(self, overlay: InstructionOverlayDB, *, now_ts: float | None = None) -> dict[str, Any]:
+        now = float(now_ts or time.time())
+        scope = self.normalize_overlay_scope(overlay.scope)
+        lifecycle = dict((overlay.overlay_metadata or {}).get("lifecycle") or {})
+        consumed_count = int(lifecycle.get("consumed_count") or 0)
+        max_uses = lifecycle.get("max_uses")
+        if scope == "one_shot":
+            max_uses = int(max_uses) if isinstance(max_uses, int) and max_uses > 0 else 1
+        elif not (isinstance(max_uses, int) and max_uses > 0):
+            max_uses = None
+        remaining_uses = max(0, int(max_uses) - consumed_count) if max_uses is not None else None
+        is_expired = overlay.expires_at is not None and float(overlay.expires_at) <= now
+        return {
+            "kind": scope,
+            "started_at": overlay.created_at,
+            "expires_at": overlay.expires_at,
+            "is_expired": bool(is_expired),
+            "max_uses": max_uses,
+            "consumed_count": consumed_count,
+            "remaining_uses": remaining_uses,
+            "last_consumed_at": lifecycle.get("last_consumed_at"),
+        }
 
     def resolve_profile_for_owner(
         self,
@@ -472,8 +526,10 @@ class InstructionLayerService:
                         "source": "overlay",
                         "overlay_id": overlay.id,
                         "name": overlay.name,
+                        "scope": self.normalize_overlay_scope(overlay.scope),
                         "attachment_kind": overlay.attachment_kind,
                         "attachment_id": overlay.attachment_id,
+                        "lifecycle": self.overlay_lifecycle_summary(overlay),
                     }
                 )
                 effective_preferences.update(dict((overlay.overlay_metadata or {}).get("preferences") or {}))
@@ -496,6 +552,12 @@ class InstructionLayerService:
         if overlay and overlay_validation.get("ok"):
             rendered_sections.append(f"[TASK OVERLAY]\n{str(overlay.prompt_content or '').strip()}")
         rendered_system_prompt = "\n\n".join(section for section in rendered_sections if section).strip() or None
+        if emit_audit and overlay and overlay_validation.get("ok"):
+            overlay = self._consume_one_shot_overlay_if_needed(
+                overlay,
+                task_id=str(task_payload.get("id") or "").strip() or None,
+                goal_id=str(task_payload.get("goal_id") or "").strip() or None,
+            )
 
         diagnostics = {
             "version": _STACK_VERSION,
@@ -573,20 +635,61 @@ class InstructionLayerService:
             "is_active": bool(profile.is_active),
         }
 
-    @staticmethod
-    def _overlay_summary(overlay: InstructionOverlayDB | None) -> dict[str, Any] | None:
+    def _overlay_summary(self, overlay: InstructionOverlayDB | None) -> dict[str, Any] | None:
         if overlay is None:
             return None
         return {
             "id": overlay.id,
             "name": overlay.name,
             "owner_username": overlay.owner_username,
-            "scope": overlay.scope,
+            "scope": self.normalize_overlay_scope(overlay.scope),
             "attachment_kind": overlay.attachment_kind,
             "attachment_id": overlay.attachment_id,
             "is_active": bool(overlay.is_active),
             "expires_at": overlay.expires_at,
+            "lifecycle": self.overlay_lifecycle_summary(overlay),
         }
+
+    def _consume_one_shot_overlay_if_needed(
+        self,
+        overlay: InstructionOverlayDB,
+        *,
+        task_id: str | None,
+        goal_id: str | None,
+    ) -> InstructionOverlayDB:
+        if self.normalize_overlay_scope(overlay.scope) != "one_shot":
+            return overlay
+        now = time.time()
+        metadata = dict(overlay.overlay_metadata or {})
+        lifecycle = dict(metadata.get("lifecycle") or {})
+        consumed_count = int(lifecycle.get("consumed_count") or 0) + 1
+        max_uses = lifecycle.get("max_uses")
+        max_uses = int(max_uses) if isinstance(max_uses, int) and max_uses > 0 else 1
+        lifecycle["consumed_count"] = consumed_count
+        lifecycle["last_consumed_at"] = now
+        if task_id:
+            lifecycle["consumed_task_id"] = task_id
+        if goal_id:
+            lifecycle["consumed_goal_id"] = goal_id
+        metadata["lifecycle"] = lifecycle
+        overlay.overlay_metadata = self.normalize_overlay_metadata(metadata)
+        if consumed_count >= max_uses:
+            overlay.is_active = False
+        overlay.updated_at = now
+        updated = get_repository_registry().instruction_overlay_repo.save(overlay)
+        log_audit(
+            "instruction_overlay_lifecycle_consumed",
+            {
+                "overlay_id": updated.id,
+                "owner_username": updated.owner_username,
+                "task_id": task_id,
+                "goal_id": goal_id,
+                "consumed_count": consumed_count,
+                "max_uses": max_uses,
+                "is_active": bool(updated.is_active),
+            },
+        )
+        return updated
 
 
 instruction_layer_service = InstructionLayerService()

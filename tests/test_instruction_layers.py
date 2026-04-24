@@ -308,3 +308,78 @@ def test_goal_instruction_selection_is_resolved_in_effective_stack(client, user_
     assert diagnostics["selected_profile"]["id"] == profile_id
     assert diagnostics["selected_overlay"]["id"] == overlay_id
     assert diagnostics["owner_username"] == "testuser"
+
+
+def test_overlay_scope_validation_blocks_invalid_session_binding(client, user_auth_header):
+    res = client.post(
+        "/instruction-overlays",
+        headers=user_auth_header,
+        json={
+            "name": "invalid-session-binding",
+            "prompt_content": "Session-specific instruction.",
+            "scope": "session",
+            "attachment_kind": "task",
+            "attachment_id": "task-1",
+        },
+    )
+    assert res.status_code == 400
+    assert res.get_json()["message"] == "overlay_scope_requires_session_attachment"
+
+
+def test_one_shot_overlay_is_consumed_on_runtime_prompt_build(app):
+    with app.app_context():
+        repos = get_repository_registry()
+        repos.task_repo.save(TaskDB(id="inst-task-one-shot", title="One shot test", status="todo"))
+        overlay = repos.instruction_overlay_repo.save(
+            InstructionOverlayDB(
+                owner_username="oneshot-user",
+                name="oneshot-overlay",
+                prompt_content="Apply this exactly once.",
+                scope="one_shot",
+                attachment_kind="task",
+                attachment_id="inst-task-one-shot",
+                is_active=True,
+            )
+        )
+        task = {
+            "id": "inst-task-one-shot",
+            "title": "One shot test",
+            "description": "Consume overlay once",
+            "worker_execution_context": {
+                "instruction_context": {
+                    "owner_username": "oneshot-user",
+                    "overlay_id": overlay.id,
+                }
+            },
+        }
+        TaskScopedExecutionService()._build_task_propose_prompt(
+            tid="inst-task-one-shot",
+            task=task,
+            base_prompt="Run task once with one-shot overlay.",
+            tool_definitions_resolver=lambda allowlist=None: [],
+            research_context=None,
+        )
+        refreshed = repos.instruction_overlay_repo.get_by_id(overlay.id)
+    assert refreshed is not None
+    assert refreshed.is_active is False
+    lifecycle = dict((refreshed.overlay_metadata or {}).get("lifecycle") or {})
+    assert lifecycle.get("consumed_count") == 1
+
+
+def test_overlay_lifecycle_summary_is_visible_in_api(client, user_auth_header):
+    res = client.post(
+        "/instruction-overlays",
+        headers=user_auth_header,
+        json={
+            "name": "project-overlay",
+            "prompt_content": "Project-scoped instruction.",
+            "scope": "project",
+            "attachment_kind": "usage",
+            "attachment_id": "project:demo",
+        },
+    )
+    assert res.status_code == 201
+    data = res.get_json()["data"]
+    lifecycle = dict(data.get("lifecycle") or {})
+    assert lifecycle.get("kind") == "project"
+    assert "consumed_count" in lifecycle

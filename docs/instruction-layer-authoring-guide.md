@@ -20,6 +20,12 @@ This guide explains how to write safe and useful `user_profile` and `task_overla
 - "For this session, provide detailed acceptance-criteria coverage."
 - "For this goal, focus on migration compatibility checks."
 
+For lifecycle-sensitive overlays, use `scope` intentionally:
+
+- `scope=one_shot` for one-time directives that should auto-expire after first execution.
+- `scope=session` with `attachment_kind=session` for session-bound behavior.
+- `scope=project` with `attachment_kind=usage` and a stable project key for recurring project workflows.
+
 ## Anti-patterns (blocked)
 
 - Any instruction to bypass governance, policy, approval, or safety checks.

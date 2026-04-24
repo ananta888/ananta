@@ -58,17 +58,19 @@ def _serialize_profile(profile: UserInstructionProfileDB) -> dict:
 
 
 def _serialize_overlay(overlay: InstructionOverlayDB) -> dict:
+    service = get_instruction_layer_service()
     return {
         "id": overlay.id,
         "owner_username": overlay.owner_username,
         "name": overlay.name,
         "prompt_content": overlay.prompt_content,
         "overlay_metadata": dict(overlay.overlay_metadata or {}),
-        "scope": overlay.scope,
+        "scope": service.normalize_overlay_scope(overlay.scope),
         "attachment_kind": overlay.attachment_kind,
         "attachment_id": overlay.attachment_id,
         "is_active": bool(overlay.is_active),
         "expires_at": overlay.expires_at,
+        "lifecycle": service.overlay_lifecycle_summary(overlay),
         "created_at": overlay.created_at,
         "updated_at": overlay.updated_at,
     }
@@ -115,6 +117,23 @@ def _validate_user_layer_or_conflict(*, prompt_content: str, metadata: dict | No
         },
         code=409,
     )
+
+
+def _validate_overlay_binding(*, scope: str, attachment_kind: str | None, attachment_id: str | None):
+    service = get_instruction_layer_service()
+    supported_kinds = set(service.layer_model()["supported_overlay_attachment_kinds"])
+    if attachment_kind and attachment_kind not in supported_kinds:
+        return api_response(status="error", message="invalid_overlay_attachment_kind", code=400)
+    if attachment_kind in {"task", "goal", "session"} and not attachment_id:
+        return api_response(status="error", message="overlay_attachment_id_required", code=400)
+    if scope == "session" and attachment_kind != "session":
+        return api_response(status="error", message="overlay_scope_requires_session_attachment", code=400)
+    if scope == "project":
+        if attachment_kind != "usage":
+            return api_response(status="error", message="overlay_scope_requires_usage_attachment", code=400)
+        if not attachment_id:
+            return api_response(status="error", message="overlay_attachment_id_required", code=400)
+    return None
 
 
 @instruction_layers_bp.route("/instruction-layers/model", methods=["GET"])
@@ -346,14 +365,15 @@ def create_instruction_overlay():
     prompt_content = str(payload.get("prompt_content") or "").strip()
     if not name or not prompt_content:
         return api_response(status="error", message="name_and_prompt_required", code=400)
+    service = get_instruction_layer_service()
     attachment_kind = str(payload.get("attachment_kind") or "").strip() or None
     attachment_id = str(payload.get("attachment_id") or "").strip() or None
-    if attachment_kind and attachment_kind not in set(get_instruction_layer_service().layer_model()["supported_overlay_attachment_kinds"]):
-        return api_response(status="error", message="invalid_overlay_attachment_kind", code=400)
-    if attachment_kind in {"task", "goal", "session"} and not attachment_id:
-        return api_response(status="error", message="overlay_attachment_id_required", code=400)
+    scope = service.normalize_overlay_scope(payload.get("scope"))
+    binding_error = _validate_overlay_binding(scope=scope, attachment_kind=attachment_kind, attachment_id=attachment_id)
+    if binding_error is not None:
+        return binding_error
 
-    overlay_metadata = get_instruction_layer_service().normalize_overlay_metadata(payload.get("overlay_metadata"))
+    overlay_metadata = service.normalize_overlay_metadata(payload.get("overlay_metadata"))
     validation, validation_error = _validate_user_layer_or_conflict(
         prompt_content=prompt_content,
         metadata=overlay_metadata,
@@ -368,7 +388,7 @@ def create_instruction_overlay():
         name=name,
         prompt_content=prompt_content,
         overlay_metadata=overlay_metadata,
-        scope=str(payload.get("scope") or "task").strip() or "task",
+        scope=scope,
         attachment_kind=attachment_kind,
         attachment_id=attachment_id,
         is_active=bool(payload.get("is_active", True)),
@@ -412,16 +432,19 @@ def patch_instruction_overlay(overlay_id: str):
     if "overlay_metadata" in payload:
         overlay.overlay_metadata = get_instruction_layer_service().normalize_overlay_metadata(payload.get("overlay_metadata"))
     if "scope" in payload:
-        overlay.scope = str(payload.get("scope") or "").strip() or overlay.scope
+        overlay.scope = get_instruction_layer_service().normalize_overlay_scope(payload.get("scope"))
     if "attachment_kind" in payload:
         attachment_kind = str(payload.get("attachment_kind") or "").strip() or None
-        if attachment_kind and attachment_kind not in set(get_instruction_layer_service().layer_model()["supported_overlay_attachment_kinds"]):
-            return api_response(status="error", message="invalid_overlay_attachment_kind", code=400)
         overlay.attachment_kind = attachment_kind
     if "attachment_id" in payload:
         overlay.attachment_id = str(payload.get("attachment_id") or "").strip() or None
-    if overlay.attachment_kind in {"task", "goal", "session"} and not str(overlay.attachment_id or "").strip():
-        return api_response(status="error", message="overlay_attachment_id_required", code=400)
+    binding_error = _validate_overlay_binding(
+        scope=get_instruction_layer_service().normalize_overlay_scope(overlay.scope),
+        attachment_kind=str(overlay.attachment_kind or "").strip() or None,
+        attachment_id=str(overlay.attachment_id or "").strip() or None,
+    )
+    if binding_error is not None:
+        return binding_error
     if "is_active" in payload:
         overlay.is_active = bool(payload.get("is_active"))
     if "expires_at" in payload:
@@ -463,13 +486,16 @@ def select_instruction_overlay(overlay_id: str):
     payload = request.get_json(silent=True) or {}
     if "attachment_kind" in payload:
         attachment_kind = str(payload.get("attachment_kind") or "").strip() or None
-        if attachment_kind and attachment_kind not in set(get_instruction_layer_service().layer_model()["supported_overlay_attachment_kinds"]):
-            return api_response(status="error", message="invalid_overlay_attachment_kind", code=400)
         overlay.attachment_kind = attachment_kind
     if "attachment_id" in payload:
         overlay.attachment_id = str(payload.get("attachment_id") or "").strip() or None
-    if overlay.attachment_kind in {"task", "goal", "session"} and not str(overlay.attachment_id or "").strip():
-        return api_response(status="error", message="overlay_attachment_id_required", code=400)
+    binding_error = _validate_overlay_binding(
+        scope=get_instruction_layer_service().normalize_overlay_scope(overlay.scope),
+        attachment_kind=str(overlay.attachment_kind or "").strip() or None,
+        attachment_id=str(overlay.attachment_id or "").strip() or None,
+    )
+    if binding_error is not None:
+        return binding_error
     overlay.is_active = True
     overlay.updated_at = time.time()
     overlay = _repos().instruction_overlay_repo.save(overlay)
@@ -495,10 +521,15 @@ def attach_instruction_overlay(overlay_id: str):
     payload = request.get_json(silent=True) or {}
     attachment_kind = str(payload.get("attachment_kind") or "").strip() or None
     attachment_id = str(payload.get("attachment_id") or "").strip() or None
-    if attachment_kind not in set(get_instruction_layer_service().layer_model()["supported_overlay_attachment_kinds"]):
-        return api_response(status="error", message="invalid_overlay_attachment_kind", code=400)
-    if attachment_kind in {"task", "goal", "session"} and not attachment_id:
-        return api_response(status="error", message="overlay_attachment_id_required", code=400)
+    if not attachment_kind:
+        return api_response(status="error", message="overlay_attachment_kind_required", code=400)
+    binding_error = _validate_overlay_binding(
+        scope=get_instruction_layer_service().normalize_overlay_scope(overlay.scope),
+        attachment_kind=attachment_kind,
+        attachment_id=attachment_id,
+    )
+    if binding_error is not None:
+        return binding_error
     overlay.attachment_kind = attachment_kind
     overlay.attachment_id = attachment_id
     overlay.is_active = True
