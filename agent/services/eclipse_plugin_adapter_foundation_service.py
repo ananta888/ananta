@@ -454,6 +454,243 @@ def build_eclipse_future_roadmap() -> dict[str, Any]:
     }
 
 
+def build_eclipse_view_strategy() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_view_strategy_v1",
+        "mvp_views": [
+            "goal_quick_action_view",
+            "task_list_view",
+            "artifact_view",
+            "context_inspection_view",
+            "task_detail_view",
+            "review_proposal_view",
+            "blueprint_work_profile_view",
+        ],
+        "phase_two_views": [
+            "extended_filters_and_grouping",
+            "advanced_render_modes",
+            "enhanced_view_synchronization",
+        ],
+        "browser_only_views": [
+            "deep_admin_configuration",
+            "deep_audit_chains",
+            "provider_governance_detail",
+        ],
+        "maps_to_backend_flows": True,
+        "does_not_replace_web_ui": True,
+    }
+
+
+def build_eclipse_goal_quick_action_view(
+    *,
+    goal_text: str,
+    workspace_context: dict[str, Any],
+    quick_actions: list[str] | None = None,
+) -> dict[str, Any]:
+    actions = quick_actions or ["analyze", "review", "patch", "new_project", "evolve_project"]
+    return {
+        "schema": "eclipse_goal_quick_action_view_v1",
+        "goal_text": _clean_text(goal_text, max_chars=600),
+        "quick_actions": [_clean_text(item, max_chars=80) for item in actions],
+        "workspace_context": {
+            "project_name": workspace_context.get("project_name"),
+            "active_file_path": workspace_context.get("active_file_path"),
+        },
+        "bounded_context_before_submit": True,
+    }
+
+
+def build_eclipse_task_list_view(
+    tasks: list[dict[str, Any]],
+    *,
+    max_items: int = 50,
+) -> dict[str, Any]:
+    item_limit = max(1, int(max_items))
+    return {
+        "schema": "eclipse_task_list_view_v1",
+        "items": [_compact_task(item) for item in tasks[:item_limit]],
+        "detail_view_link_available": True,
+        "shows_status_review_next_step": True,
+    }
+
+
+def build_eclipse_artifact_view(
+    artifacts: list[dict[str, Any]],
+    *,
+    max_items: int = 50,
+) -> dict[str, Any]:
+    item_limit = max(1, int(max_items))
+    return {
+        "schema": "eclipse_artifact_view_v1",
+        "items": [_compact_artifact(item) for item in artifacts[:item_limit]],
+        "bounded_rendering": True,
+        "related_object_navigation": True,
+        "open_in_browser_available": True,
+    }
+
+
+def build_eclipse_context_inspection_view(
+    *,
+    workspace_context: dict[str, Any],
+    handoff_context: dict[str, Any],
+) -> dict[str, Any]:
+    selected_paths = list(workspace_context.get("selected_paths") or [])
+    return {
+        "schema": "eclipse_context_inspection_view_v1",
+        "workspace_path": workspace_context.get("workspace_path"),
+        "project_name": workspace_context.get("project_name"),
+        "active_file_path": workspace_context.get("active_file_path"),
+        "selected_paths_count": len(selected_paths),
+        "handoff_scope": handoff_context.get("scope"),
+        "can_remove_or_adjust_context": True,
+        "bounded_visible_context": True,
+    }
+
+
+def build_eclipse_basic_task_detail_view(
+    task: dict[str, Any],
+    *,
+    artifacts: list[dict[str, Any]] | None = None,
+    routing_hints: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema": "eclipse_basic_task_detail_view_v1",
+        "task": _compact_task(task),
+        "summary": _clean_text(task.get("summary") or task.get("title"), max_chars=320),
+        "routing_hints": [_clean_text(hint, max_chars=120) for hint in (routing_hints or [])],
+        "artifacts": [_compact_artifact(item) for item in (artifacts or [])],
+        "not_an_ops_dashboard": True,
+    }
+
+
+def build_eclipse_review_proposal_view(
+    *,
+    proposals: list[dict[str, Any]],
+    approval_actions_supported: bool,
+) -> dict[str, Any]:
+    rendered = build_eclipse_diff_review_render(proposals)["proposals"]
+    return {
+        "schema": "eclipse_review_proposal_view_v1",
+        "proposals": rendered,
+        "explicit_approval_actions_supported": bool(approval_actions_supported),
+        "auditable_review_workflow": True,
+    }
+
+
+def build_eclipse_blueprint_work_profile_view(
+    blueprints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "eclipse_blueprint_work_profile_view_v1",
+        "blueprints": [
+            {
+                "id": _clean_text(item.get("id"), max_chars=80),
+                "purpose": _clean_text(item.get("purpose"), max_chars=220),
+                "recommended_goal_modes": [
+                    _clean_text(mode, max_chars=80) for mode in list(item.get("recommended_goal_modes") or [])
+                ],
+                "typical_outputs": [
+                    _clean_text(output, max_chars=120) for output in list(item.get("typical_outputs") or [])
+                ],
+            }
+            for item in blueprints
+        ],
+        "supports_starting_path_selection": True,
+    }
+
+
+def build_eclipse_connection_runtime_status_view(
+    *,
+    profile: dict[str, Any],
+    connected: bool,
+    health_state: str,
+    required_capabilities: list[str] | None = None,
+) -> dict[str, Any]:
+    normalized = _normalize_profile(profile)
+    capabilities = [_clean_text(item, max_chars=80) for item in (required_capabilities or [])]
+    return {
+        "schema": "eclipse_connection_runtime_status_view_v1",
+        "profile": normalized,
+        "connected": bool(connected),
+        "health_state": _clean_text(health_state, max_chars=40).lower(),
+        "required_capabilities": capabilities,
+        "lightweight_not_full_admin_surface": True,
+    }
+
+
+def build_eclipse_view_navigation_linking_model() -> dict[str, Any]:
+    return {
+        "schema": "eclipse_view_navigation_linking_model_v1",
+        "links": [
+            {"from": "goal_quick_action_view", "to": "task_list_view"},
+            {"from": "task_list_view", "to": "task_detail_view"},
+            {"from": "task_detail_view", "to": "artifact_view"},
+            {"from": "review_proposal_view", "to": "task_detail_view"},
+            {"from": "any_view", "to": "open_in_browser_shortcuts"},
+        ],
+        "preserves_task_context": True,
+        "cross_link_to_web_ui": True,
+    }
+
+
+def build_eclipse_views_extension_snapshot(
+    *,
+    profile: dict[str, Any],
+    workspace_state: dict[str, Any],
+    editor_state: dict[str, Any],
+    goal_text: str,
+    tasks: list[dict[str, Any]] | None = None,
+    artifacts: list[dict[str, Any]] | None = None,
+    proposals: list[dict[str, Any]] | None = None,
+    blueprints: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    workspace_context = collect_eclipse_workspace_project_context(workspace_state)
+    handoff_context = build_eclipse_selection_editor_handoff(editor_state)
+    task_items = tasks or []
+    artifact_items = artifacts or []
+    return {
+        "schema": "eclipse_views_extension_snapshot_v1",
+        "view_strategy": build_eclipse_view_strategy(),
+        "goal_quick_action_view": build_eclipse_goal_quick_action_view(
+            goal_text=goal_text,
+            workspace_context=workspace_context,
+        ),
+        "task_list_view": build_eclipse_task_list_view(task_items),
+        "artifact_view": build_eclipse_artifact_view(artifact_items),
+        "context_inspection_view": build_eclipse_context_inspection_view(
+            workspace_context=workspace_context,
+            handoff_context=handoff_context,
+        ),
+        "basic_task_detail_view": build_eclipse_basic_task_detail_view(
+            task_items[0] if task_items else {"id": "task-0", "title": "No task", "status": "todo"},
+            artifacts=artifact_items,
+            routing_hints=["hub_queue_worker_path"],
+        ),
+        "review_proposal_view": build_eclipse_review_proposal_view(
+            proposals=proposals or [],
+            approval_actions_supported=True,
+        ),
+        "blueprint_work_profile_view": build_eclipse_blueprint_work_profile_view(
+            blueprints
+            or [
+                {
+                    "id": "default_blueprint",
+                    "purpose": "Start a standard project path",
+                    "recommended_goal_modes": ["analyze", "review"],
+                    "typical_outputs": ["task_plan", "artifact_summary"],
+                }
+            ]
+        ),
+        "connection_runtime_status_view": build_eclipse_connection_runtime_status_view(
+            profile=profile,
+            connected=True,
+            health_state="ready",
+            required_capabilities=["goals", "tasks", "artifacts"],
+        ),
+        "view_navigation_linking_model": build_eclipse_view_navigation_linking_model(),
+    }
+
+
 def build_eclipse_plugin_adapter_foundation_snapshot(
     *,
     profile: dict[str, Any],
@@ -520,4 +757,13 @@ def build_eclipse_plugin_adapter_foundation_snapshot(
         "golden_path_demo": build_eclipse_golden_path_demo(),
         "manual_smoke_checklist": build_eclipse_manual_smoke_checklist(),
         "future_roadmap": build_eclipse_future_roadmap(),
+        "views_extension_snapshot": build_eclipse_views_extension_snapshot(
+            profile=normalized_profile,
+            workspace_state=workspace_state,
+            editor_state=editor_state,
+            goal_text=goal_text,
+            tasks=task_items,
+            artifacts=artifact_items,
+            proposals=proposals or [],
+        ),
     }
