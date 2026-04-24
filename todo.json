@@ -1,444 +1,582 @@
 {
-  "version": 2,
+  "version": 1,
   "owner": "ananta",
-  "track": "generic_agent_control_and_ml_intern_worker",
-  "updated_at": "2026-04-24T03:44:00+02:00",
-  "purpose": "Add generic platform-level control mechanisms inspired by agentic loop systems such as doom-loop detection, tool routing, approval checks and context management, while keeping Ananta as the control plane. Optionally evaluate ml-intern as a specialized worker/backend.",
+  "track": "user_profile_prompt_and_task_overlay",
+  "purpose": "Add a structured user-level preference prompt and a task/session-level instruction overlay to Ananta so users can persistently shape working style while still applying explicit task-specific constraints without bypassing governance.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
-  "goal": "Ananta should gain stronger generic safeguards and loop-control primitives across CLI, research, evolution and future workers, without coupling the platform to one external agent implementation.",
-  "non_goals": [
-    "Do not move orchestration ownership away from the hub.",
-    "Do not hard-couple core platform control logic to ml-intern internals.",
-    "Do not introduce silent or non-auditable auto-mitigation behavior."
-  ],
-  "architecture_constraints": [
-    "All routing, approval, loop-handling and context policies stay hub-governed.",
-    "Optional specialized workers remain bounded execution backends.",
-    "New control services must be reusable across CLI, task propose/execute, research and evolution paths."
-  ],
+  "goal": "Users should be able to manage persistent personal operating preferences and separate task/session-specific instruction overlays in a controlled, visible and auditable way.",
   "success_criteria": [
-    "Doom-loop detection works as a generic platform mechanism across task and tool execution paths.",
-    "Tool routing becomes a clearer reusable subsystem instead of scattered per-path logic.",
-    "Sensitive operations use one consistent approval model across Ananta subsystems.",
-    "Context collection, budgeting and compaction are handled by a clearer shared context management layer.",
-    "ml-intern can be evaluated or integrated only as an optional specialized worker/backend, not as a competing control plane."
+    "A persistent user profile prompt exists and can be managed safely.",
+    "A task or session instruction overlay exists separately from the persistent user profile.",
+    "The precedence between governance, blueprint/template logic, user profile and task overlay is explicit.",
+    "User-defined instructions cannot bypass governance, approval or security policy.",
+    "The resulting instruction stack is understandable, reviewable and auditable."
   ],
-  "milestones": [
+  "groups": [
     {
-      "id": "GAC-M1",
-      "title": "Control foundation and loop safety",
-      "target_outcome": "Shared control architecture and generic doom-loop handling are defined and implemented."
+      "id": "UPT-FOUNDATION",
+      "priority": "P0",
+      "title": "Grundmodell und Prioritaetslogik",
+      "tasks": [
+        {
+          "id": "UPT-T01",
+          "title": "Instruction layer model define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A clear layer model is defined for system/governance, blueprint or role template, user profile prompt, task/session overlay and current goal input.",
+            "The model is short enough to explain in docs and UI.",
+            "The model avoids one giant merged prompt concept."
+          ]
+        },
+        {
+          "id": "UPT-T02",
+          "title": "Precedence and conflict rules define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A precedence order is defined for all instruction layers.",
+            "Conflicts between user profile and task overlay are handled predictably.",
+            "Governance and security policy remain highest priority and cannot be overridden by user layers."
+          ]
+        },
+        {
+          "id": "UPT-T03",
+          "title": "Allowed versus forbidden user influence scope define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system defines what user prompts may influence such as style, language, detail level or working mode.",
+            "The system defines what they may not override such as approval requirements, security policy and hard governance constraints.",
+            "The scope is explicit and testable."
+          ]
+        },
+        {
+          "id": "UPT-T04",
+          "title": "Terminology cleanup decide",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "A decision is made whether these features are named user profile prompt, preference profile, operating profile, task overlay or similar.",
+            "The chosen terminology is consistent across backend, UI, docs and API.",
+            "The naming reduces confusion with role templates or blueprint templates."
+          ]
+        }
+      ]
     },
     {
-      "id": "GAC-M2",
-      "title": "Routing and approval unification",
-      "target_outcome": "Reusable tool routing and approval services govern execution decisions consistently."
+      "id": "UPT-USER-PROFILE",
+      "priority": "P0",
+      "title": "Persistenter User Profile Prompt",
+      "tasks": [
+        {
+          "id": "UPT-T05",
+          "title": "User profile prompt data model add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A persistent user profile prompt model exists in the backend.",
+            "The model can store prompt content, metadata, owner and active/inactive state.",
+            "The model is compatible with future multi-profile support."
+          ]
+        },
+        {
+          "id": "UPT-T06",
+          "title": "Multiple user profiles support design",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The design supports more than one profile per user such as coding, research or strict mode.",
+            "One profile can be marked default.",
+            "The design remains simple enough for first implementation."
+          ]
+        },
+        {
+          "id": "UPT-T07",
+          "title": "CRUD API for user profiles implement",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Users can create, read, update and select their own profile prompts through an API.",
+            "Permissions prevent users from editing others' profile prompts unless explicitly allowed.",
+            "The API behavior is validated by tests."
+          ]
+        },
+        {
+          "id": "UPT-T08",
+          "title": "Safe defaults for empty user profile define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system behaves predictably when no user profile prompt exists.",
+            "Empty profile state does not degrade into strange hidden defaults.",
+            "The default is documented."
+          ]
+        },
+        {
+          "id": "UPT-T09",
+          "title": "Profile examples package add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "A few safe example profiles exist such as concise coding, research helper or review-first.",
+            "Examples do not encourage bypassing governance.",
+            "Examples help users understand the feature."
+          ]
+        }
+      ]
     },
     {
-      "id": "GAC-M3",
-      "title": "Context management and observability",
-      "target_outcome": "Shared context manager, diagnostics and rollout guardrails are operational."
+      "id": "UPT-TASK-OVERLAY",
+      "priority": "P0",
+      "title": "Task Session Usage Overlay",
+      "tasks": [
+        {
+          "id": "UPT-T10",
+          "title": "Task or session overlay data model add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A distinct data model exists for a task/session/usage overlay.",
+            "The model is separate from the persistent user profile prompt.",
+            "The model can be attached to goal, task, session or explicit usage flow."
+          ]
+        },
+        {
+          "id": "UPT-T11",
+          "title": "Overlay attachment points define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system defines which objects can carry an overlay such as goal, task, session or project context.",
+            "The attachment rules are explicit and avoid ambiguity.",
+            "The first release supports a practical subset of attachment points."
+          ]
+        },
+        {
+          "id": "UPT-T12",
+          "title": "Overlay lifecycle define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system defines when an overlay begins, expires and stops applying.",
+            "The lifecycle distinguishes one-shot use, session use and project-scoped use.",
+            "Overlay lifetime is visible to the user."
+          ]
+        },
+        {
+          "id": "UPT-T13",
+          "title": "CRUD and selection API for overlays implement",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The backend supports creating, reading, updating and attaching overlays.",
+            "The API clearly distinguishes overlays from user profiles.",
+            "The flow is testable and auditable."
+          ]
+        },
+        {
+          "id": "UPT-T14",
+          "title": "Overlay visibility in task and goal read models add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Relevant read models expose which overlay is active for a goal, task or session.",
+            "Users can see that an overlay is in effect.",
+            "The output is understandable and not too verbose."
+          ]
+        }
+      ]
     },
     {
-      "id": "GAC-M4",
-      "title": "Optional specialized worker boundary",
-      "target_outcome": "ml-intern fit and adapter boundaries are defined without changing the control plane."
+      "id": "UPT-GOVERNANCE-SAFETY",
+      "priority": "P0",
+      "title": "Governance und Sicherheitsgrenzen",
+      "tasks": [
+        {
+          "id": "UPT-T15",
+          "title": "Governance override prevention implement",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "User profile prompts and task overlays cannot override approval, policy or hard safety constraints.",
+            "The enforcement is backend-side and not only UI-side.",
+            "Violations are blocked explicitly."
+          ]
+        },
+        {
+          "id": "UPT-T16",
+          "title": "Prompt layer validation rules add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system validates profile prompts and overlays for forbidden directives where applicable.",
+            "Validation behavior is explicit and not surprising.",
+            "The validation can evolve without breaking the full model."
+          ]
+        },
+        {
+          "id": "UPT-T17",
+          "title": "Audit integration for profile and overlay usage add",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "Audit records show whether a user profile prompt or task overlay influenced an operation.",
+            "Audit output identifies which profile or overlay was active.",
+            "The feature supports later incident reconstruction."
+          ]
+        },
+        {
+          "id": "UPT-T18",
+          "title": "Redaction strategy for stored prompts define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Stored user profile prompts and overlays follow a redaction/storage policy where needed.",
+            "Sensitive content is handled safely in logs and audit views.",
+            "The policy is aligned with broader Ananta redaction behavior."
+          ]
+        },
+        {
+          "id": "UPT-T19",
+          "title": "Policy conflict feedback UX define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Users receive understandable feedback when their profile or overlay conflicts with governance.",
+            "The feedback is helpful rather than cryptic.",
+            "The UX does not imply that policy can simply be ignored."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UPT-RUNTIME-ASSEMBLY",
+      "priority": "P0",
+      "title": "Laufzeit-Zusammenbau der Instruction Layers",
+      "tasks": [
+        {
+          "id": "UPT-T20",
+          "title": "Instruction assembly service implement",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A central service assembles the active instruction stack from all relevant layers.",
+            "Assembly does not happen ad hoc in many places.",
+            "The service is testable and explainable."
+          ]
+        },
+        {
+          "id": "UPT-T21",
+          "title": "Layer merge strategy define",
+          "status": "todo",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system defines whether layers are concatenated, normalized, structured or merged in another controlled way.",
+            "The merge strategy preserves governance precedence.",
+            "The result avoids chaotic prompt stacking."
+          ]
+        },
+        {
+          "id": "UPT-T22",
+          "title": "Structured instruction rendering add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The assembled instruction set can be represented in a structured internal form before final rendering.",
+            "The approach supports future explainability and diagnostics.",
+            "The structure remains practical."
+          ]
+        },
+        {
+          "id": "UPT-T23",
+          "title": "Context-aware scope selection add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The runtime can decide which user profile and which overlay apply in a given execution context.",
+            "The choice is deterministic and visible in diagnostics.",
+            "The logic handles missing or ambiguous context cleanly."
+          ]
+        },
+        {
+          "id": "UPT-T24",
+          "title": "Instruction stack diagnostics add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Operators or advanced users can inspect the effective instruction stack summary.",
+            "The diagnostics show which layers were applied and which were suppressed.",
+            "The output remains safe and readable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UPT-UI-AND-UX",
+      "priority": "P1",
+      "title": "UI und Nutzbarkeit",
+      "tasks": [
+        {
+          "id": "UPT-T25",
+          "title": "User profile management UI add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The UI allows users to create and manage their persistent profiles.",
+            "The UI makes profile purpose and active/default state clear.",
+            "The UI remains simple enough for real use."
+          ]
+        },
+        {
+          "id": "UPT-T26",
+          "title": "Task overlay editor UI add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Users can attach an overlay while creating or editing a goal/task/session where applicable.",
+            "The UI clearly distinguishes overlay from persistent user profile.",
+            "The active overlay is visible."
+          ]
+        },
+        {
+          "id": "UPT-T27",
+          "title": "Effective instruction summary UI add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The user can inspect a summary of the effective instruction stack before or during execution.",
+            "The summary is understandable without showing raw internals only.",
+            "The UI helps build trust."
+          ]
+        },
+        {
+          "id": "UPT-T28",
+          "title": "Profile and overlay templates or presets add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "The UI can offer a few presets to accelerate adoption.",
+            "Presets are safe and aligned with product use cases.",
+            "Users can adapt them rather than starting from scratch every time."
+          ]
+        },
+        {
+          "id": "UPT-T29",
+          "title": "First-run guidance for user profile prompts add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "New users get a lightweight explanation of the difference between profile and overlay.",
+            "The guidance helps avoid misuse.",
+            "The first-run experience stays compact."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UPT-INTEGRATION-WITH-BLUEPRINTS",
+      "priority": "P1",
+      "title": "Integration mit Blueprints Templates Goals",
+      "tasks": [
+        {
+          "id": "UPT-T30",
+          "title": "Blueprint interaction rules define",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system defines how user profiles and overlays interact with blueprints and role templates.",
+            "The rules avoid ambiguity between product-level defaults and user-level preferences.",
+            "The interaction model is documented."
+          ]
+        },
+        {
+          "id": "UPT-T31",
+          "title": "Goal input schema integration add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Relevant goal input flows can carry overlay or profile selection explicitly.",
+            "The schema remains usable and not bloated.",
+            "The change is reflected consistently in API and UI."
+          ]
+        },
+        {
+          "id": "UPT-T32",
+          "title": "Role template compatibility checks add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "The system can detect when a user profile or overlay is incompatible with a role or template context.",
+            "The system can warn or block appropriately.",
+            "The behavior is understandable to admins and users."
+          ]
+        },
+        {
+          "id": "UPT-T33",
+          "title": "Task and session reuse flows add",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "Existing tasks or sessions can reuse an existing overlay where appropriate.",
+            "Reuse remains explicit rather than magical.",
+            "The feature supports recurring workflows."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UPT-TESTING-DOCS",
+      "priority": "P1",
+      "title": "Tests Doku Rollout",
+      "tasks": [
+        {
+          "id": "UPT-T34",
+          "title": "Unit and contract tests for instruction precedence add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Tests prove precedence and conflict rules across all instruction layers.",
+            "Governance override prevention is covered explicitly.",
+            "Regression risk is reduced."
+          ]
+        },
+        {
+          "id": "UPT-T35",
+          "title": "Integration tests for profile plus overlay flows add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "End-to-end tests cover profile selection, overlay attachment and resulting execution behavior.",
+            "The tests verify that effective instructions are applied correctly.",
+            "The suite includes negative cases."
+          ]
+        },
+        {
+          "id": "UPT-T36",
+          "title": "Authoring guide for user profiles and overlays write",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "A guide explains how to write useful profile prompts and overlays.",
+            "The guide includes safe examples and anti-patterns.",
+            "The guide clearly explains that governance remains dominant."
+          ]
+        },
+        {
+          "id": "UPT-T37",
+          "title": "Golden path example for persistent profile plus session overlay add",
+          "status": "todo",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "There is one official example showing how a user profile and a task/session overlay work together.",
+            "The example is reproducible.",
+            "The example makes the feature tangible."
+          ]
+        },
+        {
+          "id": "UPT-T38",
+          "title": "Migration and rollout plan define",
+          "status": "todo",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "A rollout plan exists for introducing the feature without confusing current users.",
+            "The plan covers defaults, UI exposure and backward compatibility.",
+            "The plan avoids sudden hidden behavior changes."
+          ]
+        }
+      ]
     }
   ],
-  "tasks": [
-    {
-      "id": "GAC-T01",
-      "title": "Cross-cutting control layer design define",
-      "status": "done",
-      "priority": "P0",
-      "phase": "foundation_model",
-      "depends_on": [],
-      "acceptance_criteria": [
-        "A design note explains how doom-loop detection, tool routing, approval checks and context management fit into Ananta as platform concerns.",
-        "The design states clearly which logic belongs to hub, execution backends and optional specialized workers.",
-        "The design avoids creating a second orchestration system inside a worker."
-      ]
-    },
-    {
-      "id": "GAC-T02",
-      "title": "Doom-loop detection target model define",
-      "status": "done",
-      "priority": "P0",
-      "phase": "loop_control",
-      "depends_on": ["GAC-T01"],
-      "acceptance_criteria": [
-        "A target model defines what counts as a doom loop across tasks, tools, retries and repeated execution patterns.",
-        "The model covers repeated tool calls, repeated failures, no-progress loops and oscillating retry patterns.",
-        "The model defines escalating outcomes such as warn, inject correction, require review, pause and abort."
-      ]
-    },
-    {
-      "id": "GAC-T03",
-      "title": "Loop signal collection add",
-      "status": "done",
-      "priority": "P0",
-      "phase": "loop_control",
-      "depends_on": ["GAC-T02"],
-      "acceptance_criteria": [
-        "Execution paths emit enough structured signals to detect repeated patterns.",
-        "Signals include task id, trace id, tool/backend name, action type, failure type and iteration count.",
-        "The collected signals are reusable across CLI, DeerFlow, Evolver and future workers."
-      ]
-    },
-    {
-      "id": "GAC-T04",
-      "title": "Generic doom-loop detector implement",
-      "status": "done",
-      "priority": "P0",
-      "phase": "loop_control",
-      "depends_on": ["GAC-T02", "GAC-T03"],
-      "acceptance_criteria": [
-        "A reusable detector can evaluate repeated execution patterns across runs.",
-        "Detection works without being tied to a single backend implementation.",
-        "The detector can emit structured outcomes for routing, review or policy handling."
-      ]
-    },
-    {
-      "id": "GAC-T05",
-      "title": "Loop handling policy add",
-      "status": "done",
-      "priority": "P0",
-      "phase": "loop_control",
-      "depends_on": ["GAC-T04"],
-      "acceptance_criteria": [
-        "A policy defines how strongly different loop classes are handled.",
-        "The policy supports conservative defaults for local and admin-safe operation.",
-        "Loop handling is visible in diagnostics and audit trails."
-      ]
-    },
-    {
-      "id": "GAC-T06",
-      "title": "Corrective prompt or corrective context injection define",
-      "status": "done",
-      "priority": "P1",
-      "phase": "loop_control",
-      "depends_on": ["GAC-T04", "GAC-T05"],
-      "acceptance_criteria": [
-        "The system can optionally inject corrective guidance when a loop is detected.",
-        "Correction behavior is bounded and configurable.",
-        "The mechanism never hides that loop mitigation occurred."
-      ]
-    },
-    {
-      "id": "GAC-T07",
-      "title": "ToolRouter target architecture define",
-      "status": "done",
-      "priority": "P0",
-      "phase": "tool_routing",
-      "depends_on": ["GAC-T01"],
-      "acceptance_criteria": [
-        "A dedicated tool routing concept is documented for Ananta.",
-        "The design explains how routing decisions use task kind, capabilities, policy, governance and backend availability.",
-        "The design makes clear that routing stays hub-controlled."
-      ]
-    },
-    {
-      "id": "GAC-T08",
-      "title": "Tool capability catalog normalize",
-      "status": "done",
-      "priority": "P0",
-      "phase": "tool_routing",
-      "depends_on": ["GAC-T07"],
-      "acceptance_criteria": [
-        "Available tools/backends expose normalized capability metadata.",
-        "Capabilities can distinguish research, patching, shell execution, planning, review, admin repair and other classes.",
-        "The catalog can be consumed by routing and approval logic."
-      ]
-    },
-    {
-      "id": "GAC-T09",
-      "title": "Reusable tool routing service implement",
-      "status": "done",
-      "priority": "P0",
-      "phase": "tool_routing",
-      "depends_on": ["GAC-T07", "GAC-T08"],
-      "acceptance_criteria": [
-        "Tool and backend selection is available through a reusable service rather than scattered conditional logic.",
-        "The router can explain why a tool/backend was chosen or rejected.",
-        "The router supports fallbacks without bypassing governance."
-      ]
-    },
-    {
-      "id": "GAC-T10",
-      "title": "Routing diagnostics and decision traces expose",
-      "status": "done",
-      "priority": "P1",
-      "phase": "tool_routing",
-      "depends_on": ["GAC-T09"],
-      "acceptance_criteria": [
-        "Routing decisions can be inspected through existing trace/read-model surfaces.",
-        "The output includes chosen tool/backend, alternatives and key reasons.",
-        "This remains readable and does not become debug noise for standard users."
-      ]
-    },
-    {
-      "id": "GAC-T11",
-      "title": "Unified approval model define",
-      "status": "done",
-      "priority": "P0",
-      "phase": "approval_governance",
-      "depends_on": ["GAC-T01"],
-      "acceptance_criteria": [
-        "A single approval model defines low-risk, confirm-required and blocked action classes.",
-        "The model applies consistently to shell execution, file mutation, service mutation, install/remove operations, evolver apply and future repair steps.",
-        "The approval model is compatible with current governance modes."
-      ]
-    },
-    {
-      "id": "GAC-T12",
-      "title": "Approval check service implement",
-      "status": "done",
-      "priority": "P0",
-      "phase": "approval_governance",
-      "depends_on": ["GAC-T11"],
-      "acceptance_criteria": [
-        "A reusable approval service can evaluate proposed actions before execution.",
-        "The service returns structured reasons and required confirmation level.",
-        "Subsystems stop duplicating ad hoc approval checks."
-      ]
-    },
-    {
-      "id": "GAC-T13",
-      "title": "Approval state UX/read-model surface add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "approval_governance",
-      "depends_on": ["GAC-T12"],
-      "acceptance_criteria": [
-        "Pending approvals, blocked actions and approved actions are visible in relevant views or artifacts.",
-        "Users can understand what is waiting for confirmation.",
-        "The system remains explicit and auditable."
-      ]
-    },
-    {
-      "id": "GAC-T14",
-      "title": "ContextManager target model define",
-      "status": "done",
-      "priority": "P0",
-      "phase": "context_management",
-      "depends_on": ["GAC-T01"],
-      "acceptance_criteria": [
-        "A shared context management model is documented for Ananta.",
-        "The model explains how result memory, task neighborhood, repo retrieval, research artifacts and future wiki knowledge are assembled.",
-        "The model defines context budgets, priorities and compaction behavior."
-      ]
-    },
-    {
-      "id": "GAC-T15",
-      "title": "Shared context budget enforcement add",
-      "status": "done",
-      "priority": "P0",
-      "phase": "context_management",
-      "depends_on": ["GAC-T14"],
-      "acceptance_criteria": [
-        "Context assembly enforces budgets instead of blindly appending more material.",
-        "Budget logic can reserve space per source or priority class.",
-        "Budget use is observable for diagnostics."
-      ]
-    },
-    {
-      "id": "GAC-T16",
-      "title": "Auto-compaction strategy implement",
-      "status": "done",
-      "priority": "P1",
-      "phase": "context_management",
-      "depends_on": ["GAC-T14", "GAC-T15"],
-      "acceptance_criteria": [
-        "The platform can compact older or lower-priority context into bounded summaries or retrieval documents.",
-        "Compaction preserves provenance and does not silently discard critical state.",
-        "Compaction is reusable across multi-turn flows."
-      ]
-    },
-    {
-      "id": "GAC-T17",
-      "title": "Context source prioritization rules define",
-      "status": "done",
-      "priority": "P1",
-      "phase": "context_management",
-      "depends_on": ["GAC-T14"],
-      "acceptance_criteria": [
-        "A rule set defines how repo context, task memory, artifacts, research and future wiki sources are prioritized.",
-        "The rules reduce context pollution and repeated irrelevance.",
-        "The prioritization is explainable in diagnostics."
-      ]
-    },
-    {
-      "id": "GAC-T18",
-      "title": "ContextManager service expose to execution paths",
-      "status": "done",
-      "priority": "P1",
-      "phase": "context_management",
-      "depends_on": ["GAC-T14", "GAC-T15", "GAC-T17"],
-      "acceptance_criteria": [
-        "Relevant execution paths consume the same context manager service or contract.",
-        "The service is usable from CLI, task propose/execute, research flows and future repair flows.",
-        "Existing retrieval functionality is preserved or improved."
-      ]
-    },
-    {
-      "id": "GAC-T19",
-      "title": "Observability for loop routing approval and context add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "observability_and_rollout",
-      "depends_on": ["GAC-T05", "GAC-T09", "GAC-T12", "GAC-T18"],
-      "acceptance_criteria": [
-        "Metrics or read-model summaries cover loop detections, approval blocks, routing choices and context compaction outcomes.",
-        "Operators can see which subsystem is misbehaving.",
-        "The observability data remains structured and low-noise."
-      ]
-    },
-    {
-      "id": "GAC-T20",
-      "title": "Contract tests for generic control services add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "observability_and_rollout",
-      "depends_on": ["GAC-T05", "GAC-T09", "GAC-T12", "GAC-T16"],
-      "acceptance_criteria": [
-        "Tests protect core behavior for doom-loop detection, approval classification, routing output and context compaction.",
-        "The services can evolve without silent regression.",
-        "The tests do not depend on one specific external worker."
-      ]
-    },
-    {
-      "id": "GAC-T21",
-      "title": "Golden path documentation for safer agentic loops add",
-      "status": "done",
-      "priority": "P1",
-      "phase": "observability_and_rollout",
-      "depends_on": ["GAC-T10", "GAC-T13", "GAC-T19"],
-      "acceptance_criteria": [
-        "There is one documented standard path showing routing, approval, context assembly and loop protection in action.",
-        "The example is understandable for reviewers.",
-        "The path demonstrates the value of the generic control layer."
-      ]
-    },
-    {
-      "id": "GAC-T22",
-      "title": "ml-intern fit assessment document",
-      "status": "done",
-      "priority": "P1",
-      "phase": "optional_ml_intern",
-      "depends_on": ["GAC-T01"],
-      "acceptance_criteria": [
-        "A short document evaluates ml-intern as an optional specialized worker/backend for Ananta.",
-        "The evaluation distinguishes reusable ideas from direct code reuse.",
-        "The document explains why ml-intern should not become a second control plane inside Ananta."
-      ]
-    },
-    {
-      "id": "GAC-T23",
-      "title": "Optional ml-intern worker adapter boundary define",
-      "status": "done",
-      "priority": "P2",
-      "phase": "optional_ml_intern",
-      "depends_on": ["GAC-T22"],
-      "acceptance_criteria": [
-        "A worker adapter boundary is defined for ml-intern-style specialized execution.",
-        "The boundary limits what Ananta delegates and what remains hub-owned.",
-        "The adapter model avoids leaking external worker autonomy into platform governance."
-      ]
-    },
-    {
-      "id": "GAC-T24",
-      "title": "ml-intern capability profile model add",
-      "status": "done",
-      "priority": "P2",
-      "phase": "optional_ml_intern",
-      "depends_on": ["GAC-T08", "GAC-T09", "GAC-T12", "GAC-T23"],
-      "acceptance_criteria": [
-        "If enabled, ml-intern can be described through a capability profile such as ML research, docs, datasets and code support.",
-        "The profile is visible to routing and approval logic.",
-        "The profile makes it clear that this worker is specialized, not general-purpose default execution."
-      ]
-    },
-    {
-      "id": "GAC-T25",
-      "title": "Optional ml-intern backend spike implement",
-      "status": "done",
-      "priority": "P3",
-      "phase": "optional_ml_intern",
-      "depends_on": ["GAC-T23", "GAC-T24"],
-      "acceptance_criteria": [
-        "A minimal spike proves whether ml-intern can be invoked as a bounded external worker/backend.",
-        "The spike does not bypass Ananta governance or context rules.",
-        "The spike can be discarded cleanly if maintenance cost is too high."
-      ]
-    },
-    {
-      "id": "GAC-T26",
-      "title": "Future specialized worker guidance isolate",
-      "status": "done",
-      "priority": "P3",
-      "phase": "optional_ml_intern",
-      "depends_on": ["GAC-T22"],
-      "acceptance_criteria": [
-        "The architecture leaves room for future specialized workers beyond ml-intern.",
-        "The guidance keeps Ananta generic and worker-agnostic.",
-        "This roadmap remains separate from the core control-layer rollout."
-      ]
-    }
+  "execution_order_summary": [
+    "UPT-FOUNDATION first",
+    "Then UPT-USER-PROFILE, UPT-TASK-OVERLAY and UPT-GOVERNANCE-SAFETY",
+    "Then UPT-RUNTIME-ASSEMBLY",
+    "Then UPT-UI-AND-UX and UPT-INTEGRATION-WITH-BLUEPRINTS",
+    "Finish with UPT-TESTING-DOCS"
+  ],
+  "critical_path_tasks": [
+    "UPT-T01",
+    "UPT-T02",
+    "UPT-T03",
+    "UPT-T05",
+    "UPT-T07",
+    "UPT-T10",
+    "UPT-T11",
+    "UPT-T13",
+    "UPT-T15",
+    "UPT-T17",
+    "UPT-T20",
+    "UPT-T21",
+    "UPT-T23",
+    "UPT-T27",
+    "UPT-T34",
+    "UPT-T35",
+    "UPT-T37"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T03:44:00+02:00",
-    "total": 26,
+    "updated_at": "2026-04-24T09:14:50+02:00",
+    "total": 38,
     "by_status": {
-      "todo": 0,
+      "todo": 38,
       "in_progress": 0,
       "blocked": 0,
-      "done": 26
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 12,
-      "P1": 10,
-      "P2": 2,
-      "P3": 2
+      "P1": 20,
+      "P2": 6,
+      "P3": 0
     },
-    "by_phase": {
-      "foundation_model": {
-        "total": 1,
-        "done": 1,
-        "todo": 0
-      },
-      "loop_control": {
-        "total": 5,
-        "done": 5,
-        "todo": 0
-      },
-      "tool_routing": {
+    "by_group": {
+      "UPT-FOUNDATION": {
         "total": 4,
-        "done": 4,
-        "todo": 0
+        "done": 0,
+        "todo": 4
       },
-      "approval_governance": {
-        "total": 3,
-        "done": 3,
-        "todo": 0
-      },
-      "context_management": {
+      "UPT-USER-PROFILE": {
         "total": 5,
-        "done": 5,
-        "todo": 0
+        "done": 0,
+        "todo": 5
       },
-      "observability_and_rollout": {
-        "total": 3,
-        "done": 3,
-        "todo": 0
-      },
-      "optional_ml_intern": {
+      "UPT-TASK-OVERLAY": {
         "total": 5,
-        "done": 5,
-        "todo": 0
+        "done": 0,
+        "todo": 5
+      },
+      "UPT-GOVERNANCE-SAFETY": {
+        "total": 5,
+        "done": 0,
+        "todo": 5
+      },
+      "UPT-RUNTIME-ASSEMBLY": {
+        "total": 5,
+        "done": 0,
+        "todo": 5
+      },
+      "UPT-UI-AND-UX": {
+        "total": 5,
+        "done": 0,
+        "todo": 5
+      },
+      "UPT-INTEGRATION-WITH-BLUEPRINTS": {
+        "total": 4,
+        "done": 0,
+        "todo": 4
+      },
+      "UPT-TESTING-DOCS": {
+        "total": 5,
+        "done": 0,
+        "todo": 5
       }
     },
-    "recommended_first_bundle": []
+    "critical_path": {
+      "total": 17,
+      "done": 0,
+      "remaining": 17
+    }
   }
 }
