@@ -1,0 +1,105 @@
+{
+  "schema": "client_surface_entrypoint_audit_v1",
+  "repository_root": "/mnt/c/Users/pst/IdeaProjects/ananta",
+  "surfaces": {
+    "eclipse_plugin": {
+      "classification": "foundation_only",
+      "runtime_evidence": [],
+      "foundation_evidence": [
+        "agent/services/eclipse_plugin_adapter_foundation_service.py",
+        "tests/test_eclipse_plugin_adapter_foundation_service.py"
+      ],
+      "docs_evidence": [
+        "docs/eclipse-plugin-adapter-foundation.md",
+        "docs/eclipse-plugin-views-extension-foundation.md"
+      ]
+    },
+    "eclipse_views_extension": {
+      "classification": "foundation_only",
+      "runtime_evidence": [],
+      "foundation_evidence": [
+        "agent/services/eclipse_plugin_adapter_foundation_service.py",
+        "tests/test_eclipse_plugin_adapter_foundation_service.py"
+      ],
+      "docs_evidence": [
+        "docs/eclipse-plugin-views-extension-foundation.md"
+      ]
+    },
+    "nvim_plugin": {
+      "classification": "real_implementation",
+      "runtime_evidence": [
+        "client_surfaces/nvim_runtime/lua/ananta/client.lua",
+        "client_surfaces/nvim_runtime/lua/ananta/context.lua",
+        "client_surfaces/nvim_runtime/lua/ananta/init.lua",
+        "client_surfaces/nvim_runtime/lua/ananta/render.lua",
+        "client_surfaces/nvim_runtime/plugin/ananta.vim",
+        "scripts/smoke_nvim_runtime.py"
+      ],
+      "foundation_evidence": [
+        "agent/services/editor_tui_surface_foundation_service.py",
+        "tests/test_editor_tui_surface_foundation_service.py"
+      ],
+      "docs_evidence": [
+        "docs/editor-tui-foundation.md",
+        "docs/nvim-plugin-user-guide.md"
+      ]
+    },
+    "tui_surface": {
+      "classification": "real_implementation",
+      "runtime_evidence": [
+        "client_surfaces/tui_runtime/ananta_tui/__main__.py",
+        "client_surfaces/tui_runtime/ananta_tui/app.py"
+      ],
+      "foundation_evidence": [
+        "agent/services/editor_tui_surface_foundation_service.py",
+        "agent/tui_contract.py",
+        "tests/test_editor_tui_surface_foundation_service.py",
+        "tests/test_tui_interaction_contract.py"
+      ],
+      "docs_evidence": [
+        "docs/editor-tui-foundation.md",
+        "docs/editor-tui-smoke-checklists.md",
+        "docs/tui-user-operator-guide.md"
+      ]
+    },
+    "vim_plugin": {
+      "classification": "foundation_only",
+      "runtime_evidence": [],
+      "foundation_evidence": [
+        "agent/services/editor_tui_surface_foundation_service.py"
+      ],
+      "docs_evidence": [
+        "docs/editor-tui-foundation.md",
+        "docs/plugin-vs-tui-usage-guide.md"
+      ]
+    }
+  },
+  "surface_status": {
+    "tui_surface": "runtime_mvp",
+    "nvim_plugin": "runtime_mvp",
+    "vim_plugin": "deferred",
+    "eclipse_plugin": "blocked",
+    "eclipse_views_extension": "blocked"
+  },
+  "done_claims": {
+    "tui_surface": [
+      "CRT-T09",
+      "CRT-T10",
+      "CRT-T11",
+      "CRT-T12",
+      "CRT-T13"
+    ],
+    "eclipse_plugin": [],
+    "eclipse_views_extension": [],
+    "nvim_plugin": [
+      "CRT-T14",
+      "CRT-T15",
+      "CRT-T16",
+      "CRT-T17",
+      "CRT-T19"
+    ],
+    "vim_plugin": []
+  },
+  "blocking_warnings": [],
+  "ok": true
+}
