@@ -10,17 +10,16 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config_defaults import sync_runtime_state
 from agent.db_models import ConfigDB
-from agent.governance_modes import governance_mode_catalog
-from agent.governance_modes import resolve_governance_mode
+from agent.governance_modes import governance_mode_catalog, resolve_governance_mode
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
+from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
-from agent.services.repository_registry import get_repository_registry
 from agent.services.template_variable_registry import (
     build_template_variable_registry_payload,
     resolve_allowed_template_variables,
@@ -285,7 +284,8 @@ def set_config():
             for profile_id, profile_cfg in (specialized_cfg.get("profiles") or {}).items():
                 if not isinstance(profile_cfg, dict):
                     continue
-                previous_profile = merged_profiles.get(profile_id) if isinstance(merged_profiles.get(profile_id), dict) else {}
+                existing_profile = merged_profiles.get(profile_id)
+                previous_profile = existing_profile if isinstance(existing_profile, dict) else {}
                 merged_profiles[profile_id] = {**previous_profile, **profile_cfg}
             merged_specialized["profiles"] = merged_profiles
         elif isinstance(specialized_cfg.get("profiles"), dict):

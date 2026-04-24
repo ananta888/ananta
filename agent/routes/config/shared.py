@@ -156,7 +156,10 @@ def normalize_specialized_worker_profiles_config(value: dict | None) -> dict:
         capability_classes: list[str] = []
         for raw_class in list(raw_profile.get("capability_classes") or []):
             capability_class = str(raw_class or "").strip().lower()
-            if capability_class in _SPECIALIZED_PROFILE_CAPABILITY_CLASSES and capability_class not in capability_classes:
+            if (
+                capability_class in _SPECIALIZED_PROFILE_CAPABILITY_CLASSES
+                and capability_class not in capability_classes
+            ):
                 capability_classes.append(capability_class)
         if not capability_classes:
             capability_classes = ["planning"]

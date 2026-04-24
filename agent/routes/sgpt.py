@@ -16,8 +16,13 @@ from agent.common.sgpt import (
 )
 from agent.config import settings
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
-from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
-from agent.models import SgptSessionCreateRequest, SgptSessionTurnRequest
+from agent.models import (
+    SgptContextRequest,
+    SgptExecuteRequest,
+    SgptSessionCreateRequest,
+    SgptSessionTurnRequest,
+    SgptSourceRequest,
+)
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import concurrent.futures
 import inspect
-import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,20 +21,32 @@ from agent.common.utils.structured_action_utils import (
 )
 from agent.config import settings
 from agent.model_selection import normalize_legacy_model_name
-from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
 from agent.models import TaskStepExecuteRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
-from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
-from agent.security_risk import classify_command_risk, classify_tool_calls_risk, has_file_access_signal, has_terminal_signal, max_risk_level
-from agent.services.repository_registry import get_repository_registry
+from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
+from agent.runtime_policy import (
+    build_trace_record,
+    normalize_task_kind,
+    resolve_cli_backend,
+    review_policy,
+    runtime_routing_config,
+)
+from agent.security_risk import (
+    classify_command_risk,
+    classify_tool_calls_risk,
+    has_file_access_signal,
+    has_terminal_signal,
+    max_risk_level,
+)
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service
 from agent.services.live_terminal_session_service import get_live_terminal_session_service
+from agent.services.repository_registry import get_repository_registry
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
-from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
+from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
