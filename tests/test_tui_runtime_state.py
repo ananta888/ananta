@@ -19,6 +19,8 @@ def test_tui_view_state_sanitizes_stale_selection() -> None:
         team_type_id="TT-1",
         instruction_profile_id="IP-1",
         instruction_overlay_id="IO-1",
+        approval_id="AP-1",
+        repair_session_id="R-1",
     )
     sanitized = state.sanitize_selection(
         goal_ids={"G-1"},
@@ -31,6 +33,8 @@ def test_tui_view_state_sanitizes_stale_selection() -> None:
         team_type_ids={"TT-2"},
         instruction_profile_ids=set(),
         instruction_overlay_ids={"IO-2"},
+        approval_ids={"AP-2"},
+        repair_session_ids={"R-2"},
     )
 
     assert sanitized.selected_goal_id == "G-1"
@@ -43,6 +47,8 @@ def test_tui_view_state_sanitizes_stale_selection() -> None:
     assert sanitized.selected_team_type_id is None
     assert sanitized.selected_instruction_profile_id is None
     assert sanitized.selected_instruction_overlay_id is None
+    assert sanitized.selected_approval_id is None
+    assert sanitized.selected_repair_session_id is None
 
 
 def test_tui_view_state_compact_mode_switches_for_small_width() -> None:
@@ -52,12 +58,20 @@ def test_tui_view_state_compact_mode_switches_for_small_width() -> None:
 
 
 def test_browser_fallback_snapshot_contains_selected_links() -> None:
-    state = TuiViewState().with_selection(goal_id="G-1", task_id="T-1", artifact_id="A-1")
+    state = TuiViewState().with_selection(
+        goal_id="G-1",
+        task_id="T-1",
+        artifact_id="A-1",
+        approval_id="AP-1",
+        repair_session_id="R-1",
+    )
     snapshot = build_browser_fallback_snapshot("http://localhost:8080", state)
     links = snapshot["links"]
     assert links["selected_goal"] == "http://localhost:8080/goals/G-1"
     assert links["selected_task"] == "http://localhost:8080/tasks/T-1"
     assert links["selected_artifact"] == "http://localhost:8080/artifacts/A-1"
+    assert links["selected_approval"] == "http://localhost:8080/approvals/AP-1"
+    assert links["selected_repair"] == "http://localhost:8080/repairs/R-1"
 
 
 def test_browser_fallback_unknown_object_type_returns_none() -> None:

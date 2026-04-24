@@ -178,6 +178,12 @@ class AnantaApiClient:
     def execute_task_step(self, task_id: str, payload: dict[str, Any]) -> ClientResponse:
         return self._request_json("POST", f"/tasks/{task_id}/step/execute", payload=payload)
 
+    def review_task_proposal(self, task_id: str, *, action: str, comment: str | None = None) -> ClientResponse:
+        payload: dict[str, Any] = {"action": str(action or "").strip().lower()}
+        if comment:
+            payload["comment"] = comment
+        return self._request_json("POST", f"/tasks/{task_id}/review", payload=payload)
+
     def get_task_timeline(
         self,
         *,

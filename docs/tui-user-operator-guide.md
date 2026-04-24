@@ -3,6 +3,7 @@
 ## Purpose
 
 Use the TUI for operational workflows: task/artifact handling, approval/audit visibility, KRITIS-oriented monitoring, and repair review.
+Current frontend-parity status is tracked in `data/tui_frontend_parity_readiness_report.json`.
 
 ## Startup
 
@@ -52,6 +53,8 @@ For selected-object drilldown and guarded actions:
 - Team activation requires explicit `--confirm-team-action`.
 - Instruction profile/overlay selection and link/unlink actions require explicit `--confirm-instruction-action`.
 - Automation start/stop/tick and planner/trigger configuration require explicit `--confirm-automation-action`.
+- Approval review (`--approval-action approve|reject`) requires explicit `--confirm-approval-action`.
+- Repair actions stay non-implicit; terminal actions are preview/guard rails and complex execution remains browser-first.
 - Artifact upload is intentionally deferred in terminal and handled via browser fallback.
 
 ## Navigation
@@ -82,3 +85,11 @@ For selected-object drilldown and guarded actions:
 - Instruction view includes layer model, effective stack resolution, profile list, and overlay list.
 - Automation view exposes autopilot/planner/trigger status plus explicit guarded actions (`autopilot_start|stop|tick`, `configure_planner`, `configure_triggers`).
 - Audit view includes redacted message rendering, cross-entity references (task/goal/artifact/trace), and analyze summary.
+- Approval queue and repair view show pending/stale/denied states, reviewable proposals, and risk-oriented repair status fields.
+
+## Live refresh model (optional)
+
+- Manual refresh is always available by rerunning the command.
+- Optional polling mode is available with `--live-refresh-target`, `--live-refresh-cycles`, and `--live-refresh-interval-seconds`.
+- Supported targets: `system`, `task_logs`, `system_task_logs`.
+- Live refresh is explicitly bounded by cycles (stoppable), rate-limited by interval, and shows connection state per cycle.

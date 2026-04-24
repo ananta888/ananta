@@ -6,6 +6,7 @@ import sys
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
+from time import sleep
 from typing import Any, Sequence
 
 from client_surfaces.common.client_api import AnantaApiClient
@@ -194,6 +195,8 @@ class TuiRuntimeApp:
         selected_team_type_id: str | None = None,
         selected_instruction_profile_id: str | None = None,
         selected_instruction_overlay_id: str | None = None,
+        selected_approval_id: str | None = None,
+        selected_repair_session_id: str | None = None,
         safe_config_edits: Sequence[str] = (),
         apply_safe_config: bool = False,
         task_status_filter: str | None = None,
@@ -233,6 +236,15 @@ class TuiRuntimeApp:
         automation_action_json: str = "",
         confirm_automation_action: bool = False,
         audit_analyze_limit: int = 50,
+        approval_action: str = "",
+        approval_action_json: str = "",
+        confirm_approval_action: bool = False,
+        repair_action: str = "",
+        repair_action_json: str = "",
+        confirm_repair_action: bool = False,
+        live_refresh_cycles: int = 1,
+        live_refresh_interval_seconds: float = 1.0,
+        live_refresh_target: str = "",
     ) -> None:
         self._client = client
         self._state = (
@@ -250,6 +262,8 @@ class TuiRuntimeApp:
                 team_type_id=selected_team_type_id,
                 instruction_profile_id=selected_instruction_profile_id,
                 instruction_overlay_id=selected_instruction_overlay_id,
+                approval_id=selected_approval_id,
+                repair_session_id=selected_repair_session_id,
             )
         )
         self._safe_config_edits = tuple(safe_config_edits)
@@ -291,6 +305,15 @@ class TuiRuntimeApp:
         self._automation_action_json = automation_action_json
         self._confirm_automation_action = bool(confirm_automation_action)
         self._audit_analyze_limit = max(1, int(audit_analyze_limit))
+        self._approval_action = approval_action.strip().lower()
+        self._approval_action_json = approval_action_json
+        self._confirm_approval_action = bool(confirm_approval_action)
+        self._repair_action = repair_action.strip().lower()
+        self._repair_action_json = repair_action_json
+        self._confirm_repair_action = bool(confirm_repair_action)
+        self._live_refresh_cycles = max(1, int(live_refresh_cycles))
+        self._live_refresh_interval_seconds = max(0.2, float(live_refresh_interval_seconds))
+        self._live_refresh_target = live_refresh_target.strip().lower()
         self._api_map = build_hub_api_surface_map()
 
     def _apply_config_edits(self, config_response: ClientResponse) -> ConfigEditRuntime:
@@ -550,6 +573,108 @@ class TuiRuntimeApp:
             f"state={response.state} status={response.status_code}"
         )
 
+    def _run_approval_action(self, selected_task_id: str | None) -> str | None:
+        if not self._approval_action:
+            return None
+        payload, parse_err = _parse_json_object(self._approval_action_json, default={})
+        if parse_err:
+            return f"[APPROVAL-ACTION] rejected={parse_err}"
+        task_id = str(payload.get("task_id") or selected_task_id or "").strip()
+        if not task_id:
+            return "[APPROVAL-ACTION] rejected=selected_task_required"
+        if not self._confirm_approval_action:
+            return f"[APPROVAL-ACTION] preview_only action={self._approval_action} task_id={task_id}"
+
+        if self._approval_action not in {"approve", "reject"}:
+            return f"[APPROVAL-ACTION] rejected=unsupported_action:{self._approval_action}"
+
+        task_response = self._client.get_task(task_id)
+        detail = _safe_dict(task_response.data)
+        proposal_state = str(detail.get("proposal_state") or "").strip().lower()
+        if proposal_state in {"approved", "rejected", "already_handled"}:
+            return f"[APPROVAL-ACTION] skipped=already_handled task_id={task_id}"
+        if proposal_state in {"denied", "policy_denied", "blocked"}:
+            return f"[APPROVAL-ACTION] skipped=denied_or_blocked task_id={task_id}"
+        if proposal_state in {"stale", "expired"}:
+            return f"[APPROVAL-ACTION] skipped=stale task_id={task_id}"
+
+        response = self._client.review_task_proposal(
+            task_id,
+            action=self._approval_action,
+            comment=str(payload.get("comment") or "").strip() or None,
+        )
+        return (
+            f"[APPROVAL-ACTION] applied action={self._approval_action} task_id={task_id} "
+            f"state={response.state} status={response.status_code}"
+        )
+
+    def _run_repair_action(self, selected_repair_session_id: str | None) -> str | None:
+        if not self._repair_action:
+            return None
+        payload, parse_err = _parse_json_object(self._repair_action_json, default={})
+        if parse_err:
+            return f"[REPAIR-ACTION] rejected={parse_err}"
+        session_id = str(payload.get("session_id") or selected_repair_session_id or "").strip()
+        if not session_id:
+            return "[REPAIR-ACTION] rejected=selected_repair_session_required"
+        if not self._confirm_repair_action:
+            return f"[REPAIR-ACTION] preview_only action={self._repair_action} session_id={session_id}"
+        if self._repair_action not in {"dry_run", "execute", "verify"}:
+            return f"[REPAIR-ACTION] rejected=unsupported_action:{self._repair_action}"
+
+        if bool(payload.get("unsafe")):
+            return f"[REPAIR-ACTION] blocked=unsafe_payload session_id={session_id}"
+        return (
+            f"[REPAIR-ACTION] blocked=browser_fallback_required action={self._repair_action} "
+            f"session_id={session_id}"
+        )
+
+    def _render_live_refresh_block(self, state: TuiViewState) -> str | None:
+        if self._live_refresh_cycles <= 1 or self._live_refresh_target not in {
+            "system",
+            "task_logs",
+            "system_task_logs",
+        }:
+            return None
+        include_system = self._live_refresh_target in {"system", "system_task_logs"}
+        include_task_logs = self._live_refresh_target in {"task_logs", "system_task_logs"}
+        lines = ["[LIVE-REFRESH]"]
+        lines.append(
+            (
+                f"target={self._live_refresh_target} cycles={self._live_refresh_cycles} "
+                f"interval_seconds={self._live_refresh_interval_seconds}"
+            )
+        )
+        for cycle in range(1, self._live_refresh_cycles + 1):
+            health = self._client.get_health()
+            lines.append(f"cycle={cycle}/{self._live_refresh_cycles} health={health.state}")
+            if include_system:
+                stats = self._client.get_stats()
+                stats_payload = _safe_dict(stats.data)
+                lines.append(
+                    (
+                        f"system_state={stats.state} queue_depth={stats_payload.get('queue_depth')} "
+                        f"tasks_in_progress={stats_payload.get('tasks_in_progress')}"
+                    )
+                )
+            if include_task_logs:
+                if state.selected_task_id:
+                    task_logs = self._client.get_task_logs(state.selected_task_id)
+                    log_items = _safe_items(task_logs.data)
+                    latest = log_items[-1] if log_items else {}
+                    lines.append(
+                        (
+                            f"task_logs_state={task_logs.state} task_id={state.selected_task_id} "
+                            f"latest={latest.get('line')}"
+                        )
+                    )
+                else:
+                    lines.append("task_logs_skipped=selected_task_required")
+            if cycle < self._live_refresh_cycles:
+                sleep(self._live_refresh_interval_seconds)
+        lines.append("live_refresh_stoppable=limit_cycles_or_ctrl_c")
+        return "\n".join(lines)
+
     def run_once(self) -> str:
         health = self._client.get_health()
         capabilities = self._client.get_capabilities()
@@ -612,6 +737,10 @@ class TuiRuntimeApp:
         instruction_overlay_ids = {
             str(item.get("id")) for item in _safe_items(instruction_overlays.data) if item.get("id")
         }
+        approval_ids = {str(item.get("id")) for item in _safe_items(approvals.data) if item.get("id")}
+        repair_session_ids = {
+            str(item.get("session_id")) for item in _safe_items(repairs.data) if item.get("session_id")
+        }
         state = self._state.sanitize_selection(
             goal_ids=goal_ids,
             task_ids=task_ids,
@@ -623,6 +752,8 @@ class TuiRuntimeApp:
             team_type_ids=team_type_ids,
             instruction_profile_ids=instruction_profile_ids,
             instruction_overlay_ids=instruction_overlay_ids,
+            approval_ids=approval_ids,
+            repair_session_ids=repair_session_ids,
         ).mark_refresh()
         fallback_snapshot = build_browser_fallback_snapshot(self._client.profile.base_url, state)
 
@@ -638,6 +769,8 @@ class TuiRuntimeApp:
         team_action_summary = self._run_team_action(state.selected_team_id)
         instruction_action_summary = self._run_instruction_action(state)
         automation_action_summary = self._run_automation_action()
+        approval_action_summary = self._run_approval_action(state.selected_task_id)
+        repair_action_summary = self._run_repair_action(state.selected_repair_session_id)
 
         goal_detail = (
             self._client.get_goal_detail(state.selected_goal_id) if state.selected_goal_id else _empty_response({})
@@ -704,73 +837,75 @@ class TuiRuntimeApp:
             else f"[CAPABILITIES]\nstate={capabilities.state}"
         )
 
-        return "\n\n".join(
-            [
-                render_navigation_shell(state, sections, _safe_dict(fallback_snapshot.get("links"))),
-                _render_api_map_summary(),
-                capability_line,
-                render_dashboard_view(self._client.profile, dashboard, assistant, health),
-                render_goals_view(
-                    goals,
-                    goal_modes,
-                    goal_detail,
-                    goal_plan,
-                    goal_governance,
-                    create_goal_summary,
-                    state.selected_goal_id,
-                ),
-                render_task_workbench_view(tasks, task_timeline, selected_task, task_logs, task_action_summary),
-                render_task_orchestration_view(orchestration),
-                render_archived_tasks_view(archived_tasks, archived_action_summary),
-                render_artifact_explorer_view(
-                    artifacts,
-                    artifact_detail,
-                    artifact_rag_status,
-                    artifact_rag_preview,
-                    artifact_action_summary,
-                ),
-                render_knowledge_view(
-                    knowledge_collections, knowledge_profiles, collection_detail, knowledge_action_summary
-                ),
-                render_template_management_view(
-                    templates,
-                    template_variable_registry,
-                    template_sample_contexts,
-                    template_operation_summary,
-                    state.selected_template_id,
-                ),
-                render_config_and_provider_view(
-                    config,
-                    providers,
-                    provider_catalog,
-                    benchmarks,
-                    benchmark_config,
-                    runtime_cfg.summary_line,
-                ),
-                render_system_view(health, contracts, agents, stats, stats_history),
-                render_team_blueprint_view(
-                    teams,
-                    blueprints,
-                    blueprint_catalog,
-                    blueprint_detail,
-                    team_types,
-                    team_roles,
-                    roles_for_type,
-                    team_action_summary,
-                ),
-                render_instruction_layers_view(
-                    instruction_model,
-                    effective_layers,
-                    instruction_profiles,
-                    instruction_overlays,
-                    instruction_action_summary,
-                ),
-                render_automation_view(autopilot, auto_planner, triggers, automation_action_summary),
-                render_audit_view(audit_logs, audit_analysis),
-                render_approval_repair_view(approvals, repairs),
-                render_help_view(fallback_snapshot),
-            ]
-        )
+        sections_output = [
+            render_navigation_shell(state, sections, _safe_dict(fallback_snapshot.get("links"))),
+            _render_api_map_summary(),
+            capability_line,
+            render_dashboard_view(self._client.profile, dashboard, assistant, health),
+            render_goals_view(
+                goals,
+                goal_modes,
+                goal_detail,
+                goal_plan,
+                goal_governance,
+                create_goal_summary,
+                state.selected_goal_id,
+            ),
+            render_task_workbench_view(tasks, task_timeline, selected_task, task_logs, task_action_summary),
+            render_task_orchestration_view(orchestration),
+            render_archived_tasks_view(archived_tasks, archived_action_summary),
+            render_artifact_explorer_view(
+                artifacts,
+                artifact_detail,
+                artifact_rag_status,
+                artifact_rag_preview,
+                artifact_action_summary,
+            ),
+            render_knowledge_view(
+                knowledge_collections, knowledge_profiles, collection_detail, knowledge_action_summary
+            ),
+            render_template_management_view(
+                templates,
+                template_variable_registry,
+                template_sample_contexts,
+                template_operation_summary,
+                state.selected_template_id,
+            ),
+            render_config_and_provider_view(
+                config,
+                providers,
+                provider_catalog,
+                benchmarks,
+                benchmark_config,
+                runtime_cfg.summary_line,
+            ),
+            render_system_view(health, contracts, agents, stats, stats_history),
+            render_team_blueprint_view(
+                teams,
+                blueprints,
+                blueprint_catalog,
+                blueprint_detail,
+                team_types,
+                team_roles,
+                roles_for_type,
+                team_action_summary,
+            ),
+            render_instruction_layers_view(
+                instruction_model,
+                effective_layers,
+                instruction_profiles,
+                instruction_overlays,
+                instruction_action_summary,
+            ),
+            render_automation_view(autopilot, auto_planner, triggers, automation_action_summary),
+            render_audit_view(audit_logs, audit_analysis),
+            render_approval_repair_view(approvals, repairs, tasks, approval_action_summary, repair_action_summary),
+            render_help_view(fallback_snapshot),
+        ]
+        live_block = self._render_live_refresh_block(state)
+        if live_block:
+            sections_output.append(live_block)
+        return "\n\n".join(sections_output)
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -795,6 +930,8 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--selected-team-type-id", default="")
     parser.add_argument("--selected-instruction-profile-id", default="")
     parser.add_argument("--selected-instruction-overlay-id", default="")
+    parser.add_argument("--selected-approval-id", default="")
+    parser.add_argument("--selected-repair-session-id", default="")
     parser.add_argument("--set-safe-config", action="append", default=[])
     parser.add_argument("--apply-safe-config", action="store_true")
 
@@ -856,6 +993,15 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--automation-action-json", default="")
     parser.add_argument("--confirm-automation-action", action="store_true")
     parser.add_argument("--audit-analyze-limit", type=int, default=50)
+    parser.add_argument("--approval-action", choices=["", "approve", "reject"], default="")
+    parser.add_argument("--approval-action-json", default="")
+    parser.add_argument("--confirm-approval-action", action="store_true")
+    parser.add_argument("--repair-action", choices=["", "dry_run", "execute", "verify"], default="")
+    parser.add_argument("--repair-action-json", default="")
+    parser.add_argument("--confirm-repair-action", action="store_true")
+    parser.add_argument("--live-refresh-cycles", type=int, default=1)
+    parser.add_argument("--live-refresh-interval-seconds", type=float, default=1.0)
+    parser.add_argument("--live-refresh-target", choices=["", "system", "task_logs", "system_task_logs"], default="")
     return parser.parse_args(argv)
 
 
@@ -892,6 +1038,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         selected_team_type_id=args.selected_team_type_id or None,
         selected_instruction_profile_id=args.selected_instruction_profile_id or None,
         selected_instruction_overlay_id=args.selected_instruction_overlay_id or None,
+        selected_approval_id=args.selected_approval_id or None,
+        selected_repair_session_id=args.selected_repair_session_id or None,
         safe_config_edits=tuple(args.set_safe_config),
         apply_safe_config=args.apply_safe_config,
         task_status_filter=args.task_status_filter or None,
@@ -931,6 +1079,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         automation_action_json=args.automation_action_json,
         confirm_automation_action=args.confirm_automation_action,
         audit_analyze_limit=args.audit_analyze_limit,
+        approval_action=args.approval_action,
+        approval_action_json=args.approval_action_json,
+        confirm_approval_action=args.confirm_approval_action,
+        repair_action=args.repair_action,
+        repair_action_json=args.repair_action_json,
+        confirm_repair_action=args.confirm_repair_action,
+        live_refresh_cycles=args.live_refresh_cycles,
+        live_refresh_interval_seconds=args.live_refresh_interval_seconds,
+        live_refresh_target=args.live_refresh_target,
     ).run_once()
     if args.json:
         print(

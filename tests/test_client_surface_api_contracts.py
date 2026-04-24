@@ -45,6 +45,7 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
             ("POST", "/tasks/task-1/assign"): (200, {"updated": True}),
             ("POST", "/tasks/task-1/step/propose"): (200, {"updated": True}),
             ("POST", "/tasks/task-1/step/execute"): (200, {"updated": True}),
+            ("POST", "/tasks/task-1/review"): (200, {"updated": True}),
             ("GET", "/tasks/timeline?limit=10&team_id=team-1&agent=agent-a&status=queued&error_only=1"): (
                 200,
                 {"items": [{"task_id": "task-1"}]},
@@ -155,6 +156,7 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
     assert client.assign_task("task-1", {"agent": "agent-a"}).data["updated"] is True
     assert client.propose_task_step("task-1", {"proposal": "x"}).data["updated"] is True
     assert client.execute_task_step("task-1", {"dry_run": True}).data["updated"] is True
+    assert client.review_task_proposal("task-1", action="approve", comment="ok").data["updated"] is True
     assert (
         client.get_task_timeline(team_id="team-1", agent="agent-a", status="queued", error_only=True, limit=10).data[
             "items"
@@ -265,6 +267,7 @@ def test_external_client_api_contract_methods_cover_surface_flows() -> None:
     assert ("POST", "/tasks/task-1/assign") in called_paths
     assert ("POST", "/tasks/task-1/step/propose") in called_paths
     assert ("POST", "/tasks/task-1/step/execute") in called_paths
+    assert ("POST", "/tasks/task-1/review") in called_paths
     assert ("GET", "/tasks/timeline?limit=10&team_id=team-1&agent=agent-a&status=queued&error_only=1") in called_paths
     assert ("GET", "/tasks/orchestration/read-model") in called_paths
     assert ("GET", "/tasks/task-1/logs") in called_paths

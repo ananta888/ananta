@@ -81,6 +81,10 @@ def test_tui_runtime_compact_navigation_and_selected_context() -> None:
             "IP-1",
             "--selected-instruction-overlay-id",
             "IO-1",
+            "--selected-approval-id",
+            "AP-1",
+            "--selected-repair-session-id",
+            "R-1",
         ],
         check=False,
         capture_output=True,
@@ -95,6 +99,8 @@ def test_tui_runtime_compact_navigation_and_selected_context() -> None:
     assert "selected_blueprint=BP-1" in result.stdout
     assert "selected_profile=IP-1" in result.stdout
     assert "selected_overlay=IO-1" in result.stdout
+    assert "selected_approval=AP-1" in result.stdout
+    assert "selected_repair=R-1" in result.stdout
 
 
 def test_tui_runtime_safe_config_edit_preview_and_apply() -> None:
@@ -287,6 +293,125 @@ def test_tui_runtime_team_instruction_automation_actions() -> None:
     assert "[TEAM-ACTION] applied action=activate team_id=team-core state=healthy" in apply_actions.stdout
     assert "[INSTRUCTION-ACTION] applied action=select_overlay state=healthy" in apply_actions.stdout
     assert "[AUTOMATION-ACTION] applied action=autopilot_tick state=healthy" in apply_actions.stdout
+
+
+def test_tui_runtime_approval_and_repair_actions_are_guarded() -> None:
+    preview = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-task-id",
+            "T-1",
+            "--approval-action",
+            "approve",
+            "--approval-action-json",
+            '{"comment":"looks good"}',
+            "--selected-repair-session-id",
+            "R-1",
+            "--repair-action",
+            "execute",
+            "--repair-action-json",
+            '{"unsafe": false}',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert preview.returncode == 0
+    assert "[APPROVAL-ACTION] preview_only action=approve task_id=T-1" in preview.stdout
+    assert "[REPAIR-ACTION] preview_only action=execute session_id=R-1" in preview.stdout
+
+    apply_actions = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-task-id",
+            "T-1",
+            "--approval-action",
+            "approve",
+            "--confirm-approval-action",
+            "--selected-repair-session-id",
+            "R-1",
+            "--repair-action",
+            "execute",
+            "--confirm-repair-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert apply_actions.returncode == 0
+    assert "[APPROVAL-ACTION] applied action=approve task_id=T-1 state=healthy" in apply_actions.stdout
+    assert "[REPAIR-ACTION] blocked=browser_fallback_required action=execute session_id=R-1" in apply_actions.stdout
+
+    stale = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-task-id",
+            "T-2",
+            "--approval-action",
+            "reject",
+            "--confirm-approval-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert stale.returncode == 0
+    assert "[APPROVAL-ACTION] skipped=stale task_id=T-2" in stale.stdout
+
+    denied = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-task-id",
+            "T-3",
+            "--approval-action",
+            "approve",
+            "--confirm-approval-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert denied.returncode == 0
+    assert "[APPROVAL-ACTION] applied action=approve task_id=T-3 state=policy_denied" in denied.stdout
+
+
+def test_tui_runtime_live_refresh_block_is_rendered() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-task-id",
+            "T-1",
+            "--live-refresh-target",
+            "system_task_logs",
+            "--live-refresh-cycles",
+            "2",
+            "--live-refresh-interval-seconds",
+            "0.2",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "[LIVE-REFRESH]" in result.stdout
+    assert "cycle=1/2 health=healthy" in result.stdout
+    assert "cycle=2/2 health=healthy" in result.stdout
+    assert "task_logs_state=healthy task_id=T-1" in result.stdout
 
 
 def test_tui_runtime_app_shows_degraded_health_state() -> None:
