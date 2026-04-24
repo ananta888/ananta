@@ -31,19 +31,19 @@
       "id": "M1",
       "title": "Thin adapter baseline",
       "task_ids": ["ECL-T01", "ECL-T02", "ECL-T03", "ECL-T04", "ECL-T05", "ECL-T06", "ECL-T07", "ECL-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
       "title": "Core IDE workflows and safety baseline",
       "task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M3",
       "title": "Extension decisions and observability",
       "task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -56,7 +56,7 @@
     {
       "id": "ECL-T01",
       "title": "Plugin target model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A design note explains that the Eclipse plugin is a thin IDE adapter and not a second control plane.",
@@ -67,7 +67,7 @@
     {
       "id": "ECL-T02",
       "title": "Minimum supported Eclipse distribution define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Supported Eclipse versions and Java baseline are documented.",
@@ -78,7 +78,7 @@
     {
       "id": "ECL-T03",
       "title": "Connection profile and authentication support add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "Users can configure Ananta base URL and auth method.",
@@ -89,7 +89,7 @@
     {
       "id": "ECL-T04",
       "title": "Basic health and capability handshake implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "The plugin can query health/ready or equivalent capability endpoints.",
@@ -100,7 +100,7 @@
     {
       "id": "ECL-T05",
       "title": "Workspace and project context collection implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "The plugin can detect current workspace, project name and selected file.",
@@ -111,7 +111,7 @@
     {
       "id": "ECL-T06",
       "title": "Selection and current editor content handoff add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "The plugin can send current text selection or current file path/context to Ananta.",
@@ -122,7 +122,7 @@
     {
       "id": "ECL-T07",
       "title": "Thin command set for core Ananta flows add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "The plugin exposes commands for analyze, review, patch, new-project and evolve-project.",
@@ -133,7 +133,7 @@
     {
       "id": "ECL-T08",
       "title": "Quick prompt / goal input panel implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "A small input panel allows users to describe a goal from Eclipse.",
@@ -144,7 +144,7 @@
     {
       "id": "ECL-T09",
       "title": "Task and artifact view inside Eclipse implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "Returned tasks and artifacts can be listed in a dedicated view.",
@@ -155,7 +155,7 @@
     {
       "id": "ECL-T10",
       "title": "Status polling or refresh flow for tasks add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Users can refresh running task state from Eclipse.",
@@ -166,7 +166,7 @@
     {
       "id": "ECL-T11",
       "title": "Diff/review result rendering add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Review or change proposals can be rendered readably inside Eclipse.",
@@ -177,7 +177,7 @@
     {
       "id": "ECL-T12",
       "title": "Review and approval action support add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Where Ananta requires review, the plugin can surface that state.",
@@ -188,7 +188,7 @@
     {
       "id": "ECL-T13",
       "title": "Open in browser / open in Ananta shortcuts add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Users can open the corresponding task/goal/artifact in the Ananta web UI.",
@@ -199,7 +199,7 @@
     {
       "id": "ECL-T14",
       "title": "Operation presets matching official use cases add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "acceptance_criteria": [
         "Plugin actions clearly reflect official Ananta product paths.",
@@ -210,7 +210,7 @@
     {
       "id": "ECL-T15",
       "title": "Optional SGPT/CLI direct operation bridge add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "acceptance_criteria": [
         "The plugin can optionally invoke a bounded SGPT/CLI-backed operation through Ananta.",
@@ -364,15 +364,15 @@
     "ECL-T25"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T15:58:34+02:00",
+    "updated_at": "2026-04-24T16:03:50+02:00",
     "total": 26,
     "by_status": {
-      "todo": 26,
+      "todo": 11,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 15
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 57.69,
     "by_priority": {
       "P0": 10,
       "P1": 11,
@@ -381,30 +381,30 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 8,
+      "remaining": 6
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T15:58:34+02:00",
+    "updated_at": "2026-04-24T16:03:50+02:00",
     "stages": {
-      "stage_1_foundation_connectivity": {"scope_task_ids": ["ECL-T01", "ECL-T02", "ECL-T03", "ECL-T04"], "total": 4, "done": 0, "todo": 4},
-      "stage_2_context_commands_handoff": {"scope_task_ids": ["ECL-T05", "ECL-T06", "ECL-T07", "ECL-T08"], "total": 4, "done": 0, "todo": 4},
-      "stage_3_results_and_safety": {"scope_task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"], "total": 9, "done": 0, "todo": 9},
-      "stage_4_extensions_observability": {"scope_task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"], "total": 5, "done": 0, "todo": 5},
+      "stage_1_foundation_connectivity": {"scope_task_ids": ["ECL-T01", "ECL-T02", "ECL-T03", "ECL-T04"], "total": 4, "done": 4, "todo": 0},
+      "stage_2_context_commands_handoff": {"scope_task_ids": ["ECL-T05", "ECL-T06", "ECL-T07", "ECL-T08"], "total": 4, "done": 4, "todo": 0},
+      "stage_3_results_and_safety": {"scope_task_ids": ["ECL-T09", "ECL-T10", "ECL-T11", "ECL-T12", "ECL-T13", "ECL-T14", "ECL-T18", "ECL-T19", "ECL-T20"], "total": 9, "done": 6, "todo": 3},
+      "stage_4_extensions_observability": {"scope_task_ids": ["ECL-T15", "ECL-T16", "ECL-T17", "ECL-T21", "ECL-T22"], "total": 5, "done": 1, "todo": 4},
       "stage_5_validation_rollout": {"scope_task_ids": ["ECL-T23", "ECL-T24", "ECL-T25", "ECL-T26"], "total": 4, "done": 0, "todo": 4}
     }
   },
   "summary_notes": [
-    "The plan is now normalized to the broader todo schema with explicit milestones, critical path and staged execution summaries.",
-    "Current track starts at 0/26 done and emphasizes thin-adapter boundaries, safe context handoff and orchestration delegation to Ananta.",
-    "Most delivery risk clusters around auth/connection correctness, bounded context packaging and review/approval UX semantics."
+    "First 15 tasks (ECL-T01..ECL-T15) are completed with adapter contracts, tests and foundation documentation.",
+    "Stages 1 and 2 are fully complete; stage 3 and 4 are partially advanced while preserving thin-adapter boundaries.",
+    "Remaining delivery risk is concentrated in safety hardening (ECL-T18..T20), extension decisions (ECL-T16..T17, ECL-T21..T22) and rollout validation tasks."
   ]
 }
