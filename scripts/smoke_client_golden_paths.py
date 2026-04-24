@@ -7,15 +7,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from client_surfaces.common.client_api import AnantaApiClient
-from client_surfaces.common.profile_auth import build_client_profile
-from client_surfaces.tui_runtime.ananta_tui.fixture_transport import build_fixture_transport
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 STATUS_FILE = ROOT / "data" / "client_surface_runtime_status.json"
 
 
 def _run_tui_goal_path() -> dict[str, Any]:
+    from client_surfaces.common.client_api import AnantaApiClient
+    from client_surfaces.common.profile_auth import build_client_profile
+    from client_surfaces.tui_runtime.ananta_tui.fixture_transport import build_fixture_transport
+
     client = AnantaApiClient(
         build_client_profile({"profile_id": "golden-tui", "base_url": "http://localhost:8080"}),
         transport=build_fixture_transport(),
