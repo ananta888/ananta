@@ -164,6 +164,7 @@ def orchestration_read_model():
     payload = _services().task_claim_service.orchestration_read_model(task_queue_service=_services().task_queue_service)
     tracking_service = get_task_execution_tracking_service()
     payload["worker_execution_reconciliation"] = tracking_service.build_execution_reconciliation_snapshot()
+    payload["control_layer_observability"] = tracking_service.build_control_layer_observability_snapshot()
     overrides = {}
     artifact_flow_enabled = _parse_bool(request.args.get("artifact_flow_enabled"))
     if artifact_flow_enabled is not None:

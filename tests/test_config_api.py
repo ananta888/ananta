@@ -377,6 +377,74 @@ def test_model_override_maps_are_normalized(client, admin_token):
     assert cfg["task_kind_model_overrides"] == {"coding": "qwen2.5-coder-7b"}
 
 
+def test_specialized_worker_profiles_config_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = client.post(
+        "/config",
+        json={
+            "specialized_worker_profiles": {
+                "enabled": True,
+                "profiles": {
+                    "ml_intern": {
+                        "enabled": True,
+                        "capability_classes": ["ml_research", "invalid", "research"],
+                        "risk_class": "HIGH",
+                        "requires_approval": True,
+                        "routing_aliases": ["ml-intern", "ML-INTERN"],
+                    }
+                },
+            }
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        "/config",
+        json={"specialized_worker_profiles": {"profiles": {"ml_intern": {"available": True}}}},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    cfg = client.get("/config", headers=headers).json["data"]
+    profile = cfg["specialized_worker_profiles"]["profiles"]["ml_intern"]
+    assert cfg["specialized_worker_profiles"]["enabled"] is True
+    assert profile["capability_classes"] == ["ml_research", "research"]
+    assert profile["risk_class"] == "high"
+    assert profile["available"] is True
+    assert profile["routing_aliases"] == ["ml-intern"]
+
+
+def test_ml_intern_spike_config_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = client.post(
+        "/config",
+        json={
+            "ml_intern_spike": {
+                "enabled": True,
+                "command_template": "python worker.py --prompt-file {prompt_file}",
+                "timeout_seconds": 1,
+                "max_prompt_chars": 999999,
+                "max_output_chars": 10,
+                "env_allowlist": ["HOME", "", "HOME"],
+            }
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    response = client.post("/config", json={"ml_intern_spike": {"working_dir": "agent"}}, headers=headers)
+    assert response.status_code == 200
+
+    cfg = client.get("/config", headers=headers).json["data"]["ml_intern_spike"]
+    assert cfg["enabled"] is True
+    assert cfg["timeout_seconds"] == 10
+    assert cfg["max_prompt_chars"] == 64000
+    assert cfg["max_output_chars"] == 512
+    assert cfg["env_allowlist"] == ["HOME"]
+    assert cfg["working_dir"] == "agent"
+
+
 def test_model_override_maps_reject_non_objects(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     response = client.post(

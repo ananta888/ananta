@@ -278,6 +278,46 @@ class RetrievalService:
             profile["source_type_weights"] = source_weights
         return profile
 
+    def _source_priority_rules(
+        self,
+        *,
+        task_kind: str | None,
+        retrieval_intent: str | None,
+        source_type_weights: dict[str, object],
+    ) -> dict[str, object]:
+        normalized_kind = self._normalize_task_kind(task_kind) or "generic"
+        normalized_intent = str(retrieval_intent or "").strip().lower() or None
+        weighted = sorted(
+            [
+                (str(source_type or "unknown"), float(weight or 0.0))
+                for source_type, weight in dict(source_type_weights or {}).items()
+            ],
+            key=lambda item: (-item[1], item[0]),
+        )
+        rules = []
+        for rank, (source_type, weight) in enumerate(weighted, start=1):
+            reason = "base_profile_weight"
+            if source_type == "task_memory" and normalized_kind in {"bugfix", "testing", "test", "refactor", "implement", "coding"}:
+                reason = "task_execution_history_relevance"
+            elif source_type in {"artifact", "wiki"} and normalized_kind in {"architecture", "analysis", "doc", "research"}:
+                reason = "architecture_and_documentation_coverage"
+            elif source_type == "repo":
+                reason = "repository_locality"
+            rules.append(
+                {
+                    "rank": rank,
+                    "source_type": source_type,
+                    "weight": round(weight, 4),
+                    "reason": reason,
+                }
+            )
+        return {
+            "version": "source-priority-rules-v1",
+            "task_kind": normalized_kind,
+            "retrieval_intent": normalized_intent,
+            "rules": rules,
+        }
+
     def _score_memory_entry(self, query_tokens: list[str], title: str, summary: str, content: str, tags: list[str]) -> float:
         haystack = " ".join([title, summary, content, " ".join(tags or [])]).lower()
         if not haystack.strip():
@@ -811,6 +851,11 @@ class RetrievalService:
             "expansion": expansion_meta,
             "rerank": rerank_meta,
             "diversity": diversity_meta,
+            "source_priority_rules": self._source_priority_rules(
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
+                source_type_weights=dict(rerank_meta.get("source_type_weights") or {}),
+            ),
             "candidate_counts": {
                 "orchestrator": len(orchestrator_chunks),
                 "knowledge_index": len(knowledge_chunks),

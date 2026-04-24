@@ -110,8 +110,8 @@ Kernaussage:
 ## Wichtige Einstiegspunkte
 - Erster Start und Betrieb: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
 - Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`, `docs/generic-control-layer.md`
-- Control-Layer Vertiefung: `docs/loop-correction-pattern.md`, `docs/tool-router-target-architecture.md`, `docs/unified-approval-model.md`, `docs/context-manager-target-model.md`
-- Specialized Worker Guidance: `docs/ml-intern-fit-assessment.md`, `docs/ml-intern-adapter-boundary.md`, `docs/specialized-worker-guidance.md`
+- Control-Layer Vertiefung: `docs/loop-correction-pattern.md`, `docs/tool-router-target-architecture.md`, `docs/unified-approval-model.md`, `docs/context-manager-target-model.md`, `docs/context-source-prioritization-rules.md`, `docs/safer-agentic-loop-golden-path.md`
+- Specialized Worker Guidance: `docs/ml-intern-fit-assessment.md`, `docs/ml-intern-adapter-boundary.md`, `docs/ml-intern-capability-profile.md`, `docs/ml-intern-backend-spike.md`, `docs/specialized-worker-guidance.md`
 - Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
 - Frontend Entwicklung: `frontend-angular/README.md`
 - CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`

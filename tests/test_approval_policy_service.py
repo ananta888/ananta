@@ -51,3 +51,32 @@ def test_approval_policy_confirmed_task_is_allowed():
     payload = decision.as_dict()
     assert payload["classification"] == "allow"
     assert payload["reason_code"] == "approval_confirmed_by_operator"
+
+
+def test_approval_policy_specialized_backend_requires_confirmation():
+    service = get_approval_policy_service()
+    cfg = {
+        "governance_mode": "balanced",
+        "unified_approval_policy": {"enabled": True, "enforce_confirm_required": True},
+        "specialized_worker_profiles": {
+            "enabled": True,
+            "profiles": {
+                "ml_intern": {
+                    "enabled": True,
+                    "risk_class": "medium",
+                    "requires_approval": True,
+                    "routing_aliases": ["ml-intern"],
+                }
+            },
+        },
+    }
+    decision = service.evaluate(
+        command="echo run",
+        tool_calls=None,
+        task={"id": "approval-specialized", "last_proposal": {"routing": {"effective_backend": "ml_intern"}}},
+        agent_cfg=cfg,
+    )
+    payload = decision.as_dict()
+    assert payload["classification"] == "confirm_required"
+    assert payload["required_confirmation_level"] == "operator"
+    assert payload["details"]["specialized_backend"]["backend_id"] == "ml_intern"

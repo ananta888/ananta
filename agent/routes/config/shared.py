@@ -33,6 +33,18 @@ _DOOM_LOOP_DEFAULT_SEVERITY_ACTIONS = {
     "critical": "pause",
 }
 _APPROVAL_ACTION_CLASSES = {"read_only", "mutation", "system_mutation", "install_remove", "admin_mutation"}
+_SPECIALIZED_PROFILE_BACKEND_TYPES = {"execution_backend", "external_worker"}
+_SPECIALIZED_PROFILE_RISK_CLASSES = {"low", "medium", "high"}
+_SPECIALIZED_PROFILE_CAPABILITY_CLASSES = {
+    "planning",
+    "review",
+    "patching",
+    "shell_execution",
+    "admin_repair",
+    "research",
+    "ml_research",
+    "dataset_ops",
+}
 
 
 def normalize_artifact_flow_config(value: dict | None) -> dict:
@@ -130,6 +142,83 @@ def normalize_unified_approval_policy_config(value: dict | None) -> dict:
         "enabled": bool(payload.get("enabled", True)),
         "enforce_confirm_required": bool(payload.get("enforce_confirm_required", False)),
         "governance_overrides": normalized_overrides,
+    }
+
+
+def normalize_specialized_worker_profiles_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    profiles_raw = payload.get("profiles") if isinstance(payload.get("profiles"), dict) else {}
+    normalized_profiles: dict[str, dict] = {}
+    for key, raw_profile in profiles_raw.items():
+        profile_id = str(key or "").strip().lower()
+        if not profile_id or not isinstance(raw_profile, dict):
+            continue
+        capability_classes: list[str] = []
+        for raw_class in list(raw_profile.get("capability_classes") or []):
+            capability_class = str(raw_class or "").strip().lower()
+            if capability_class in _SPECIALIZED_PROFILE_CAPABILITY_CLASSES and capability_class not in capability_classes:
+                capability_classes.append(capability_class)
+        if not capability_classes:
+            capability_classes = ["planning"]
+        backend_type = str(raw_profile.get("backend_type") or "external_worker").strip().lower()
+        if backend_type not in _SPECIALIZED_PROFILE_BACKEND_TYPES:
+            backend_type = "external_worker"
+        risk_class = str(raw_profile.get("risk_class") or "medium").strip().lower()
+        if risk_class not in _SPECIALIZED_PROFILE_RISK_CLASSES:
+            risk_class = "medium"
+        routing_aliases = [
+            str(item or "").strip().lower()
+            for item in list(raw_profile.get("routing_aliases") or [])
+            if str(item or "").strip()
+        ]
+        normalized_profiles[profile_id] = {
+            "enabled": bool(raw_profile.get("enabled", False)),
+            "display_name": str(raw_profile.get("display_name") or profile_id).strip() or profile_id,
+            "backend_type": backend_type,
+            "capability_classes": capability_classes,
+            "risk_class": risk_class,
+            "requires_approval": bool(raw_profile.get("requires_approval", risk_class in {"medium", "high"})),
+            "available": bool(raw_profile.get("available", False)),
+            "export_to_tool_router": bool(raw_profile.get("export_to_tool_router", True)),
+            "routing_aliases": sorted(set(routing_aliases)),
+            "notes": str(raw_profile.get("notes") or "").strip() or None,
+        }
+    return {
+        "enabled": bool(payload.get("enabled", False)),
+        "profiles": normalized_profiles,
+    }
+
+
+def normalize_ml_intern_spike_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    try:
+        timeout_seconds = int(payload.get("timeout_seconds", 180))
+    except (TypeError, ValueError):
+        timeout_seconds = 180
+    timeout_seconds = max(10, min(timeout_seconds, 900))
+    try:
+        max_prompt_chars = int(payload.get("max_prompt_chars", 6000))
+    except (TypeError, ValueError):
+        max_prompt_chars = 6000
+    max_prompt_chars = max(512, min(max_prompt_chars, 64000))
+    try:
+        max_output_chars = int(payload.get("max_output_chars", 8000))
+    except (TypeError, ValueError):
+        max_output_chars = 8000
+    max_output_chars = max(512, min(max_output_chars, 64000))
+    env_allowlist = [
+        str(item or "").strip()
+        for item in list(payload.get("env_allowlist") or [])
+        if str(item or "").strip()
+    ]
+    return {
+        "enabled": bool(payload.get("enabled", False)),
+        "command_template": str(payload.get("command_template") or payload.get("command") or "").strip(),
+        "timeout_seconds": timeout_seconds,
+        "max_prompt_chars": max_prompt_chars,
+        "max_output_chars": max_output_chars,
+        "working_dir": str(payload.get("working_dir") or "").strip() or None,
+        "env_allowlist": sorted(set(env_allowlist)),
     }
 
 

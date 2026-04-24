@@ -592,6 +592,124 @@ class TaskExecutionTrackingService:
             "affected_tasks": issues[:limit],
         }
 
+    def build_control_layer_observability_snapshot(self, *, max_tasks: int = 80) -> dict:
+        repos = get_repository_registry()
+        tasks = [task.model_dump() for task in repos.task_repo.get_all()]
+        recent_tasks = sorted(
+            tasks,
+            key=lambda item: float(item.get("updated_at") or item.get("created_at") or 0.0),
+            reverse=True,
+        )[: max(1, int(max_tasks))]
+
+        loop_counts = {"none": 0, "warning": 0, "detected": 0, "stopped": 0}
+        approval_counts: dict[str, int] = {}
+        routing_backend_counts: dict[str, int] = {}
+        routing_reason_counts: dict[str, int] = {}
+        context_counts = {
+            "with_bundle": 0,
+            "without_bundle": 0,
+            "with_compaction": 0,
+            "near_budget_limit": 0,
+        }
+        compaction_reason_counts: dict[str, int] = {}
+        loop_action_counts: dict[str, int] = {}
+
+        def _inc(counter: dict[str, int], key: str) -> None:
+            normalized = str(key or "").strip() or "unknown"
+            counter[normalized] = int(counter.get(normalized) or 0) + 1
+
+        def _resolve_loop_state(task_payload: dict) -> str:
+            history = list(task_payload.get("history") or [])
+            detected = False
+            warning = False
+            stopped = False
+            for entry in history:
+                if not isinstance(entry, dict):
+                    continue
+                loop_detection = dict(entry.get("loop_detection") or {})
+                if bool(loop_detection.get("detected")):
+                    detected = True
+                    action = str(loop_detection.get("action") or "").strip().lower()
+                    if action in {"stop", "stopped", "blocked"}:
+                        stopped = True
+                    if action:
+                        _inc(loop_action_counts, action)
+                classification = str(loop_detection.get("classification") or entry.get("classification") or "").strip().lower()
+                if classification in {"warning", "near_loop", "risk"}:
+                    warning = True
+            if stopped:
+                return "stopped"
+            if detected:
+                return "detected"
+            if warning:
+                return "warning"
+            return "none"
+
+        for task in recent_tasks:
+            proposal = dict(task.get("last_proposal") or {})
+            routing = dict(proposal.get("routing") or {})
+            backend = str(routing.get("effective_backend") or proposal.get("backend") or "unknown").strip() or "unknown"
+            routing_reason = str(routing.get("reason") or "unknown").strip() or "unknown"
+            _inc(routing_backend_counts, backend)
+            _inc(routing_reason_counts, routing_reason)
+
+            approval_status = (
+                str(task.get("approval_status") or "").strip().lower()
+                or str((proposal.get("review") or {}).get("status") or "").strip().lower()
+                or "not_required"
+            )
+            _inc(approval_counts, approval_status)
+
+            loop_state = _resolve_loop_state(task)
+            loop_counts[loop_state] = int(loop_counts.get(loop_state) or 0) + 1
+
+            bundle_id = str(task.get("context_bundle_id") or "").strip()
+            if not bundle_id:
+                context_counts["without_bundle"] += 1
+                continue
+            bundle = repos.context_bundle_repo.get_by_id(bundle_id)
+            if bundle is None:
+                context_counts["without_bundle"] += 1
+                continue
+            context_counts["with_bundle"] += 1
+            metadata = dict(bundle.bundle_metadata or {})
+            budget = dict(metadata.get("budget") or {})
+            compaction = dict(metadata.get("compaction") or {})
+            if float(budget.get("retrieval_utilization") or 0.0) >= 0.95:
+                context_counts["near_budget_limit"] += 1
+            dropped = int(compaction.get("dropped_chunk_count") or 0)
+            if dropped > 0:
+                context_counts["with_compaction"] += 1
+            for reason, count in dict(compaction.get("dropped_reasons") or {}).items():
+                try:
+                    increment = int(count)
+                except (TypeError, ValueError):
+                    increment = 0
+                if increment <= 0:
+                    continue
+                compaction_reason_counts[str(reason)] = int(compaction_reason_counts.get(str(reason)) or 0) + increment
+
+        return {
+            "version": "control-layer-observability-v1",
+            "tasks_scanned": len(recent_tasks),
+            "loop": {
+                "counts": loop_counts,
+                "actions": dict(sorted(loop_action_counts.items(), key=lambda item: item[0])),
+            },
+            "routing": {
+                "backend_counts": dict(sorted(routing_backend_counts.items(), key=lambda item: (-item[1], item[0]))),
+                "reason_counts": dict(sorted(routing_reason_counts.items(), key=lambda item: (-item[1], item[0]))),
+            },
+            "approval": {
+                "status_counts": dict(sorted(approval_counts.items(), key=lambda item: (-item[1], item[0]))),
+            },
+            "context": {
+                **context_counts,
+                "compaction_reason_counts": dict(sorted(compaction_reason_counts.items(), key=lambda item: (-item[1], item[0]))),
+            },
+            "updated_at": time.time(),
+        }
+
     def reconcile_worker_executions(self, *, now: float | None = None, limit: int = 50) -> dict:
         repos = get_repository_registry()
         snapshot = self.build_execution_reconciliation_snapshot(limit=limit, now=now)

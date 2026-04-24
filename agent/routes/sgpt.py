@@ -22,6 +22,8 @@ from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
 from agent.services.cli_session_service import get_cli_session_service
+from agent.services.context_manager_service import get_context_manager_service as _get_context_manager_service
+from agent.services.ml_intern_adapter_service import get_ml_intern_adapter_service
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
@@ -41,6 +43,10 @@ def _log():
 
 def get_rag_service():
     return get_core_services().rag_service
+
+
+def get_context_manager_service():
+    return _get_context_manager_service()
 
 
 def get_rate_limit_service():
@@ -65,6 +71,15 @@ SOURCE_ALLOWED_EXTENSIONS = {
     ".js",
     ".jsx",
 }
+
+
+def _allowed_backends() -> set[str]:
+    allowed = set(ALLOWED_BACKENDS)
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    spike_cfg = cfg.get("ml_intern_spike") if isinstance(cfg.get("ml_intern_spike"), dict) else {}
+    if bool(spike_cfg.get("enabled", False)):
+        allowed.add("ml_intern")
+    return allowed
 
 
 def _cli_session_policy() -> dict:
@@ -202,30 +217,42 @@ def execute_sgpt():
         return api_response(status="error", message="Missing prompt", code=400)
     if not isinstance(options, list):
         return api_response(status="error", message="Options must be a list", code=400)
-    if backend not in ALLOWED_BACKENDS:
-        return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(ALLOWED_BACKENDS)}", code=400)
+    allowed_backends = _allowed_backends()
+    if backend not in allowed_backends:
+        return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(allowed_backends)}", code=400)
     if model is not None and not isinstance(model, str):
         return api_response(status="error", message="model must be a string", code=400)
     if not all(isinstance(opt, str) for opt in options):
         return api_response(status="error", message="options must contain only strings", code=400)
 
+    agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     routing_reason = ""
-    effective_backend, routing_reason, routing_cfg = resolve_cli_backend(
-        task_kind=task_kind,
-        requested_backend=backend,
-        supported_backends=SUPPORTED_CLI_BACKENDS,
-        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
-        fallback_backend="opencode",
-    )
-    safe_options, rejected = normalize_backend_flags(effective_backend, options)
-    if rejected:
-        return api_response(
-            status="error",
-            message=f"Unsupported options for backend '{effective_backend}': {rejected}",
-            code=400,
+    if backend == "ml_intern":
+        effective_backend = "ml_intern"
+        routing_reason = "specialized_profile_ml_intern"
+        routing_cfg = runtime_routing_config(agent_cfg)
+    else:
+        effective_backend, routing_reason, routing_cfg = resolve_cli_backend(
+            task_kind=task_kind,
+            requested_backend=backend,
+            supported_backends=SUPPORTED_CLI_BACKENDS,
+            agent_cfg=agent_cfg,
+            fallback_backend="opencode",
         )
-    if effective_backend == "sgpt" and "--no-interaction" not in safe_options:
-        safe_options.append("--no-interaction")
+    if effective_backend == "ml_intern":
+        safe_options = []
+        if options:
+            return api_response(status="error", message="ml_intern backend does not accept CLI flags", code=400)
+    else:
+        safe_options, rejected = normalize_backend_flags(effective_backend, options)
+        if rejected:
+            return api_response(
+                status="error",
+                message=f"Unsupported options for backend '{effective_backend}': {rejected}",
+                code=400,
+            )
+        if effective_backend == "sgpt" and "--no-interaction" not in safe_options:
+            safe_options.append("--no-interaction")
 
     try:
         context_payload = None
@@ -244,8 +271,8 @@ def execute_sgpt():
                 return api_response(status="error", message="Hybrid context mode is disabled", code=400)
             RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
             with RAG_RETRIEVAL_DURATION.time():
-                context_payload, effective_prompt = get_rag_service().build_execution_context(
-                    prompt,
+                context_payload, effective_prompt = get_context_manager_service().build_cli_execution_context(
+                    prompt=prompt,
                     task_kind=task_kind,
                     retrieval_intent=retrieval_intent,
                     source_types=source_types,
@@ -276,17 +303,28 @@ def execute_sgpt():
         )
 
         stage_started = time.time()
-        returncode, output, errors, backend_used = run_llm_cli_command(
-            effective_prompt,
-            safe_options,
-            backend=effective_backend,
-            model=model,
-            routing_policy={
-                "mode": "adaptive",
-                "task_kind": task_kind,
-                "policy_version": routing_cfg["policy_version"],
-            },
-        )
+        if effective_backend == "ml_intern":
+            invocation = get_ml_intern_adapter_service().invoke_spike(
+                prompt=effective_prompt,
+                agent_cfg=agent_cfg,
+                model=model,
+            )
+            returncode = 0 if bool(invocation.get("ok")) else 1
+            output = str(invocation.get("stdout") or "")
+            errors = str(invocation.get("stderr") or invocation.get("error") or "")
+            backend_used = "ml_intern"
+        else:
+            returncode, output, errors, backend_used = run_llm_cli_command(
+                effective_prompt,
+                safe_options,
+                backend=effective_backend,
+                model=model,
+                routing_policy={
+                    "mode": "adaptive",
+                    "task_kind": task_kind,
+                    "policy_version": routing_cfg["policy_version"],
+                },
+            )
         append_stage(
             pipeline,
             name="execute",

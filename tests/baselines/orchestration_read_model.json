@@ -30,6 +30,34 @@
     "unknown": "int"
   },
   "dispatch_queue": [],
+  "control_layer_observability": {
+    "approval": {
+      "status_counts": {}
+    },
+    "context": {
+      "compaction_reason_counts": {},
+      "near_budget_limit": "int",
+      "with_bundle": "int",
+      "with_compaction": "int",
+      "without_bundle": "int"
+    },
+    "loop": {
+      "actions": {},
+      "counts": {
+        "detected": "int",
+        "none": "int",
+        "stopped": "int",
+        "warning": "int"
+      }
+    },
+    "routing": {
+      "backend_counts": {},
+      "reason_counts": {}
+    },
+    "tasks_scanned": "int",
+    "updated_at": "float",
+    "version": "str"
+  },
   "queue": {
     "assigned": "int",
     "blocked": "int",
