@@ -208,7 +208,7 @@
         {
           "id": "ARC-T12",
           "title": "Bounded step-confirmed execution mode",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T10", "ARC-T11"],
           "acceptance_criteria": [
@@ -222,7 +222,7 @@
         {
           "id": "ARC-T13",
           "title": "Post-repair verification phase",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T12"],
           "acceptance_criteria": [
@@ -248,7 +248,7 @@
         {
           "id": "ARC-T24",
           "title": "Future hardening bridge contracts",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "depends_on": ["ARC-T10", "ARC-T13", "ARC-T23"],
           "acceptance_criteria": [
@@ -268,7 +268,7 @@
         {
           "id": "ARC-T05",
           "title": "Windows evidence adapters",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T04"],
           "acceptance_criteria": [
@@ -281,7 +281,7 @@
         {
           "id": "ARC-T06",
           "title": "Ubuntu evidence adapters",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T04"],
           "acceptance_criteria": [
@@ -294,7 +294,7 @@
         {
           "id": "ARC-T14",
           "title": "Windows repair playbooks",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T05", "ARC-T09"],
           "acceptance_criteria": [
@@ -307,7 +307,7 @@
         {
           "id": "ARC-T15",
           "title": "Ubuntu repair playbooks",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T06", "ARC-T09"],
           "acceptance_criteria": [
@@ -327,7 +327,7 @@
         {
           "id": "ARC-T16",
           "title": "Admin-facing output structure",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T08", "ARC-T09"],
           "acceptance_criteria": [
@@ -340,7 +340,7 @@
         {
           "id": "ARC-T17",
           "title": "Audit-ready repair session trail",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T10", "ARC-T12"],
           "acceptance_criteria": [
@@ -379,7 +379,7 @@
         {
           "id": "ARC-T21",
           "title": "Contract and smoke tests",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "depends_on": ["ARC-T11", "ARC-T12", "ARC-T13"],
           "acceptance_criteria": [
@@ -430,15 +430,15 @@
     "ARC-T21"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T13:24:00+02:00",
+    "updated_at": "2026-04-24T13:35:00+02:00",
     "total": 24,
     "by_status": {
-      "todo": 14,
+      "todo": 4,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
+      "done": 20
     },
-    "progress_percent_done": 41.7,
+    "progress_percent_done": 83.3,
     "by_priority": {
       "P0": 13,
       "P1": 10,
@@ -453,24 +453,24 @@
       },
       "ARC-REPAIR-FLOW": {
         "total": 7,
-        "done": 3,
-        "todo": 4
+        "done": 6,
+        "todo": 1
       },
       "ARC-PLATFORM-ADAPTERS": {
         "total": 4,
-        "done": 0,
-        "todo": 4
+        "done": 4,
+        "todo": 0
       },
       "ARC-UX-DOCS-QUALITY": {
         "total": 6,
-        "done": 0,
-        "todo": 6
+        "done": 3,
+        "todo": 3
       }
     },
     "critical_path": {
       "total": 14,
-      "done": 10,
-      "remaining": 4
+      "done": 14,
+      "remaining": 0
     }
   }
 }

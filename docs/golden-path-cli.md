@@ -61,4 +61,9 @@ Erwartetes Erfolgssignal: ein Goal mit Modus `project_evolution`, kleinen Aender
 - Diagnose-Fokus: `python -m agent.cli_goals diagnose "..."`
 - Admin-Repair Shared Foundation: `python -m agent.cli_goals repair-admin "Service restart loop nach Paketupdate"`
 
+Erwartetes Repair-Output-Signal:
+- sichtbare Abschnitte fuer `Diagnosis`, `Repair Plan`, `Risk and Approval`, `Verification`
+- step-confirmed Ausfuehrungsmodell mit bounded Aktionen
+- audit-ready Session-Trail und hook-ready Bridge-IDs fuer spaetere KRITIS-Haertung
+
 Der CLI-Pfad ist abgeschlossen, wenn `--first-run` den Einstieg erklaert, `--status` die Bereitschaft prueft und ein Shortcut-Goal Goal-ID, Status, Task-Anzahl und naechstes Detailkommando ausgibt.
