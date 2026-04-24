@@ -185,10 +185,12 @@ def test_provision_goal():
 @validate_request(GoalCreateRequest)
 def create_goal():
     payload: GoalCreateRequest = g.validated_data
+    mode_id = str(payload.mode or "generic")
+    mode_data = _goal_service().normalize_mode_data(mode_id, payload.mode_data or {})
     goal_text = str(payload.goal or "").strip()
 
-    if payload.mode and payload.mode != "generic":
-        goal_text = _goal_service().build_goal_from_mode(payload.mode, payload.mode_data or {})
+    if mode_id != "generic":
+        goal_text = _goal_service().build_goal_from_mode(mode_id, mode_data)
 
     if not goal_text:
         record_product_event(
@@ -199,12 +201,12 @@ def create_goal():
         return api_response(status="error", message="goal_required", code=400)
 
     defaults = _goal_service().default_workflow_config()
-    overrides = _goal_service().build_goal_workflow_overrides(payload)
+    overrides = _goal_service().build_goal_workflow_overrides(payload, mode=mode_id, mode_data=mode_data)
     effective = _goal_service().deep_merge(defaults, overrides)
     provenance = _goal_service().build_provenance(defaults, overrides)
-    mode_context = _goal_service().build_mode_context(str(payload.mode or "generic"), payload.mode_data or {}, payload.context)
-    mode_constraints = _goal_service().build_mode_constraints(str(payload.mode or "generic"), payload.mode_data or {})
-    mode_acceptance = _goal_service().build_mode_acceptance_criteria(str(payload.mode or "generic"))
+    mode_context = _goal_service().build_mode_context(mode_id, mode_data, payload.context)
+    mode_constraints = _goal_service().build_mode_constraints(mode_id, mode_data)
+    mode_acceptance = _goal_service().build_mode_acceptance_criteria(mode_id)
     readiness = _goal_service().goal_readiness()
     precondition_error = _goal_service().enforce_goal_preconditions(
         payload=payload,
@@ -292,8 +294,8 @@ def create_goal():
         workflow_effective=effective,
         workflow_provenance=provenance,
         readiness=readiness,
-        mode=str(payload.mode or "generic"),
-        mode_data=dict(payload.mode_data or {}),
+        mode=mode_id,
+        mode_data=dict(mode_data or {}),
     )
     goal_record = _repos().goal_repo.save(goal_record)
     if profile_id or overlay_id:

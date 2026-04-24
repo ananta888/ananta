@@ -129,6 +129,7 @@ python -m agent.cli_goals analyze "Analysiere dieses Repository"
 python -m agent.cli_goals review "Pruefe die Login-Aenderungen"
 python -m agent.cli_goals diagnose "Frontend erreicht den Hub nicht"
 python -m agent.cli_goals patch "Plane einen kleinen Fix fuer die Validierung"
+python -m agent.cli_goals repair-admin "Service restart loop nach Paketupdate"
 python -m agent.cli_goals new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
 python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
 ```

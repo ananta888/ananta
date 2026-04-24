@@ -129,3 +129,32 @@ def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
     assert payload["mode_data"]["shortcut"] == "review"
     assert payload["mode_data"]["scope"] == "Pruefe die Login-Aenderungen"
     assert "Pruefe die Login-Aenderungen" in payload["goal"]
+
+
+def test_shortcut_repair_admin_submits_goal_with_admin_repair_mode(monkeypatch):
+    calls: list[dict] = []
+
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+
+    def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
+        calls.append({"method": method, "url": url, "json": json})
+        return _FakeResponse(
+            201,
+            {
+                "data": {
+                    "goal": {"id": "goal-repair-admin", "goal": json["goal"], "status": "planned"},
+                    "created_task_ids": ["task-repair-admin"],
+                }
+            },
+        )
+
+    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    created = cli_goals.submit_shortcut("repair-admin", "Service restart loop")
+
+    assert created == ["task-repair-admin"]
+    payload = calls[0]["json"]
+    assert payload["mode"] == "admin_repair"
+    assert payload["mode_data"]["issue_symptom"] == "Service restart loop"
+    assert payload["mode_data"]["execution_scope"] == "bounded_repair"
+    assert payload["mode_data"]["dry_run"] is True

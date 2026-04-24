@@ -5,6 +5,7 @@ from flask import current_app
 
 from agent.config import settings
 from agent.db_models import GoalDB
+from agent.services.admin_repair_contracts import build_admin_repair_mode_data, render_admin_repair_goal
 from agent.services.planning_service import get_goal_feature_flags, get_plan_generation_limits, get_planning_service
 from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
@@ -75,9 +76,22 @@ class GoalService:
             "policy": policy_defaults,
         }
 
-    def build_goal_workflow_overrides(self, payload: Any) -> dict[str, Any]:
+    def normalize_mode_data(self, mode: str, mode_data: dict[str, Any]) -> dict[str, Any]:
+        if mode == "admin_repair":
+            return build_admin_repair_mode_data(mode_data)
+        return dict(mode_data or {})
+
+    def build_goal_workflow_overrides(
+        self,
+        payload: Any,
+        *,
+        mode: str | None = None,
+        mode_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        mode_id = str(mode or payload.mode or "generic")
+        resolved_mode_data = dict(mode_data or payload.mode_data or {})
         overrides = copy.deepcopy(payload.workflow or {})
-        overrides = self.deep_merge(overrides, self.build_mode_workflow_defaults(str(payload.mode or "generic"), payload.mode_data or {}))
+        overrides = self.deep_merge(overrides, self.build_mode_workflow_defaults(mode_id, resolved_mode_data))
         if payload.team_id:
             overrides.setdefault("routing", {})["team_id"] = payload.team_id
         if payload.create_tasks is not None:
@@ -134,6 +148,31 @@ class GoalService:
                     "runtime_execution": "confirmation_required",
                 },
             }
+        if mode == "admin_repair":
+            return {
+                "planning": {
+                    "create_tasks": True,
+                    "use_template": True,
+                    "use_repo_context": False,
+                },
+                "verification": {
+                    "enabled": True,
+                    "review_required": True,
+                    "mode": "bounded_repair_verification",
+                },
+                "artifacts": {
+                    "include_risk_view": True,
+                    "include_verification_trace": True,
+                    "include_repair_session_summary": True,
+                },
+                "policy": {
+                    "security_level": "review_required",
+                    "write_access": "confirmation_required",
+                    "runtime_execution": "bounded_preview_only",
+                    "enforcement_mode": "advisory_hook_ready",
+                    "unrestricted_shell_repair": "forbidden",
+                },
+            }
         return {}
 
     def build_mode_context(self, mode: str, mode_data: dict[str, Any], context: str | None) -> str | None:
@@ -165,6 +204,22 @@ class GoalService:
             if constraints:
                 lines.append(f"Restriktionen: {constraints}.")
             parts.append("\n".join(lines))
+        elif mode == "admin_repair":
+            detection = dict(mode_data.get("platform_detection") or {})
+            diagnosis = dict(mode_data.get("diagnosis_artifact") or {})
+            repair_plan = dict(mode_data.get("repair_plan") or {})
+            lines = [
+                "MODUSKONTEXT: Admin Repair Shared Foundation.",
+                "Schnelle Produktlinie: bounded diagnosis, bounded repair planning und dry-run-first Ausfuehrung.",
+                "KRITIS-Linie: spaetere Anbindung von Audit, MutationGate, ApprovalPolicy, Sandboxing und RBAC.",
+                "Dieser Modus bleibt absichtlich nicht voll KRITIS-gehaertet.",
+                f"Plattformziel: {detection.get('platform_label') or mode_data.get('platform_target') or 'Unknown'}.",
+                f"Execution Scope: {repair_plan.get('execution_scope') or mode_data.get('execution_scope') or 'diagnosis_only'}.",
+                f"Diagnoseklasse: {diagnosis.get('problem_class') or 'service_health'}.",
+            ]
+            if not bool(detection.get("supported", False)):
+                lines.append("Unbekannte Plattform: degrade to diagnosis_only, keine mutation-capable Repair-Ausfuehrung.")
+            parts.append("\n".join(lines))
         return "\n\n".join(parts) if parts else None
 
     def build_mode_constraints(self, mode: str, mode_data: dict[str, Any]) -> list[str]:
@@ -186,6 +241,12 @@ class GoalService:
             if user_constraints:
                 constraints.append(user_constraints)
             return constraints
+        if mode == "admin_repair":
+            return [
+                "Keine unkontrollierte autonome Shell-Reparatur.",
+                "Mutation-capable Schritte bleiben bounded, preview-first und bestaetigungspflichtig.",
+                "Advisory Klassifikation ersetzt in diesem Track keine vollstaendige KRITIS-Enforcement-Kette.",
+            ]
         return []
 
     def build_mode_acceptance_criteria(self, mode: str) -> list[str]:
@@ -198,6 +259,11 @@ class GoalService:
             return [
                 "Aenderungsplan enthaelt betroffene Bereiche, Risiken, Tests und Review-Hinweise.",
                 "Naechste Schritte sind klein und einzeln verifizierbar.",
+            ]
+        if mode == "admin_repair":
+            return [
+                "Diagnose-Artefakt zeigt Problemklasse, Evidenzquellen, wahrscheinliche Ursachen und naechste Schritte.",
+                "Repair-Plan ist dry-run-first und enthaelt advisory Klassifikation plus KRITIS-hook-ready Felder.",
             ]
         return []
 
@@ -487,6 +553,42 @@ class GoalService:
                 "recommended_capabilities": ["shell_exec", "file_read", "file_patch"]
             },
             {
+                "id": "admin_repair",
+                "title": "Admin Repair Shared Foundation",
+                "description": "Windows-11/Ubuntu Diagnose und bounded Repair-Plan mit dry-run-first und hook-ready Output.",
+                "icon": "admin_panel_settings",
+                "fields": [
+                    {"name": "issue_symptom", "label": "Symptom", "type": "textarea", "required": True},
+                    {
+                        "name": "platform_target",
+                        "label": "Plattformziel",
+                        "type": "select",
+                        "options": ["windows11", "ubuntu", "auto"],
+                        "default": "auto",
+                        "required": True,
+                    },
+                    {
+                        "name": "execution_scope",
+                        "label": "Execution Scope",
+                        "type": "select",
+                        "options": ["diagnosis_only", "bounded_repair"],
+                        "default": "bounded_repair",
+                        "required": True,
+                    },
+                    {"name": "evidence_sources", "label": "Evidenzquellen (optional, CSV)", "type": "text", "required": False},
+                    {"name": "affected_targets", "label": "Betroffene Ziele (optional, CSV)", "type": "text", "required": False},
+                    {
+                        "name": "dry_run",
+                        "label": "Dry-run default",
+                        "type": "select",
+                        "options": ["true", "false"],
+                        "default": "true",
+                        "required": False,
+                    },
+                ],
+                "recommended_capabilities": ["shell_exec", "file_read"]
+            },
+            {
                 "id": "new_software_project",
                 "title": "Neues Softwareprojekt anlegen",
                 "description": "Erstellt aus einer Projektidee einen kontrollierten Blueprint mit initialem Backlog.",
@@ -594,6 +696,8 @@ class GoalService:
             if service:
                 goal += f" Fokus-Service: {service}."
             return goal
+        if mode == "admin_repair":
+            return render_admin_repair_goal(mode_data)
         if mode == "new_software_project":
             project_idea = str(mode_data.get("project_idea", "")).strip()
             target_users = str(mode_data.get("target_users", "")).strip()
