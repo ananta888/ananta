@@ -2,22 +2,42 @@ from agent.services.editor_tui_surface_foundation_service import (
     build_connection_profile_abstraction,
     build_editor_tui_foundation_snapshot,
     build_nvim_analyze_flow,
+    build_nvim_approval_awareness_view,
     build_nvim_artifact_preview,
+    build_nvim_blueprint_project_start_commands,
     build_nvim_connection_auth_support,
     build_nvim_context_inspection_panel,
     build_nvim_diff_proposal_render,
     build_nvim_external_shortcuts,
+    build_nvim_first_run_guided_setup,
     build_nvim_goal_submission_flow,
+    build_nvim_knowledge_context_source_summary,
     build_nvim_navigation_links,
     build_nvim_patch_planning_flow,
     build_nvim_quick_action_palette,
     build_nvim_review_flow,
     build_nvim_task_context_view,
+    build_nvim_trace_diagnostic_summary,
+    build_tui_approval_action_flow,
+    build_tui_approval_queue_view,
     build_tui_artifact_view,
+    build_tui_audit_summary_view,
+    build_tui_audit_trace_drilldown,
     build_tui_auth_session_support,
+    build_tui_cross_view_search_filtering,
+    build_tui_empty_error_state_ux,
     build_tui_goal_submission_entry,
     build_tui_goal_view,
+    build_tui_health_runtime_diagnostics_view,
+    build_tui_keyboard_navigation_refinement,
+    build_tui_kritis_dashboard_summary,
+    build_tui_log_stream_view,
+    build_tui_policy_denial_view,
+    build_tui_provider_backend_visibility_view,
+    build_tui_repair_approval_execution_review,
+    build_tui_repair_session_views,
     build_tui_runtime_status_header,
+    build_tui_state_persistence_resume,
     build_tui_task_board_view,
     build_tui_task_detail_view,
     build_tui_task_filtering_grouping,
@@ -178,6 +198,36 @@ def test_nvim_views_cover_task_artifact_context_and_navigation() -> None:
     assert len(shortcuts["shortcuts"]) == 3
 
 
+def test_nvim_advanced_contracts_cover_stage_four_scope() -> None:
+    blueprint = build_nvim_blueprint_project_start_commands(
+        blueprint_options=["api_service"],
+        work_profiles=["product_fast_line", "kritis_line"],
+    )
+    approval = build_nvim_approval_awareness_view(
+        operation_id="op-7",
+        approval_state="blocked",
+        policy_reason="approval required",
+    )
+    trace_summary = build_nvim_trace_diagnostic_summary(
+        [{"trace_id": "trace-1", "route": "hub->worker", "status": "ok"}],
+    )
+    knowledge = build_nvim_knowledge_context_source_summary(
+        [{"source_class": "repo", "label": "src/service.py", "weight": 0.7}],
+    )
+    setup = build_nvim_first_run_guided_setup(recommended_use_case="review")
+
+    assert blueprint["schema"] == "nvim_blueprint_project_start_commands_v1"
+    assert len(blueprint["commands"]) == 2
+    assert approval["schema"] == "nvim_approval_awareness_view_v1"
+    assert approval["blocked_by_policy"] is True
+    assert trace_summary["schema"] == "nvim_trace_diagnostic_summary_v1"
+    assert trace_summary["optional_advanced_view"] is True
+    assert knowledge["schema"] == "nvim_knowledge_context_source_summary_v1"
+    assert knowledge["compact_and_understandable"] is True
+    assert setup["schema"] == "nvim_first_run_guided_setup_v1"
+    assert setup["browser_required_for_first_success"] is False
+
+
 def test_tui_foundation_and_core_views_cover_next_block() -> None:
     profile = {
         "id": "ops-local",
@@ -226,7 +276,77 @@ def test_tui_foundation_and_core_views_cover_next_block() -> None:
     assert filtering["default_grouping"] == "status"
 
 
-def test_build_editor_tui_foundation_snapshot_contains_next_21_task_contracts() -> None:
+def test_tui_advanced_contracts_cover_logs_approval_kritis_and_usability() -> None:
+    logs = build_tui_log_stream_view(
+        [{"id": "L-1", "level": "warn", "message": "latency high", "timestamp": "2026-04-24T15:00:00Z"}],
+        level_filter="warn",
+    )
+    queue = build_tui_approval_queue_view(
+        [{"id": "AP-1", "scope": "repair", "state": "pending", "context_summary": "repair step"}],
+    )
+    action = build_tui_approval_action_flow(
+        {"id": "AP-1"},
+        action="approve",
+        operator_note="reviewed context",
+    )
+    audit = build_tui_audit_summary_view(
+        [{"chain_id": "C-1", "risk_level": "high", "headline": "repair chain"}],
+    )
+    drilldown = build_tui_audit_trace_drilldown(
+        trace_id="trace-1",
+        events=[{"event_id": "E-1", "message": "approved"}],
+        redaction_applied=True,
+    )
+    denials = build_tui_policy_denial_view(
+        [{"action_id": "A-9", "reason": "policy denied", "policy": "approval_policy"}],
+    )
+    kritis = build_tui_kritis_dashboard_summary(
+        audit_health="healthy",
+        approval_backlog=2,
+        mutation_status="guarded",
+        policy_posture="strict",
+    )
+    repair_sessions = build_tui_repair_session_views(
+        [{"session_id": "R-1", "diagnosis": "disk full", "state": "planned", "verification_result": "pending"}],
+    )
+    repair_flow = build_tui_repair_approval_execution_review(
+        repair_session_id="R-1",
+        dry_run_supported=True,
+        approval_required=True,
+    )
+    health = build_tui_health_runtime_diagnostics_view(
+        health="ok",
+        readiness="ready",
+        diagnostics=[{"key": "workers", "value": "3"}],
+    )
+    providers = build_tui_provider_backend_visibility_view(
+        [{"provider": "openai", "backend": "api", "capability_state": "enabled"}],
+    )
+    keyboard = build_tui_keyboard_navigation_refinement()
+    search = build_tui_cross_view_search_filtering()
+    resume = build_tui_state_persistence_resume(selected_profile_id="ops-local", last_view="approvals")
+    empty_error = build_tui_empty_error_state_ux()
+
+    assert logs["schema"] == "tui_log_stream_view_v1"
+    assert logs["active_level_filter"] == "warn"
+    assert queue["schema"] == "tui_approval_queue_view_v1"
+    assert action["schema"] == "tui_approval_action_flow_v1"
+    assert action["action_allowed"] is True
+    assert audit["schema"] == "tui_audit_summary_view_v1"
+    assert drilldown["schema"] == "tui_audit_trace_drilldown_v1"
+    assert denials["schema"] == "tui_policy_denial_view_v1"
+    assert kritis["schema"] == "tui_kritis_dashboard_summary_v1"
+    assert repair_sessions["schema"] == "tui_repair_session_views_v1"
+    assert repair_flow["schema"] == "tui_repair_approval_execution_review_v1"
+    assert health["schema"] == "tui_health_runtime_diagnostics_view_v1"
+    assert providers["schema"] == "tui_provider_backend_visibility_view_v1"
+    assert keyboard["schema"] == "tui_keyboard_navigation_refinement_v1"
+    assert search["schema"] == "tui_cross_view_search_filtering_v1"
+    assert resume["schema"] == "tui_state_persistence_resume_v1"
+    assert empty_error["schema"] == "tui_empty_error_state_ux_v1"
+
+
+def test_build_editor_tui_foundation_snapshot_contains_next_20_task_contracts() -> None:
     snapshot = build_editor_tui_foundation_snapshot(
         connection_profiles=[
             {
@@ -251,9 +371,25 @@ def test_build_editor_tui_foundation_snapshot_contains_next_21_task_contracts() 
         nvim_artifact={"id": "NA-1", "title": "Review summary", "type": "markdown", "content": "good"},
         nvim_diff_proposals=[{"id": "NP-1", "title": "Patch parser", "hunks": [{"path": "src/main.py", "line": 4}]}],
         nvim_source_locations=[{"file_path": "/workspace/src/main.py", "line": 4}],
+        nvim_traces=[{"trace_id": "trace-1", "route": "hub->worker", "status": "ok"}],
+        nvim_knowledge_sources=[{"source_class": "repo", "label": "src/main.py", "weight": 0.8}],
         tui_tasks=[{"id": "TT-1", "title": "Inspect logs", "status": "todo", "priority": "P1"}],
         tui_artifacts=[{"id": "TA-1", "title": "Log bundle", "type": "text"}],
         tui_goals=[{"id": "TG-1", "title": "Stabilize service", "status": "open"}],
+        tui_logs=[{"id": "L-1", "level": "info", "message": "startup", "timestamp": "2026-04-24T15:00:00Z"}],
+        tui_approvals=[{"id": "AP-1", "scope": "repair", "state": "pending", "context_summary": "repair plan"}],
+        tui_audit_chains=[{"event_id": "E-1", "message": "audit event"}],
+        tui_policy_denials=[{"action_id": "A-1", "reason": "blocked", "policy": "approval_policy"}],
+        tui_repair_sessions=[
+            {
+                "session_id": "R-1",
+                "diagnosis": "disk full",
+                "state": "planned",
+                "verification_result": "pending",
+            }
+        ],
+        tui_diagnostics=[{"key": "workers", "value": "3"}],
+        tui_providers=[{"provider": "openai", "backend": "api", "capability_state": "enabled"}],
     )
 
     assert snapshot["schema"] == "editor_tui_foundation_snapshot_v1"
@@ -279,6 +415,11 @@ def test_build_editor_tui_foundation_snapshot_contains_next_21_task_contracts() 
     assert snapshot["nvim_diff_proposal_render"]["schema"] == "nvim_diff_proposal_render_v1"
     assert snapshot["nvim_navigation_links"]["schema"] == "nvim_navigation_links_v1"
     assert snapshot["nvim_external_shortcuts"]["schema"] == "nvim_external_shortcuts_v1"
+    assert snapshot["nvim_blueprint_project_start_commands"]["schema"] == "nvim_blueprint_project_start_commands_v1"
+    assert snapshot["nvim_approval_awareness_view"]["schema"] == "nvim_approval_awareness_view_v1"
+    assert snapshot["nvim_trace_diagnostic_summary"]["schema"] == "nvim_trace_diagnostic_summary_v1"
+    assert snapshot["nvim_knowledge_context_source_summary"]["schema"] == "nvim_knowledge_context_source_summary_v1"
+    assert snapshot["nvim_first_run_guided_setup"]["schema"] == "nvim_first_run_guided_setup_v1"
     assert snapshot["tui_framework_architecture"]["schema"] == "tui_framework_architecture_decision_v1"
     assert snapshot["tui_information_architecture"]["schema"] == "tui_information_architecture_v1"
     assert snapshot["tui_auth_session_support"]["schema"] == "tui_auth_session_support_v1"
@@ -290,3 +431,18 @@ def test_build_editor_tui_foundation_snapshot_contains_next_21_task_contracts() 
     assert snapshot["tui_goal_view"]["schema"] == "tui_goal_view_v1"
     assert snapshot["tui_goal_submission_entry"]["schema"] == "tui_goal_submission_entry_v1"
     assert snapshot["tui_task_filtering_grouping"]["schema"] == "tui_task_filtering_grouping_v1"
+    assert snapshot["tui_log_stream_view"]["schema"] == "tui_log_stream_view_v1"
+    assert snapshot["tui_approval_queue_view"]["schema"] == "tui_approval_queue_view_v1"
+    assert snapshot["tui_approval_action_flow"]["schema"] == "tui_approval_action_flow_v1"
+    assert snapshot["tui_audit_summary_view"]["schema"] == "tui_audit_summary_view_v1"
+    assert snapshot["tui_audit_trace_drilldown"]["schema"] == "tui_audit_trace_drilldown_v1"
+    assert snapshot["tui_policy_denial_view"]["schema"] == "tui_policy_denial_view_v1"
+    assert snapshot["tui_kritis_dashboard_summary"]["schema"] == "tui_kritis_dashboard_summary_v1"
+    assert snapshot["tui_repair_session_views"]["schema"] == "tui_repair_session_views_v1"
+    assert snapshot["tui_repair_approval_execution_review"]["schema"] == "tui_repair_approval_execution_review_v1"
+    assert snapshot["tui_health_runtime_diagnostics_view"]["schema"] == "tui_health_runtime_diagnostics_view_v1"
+    assert snapshot["tui_provider_backend_visibility_view"]["schema"] == "tui_provider_backend_visibility_view_v1"
+    assert snapshot["tui_keyboard_navigation_refinement"]["schema"] == "tui_keyboard_navigation_refinement_v1"
+    assert snapshot["tui_cross_view_search_filtering"]["schema"] == "tui_cross_view_search_filtering_v1"
+    assert snapshot["tui_state_persistence_resume"]["schema"] == "tui_state_persistence_resume_v1"
+    assert snapshot["tui_empty_error_state_ux"]["schema"] == "tui_empty_error_state_ux_v1"

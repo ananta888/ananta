@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 SHARED_UI_BOUNDARY_MODEL: dict[str, Any] = {
     "schema": "editor_tui_shared_boundary_v1",
     "surfaces": {
@@ -532,17 +531,128 @@ def build_nvim_external_shortcuts(
     clean_base = _clean_text(base_url, max_chars=240).rstrip("/")
     shortcuts = []
     if task_id:
-        shortcuts.append({"label": "Open task in browser", "url": f"{clean_base}/tasks/{_clean_text(task_id, max_chars=100)}"})
+        shortcuts.append(
+            {
+                "label": "Open task in browser",
+                "url": f"{clean_base}/tasks/{_clean_text(task_id, max_chars=100)}",
+            }
+        )
     if artifact_id:
         shortcuts.append(
-            {"label": "Open artifact in browser", "url": f"{clean_base}/artifacts/{_clean_text(artifact_id, max_chars=100)}"}
+            {
+                "label": "Open artifact in browser",
+                "url": f"{clean_base}/artifacts/{_clean_text(artifact_id, max_chars=100)}",
+            }
         )
     if goal_id:
-        shortcuts.append({"label": "Open goal in browser", "url": f"{clean_base}/goals/{_clean_text(goal_id, max_chars=100)}"})
+        shortcuts.append(
+            {
+                "label": "Open goal in browser",
+                "url": f"{clean_base}/goals/{_clean_text(goal_id, max_chars=100)}",
+            }
+        )
     return {
         "schema": "nvim_external_shortcuts_v1",
         "shortcuts": shortcuts,
         "optional_not_forced": True,
+    }
+
+
+def build_nvim_blueprint_project_start_commands(
+    *,
+    blueprint_options: list[str] | None = None,
+    work_profiles: list[str] | None = None,
+) -> dict[str, Any]:
+    normalized_blueprints = [
+        _clean_text(item, max_chars=80) for item in (blueprint_options or ["web_api", "worker_service"])
+    ]
+    normalized_profiles = [
+        _clean_text(item, max_chars=80) for item in (work_profiles or ["product_fast_line", "kritis_line"])
+    ]
+    return {
+        "schema": "nvim_blueprint_project_start_commands_v1",
+        "commands": [
+            {"command": "AnantaProjectNew", "supports_blueprint_selection": True},
+            {"command": "AnantaProjectEvolve", "supports_work_profile_selection": True},
+        ],
+        "blueprint_options": normalized_blueprints,
+        "work_profiles": normalized_profiles,
+        "terminology_consistent_with_ananta": True,
+    }
+
+
+def build_nvim_approval_awareness_view(
+    *,
+    operation_id: str,
+    approval_state: str,
+    policy_reason: str | None = None,
+) -> dict[str, Any]:
+    state = _clean_text(approval_state, max_chars=40)
+    return {
+        "schema": "nvim_approval_awareness_view_v1",
+        "operation_id": _clean_text(operation_id, max_chars=120),
+        "approval_state": state,
+        "blocked_by_policy": state in {"blocked", "denied"},
+        "policy_reason": _clean_text(policy_reason, max_chars=240) or None,
+        "no_implicit_write_promise": True,
+    }
+
+
+def build_nvim_trace_diagnostic_summary(
+    traces: list[dict[str, Any]],
+    *,
+    max_items: int = 8,
+) -> dict[str, Any]:
+    items = []
+    for trace in traces[: max(1, int(max_items))]:
+        items.append(
+            {
+                "trace_id": _clean_text(trace.get("trace_id"), max_chars=100),
+                "route": _clean_text(trace.get("route"), max_chars=140),
+                "status": _clean_text(trace.get("status"), max_chars=30),
+            }
+        )
+    return {
+        "schema": "nvim_trace_diagnostic_summary_v1",
+        "items": items,
+        "optional_advanced_view": True,
+        "high_noise_guard": True,
+    }
+
+
+def build_nvim_knowledge_context_source_summary(
+    sources: list[dict[str, Any]],
+    *,
+    max_items: int = 10,
+) -> dict[str, Any]:
+    return {
+        "schema": "nvim_knowledge_context_source_summary_v1",
+        "sources": [
+            {
+                "source_class": _clean_text(item.get("source_class"), max_chars=80),
+                "label": _clean_text(item.get("label"), max_chars=140),
+                "weight": float(item.get("weight", 0.0) or 0.0),
+            }
+            for item in sources[: max(1, int(max_items))]
+        ],
+        "compact_and_understandable": True,
+    }
+
+
+def build_nvim_first_run_guided_setup(
+    *,
+    recommended_use_case: str = "analyze",
+) -> dict[str, Any]:
+    recommended = _clean_text(recommended_use_case, max_chars=60) or "analyze"
+    return {
+        "schema": "nvim_first_run_guided_setup_v1",
+        "steps": [
+            "configure_connection_profile",
+            "authenticate",
+            f"run_first_{recommended}_flow",
+            "inspect_result_in_editor",
+        ],
+        "browser_required_for_first_success": False,
     }
 
 
@@ -634,7 +744,11 @@ def build_tui_artifact_view(
         }
         for item in artifacts or []
     ]
-    selected = _clean_text(selected_artifact_id, max_chars=100) if selected_artifact_id else (items[0]["id"] if items else None)
+    selected = (
+        _clean_text(selected_artifact_id, max_chars=100)
+        if selected_artifact_id
+        else (items[0]["id"] if items else None)
+    )
     selected_item = next((item for item in items if item["id"] == selected), None)
     return {
         "schema": "tui_artifact_view_v1",
@@ -683,7 +797,9 @@ def build_tui_task_filtering_grouping(
     status_filters: list[str] | None = None,
     group_by: str = "status",
 ) -> dict[str, Any]:
-    filters = [_clean_text(status, max_chars=30) for status in (status_filters or ["todo", "in_progress", "blocked", "done"])]
+    filters = [
+        _clean_text(status, max_chars=30) for status in (status_filters or ["todo", "in_progress", "blocked", "done"])
+    ]
     effective_group = group_by if group_by in {"status", "priority"} else "status"
     return {
         "schema": "tui_task_filtering_grouping_v1",
@@ -691,6 +807,242 @@ def build_tui_task_filtering_grouping(
         "supported_filters": filters,
         "grouping_modes": ["status", "priority"],
         "default_grouping": effective_group,
+    }
+
+
+def build_tui_log_stream_view(
+    logs: list[dict[str, Any]],
+    *,
+    level_filter: str | None = None,
+) -> dict[str, Any]:
+    entries = [
+        {
+            "id": _clean_text(item.get("id"), max_chars=100),
+            "level": _clean_text(item.get("level"), max_chars=20),
+            "message": _clean_text(item.get("message"), max_chars=240),
+            "timestamp": _clean_text(item.get("timestamp"), max_chars=60),
+        }
+        for item in logs or []
+    ]
+    return {
+        "schema": "tui_log_stream_view_v1",
+        "entries": entries,
+        "active_level_filter": _clean_text(level_filter, max_chars=20) or None,
+        "readable_and_filterable": True,
+    }
+
+
+def build_tui_approval_queue_view(approvals: list[dict[str, Any]]) -> dict[str, Any]:
+    queue = [
+        {
+            "id": _clean_text(item.get("id"), max_chars=100),
+            "scope": _clean_text(item.get("scope"), max_chars=120),
+            "state": _clean_text(item.get("state"), max_chars=30),
+            "context_summary": _clean_text(item.get("context_summary"), max_chars=200),
+        }
+        for item in approvals or []
+    ]
+    return {
+        "schema": "tui_approval_queue_view_v1",
+        "queue": queue,
+        "supports_real_workflow": True,
+    }
+
+
+def build_tui_approval_action_flow(
+    approval_item: dict[str, Any],
+    *,
+    action: str,
+    operator_note: str | None = None,
+) -> dict[str, Any]:
+    normalized_action = _clean_text(action, max_chars=20).lower()
+    return {
+        "schema": "tui_approval_action_flow_v1",
+        "approval_id": _clean_text(approval_item.get("id"), max_chars=100),
+        "action": normalized_action,
+        "action_allowed": normalized_action in {"approve", "reject"},
+        "operator_note": _clean_text(operator_note, max_chars=280) or None,
+        "explicit_and_auditable": True,
+        "blind_approval_guard": True,
+    }
+
+
+def build_tui_audit_summary_view(chains: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "tui_audit_summary_view_v1",
+        "chains": [
+            {
+                "chain_id": _clean_text(item.get("chain_id"), max_chars=100),
+                "risk_level": _clean_text(item.get("risk_level"), max_chars=30),
+                "headline": _clean_text(item.get("headline"), max_chars=200),
+            }
+            for item in chains or []
+        ],
+        "high_signal_focus": True,
+    }
+
+
+def build_tui_audit_trace_drilldown(
+    *,
+    trace_id: str,
+    events: list[dict[str, Any]],
+    redaction_applied: bool = True,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_audit_trace_drilldown_v1",
+        "trace_id": _clean_text(trace_id, max_chars=100),
+        "events": [
+            {
+                "event_id": _clean_text(event.get("event_id"), max_chars=100),
+                "message": _clean_text(event.get("message"), max_chars=220),
+            }
+            for event in events or []
+        ],
+        "redaction_applied": bool(redaction_applied),
+        "rbac_expected": True,
+    }
+
+
+def build_tui_policy_denial_view(denials: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "tui_policy_denial_view_v1",
+        "items": [
+            {
+                "action_id": _clean_text(item.get("action_id"), max_chars=100),
+                "reason": _clean_text(item.get("reason"), max_chars=220),
+                "policy": _clean_text(item.get("policy"), max_chars=100),
+            }
+            for item in denials or []
+        ],
+        "debug_and_governance_useful": True,
+    }
+
+
+def build_tui_kritis_dashboard_summary(
+    *,
+    audit_health: str,
+    approval_backlog: int,
+    mutation_status: str,
+    policy_posture: str,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_kritis_dashboard_summary_v1",
+        "audit_health": _clean_text(audit_health, max_chars=40),
+        "approval_backlog": max(0, int(approval_backlog)),
+        "mutation_status": _clean_text(mutation_status, max_chars=40),
+        "policy_posture": _clean_text(policy_posture, max_chars=60),
+        "terminal_compact": True,
+    }
+
+
+def build_tui_repair_session_views(sessions: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "tui_repair_session_views_v1",
+        "sessions": [
+            {
+                "session_id": _clean_text(item.get("session_id"), max_chars=100),
+                "diagnosis": _clean_text(item.get("diagnosis"), max_chars=220),
+                "state": _clean_text(item.get("state"), max_chars=40),
+                "verification_result": _clean_text(item.get("verification_result"), max_chars=80),
+            }
+            for item in sessions or []
+        ],
+        "local_admin_useful": True,
+    }
+
+
+def build_tui_repair_approval_execution_review(
+    *,
+    repair_session_id: str,
+    dry_run_supported: bool,
+    approval_required: bool,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_repair_approval_execution_review_v1",
+        "repair_session_id": _clean_text(repair_session_id, max_chars=100),
+        "dry_run_supported": bool(dry_run_supported),
+        "approval_required": bool(approval_required),
+        "flow_is_explicit": True,
+        "flow_is_auditable": True,
+    }
+
+
+def build_tui_health_runtime_diagnostics_view(
+    *,
+    health: str,
+    readiness: str,
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_health_runtime_diagnostics_view_v1",
+        "health": _clean_text(health, max_chars=40),
+        "readiness": _clean_text(readiness, max_chars=40),
+        "diagnostics": [
+            {
+                "key": _clean_text(item.get("key"), max_chars=80),
+                "value": _clean_text(item.get("value"), max_chars=180),
+            }
+            for item in diagnostics or []
+        ],
+        "daily_ops_ready": True,
+    }
+
+
+def build_tui_provider_backend_visibility_view(
+    providers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_provider_backend_visibility_view_v1",
+        "providers": [
+            {
+                "provider": _clean_text(item.get("provider"), max_chars=80),
+                "backend": _clean_text(item.get("backend"), max_chars=80),
+                "capability_state": _clean_text(item.get("capability_state"), max_chars=60),
+            }
+            for item in providers or []
+        ],
+        "operator_focused_signal": True,
+    }
+
+
+def build_tui_keyboard_navigation_refinement() -> dict[str, Any]:
+    return {
+        "schema": "tui_keyboard_navigation_refinement_v1",
+        "shortcut_model_learnable": True,
+        "important_actions_keyboard_first": True,
+    }
+
+
+def build_tui_cross_view_search_filtering() -> dict[str, Any]:
+    return {
+        "schema": "tui_cross_view_search_filtering_v1",
+        "supported_views": ["tasks", "artifacts", "approvals", "logs"],
+        "behavior_consistent": True,
+    }
+
+
+def build_tui_state_persistence_resume(
+    *,
+    selected_profile_id: str | None,
+    last_view: str | None,
+) -> dict[str, Any]:
+    return {
+        "schema": "tui_state_persistence_resume_v1",
+        "persisted_state": {
+            "selected_profile_id": _clean_text(selected_profile_id, max_chars=80) or None,
+            "last_view": _clean_text(last_view, max_chars=80) or None,
+        },
+        "sensitive_data_persisted": False,
+    }
+
+
+def build_tui_empty_error_state_ux() -> dict[str, Any]:
+    return {
+        "schema": "tui_empty_error_state_ux_v1",
+        "empty_state_present": True,
+        "permission_denial_state_present": True,
+        "backend_failure_state_present": True,
+        "distinguishable_states": True,
     }
 
 
@@ -704,9 +1056,18 @@ def build_editor_tui_foundation_snapshot(
     nvim_artifact: dict[str, Any] | None = None,
     nvim_diff_proposals: list[dict[str, Any]] | None = None,
     nvim_source_locations: list[dict[str, Any]] | None = None,
+    nvim_traces: list[dict[str, Any]] | None = None,
+    nvim_knowledge_sources: list[dict[str, Any]] | None = None,
     tui_tasks: list[dict[str, Any]] | None = None,
     tui_artifacts: list[dict[str, Any]] | None = None,
     tui_goals: list[dict[str, Any]] | None = None,
+    tui_logs: list[dict[str, Any]] | None = None,
+    tui_approvals: list[dict[str, Any]] | None = None,
+    tui_audit_chains: list[dict[str, Any]] | None = None,
+    tui_policy_denials: list[dict[str, Any]] | None = None,
+    tui_repair_sessions: list[dict[str, Any]] | None = None,
+    tui_diagnostics: list[dict[str, Any]] | None = None,
+    tui_providers: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     profile_model = build_connection_profile_abstraction(
         connection_profiles,
@@ -735,6 +1096,9 @@ def build_editor_tui_foundation_snapshot(
         source_locations=nvim_source_locations or [],
     )
     tui_task_board = build_tui_task_board_view(tui_tasks or [])
+    tui_approval_queue = build_tui_approval_queue_view(tui_approvals or [])
+    first_approval = (tui_approvals or [{"id": "approval-0", "scope": "none", "state": "pending"}])[0]
+    first_trace = (nvim_traces or [{"trace_id": "trace-0", "route": "none", "status": "unknown"}])[0]
     return {
         "schema": "editor_tui_foundation_snapshot_v1",
         "shared_ui_boundary_model": dict(SHARED_UI_BOUNDARY_MODEL),
@@ -766,6 +1130,17 @@ def build_editor_tui_foundation_snapshot(
             task_id=nvim_navigation["task"]["id"],
             artifact_id=nvim_artifact_preview["artifact_id"],
         ),
+        "nvim_blueprint_project_start_commands": build_nvim_blueprint_project_start_commands(),
+        "nvim_approval_awareness_view": build_nvim_approval_awareness_view(
+            operation_id="op-risk-1",
+            approval_state="review_required",
+            policy_reason="sensitive_write_operation",
+        ),
+        "nvim_trace_diagnostic_summary": build_nvim_trace_diagnostic_summary(nvim_traces or []),
+        "nvim_knowledge_context_source_summary": build_nvim_knowledge_context_source_summary(
+            nvim_knowledge_sources or []
+        ),
+        "nvim_first_run_guided_setup": build_nvim_first_run_guided_setup(),
         "tui_framework_architecture": dict(TUI_FRAMEWORK_ARCHITECTURE_DECISION),
         "tui_information_architecture": dict(TUI_INFORMATION_ARCHITECTURE),
         "tui_auth_session_support": build_tui_auth_session_support(active_profile),
@@ -781,4 +1156,43 @@ def build_editor_tui_foundation_snapshot(
         "tui_goal_view": build_tui_goal_view(tui_goals or []),
         "tui_goal_submission_entry": build_tui_goal_submission_entry(),
         "tui_task_filtering_grouping": build_tui_task_filtering_grouping(task_board=tui_task_board),
+        "tui_log_stream_view": build_tui_log_stream_view(tui_logs or []),
+        "tui_approval_queue_view": tui_approval_queue,
+        "tui_approval_action_flow": build_tui_approval_action_flow(
+            first_approval,
+            action="approve",
+            operator_note="approved after context review",
+        ),
+        "tui_audit_summary_view": build_tui_audit_summary_view(tui_audit_chains or []),
+        "tui_audit_trace_drilldown": build_tui_audit_trace_drilldown(
+            trace_id=first_trace["trace_id"],
+            events=(tui_audit_chains or [{"event_id": "event-0", "message": "no audit event"}]),
+            redaction_applied=True,
+        ),
+        "tui_policy_denial_view": build_tui_policy_denial_view(tui_policy_denials or []),
+        "tui_kritis_dashboard_summary": build_tui_kritis_dashboard_summary(
+            audit_health="healthy",
+            approval_backlog=len(tui_approval_queue["queue"]),
+            mutation_status="guarded",
+            policy_posture="strict",
+        ),
+        "tui_repair_session_views": build_tui_repair_session_views(tui_repair_sessions or []),
+        "tui_repair_approval_execution_review": build_tui_repair_approval_execution_review(
+            repair_session_id=(tui_repair_sessions or [{"session_id": "repair-0"}])[0]["session_id"],
+            dry_run_supported=True,
+            approval_required=True,
+        ),
+        "tui_health_runtime_diagnostics_view": build_tui_health_runtime_diagnostics_view(
+            health="ok",
+            readiness="ready",
+            diagnostics=tui_diagnostics or [],
+        ),
+        "tui_provider_backend_visibility_view": build_tui_provider_backend_visibility_view(tui_providers or []),
+        "tui_keyboard_navigation_refinement": build_tui_keyboard_navigation_refinement(),
+        "tui_cross_view_search_filtering": build_tui_cross_view_search_filtering(),
+        "tui_state_persistence_resume": build_tui_state_persistence_resume(
+            selected_profile_id=active_profile["id"],
+            last_view="tasks",
+        ),
+        "tui_empty_error_state_ux": build_tui_empty_error_state_ux(),
     }

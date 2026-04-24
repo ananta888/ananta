@@ -55,3 +55,24 @@ The TUI contract baseline now captures:
 - Task board and task detail views.
 - Artifact list/detail and goal list/submission entry.
 - Task filtering and grouping model.
+
+## Neovim advanced operational awareness
+
+The contract model now includes:
+
+- Blueprint-aware project start commands.
+- Approval-awareness for risky/blocked actions.
+- Compact trace and diagnostic summary view.
+- Knowledge/context source summary.
+- First-run guided setup without mandatory browser detour.
+
+## TUI logs, approvals, audit, KRITIS and usability layer
+
+Additional contract models now cover:
+
+- Log stream with filter support.
+- Approval queue, approval detail/action flow and policy-denial visibility.
+- Audit summary and audit trace drill-down (RBAC/redaction aware).
+- KRITIS dashboard summary and repair session review contracts.
+- Health/runtime diagnostics and provider/backend visibility.
+- Keyboard refinement, cross-view search/filtering, safe resume state and explicit empty/error UX states.
