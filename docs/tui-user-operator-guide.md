@@ -14,15 +14,24 @@ For local MVP runtime smoke:
 
 `python -m client_surfaces.tui_runtime.ananta_tui --fixture`
 
+For compact terminals and explicit section focus:
+
+`python -m client_surfaces.tui_runtime.ananta_tui --fixture --section Tasks --terminal-width 80`
+
 ## Core views
 
-- Task board and task detail
-- Artifact list/detail
-- Goal list and goal submission entry
-- Approval queue and approval action flow
-- Audit summary and trace drill-down
-- KRITIS dashboard and repair session views
-- Health/runtime diagnostics and provider/backend visibility
+- Dashboard
+- Goals
+- Tasks
+- Artifacts
+- Knowledge
+- Config
+- System
+- Teams
+- Automation
+- Audit
+- Repair
+- Help
 
 ## Operator safety rules
 
@@ -30,9 +39,12 @@ For local MVP runtime smoke:
 - Prefer dry-run-first where supported for repair flows.
 - Use denial/audit views for governance debugging instead of bypassing policy.
 - Keep actions explicit and auditable.
+- Deep admin and high-risk operations stay browser-first via fallback links.
+- Config edits from terminal are allowlisted and require explicit `--apply-safe-config`.
 
 ## Navigation
 
 - Keyboard-first navigation model
 - Cross-view search/filtering
 - Resume state support for profile/last-view continuity
+- Navigation shell always shows current section and selected object context.

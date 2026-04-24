@@ -43,6 +43,7 @@ The standard gate checks:
 - CI installs from lockfiles and runs the release gate
 - client-surface release gate report is generated with per-surface status overview
 - lite and distributed Compose configs render successfully
+- `todo.json` schema validation uses auto-detected format (`category_meta` or `task_track`)
 
 ## Full Local Rebuild
 
@@ -94,6 +95,8 @@ npm --version
 docker --version
 docker compose version
 python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
+python devtools/validate_todo_schema.py
+python scripts/validate_todo_consistency.py --todo todo.json
 ```
 
 The two builds are acceptable when the gate passes in both clean checkouts and both reports show all checks as `ok: true`.

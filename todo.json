@@ -33,13 +33,13 @@
       "id": "TFS-M1",
       "title": "Navigation and API mapping",
       "task_ids": ["TFS-T01", "TFS-T02", "TFS-T03", "TFS-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TFS-M2",
       "title": "Dashboard, system and config",
       "task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TFS-M3",
@@ -76,7 +76,7 @@
     {
       "id": "TFS-T01",
       "title": "Frontend API surface mapping create",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -89,7 +89,7 @@
     {
       "id": "TFS-T02",
       "title": "TUI section navigation shell expand",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -102,7 +102,7 @@
     {
       "id": "TFS-T03",
       "title": "Shared TUI view-state model implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -115,7 +115,7 @@
     {
       "id": "TFS-T04",
       "title": "Browser fallback and deep-link helper implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -129,7 +129,7 @@
     {
       "id": "TFS-T05",
       "title": "Dashboard read model view implement",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -142,7 +142,7 @@
     {
       "id": "TFS-T06",
       "title": "System health and contracts view implement",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -155,7 +155,7 @@
     {
       "id": "TFS-T07",
       "title": "Config read-only view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -168,7 +168,7 @@
     {
       "id": "TFS-T08",
       "title": "Safe config edit flow implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "acceptance_criteria": [
@@ -181,7 +181,7 @@
     {
       "id": "TFS-T09",
       "title": "Provider and benchmark views implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -498,7 +498,7 @@
     {
       "id": "TFS-T33",
       "title": "Todo schema alignment and stats sync hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -536,15 +536,15 @@
     "TFS-T32"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T23:21:37+02:00",
+    "updated_at": "2026-04-24T23:37:02+02:00",
     "total": 33,
     "by_status": {
-      "todo": 24,
-      "in_progress": 9,
+      "todo": 16,
+      "in_progress": 7,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 30.3,
     "by_priority": {
       "P0": 18,
       "P1": 12,
@@ -559,26 +559,26 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 0,
-      "remaining": 16
+      "done": 4,
+      "remaining": 12
     },
     "milestones": {
       "total": 7,
-      "todo": 2,
-      "in_progress": 5,
+      "todo": 1,
+      "in_progress": 4,
       "blocked": 0,
-      "done": 0
+      "done": 2
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-24T23:21:37+02:00",
+    "updated_at": "2026-04-24T23:37:02+02:00",
     "stages": {
       "TFS-M1": {
         "title": "Navigation and API mapping",
         "scope_task_ids": ["TFS-T01", "TFS-T02", "TFS-T03", "TFS-T04"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -586,9 +586,9 @@
         "title": "Dashboard, system and config",
         "scope_task_ids": ["TFS-T05", "TFS-T06", "TFS-T07", "TFS-T08", "TFS-T09"],
         "total": 5,
-        "done": 0,
-        "todo": 3,
-        "in_progress": 2,
+        "done": 5,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       },
       "TFS-M3": {
@@ -631,57 +631,74 @@
         "title": "Testing, docs and release gate",
         "scope_task_ids": ["TFS-T28", "TFS-T29", "TFS-T30", "TFS-T31", "TFS-T32", "TFS-T33"],
         "total": 6,
-        "done": 0,
-        "todo": 3,
+        "done": 1,
+        "todo": 2,
         "in_progress": 3,
         "blocked": 0
       }
     }
   },
   "code_evidence_snapshot": {
-    "updated_at": "2026-04-24T23:21:37+02:00",
+    "updated_at": "2026-04-24T23:37:02+02:00",
     "runtime_baseline_evidence": [
       "client_surfaces/tui_runtime/ananta_tui/app.py",
+      "client_surfaces/tui_runtime/ananta_tui/surface_map.py",
+      "client_surfaces/tui_runtime/ananta_tui/state.py",
+      "client_surfaces/tui_runtime/ananta_tui/browser_fallback.py",
       "client_surfaces/tui_runtime/ananta_tui/views.py",
       "scripts/smoke_tui_runtime.py",
       "scripts/smoke_client_golden_paths.py",
       "tests/test_tui_runtime_app.py",
+      "tests/test_tui_runtime_state.py",
       "docs/tui-user-operator-guide.md"
     ],
     "planning_and_validation_evidence": [
       "scripts/validate_todo_consistency.py",
       "tests/test_validate_todo_consistency.py",
-      "devtools/validate_todo_schema.py"
+      "devtools/validate_todo_schema.py",
+      "todo.track.schema.json",
+      "tests/test_validate_todo_schema.py",
+      "data/tui_frontend_api_surface_map.json"
     ],
     "detected_runtime_sections": [
-      "health",
+      "dashboard",
+      "goals",
       "tasks",
       "artifacts",
+      "knowledge",
+      "config",
+      "providers",
+      "benchmarks",
+      "system",
+      "teams",
+      "automation",
+      "audit",
       "approvals",
-      "repairs"
+      "repairs",
+      "help"
     ],
     "major_gaps_vs_track_goal": [
-      "No broad multi-section navigation shell yet (dashboard/goals/knowledge/config/system/teams/automation/audit/repair/help parity).",
-      "System health baseline exists, but contracts/deep system views are still partial and not yet parity-level.",
-      "No explicit audit, automation, team/blueprint, instruction-layer, or knowledge runtime screens in current TUI runtime module.",
-      "Existing smoke/golden-path checks cover core MVP sections, but not full frontend-parity workflow depth."
+      "Navigation, mapping and baseline multi-section runtime views are now present, but deeper object drill-down remains partial.",
+      "Config editing is intentionally allowlisted; advanced governance/config operations stay browser-first.",
+      "Instruction-layer, team/blueprint deep workflows and advanced automation/audit actions are still pending beyond status/read models.",
+      "Golden-path and view tests now cover broad runtime shell, but full frontend-parity workflow depth is still open."
     ]
   },
   "analysis_checks": {
-    "checked_at": "2026-04-24T23:21:37+02:00",
+    "checked_at": "2026-04-24T23:37:02+02:00",
     "internal_consistency": "ok",
     "notes": [
       "Task IDs are unique and all milestone task references resolve to existing tasks.",
       "Task status, priority and risk counters were recalculated and synchronized.",
-      "Current todo.json format is consistent with scripts/validate_todo_consistency.py but not with todo.schema.json category/meta shape."
+      "todo schema validation now auto-detects task-track format and validates against todo.track.schema.json."
     ]
   },
   "summary_notes": [
-    "Status correction applied against real code: this track is not greenfield; multiple TUI parity tasks are already started on top of the runnable MVP runtime baseline.",
-    "TFS-T06 moved to in_progress to reflect already implemented health baseline that now needs contracts/depth hardening.",
-    "Track was extended with TFS-T33 to close todo-format/schema validation drift and strengthen release-gate reliability.",
-    "Current runtime evidence confirms implemented MVP sections for health, tasks, artifacts, approvals and repairs with smoke/test coverage.",
-    "Main remaining work is breadth expansion (navigation + additional sections) and depth hardening (safe writes, richer read models, parity report).",
+    "First bundle (TFS-T01..T09 + TFS-T33) is completed with concrete runtime and validation evidence in repository code and tests.",
+    "TUI now provides a broad multi-section navigation shell with shared state, browser fallback links and compact terminal mode.",
+    "Dashboard/system/config/provider/benchmark surfaces are now rendered through existing backend API contracts with degraded-state visibility.",
+    "Safe config editing is now allowlisted, preview-first and explicit-apply only; dangerous or complex operations remain browser-first.",
+    "todo schema validation drift is resolved for active track format via format detection and dedicated track schema support.",
     "Dangerous write/admin operations remain confirmation-based, backend-gated and auditable; browser fallback stays preferred for complex or risky workflows."
   ],
   "end_summaries": [
@@ -689,33 +706,33 @@
       "summary_id": "TFS-S1",
       "title": "Analysis outcome",
       "items": [
-        "todo.json was structurally consistent (IDs, milestone references, counters), but the saved snapshot was stale compared to current repository evidence.",
-        "A schema/validator split was detected: this file follows the task-track format used by scripts/validate_todo_consistency.py, not the category/meta shape expected by devtools/validate_todo_schema.py."
+        "First implementation bundle selected: TFS-T01..T09 plus TFS-T33 as the earliest coherent dependency cluster.",
+        "Repository baseline already contained MVP runtime; this bundle expanded it to a multi-section parity shell."
       ]
     },
     {
       "summary_id": "TFS-S2",
       "title": "Corrections",
       "items": [
-        "TFS-T06 status was corrected to in_progress based on existing system-health runtime baseline.",
-        "tasks_status_summary was resynced (total=33, todo=24, in_progress=9, done=0, blocked=0) including priority/risk distributions."
+        "Statuses were updated to reflect completed work: TFS-T01..T09 and TFS-T33 are now done.",
+        "Milestones TFS-M1 and TFS-M2 are now done; summary counters and critical-path progress were synchronized."
       ]
     },
     {
       "summary_id": "TFS-S3",
       "title": "Improvements and extensions",
       "items": [
-        "Added TFS-T33 (Todo schema alignment and stats sync hardening) to milestone M7.",
-        "Added execution_stage_summary with per-milestone scope and live status counters to improve planning precision.",
-        "Added analysis_checks and expanded code_evidence_snapshot with planning/validation evidence."
+        "Added TUI API mapping artifact, navigation/state/fallback architecture, and expanded section renderers for dashboard/goals/knowledge/config/system/teams/automation/audit/help.",
+        "Added safe config edit flow with allowlist, preview and explicit apply mode.",
+        "Added track-aware schema validation (todo.track.schema.json + validate_todo_schema auto-detection) and dedicated tests."
       ]
     },
     {
       "summary_id": "TFS-S4",
       "title": "Next focus recommendation",
       "items": [
-        "Execution focus should remain on TFS-T01..T04 and TFS-T06..T09 to stabilize navigation/API mapping and safe system/config depth.",
-        "In parallel, start TFS-T33 to remove schema/validator drift before release-gate tightening."
+        "Next execution block should focus on deep workflows (TFS-T10..T18) and orchestration/instruction layers (TFS-T19..T22).",
+        "Keep validation and smoke suites expanding in parallel to preserve parity confidence as write/action depth increases."
       ]
     }
   ]
