@@ -144,8 +144,8 @@ class ContextManagerService:
                     "retrieval_hints": dict((existing.bundle_metadata or {}).get("retrieval_hints") or {}),
                     "task_neighborhood": {
                         "neighbor_task_ids": list(
-                            (((existing.bundle_metadata or {}).get("retrieval_hints") or {}).get("neighbor_task_ids") or []
-                        )
+                            ((existing.bundle_metadata or {}).get("retrieval_hints") or {}).get("neighbor_task_ids") or []
+                        ),
                     },
                 }
 

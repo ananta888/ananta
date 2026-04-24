@@ -279,7 +279,17 @@ def set_config():
         if not isinstance(specialized_cfg, dict):
             return api_response(status="error", message="invalid_specialized_worker_profiles", code=400)
         merged_specialized = (current_cfg.get("specialized_worker_profiles", {}) or {}).copy()
-        merged_specialized.update(specialized_cfg)
+        merged_specialized.update({key: value for key, value in specialized_cfg.items() if key != "profiles"})
+        if isinstance(merged_specialized.get("profiles"), dict) and isinstance(specialized_cfg.get("profiles"), dict):
+            merged_profiles = dict(merged_specialized.get("profiles") or {})
+            for profile_id, profile_cfg in (specialized_cfg.get("profiles") or {}).items():
+                if not isinstance(profile_cfg, dict):
+                    continue
+                previous_profile = merged_profiles.get(profile_id) if isinstance(merged_profiles.get(profile_id), dict) else {}
+                merged_profiles[profile_id] = {**previous_profile, **profile_cfg}
+            merged_specialized["profiles"] = merged_profiles
+        elif isinstance(specialized_cfg.get("profiles"), dict):
+            merged_specialized["profiles"] = dict(specialized_cfg.get("profiles") or {})
         new_cfg = {
             **new_cfg,
             "specialized_worker_profiles": shared.normalize_specialized_worker_profiles_config(merged_specialized),
