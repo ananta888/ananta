@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/domain_status.v1.json",
+  "title": "Ananta Domain Status v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "domain_id",
+    "lifecycle_status",
+    "runtime_status",
+    "inventory_status",
+    "descriptor_present",
+    "checked_at",
+    "runtime_evidence_refs",
+    "blockers"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "domain_status.v1"
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "lifecycle_status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "foundation_only",
+        "runtime_mvp",
+        "runtime_complete",
+        "deferred",
+        "blocked",
+        "deprecated"
+      ]
+    },
+    "runtime_status": {
+      "type": "string",
+      "enum": [
+        "descriptor_only",
+        "runtime_unavailable",
+        "runtime_degraded",
+        "runtime_available"
+      ]
+    },
+    "inventory_status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "foundation_only",
+        "runtime_mvp",
+        "runtime_complete",
+        "deferred",
+        "blocked",
+        "deprecated"
+      ]
+    },
+    "descriptor_present": {
+      "type": "boolean"
+    },
+    "checked_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "additionalProperties": false
+}

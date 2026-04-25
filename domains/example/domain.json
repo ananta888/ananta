@@ -1,0 +1,25 @@
+{
+  "schema": "domain_descriptor.v1",
+  "domain_id": "example",
+  "display_name": "Example Generic Domain",
+  "version": "1.0.0",
+  "lifecycle_status": "foundation_only",
+  "runtime_status": "descriptor_only",
+  "owner": "ananta",
+  "description": "Minimal descriptor-only example domain used for schema and registry validation tests.",
+  "supported_clients": ["cli", "tui", "web"],
+  "source_paths": {
+    "descriptor_root": "domains/example",
+    "code_paths": [],
+    "docs_paths": ["docs/architecture/domain_integration_foundation.md"]
+  },
+  "capability_pack": "domains/example/capabilities.json",
+  "context_schemas": [],
+  "artifact_schemas": [],
+  "policy_packs": [],
+  "rag_profiles": [],
+  "bridge_adapter_type": "none",
+  "extensions": {
+    "runtime_claim": "descriptor_only"
+  }
+}
