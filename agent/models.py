@@ -2,7 +2,8 @@ import uuid
 from typing import List, Optional
 
 from sqlmodel import Field, SQLModel
-from agent.task_models import TaskStatus
+
+from agent.task_models import TaskStatus  # noqa: F401 - re-exported for legacy imports
 
 
 class TaskStepProposeRequest(SQLModel):
@@ -121,6 +122,11 @@ class TaskArtifactReferenceContract(SQLModel):
     filename: Optional[str] = None
     media_type: Optional[str] = None
     task_id: Optional[str] = None
+    worker_job_id: Optional[str] = None
+    workspace_relative_path: Optional[str] = None
+    content_hash: Optional[str] = None
+    provenance_summary: Optional[dict] = None
+    trace_bundle_ref: Optional[str] = None
 
 
 class TaskScopedStepProposeResponse(SQLModel):

@@ -447,6 +447,12 @@ class WorkerWorkspaceService:
             "extracted_document_id": document.id if document else None,
             "filename": artifact.latest_filename,
             "media_type": artifact.latest_media_type,
+            "content_hash": version.sha256,
+            "provenance_summary": {
+                "artifact_type": "workspace_diff",
+                "workspace_changed_files": len(list(changed_rel_paths or [])),
+                "traceable_to_workspace": True,
+            },
         }
 
     def sync_changed_files_to_artifacts(
@@ -495,6 +501,12 @@ class WorkerWorkspaceService:
                     "filename": artifact.latest_filename,
                     "media_type": artifact.latest_media_type,
                     "workspace_relative_path": rel,
+                    "content_hash": version.sha256,
+                    "provenance_summary": {
+                        "artifact_type": "workspace_file",
+                        "workspace_relative_path": rel,
+                        "traceable_to_workspace": True,
+                    },
                 }
             )
         return refs

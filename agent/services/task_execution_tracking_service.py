@@ -818,6 +818,8 @@ class TaskExecutionTrackingService:
             collection_name="task-execution-results",
         )
         _, _, document = get_ingestion_service().extract_artifact(artifact.id)
+        citations = list(research_artifact.get("citations") or [])
+        sources = list(research_artifact.get("sources") or [])
         return {
             "kind": research_artifact.get("kind") or "research_report",
             "artifact_id": artifact.id,
@@ -826,6 +828,15 @@ class TaskExecutionTrackingService:
             "filename": artifact.latest_filename,
             "media_type": artifact.latest_media_type,
             "task_id": tid,
+            "worker_job_id": str((task or {}).get("current_worker_job_id") or "").strip() or None,
+            "content_hash": version.sha256,
+            "provenance_summary": {
+                "artifact_type": research_artifact.get("kind") or "research_report",
+                "source_count": len(sources),
+                "has_citations": bool(citations),
+                "citation_count": len(citations),
+                "trace_bundle_ref": str(((research_artifact.get("trace") or {}).get("trace_bundle_id") or "")).strip() or None,
+            },
         }
 
     def sync_worker_result_tracking(
