@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/bridge_adapter_contract.v1.json",
+  "title": "Ananta Bridge Adapter Contract v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "adapter_type",
+    "version",
+    "communication_modes",
+    "operations",
+    "governance",
+    "execution_contract"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "bridge_adapter_contract.v1"
+    },
+    "adapter_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "communication_modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["http", "websocket", "grpc", "ipc", "stdio", "inprocess"]
+      }
+    },
+    "operations": {
+      "type": "object",
+      "required": [
+        "health",
+        "capabilities",
+        "capture_context",
+        "execute_action",
+        "report_result"
+      ],
+      "properties": {
+        "health": { "$ref": "#/$defs/operationSpec" },
+        "capabilities": { "$ref": "#/$defs/operationSpec" },
+        "capture_context": { "$ref": "#/$defs/operationSpec" },
+        "execute_action": { "$ref": "#/$defs/operationSpec" },
+        "report_result": { "$ref": "#/$defs/operationSpec" },
+        "cancel": { "$ref": "#/$defs/operationSpec" }
+      },
+      "additionalProperties": false
+    },
+    "governance": {
+      "type": "object",
+      "required": [
+        "hub_policy_enforced",
+        "self_approval_allowed",
+        "approval_reference_required"
+      ],
+      "properties": {
+        "hub_policy_enforced": { "type": "boolean", "const": true },
+        "self_approval_allowed": { "type": "boolean", "const": false },
+        "approval_reference_required": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": false
+    },
+    "execution_contract": {
+      "type": "object",
+      "required": [
+        "correlation_id_required",
+        "domain_id_required",
+        "capability_id_required",
+        "action_id_required",
+        "approval_token_required",
+        "result_artifact_metadata_required"
+      ],
+      "properties": {
+        "correlation_id_required": { "type": "boolean", "const": true },
+        "domain_id_required": { "type": "boolean", "const": true },
+        "capability_id_required": { "type": "boolean", "const": true },
+        "action_id_required": { "type": "boolean", "const": true },
+        "approval_token_required": { "type": "boolean", "const": true },
+        "result_artifact_metadata_required": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "operationSpec": {
+      "type": "object",
+      "required": ["supported", "timeout_ms"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "timeout_ms": { "type": "integer", "minimum": 1 },
+        "request_schema_ref": { "type": "string", "minLength": 1 },
+        "response_schema_ref": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
