@@ -1,12 +1,12 @@
 {
   "schema": "domain_descriptor.v1",
   "domain_id": "freecad",
-  "display_name": "FreeCAD Deferred Domain",
+  "display_name": "FreeCAD Foundation Domain",
   "version": "1.0.0",
-  "lifecycle_status": "deferred",
+  "lifecycle_status": "planned",
   "runtime_status": "descriptor_only",
   "owner": "ananta",
-  "description": "Deferred FreeCAD domain baseline for generic descriptor and capability contract readiness.",
+  "description": "Planned FreeCAD domain baseline for strict CAD correctness, approval and audit readiness.",
   "supported_clients": ["bridge", "cli", "tui", "web"],
   "source_paths": {
     "descriptor_root": "domains/freecad",

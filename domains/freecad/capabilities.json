@@ -4,16 +4,76 @@
   "version": "1.0.0",
   "capabilities": [
     {
-      "capability_id": "freecad.project.read",
+      "capability_id": "freecad.document.read",
       "domain_id": "freecad",
-      "display_name": "Read project metadata",
-      "category": "project",
+      "display_name": "Read document metadata",
+      "category": "document",
       "risk": "low",
       "read_only": true,
       "mutating": false,
       "approval_required": false,
       "default_policy_state": "allow",
-      "notes": ["Deferred baseline capability for registry and policy-contract readiness."]
+      "notes": ["Read-only FreeCAD metadata retrieval for safe planning flows."]
+    },
+    {
+      "capability_id": "freecad.model.inspect",
+      "domain_id": "freecad",
+      "display_name": "Inspect model structure",
+      "category": "model",
+      "risk": "medium",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Model inspection remains read-only and bounded."]
+    },
+    {
+      "capability_id": "freecad.export.plan",
+      "domain_id": "freecad",
+      "display_name": "Plan model exports",
+      "category": "export",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Export planning is allowed without producing artifacts."]
+    },
+    {
+      "capability_id": "freecad.macro.plan",
+      "domain_id": "freecad",
+      "display_name": "Plan macro execution",
+      "category": "macro",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Macro plans are treated as untrusted artifacts."]
+    },
+    {
+      "capability_id": "freecad.model.mutate",
+      "domain_id": "freecad",
+      "display_name": "Apply model mutation",
+      "category": "model",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "default_deny",
+      "notes": ["Mechanical model mutation is blocked by default."]
+    },
+    {
+      "capability_id": "freecad.macro.execute",
+      "domain_id": "freecad",
+      "display_name": "Execute macro",
+      "category": "macro",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "default_deny",
+      "notes": ["Macro execution is blocked by default until explicit policy enablement."]
     }
   ]
 }

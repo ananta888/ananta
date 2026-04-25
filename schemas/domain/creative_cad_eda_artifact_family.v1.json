@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/creative_cad_eda_artifact_family.v1.json",
+  "title": "Creative CAD EDA Artifact Families v1",
+  "type": "object",
+  "required": ["schema", "families"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "creative_cad_eda_artifact_family.v1"
+    },
+    "families": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["family_id", "description", "safety_classification", "verification_level"],
+        "properties": {
+          "family_id": {
+            "type": "string",
+            "enum": [
+              "findings",
+              "action_plans",
+              "script_or_macro_plans",
+              "preview_renders",
+              "export_plans",
+              "verification_reports",
+              "execution_reports"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "safety_classification": {
+            "type": "string",
+            "enum": ["read_only", "planning", "preview", "mutation_candidate", "execution"]
+          },
+          "verification_level": {
+            "type": "string",
+            "enum": ["basic", "enhanced", "strict"]
+          },
+          "domain_overrides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": ["basic", "enhanced", "strict"]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
