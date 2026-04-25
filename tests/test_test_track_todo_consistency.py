@@ -16,6 +16,15 @@ def _load_payload() -> dict:
 
 def test_current_todo_summary_is_consistent() -> None:
     payload = _load_payload()
+    assert "execution_stage_summary" in payload
+    assert set((payload["execution_stage_summary"].get("stages") or {}).keys()) >= {
+        "TEST-M1",
+        "TEST-M2",
+        "TEST-M3",
+        "TEST-M4",
+        "TEST-M5",
+        "TEST-M6",
+    }
     assert validate_todo_payload(payload) == []
 
 

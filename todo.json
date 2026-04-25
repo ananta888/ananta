@@ -33,7 +33,7 @@
       "id": "TEST-M1",
       "title": "Runtime evidence and audit verification",
       "task_ids": ["TEST-T01", "TEST-T02", "TEST-T03", "TEST-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M2",
@@ -71,7 +71,7 @@
     {
       "id": "TEST-T01",
       "title": "Runtime inventory evidence tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -83,7 +83,7 @@
     {
       "id": "TEST-T02",
       "title": "Client surface audit script tests expand",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -95,7 +95,7 @@
     {
       "id": "TEST-T03",
       "title": "Todo summary consistency tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -107,7 +107,7 @@
     {
       "id": "TEST-T04",
       "title": "Documentation command verification add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -412,15 +412,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T13:43:10+02:00",
+    "updated_at": "2026-04-25T13:45:50+02:00",
     "total": 25,
     "by_status": {
-      "todo": 25,
+      "todo": 21,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 16.0,
     "by_priority": {
       "P0": 16,
       "P1": 9,
@@ -435,27 +435,27 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 0,
-      "remaining": 16
+      "done": 2,
+      "remaining": 14
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T13:43:10+02:00",
+    "updated_at": "2026-04-25T13:45:50+02:00",
     "stages": {
       "TEST-M1": {
         "title": "Runtime evidence and audit verification",
         "scope_task_ids": ["TEST-T01", "TEST-T02", "TEST-T03", "TEST-T04"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -508,12 +508,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T13:43:10+02:00",
+    "checked_at": "2026-04-25T13:45:50+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "tasks_status_summary.by_priority wurde auf die realen Task-Zahlen synchronisiert (P0=16, P1=9).",
-      "tasks_status_summary.by_risk wurde auf die realen Task-Zahlen synchronisiert (high=10, critical=11).",
-      "execution_stage_summary ergänzt, damit Stage-Rollups pro Meilenstein transparent und prüfbar sind."
+      "Erstes Umsetzungsbündel TEST-T01..TEST-T04 abgeschlossen und auf done synchronisiert.",
+      "tasks_status_summary und milestone-Status auf realen Fortschritt aktualisiert (4 done, 21 todo; TEST-M1 done).",
+      "execution_stage_summary für TEST-M1 auf done/todo=4/0 nachgezogen."
     ]
   },
 
@@ -522,7 +522,8 @@
     "It no longer treats missing clients as the normal path; it verifies implemented runtime behavior.",
     "Eclipse may still be deferred/blocked only if todo.json explicitly chose that path and inventory/docs agree.",
     "The main purpose is to prove runtime evidence, safety boundaries and merge readiness.",
-    "Summary counters and stage rollups are now synchronized and explicitly documented."
+    "Summary counters and stage rollups are now synchronized and explicitly documented.",
+    "First implementation bundle is now complete and reflected in synchronized status/stage counters."
   ],
 
   "end_summaries": [
@@ -556,8 +557,8 @@
       "summary_id": "TEST-S4",
       "title": "Status am Ende",
       "items": [
-        "Der Test-Hardening-Track bleibt inhaltlich auf Startzustand (25 todo), ist aber jetzt zähler- und konsistenzsynchron.",
-        "Die Datei enthält nun belastbare Stage-Rollups und End-Summaries für den weiteren Umsetzungsfortschritt."
+        "Erstes Umsetzungsbündel abgeschlossen: 4/25 done (16.0%), 21 todo; TEST-M1 ist done.",
+        "Kritischer Pfad: 2/16 done; Stage-Rollups und End-Summaries bleiben validator-konsistent."
       ]
     }
   ]
