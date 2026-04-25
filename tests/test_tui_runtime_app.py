@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 
@@ -431,3 +432,94 @@ def test_smoke_tui_runtime_script_function_reports_success() -> None:
     ok, output = run_smoke_once()
     assert ok is True
     assert "[NAVIGATION]" in output
+    assert "[DASHBOARD]" in output
+    assert "[HEALTH]" in output
+    assert "[TASK-WORKBENCH]" in output
+    assert "[ARTIFACT-EXPLORER]" in output
+
+
+def test_tui_runtime_import_has_no_render_side_effects() -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", "import client_surfaces.tui_runtime.ananta_tui"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == ""
+    assert result.stderr.strip() == ""
+
+
+def test_tui_runtime_fixture_startup_supports_structured_json_output() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "client_surfaces.tui_runtime.ananta_tui", "--fixture", "--json"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["schema"] == "ananta_tui_runtime_output_v3"
+    assert "[DASHBOARD]" in payload["output"]
+    assert "[TASK-WORKBENCH]" in payload["output"]
+
+
+def test_tui_runtime_approval_action_handles_malformed_and_missing_target_requests() -> None:
+    malformed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--approval-action",
+            "approve",
+            "--approval-action-json",
+            "{bad json",
+            "--confirm-approval-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert malformed.returncode == 0
+    assert "[APPROVAL-ACTION] rejected=json_parse_error:" in malformed.stdout
+
+    missing_target = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--approval-action",
+            "approve",
+            "--confirm-approval-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert missing_target.returncode == 0
+    assert "[APPROVAL-ACTION] rejected=selected_task_required" in missing_target.stdout
+
+
+def test_tui_runtime_repair_action_blocks_unsafe_payloads() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "client_surfaces.tui_runtime.ananta_tui",
+            "--fixture",
+            "--selected-repair-session-id",
+            "R-1",
+            "--repair-action",
+            "execute",
+            "--repair-action-json",
+            '{"unsafe": true}',
+            "--confirm-repair-action",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "[REPAIR-ACTION] blocked=unsafe_payload session_id=R-1" in result.stdout

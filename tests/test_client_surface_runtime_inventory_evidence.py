@@ -67,3 +67,17 @@ def test_surface_statuses_align_with_expected_artifact_evidence() -> None:
     assert (ROOT / "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml").exists()
     assert (ROOT / "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF").exists()
     assert (ROOT / "scripts/smoke_eclipse_runtime_bootstrap.py").exists()
+
+
+def test_tui_smoke_evidence_is_referenced_in_inventory_and_checklist() -> None:
+    inventory = _load_json(INVENTORY_PATH)
+    surfaces = _surface_map(inventory)
+    tui_entry = surfaces["tui_surface"]
+    runtime_evidence = _runtime_paths(tui_entry)
+    checklist = (ROOT / "docs" / "editor-tui-smoke-checklists.md").read_text(encoding="utf-8")
+
+    assert "scripts/smoke_tui_runtime.py" in runtime_evidence
+    assert "scripts/smoke_client_golden_paths.py" in runtime_evidence
+    assert "python3 scripts/smoke_tui_runtime.py" in checklist
+    assert "task board" in checklist.lower()
+    assert "artifact list/detail" in checklist.lower()

@@ -360,3 +360,67 @@ def test_external_client_api_contract_exposes_degraded_response_shapes() -> None
     assert unauthorized_analyze.state == "auth_failed"
     assert malformed_review.retriable is True
     assert denied_goal.retriable is False
+
+
+def test_external_client_api_contract_keeps_runtime_critical_fields_stable() -> None:
+    def transport(method, url, _headers, _body, _timeout):  # noqa: ANN001
+        path = url.split("http://localhost:8080", 1)[-1]
+        routes = {
+            ("GET", "/health"): (200, '{"state":"ready"}'),
+            ("GET", "/capabilities"): (200, '{"capabilities":["goals","tasks","artifacts","approvals"]}'),
+            ("GET", "/goals"): (200, '{"items":[{"id":"goal-1","status":"queued","title":"Ship runtime"}]}'),
+            ("GET", "/goals/goal-1/detail"): (
+                200,
+                '{"id":"goal-1","trace_ref":"trace-1","related_task_ids":["task-1"],"related_artifact_ids":["artifact-1"]}',
+            ),
+            ("GET", "/tasks"): (200, '{"items":[{"id":"task-1","status":"queued","title":"Analyze"}]}'),
+            ("GET", "/artifacts"): (200, '{"items":[{"id":"artifact-1","type":"report","title":"Summary"}]}'),
+            ("GET", "/approvals"): (200, '{"items":[{"id":"approval-1","state":"pending","task_id":"task-1"}]}'),
+            ("GET", "/api/system/audit-logs?limit=30&offset=0"): (
+                200,
+                '{"items":[{"id":"audit-1","trace_ref":"trace-1","kind":"goal","task_id":"task-1"}]}',
+            ),
+        }
+        return routes[(method, path)]
+
+    client = AnantaApiClient(
+        build_client_profile({"profile_id": "contract-stability", "base_url": "http://localhost:8080"}),
+        transport=transport,
+    )
+
+    assert client.get_health().data["state"] == "ready"
+    assert "goals" in client.get_capabilities().data["capabilities"]
+    assert client.list_goals().data["items"][0]["id"] == "goal-1"
+    assert client.get_goal_detail("goal-1").data["trace_ref"] == "trace-1"
+    assert client.list_tasks().data["items"][0]["status"] == "queued"
+    assert client.list_artifacts().data["items"][0]["type"] == "report"
+    assert client.list_approvals().data["items"][0]["state"] == "pending"
+    assert client.get_audit_logs(limit=30).data["items"][0]["trace_ref"] == "trace-1"
+
+
+def test_external_client_api_contract_keeps_error_shape_safe_and_explicit() -> None:
+    def transport(method, url, _headers, _body, _timeout):  # noqa: ANN001
+        path = url.split("http://localhost:8080", 1)[-1]
+        routes = {
+            ("GET", "/health"): (401, '{"error":"unauthorized"}'),
+            ("POST", "/tasks/analyze"): (422, '{"error":"missing_capability"}'),
+            ("POST", "/tasks/review"): (403, '{"error":"policy_denied"}'),
+        }
+        return routes[(method, path)]
+
+    client = AnantaApiClient(
+        build_client_profile({"profile_id": "contract-errors", "base_url": "http://localhost:8080"}),
+        transport=transport,
+    )
+    context = {"schema": "client_bounded_context_payload_v1", "selection_text": "x"}
+
+    auth_failed = client.get_health()
+    capability_missing = client.analyze_context(context)
+    policy_denied = client.review_context(context)
+
+    assert auth_failed.state == "auth_failed"
+    assert auth_failed.error == "request_failed:auth_failed"
+    assert capability_missing.state == "capability_missing"
+    assert capability_missing.error == "request_failed:capability_missing"
+    assert policy_denied.state == "policy_denied"
+    assert policy_denied.error == "request_failed:policy_denied"
