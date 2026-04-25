@@ -65,6 +65,40 @@ describe("AnantaBackendClient", () => {
     expect(response.state).toBe("auth_failed");
   });
 
+  it("maps policy denied and stale states", async () => {
+    const transport = new StubTransport(async (request) => {
+      if (request.url.endsWith("/capabilities")) {
+        return { status: 403, body: JSON.stringify({ error: "denied" }) };
+      }
+      return { status: 409, body: JSON.stringify({ error: "stale" }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    const capabilities = await client.getCapabilities();
+    const tasks = await client.listTasks();
+    expect(capabilities.state).toBe("policy_denied");
+    expect(tasks.state).toBe("stale_state");
+  });
+
+  it("maps timeout/rate limits and capability missing responses", async () => {
+    const transport = new StubTransport(async (request) => {
+      if (request.url.endsWith("/health")) {
+        return { status: 408, body: JSON.stringify({ error: "timeout" }) };
+      }
+      if (request.url.endsWith("/goals")) {
+        return { status: 422, body: JSON.stringify({ error: "unsupported" }) };
+      }
+      return { status: 429, body: JSON.stringify({ error: "slow_down" }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    const health = await client.getHealth();
+    const goals = await client.listGoals();
+    const approvals = await client.listApprovals();
+    expect(health.state).toBe("backend_timeout");
+    expect(goals.state).toBe("capability_missing");
+    expect(approvals.state).toBe("backend_timeout");
+    expect(approvals.retriable).toBe(true);
+  });
+
   it("maps thrown transport failures to backend_unreachable", async () => {
     const transport = new StubTransport(async () => {
       throw new Error("socket timeout");

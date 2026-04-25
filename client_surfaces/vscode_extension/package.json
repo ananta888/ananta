@@ -409,6 +409,8 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "vitest run",
+    "test:smoke": "vitest run test/extension.smoke.test.ts",
+    "ci:verify": "npm run lint && npm run test && npm run compile",
     "package": "npm run compile && mkdir -p dist && vsce package --out dist/ananta-vscode-extension.vsix"
   },
   "devDependencies": {

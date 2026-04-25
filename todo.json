@@ -74,7 +74,7 @@
       "id": "VSC-M6",
       "title": "Safety, tests and packaging",
       "task_ids": ["VSC-T27", "VSC-T28", "VSC-T29", "VSC-T30", "VSC-T31", "VSC-T32"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VSC-M7",
@@ -431,7 +431,7 @@
     {
       "id": "VSC-T27",
       "title": "Security and governance negative tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -444,7 +444,7 @@
     {
       "id": "VSC-T28",
       "title": "Secret redaction and context safety tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -457,7 +457,7 @@
     {
       "id": "VSC-T29",
       "title": "Backend client unit and contract tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -470,7 +470,7 @@
     {
       "id": "VSC-T30",
       "title": "VS Code command and view tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -483,7 +483,7 @@
     {
       "id": "VSC-T31",
       "title": "Extension smoke test add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -496,7 +496,7 @@
     {
       "id": "VSC-T32",
       "title": "CI lane for VS Code extension add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -596,15 +596,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T13:05:00+02:00",
+    "updated_at": "2026-04-25T12:58:00+02:00",
     "total": 36,
     "by_status": {
-      "todo": 10,
+      "todo": 4,
       "in_progress": 0,
       "blocked": 0,
-      "done": 26
+      "done": 32
     },
-    "progress_percent_done": 72.22,
+    "progress_percent_done": 88.89,
     "by_priority": {
       "P0": 25,
       "P1": 11,
@@ -619,20 +619,20 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 15,
-      "remaining": 6
+      "done": 19,
+      "remaining": 2
     },
     "milestones": {
       "total": 7,
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T13:05:00+02:00",
+    "updated_at": "2026-04-25T12:58:00+02:00",
     "stages": {
       "VSC-M1": {
         "title": "Scope, architecture and project bootstrap",
@@ -683,8 +683,8 @@
         "title": "Safety, tests and packaging",
         "scope_task_ids": ["VSC-T27", "VSC-T28", "VSC-T29", "VSC-T30", "VSC-T31", "VSC-T32"],
         "total": 6,
-        "done": 0,
-        "todo": 6,
+        "done": 6,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -701,12 +701,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T13:05:00+02:00",
+    "checked_at": "2026-04-25T12:58:00+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "Fourth implementation bundle VSC-T22..VSC-T26 was completed and tracked to done state.",
-      "Runtime overview, audit/repair visibility, TUI launch command and explicit web fallback commands are now reflected in completion state.",
-      "tasks_status_summary and execution_stage_summary were synchronized after milestone transition (VSC-M5 done)."
+      "Fifth implementation bundle VSC-T27..VSC-T32 was completed and tracked to done state.",
+      "Security/context/backend/command/view/smoke tests and dedicated VS Code CI lane are now reflected in completion state.",
+      "tasks_status_summary and execution_stage_summary were synchronized after milestone transition (VSC-M6 done)."
     ]
   },
 
@@ -716,7 +716,7 @@
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
     "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
     "Current todo file now contains synchronized status counters and explicit stage-level rollup data.",
-    "Milestones VSC-M1 through VSC-M5 are complete; remaining work starts with safety/tests and release-readiness bundles."
+    "Milestones VSC-M1 through VSC-M6 are complete; remaining work starts with docs, inventory/audit integration and merge-readiness reporting."
   ],
 
   "end_summaries": [
@@ -750,7 +750,7 @@
       "summary_id": "VSC-S4",
       "title": "Status am Ende",
       "items": [
-        "Viertes Umsetzungsbündel ist abgeschlossen: insgesamt 26 done, 5 milestones done (VSC-M1 bis VSC-M5), 0 milestones in_progress.",
+        "Fünftes Umsetzungsbündel ist abgeschlossen: insgesamt 32 done, 6 milestones done (VSC-M1 bis VSC-M6), 0 milestones in_progress.",
         "Die Datei bleibt validator-konsistent und enthält aktualisierte Stage- sowie End-Summaries."
       ]
     }

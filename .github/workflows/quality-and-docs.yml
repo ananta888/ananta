@@ -80,6 +80,30 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  vscode-extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client_surfaces/vscode_extension
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.5"
+          cache: "npm"
+          cache-dependency-path: client_surfaces/vscode_extension/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run test:smoke
+      - run: npm run compile
+      - run: npm run package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-vscode-extension-vsix
+          path: client_surfaces/vscode_extension/dist/ananta-vscode-extension.vsix
+          retention-days: 7
+
   compose-config:
     runs-on: ubuntu-latest
     env:

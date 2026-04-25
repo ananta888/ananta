@@ -75,4 +75,18 @@ describe("capability gate", () => {
     expect(reject.allowed).toBe(false);
     expect(reject.reason).toBe("permission_denied");
   });
+
+  it("denies commands when capability response is degraded or malformed", () => {
+    const malformed = buildCapabilitySnapshot(response(null, "malformed_response"));
+    const denied = evaluateWorkflowCommand(malformed, "ananta.submitGoal");
+    expect(denied.allowed).toBe(false);
+    expect(denied.reason).toBe("capability_probe_malformed_response");
+  });
+
+  it("denies commands when backend reports policy denial", () => {
+    const deniedSnapshot = buildCapabilitySnapshot(response({ capabilities: ["goals"] }, "policy_denied"));
+    const denied = evaluateWorkflowCommand(deniedSnapshot, "ananta.submitGoal");
+    expect(denied.allowed).toBe(false);
+    expect(denied.reason).toBe("capability_probe_policy_denied");
+  });
 });
