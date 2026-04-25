@@ -58,6 +58,8 @@ def test_selection_strategy_is_deterministic_for_known_combinations():
     assert java is not None and java["profile"]["profile_id"] == "ref.java.keycloak"
     assert python is not None and python["profile"]["profile_id"] == "ref.python.ananta_backend"
     assert angular is not None and angular["profile"]["profile_id"] == "ref.angular.ananta_frontend"
+    assert "summary" in java["reason"]
+    assert java["reason"]["matched_signals"]
 
 
 def test_usage_audit_marker_binds_profile_and_source():
@@ -73,3 +75,37 @@ def test_usage_audit_marker_binds_profile_and_source():
     assert marker["flow"] == "project_evolution"
     assert marker["task_or_goal_id"] == "goal-123"
     assert marker["reference_source_repo"] == "ananta888/ananta"
+
+
+def test_retrieval_contract_exposes_bounded_entry_points_and_chunking():
+    service = get_reference_profile_service()
+
+    contract = service.build_retrieval_contract()
+
+    assert contract["version"] == "v1"
+    assert contract["entry_points"]["mode"] == "bounded_reference_retrieval_v1"
+    assert "new_project" in contract["entry_points"]["flows"]
+    assert "project_evolution" in contract["entry_points"]["flows"]
+    assert contract["chunking_indexing_strategy"]["guardrails"]["provenance_required"] is True
+    category_ids = {item["id"] for item in contract["pattern_categories"]}
+    assert "project_structure" in category_ids
+    assert "security_conventions" in category_ids
+
+
+def test_mode_reference_plan_provides_selection_reason_and_integration_hints():
+    service = get_reference_profile_service()
+
+    plan = service.build_mode_reference_plan(
+        flow="new_project",
+        mode_data={
+            "project_idea": "Governed orchestration backend",
+            "platform": "API backend",
+            "preferred_stack": "Python Flask",
+        },
+    )
+
+    selection = plan["selection"]
+    assert selection["selected_profile"]["profile_id"] == "ref.python.ananta_backend"
+    assert selection["selected_reason"]["summary"]
+    assert plan["integration_hints"]["work_profile"] == "governed_backend_orchestration"
+    assert plan["skeleton_guidance"]["boundary_note"].startswith("Use reference guidance")

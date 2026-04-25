@@ -218,6 +218,18 @@ def test_reference_profile_catalog_exposes_starter_profiles(client, admin_auth_h
     assert "ref.angular.ananta_frontend" in profile_ids
 
 
+def test_reference_profile_retrieval_contract_endpoint(client, admin_auth_header):
+    response = client.get("/api/system/reference-profiles/retrieval-contract", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["version"] == "v1"
+    assert data["entry_points"]["mode"] == "bounded_reference_retrieval_v1"
+    assert "new_project" in data["entry_points"]["flows"]
+    assert "project_evolution" in data["entry_points"]["flows"]
+    assert data["chunking_indexing_strategy"]["guardrails"]["reject_unbounded_repository_context"] is True
+
+
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),
