@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "platform_gaps_after_core_tracks",
+  "purpose": "Capture only useful platform gaps that are not already covered by security, domain cleanup, native worker, Blender, FreeCAD, KiCad or later KRITIS/Enterprise tracks. This is not a management roadmap and not a feature wishlist.",
+  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "scope_rules": [
+    "Do not duplicate todo.security.json, todo.domain-cleanup.json, todo.ananta-worker.json, todo.blender.json, todo.freecad.json, todo.kicad.json or KRITIS scope.",
+    "Only include items that improve installability, operability, controlled integrations or dogfooding after the core tracks are stable.",
+    "Avoid Medusa features such as visual flow builders, full LSP server rewrites or large editor refactors unless explicitly promoted later.",
+    "All integrations must remain Hub-controlled, policy-gated, auditable and compatible with thin clients."
+  ],
+  "success_criteria": [
+    "Ananta can be initialized on a local machine with a clear runtime profile without requiring Docker by default.",
+    "MCP integration is available in a read-only/default-deny Hub-controlled mode before any write/admin tool access is enabled.",
+    "Pull-request review automation can be enabled only after native worker and release gates are stable.",
+    "External tools and setup modes are represented as capability/profile choices rather than hard-coded client or worker behavior.",
+    "Deferred high-complexity ideas remain explicitly frozen instead of silently entering active scope."
+  ],
+  "milestones": [
+    {
+      "id": "PG-M1",
+      "title": "Runtime setup and profile UX",
+      "task_ids": ["PG-T01", "PG-T02", "PG-T03"],
+      "status": "todo"
+    },
+    {
+      "id": "PG-M2",
+      "title": "Controlled MCP foundation",
+      "task_ids": ["PG-T04", "PG-T05", "PG-T06"],
+      "status": "todo"
+    },
+    {
+      "id": "PG-M3",
+      "title": "Dogfooding and PR review automation",
+      "task_ids": ["PG-T07", "PG-T08", "PG-T09"],
+      "status": "blocked"
+    },
+    {
+      "id": "PG-M4",
+      "title": "Icebox guards",
+      "task_ids": ["PG-T10", "PG-T11"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PG-T01",
+      "title": "CLI runtime profile wizard add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "agent/cli/init_wizard.py",
+        "tests/test_init_wizard.py",
+        "docs/setup/ananta_init.md"
+      ],
+      "acceptance_criteria": [
+        "Provides an ananta init command or equivalent setup wizard.",
+        "Detects or asks for local-dev, sandbox or strict runtime mode.",
+        "Captures LLM backend preference such as Ollama, LM Studio, OpenAI-compatible endpoint or manual config.",
+        "Does not require Docker/Podman for local-dev mode.",
+        "Writes a reviewable runtime profile file rather than hidden global state."
+      ]
+    },
+    {
+      "id": "PG-T02",
+      "title": "Hardware and model profile recommendations add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T01"],
+      "expected_files": [
+        "agent/services/runtime_profile_recommender.py",
+        "tests/test_runtime_profile_recommender.py",
+        "docs/setup/runtime_profiles.md"
+      ],
+      "acceptance_criteria": [
+        "Can recommend conservative defaults for CPU-only, NVIDIA GPU, remote model and mixed local/remote setups.",
+        "Represents context window, max input tokens, output tokens, RAG budget and patch size as explicit profile values.",
+        "Never silently selects paid/cloud providers without explicit user configuration.",
+        "Tests cover RTX-style local GPU, CPU-only and remote OpenAI-compatible profile examples."
+      ]
+    },
+    {
+      "id": "PG-T03",
+      "title": "Optional deployment target generation add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T01", "PG-T02"],
+      "expected_files": [
+        "agent/cli/deployment_profile_writer.py",
+        "tests/test_deployment_profile_writer.py",
+        "docs/setup/deployment_targets.md"
+      ],
+      "acceptance_criteria": [
+        "Can generate optional docker-compose or podman-compatible examples when requested.",
+        "Keeps local-dev as non-container default.",
+        "Marks sandbox and strict modes clearly as stronger isolation choices.",
+        "Does not overwrite existing compose/config files without explicit confirmation or backup."
+      ]
+    },
+    {
+      "id": "PG-T04",
+      "title": "MCP integration boundary document write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "docs/architecture/mcp_integration_boundary.md"
+      ],
+      "acceptance_criteria": [
+        "Documents MCP as Hub-controlled integration, not a worker-side tool free-for-all.",
+        "Defines read-only first, default-deny, capability-bound tool access.",
+        "Explains which MCP operations require approval and audit.",
+        "Explicitly prevents MCP tools from bypassing Ananta policy, approval or artifact flows."
+      ]
+    },
+    {
+      "id": "PG-T05",
+      "title": "MCP tool registry skeleton add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PG-T04"],
+      "expected_files": [
+        "agent/services/mcp_tool_registry.py",
+        "schemas/mcp/mcp_tool_descriptor.v1.json",
+        "tests/test_mcp_tool_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Registers MCP servers/tools as descriptors with capability, risk, read/write/admin class and allowed scopes.",
+        "Unknown tools are unavailable by default.",
+        "Registry exposes health/degraded states without executing tools.",
+        "Tests cover valid descriptor, unknown tool, duplicate tool and unsafe default."
+      ]
+    },
+    {
+      "id": "PG-T06",
+      "title": "Read-only MCP smoke path add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PG-T05"],
+      "expected_files": [
+        "agent/services/mcp_readonly_adapter.py",
+        "tests/test_mcp_readonly_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Implements a read-only/mockable MCP adapter path.",
+        "Requires Hub capability and policy decision before use.",
+        "Returns artifacts or structured results with provenance.",
+        "Does not implement write/admin MCP execution in this task."
+      ]
+    },
+    {
+      "id": "PG-T07",
+      "title": "PR review agent design add",
+      "status": "blocked",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["todo.ananta-worker.json:AW-T31", "todo.security.json"],
+      "expected_files": [
+        "docs/architecture/pr_review_agent.md"
+      ],
+      "acceptance_criteria": [
+        "Documents PR review automation as blocked until native worker, approval, audit and release gate are stable.",
+        "Defines review-only behavior first: analyze diff, run allowed checks, produce ReviewArtifact.",
+        "Posting comments back to Git providers is separate from code modification.",
+        "No auto-merge or direct push behavior is included."
+      ]
+    },
+    {
+      "id": "PG-T08",
+      "title": "Git provider webhook receiver skeleton add",
+      "status": "blocked",
+      "priority": "P3",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PG-T07"],
+      "expected_files": [
+        "agent/routes/webhooks.py",
+        "tests/test_git_webhook_receiver.py"
+      ],
+      "acceptance_criteria": [
+        "Accepts signed GitHub/GitLab-style webhook payloads in test mode.",
+        "Creates review tasks only when provider, repository and event type are allowed.",
+        "Does not run worker execution directly inside the request handler.",
+        "Tests cover invalid signature, unsupported event and accepted PR event."
+      ]
+    },
+    {
+      "id": "PG-T09",
+      "title": "PR ReviewArtifact posting adapter add",
+      "status": "blocked",
+      "priority": "P3",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T08"],
+      "expected_files": [
+        "agent/services/pr_review_publisher.py",
+        "tests/test_pr_review_publisher.py"
+      ],
+      "acceptance_criteria": [
+        "Publishes review summaries generated by Ananta as comments only after policy allows outbound integration.",
+        "Can run in dry-run mode and produce artifact-only output.",
+        "Never posts secrets, raw prompts or unredacted logs.",
+        "Tests use mocked Git provider client."
+      ]
+    },
+    {
+      "id": "PG-T10",
+      "title": "Icebox decision record for heavy client features add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "docs/decisions/ADR-icebox-lsp-flow-builder-eclipse.md"
+      ],
+      "acceptance_criteria": [
+        "Records why full LSP server work, visual flow builder and large Eclipse refactors are deferred.",
+        "Defines conditions required to promote any of them into active scope.",
+        "Reinforces thin-client and no-duplicate-orchestration rules.",
+        "Prevents accidental scope creep into current release tracks."
+      ]
+    },
+    {
+      "id": "PG-T11",
+      "title": "Current track inventory and completed-track references add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "docs/status/active_and_completed_tracks.md"
+      ],
+      "acceptance_criteria": [
+        "Lists active todo files and their intended order without replacing the detailed todos.",
+        "Records completed and removed todo tracks with evidence pointers.",
+        "Distinguishes deferred KRITIS/Enterprise scope from active OSS scope.",
+        "Helps future agents avoid rediscovering or duplicating completed tracks."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "First add runtime profile wizard and profile recommendations after core Security/Domain/Worker tracks are stable enough.",
+    "Then add MCP boundary documentation and a read-only/default-deny MCP skeleton.",
+    "Keep PR review automation blocked until worker release gates are stable.",
+    "Keep LSP, Flow Builder and large Eclipse refactors in the icebox until the OSS golden path is reliable."
+  ],
+  "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11"],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 11,
+    "by_status": {"todo": 8, "in_progress": 0, "blocked": 3, "done": 0, "deferred": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 0, "P1": 4, "P2": 5, "P3": 2},
+    "by_risk": {"low": 2, "medium": 4, "high": 5, "critical": 0},
+    "critical_path": {"total": 6, "done": 0, "remaining": 6},
+    "milestones": {"total": 4, "todo": 3, "in_progress": 0, "blocked": 1, "done": 0}
+  },
+  "summary_notes": [
+    "This file intentionally avoids duplicating the active detailed tracks.",
+    "Runtime profile UX and controlled MCP are the only near-term additions that seem broadly useful after the current core tracks.",
+    "PR review automation is useful but blocked until the native worker, approval, audit and release gate paths are trustworthy.",
+    "LSP, Flow Builder and large Eclipse refactors remain icebox items to avoid Medusa complexity."
+  ]
+}
