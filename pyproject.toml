@@ -54,6 +54,9 @@ dev = [
     "ruff"
 ]
 
+[project.scripts]
+ananta = "agent.ananta_cli:main"
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"

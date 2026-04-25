@@ -115,12 +115,14 @@ Kernaussage:
 - Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
 - Frontend Entwicklung: `frontend-angular/README.md`
 - CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`
+- Runtime-Setup-Wizard: `ananta init --help` (oder `python -m agent.ananta_cli init --help`)
 
 ## Einfache CLI- und API-Beispiele
 
 CLI-Kurzbefehle fuer typische Einstiege:
 
 ```bash
+ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
 python -m agent.cli_goals --first-run
 python -m agent.cli_goals --status
 python -m agent.cli_goals ask "Was sollte ich als naechstes pruefen?"
