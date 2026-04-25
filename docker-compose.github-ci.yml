@@ -19,7 +19,11 @@ services:
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
-    depends_on: !reset []
+    depends_on: !reset
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   ai-agent-alpha:
     image: ananta-backend-compose-test:local
@@ -30,7 +34,11 @@ services:
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
-    depends_on: !reset []
+    depends_on: !reset
+      postgres:
+        condition: service_healthy
+      ai-agent-hub:
+        condition: service_healthy
 
   ai-agent-beta:
     image: ananta-backend-compose-test:local
@@ -41,7 +49,11 @@ services:
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
-    depends_on: !reset []
+    depends_on: !reset
+      postgres:
+        condition: service_healthy
+      ai-agent-hub:
+        condition: service_healthy
 
   frontend-test:
     image: ananta-frontend-compose-test:local
