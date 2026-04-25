@@ -1,0 +1,6 @@
+ananta cli
+command: task execute
+status: approval_required
+policy: human_confirmation_gate
+executed: no
+next step: request approval then retry

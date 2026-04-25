@@ -1,0 +1,6 @@
+ananta cli
+command: health
+status: degraded
+reason: backend unreachable
+retryable: yes
+next step: verify backend URL and service health

@@ -1,0 +1,6 @@
+ananta cli
+command: task execute
+status: denied
+policy: unsafe_action_block
+executed: no
+next step: revise request to a safe bounded action

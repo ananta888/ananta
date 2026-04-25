@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/testing/e2e_report.v1.json",
+  "title": "Ananta E2E Visual Evidence Report v1",
+  "type": "object",
+  "required": ["schema", "run_id", "generated_at", "flows", "summary"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "e2e_report.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "flow_id",
+          "status",
+          "blocking",
+          "logs",
+          "snapshots",
+          "screenshots",
+          "videos",
+          "trace_bundle_refs",
+          "artifact_refs"
+        ],
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["passed", "failed", "skipped", "advisory"]
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "logs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "snapshots": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "screenshots": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "videos": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "trace_bundle_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "artifact_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "notes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "passed", "failed", "skipped", "advisory", "blocking_failed"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "advisory": { "type": "integer", "minimum": 0 },
+        "blocking_failed": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
