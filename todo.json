@@ -24,7 +24,7 @@
       "id": "PG-M1",
       "title": "Runtime setup and profile UX",
       "task_ids": ["PG-T01", "PG-T02", "PG-T03"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "PG-M2",
@@ -55,7 +55,7 @@
     {
       "id": "PG-T01",
       "title": "CLI runtime profile wizard add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -296,24 +296,24 @@
   ],
   "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11", "PG-T12"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T22:24:00+02:00",
+    "updated_at": "2026-04-25T22:41:35+02:00",
     "total": 12,
-    "by_status": {"todo": 9, "in_progress": 0, "blocked": 3, "done": 0, "deferred": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 8, "in_progress": 0, "blocked": 3, "done": 1, "deferred": 0},
+    "progress_percent_done": 8.33,
     "by_priority": {"P0": 0, "P1": 4, "P2": 6, "P3": 2},
     "by_risk": {"low": 2, "medium": 5, "high": 5, "critical": 0},
-    "critical_path": {"total": 7, "done": 0, "remaining": 7},
-    "milestones": {"total": 5, "todo": 4, "in_progress": 0, "blocked": 1, "done": 0}
+    "critical_path": {"total": 7, "done": 1, "remaining": 6},
+    "milestones": {"total": 5, "todo": 3, "in_progress": 1, "blocked": 1, "done": 0}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T22:24:00+02:00",
+    "updated_at": "2026-04-25T22:41:35+02:00",
     "stages": {
       "PG-M1": {
         "title": "Runtime setup and profile UX",
         "scope_task_ids": ["PG-T01", "PG-T02", "PG-T03"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 1,
+        "todo": 2,
         "in_progress": 0,
         "blocked": 0
       },
@@ -357,8 +357,8 @@
         "title": "Compatibility stage 1",
         "scope_task_ids": ["PG-T01", "PG-T02"],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 1,
+        "todo": 1,
         "in_progress": 0,
         "blocked": 0
       },
@@ -410,7 +410,7 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T22:24:00+02:00",
+    "checked_at": "2026-04-25T22:41:35+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Stale references to missing todo.security.json and todo.ananta-worker.json were replaced with explicit KRITIS gating task references.",
@@ -421,7 +421,7 @@
   },
   "summary_notes": [
     "This file intentionally avoids duplicating active detailed tracks and now references existing KRITIS gates explicitly.",
-    "Runtime profile UX and controlled MCP remain the near-term additions with the best OSS value/risk ratio.",
+    "Runtime profile UX block has started with PG-T01 done; controlled MCP remains a near-term addition with strong OSS value/risk ratio.",
     "PR review automation remains blocked until audit/mutation/evolver gates in KRITIS are verifiably stable.",
     "Cross-track dependency hygiene is now an explicit work item to prevent stale references.",
     "LSP, Flow Builder and large Eclipse refactors remain icebox items to avoid Medusa complexity."
@@ -455,8 +455,8 @@
       "summary_id": "PG-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Stand: 12 Aufgaben (9 todo, 3 blocked, 0 in_progress, 0 done).",
-        "Kritischer Pfad: 7 total, 0 done, 7 remaining."
+        "Aktueller Stand: 12 Aufgaben (8 todo, 3 blocked, 0 in_progress, 1 done).",
+        "Kritischer Pfad: 7 total, 1 done, 6 remaining."
       ]
     }
   ]
