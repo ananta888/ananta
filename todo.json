@@ -6,6 +6,12 @@
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
+  "scope_rules": [
+    "Keep this track focused on unified user-facing CLI entrypoints and command UX.",
+    "Reuse existing goal/runtime modules instead of duplicating orchestration or policy logic.",
+    "Use explicit file:id dependency references only for active todo track files.",
+    "Do not couple CLI command wiring to Docker-only runtime assumptions."
+  ],
   "non_goals": [
     "Do not rewrite the full CLI implementation if existing modules can be wrapped.",
     "Do not duplicate orchestration, policy or approval logic in the CLI.",
@@ -86,7 +92,7 @@
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
-      "depends_on": ["CLI-T01", "todo.platform-gaps.json:PG-T01"],
+      "depends_on": ["CLI-T01", "CLI-T02"],
       "expected_files": [
         "agent/cli/main.py",
         "agent/cli/init_wizard.py",
@@ -226,7 +232,7 @@
   ],
   "critical_path_tasks": ["CLI-T01", "CLI-T02", "CLI-T03", "CLI-T04", "CLI-T05", "CLI-T08"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:00:00+02:00",
+    "updated_at": "2026-04-25T23:58:50+02:00",
     "total": 9,
     "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
@@ -235,10 +241,88 @@
     "critical_path": {"total": 6, "done": 0, "remaining": 6},
     "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
   },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-25T23:58:50+02:00",
+    "stages": {
+      "CLI-M1": {
+        "title": "Unified command entrypoint",
+        "scope_task_ids": ["CLI-T01", "CLI-T02", "CLI-T03"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CLI-M2": {
+        "title": "Command aliases and compatibility",
+        "scope_task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CLI-M3": {
+        "title": "Docs and smoke tests",
+        "scope_task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
   "summary_notes": [
     "This track is primarily a UX/DX wrapper track. It should not create another orchestration layer.",
     "The user-facing golden path should start with `ananta init` and continue with `ananta ...` commands everywhere.",
     "Module-based python commands can remain available for developers, tests and backwards compatibility.",
-    "This track pairs naturally with todo.platform-gaps.json PG-T01/PG-T02."
+    "This track reuses the existing runtime wizard and goal CLI modules as backend behavior sources."
+  ],
+  "analysis_checks": {
+    "checked_at": "2026-04-25T23:58:50+02:00",
+    "internal_consistency": "corrected_and_extended",
+    "notes": [
+      "Stale dependency reference `todo.platform-gaps.json:PG-T01` was replaced with in-track dependency `CLI-T02`.",
+      "Scope rules were added to keep this track focused on unified CLI UX without orchestration duplication.",
+      "Execution stage rollup data was added for milestone-level progress visibility.",
+      "End summaries were added to provide explicit analysis, corrections and extension status."
+    ]
+  },
+  "end_summaries": [
+    {
+      "summary_id": "CLI-S1",
+      "title": "Analyseergebnis",
+      "items": [
+        "Die Track-Struktur war schema-valide und konsistent, enthielt aber einen veralteten Cross-Track-Dependency-Verweis.",
+        "Milestone-Rollups lagen nur in `tasks_status_summary` vor, nicht als eigene Stage-Sicht."
+      ]
+    },
+    {
+      "summary_id": "CLI-S2",
+      "title": "Korrekturen",
+      "items": [
+        "Abhaengigkeit von CLI-T03 wurde auf aktive In-Track-Tasks umgestellt (`CLI-T01`, `CLI-T02`).",
+        "Veraltete Referenz in `summary_notes` auf nicht vorhandene `todo.platform-gaps.json` wurde entfernt."
+      ]
+    },
+    {
+      "summary_id": "CLI-S3",
+      "title": "Verbesserungen und Erweiterungen",
+      "items": [
+        "`scope_rules` wurden zur klaren Begrenzung von Track-Intention und Architekturgrenzen ergaenzt.",
+        "`execution_stage_summary` wurde fuer milestonebasierte Fortschrittsdarstellung ergaenzt.",
+        "`analysis_checks` dokumentiert die vorgenommenen Konsistenz- und Strukturverbesserungen."
+      ]
+    },
+    {
+      "summary_id": "CLI-S4",
+      "title": "Status am Ende",
+      "items": [
+        "Aktueller Stand: 9 Aufgaben (9 todo, 0 in_progress, 0 blocked, 0 done).",
+        "Kritischer Pfad: 6 total, 0 done, 6 remaining.",
+        "Track ist fuer Umsetzung vorbereitet und enthaelt jetzt explizite End-Summaries."
+      ]
+    }
   ]
 }
