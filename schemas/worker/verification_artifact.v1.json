@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/verification_artifact.v1.json",
+  "title": "Ananta Worker Verification Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "status",
+    "checks",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "verification_artifact.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["passed", "failed", "skipped", "degraded", "inconclusive"] },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check_id", "status"],
+        "properties": {
+          "check_id": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["passed", "failed", "skipped", "degraded", "inconclusive"] },
+          "detail": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,84 @@
+{
+  "schema": "capability_pack.v1",
+  "domain_id": "ananta_worker",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "capability_id": "worker.code.plan",
+      "domain_id": "ananta_worker",
+      "display_name": "Plan coding changes",
+      "category": "code",
+      "risk": "medium",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow"
+    },
+    {
+      "capability_id": "worker.patch.propose",
+      "domain_id": "ananta_worker",
+      "display_name": "Propose patch artifact",
+      "category": "patch",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow"
+    },
+    {
+      "capability_id": "worker.patch.apply",
+      "domain_id": "ananta_worker",
+      "display_name": "Apply approved patch",
+      "category": "patch",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "approval_required"
+    },
+    {
+      "capability_id": "worker.test.run",
+      "domain_id": "ananta_worker",
+      "display_name": "Run bounded tests",
+      "category": "test",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow"
+    },
+    {
+      "capability_id": "worker.command.plan",
+      "domain_id": "ananta_worker",
+      "display_name": "Plan shell command",
+      "category": "command",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow"
+    },
+    {
+      "capability_id": "worker.command.execute",
+      "domain_id": "ananta_worker",
+      "display_name": "Execute shell command",
+      "category": "command",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "default_deny"
+    },
+    {
+      "capability_id": "worker.verify.result",
+      "domain_id": "ananta_worker",
+      "display_name": "Verify worker result",
+      "category": "verification",
+      "risk": "medium",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow"
+    }
+  ]
+}

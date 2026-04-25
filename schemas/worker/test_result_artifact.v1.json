@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/test_result_artifact.v1.json",
+  "title": "Ananta Worker Test Result Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "command",
+    "exit_code",
+    "status",
+    "stdout_ref",
+    "stderr_ref"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "test_result_artifact.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "exit_code": { "type": "integer" },
+    "status": { "type": "string", "enum": ["passed", "failed", "skipped", "degraded", "inconclusive"] },
+    "stdout_ref": { "type": "string", "minLength": 1 },
+    "stderr_ref": { "type": "string", "minLength": 1 },
+    "output_summary": { "type": "string" },
+    "failure_hints": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

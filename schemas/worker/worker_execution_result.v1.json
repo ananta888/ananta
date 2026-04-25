@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_execution_result.v1.json",
+  "title": "Ananta Worker Execution Result v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "trace_id",
+    "status",
+    "artifacts"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "worker_execution_result.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["completed", "failed", "denied", "approval_required", "degraded"] },
+    "error_class": { "type": "string" },
+    "exit_code": { "type": "integer" },
+    "stdout_ref": { "type": "string" },
+    "stderr_ref": { "type": "string" },
+    "model_metadata": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "prompt_template_version": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["artifact_type", "artifact_ref"],
+        "properties": {
+          "artifact_type": {
+            "type": "string",
+            "enum": [
+              "patch_artifact",
+              "command_plan_artifact",
+              "test_result_artifact",
+              "verification_artifact",
+              "plan_artifact"
+            ]
+          },
+          "artifact_ref": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "properties": {
+        "base_ref": { "type": "string" },
+        "workspace_dir": { "type": "string" },
+        "patch_hash": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
