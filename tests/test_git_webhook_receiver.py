@@ -4,7 +4,9 @@ import hashlib
 import hmac
 import json
 
-from agent.services.repository_registry import get_repository_registry
+from flask import Flask
+
+from agent.routes.webhooks import webhooks_bp
 
 
 def _github_signature(secret: str, payload_raw: bytes) -> str:
@@ -12,21 +14,40 @@ def _github_signature(secret: str, payload_raw: bytes) -> str:
     return f"sha256={digest}"
 
 
-def _configure_review_webhooks(app, *, secret: str = "webhook-secret") -> None:
-    with app.app_context():
-        cfg = dict(app.config.get("AGENT_CONFIG", {}) or {})
-        cfg["pr_review_webhooks"] = {
+class _QueueSpy:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def ingest_task(self, **kwargs) -> None:
+        self.calls.append(kwargs)
+
+
+class _CoreServicesStub:
+    def __init__(self, queue_spy: _QueueSpy) -> None:
+        self.task_queue_service = queue_spy
+
+
+def _build_client(monkeypatch, *, secret: str = "webhook-secret"):
+    queue_spy = _QueueSpy()
+    app = Flask(__name__)
+    app.config["TESTING"] = True
+    app.config["AGENT_CONFIG"] = {
+        "pr_review_webhooks": {
             "test_mode": True,
             "allowed_providers": ["github", "gitlab"],
             "allowed_events": ["pull_request", "merge_request"],
             "allowed_repositories": ["org/repo"],
             "secrets": {"github": secret, "gitlab": "gitlab-secret"},
         }
-        app.config["AGENT_CONFIG"] = cfg
+    }
+    monkeypatch.setattr("agent.routes.webhooks.get_core_services", lambda: _CoreServicesStub(queue_spy))
+    monkeypatch.setattr("agent.routes.webhooks.log_audit", lambda *_args, **_kwargs: None)
+    app.register_blueprint(webhooks_bp)
+    return app.test_client(), queue_spy
 
 
-def test_git_webhook_receiver_rejects_invalid_signature(client, app) -> None:
-    _configure_review_webhooks(app)
+def test_git_webhook_receiver_rejects_invalid_signature(monkeypatch) -> None:
+    client, _queue_spy = _build_client(monkeypatch)
     payload = {
         "action": "opened",
         "repository": {"full_name": "org/repo"},
@@ -46,9 +67,9 @@ def test_git_webhook_receiver_rejects_invalid_signature(client, app) -> None:
     assert response.get_json()["message"] == "invalid_signature"
 
 
-def test_git_webhook_receiver_rejects_unsupported_event(client, app) -> None:
+def test_git_webhook_receiver_rejects_unsupported_event(monkeypatch) -> None:
     secret = "webhook-secret"
-    _configure_review_webhooks(app, secret=secret)
+    client, _queue_spy = _build_client(monkeypatch, secret=secret)
     payload = {
         "action": "opened",
         "repository": {"full_name": "org/repo"},
@@ -68,9 +89,9 @@ def test_git_webhook_receiver_rejects_unsupported_event(client, app) -> None:
     assert response.get_json()["message"] == "unsupported_event_type"
 
 
-def test_git_webhook_receiver_accepts_allowed_pull_request_event_and_queues_task(client, app) -> None:
+def test_git_webhook_receiver_accepts_allowed_pull_request_event_and_queues_task(monkeypatch) -> None:
     secret = "webhook-secret"
-    _configure_review_webhooks(app, secret=secret)
+    client, queue_spy = _build_client(monkeypatch, secret=secret)
     payload = {
         "action": "opened",
         "repository": {"full_name": "org/repo"},
@@ -93,10 +114,8 @@ def test_git_webhook_receiver_accepts_allowed_pull_request_event_and_queues_task
     assert data["execution"] == "queued_only"
     assert data["provider"] == "github"
     assert data["repository"] == "org/repo"
-    task_id = data["task_id"]
-
-    with app.app_context():
-        task = get_repository_registry().task_repo.get_by_id(task_id)
-        assert task is not None
-        assert "PR review request org/repo#19" in str(task.title or "")
-
+    assert len(queue_spy.calls) == 1
+    queued = queue_spy.calls[0]
+    assert queued["task_id"] == data["task_id"]
+    assert queued["source"] == "git_webhook_receiver"
+    assert queued["event_type"] == "pr_review_requested"
