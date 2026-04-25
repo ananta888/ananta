@@ -1,0 +1,67 @@
+{
+  "schema": "capability_pack.v1",
+  "domain_id": "blender",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "capability_id": "blender.scene.read",
+      "domain_id": "blender",
+      "display_name": "Read scene summary",
+      "category": "scene",
+      "risk": "low",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Provides bounded scene metadata for planning and diagnostics."]
+    },
+    {
+      "capability_id": "blender.selection.read",
+      "domain_id": "blender",
+      "display_name": "Read active selection",
+      "category": "scene",
+      "risk": "low",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Returns selected object summaries only, not full scene dumps."]
+    },
+    {
+      "capability_id": "blender.preview.render",
+      "domain_id": "blender",
+      "display_name": "Create render preview plan",
+      "category": "preview",
+      "risk": "medium",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Preview planning stays policy-bound and artifact-tracked."]
+    },
+    {
+      "capability_id": "blender.script.plan",
+      "domain_id": "blender",
+      "display_name": "Generate script plan artifact",
+      "category": "script",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Produces dry-run script proposals as artifacts without execution."]
+    },
+    {
+      "capability_id": "blender.script.execute",
+      "domain_id": "blender",
+      "display_name": "Execute approved script",
+      "category": "script",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "approval_required",
+      "notes": ["Default-deny/approval-required path for script execution."]
+    }
+  ]
+}

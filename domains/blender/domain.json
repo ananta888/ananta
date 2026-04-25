@@ -1,0 +1,28 @@
+{
+  "schema": "domain_descriptor.v1",
+  "domain_id": "blender",
+  "display_name": "Blender Domain Foundation",
+  "version": "1.0.0",
+  "lifecycle_status": "foundation_only",
+  "runtime_status": "descriptor_only",
+  "owner": "ananta",
+  "description": "Foundation descriptor for Blender as a thin control-surface domain under hub-governed orchestration, policy, approval and audit.",
+  "supported_clients": ["bridge", "cli", "tui", "web"],
+  "source_paths": {
+    "descriptor_root": "domains/blender",
+    "code_paths": ["client_surfaces/blender"],
+    "docs_paths": [
+      "docs/integrations/blender/generic_domain_alignment.md",
+      "docs/architecture/domain_integration_foundation.md"
+    ]
+  },
+  "capability_pack": "domains/blender/capabilities.json",
+  "context_schemas": ["domains/blender/schemas/context.v1.json"],
+  "artifact_schemas": ["domains/blender/schemas/artifact.v1.json"],
+  "policy_packs": ["domains/blender/policies/policy.v1.json"],
+  "rag_profiles": ["domains/blender/rag_sources/blender_api_docs.profile.json"],
+  "bridge_adapter_type": "local_client_bridge_v1",
+  "extensions": {
+    "runtime_claim": "descriptor_only"
+  }
+}

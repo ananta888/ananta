@@ -1,0 +1,38 @@
+{
+  "schema": "policy_pack.v1",
+  "domain_id": "blender",
+  "version": "1.0.0",
+  "default_decision": "default_deny",
+  "rules": [
+    {
+      "capability_id": "blender.scene.read",
+      "action_id": "read",
+      "decision": "allow",
+      "reason": "read-only scene summaries are permitted"
+    },
+    {
+      "capability_id": "blender.selection.read",
+      "action_id": "read",
+      "decision": "allow",
+      "reason": "read-only selection summaries are permitted"
+    },
+    {
+      "capability_id": "blender.preview.render",
+      "action_id": "render_preview",
+      "decision": "allow",
+      "reason": "preview planning is non-mutating"
+    },
+    {
+      "capability_id": "blender.script.plan",
+      "action_id": "plan",
+      "decision": "allow",
+      "reason": "script planning emits untrusted artifacts only"
+    },
+    {
+      "capability_id": "blender.script.execute",
+      "action_id": "execute",
+      "decision": "approval_required",
+      "reason": "script execution remains approval-gated"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "domain_integration_audit_v1",
+  "repository_root": "/mnt/c/Users/pst/IdeaProjects/ananta",
+  "inventory_path": "/mnt/c/Users/pst/IdeaProjects/ananta/data/domain_runtime_inventory.json",
+  "descriptor_domains": [
+    "blender",
+    "example"
+  ],
+  "deferred_domains": [],
+  "blockers": [],
+  "warnings": [
+    "example: policy pack degraded (policy_pack_missing)",
+    "blender: advisory runtime metadata present while inventory_status=foundation_only"
+  ],
+  "ok": true
+}
