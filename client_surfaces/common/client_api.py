@@ -6,6 +6,7 @@ import urllib.request
 from typing import Any, Callable
 
 from client_surfaces.common.degraded_state import is_retriable_state, map_status_to_degraded_state
+from client_surfaces.common.profile_auth import redact_sensitive_text
 from client_surfaces.common.types import ClientProfile, ClientResponse
 
 TransportFn = Callable[[str, str, dict[str, str], bytes | None, float], tuple[int, str]]
@@ -58,7 +59,7 @@ class AnantaApiClient:
                 status_code=None,
                 state="backend_unreachable",
                 data=None,
-                error=str(exc),
+                error=redact_sensitive_text(str(exc)),
                 retriable=True,
             )
         parse_error = False
