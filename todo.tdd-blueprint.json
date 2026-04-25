@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "tdd_blueprint",
+  "purpose": "Add a focused Test-Driven Development blueprint to the Ananta standard blueprint catalog without creating a new orchestration path. The blueprint should reuse Hub planning, Task/Artifact flow, Policy/Approval, native worker patch/test execution and Release-Gate verification.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "non_goals": [
+    "Do not add client-side TDD orchestration.",
+    "Do not let the TDD blueprint bypass worker policy, approval, artifacts or trace metadata.",
+    "Do not create a second planner or worker path for TDD.",
+    "Do not claim support for every language/test framework without smoke evidence."
+  ],
+  "success_criteria": [
+    "TDD appears as a standard blueprint in the blueprint catalog.",
+    "Blueprint expresses Red -> Green -> Refactor -> Verify as normal Ananta tasks/artifacts.",
+    "Generated tasks require the test to fail before implementation when feasible.",
+    "Worker/Release-Gate evidence proves at least one tiny repo TDD flow.",
+    "CLI/TUI/Web can display the same blueprint output without duplicating orchestration."
+  ],
+  "milestones": [
+    {
+      "id": "TDD-M1",
+      "title": "Blueprint contract and catalog entry",
+      "task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
+      "status": "todo"
+    },
+    {
+      "id": "TDD-M2",
+      "title": "Task and artifact mapping",
+      "task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
+      "status": "todo"
+    },
+    {
+      "id": "TDD-M3",
+      "title": "Tests, smoke and docs",
+      "task_ids": ["TDD-T07", "TDD-T08", "TDD-T09"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TDD-T01",
+      "title": "TDD blueprint definition add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": [
+        "docs/standard-blueprints.md",
+        "tests/test_team_blueprints.py"
+      ],
+      "acceptance_criteria": [
+        "Standard blueprint catalog includes TDD or Test-Driven Development.",
+        "Intended use describes behavior-first code changes where tests are written before implementation.",
+        "Safety/review stance is verification required and approval-gated for patch apply.",
+        "Default outputs include TestPlanArtifact, RedTestResultArtifact, PatchPlanArtifact, GreenTestResultArtifact and RefactorChecklist."
+      ]
+    },
+    {
+      "id": "TDD-T02",
+      "title": "TDD work profile hints add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["TDD-T01"],
+      "expected_files": [
+        "agent/routes/teams.py",
+        "agent/services/team_blueprint_service.py",
+        "tests/test_team_blueprints.py"
+      ],
+      "acceptance_criteria": [
+        "Blueprint exposes recommended goal modes for coding, repair and refactor tasks.",
+        "Blueprint exposes playbook hints for Red -> Green -> Refactor -> Verify.",
+        "Blueprint exposes capability hints for worker.patch.propose, worker.test.run, worker.verify.result and approval-gated apply.",
+        "Blueprint does not require a special client implementation."
+      ]
+    },
+    {
+      "id": "TDD-T03",
+      "title": "TDD blueprint example inputs add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["TDD-T01"],
+      "expected_files": [
+        "docs/standard-blueprints.md"
+      ],
+      "acceptance_criteria": [
+        "Docs include at least one tiny feature example and one bugfix example.",
+        "Expected result sketch shows red test, minimal implementation, green verification and optional refactor.",
+        "Docs clearly state that TDD support depends on available project test runner and worker permissions."
+      ]
+    },
+    {
+      "id": "TDD-T04",
+      "title": "TDD task decomposition rules define",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["TDD-T01"],
+      "expected_files": [
+        "docs/blueprints/tdd-task-decomposition.md",
+        "tests/test_auto_planner_tdd_blueprint.py"
+      ],
+      "acceptance_criteria": [
+        "Defines task sequence: clarify behavior, add/adjust test, run test expecting failure, implement minimal patch, run tests expecting success, optional refactor, final verification.",
+        "Red test failure is represented as expected evidence rather than task failure when in red phase.",
+        "If project cannot run tests, blueprint degrades honestly to TestPlanArtifact and implementation is blocked or marked degraded.",
+        "Tests use deterministic planner/model fixtures."
+      ]
+    },
+    {
+      "id": "TDD-T05",
+      "title": "TDD artifact types align with existing Artifact system",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["TDD-T04"],
+      "expected_files": [
+        "schemas/artifacts/tdd_test_plan_artifact.v1.json",
+        "schemas/artifacts/tdd_cycle_artifact.v1.json",
+        "tests/test_tdd_artifact_schemas.py"
+      ],
+      "acceptance_criteria": [
+        "Schemas capture behavior statement, test files, red result, patch refs, green result, refactor notes and verification refs.",
+        "Schemas reference existing PatchArtifact/TestResultArtifact/VerificationArtifact instead of duplicating them.",
+        "Artifact status distinguishes red_expected, red_missing, green_passed, green_failed, refactor_skipped and degraded.",
+        "Schema tests validate minimal and full TDD cycle examples."
+      ]
+    },
+    {
+      "id": "TDD-T06",
+      "title": "TDD policy and approval mapping add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["TDD-T05"],
+      "expected_files": [
+        "docs/blueprints/tdd-policy.md",
+        "tests/test_tdd_policy_mapping.py"
+      ],
+      "acceptance_criteria": [
+        "Test creation/modification is treated as write activity and follows normal patch approval rules.",
+        "Patch apply remains approval-gated when policy requires it.",
+        "Running tests uses worker.test.run capabilities and command policy.",
+        "Blueprint cannot relax Hub policy or execute commands directly."
+      ]
+    },
+    {
+      "id": "TDD-T07",
+      "title": "Tiny repo TDD smoke test add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["TDD-T04", "TDD-T05", "todo.ananta-worker.json:AW-T28"],
+      "expected_files": [
+        "tests/e2e/blueprints/test_tdd_tiny_repo_flow.py",
+        "tests/e2e/fixtures/tdd_tiny_repo/"
+      ],
+      "acceptance_criteria": [
+        "Smoke flow creates a TDD blueprint instance for a tiny repo feature.",
+        "Flow records red test evidence before implementation patch evidence.",
+        "Flow records green test evidence after implementation.",
+        "Smoke uses mocked model/provider output by default.",
+        "No direct main-tree mutation happens before approved apply."
+      ]
+    },
+    {
+      "id": "TDD-T08",
+      "title": "TDD docs add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["TDD-T07"],
+      "expected_files": [
+        "docs/blueprints/tdd.md"
+      ],
+      "acceptance_criteria": [
+        "Docs explain how users start a TDD goal.",
+        "Docs explain red/green/refactor evidence and what happens when tests cannot run.",
+        "Docs include CLI/TUI/Web visibility expectations without client-specific orchestration.",
+        "Docs state limitations honestly."
+      ]
+    },
+    {
+      "id": "TDD-T09",
+      "title": "TDD release gate hook add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["TDD-T07"],
+      "expected_files": [
+        "scripts/run_release_gate.py"
+      ],
+      "acceptance_criteria": [
+        "Release gate can include the TDD tiny repo smoke when TDD blueprint runtime is claimed.",
+        "Gate fails if green phase is claimed without passing test evidence.",
+        "Gate fails if red phase is skipped without degraded explanation.",
+        "Gate reports TDD evidence artifact paths."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "Add blueprint catalog entry first.",
+    "Define task decomposition and artifact mapping next.",
+    "Add policy mapping to ensure TDD cannot bypass Hub rules.",
+    "Add tiny repo smoke and docs after native worker patch/test flow exists."
+  ],
+  "critical_path_tasks": ["TDD-T01", "TDD-T02", "TDD-T04", "TDD-T05", "TDD-T06", "TDD-T07"],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 9,
+    "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 0, "P1": 6, "P2": 3, "P3": 0},
+    "by_risk": {"low": 2, "medium": 4, "high": 3, "critical": 0},
+    "critical_path": {"total": 6, "done": 0, "remaining": 6},
+    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "This is intentionally small: TDD is mainly a blueprint/playbook plus artifact/test evidence, not a new agent architecture.",
+    "The runtime-heavy parts depend on the native worker patch/test flow.",
+    "TDD should become a strong dogfooding pattern for Ananta itself once the native worker is stable."
+  ]
+}
