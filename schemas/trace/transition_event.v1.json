@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/trace/transition_event.v1.json",
+  "title": "Ananta Transition Event v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "event_id",
+    "event_type",
+    "timestamp",
+    "correlation_id",
+    "causation_id",
+    "actor",
+    "state_type",
+    "entity_id"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "transition_event.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "goal_created",
+        "plan_proposed",
+        "task_created",
+        "approval_requested",
+        "approval_decided",
+        "execution_started",
+        "execution_finished",
+        "execution_failed",
+        "artifact_created",
+        "verification_finished",
+        "repair_proposed"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "causation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actor": {
+      "type": "object",
+      "required": ["component", "id"],
+      "properties": {
+        "component": {
+          "type": "string",
+          "enum": ["hub", "worker", "client", "system", "user"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "state_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entity_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
