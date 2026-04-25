@@ -79,7 +79,13 @@
     {"id": "AW-M4", "title": "Shell command planning and execution controls", "task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "status": "todo"},
     {"id": "AW-M5", "title": "Model provider and external tool adapters", "task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "status": "todo"},
     {"id": "AW-M6", "title": "Verification, audit and reproducibility", "task_ids": ["AW-T23", "AW-T24", "AW-T25", "AW-T26"], "status": "todo"},
-    {"id": "AW-M7", "title": "Tests, E2E dogfood and docs", "task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "status": "todo"}
+    {"id": "AW-M7", "title": "Tests, E2E dogfood and docs", "task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "status": "todo"},
+    {
+      "id": "AW-M8",
+      "title": "Controlled autonomous worker loop",
+      "task_ids": ["AW-T33", "AW-T34", "AW-T35", "AW-T36"],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
@@ -592,6 +598,82 @@
         "Comparison explains what Ananta borrows conceptually from Aider/OpenCode/ShellGPT/Copilot CLI and what it deliberately does differently.",
         "Adapter docs explain optional installation/configuration and why adapters are not default dependencies.",
         "Docs include honest limitations and unsupported flows."
+      ]
+    },
+    {
+      "id": "AW-T33",
+      "title": "Controlled autonomous worker loop implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T07","AW-T12","AW-T16","AW-T23","AW-T24"],
+      "expected_files": [
+        "worker/loop/controlled_worker_loop.py",
+        "schemas/worker/worker_loop_state.v1.json"
+      ],
+      "acceptance_criteria": [
+        "Loop implements observe -> plan -> patch -> test -> inspect -> repair -> retest -> summarize.",
+        "Loop consumes Task + ContextEnvelope + policy + approval.",
+        "Loop produces intermediate artifacts per iteration.",
+        "Loop never bypasses policy or approval.",
+        "Loop state is externally observable."
+      ]
+    },
+    {
+      "id": "AW-T34",
+      "title": "Worker loop budgets and stop conditions add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T33"],
+      "expected_files": [
+        "worker/loop/budgets.py",
+        "worker/loop/stop_conditions.py"
+      ],
+      "acceptance_criteria": [
+        "Supports max_iterations, max_patch_attempts, max_runtime_seconds.",
+        "Stops on policy_denied, approval_required, repeated_failure.",
+        "Stops on no_progress_detected.",
+        "Stop reason is recorded in trace."
+      ]
+    },
+    {
+      "id": "AW-T35",
+      "title": "Worker progress events and intermediate artifacts add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T33","AW-T34"],
+      "expected_files": [
+        "worker/loop/progress_events.py",
+        "schemas/worker/worker_progress_event.v1.json"
+      ],
+      "acceptance_criteria": [
+        "Each iteration emits progress events.",
+        "Events include phase, iteration, artifacts.",
+        "Intermediate results visible.",
+        "No silent internal loop state."
+      ]
+    },
+    {
+      "id": "AW-T36",
+      "title": "OpenCode-like autonomous coding E2E add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T28","AW-T29","AW-T30","AW-T33"],
+      "expected_files": [
+        "tests/e2e/worker/test_controlled_loop_flow.py"
+      ],
+      "acceptance_criteria": [
+        "Worker fixes a failing test in iterative loop.",
+        "Loop stops correctly on failure/approval.",
+        "No uncontrolled execution.",
+        "Artifacts + trace prove full loop."
       ]
     }
   ],

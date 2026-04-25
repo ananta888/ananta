@@ -1,0 +1,115 @@
+{
+  "schema": "domain_retrieval_contract_fixture_v1",
+  "cases": [
+    {
+      "id": "profile_type_mapping_and_bounded_chunks",
+      "domain_id": "example",
+      "retrieval_intent": "api",
+      "query": "bridge execution envelope requirements",
+      "max_results": 2,
+      "profiles": [
+        {
+          "source_id": "example.source",
+          "source_type": "source_code"
+        },
+        {
+          "source_id": "example.docs",
+          "source_type": "api_docs"
+        }
+      ],
+      "backend_payload": {
+        "chunks": [
+          {
+            "source": "docs/a.md",
+            "score": 0.95,
+            "metadata": {
+              "source_id": "example.source",
+              "citation": {
+                "path": "docs/a.md"
+              },
+              "section_title": "A1"
+            }
+          },
+          {
+            "source": "docs/b.md",
+            "score": 0.91,
+            "metadata": {
+              "source_id": "example.docs",
+              "citation": {
+                "path": "docs/b.md"
+              },
+              "section_title": "B1",
+              "fusion": {
+                "query_overlap": 0.6
+              }
+            }
+          },
+          {
+            "source": "docs/c.md",
+            "score": 0.2,
+            "metadata": {
+              "source_id": "example.low",
+              "citation": {
+                "path": "docs/c.md"
+              }
+            }
+          }
+        ]
+      },
+      "expectations": {
+        "source_types": [
+          "repo",
+          "artifact"
+        ],
+        "chunk_source_ids": [
+          "example.source",
+          "example.docs"
+        ]
+      }
+    },
+    {
+      "id": "explicit_source_type_override",
+      "domain_id": "example",
+      "retrieval_intent": "runbook",
+      "query": "find service recovery runbook",
+      "max_results": 3,
+      "profiles": [
+        {
+          "source_id": "example.runbook",
+          "source_type": "api_docs",
+          "retrieval_source_types": [
+            "task_memory",
+            "artifact",
+            "repo",
+            "task_memory"
+          ]
+        }
+      ],
+      "backend_payload": {
+        "chunks": [
+          {
+            "source": "runbook/recovery.md",
+            "score": 0.88,
+            "metadata": {
+              "source_id": "example.runbook",
+              "citation": {
+                "path": "runbook/recovery.md"
+              },
+              "record_kind": "runbook"
+            }
+          }
+        ]
+      },
+      "expectations": {
+        "source_types": [
+          "task_memory",
+          "artifact",
+          "repo"
+        ],
+        "chunk_source_ids": [
+          "example.runbook"
+        ]
+      }
+    }
+  ]
+}

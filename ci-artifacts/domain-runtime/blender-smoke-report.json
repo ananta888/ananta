@@ -1,0 +1,37 @@
+{
+  "schema": "blender_runtime_smoke_report_v1",
+  "domain_id": "blender",
+  "ok": true,
+  "checks": [
+    {
+      "check_id": "file_exists:client_surfaces/blender/addon/__init__.py",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "check_id": "file_exists:client_surfaces/blender/bridge/ananta_blender_bridge.py",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "check_id": "addon_contract",
+      "ok": true,
+      "detail": {
+        "has_bl_info": true,
+        "has_register": true,
+        "has_unregister": true
+      }
+    },
+    {
+      "check_id": "bridge_envelope_contract",
+      "ok": true,
+      "detail": {
+        "errors": []
+      }
+    }
+  ],
+  "required_runtime_files": [
+    "client_surfaces/blender/addon/__init__.py",
+    "client_surfaces/blender/bridge/ananta_blender_bridge.py"
+  ]
+}
