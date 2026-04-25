@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/rag_source_profile.v1.json",
+  "title": "Ananta RAG Source Profile v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "source_id",
+    "domain_id",
+    "source_type",
+    "license_note",
+    "intended_usage",
+    "indexing_config_ref",
+    "ingestion_path",
+    "provenance"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rag_source_profile.v1"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "api_docs",
+        "source_code",
+        "examples",
+        "project_reference",
+        "internal_docs"
+      ]
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "include_globs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "exclude_globs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "license_note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intended_usage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "indexing_config_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ingestion_path": {
+      "type": "string",
+      "enum": ["codecompass", "rag_helper", "codecompass/rag_helper"]
+    },
+    "retrieval_source_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["repo", "artifact", "wiki", "task_memory"]
+      },
+      "uniqueItems": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["owner", "captured_at", "explanation"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "anyOf": [
+    { "required": ["repo"] },
+    { "required": ["url"] },
+    { "required": ["path"] }
+  ],
+  "additionalProperties": false
+}
