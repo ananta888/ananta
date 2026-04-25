@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "creative_cad_eda_domain_foundation",
+  "purpose": "Create a shared pre-foundation for Blender, FreeCAD and KiCad domains after the generic domain integration foundation. This track defines common safety language, domain descriptors, capability conventions, artifact families, RAG source conventions and correctness gates without implementing full runtime plugins.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Prepare Blender, FreeCAD and KiCad as honest, conservative Ananta domains so the later Blender plugin and future CAD/EDA integrations can share generic contracts while keeping correctness, approval and audit boundaries explicit.",
+  "non_goals": [
+    "Do not implement full Blender, FreeCAD or KiCad runtime plugins in this track.",
+    "Do not enable mutating CAD/EDA operations by default.",
+    "Do not claim runtime_mvp for FreeCAD or KiCad.",
+    "Do not merge FreeCAD and KiCad into one plugin implementation.",
+    "Do not bypass the generic domain foundation."
+  ],
+  "success_criteria": [
+    "Blender, FreeCAD and KiCad have consistent planned/foundation domain descriptors.",
+    "Each domain has conservative capability names and default policy classification.",
+    "Common artifact families are defined for findings, plans, previews, exports and execution reports.",
+    "RAG source profile conventions exist for docs, source code, examples and domain references.",
+    "FreeCAD and KiCad are marked stricter than Blender for correctness and mutation gates.",
+    "Release gates can prevent descriptor-only domains from being treated as runtime-ready."
+  ],
+  "architecture_guardrails": [
+    "Use todo.more-generic.json mechanisms instead of creating separate backend frameworks.",
+    "Blender can be creative and preview-oriented; FreeCAD and KiCad require stricter correctness gates.",
+    "Mutating operations are default-deny unless a later domain-specific track explicitly enables them.",
+    "Read-only analysis and planning are the initial safe capabilities for all three domains.",
+    "All RAG ingestion must go through codecompass/rag_helper profiles.",
+    "All future plugins or bridges remain thin clients/bridges controlled by the Ananta Hub."
+  ],
+  "milestones": [
+    {
+      "id": "CCE-M1",
+      "title": "Shared taxonomy and safety baseline",
+      "task_ids": ["CCE-T01", "CCE-T02", "CCE-T03", "CCE-T04"],
+      "status": "todo"
+    },
+    {
+      "id": "CCE-M2",
+      "title": "Domain descriptors and capabilities",
+      "task_ids": ["CCE-T05", "CCE-T06", "CCE-T07", "CCE-T08"],
+      "status": "todo"
+    },
+    {
+      "id": "CCE-M3",
+      "title": "Common artifacts, RAG and release gates",
+      "task_ids": ["CCE-T09", "CCE-T10", "CCE-T11", "CCE-T12"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCE-T01",
+      "title": "Creative CAD EDA domain taxonomy define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": ["docs/architecture/creative_cad_eda_domain_taxonomy.md"],
+      "acceptance_criteria": [
+        "Document separates creative scene domains, mechanical CAD domains and EDA/PCB domains.",
+        "Document explains why Blender can tolerate preview-heavy iteration while FreeCAD and KiCad require stricter correctness gates.",
+        "Document defines shared terms: context, finding, plan, preview, export, mutation, execution report and verification artifact."
+      ]
+    },
+    {
+      "id": "CCE-T02",
+      "title": "Shared safety baseline define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["CCE-T01"],
+      "expected_files": ["docs/architecture/creative_cad_eda_safety_baseline.md"],
+      "acceptance_criteria": [
+        "Baseline classifies read-only, planning, preview/export, mutation and script/macro execution operations.",
+        "Baseline marks CAD/EDA mutations as stricter than Blender mutations.",
+        "Baseline requires approval and audit for any file write, model mutation, PCB mutation, script execution or macro execution."
+      ]
+    },
+    {
+      "id": "CCE-T03",
+      "title": "Common capability naming conventions define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CCE-T02"],
+      "expected_files": ["docs/architecture/domain_capability_naming.md"],
+      "acceptance_criteria": [
+        "Capability naming conventions cover domain.resource.action format such as blender.scene.read, freecad.document.read and kicad.drc.plan.",
+        "Naming distinguishes plan from execute and read from mutate.",
+        "Document provides initial capability examples for Blender, FreeCAD and KiCad."
+      ]
+    },
+    {
+      "id": "CCE-T04",
+      "title": "Correctness gate levels define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["CCE-T02"],
+      "expected_files": ["schemas/domain/correctness_gate_level.v1.json", "docs/architecture/correctness_gates.md"],
+      "acceptance_criteria": [
+        "Gate levels distinguish creative_preview, reversible_scene_change, mechanical_model_change, pcb_design_change and production_export.",
+        "FreeCAD and KiCad default to stricter levels for mutation and production export.",
+        "Gate levels can be referenced by domain policy packs and approval metadata."
+      ]
+    },
+    {
+      "id": "CCE-T05",
+      "title": "Blender foundation descriptor align",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CCE-T03", "CCE-T04"],
+      "expected_files": ["domains/blender/domain.json", "domains/blender/capabilities.json"],
+      "acceptance_criteria": [
+        "Blender descriptor uses generic domain foundation fields.",
+        "Blender capabilities align with todo.blender.json and shared naming conventions.",
+        "Descriptor remains honest and does not claim runtime_mvp before addon smoke evidence exists."
+      ]
+    },
+    {
+      "id": "CCE-T06",
+      "title": "FreeCAD foundation descriptor add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CCE-T03", "CCE-T04"],
+      "expected_files": ["domains/freecad/domain.json", "domains/freecad/capabilities.json"],
+      "acceptance_criteria": [
+        "FreeCAD descriptor is planned or foundation_only, not runtime_mvp.",
+        "Initial capabilities include freecad.document.read, freecad.model.inspect, freecad.export.plan and freecad.macro.plan.",
+        "Mutation and macro execution capabilities are present only as default-deny or deferred where useful."
+      ]
+    },
+    {
+      "id": "CCE-T07",
+      "title": "KiCad foundation descriptor add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CCE-T03", "CCE-T04"],
+      "expected_files": ["domains/kicad/domain.json", "domains/kicad/capabilities.json"],
+      "acceptance_criteria": [
+        "KiCad descriptor is planned or foundation_only, not runtime_mvp.",
+        "Initial capabilities include kicad.project.read, kicad.erc.plan, kicad.drc.plan, kicad.bom.plan and kicad.export.plan.",
+        "PCB mutation, routing and manufacturing export execution are default-deny or deferred."
+      ]
+    },
+    {
+      "id": "CCE-T08",
+      "title": "Cross-domain capability consistency tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CCE-T05", "CCE-T06", "CCE-T07"],
+      "expected_files": ["tests/test_creative_cad_eda_capabilities.py"],
+      "acceptance_criteria": [
+        "Tests verify capability naming conventions for Blender, FreeCAD and KiCad descriptors.",
+        "Tests verify mutating and execution capabilities are not silently allowed.",
+        "Tests verify descriptor status does not imply runtime readiness."
+      ]
+    },
+    {
+      "id": "CCE-T09",
+      "title": "Common artifact families define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CCE-T04"],
+      "expected_files": ["schemas/domain/creative_cad_eda_artifact_family.v1.json", "docs/architecture/creative_cad_eda_artifacts.md"],
+      "acceptance_criteria": [
+        "Artifact families cover findings, action plans, script/macro plans, preview renders, export plans, verification reports and execution reports.",
+        "Families can map to Blender, FreeCAD and KiCad-specific artifact schemas later.",
+        "Artifact families include safety classification and expected verification level."
+      ]
+    },
+    {
+      "id": "CCE-T10",
+      "title": "Shared RAG source conventions define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CCE-T01"],
+      "expected_files": ["docs/architecture/creative_cad_eda_rag_sources.md"],
+      "acceptance_criteria": [
+        "Document defines source categories for docs, API docs, source code, examples, plugins/addons, project samples and verification rules.",
+        "Document states that ingestion goes through codecompass/rag_helper only.",
+        "Document includes initial source profile expectations for Blender, FreeCAD and KiCad."
+      ]
+    },
+    {
+      "id": "CCE-T11",
+      "title": "Domain inventory entries add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CCE-T05", "CCE-T06", "CCE-T07"],
+      "expected_files": ["data/domain_runtime_inventory.json"],
+      "acceptance_criteria": [
+        "Inventory includes Blender, FreeCAD and KiCad with honest status and required evidence rules.",
+        "FreeCAD and KiCad do not claim runtime_mvp.",
+        "Blender status remains aligned with todo.blender.json implementation evidence."
+      ]
+    },
+    {
+      "id": "CCE-T12",
+      "title": "Creative CAD EDA release gate hook add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["CCE-T08", "CCE-T11"],
+      "expected_files": ["tests/test_creative_cad_eda_release_gate.py"],
+      "acceptance_criteria": [
+        "Tests verify release gate fails if FreeCAD or KiCad descriptors claim runtime readiness without smoke evidence.",
+        "Tests verify default-deny capabilities remain denied unless explicitly changed by policy pack.",
+        "Tests verify Blender runtime claims require addon load/context/policy smoke evidence."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "Stage 1: Define taxonomy, safety baseline, capability naming and correctness gates.",
+    "Stage 2: Add foundation descriptors for Blender, FreeCAD and KiCad.",
+    "Stage 3: Add common artifact families, RAG conventions, inventory and release-gate checks."
+  ],
+  "critical_path_tasks": [
+    "CCE-T01",
+    "CCE-T02",
+    "CCE-T03",
+    "CCE-T04",
+    "CCE-T06",
+    "CCE-T07",
+    "CCE-T08",
+    "CCE-T09",
+    "CCE-T10",
+    "CCE-T11",
+    "CCE-T12"
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 12,
+    "by_status": {"todo": 12, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 11, "P1": 1, "P2": 0, "P3": 0},
+    "by_risk": {"low": 0, "medium": 3, "high": 6, "critical": 3},
+    "critical_path": {"total": 11, "done": 0, "remaining": 11},
+    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "This is the small shared pre-todo after todo.more-generic.json and before full FreeCAD/KiCad runtime tracks.",
+    "It keeps FreeCAD and KiCad conservative while still preparing them as first-class Ananta domains.",
+    "Blender remains the first large runtime/plugin track, but it should align with these shared conventions."
+  ]
+}
