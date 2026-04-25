@@ -1,464 +1,329 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "platform_gaps_after_core_tracks",
-  "purpose": "Capture only useful platform gaps that are not already covered by security, domain cleanup, native worker, Blender, FreeCAD, KiCad or later KRITIS/Enterprise tracks. This is not a management roadmap and not a feature wishlist.",
-  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
+  "track": "unified_ananta_cli",
+  "purpose": "Provide a consistent user-facing CLI entrypoint so normal users can start every common workflow with `ananta ...` instead of mixing `ananta init` with `python -m agent.cli_goals ...`. Existing python module invocations may remain as internal/dev fallback but must not be the documented golden path.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "scope_rules": [
-    "Do not duplicate todo.kritis.json, todo.blender.json, todo.freecad.json or todo.kicad.json, and avoid reintroducing archived Security/Domain/Native-Worker tracks unless they are explicitly restored.",
-    "Only include items that improve installability, operability, controlled integrations or dogfooding after the core tracks are stable.",
-    "Avoid Medusa features such as visual flow builders, full LSP server rewrites or large editor refactors unless explicitly promoted later.",
-    "All integrations must remain Hub-controlled, policy-gated, auditable and compatible with thin clients."
+    "Keep this track focused on unified user-facing CLI entrypoints and command UX.",
+    "Reuse existing goal/runtime modules instead of duplicating orchestration or policy logic.",
+    "Use explicit file:id dependency references only for active todo track files.",
+    "Do not couple CLI command wiring to Docker-only runtime assumptions."
+  ],
+  "non_goals": [
+    "Do not rewrite the full CLI implementation if existing modules can be wrapped.",
+    "Do not duplicate orchestration, policy or approval logic in the CLI.",
+    "Do not remove existing `python -m agent.cli_goals` developer entrypoints until compatibility is intentionally deprecated.",
+    "Do not make Docker a required dependency for the CLI entrypoint."
   ],
   "success_criteria": [
-    "Ananta can be initialized on a local machine with a clear runtime profile without requiring Docker by default.",
-    "MCP integration is available in a read-only/default-deny Hub-controlled mode before any write/admin tool access is enabled.",
-    "Pull-request review automation can be enabled only after native worker and release gates are stable.",
-    "External tools and setup modes are represented as capability/profile choices rather than hard-coded client or worker behavior.",
-    "Deferred high-complexity ideas remain explicitly frozen instead of silently entering active scope."
+    "A single `ananta` command is available after installation or editable install.",
+    "Common workflows are documented as `ananta init`, `ananta status`, `ananta ask`, `ananta plan`, `ananta analyze`, `ananta review`, `ananta diagnose`, `ananta patch`, `ananta repair-admin`, `ananta new-project`, `ananta evolve-project`, `ananta tui`, `ananta doctor` and optionally `ananta web`.",
+    "Existing module-based commands remain usable for developers.",
+    "README/Quickstart uses only `ananta ...` commands for normal users.",
+    "CLI smoke tests prove the user-facing command dispatches to existing behavior without client-side orchestration."
   ],
   "milestones": [
     {
-      "id": "PG-M1",
-      "title": "Runtime setup and profile UX",
-      "task_ids": ["PG-T01", "PG-T02", "PG-T03"],
+      "id": "CLI-M1",
+      "title": "Unified command entrypoint",
+      "task_ids": ["CLI-T01", "CLI-T02", "CLI-T03"],
       "status": "done"
     },
     {
-      "id": "PG-M2",
-      "title": "Controlled MCP foundation",
-      "task_ids": ["PG-T04", "PG-T05", "PG-T06"],
+      "id": "CLI-M2",
+      "title": "Command aliases and compatibility",
+      "task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
       "status": "done"
     },
     {
-      "id": "PG-M3",
-      "title": "Dogfooding and PR review automation",
-      "task_ids": ["PG-T07", "PG-T08", "PG-T09"],
-      "status": "done"
-    },
-    {
-      "id": "PG-M4",
-      "title": "Icebox guards",
-      "task_ids": ["PG-T10", "PG-T11"],
-      "status": "done"
-    },
-    {
-      "id": "PG-M5",
-      "title": "Cross-track dependency hygiene",
-      "task_ids": ["PG-T12"],
+      "id": "CLI-M3",
+      "title": "Docs and smoke tests",
+      "task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
       "status": "done"
     }
   ],
   "tasks": [
     {
-      "id": "PG-T01",
-      "title": "CLI runtime profile wizard add",
+      "id": "CLI-T01",
+      "title": "Console script entrypoint add",
       "status": "done",
-      "priority": "P1",
+      "priority": "P0",
       "risk": "medium",
-      "blocking": false,
+      "blocking": true,
       "depends_on": [],
       "expected_files": [
+        "pyproject.toml",
+        "agent/cli/main.py",
+        "tests/test_unified_cli_entrypoint.py"
+      ],
+      "acceptance_criteria": [
+        "Project exposes `ananta = agent.cli.main:main` or equivalent console script.",
+        "`ananta --help` works after editable install.",
+        "Entrypoint performs command dispatch only and does not duplicate Hub orchestration.",
+        "Tests verify the console script target can be imported."
+      ]
+    },
+    {
+      "id": "CLI-T02",
+      "title": "Top-level command structure define",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CLI-T01"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "tests/test_unified_cli_commands.py"
+      ],
+      "acceptance_criteria": [
+        "Defines stable user-facing subcommands: init, first-run, status, ask, plan, analyze, review, diagnose, patch, repair-admin, new-project, evolve-project, tui, doctor.",
+        "Optional web command is included only if a stable backend/UI launcher exists or degrades with a useful message.",
+        "Unknown commands show concise help and exit non-zero.",
+        "All commands support `--help`."
+      ]
+    },
+    {
+      "id": "CLI-T03",
+      "title": "Init command wire to runtime wizard",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CLI-T01", "CLI-T02"],
+      "expected_files": [
+        "agent/cli/main.py",
         "agent/cli/init_wizard.py",
-        "tests/test_init_wizard.py",
-        "docs/setup/ananta_init.md"
+        "tests/test_ananta_init_command.py"
       ],
       "acceptance_criteria": [
-        "Provides an ananta init command or equivalent setup wizard.",
-        "Detects or asks for local-dev, sandbox or strict runtime mode.",
-        "Captures LLM backend preference such as Ollama, LM Studio, OpenAI-compatible endpoint or manual config.",
-        "Does not require Docker/Podman for local-dev mode.",
-        "Writes a reviewable runtime profile file rather than hidden global state."
+        "`ananta init` dispatches to the runtime profile wizard.",
+        "`ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default` is accepted or clearly rejected with actionable validation.",
+        "Init writes reviewable profile/config files and does not require Docker in local-dev mode.",
+        "Tests cover non-interactive --yes mode."
       ]
     },
     {
-      "id": "PG-T02",
-      "title": "Hardware and model profile recommendations add",
+      "id": "CLI-T04",
+      "title": "Goal command aliases wire to cli_goals",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CLI-T02"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "agent/cli/goal_aliases.py",
+        "tests/test_goal_command_aliases.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta ask <text>` maps to existing ask/goal behavior.",
+        "`ananta plan <text>`, `ananta analyze <text>`, `ananta review <text>`, `ananta diagnose <text>`, `ananta patch <text>`, `ananta repair-admin <text>`, `ananta new-project <text>` and `ananta evolve-project <text>` map to existing cli_goals behavior or return a clear not-yet-supported message.",
+        "Mappings preserve existing request payload semantics.",
+        "No alias performs direct worker/tool execution locally; it routes through existing Hub/goal paths."
+      ]
+    },
+    {
+      "id": "CLI-T05",
+      "title": "Status first-run doctor commands wire",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CLI-T02"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "agent/cli/doctor.py",
+        "tests/test_status_doctor_commands.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta first-run` runs or delegates the first-run flow.",
+        "`ananta status` shows concise Hub/Worker/LLM/RAG state or a degraded explanation.",
+        "`ananta doctor` performs local setup checks and prints actionable next steps.",
+        "Commands are safe to run repeatedly."
+      ]
+    },
+    {
+      "id": "CLI-T06",
+      "title": "TUI and optional Web launch commands wire",
       "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["PG-T01"],
+      "depends_on": ["CLI-T02"],
       "expected_files": [
-        "agent/services/runtime_profile_recommender.py",
-        "tests/test_runtime_profile_recommender.py",
-        "docs/setup/runtime_profiles.md"
+        "agent/cli/main.py",
+        "tests/test_tui_web_launch_commands.py"
       ],
       "acceptance_criteria": [
-        "Can recommend conservative defaults for CPU-only, NVIDIA GPU, remote model and mixed local/remote setups.",
-        "Represents context window, max input tokens, output tokens, RAG budget and patch size as explicit profile values.",
-        "Never silently selects paid/cloud providers without explicit user configuration.",
-        "Tests cover RTX-style local GPU, CPU-only and remote OpenAI-compatible profile examples."
+        "`ananta tui` launches or delegates to the existing TUI entrypoint.",
+        "`ananta web` launches, opens, or prints the configured Web UI URL if supported.",
+        "If TUI/Web dependencies are missing, command exits with a helpful degraded message.",
+        "No TUI/Web command owns orchestration logic."
       ]
     },
     {
-      "id": "PG-T03",
-      "title": "Optional deployment target generation add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["PG-T01", "PG-T02"],
-      "expected_files": [
-        "agent/cli/deployment_profile_writer.py",
-        "tests/test_deployment_profile_writer.py",
-        "docs/setup/deployment_targets.md"
-      ],
-      "acceptance_criteria": [
-        "Can generate optional docker-compose or podman-compatible examples when requested.",
-        "Keeps local-dev as non-container default.",
-        "Marks sandbox and strict modes clearly as stronger isolation choices.",
-        "Does not overwrite existing compose/config files without explicit confirmation or backup."
-      ]
-    },
-    {
-      "id": "PG-T04",
-      "title": "MCP integration boundary document write",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": [],
-      "expected_files": [
-        "docs/architecture/mcp_integration_boundary.md"
-      ],
-      "acceptance_criteria": [
-        "Documents MCP as Hub-controlled integration, not a worker-side tool free-for-all.",
-        "Defines read-only first, default-deny, capability-bound tool access.",
-        "Explains which MCP operations require approval and audit.",
-        "Explicitly prevents MCP tools from bypassing Ananta policy, approval or artifact flows."
-      ]
-    },
-    {
-      "id": "PG-T05",
-      "title": "MCP tool registry skeleton add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["PG-T04"],
-      "expected_files": [
-        "agent/services/mcp_tool_registry.py",
-        "schemas/mcp/mcp_tool_descriptor.v1.json",
-        "tests/test_mcp_tool_registry.py"
-      ],
-      "acceptance_criteria": [
-        "Registers MCP servers/tools as descriptors with capability, risk, read/write/admin class and allowed scopes.",
-        "Unknown tools are unavailable by default.",
-        "Registry exposes health/degraded states without executing tools.",
-        "Tests cover valid descriptor, unknown tool, duplicate tool and unsafe default."
-      ]
-    },
-    {
-      "id": "PG-T06",
-      "title": "Read-only MCP smoke path add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["PG-T05"],
-      "expected_files": [
-        "agent/services/mcp_readonly_adapter.py",
-        "tests/test_mcp_readonly_adapter.py"
-      ],
-      "acceptance_criteria": [
-        "Implements a read-only/mockable MCP adapter path.",
-        "Requires Hub capability and policy decision before use.",
-        "Returns artifacts or structured results with provenance.",
-        "Does not implement write/admin MCP execution in this task."
-      ]
-    },
-    {
-      "id": "PG-T07",
-      "title": "PR review agent design add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": [
-        "todo.kritis.json:K1-AUD-T15",
-        "todo.kritis.json:K1-MUT-T13",
-        "todo.kritis.json:K1-EVO-T09"
-      ],
-      "expected_files": [
-        "docs/architecture/pr_review_agent.md"
-      ],
-      "acceptance_criteria": [
-        "Documents PR review automation as blocked until native worker, approval, audit and release gate are stable.",
-        "Defines review-only behavior first: analyze diff, run allowed checks, produce ReviewArtifact.",
-        "Posting comments back to Git providers is separate from code modification.",
-        "No auto-merge or direct push behavior is included."
-      ]
-    },
-    {
-      "id": "PG-T08",
-      "title": "Git provider webhook receiver skeleton add",
-      "status": "done",
-      "priority": "P3",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["PG-T07"],
-      "expected_files": [
-        "agent/routes/webhooks.py",
-        "tests/test_git_webhook_receiver.py"
-      ],
-      "acceptance_criteria": [
-        "Accepts signed GitHub/GitLab-style webhook payloads in test mode.",
-        "Creates review tasks only when provider, repository and event type are allowed.",
-        "Does not run worker execution directly inside the request handler.",
-        "Tests cover invalid signature, unsupported event and accepted PR event."
-      ]
-    },
-    {
-      "id": "PG-T09",
-      "title": "PR ReviewArtifact posting adapter add",
-      "status": "done",
-      "priority": "P3",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["PG-T08"],
-      "expected_files": [
-        "agent/services/pr_review_publisher.py",
-        "tests/test_pr_review_publisher.py"
-      ],
-      "acceptance_criteria": [
-        "Publishes review summaries generated by Ananta as comments only after policy allows outbound integration.",
-        "Can run in dry-run mode and produce artifact-only output.",
-        "Never posts secrets, raw prompts or unredacted logs.",
-        "Tests use mocked Git provider client."
-      ]
-    },
-    {
-      "id": "PG-T10",
-      "title": "Icebox decision record for heavy client features add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": [],
-      "expected_files": [
-        "docs/decisions/ADR-icebox-lsp-flow-builder-eclipse.md"
-      ],
-      "acceptance_criteria": [
-        "Records why full LSP server work, visual flow builder and large Eclipse refactors are deferred.",
-        "Defines conditions required to promote any of them into active scope.",
-        "Reinforces thin-client and no-duplicate-orchestration rules.",
-        "Prevents accidental scope creep into current release tracks."
-      ]
-    },
-    {
-      "id": "PG-T11",
-      "title": "Current track inventory and completed-track references add",
+      "id": "CLI-T07",
+      "title": "Module invocation compatibility keep",
       "status": "done",
       "priority": "P1",
       "risk": "low",
       "blocking": false,
-      "depends_on": [],
+      "depends_on": ["CLI-T04"],
       "expected_files": [
-        "docs/status/active_and_completed_tracks.md"
+        "tests/test_cli_backward_compatibility.py",
+        "docs/cli/developer_entrypoints.md"
       ],
       "acceptance_criteria": [
-        "Lists active todo files and their intended order without replacing the detailed todos.",
-        "Records completed and removed todo tracks with evidence pointers.",
-        "Distinguishes deferred KRITIS/Enterprise scope from active OSS scope.",
-        "Helps future agents avoid rediscovering or duplicating completed tracks."
+        "Existing `python -m agent.cli_goals ...` developer commands still work or have documented compatibility shims.",
+        "Developer docs clearly mark module invocations as internal/dev fallback.",
+        "Normal user docs prefer `ananta ...` only.",
+        "Tests cover at least one old command path and one new command path."
       ]
     },
     {
-      "id": "PG-T12",
-      "title": "Cross-track dependency map and validator add",
+      "id": "CLI-T08",
+      "title": "Quickstart and README command examples update",
       "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["PG-T11", "PG-T04"],
+      "priority": "P0",
+      "risk": "low",
+      "blocking": true,
+      "depends_on": ["CLI-T03", "CLI-T04", "CLI-T05"],
       "expected_files": [
-        "docs/status/cross_track_dependency_map.md",
-        "scripts/validate_cross_track_dependencies.py",
-        "tests/test_validate_cross_track_dependencies.py"
+        "README.md",
+        "docs/setup/quickstart.md",
+        "docs/cli/commands.md"
       ],
       "acceptance_criteria": [
-        "Documents allowed cross-track dependencies using explicit file:id references.",
-        "Validator reports missing files, missing task IDs and circular cross-track links.",
-        "Unknown or archived track references fail with actionable messages.",
-        "Validation can run in CI without requiring network or privileged access."
+        "Quickstart uses `ananta init`, `ananta status`, `ananta ask`, `ananta plan`, `ananta analyze`, `ananta tui` style commands.",
+        "No normal-user quickstart command starts with `python -m agent.cli_goals`.",
+        "Docs explain local-dev default and optional Docker/Podman modes consistently.",
+        "Examples are short and copy-pasteable."
+      ]
+    },
+    {
+      "id": "CLI-T09",
+      "title": "Unified CLI smoke and release gate hook add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CLI-T01", "CLI-T02", "CLI-T08"],
+      "expected_files": [
+        "tests/smoke/test_unified_cli_smoke.py",
+        "scripts/run_release_gate.py"
+      ],
+      "acceptance_criteria": [
+        "Smoke test verifies `ananta --help`, `ananta init --help`, `ananta status --help`, `ananta ask --help` and `ananta tui --help`.",
+        "Release gate includes unified CLI smoke when CLI runtime is claimed.",
+        "Smoke does not require a live cloud LLM provider.",
+        "Failure output tells users which command or packaging entrypoint is broken."
       ]
     }
   ],
   "execution_order_summary": [
-    "First add runtime profile wizard and profile recommendations after core Security/Domain/Worker tracks are stable enough.",
-    "Then add MCP boundary documentation and a read-only/default-deny MCP skeleton.",
-    "Implement PR review automation in test mode while keeping production enablement gated by KRITIS release gates.",
-    "Keep LSP, Flow Builder and large Eclipse refactors in the icebox until the OSS golden path is reliable.",
-    "Add cross-track dependency mapping and validation so stale references cannot silently drift."
+    "Add console script and command dispatcher first.",
+    "Wire init, goal aliases and status/doctor commands to existing modules instead of rewriting behavior.",
+    "Keep old python -m entrypoints as developer fallback.",
+    "Update Quickstart so normal users only see `ananta ...` commands.",
+    "Add smoke tests and release-gate coverage."
   ],
-  "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11", "PG-T12"],
+  "critical_path_tasks": ["CLI-T01", "CLI-T02", "CLI-T03", "CLI-T04", "CLI-T05", "CLI-T08"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T23:10:00+02:00",
-    "total": 12,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 12, "deferred": 0},
+    "updated_at": "2026-04-26T00:48:00+02:00",
+    "total": 9,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
     "progress_percent_done": 100.0,
-    "by_priority": {"P0": 0, "P1": 4, "P2": 6, "P3": 2},
-    "by_risk": {"low": 2, "medium": 5, "high": 5, "critical": 0},
-    "critical_path": {"total": 7, "done": 7, "remaining": 0},
-    "milestones": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5}
+    "by_priority": {"P0": 5, "P1": 4, "P2": 0, "P3": 0},
+    "by_risk": {"low": 2, "medium": 6, "high": 1, "critical": 0},
+    "critical_path": {"total": 6, "done": 6, "remaining": 0},
+    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T23:10:00+02:00",
+    "updated_at": "2026-04-26T00:48:00+02:00",
     "stages": {
-      "PG-M1": {
-        "title": "Runtime setup and profile UX",
-        "scope_task_ids": ["PG-T01", "PG-T02", "PG-T03"],
+      "CLI-M1": {
+        "title": "Unified command entrypoint",
+        "scope_task_ids": ["CLI-T01", "CLI-T02", "CLI-T03"],
         "total": 3,
         "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "PG-M2": {
-        "title": "Controlled MCP foundation",
-        "scope_task_ids": ["PG-T04", "PG-T05", "PG-T06"],
+      "CLI-M2": {
+        "title": "Command aliases and compatibility",
+        "scope_task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
         "total": 3,
         "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "PG-M3": {
-        "title": "Dogfooding and PR review automation",
-        "scope_task_ids": ["PG-T07", "PG-T08", "PG-T09"],
+      "CLI-M3": {
+        "title": "Docs and smoke tests",
+        "scope_task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
         "total": 3,
         "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "PG-M4": {
-        "title": "Icebox guards",
-        "scope_task_ids": ["PG-T10", "PG-T11"],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "PG-M5": {
-        "title": "Cross-track dependency hygiene",
-        "scope_task_ids": ["PG-T12"],
-        "total": 1,
-        "done": 1,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M1": {
-        "title": "Compatibility stage 1",
-        "scope_task_ids": ["PG-T01", "PG-T02"],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M2": {
-        "title": "Compatibility stage 2",
-        "scope_task_ids": ["PG-T03", "PG-T04"],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M3": {
-        "title": "Compatibility stage 3",
-        "scope_task_ids": ["PG-T05", "PG-T06"],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M4": {
-        "title": "Compatibility stage 4",
-        "scope_task_ids": ["PG-T07", "PG-T08"],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M5": {
-        "title": "Compatibility stage 5",
-        "scope_task_ids": ["PG-T09", "PG-T10"],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M6": {
-        "title": "Compatibility stage 6",
-        "scope_task_ids": ["PG-T11", "PG-T12"],
-        "total": 2,
-        "done": 2,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
+  "summary_notes": [
+    "This track is primarily a UX/DX wrapper track. It should not create another orchestration layer.",
+    "The user-facing golden path should start with `ananta init` and continue with `ananta ...` commands everywhere.",
+    "Module-based python commands can remain available for developers, tests and backwards compatibility.",
+    "This track reuses the existing runtime wizard and goal CLI modules as backend behavior sources."
+  ],
   "analysis_checks": {
-    "checked_at": "2026-04-25T23:10:00+02:00",
+    "checked_at": "2026-04-26T00:48:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "Stale references to missing todo.security.json and todo.ananta-worker.json were replaced with explicit KRITIS gating task references.",
-      "Milestone-level execution_stage_summary was added and synchronized with task statuses.",
-      "Cross-track dependency mapping/validation was added as PG-T12 to reduce future track drift.",
-      "Compatibility stage aliases TEST-M1..TEST-M6 were added for test-track tooling expectations.",
-      "PG-T02 to PG-T06 were implemented including recommender, deployment writer, MCP boundary doc, descriptor registry and read-only adapter.",
-      "PG-T07 to PG-T12 were implemented including PR review design, signed webhook receiver skeleton, review publisher, icebox ADR, track inventory and cross-track dependency validator."
+      "Stale dependency reference `todo.platform-gaps.json:PG-T01` was replaced with in-track dependency `CLI-T02`.",
+      "Scope rules were added to keep this track focused on unified CLI UX without orchestration duplication.",
+      "Execution stage rollup data was added for milestone-level progress visibility.",
+      "End summaries were added to provide explicit analysis, corrections and extension status.",
+      "CLI-T01 to CLI-T05 were implemented and validated by CLI-focused pytest coverage.",
+      "CLI-T06 to CLI-T09 completed TUI/Web wiring, compatibility docs, quickstart refresh, and release-gate smoke integration."
     ]
   },
-  "summary_notes": [
-    "This file intentionally avoids duplicating active detailed tracks and now references existing KRITIS gates explicitly.",
-    "Runtime profile UX and controlled MCP foundation milestones are now implemented (PG-M1 and PG-M2 done).",
-    "PR review automation artifacts are implemented in review-only test mode; production enablement remains gated by KRITIS readiness.",
-    "Cross-track dependency hygiene is now implemented with an explicit map and offline validator.",
-    "LSP, Flow Builder and large Eclipse refactors remain icebox items to avoid Medusa complexity."
-  ],
   "end_summaries": [
     {
-      "summary_id": "PG-S1",
+      "summary_id": "CLI-S1",
       "title": "Analyseergebnis",
       "items": [
-        "todo.json war syntaktisch valide, hatte aber veraltete Cross-Track-Referenzen auf nicht vorhandene Dateien.",
-        "Es fehlte ein execution_stage_summary fuer milestonebasierte Rollups."
+        "Die Track-Struktur war schema-valide und konsistent, enthielt aber einen veralteten Cross-Track-Dependency-Verweis.",
+        "Milestone-Rollups lagen nur in `tasks_status_summary` vor, nicht als eigene Stage-Sicht."
       ]
     },
     {
-      "summary_id": "PG-S2",
+      "summary_id": "CLI-S2",
       "title": "Korrekturen",
       "items": [
-        "Abhaengigkeiten von PG-T07 wurden auf konkrete KRITIS-Gating-Tasks umgestellt.",
-        "Scope-Regeln wurden auf vorhandene Track-Dateien im Repository aktualisiert."
+        "Abhaengigkeit von CLI-T03 wurde auf aktive In-Track-Tasks umgestellt (`CLI-T01`, `CLI-T02`).",
+        "Veraltete Referenz in `summary_notes` auf nicht vorhandene `todo.platform-gaps.json` wurde entfernt."
       ]
     },
     {
-      "summary_id": "PG-S3",
+      "summary_id": "CLI-S3",
       "title": "Verbesserungen und Erweiterungen",
       "items": [
-        "execution_stage_summary und analysis_checks wurden fuer bessere Nachvollziehbarkeit ergaenzt.",
-        "PG-T12 fuehrt eine explizite Cross-Track-Dependency-Map plus Validator ein."
+        "`scope_rules` wurden zur klaren Begrenzung von Track-Intention und Architekturgrenzen ergaenzt.",
+        "`execution_stage_summary` wurde fuer milestonebasierte Fortschrittsdarstellung ergaenzt.",
+        "`analysis_checks` dokumentiert die vorgenommenen Konsistenz- und Strukturverbesserungen."
       ]
     },
     {
-      "summary_id": "PG-S4",
+      "summary_id": "CLI-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Stand: 12 Aufgaben (0 todo, 0 blocked, 0 in_progress, 12 done).",
-        "Kritischer Pfad: 7 total, 7 done, 0 remaining."
+        "Aktueller Stand: 9 Aufgaben (0 todo, 0 in_progress, 0 blocked, 9 done).",
+        "Kritischer Pfad: 6 total, 6 done, 0 remaining.",
+        "Alle drei Milestones sind abgeschlossen; Unified CLI Track ist vollständig umgesetzt."
       ]
     }
   ]
