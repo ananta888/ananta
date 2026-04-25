@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_execution_request.v1.json",
+  "title": "Ananta Worker Execution Request v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "goal_id",
+    "trace_id",
+    "capability_id",
+    "mode",
+    "context_envelope_ref",
+    "policy_decision_ref",
+    "workspace_constraints_ref",
+    "requested_outputs"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "worker_execution_request.v1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "plan_only",
+        "patch_propose",
+        "patch_apply",
+        "command_plan",
+        "command_execute",
+        "test_run",
+        "verify"
+      ]
+    },
+    "context_envelope_ref": {
+      "type": "object",
+      "required": ["context_bundle_id", "context_hash", "retrieval_refs"],
+      "properties": {
+        "context_bundle_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retrieval_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_id", "path", "reason"],
+            "properties": {
+              "source_id": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "context_chunk_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "context_byte_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy_decision_ref": {
+      "type": "object",
+      "required": ["decision_id", "decision", "policy_version"],
+      "properties": {
+        "decision_id": { "type": "string", "minLength": 1 },
+        "decision": { "type": "string", "enum": ["allow", "deny", "approval_required", "default_deny"] },
+        "policy_version": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "approval_ref": {
+      "type": "object",
+      "required": ["approval_id", "status"],
+      "properties": {
+        "approval_id": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["approved", "pending", "denied", "expired"] },
+        "task_id": { "type": "string", "minLength": 1 },
+        "capability_id": { "type": "string", "minLength": 1 },
+        "context_hash": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "workspace_constraints_ref": {
+      "type": "object",
+      "required": ["constraint_id"],
+      "properties": {
+        "constraint_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "requested_outputs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "plan_artifact",
+          "patch_artifact",
+          "command_plan_artifact",
+          "test_result_artifact",
+          "verification_artifact",
+          "trace_metadata"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "requested_state_on_policy_denied": {
+      "type": "string",
+      "enum": ["denied", "degraded"]
+    },
+    "requested_state_on_missing_approval": {
+      "type": "string",
+      "enum": ["approval_required", "degraded"]
+    }
+  },
+  "additionalProperties": false
+}

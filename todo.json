@@ -73,8 +73,8 @@
     "docs": "docs/architecture/ananta_native_worker.md"
   },
   "milestones": [
-    {"id": "AW-M1", "title": "Worker contract and artifact schemas", "task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "status": "todo"},
-    {"id": "AW-M2", "title": "Workspace, sandbox and patch engine", "task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "status": "todo"},
+    {"id": "AW-M1", "title": "Worker contract and artifact schemas", "task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "status": "done"},
+    {"id": "AW-M2", "title": "Workspace, sandbox and patch engine", "task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "status": "done"},
     {"id": "AW-M3", "title": "RAG-aware coding planner", "task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "status": "todo"},
     {"id": "AW-M4", "title": "Shell command planning and execution controls", "task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "status": "todo"},
     {"id": "AW-M5", "title": "Model provider and external tool adapters", "task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "status": "todo"},
@@ -91,7 +91,7 @@
     {
       "id": "AW-T01",
       "title": "Ananta native worker architecture define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -107,7 +107,7 @@
     {
       "id": "AW-T02",
       "title": "Worker execution request schema define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -123,7 +123,7 @@
     {
       "id": "AW-T03",
       "title": "Worker result and artifact schemas define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -139,7 +139,7 @@
     {
       "id": "AW-T04",
       "title": "Worker capability pack define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -155,7 +155,7 @@
     {
       "id": "AW-T05",
       "title": "Worker workspace model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -171,7 +171,7 @@
     {
       "id": "AW-T06",
       "title": "Git worktree sandbox implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -187,7 +187,7 @@
     {
       "id": "AW-T07",
       "title": "Patch planner and diff builder implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -203,7 +203,7 @@
     {
       "id": "AW-T08",
       "title": "Approval-gated patch apply implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -219,7 +219,7 @@
     {
       "id": "AW-T09",
       "title": "Patch rollback and failure handling add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -712,20 +712,20 @@
     "AW-T31"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T18:35:02+02:00",
+    "updated_at": "2026-04-25T18:38:35+02:00",
     "total": 36,
-    "by_status": {"todo": 36, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 27, "in_progress": 0, "blocked": 0, "done": 9},
+    "progress_percent_done": 25.0,
     "by_priority": {"P0": 27, "P1": 8, "P2": 1, "P3": 0},
     "by_risk": {"low": 0, "medium": 6, "high": 14, "critical": 16},
-    "critical_path": {"total": 23, "done": 0, "remaining": 23},
-    "milestones": {"total": 8, "todo": 8, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 23, "done": 8, "remaining": 15},
+    "milestones": {"total": 8, "todo": 6, "in_progress": 0, "blocked": 0, "done": 2}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T18:35:02+02:00",
+    "updated_at": "2026-04-25T18:38:35+02:00",
     "stages": {
-      "AW-M1": {"title": "Worker contract and artifact schemas", "scope_task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
-      "AW-M2": {"title": "Workspace, sandbox and patch engine", "scope_task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "total": 5, "done": 0, "todo": 5, "in_progress": 0, "blocked": 0},
+      "AW-M1": {"title": "Worker contract and artifact schemas", "scope_task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
+      "AW-M2": {"title": "Workspace, sandbox and patch engine", "scope_task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0},
       "AW-M3": {"title": "RAG-aware coding planner", "scope_task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
       "AW-M4": {"title": "Shell command planning and execution controls", "scope_task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
       "AW-M5": {"title": "Model provider and external tool adapters", "scope_task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "total": 5, "done": 0, "todo": 5, "in_progress": 0, "blocked": 0},
@@ -735,12 +735,12 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T18:35:02+02:00",
+    "checked_at": "2026-04-25T18:38:35+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "Rollups were out of sync after AW-M8/AW-T33..AW-T36 expansion and were recalculated from the task list.",
-      "Milestone summary now includes all 8 milestones.",
-      "Added stage-level execution summary and end summaries for easier tracking."
+      "AW-M1 and AW-M2 (AW-T01..AW-T09) were implemented and marked done.",
+      "Rollups were synchronized to reflect 9 done tasks and 2 done milestones.",
+      "Stage counters keep remaining bundles (AW-M3..AW-M8) explicitly visible."
     ]
   },
   "summary_notes": [
@@ -763,8 +763,8 @@
       "summary_id": "AW-S2",
       "title": "Korrekturen",
       "items": [
-        "tasks_status_summary wurde vollständig mit den realen Taskdaten synchronisiert.",
-        "Milestone-Counter wurden auf total=8/todo=8 korrigiert."
+        "AW-T01..AW-T09 wurden auf done gesetzt; AW-M1 und AW-M2 auf done synchronisiert.",
+        "tasks_status_summary, critical_path und milestone-Counter wurden auf den neuen Zwischenstand aktualisiert."
       ]
     },
     {
@@ -779,8 +779,8 @@
       "summary_id": "AW-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 36 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
-        "Kritischer Pfad: 23 total, 0 done, 23 remaining."
+        "Aktueller Umsetzungsstand: 27 todo, 0 in_progress, 0 blocked, 9 done (25.0%).",
+        "Kritischer Pfad: 23 total, 8 done, 15 remaining."
       ]
     }
   ]

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/command_plan_artifact.v1.json",
+  "title": "Ananta Worker Command Plan Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "capability_id",
+    "command",
+    "explanation",
+    "risk_classification",
+    "required_approval",
+    "working_directory",
+    "expected_effects"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "command_plan_artifact.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "capability_id": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "explanation": { "type": "string", "minLength": 1 },
+    "risk_classification": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "required_approval": { "type": "boolean" },
+    "working_directory": { "type": "string", "minLength": 1 },
+    "expected_effects": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

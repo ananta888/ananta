@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/workspace_constraints.v1.json",
+  "title": "Ananta Worker Workspace Constraints v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "constraint_id",
+    "allowed_roots",
+    "writable_output_paths",
+    "max_files",
+    "max_bytes",
+    "allowed_commands",
+    "allow_main_tree_apply"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "workspace_constraints.v1" },
+    "constraint_id": { "type": "string", "minLength": 1 },
+    "allowed_roots": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "writable_output_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "max_files": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000
+    },
+    "allowed_commands": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "allow_main_tree_apply": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

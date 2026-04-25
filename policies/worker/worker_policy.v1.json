@@ -1,0 +1,50 @@
+{
+  "schema": "policy_pack.v1",
+  "domain_id": "ananta_worker",
+  "version": "1.0.0",
+  "default_decision": "default_deny",
+  "rules": [
+    {
+      "capability_id": "worker.code.plan",
+      "action_id": "plan",
+      "decision": "allow",
+      "reason": "Planning is non-mutating."
+    },
+    {
+      "capability_id": "worker.patch.propose",
+      "action_id": "propose",
+      "decision": "allow",
+      "reason": "Patch proposal is artifact-only."
+    },
+    {
+      "capability_id": "worker.patch.apply",
+      "action_id": "apply",
+      "decision": "approval_required",
+      "reason": "Patch apply changes repository state."
+    },
+    {
+      "capability_id": "worker.test.run",
+      "action_id": "run",
+      "decision": "allow",
+      "reason": "Bounded tests are allowed under workspace constraints."
+    },
+    {
+      "capability_id": "worker.command.plan",
+      "action_id": "plan",
+      "decision": "allow",
+      "reason": "Command planning is non-executing."
+    },
+    {
+      "capability_id": "worker.command.execute",
+      "action_id": "execute",
+      "decision": "approval_required",
+      "reason": "Command execution may have side effects."
+    },
+    {
+      "capability_id": "worker.verify.result",
+      "action_id": "verify",
+      "decision": "allow",
+      "reason": "Verification evaluates existing artifacts and outputs."
+    }
+  ]
+}

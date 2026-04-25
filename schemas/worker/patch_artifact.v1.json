@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/patch_artifact.v1.json",
+  "title": "Ananta Worker Patch Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "capability_id",
+    "base_ref",
+    "patch",
+    "patch_hash",
+    "changed_files",
+    "risk_classification"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "patch_artifact.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "capability_id": { "type": "string", "minLength": 1 },
+    "base_ref": { "type": "string", "minLength": 1 },
+    "patch": { "type": "string", "minLength": 1 },
+    "patch_hash": { "type": "string", "minLength": 1 },
+    "changed_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "expected_effects": { "type": "array", "items": { "type": "string" } },
+    "risk_classification": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "context_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_id", "path"],
+        "properties": {
+          "source_id": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
