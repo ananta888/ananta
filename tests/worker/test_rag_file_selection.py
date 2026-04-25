@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from worker.coding.file_selection import FileSelectionLimits, select_candidate_files
+
+
+def test_file_selection_prefers_ranked_refs_with_provenance() -> None:
+    result = select_candidate_files(
+        context_envelope={
+            "retrieval_refs": [
+                {"path": "src/a.py", "score": 0.2, "source_id": "rag", "symbol": "A"},
+                {"path": "src/b.py", "score": 0.9, "source_id": "rag", "symbol": "B"},
+            ],
+            "file_sizes": {"src/a.py": 200, "src/b.py": 300},
+        },
+        limits=FileSelectionLimits(max_files=2, max_bytes=1000),
+    )
+    assert result["status"] == "ok"
+    assert [item["path"] for item in result["selected_files"]] == ["src/b.py", "src/a.py"]
+    assert result["selected_files"][0]["source_provenance"]["source_id"] == "rag"
+
+
+def test_file_selection_degrades_to_explicit_files_without_rag() -> None:
+    result = select_candidate_files(
+        context_envelope={"retrieval_refs": []},
+        explicit_files=["README.md", "src/main.py"],
+    )
+    assert result["status"] == "degraded"
+    assert result["reason"] == "rag_unavailable_explicit_files_fallback"
+    assert [item["path"] for item in result["selected_files"]] == ["README.md", "src/main.py"]
+
+
+def test_file_selection_respects_byte_limit() -> None:
+    result = select_candidate_files(
+        context_envelope={
+            "retrieval_refs": [
+                {"path": "big.py", "score": 0.9},
+                {"path": "small.py", "score": 0.8},
+            ],
+            "file_sizes": {"big.py": 1500, "small.py": 200},
+        },
+        limits=FileSelectionLimits(max_files=5, max_bytes=500),
+    )
+    assert result["status"] == "ok"
+    assert [item["path"] for item in result["selected_files"]] == ["small.py"]
