@@ -1,9 +1,29 @@
 {
+  "version": 1,
+  "owner": "ananta",
+  "track": "generic_domain_integration_cleanup",
   "schema": "domain_cleanup_todo_v1",
   "generated_from_track": "generic_domain_integration_foundation",
   "purpose": "Capture post-foundation implementation gaps and follow-up work without mixing in Enterprise or KRITIS scope.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "goal": "Convert cleanup gaps into a machine-checkable task track with explicit status rollups and end summaries.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "cleanup_buckets": [
     {
       "bucket": "generic_gaps",
@@ -85,8 +105,303 @@
       ]
     }
   ],
+  "milestones": [
+    {
+      "id": "CLEAN-M1",
+      "title": "Generic domain integration production gaps",
+      "task_ids": [
+        "CLEAN-T01",
+        "CLEAN-T02",
+        "CLEAN-T03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "CLEAN-M2",
+      "title": "Blender runtime alignment gaps",
+      "task_ids": [
+        "CLEAN-T10",
+        "CLEAN-T11",
+        "CLEAN-T12"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "CLEAN-M3",
+      "title": "Deferred FreeCAD/KiCad preparation",
+      "task_ids": [
+        "CLEAN-T20",
+        "CLEAN-T21"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CLEAN-T01",
+      "title": "Wire domain action router into production task execution path",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "bucket": "generic_gaps",
+      "category": "missing_implementation",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Domain action router is reachable in the production task execution flow.",
+        "Execution-like domain actions stay behind hub policy/approval gatekeeping.",
+        "No direct client-side or worker-local bypass path is introduced."
+      ]
+    },
+    {
+      "id": "CLEAN-T02",
+      "title": "Extend domain audit with CI artifact publishing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "bucket": "generic_gaps",
+      "category": "future_enhancement",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Domain audit output can be produced as CI artifact evidence.",
+        "Report path and format are documented and reproducible.",
+        "Failure states are visible in CI logs and artifact metadata."
+      ]
+    },
+    {
+      "id": "CLEAN-T03",
+      "title": "Harden domain retrieval tests with retrieval backend contract fixtures",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "bucket": "generic_gaps",
+      "category": "weak_tests",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Retrieval tests use backend contract fixtures for representative source types.",
+        "Chunk selection remains bounded and deterministic for the tested paths.",
+        "Fixture coverage catches regressions in retrieval routing behavior."
+      ]
+    },
+    {
+      "id": "CLEAN-T10",
+      "title": "Implement Blender addon runtime skeleton",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "bucket": "blender_alignment_gaps",
+      "category": "missing_implementation",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Runtime skeleton files exist for the Blender addon execution bridge.",
+        "Skeleton stays additive to existing hub-worker orchestration boundaries.",
+        "No runtime_mvp claim is made before execution evidence exists."
+      ]
+    },
+    {
+      "id": "CLEAN-T11",
+      "title": "Add Blender smoke runner and runtime evidence capture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "bucket": "blender_alignment_gaps",
+      "category": "missing_implementation",
+      "depends_on": [
+        "CLEAN-T10"
+      ],
+      "acceptance_criteria": [
+        "A Blender smoke runner verifies minimal runtime wiring end-to-end.",
+        "Runtime evidence is captured in an auditable artifact/report.",
+        "Promotion criteria from foundation_only to runtime_mvp are explicit."
+      ]
+    },
+    {
+      "id": "CLEAN-T12",
+      "title": "Align Blender task IDs to generic service ownership map",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "bucket": "blender_alignment_gaps",
+      "category": "documentation_drift",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Blender task IDs map cleanly to generic ownership boundaries.",
+        "Duplicated registry/policy/retrieval ownership claims are removed.",
+        "Alignment is documented for future Blender tasks."
+      ]
+    },
+    {
+      "id": "CLEAN-T20",
+      "title": "Prepare FreeCAD domain descriptor baseline",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "bucket": "deferred_freecad_kicad_preparation",
+      "category": "future_enhancement",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Descriptor baseline for FreeCAD is prepared in deferred scope.",
+        "No runtime execution integration is introduced in this step.",
+        "Output remains compatible with generic domain descriptor contracts."
+      ]
+    },
+    {
+      "id": "CLEAN-T21",
+      "title": "Prepare KiCad domain descriptor baseline",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "bucket": "deferred_freecad_kicad_preparation",
+      "category": "future_enhancement",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Descriptor baseline for KiCad is prepared in deferred scope.",
+        "No runtime execution integration is introduced in this step.",
+        "Output remains compatible with generic domain descriptor contracts."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CLEAN-T01",
+    "CLEAN-T10",
+    "CLEAN-T11"
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T17:18:13.006+02:00",
+    "total": 8,
+    "by_status": {
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 3,
+      "P1": 3,
+      "P2": 2,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 2,
+      "high": 3,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 3,
+      "done": 0,
+      "remaining": 3
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-25T17:18:13.006+02:00",
+    "stages": {
+      "CLEAN-M1": {
+        "title": "Generic domain integration production gaps",
+        "scope_task_ids": [
+          "CLEAN-T01",
+          "CLEAN-T02",
+          "CLEAN-T03"
+        ],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CLEAN-M2": {
+        "title": "Blender runtime alignment gaps",
+        "scope_task_ids": [
+          "CLEAN-T10",
+          "CLEAN-T11",
+          "CLEAN-T12"
+        ],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "CLEAN-M3": {
+        "title": "Deferred FreeCAD/KiCad preparation",
+        "scope_task_ids": [
+          "CLEAN-T20",
+          "CLEAN-T21"
+        ],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+  "analysis_checks": {
+    "checked_at": "2026-04-25T17:18:13.006+02:00",
+    "internal_consistency": "corrected_and_extended",
+    "notes": [
+      "Ausgangsdatei enthielt cleanup_buckets, aber keine tasks_status_summary/critical_path/milestone-Rollups und war deshalb mit dem Konsistenzvalidator nicht kompatibel.",
+      "cleanup_buckets wurden als fachliche Quelle beibehalten; tasks/milestones/critical_path und Rollups wurden daraus abgeleitet.",
+      "Risikoeinstufung wurde konsistent aus Prioritaeten abgeleitet (P0->critical, P1->high, P2->medium, P3->low).",
+      "End-Summaries wurden als Abschlussblock fuer menschliche Nachvollziehbarkeit ergänzt."
+    ]
+  },
+  "summary_notes": [
+    "Diese Datei bleibt OSS-cleanup-orientiert und erweitert keine KRITIS/Enterprise-Scope-Anforderungen.",
+    "Der Track ist jetzt sowohl menschenlesbar (cleanup_buckets) als auch maschinenlesbar (tasks_status_summary/execution_stage_summary).",
+    "Die task- und milestone-Rollups sind synchronisiert und validator-kompatibel."
+  ],
   "scope_guardrails": [
     "No Enterprise-only RBAC, tenancy or KRITIS requirements are included in this cleanup todo.",
     "Cleanup remains OSS-foundation focused and additive to the existing hub-governed architecture."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "CLEAN-S1",
+      "title": "Analyseergebnis",
+      "items": [
+        "Die bisherige Datei war inhaltlich brauchbar, aber strukturell unvollständig für bestehende Track-Konsistenzprüfungen.",
+        "Es fehlten insbesondere Tasks-Rollups, kritischer Pfad und Milestone-Zusammenfassung."
+      ]
+    },
+    {
+      "summary_id": "CLEAN-S2",
+      "title": "Korrekturen",
+      "items": [
+        "cleanup_buckets wurden in ein konsistentes tasks/milestones-Modell überführt, ohne den ursprünglichen Inhalt zu verlieren.",
+        "tasks_status_summary, critical_path und milestone-Counter wurden ergänzt und synchronisiert."
+      ]
+    },
+    {
+      "summary_id": "CLEAN-S3",
+      "title": "Verbesserungen/Erweiterungen",
+      "items": [
+        "execution_stage_summary ergänzt (pro Milestone: scope_task_ids, total/done/todo/in_progress/blocked).",
+        "analysis_checks und summary_notes ergänzt, um Korrekturen und Annahmen transparent zu dokumentieren."
+      ]
+    },
+    {
+      "summary_id": "CLEAN-S4",
+      "title": "Status am Ende",
+      "items": [
+        "Aktueller Umsetzungsstand: 8 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
+        "Kritischer Pfad enthält 3 P0-Aufgaben (0 erledigt, 3 offen)."
+      ]
+    }
   ]
 }
