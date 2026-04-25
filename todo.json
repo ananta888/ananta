@@ -35,26 +35,26 @@
       "id": "CCE-M1",
       "title": "Shared taxonomy and safety baseline",
       "task_ids": ["CCE-T01", "CCE-T02", "CCE-T03", "CCE-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CCE-M2",
       "title": "Domain descriptors and capabilities",
       "task_ids": ["CCE-T05", "CCE-T06", "CCE-T07", "CCE-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CCE-M3",
       "title": "Common artifacts, RAG and release gates",
       "task_ids": ["CCE-T09", "CCE-T10", "CCE-T11", "CCE-T12"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "CCE-T01",
       "title": "Creative CAD EDA domain taxonomy define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -69,7 +69,7 @@
     {
       "id": "CCE-T02",
       "title": "Shared safety baseline define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -84,7 +84,7 @@
     {
       "id": "CCE-T03",
       "title": "Common capability naming conventions define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -99,7 +99,7 @@
     {
       "id": "CCE-T04",
       "title": "Correctness gate levels define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -114,7 +114,7 @@
     {
       "id": "CCE-T05",
       "title": "Blender foundation descriptor align",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -129,7 +129,7 @@
     {
       "id": "CCE-T06",
       "title": "FreeCAD foundation descriptor add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -144,7 +144,7 @@
     {
       "id": "CCE-T07",
       "title": "KiCad foundation descriptor add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -159,7 +159,7 @@
     {
       "id": "CCE-T08",
       "title": "Cross-domain capability consistency tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -174,7 +174,7 @@
     {
       "id": "CCE-T09",
       "title": "Common artifact families define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -189,7 +189,7 @@
     {
       "id": "CCE-T10",
       "title": "Shared RAG source conventions define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -204,7 +204,7 @@
     {
       "id": "CCE-T11",
       "title": "Domain inventory entries add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -219,7 +219,7 @@
     {
       "id": "CCE-T12",
       "title": "Creative CAD EDA release gate hook add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -251,24 +251,24 @@
     "CCE-T12"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T18:19:24+02:00",
+    "updated_at": "2026-04-25T18:23:01+02:00",
     "total": 12,
-    "by_status": {"todo": 12, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 12},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 11, "P1": 1, "P2": 0, "P3": 0},
     "by_risk": {"low": 0, "medium": 2, "high": 7, "critical": 3},
-    "critical_path": {"total": 11, "done": 0, "remaining": 11},
-    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 11, "done": 11, "remaining": 0},
+    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T18:19:24+02:00",
+    "updated_at": "2026-04-25T18:23:01+02:00",
     "stages": {
       "CCE-M1": {
         "title": "Shared taxonomy and safety baseline",
         "scope_task_ids": ["CCE-T01", "CCE-T02", "CCE-T03", "CCE-T04"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -276,8 +276,8 @@
         "title": "Domain descriptors and capabilities",
         "scope_task_ids": ["CCE-T05", "CCE-T06", "CCE-T07", "CCE-T08"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -285,27 +285,29 @@
         "title": "Common artifacts, RAG and release gates",
         "scope_task_ids": ["CCE-T09", "CCE-T10", "CCE-T11", "CCE-T12"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T18:19:24+02:00",
+    "checked_at": "2026-04-25T18:23:01+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "tasks_status_summary.by_risk war inkonsistent und wurde mit den realen Task-Risiken synchronisiert.",
-      "Milestone-Stage-Summary wurde ergänzt, damit Fortschritt je Stage maschinenlesbar und eindeutig nachvollziehbar bleibt.",
-      "Abschluss-Summaries wurden am Dateiende ergänzt."
+      "tasks_status_summary.by_risk wurde mit den realen Task-Risiken synchronisiert.",
+      "Alle geforderten Architekturdocs/Schemas für Taxonomie, Safety, Naming, Correctness-Gates, Artifact-Familien und RAG-Quellen wurden ergänzt.",
+      "Blender/FreeCAD/KiCad Descriptor- und Capability-Baselines inkl. stricter default-deny Mutations-/Execution-Caps wurden umgesetzt.",
+      "Cross-domain Consistency- und Release-Gate-Tests wurden ergänzt und der Track auf done synchronisiert."
     ]
   },
   "summary_notes": [
     "This is the small shared pre-todo after todo.more-generic.json and before full FreeCAD/KiCad runtime tracks.",
     "It keeps FreeCAD and KiCad conservative while still preparing them as first-class Ananta domains.",
     "Blender remains the first large runtime/plugin track, but it should align with these shared conventions.",
-    "Rollups now match task data and include per-milestone stage counters."
+    "Rollups now match task data and include per-milestone stage counters.",
+    "All creative CAD/EDA foundation tasks are completed in this revision."
   ],
   "end_summaries": [
     {
@@ -313,31 +315,31 @@
       "title": "Analyseergebnis",
       "items": [
         "Die Datei ist strukturell als task_track geeignet und schema-konform.",
-        "Ein inkonsistenter Risiko-Rollup (medium/high) wurde als Hauptfehler erkannt."
+        "Die Datei war inhaltlich gut, aber vollständig offen (12 todo) und ohne abgeschlossene Track-Synchronisierung."
       ]
     },
     {
       "summary_id": "CCE-S2",
       "title": "Korrekturen",
       "items": [
-        "tasks_status_summary.by_risk wurde von medium=3/high=6 auf medium=2/high=7 korrigiert.",
-        "updated_at/checked_at wurden auf den aktuellen Bearbeitungsstand gesetzt."
+        "Alle Tasks CCE-T01..CCE-T12 sowie Milestones CCE-M1..CCE-M3 wurden auf done gesetzt.",
+        "tasks_status_summary, critical_path und milestone/stage Counters wurden auf den umgesetzten Stand synchronisiert."
       ]
     },
     {
       "summary_id": "CCE-S3",
       "title": "Verbesserungen/Erweiterungen",
       "items": [
-        "execution_stage_summary für CCE-M1..CCE-M3 mit total/done/todo/in_progress/blocked ergänzt.",
-        "analysis_checks ergänzt, um Korrekturgrund und Konsistenzstatus transparent zu machen."
+        "Taxonomie-, Safety-, Naming-, Correctness-Gate-, Artifact- und RAG-Konventionsartefakte ergänzt.",
+        "FreeCAD/KiCad geplante Descriptor-Baselines und strengere Capability-Governance ergänzt; kreative CAD/EDA Gate-Tests hinzugefügt."
       ]
     },
     {
       "summary_id": "CCE-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 12 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
-        "Kritischer Pfad: 11 total, 0 done, 11 remaining."
+        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 12 done (100.0%).",
+        "Kritischer Pfad: 11 total, 11 done, 0 remaining."
       ]
     }
   ]

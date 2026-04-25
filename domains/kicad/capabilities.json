@@ -13,7 +13,91 @@
       "mutating": false,
       "approval_required": false,
       "default_policy_state": "allow",
-      "notes": ["Deferred baseline capability for registry and policy-contract readiness."]
+      "notes": ["Read-only KiCad project metadata retrieval."]
+    },
+    {
+      "capability_id": "kicad.erc.plan",
+      "domain_id": "kicad",
+      "display_name": "Plan ERC run",
+      "category": "verification",
+      "risk": "medium",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Electrical rule checks can be planned without board mutation."]
+    },
+    {
+      "capability_id": "kicad.drc.plan",
+      "domain_id": "kicad",
+      "display_name": "Plan DRC run",
+      "category": "verification",
+      "risk": "medium",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Design rule checks remain planning-only in foundation stage."]
+    },
+    {
+      "capability_id": "kicad.bom.plan",
+      "domain_id": "kicad",
+      "display_name": "Plan BOM generation",
+      "category": "export",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["BOM generation planning can run without write-side effects."]
+    },
+    {
+      "capability_id": "kicad.export.plan",
+      "domain_id": "kicad",
+      "display_name": "Plan manufacturing export",
+      "category": "export",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Manufacturing export planning is allowed as analysis output."]
+    },
+    {
+      "capability_id": "kicad.pcb.mutate",
+      "domain_id": "kicad",
+      "display_name": "Apply PCB mutation",
+      "category": "pcb",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "default_deny",
+      "notes": ["PCB mutation remains blocked by default."]
+    },
+    {
+      "capability_id": "kicad.routing.execute",
+      "domain_id": "kicad",
+      "display_name": "Execute auto-routing",
+      "category": "routing",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "default_deny",
+      "notes": ["Routing execution remains blocked by default."]
+    },
+    {
+      "capability_id": "kicad.export.execute",
+      "domain_id": "kicad",
+      "display_name": "Execute manufacturing export",
+      "category": "export",
+      "risk": "critical",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "default_deny",
+      "notes": ["Manufacturing export execution is blocked pending explicit policy."]
     }
   ]
 }

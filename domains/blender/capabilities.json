@@ -28,9 +28,9 @@
       "notes": ["Returns selected object summaries only, not full scene dumps."]
     },
     {
-      "capability_id": "blender.preview.render",
+      "capability_id": "blender.preview.plan",
       "domain_id": "blender",
-      "display_name": "Create render preview plan",
+      "display_name": "Create preview plan",
       "category": "preview",
       "risk": "medium",
       "read_only": true,
@@ -38,6 +38,30 @@
       "approval_required": false,
       "default_policy_state": "allow",
       "notes": ["Preview planning stays policy-bound and artifact-tracked."]
+    },
+    {
+      "capability_id": "blender.export.plan",
+      "domain_id": "blender",
+      "display_name": "Plan export options",
+      "category": "export",
+      "risk": "high",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Export plans can be prepared without writing files."]
+    },
+    {
+      "capability_id": "blender.scene.mutate",
+      "domain_id": "blender",
+      "display_name": "Apply scene mutation",
+      "category": "scene",
+      "risk": "high",
+      "read_only": false,
+      "mutating": true,
+      "approval_required": true,
+      "default_policy_state": "approval_required",
+      "notes": ["Scene mutations require explicit approval and audit evidence."]
     },
     {
       "capability_id": "blender.script.plan",

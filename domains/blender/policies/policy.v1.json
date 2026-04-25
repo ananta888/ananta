@@ -17,10 +17,22 @@
       "reason": "read-only selection summaries are permitted"
     },
     {
-      "capability_id": "blender.preview.render",
-      "action_id": "render_preview",
+      "capability_id": "blender.preview.plan",
+      "action_id": "plan",
       "decision": "allow",
       "reason": "preview planning is non-mutating"
+    },
+    {
+      "capability_id": "blender.export.plan",
+      "action_id": "plan",
+      "decision": "allow",
+      "reason": "export planning can run as non-mutating analysis"
+    },
+    {
+      "capability_id": "blender.scene.mutate",
+      "action_id": "mutate",
+      "decision": "approval_required",
+      "reason": "scene mutation must remain approval-gated"
     },
     {
       "capability_id": "blender.script.plan",

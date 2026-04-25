@@ -1,6 +1,6 @@
 {
   "schema": "domain_runtime_inventory_v1",
-  "generated_for_track": "generic_domain_integration_foundation",
+  "generated_for_track": "creative_cad_eda_domain_foundation",
   "status_scale": [
     "planned",
     "foundation_only",
@@ -41,33 +41,33 @@
     },
     {
       "domain_id": "freecad",
-      "inventory_status": "deferred",
+      "inventory_status": "planned",
       "descriptor_path": "domains/freecad/domain.json",
       "required_runtime_files": [],
       "smoke_commands": [],
       "runtime_evidence_refs": [],
       "notes": [
-        "Deferred descriptor baseline only; runtime integration is intentionally out of scope for this cleanup track."
+        "Planned-only baseline: runtime_mvp promotion requires smoke commands, runtime evidence refs and explicit policy packs."
       ]
     },
     {
       "domain_id": "kicad",
-      "inventory_status": "deferred",
+      "inventory_status": "planned",
       "descriptor_path": "domains/kicad/domain.json",
       "required_runtime_files": [],
       "smoke_commands": [],
       "runtime_evidence_refs": [],
       "notes": [
-        "Deferred descriptor baseline only; runtime integration is intentionally out of scope for this cleanup track."
+        "Planned-only baseline: runtime_mvp promotion requires smoke commands, runtime evidence refs and explicit policy packs."
       ]
     }
   ],
   "status_counters": {
-    "planned": 0,
+    "planned": 2,
     "foundation_only": 2,
     "runtime_mvp": 0,
     "runtime_complete": 0,
-    "deferred": 2,
+    "deferred": 0,
     "blocked": 0
   }
 }

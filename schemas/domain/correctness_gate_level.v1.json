@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/correctness_gate_level.v1.json",
+  "title": "Creative CAD EDA Correctness Gate Levels v1",
+  "type": "object",
+  "required": ["schema", "gate_levels", "default_gate_level_by_domain"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "correctness_gate_level.v1"
+    },
+    "gate_levels": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "enum": [
+          "creative_preview",
+          "reversible_scene_change",
+          "mechanical_model_change",
+          "pcb_design_change",
+          "production_export"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "default_gate_level_by_domain": {
+      "type": "object",
+      "required": ["blender", "freecad", "kicad"],
+      "properties": {
+        "blender": {
+          "type": "string",
+          "enum": [
+            "creative_preview",
+            "reversible_scene_change",
+            "mechanical_model_change",
+            "pcb_design_change",
+            "production_export"
+          ]
+        },
+        "freecad": {
+          "type": "string",
+          "enum": [
+            "creative_preview",
+            "reversible_scene_change",
+            "mechanical_model_change",
+            "pcb_design_change",
+            "production_export"
+          ]
+        },
+        "kicad": {
+          "type": "string",
+          "enum": [
+            "creative_preview",
+            "reversible_scene_change",
+            "mechanical_model_change",
+            "pcb_design_change",
+            "production_export"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}
