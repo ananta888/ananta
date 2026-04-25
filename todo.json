@@ -69,13 +69,13 @@
       "id": "GEN-M4",
       "title": "RAG source profile and retrieval integration",
       "task_ids": ["GEN-T13", "GEN-T14", "GEN-T15"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GEN-M5",
       "title": "Bridge adapter interface and runtime routing",
       "task_ids": ["GEN-T16", "GEN-T17", "GEN-T18"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GEN-M6",
@@ -286,7 +286,7 @@
     {
       "id": "GEN-T13",
       "title": "RAG source profile schema define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -302,7 +302,7 @@
     {
       "id": "GEN-T14",
       "title": "RAG source profile loader implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -318,7 +318,7 @@
     {
       "id": "GEN-T15",
       "title": "Generic domain retrieval interface define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -334,7 +334,7 @@
     {
       "id": "GEN-T16",
       "title": "Bridge adapter contract define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -350,7 +350,7 @@
     {
       "id": "GEN-T17",
       "title": "Bridge adapter registry implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -366,7 +366,7 @@
     {
       "id": "GEN-T18",
       "title": "Generic action routing skeleton add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -523,15 +523,15 @@
     "GEN-T22"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T15:25:39+02:00",
+    "updated_at": "2026-04-25T15:58:20+02:00",
     "total": 25,
     "by_status": {
-      "todo": 13,
+      "todo": 7,
       "in_progress": 0,
       "blocked": 0,
-      "done": 12
+      "done": 18
     },
-    "progress_percent_done": 48.0,
+    "progress_percent_done": 72.0,
     "by_priority": {
       "P0": 20,
       "P1": 4,
@@ -546,19 +546,19 @@
     },
     "critical_path": {
       "total": 20,
-      "done": 11,
-      "remaining": 9
+      "done": 16,
+      "remaining": 4
     },
     "milestones": {
       "total": 7,
-      "todo": 4,
+      "todo": 2,
       "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 5
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T15:25:39+02:00",
+    "updated_at": "2026-04-25T15:58:20+02:00",
     "stages": {
       "GEN-M1": {
         "title": "Scope, model and descriptor contracts",
@@ -591,8 +591,8 @@
         "title": "RAG source profile and retrieval integration",
         "scope_task_ids": ["GEN-T13", "GEN-T14", "GEN-T15"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -600,8 +600,8 @@
         "title": "Bridge adapter interface and runtime routing",
         "scope_task_ids": ["GEN-T16", "GEN-T17", "GEN-T18"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -626,14 +626,15 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T15:25:39+02:00",
-    "internal_consistency": "bundles_2_3_completed",
+    "checked_at": "2026-04-25T15:58:20+02:00",
+    "internal_consistency": "bundles_4_5_completed",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=4, high=10, critical=11).",
       "execution_stage_summary ergänzt, damit Rollups je Meilenstein transparent und validator-kompatibel sind.",
       "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt.",
       "Bundle GEN-T01..GEN-T04 umgesetzt und in Tasks/Milestones/Stage-Rollups als done synchronisiert.",
-      "Bundles GEN-T05..GEN-T12 umgesetzt und als abgeschlossene Meilensteine GEN-M2 und GEN-M3 synchronisiert."
+      "Bundles GEN-T05..GEN-T12 umgesetzt und als abgeschlossene Meilensteine GEN-M2 und GEN-M3 synchronisiert.",
+      "Bundles GEN-T13..GEN-T18 umgesetzt und als abgeschlossene Meilensteine GEN-M4 und GEN-M5 synchronisiert."
     ]
   },
   "summary_notes": [
@@ -643,7 +644,8 @@
     "FreeCAD and KiCad can later reuse this foundation with stricter domain-specific policies and correctness gates.",
     "Summary counters and milestone stage rollups are now synchronized and explicitly documented.",
     "Bundle 1 now provides scope docs, descriptor/status schemas, and a descriptor-only example domain baseline.",
-    "Bundles 2 and 3 now provide generic registries plus policy/approval/audit contracts without introducing domain-specific orchestration logic."
+    "Bundles 2 and 3 now provide generic registries plus policy/approval/audit contracts without introducing domain-specific orchestration logic.",
+    "Bundles 4 and 5 now add generic RAG profile loading/retrieval plus bridge contract/registry/routing skeleton under hub-governed policy checks."
   ],
   "end_summaries": [
     {
@@ -674,8 +676,8 @@
       "summary_id": "GEN-S4",
       "title": "Status am Ende",
       "items": [
-        "Drei Umsetzungsbündel abgeschlossen: 13 todo, 0 in_progress, 0 blocked, 12 done (48.0%).",
-        "Meilensteine GEN-M1 bis GEN-M3 sind done; der verbleibende Track startet bei RAG/Bridge/Release-Gate-Arbeiten."
+        "Fünf Umsetzungsbündel abgeschlossen: 7 todo, 0 in_progress, 0 blocked, 18 done (72.0%).",
+        "Meilensteine GEN-M1 bis GEN-M5 sind done; der verbleibende Track fokussiert auf Runtime-Inventory, Audit-Script, Release-Gate und Blender-Alignment."
       ]
     }
   ]

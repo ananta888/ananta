@@ -136,6 +136,8 @@ class RagSourceProfileLoader:
         for pattern in [str(item).strip() for item in list(payload.get(key) or [])]:
             if not pattern:
                 raise ValueError(f"rag profile has empty {key} pattern: {profile_path}")
+            if pattern.count("[") != pattern.count("]"):
+                raise ValueError(f"rag profile has malformed glob in {key}: {pattern}")
             translated = fnmatch.translate(pattern)
             try:
                 re.compile(translated)
