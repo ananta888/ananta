@@ -1,517 +1,677 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "e2e_dogfood_visual_evidence",
-  "purpose": "Add automated end-to-end dogfood tests that produce human-reviewable evidence for CLI, TUI and Web UI flows. The tests should not only assert API success, but also capture snapshots, screenshots and optional short videos so usability, degraded states and golden-path behavior can be inspected before manual dogfooding.",
+  "track": "generic_domain_integration_foundation",
+  "purpose": "Introduce a small but solid generic domain/plugin foundation so integrations such as Blender, FreeCAD, KiCad, Odoo or future domain clients can share the same backend mechanisms for domains, capabilities, policies, schemas, artifacts, RAG profiles, bridge routing, audit and release gates. This track exists to prevent large integrations from becoming hard-coded backend special cases.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Make Ananta's pre-release confidence visible: each important E2E flow should produce deterministic logs plus visual artifacts such as terminal snapshots, TUI screenshots, Web UI screenshots and optional videos.",
+  "goal": "Create a generic integration foundation that lets Ananta load and validate domain definitions, capability packs, policy packs, context schemas, artifact types, RAG source profiles and bridge adapter contracts while keeping orchestration, approval, policy and audit centralized in the Hub.",
   "non_goals": [
-    "Do not require manual UI polishing before tests exist.",
-    "Do not make videos mandatory for every CI run if they are too heavy.",
-    "Do not use visual tests as a replacement for contract, policy or security tests.",
-    "Do not allow visual snapshot tests to mask functional failures.",
-    "Do not require KRITIS/Enterprise infrastructure for OSS E2E evidence."
+    "Do not build a marketplace or dynamic third-party plugin ecosystem in this track.",
+    "Do not allow arbitrary unreviewed Python modules to be loaded as backend plugins.",
+    "Do not duplicate client orchestration or policy logic in domain modules.",
+    "Do not implement Blender, FreeCAD or KiCad runtime behavior here; only generic mechanisms and minimal example wiring.",
+    "Do not introduce Enterprise/KRITIS-specific RBAC or tenancy complexity in this OSS foundation track."
   ],
   "success_criteria": [
-    "Golden-path E2E creates goal, task, artifact and trace evidence with mocked worker/LLM execution.",
-    "CLI E2E captures command output snapshots for success, degraded and policy-denied states.",
-    "TUI E2E captures terminal snapshots or screenshots for health, task list, artifact view and degraded states.",
-    "Web UI E2E captures screenshots for dashboard/golden-path states where the Web UI is available.",
-    "Optional short videos are produced for at least one representative TUI or Web UI golden path when the environment supports it.",
-    "Artifacts are stored in a predictable test output directory and referenced from the E2E report.",
-    "Release gate can attach or summarize visual evidence without making heavy video capture mandatory."
+    "A domain registry can load and validate domain descriptors from configuration files.",
+    "Capabilities are declared as data and evaluated generically by Hub services.",
+    "Context schemas and artifact types can be registered per domain and validated generically.",
+    "Policy packs can be loaded per domain without hard-coding domain rules in service code.",
+    "RAG source profiles can be registered per domain and routed to codecompass/rag_helper ingestion and retrieval.",
+    "Bridge adapter contracts are defined generically for health, capabilities, context capture, action execution and result reporting.",
+    "Audit and approval metadata support domain/capability/action IDs generically.",
+    "Release gates can detect false runtime claims for domains without domain-specific hard-coding.",
+    "Blender can later consume this foundation instead of creating many blender_* backend special cases."
   ],
   "architecture_guardrails": [
-    "E2E must use controlled/mocked worker and LLM paths unless explicitly marked external/manual.",
-    "Visual evidence must not include secrets, tokens, private local paths or unrelated project files.",
-    "Snapshots should be stable enough for regression use but not overly brittle on timestamps or terminal dimensions.",
-    "Screenshots/videos are evidence, not the only assertion mechanism.",
-    "Policy-denied and degraded-state visuals are as important as happy-path visuals.",
-    "The report must separate blocking functional failures from visual-diff review items."
+    "The Hub remains the authority for orchestration, policy, approval, audit and retrieval.",
+    "Domain modules are declarative first: descriptors, schemas, capabilities, policies and RAG profiles before code.",
+    "Runtime code extension points must be explicit, reviewed and allow-listed.",
+    "No generic mechanism may permit policy or approval bypass.",
+    "No domain registry may silently load untrusted executable code.",
+    "Generic services must expose degraded and validation-failed states clearly.",
+    "Domain descriptors must be versioned and migration-friendly.",
+    "Domain-specific clients remain thin and speak stable Ananta APIs."
   ],
   "planned_repository_layout": {
-    "tests": "tests/e2e/",
-    "scripts": "scripts/e2e/",
-    "artifacts": "artifacts/e2e/",
-    "reports": "artifacts/e2e/report.json",
-    "snapshots": "tests/e2e/snapshots/",
-    "docs": "docs/testing/e2e_visual_evidence.md"
+    "domain_descriptors": "domains/<domain_id>/domain.json",
+    "capabilities": "domains/<domain_id>/capabilities.json",
+    "context_schemas": "domains/<domain_id>/schemas/context.v1.json",
+    "artifact_schemas": "domains/<domain_id>/schemas/artifact.v1.json",
+    "policies": "domains/<domain_id>/policies/policy.v1.json",
+    "rag_profiles": "domains/<domain_id>/rag_sources/*.profile.json",
+    "backend_services": "agent/services/domain_*.py",
+    "tests": "tests/test_domain_*.py",
+    "docs": "docs/architecture/domain_integration_foundation.md"
   },
   "milestones": [
     {
-      "id": "E2E-M1",
-      "title": "E2E harness and artifact model",
-      "task_ids": ["E2E-T01", "E2E-T02", "E2E-T03"],
-      "status": "done"
+      "id": "GEN-M1",
+      "title": "Scope, model and descriptor contracts",
+      "task_ids": ["GEN-T01", "GEN-T02", "GEN-T03", "GEN-T04"],
+      "status": "todo"
     },
     {
-      "id": "E2E-M2",
-      "title": "CLI and core golden path evidence",
-      "task_ids": ["E2E-T04", "E2E-T05", "E2E-T06"],
-      "status": "done"
+      "id": "GEN-M2",
+      "title": "Registries for domains, capabilities, schemas and artifacts",
+      "task_ids": ["GEN-T05", "GEN-T06", "GEN-T07", "GEN-T08"],
+      "status": "todo"
     },
     {
-      "id": "E2E-M3",
-      "title": "TUI visual evidence",
-      "task_ids": ["E2E-T07", "E2E-T08", "E2E-T09"],
-      "status": "done"
+      "id": "GEN-M3",
+      "title": "Generic policy, approval and audit integration",
+      "task_ids": ["GEN-T09", "GEN-T10", "GEN-T11", "GEN-T12"],
+      "status": "todo"
     },
     {
-      "id": "E2E-M4",
-      "title": "Web UI screenshots and optional video",
-      "task_ids": ["E2E-T10", "E2E-T11", "E2E-T12"],
-      "status": "done"
+      "id": "GEN-M4",
+      "title": "RAG source profile and retrieval integration",
+      "task_ids": ["GEN-T13", "GEN-T14", "GEN-T15"],
+      "status": "todo"
     },
     {
-      "id": "E2E-M5",
-      "title": "RAG and policy visual dogfood flows",
-      "task_ids": ["E2E-T13", "E2E-T14", "E2E-T15"],
-      "status": "done"
+      "id": "GEN-M5",
+      "title": "Bridge adapter interface and runtime routing",
+      "task_ids": ["GEN-T16", "GEN-T17", "GEN-T18"],
+      "status": "todo"
     },
     {
-      "id": "E2E-M6",
-      "title": "Release gate and documentation",
-      "task_ids": ["E2E-T16", "E2E-T17", "E2E-T18"],
-      "status": "done"
+      "id": "GEN-M6",
+      "title": "Runtime inventory and release-gate integration",
+      "task_ids": ["GEN-T19", "GEN-T20", "GEN-T21"],
+      "status": "todo"
+    },
+    {
+      "id": "GEN-M7",
+      "title": "Blender migration alignment and docs",
+      "task_ids": ["GEN-T22", "GEN-T23", "GEN-T24", "GEN-T25"],
+      "status": "todo"
     }
   ],
   "tasks": [
     {
-      "id": "E2E-T01",
-      "title": "E2E visual evidence strategy define",
-      "status": "done",
+      "id": "GEN-T01",
+      "title": "Generic domain integration scope define",
+      "status": "todo",
       "priority": "P0",
-      "risk": "high",
+      "risk": "critical",
       "blocking": true,
       "depends_on": [],
-      "expected_files": ["docs/testing/e2e_visual_evidence.md"],
+      "expected_files": ["docs/architecture/domain_integration_foundation.md"],
       "acceptance_criteria": [
-        "Document defines which flows require logs, terminal snapshots, screenshots and optional videos.",
-        "Document separates blocking functional assertions from advisory visual review artifacts.",
-        "Document defines redaction rules for screenshots, terminal output and videos.",
-        "Document explains how CI and local runs store and reference evidence."
+        "Document explains why Ananta needs a generic domain foundation before large integrations become hard-coded.",
+        "Document separates generic platform mechanisms from domain-specific descriptors and bridge implementations.",
+        "Document explicitly states that this is not a plugin marketplace and not an arbitrary code-loading system.",
+        "Document explains how Blender, FreeCAD and KiCad can later share the same foundation."
       ]
     },
     {
-      "id": "E2E-T02",
-      "title": "E2E artifact directory and report schema add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["E2E-T01"],
-      "expected_files": ["schemas/testing/e2e_report.v1.json", "scripts/e2e/e2e_artifacts.py"],
-      "acceptance_criteria": [
-        "Report schema records flow id, status, logs, snapshots, screenshots, videos, trace bundle refs and artifact refs.",
-        "Artifacts are stored under artifacts/e2e/<run_id>/<flow_id>/ with predictable names.",
-        "Report distinguishes missing optional videos from blocking failures.",
-        "Report supports compact console summary for release gate output."
-      ]
-    },
-    {
-      "id": "E2E-T03",
-      "title": "Mocked backend worker LLM harness add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["E2E-T02"],
-      "expected_files": ["tests/e2e/harness.py", "tests/e2e/mock_worker.py", "tests/e2e/mock_llm.py"],
-      "acceptance_criteria": [
-        "Harness can run golden paths without external model dependency.",
-        "Mock worker produces deterministic task/artifact outputs.",
-        "Mock LLM produces stable responses suitable for snapshot tests.",
-        "Harness records trace/correlation IDs for each flow."
-      ]
-    },
-    {
-      "id": "E2E-T04",
-      "title": "Core golden path E2E add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["E2E-T03"],
-      "expected_files": ["tests/e2e/test_core_golden_path.py"],
-      "acceptance_criteria": [
-        "Test starts controlled backend/harness or uses an in-process test server where practical.",
-        "Test submits a goal and verifies task creation, mocked execution, artifact creation and trace bundle presence.",
-        "Test stores structured logs and report entries.",
-        "Test fails if artifact or trace metadata is missing."
-      ]
-    },
-    {
-      "id": "E2E-T05",
-      "title": "CLI golden path output snapshots add",
-      "status": "done",
+      "id": "GEN-T02",
+      "title": "Domain descriptor schema define",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["E2E-T04"],
-      "expected_files": ["tests/e2e/test_cli_golden_path_snapshots.py", "tests/e2e/snapshots/cli/"],
+      "depends_on": ["GEN-T01"],
+      "expected_files": ["schemas/domain/domain_descriptor.v1.json"],
       "acceptance_criteria": [
-        "CLI E2E captures stdout/stderr snapshots for health, goal submit, task status and artifact display.",
-        "Snapshots normalize timestamps, IDs and paths where needed.",
-        "Snapshot failures are readable and point to the changed command output.",
-        "CLI output includes useful next-step information."
+        "Schema defines domain_id, display_name, version, lifecycle_status, runtime_status, owner, description, supported_clients and source paths.",
+        "Schema references capability pack, context schemas, artifact schemas, policy packs, RAG profiles and bridge adapter type.",
+        "Schema supports stable versioning and future non-breaking extension fields.",
+        "Invalid descriptors fail validation with readable errors."
       ]
     },
     {
-      "id": "E2E-T06",
-      "title": "CLI degraded and policy denied snapshots add",
-      "status": "done",
+      "id": "GEN-T03",
+      "title": "Domain lifecycle and runtime status model define",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["E2E-T05"],
-      "expected_files": ["tests/e2e/test_cli_degraded_policy_snapshots.py"],
+      "depends_on": ["GEN-T02"],
+      "expected_files": ["schemas/domain/domain_status.v1.json"],
       "acceptance_criteria": [
-        "Snapshots cover backend unreachable, invalid auth/config, approval required and policy denied states.",
-        "CLI never renders denied/degraded states as success.",
-        "Output avoids secrets and excessive internal stack traces.",
-        "Artifacts/report include text snapshots for review."
+        "Lifecycle states cover planned, foundation_only, runtime_mvp, runtime_complete, deferred, blocked and deprecated.",
+        "Runtime status clearly separates descriptor existence from executable behavior.",
+        "Status model can be used by release gates to block false runtime claims.",
+        "Status model is compatible with existing client surface runtime inventory concepts."
       ]
     },
     {
-      "id": "E2E-T07",
-      "title": "TUI headless scripted smoke add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["E2E-T03"],
-      "expected_files": ["tests/e2e/test_tui_scripted_smoke.py", "scripts/e2e/capture_tui.py"],
-      "acceptance_criteria": [
-        "TUI can run in headless/scripted mode or via a terminal capture harness.",
-        "Test captures at least health, task list, artifact view and degraded state screens.",
-        "Captured terminal output is stored as text snapshot and optionally image screenshot.",
-        "Test fails if TUI exits unexpectedly or renders an empty unhelpful screen."
-      ]
-    },
-    {
-      "id": "E2E-T08",
-      "title": "TUI visual snapshots add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["E2E-T07"],
-      "expected_files": ["tests/e2e/snapshots/tui/", "scripts/e2e/render_terminal_snapshot.py"],
-      "acceptance_criteria": [
-        "TUI snapshots normalize terminal size and volatile values.",
-        "Snapshots include representative screens for connected, empty, task/artifact populated and policy-denied states.",
-        "Diffs are reviewable as text or images.",
-        "Snapshots are advisory unless a core required element is missing."
-      ]
-    },
-    {
-      "id": "E2E-T09",
-      "title": "TUI short video capture optional add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["E2E-T07"],
-      "expected_files": ["scripts/e2e/record_tui_demo.py"],
-      "acceptance_criteria": [
-        "Local runs can record a short TUI golden-path video or terminal cast where tooling is available.",
-        "CI may skip video capture unless explicitly enabled.",
-        "Report marks video as optional evidence and links it when produced.",
-        "Video capture redacts secrets and avoids private paths."
-      ]
-    },
-    {
-      "id": "E2E-T10",
-      "title": "Web UI screenshot harness add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["E2E-T03"],
-      "expected_files": ["tests/e2e/test_web_ui_screenshots.py", "scripts/e2e/capture_web_ui.py"],
-      "acceptance_criteria": [
-        "Harness can start or connect to Web UI in test mode where available.",
-        "Screenshots cover dashboard/health, goals/tasks, artifact view and degraded state where implemented.",
-        "Screenshots are saved into E2E artifacts and referenced in report.json.",
-        "If Web UI is unavailable, test is skipped/advisory without blocking CLI/TUI golden path."
-      ]
-    },
-    {
-      "id": "E2E-T11",
-      "title": "Web UI visual baseline snapshots add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["E2E-T10"],
-      "expected_files": ["tests/e2e/snapshots/web/"],
-      "acceptance_criteria": [
-        "Visual baselines exist for stable Web UI screens.",
-        "Baselines account for volatile values such as IDs and timestamps where practical.",
-        "Visual diffs are advisory unless required text/status elements are missing.",
-        "Screenshots help detect broken layout and empty-state regressions."
-      ]
-    },
-    {
-      "id": "E2E-T12",
-      "title": "Web UI short video capture optional add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["E2E-T10"],
-      "expected_files": ["scripts/e2e/record_web_demo.py"],
-      "acceptance_criteria": [
-        "Local or enabled CI runs can record a short Web UI golden-path video.",
-        "Video shows goal submission, task status and artifact viewing when Web UI supports it.",
-        "Video is referenced from E2E report when produced.",
-        "Video capture is optional and not required for every release gate run."
-      ]
-    },
-    {
-      "id": "E2E-T13",
-      "title": "RAG dogfood E2E with tiny repo add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["E2E-T03"],
-      "expected_files": ["tests/e2e/fixtures/tiny_project/", "tests/e2e/test_rag_dogfood_tiny_repo.py"],
-      "acceptance_criteria": [
-        "Test indexes a tiny fixture project with codecompass/rag_helper or a deterministic fixture index.",
-        "Test asks a project question and verifies relevant source/path/reason metadata appears.",
-        "Test verifies context remains bounded and uses explicit source refs.",
-        "Test stores retrieval report and optional CLI/TUI snapshot for review."
-      ]
-    },
-    {
-      "id": "E2E-T14",
-      "title": "Policy and approval E2E visual evidence add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["E2E-T04", "E2E-T06"],
-      "expected_files": ["tests/e2e/test_policy_approval_visual_evidence.py"],
-      "acceptance_criteria": [
-        "E2E covers unsafe action -> approval_required, denied action -> no execution, approved safe action -> execution.",
-        "CLI/TUI/Web evidence shows approval-required and policy-denied states clearly where surfaces exist.",
-        "Trace/report includes policy decision, approval decision and artifact refs.",
-        "Test fails if denied action executes or approval state is rendered as success."
-      ]
-    },
-    {
-      "id": "E2E-T15",
-      "title": "Visual evidence redaction tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["E2E-T02"],
-      "expected_files": ["tests/e2e/test_visual_evidence_redaction.py"],
-      "acceptance_criteria": [
-        "Tests verify tokens, likely secrets and sensitive local paths are redacted from snapshots, screenshots metadata and reports where practical.",
-        "Tests include positive and negative examples.",
-        "Redaction failures block release-gate evidence publication.",
-        "Redaction does not hide policy/audit facts needed for debugging."
-      ]
-    },
-    {
-      "id": "E2E-T16",
-      "title": "E2E visual report generator add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["E2E-T04", "E2E-T05", "E2E-T07", "E2E-T13", "E2E-T14"],
-      "expected_files": ["scripts/e2e/generate_e2e_report.py"],
-      "acceptance_criteria": [
-        "Generator creates a compact markdown and JSON report listing each flow, status and evidence links.",
-        "Report highlights blocking failures, advisory visual diffs and skipped optional video captures separately.",
-        "Report can be attached to release artifacts or read locally.",
-        "Report includes enough information to review UI/UX regressions without rerunning tests immediately."
-      ]
-    },
-    {
-      "id": "E2E-T17",
-      "title": "Release gate integration for E2E evidence add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["E2E-T16"],
-      "expected_files": ["scripts/run_e2e_dogfood_checks.py", "scripts/run_release_gate.py"],
-      "acceptance_criteria": [
-        "Release gate can run core E2E dogfood checks with visual evidence generation.",
-        "Gate blocks on functional failures and missing required evidence for claimed runtime surfaces.",
-        "Gate does not block solely because optional videos are skipped.",
-        "Gate prints path to E2E report and key snapshots/screenshots."
-      ]
-    },
-    {
-      "id": "E2E-T18",
-      "title": "E2E visual evidence docs write",
-      "status": "done",
+      "id": "GEN-T04",
+      "title": "Example minimal domain descriptor add",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["E2E-T16", "E2E-T17"],
-      "expected_files": ["docs/testing/e2e_visual_evidence.md", "docs/testing/e2e_artifact_review.md"],
+      "depends_on": ["GEN-T02", "GEN-T03"],
+      "expected_files": ["domains/example/domain.json"],
       "acceptance_criteria": [
-        "Docs explain how to run E2E locally, where to find snapshots/screenshots/videos and how to review diffs.",
-        "Docs explain optional video dependencies and skip behavior.",
-        "Docs include guidance for adding new visual evidence flows for future Blender, FreeCAD or KiCad integrations.",
-        "Docs keep the process lightweight enough for OSS contributors."
+        "Example descriptor is intentionally non-runtime or foundation_only.",
+        "Example demonstrates descriptor structure without implying a real integration is complete.",
+        "Example is used by validation tests."
+      ]
+    },
+    {
+      "id": "GEN-T05",
+      "title": "Domain registry service implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T02", "GEN-T03"],
+      "expected_files": ["agent/services/domain_registry.py", "tests/test_domain_registry.py"],
+      "acceptance_criteria": [
+        "Service loads domain descriptors from configured domain directories.",
+        "Service validates descriptors against schema before exposing them.",
+        "Service refuses duplicate domain_id values and malformed descriptors.",
+        "Service exposes read-only domain metadata for clients and release gates.",
+        "Tests cover valid, invalid, duplicate and missing referenced files."
+      ]
+    },
+    {
+      "id": "GEN-T06",
+      "title": "Capability registry service implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T05"],
+      "expected_files": ["schemas/domain/capability_pack.v1.json", "agent/services/capability_registry.py", "tests/test_capability_registry.py"],
+      "acceptance_criteria": [
+        "Capability pack schema defines capability_id, domain_id, display_name, category, risk, read_only, mutating, approval_required and default_policy_state.",
+        "Capability IDs use stable names such as blender.scene.read or kicad.drc.run without hard-coded enum lists.",
+        "Registry validates capability packs and exposes capabilities by domain and category.",
+        "Registry refuses unknown risk levels, duplicate capability IDs and missing domain references."
+      ]
+    },
+    {
+      "id": "GEN-T07",
+      "title": "Context schema registry implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T05"],
+      "expected_files": ["agent/services/context_schema_registry.py", "tests/test_context_schema_registry.py"],
+      "acceptance_criteria": [
+        "Registry loads context schemas referenced by domain descriptors.",
+        "Registry validates incoming domain context payloads generically.",
+        "Validation returns structured accepted, rejected or degraded states.",
+        "Tests cover valid payload, oversized payload, malformed payload and unknown domain."
+      ]
+    },
+    {
+      "id": "GEN-T08",
+      "title": "Artifact type registry implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T05"],
+      "expected_files": ["schemas/domain/artifact_type_pack.v1.json", "agent/services/artifact_type_registry.py", "tests/test_artifact_type_registry.py"],
+      "acceptance_criteria": [
+        "Artifact type pack schema defines artifact_type_id, domain_id, display_name, schema_ref, render_hint, safety_classification and allowed_clients.",
+        "Registry allows TUI/Web/CLI/clients to discover artifact types without hard-coded domain assumptions.",
+        "Registry validates artifact payloads against referenced schemas where practical.",
+        "Tests cover known, unknown, malformed and unsupported artifact types."
+      ]
+    },
+    {
+      "id": "GEN-T09",
+      "title": "Domain policy pack loader implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T06"],
+      "expected_files": ["schemas/domain/policy_pack.v1.json", "agent/services/domain_policy_loader.py", "tests/test_domain_policy_loader.py"],
+      "acceptance_criteria": [
+        "Policy pack schema maps capabilities/actions to allow, deny, approval_required or default_deny decisions.",
+        "Loader validates that policy rules reference existing domain capabilities.",
+        "Loader supports safe defaults when a policy pack is missing or incomplete.",
+        "Tests verify missing policy defaults do not permit unsafe actions."
+      ]
+    },
+    {
+      "id": "GEN-T10",
+      "title": "Generic domain policy evaluation integrate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T09"],
+      "expected_files": ["agent/services/domain_policy_service.py", "tests/test_domain_policy_service.py"],
+      "acceptance_criteria": [
+        "Policy evaluation accepts domain_id, capability_id, action_id, context summary and actor metadata.",
+        "Evaluation returns allow, deny, approval_required or degraded with reasons.",
+        "Evaluation is used before execution for any domain action.",
+        "Tests cover allowed read-only action, approval-required mutation, denied script execution and unknown capability."
+      ]
+    },
+    {
+      "id": "GEN-T11",
+      "title": "Generic approval metadata extend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T10"],
+      "expected_files": ["schemas/domain/domain_approval_request.v1.json", "tests/test_domain_approval_metadata.py"],
+      "acceptance_criteria": [
+        "Approval requests can include domain_id, capability_id, action_id, expected_effects, risk, artifact_refs and context_hash.",
+        "Approval responses can be correlated to domain actions without domain-specific service code.",
+        "Stale, malformed or unauthorized approvals remain denied.",
+        "Tests verify approval metadata is present for approval-required domain actions."
+      ]
+    },
+    {
+      "id": "GEN-T12",
+      "title": "Generic domain audit event model add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T10", "GEN-T11"],
+      "expected_files": ["schemas/domain/domain_audit_event.v1.json", "tests/test_domain_audit_events.py"],
+      "acceptance_criteria": [
+        "Audit events record domain_id, capability_id, action_id, task_id, approval_id, context_hash, artifact_ids, policy_decision and result status.",
+        "Audit distinguishes plan_created, policy_denied, approval_requested, approval_decided, execution_started, execution_finished and execution_failed.",
+        "Audit avoids storing full sensitive context unless explicitly allowed by policy.",
+        "Tests verify denied and approved flows produce appropriate audit events."
+      ]
+    },
+    {
+      "id": "GEN-T13",
+      "title": "RAG source profile schema define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T05"],
+      "expected_files": ["schemas/domain/rag_source_profile.v1.json"],
+      "acceptance_criteria": [
+        "Schema defines source_id, domain_id, source_type, repo/url/path/ref, allowed_paths, include/exclude globs, license_note, intended_usage and indexing_config_ref.",
+        "Schema supports source categories such as api_docs, source_code, examples, project_reference and internal_docs.",
+        "Schema requires provenance fields sufficient for audit and explanation.",
+        "Schema explicitly supports codecompass/rag_helper as ingestion path."
+      ]
+    },
+    {
+      "id": "GEN-T14",
+      "title": "RAG source profile loader implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T13"],
+      "expected_files": ["agent/services/rag_source_profile_loader.py", "tests/test_rag_source_profile_loader.py"],
+      "acceptance_criteria": [
+        "Loader discovers RAG source profiles referenced by domain descriptors.",
+        "Loader validates profiles and rejects missing domain references, malformed globs and missing intended usage.",
+        "Loader exposes profiles to indexing and retrieval services without requiring domain-specific code.",
+        "Tests cover valid, invalid, unknown-domain and missing-index-config cases."
+      ]
+    },
+    {
+      "id": "GEN-T15",
+      "title": "Generic domain retrieval interface define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T14"],
+      "expected_files": ["agent/services/domain_retrieval_service.py", "tests/test_domain_retrieval_service.py"],
+      "acceptance_criteria": [
+        "Retrieval interface accepts domain_id, retrieval_intent, query, context_summary and max_results.",
+        "Retrieval returns bounded chunks with source_id, ref/version, path, symbol/section, score/reason and usage limits.",
+        "Retrieval refuses unbounded full-repo or full-doc requests by default.",
+        "Interface can delegate to existing rag_helper index service or future retrieval backends."
+      ]
+    },
+    {
+      "id": "GEN-T16",
+      "title": "Bridge adapter contract define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T06", "GEN-T10"],
+      "expected_files": ["schemas/domain/bridge_adapter_contract.v1.json", "docs/architecture/bridge_adapter_contract.md"],
+      "acceptance_criteria": [
+        "Contract defines health, capabilities, capture_context, execute_action, report_result and cancel where practical.",
+        "Contract requires correlation IDs, domain_id, capability_id, approval token/reference and result artifact metadata.",
+        "Contract states that adapters cannot approve their own actions or bypass Hub policy.",
+        "Contract supports local client bridges such as Blender addon bridge without making them backend plugins."
+      ]
+    },
+    {
+      "id": "GEN-T17",
+      "title": "Bridge adapter registry implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["GEN-T16"],
+      "expected_files": ["agent/services/bridge_adapter_registry.py", "tests/test_bridge_adapter_registry.py"],
+      "acceptance_criteria": [
+        "Registry maps domain descriptors to bridge adapter types and allowed communication modes.",
+        "Registry does not dynamically import arbitrary executable code from domain directories.",
+        "Registry can report missing or unavailable bridges as degraded state.",
+        "Tests cover known adapter, unknown adapter, disabled adapter and malformed descriptor."
+      ]
+    },
+    {
+      "id": "GEN-T18",
+      "title": "Generic action routing skeleton add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T10", "GEN-T16"],
+      "expected_files": ["agent/services/domain_action_router.py", "tests/test_domain_action_router.py"],
+      "acceptance_criteria": [
+        "Router accepts domain action requests and performs validation, policy evaluation and approval-state checks before any execution path.",
+        "Router returns plan, denied, approval_required, execution_started or degraded states.",
+        "Router refuses unknown domains, unknown capabilities and missing approval for approval-required actions.",
+        "Tests verify no route bypasses policy evaluation."
+      ]
+    },
+    {
+      "id": "GEN-T19",
+      "title": "Domain runtime inventory integrate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T05", "GEN-T03"],
+      "expected_files": ["data/domain_runtime_inventory.json", "tests/test_domain_runtime_inventory.py"],
+      "acceptance_criteria": [
+        "Inventory records domain status, descriptor paths, required runtime files, smoke commands and evidence references.",
+        "Inventory can mark domains as planned, foundation_only, runtime_mvp, runtime_complete, deferred or blocked.",
+        "Inventory does not allow descriptor-only domains to be treated as runtime-complete.",
+        "Tests verify status counters and referenced domain IDs remain consistent."
+      ]
+    },
+    {
+      "id": "GEN-T20",
+      "title": "Generic domain audit script add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T19"],
+      "expected_files": ["scripts/audit_domain_integrations.py", "tests/test_audit_domain_integrations.py"],
+      "acceptance_criteria": [
+        "Audit script verifies domain descriptors, capability packs, schemas, policies, RAG profiles and inventory entries are internally consistent.",
+        "Audit fails on missing required files for runtime_mvp/runtime_complete domains.",
+        "Audit fails on skeleton-only or docs-only domains claiming runtime_mvp.",
+        "Audit is usable by release gates."
+      ]
+    },
+    {
+      "id": "GEN-T21",
+      "title": "Release gate integration for domains add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["GEN-T20"],
+      "expected_files": ["scripts/run_release_gate.py"],
+      "acceptance_criteria": [
+        "Release gate runs generic domain integration audit when domain inventory exists.",
+        "Gate separates blocking automated checks from manual/advisory smoke evidence.",
+        "Gate blocks false runtime claims for domains without per-domain hard-coding.",
+        "Gate output lists blockers and deferred domains clearly."
+      ]
+    },
+    {
+      "id": "GEN-T22",
+      "title": "Blender descriptor alignment plan add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["GEN-T02", "GEN-T06", "GEN-T13", "GEN-T19"],
+      "expected_files": ["docs/integrations/blender/generic_domain_alignment.md"],
+      "acceptance_criteria": [
+        "Document maps todo.blender.json tasks to generic domain foundation mechanisms where possible.",
+        "Document identifies which planned blender_* backend services should become generic services plus Blender descriptors.",
+        "Document keeps Blender-specific context, bridge and policy details clearly separated.",
+        "Document prevents the Blender track from duplicating generic registry/policy/retrieval logic."
+      ]
+    },
+    {
+      "id": "GEN-T23",
+      "title": "Example Blender foundation descriptor add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["GEN-T22", "GEN-T05", "GEN-T06"],
+      "expected_files": ["domains/blender/domain.json", "domains/blender/capabilities.json"],
+      "acceptance_criteria": [
+        "Descriptor marks Blender honestly as planned or foundation_only until runtime evidence exists.",
+        "Capabilities include at least scene.read, selection.read, preview.render, script.plan and script.execute with correct safety flags.",
+        "Descriptor references future schemas/policies/RAG profiles without claiming runtime completion.",
+        "Generic audit accepts the descriptor only at its honest lifecycle status."
+      ]
+    },
+    {
+      "id": "GEN-T24",
+      "title": "Generic domain foundation docs write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["GEN-T05", "GEN-T06", "GEN-T09", "GEN-T15", "GEN-T18"],
+      "expected_files": ["docs/architecture/domain_integration_foundation.md", "docs/architecture/domain_descriptor_reference.md"],
+      "acceptance_criteria": [
+        "Docs explain how to add a new domain descriptor, capability pack, schema, policy pack and RAG profile.",
+        "Docs include minimal examples and warning notes about not loading arbitrary code.",
+        "Docs explain how release gates determine whether a domain is runtime-ready.",
+        "Docs mention Blender as first large consumer but not as the only target."
+      ]
+    },
+    {
+      "id": "GEN-T25",
+      "title": "Post-foundation cleanup todo generate",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["GEN-T21", "GEN-T22"],
+      "expected_files": ["todo.domain-cleanup.json"],
+      "acceptance_criteria": [
+        "Cleanup todo lists remaining generic gaps, Blender alignment gaps and deferred FreeCAD/KiCad preparation gaps.",
+        "Cleanup distinguishes missing implementation, weak tests, documentation drift and future enhancements.",
+        "Cleanup does not pull Enterprise/KRITIS scope into the OSS foundation."
       ]
     }
   ],
   "execution_order_summary": [
-    "Stage 1: Define visual evidence strategy, report schema and mocked E2E harness.",
-    "Stage 2: Add core and CLI golden-path snapshots.",
-    "Stage 3: Add TUI terminal snapshots and optional videos.",
-    "Stage 4: Add Web UI screenshots and optional videos where available.",
-    "Stage 5: Add RAG, policy and approval dogfood flows with evidence.",
-    "Stage 6: Generate reports and integrate with release gate."
+    "Stage 1: Define generic domain scope and descriptor contracts.",
+    "Stage 2: Implement registries for domains, capabilities, context schemas and artifact types.",
+    "Stage 3: Integrate generic policy, approval and audit metadata for domain actions.",
+    "Stage 4: Add RAG source profile loading and generic retrieval interface for codecompass/rag_helper-backed domain knowledge.",
+    "Stage 5: Define bridge adapter contract and generic action routing skeleton.",
+    "Stage 6: Add domain runtime inventory, audit script and release-gate checks.",
+    "Stage 7: Align Blender with the generic foundation and document the model."
   ],
   "critical_path_tasks": [
-    "E2E-T01",
-    "E2E-T02",
-    "E2E-T03",
-    "E2E-T04",
-    "E2E-T05",
-    "E2E-T06",
-    "E2E-T07",
-    "E2E-T13",
-    "E2E-T14",
-    "E2E-T15",
-    "E2E-T16",
-    "E2E-T17"
+    "GEN-T01",
+    "GEN-T02",
+    "GEN-T03",
+    "GEN-T05",
+    "GEN-T06",
+    "GEN-T07",
+    "GEN-T08",
+    "GEN-T09",
+    "GEN-T10",
+    "GEN-T11",
+    "GEN-T12",
+    "GEN-T13",
+    "GEN-T14",
+    "GEN-T15",
+    "GEN-T16",
+    "GEN-T18",
+    "GEN-T19",
+    "GEN-T20",
+    "GEN-T21",
+    "GEN-T22"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T18:02:00+02:00",
-    "total": 18,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 18},
-    "progress_percent_done": 100.0,
-    "by_priority": {"P0": 12, "P1": 3, "P2": 3, "P3": 0},
-    "by_risk": {"low": 0, "medium": 6, "high": 6, "critical": 6},
-    "critical_path": {"total": 12, "done": 12, "remaining": 0},
-    "milestones": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
+    "updated_at": "2026-04-25T15:16:34+02:00",
+    "total": 25,
+    "by_status": {
+      "todo": 25,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 20,
+      "P1": 4,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 10,
+      "critical": 11
+    },
+    "critical_path": {
+      "total": 20,
+      "done": 0,
+      "remaining": 20
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T18:02:00+02:00",
+    "updated_at": "2026-04-25T15:16:34+02:00",
     "stages": {
-      "E2E-M1": {
-        "title": "E2E harness and artifact model",
-        "scope_task_ids": ["E2E-T01", "E2E-T02", "E2E-T03"],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
+      "GEN-M1": {
+        "title": "Scope, model and descriptor contracts",
+        "scope_task_ids": ["GEN-T01", "GEN-T02", "GEN-T03", "GEN-T04"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
         "in_progress": 0,
         "blocked": 0
       },
-      "E2E-M2": {
-        "title": "CLI and core golden path evidence",
-        "scope_task_ids": ["E2E-T04", "E2E-T05", "E2E-T06"],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
+      "GEN-M2": {
+        "title": "Registries for domains, capabilities, schemas and artifacts",
+        "scope_task_ids": ["GEN-T05", "GEN-T06", "GEN-T07", "GEN-T08"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
         "in_progress": 0,
         "blocked": 0
       },
-      "E2E-M3": {
-        "title": "TUI visual evidence",
-        "scope_task_ids": ["E2E-T07", "E2E-T08", "E2E-T09"],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
+      "GEN-M3": {
+        "title": "Generic policy, approval and audit integration",
+        "scope_task_ids": ["GEN-T09", "GEN-T10", "GEN-T11", "GEN-T12"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
         "in_progress": 0,
         "blocked": 0
       },
-      "E2E-M4": {
-        "title": "Web UI screenshots and optional video",
-        "scope_task_ids": ["E2E-T10", "E2E-T11", "E2E-T12"],
+      "GEN-M4": {
+        "title": "RAG source profile and retrieval integration",
+        "scope_task_ids": ["GEN-T13", "GEN-T14", "GEN-T15"],
         "total": 3,
-        "done": 3,
-        "todo": 0,
+        "done": 0,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       },
-      "E2E-M5": {
-        "title": "RAG and policy visual dogfood flows",
-        "scope_task_ids": ["E2E-T13", "E2E-T14", "E2E-T15"],
+      "GEN-M5": {
+        "title": "Bridge adapter interface and runtime routing",
+        "scope_task_ids": ["GEN-T16", "GEN-T17", "GEN-T18"],
         "total": 3,
-        "done": 3,
-        "todo": 0,
+        "done": 0,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       },
-      "E2E-M6": {
-        "title": "Release gate and documentation",
-        "scope_task_ids": ["E2E-T16", "E2E-T17", "E2E-T18"],
+      "GEN-M6": {
+        "title": "Runtime inventory and release-gate integration",
+        "scope_task_ids": ["GEN-T19", "GEN-T20", "GEN-T21"],
         "total": 3,
-        "done": 3,
-        "todo": 0,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "GEN-M7": {
+        "title": "Blender migration alignment and docs",
+        "scope_task_ids": ["GEN-T22", "GEN-T23", "GEN-T24", "GEN-T25"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T18:02:00+02:00",
-    "internal_consistency": "all_e2e_tasks_completed",
+    "checked_at": "2026-04-25T15:16:34+02:00",
+    "internal_consistency": "corrected",
     "notes": [
-      "tasks_status_summary.by_risk wurde auf die realen Task-Zahlen korrigiert (medium=6, high=6, critical=6).",
-      "updated_at auf den aktuellen Analysezeitpunkt gesetzt.",
-      "execution_stage_summary ergänzt, um Rollups je Meilenstein transparent und validator-kompatibel zu machen.",
-      "Bundle E2E-T01..E2E-T06 umgesetzt und in tasks/milestones/stage-rollups als done synchronisiert.",
-      "Restliche Tasks E2E-T07..E2E-T18 mit TUI/Web/RAG/Policy/Redaction/Report/Gate/Doku-Artefakten abgeschlossen."
+      "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=4, high=10, critical=11).",
+      "execution_stage_summary ergänzt, damit Rollups je Meilenstein transparent und validator-kompatibel sind.",
+      "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt."
     ]
   },
   "summary_notes": [
-    "This track is the automated substitute for early manual dogfooding while Ananta is still pre-release.",
-    "Videos are useful but optional; screenshots and terminal snapshots are required for key flows where practical.",
-    "Visual evidence should make it obvious when CLI/TUI/Web UI states are confusing, empty or misleading even if APIs technically pass.",
-    "Future Blender, FreeCAD and KiCad integrations should reuse this evidence model for plugin/UI smoke tests.",
-    "Summary counters and stage rollups are now synchronized and explicitly documented.",
-    "Bundle 1 delivered deterministic schema/artifact helpers plus mocked CLI/core E2E snapshot evidence.",
-    "Track completion now includes TUI/Web harnesses, tiny-repo RAG flow, policy-approval evidence, redaction checks and release-gate integration."
+    "This track should be implemented before or alongside the Blender integration to avoid hard-coded blender_* backend services where generic domain mechanisms are sufficient.",
+    "The foundation is intentionally smaller than a marketplace: descriptors and allow-listed adapter contracts first, dynamic third-party plugin loading later if ever.",
+    "The generic model should strengthen Ananta's core positioning as a controlled AI control plane rather than a collection of one-off tool integrations.",
+    "FreeCAD and KiCad can later reuse this foundation with stricter domain-specific policies and correctness gates.",
+    "Summary counters and milestone stage rollups are now synchronized and explicitly documented."
   ],
   "end_summaries": [
     {
-      "summary_id": "E2E-S1",
+      "summary_id": "GEN-S1",
       "title": "Analyseergebnis",
       "items": [
-        "Die aktuelle todo.json beschreibt einen konsistent strukturierten E2E-Dogfood-Track mit 18 Tasks und 6 Meilensteinen.",
-        "Auffällig war ein Drift in tasks_status_summary.by_risk gegenüber den tatsächlichen Task-Risiken."
+        "Die Datei ist strukturell als Task-Track konsistent aufgebaut und deckt Scope, Milestones, Critical Path und Abhängigkeiten klar ab.",
+        "Ein inhaltlicher Drift wurde in tasks_status_summary.by_risk gefunden."
       ]
     },
     {
-      "summary_id": "E2E-S2",
+      "summary_id": "GEN-S2",
       "title": "Korrekturen",
       "items": [
-        "by_risk korrigiert auf low=0, medium=6, high=6, critical=6.",
-        "updated_at/checked_at auf aktuellen Analysezeitpunkt gesetzt.",
-        "E2E-T01 bis E2E-T06 auf done gesetzt und mit den Rollup-Zählern abgeglichen.",
-        "E2E-T07 bis E2E-T18 auf done gesetzt und sämtliche Stage/Milestone-Rollups auf Abschlussstand synchronisiert."
+        "by_risk korrigiert auf low=0, medium=4, high=10, critical=11.",
+        "updated_at in tasks_status_summary und checked_at in analysis_checks aktualisiert."
       ]
     },
     {
-      "summary_id": "E2E-S3",
+      "summary_id": "GEN-S3",
       "title": "Verbesserungen und Erweiterungen",
       "items": [
         "execution_stage_summary ergänzt (je Meilenstein: scope_task_ids + total/done/todo/in_progress/blocked).",
-        "analysis_checks ergänzt, um Validierungsstand und Korrekturinhalte nachvollziehbar zu dokumentieren.",
-        "Neue E2E-Artefakte ergänzt: TUI/Web Capture, optionale Video-Recorder, RAG tiny fixture, Policy/Approval Visual Evidence, Redaction-Tests, Aggregate Report Generator, Gate-Runner und Artifact-Review-Doku."
+        "analysis_checks ergänzt, damit Konsistenzprüfung und Korrekturhistorie nachvollziehbar sind."
       ]
     },
     {
-      "summary_id": "E2E-S4",
+      "summary_id": "GEN-S4",
       "title": "Status am Ende",
       "items": [
-        "Gesamter Track abgeschlossen: 0 todo, 0 in_progress, 0 blocked, 18 done (100.0%).",
-        "Alle Meilensteine E2E-M1 bis E2E-M6 sind done; die E2E-Dogfood-Visual-Evidence-Basis ist vollständig vorhanden."
+        "Track bleibt bewusst im Startzustand für Umsetzung (25 todo, 0 done), jetzt jedoch zähler- und rollup-synchron.",
+        "Die Datei ist als belastbare Basis für die nächsten Umsetzungsbündel vorbereitet."
       ]
     }
   ]
