@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import shlex
 import subprocess
 import time
@@ -81,7 +82,11 @@ def _resolve_cwd(repository_root: Path, working_directory: str) -> Path:
 
 
 def _bounded_environment(environment: dict[str, str] | None) -> dict[str, str]:
-    bounded: dict[str, str] = {"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
+    bounded: dict[str, str] = {
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "PATH": os.environ.get("PATH", ""),
+    }
     for key, value in dict(environment or {}).items():
         normalized_key = str(key).strip()
         if not normalized_key:
