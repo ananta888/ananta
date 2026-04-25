@@ -44,13 +44,13 @@
       "id": "SEC-M2",
       "title": "Policy gatekeeper and bypass tests",
       "task_ids": ["SEC-T04", "SEC-T05", "SEC-T06"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SEC-M3",
       "title": "Transition traceability and audit minimum",
       "task_ids": ["SEC-T07", "SEC-T08", "SEC-T09"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SEC-M4",
@@ -116,7 +116,7 @@
     {
       "id": "SEC-T04",
       "title": "Single execution gatekeeper define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -131,7 +131,7 @@
     {
       "id": "SEC-T05",
       "title": "Policy bypass negative tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -147,7 +147,7 @@
     {
       "id": "SEC-T06",
       "title": "Approval binding tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -163,7 +163,7 @@
     {
       "id": "SEC-T07",
       "title": "Transition event schema add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -179,7 +179,7 @@
     {
       "id": "SEC-T08",
       "title": "Transition trace consistency tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -195,7 +195,7 @@
     {
       "id": "SEC-T09",
       "title": "Append-oriented audit minimum document and tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -327,15 +327,15 @@
     "SEC-T15"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T16:31:38+02:00",
+    "updated_at": "2026-04-25T16:38:54+02:00",
     "total": 15,
     "by_status": {
-      "todo": 12,
+      "todo": 6,
       "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 9
     },
-    "progress_percent_done": 20.0,
+    "progress_percent_done": 60.0,
     "by_priority": {
       "P0": 13,
       "P1": 2,
@@ -350,19 +350,19 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 2,
-      "remaining": 11
+      "done": 7,
+      "remaining": 6
     },
     "milestones": {
       "total": 5,
-      "todo": 4,
+      "todo": 2,
       "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 3
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T16:31:38+02:00",
+    "updated_at": "2026-04-25T16:38:54+02:00",
     "stages": {
       "SEC-M1": {
         "title": "State ownership and invariant model",
@@ -377,8 +377,8 @@
         "title": "Policy gatekeeper and bypass tests",
         "scope_task_ids": ["SEC-T04", "SEC-T05", "SEC-T06"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -386,8 +386,8 @@
         "title": "Transition traceability and audit minimum",
         "scope_task_ids": ["SEC-T07", "SEC-T08", "SEC-T09"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -412,14 +412,15 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T16:31:38+02:00",
+    "checked_at": "2026-04-25T16:38:54+02:00",
     "internal_consistency": "validated_and_extended",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=1, high=6, critical=8).",
       "execution_stage_summary wurde ergänzt, damit Milestone-Rollups transparent und maschinenlesbar sind.",
       "updated_at/checked_at wurden auf den aktuellen Analysezeitpunkt gesetzt.",
       "Keine fehlenden Task-Referenzen in milestones, depends_on oder critical_path_tasks gefunden.",
-      "Bundle SEC-M1 wurde umgesetzt: state_ownership matrix/docs und zugehoerige Validierungstests sind vorhanden."
+      "Bundle SEC-M1 wurde umgesetzt: state_ownership matrix/docs und zugehoerige Validierungstests sind vorhanden.",
+      "Bundles SEC-M2 und SEC-M3 wurden umgesetzt: Gatekeeper-Doku, Bypass-/Approval-Binding-Tests, Transition-Event-Schema sowie Trace-/Audit-Minimum-Tests sind vorhanden."
     ]
   },
   "summary_notes": [
@@ -428,7 +429,8 @@
     "KRITIS can later extend these invariants with RBAC, SSO, tenancy, signed audit, WORM storage, SIEM export and regulated evidence packages.",
     "This track should run after client runtime tests and before large domain integrations create additional execution paths.",
     "Status counters and milestone stage rollups are now synchronized and explicitly documented.",
-    "SEC-M1 is implemented as the first completed bundle and establishes the ownership baseline for follow-up policy and trace tasks."
+    "SEC-M1 is implemented as the first completed bundle and establishes the ownership baseline for follow-up policy and trace tasks.",
+    "SEC-M2 and SEC-M3 now enforce policy/approval/trace/audit invariants across normal, retry, repair and domain-action execution surfaces."
   ],
   "end_summaries": [
     {
@@ -459,8 +461,8 @@
       "summary_id": "SEC-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 12 todo, 0 in_progress, 0 blocked, 3 done (20.0%).",
-        "SEC-M1 ist done; verbleibend sind SEC-M2 bis SEC-M5 mit unveränderter kritischer Pfadlänge von 13 Tasks (2 erledigt, 11 offen)."
+        "Aktueller Umsetzungsstand: 6 todo, 0 in_progress, 0 blocked, 9 done (60.0%).",
+        "SEC-M1 bis SEC-M3 sind done; verbleibend sind SEC-M4 und SEC-M5 mit kritischer Pfadlänge 13 (7 erledigt, 6 offen)."
       ]
     }
   ]

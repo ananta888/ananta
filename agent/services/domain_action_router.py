@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from agent.services.bridge_adapter_registry import BridgeAdapterRegistry
@@ -121,6 +122,7 @@ class DomainActionRouter:
                 domain_id=normalized_domain,
                 capability_id=normalized_capability,
                 action_id=normalized_action,
+                context_summary=dict(context_summary or {}),
             )
             if approval_state != "approved":
                 return self._result_from_policy(
@@ -166,6 +168,7 @@ class DomainActionRouter:
         domain_id: str,
         capability_id: str,
         action_id: str,
+        context_summary: dict[str, Any] | None = None,
     ) -> str:
         if not isinstance(approval, dict):
             return "missing_approval"
@@ -184,7 +187,71 @@ class DomainActionRouter:
             return "approval_action_mismatch"
         if not reference:
             return "approval_reference_missing"
+        expected_context_hash = DomainActionRouter._extract_expected_context_hash(context_summary or {})
+        if expected_context_hash:
+            approval_context_hash = str(approval.get("context_hash") or "").strip()
+            if not approval_context_hash:
+                return "approval_context_hash_missing"
+            if approval_context_hash != expected_context_hash:
+                return "approval_context_mismatch"
+        if not DomainActionRouter._is_fresh_approval(approval):
+            return "approval_stale"
         return "approved"
+
+    @staticmethod
+    def _extract_expected_context_hash(context_summary: dict[str, Any]) -> str:
+        direct = str(context_summary.get("context_hash") or "").strip()
+        if direct:
+            return direct
+        nested = context_summary.get("context_envelope")
+        if isinstance(nested, dict):
+            nested_hash = str(nested.get("context_hash") or "").strip()
+            if nested_hash:
+                return nested_hash
+        return ""
+
+    @staticmethod
+    def _coerce_timestamp(value: Any) -> float | None:
+        if isinstance(value, (int, float)):
+            return float(value)
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            return float(text)
+        except ValueError:
+            pass
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            dt = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+
+    @staticmethod
+    def _is_fresh_approval(approval: dict[str, Any]) -> bool:
+        now_ts = datetime.now(tz=timezone.utc).timestamp()
+        expires_ts = DomainActionRouter._coerce_timestamp(
+            approval.get("expires_at") or approval.get("valid_until") or approval.get("expiry")
+        )
+        if expires_ts is not None and now_ts > expires_ts:
+            return False
+
+        approved_at_ts = DomainActionRouter._coerce_timestamp(approval.get("approved_at") or approval.get("issued_at"))
+        max_age_raw = approval.get("max_age_seconds")
+        if approved_at_ts is not None and max_age_raw is not None:
+            try:
+                max_age = float(max_age_raw)
+            except (TypeError, ValueError):
+                return False
+            if max_age < 0:
+                return False
+            if (now_ts - approved_at_ts) > max_age:
+                return False
+        return True
 
     @staticmethod
     def _result_from_policy(
@@ -206,4 +273,3 @@ class DomainActionRouter:
             action_id=decision.action_id,
             details=details,
         )
-
