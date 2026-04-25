@@ -96,7 +96,7 @@ docker --version
 docker compose version
 python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
 python devtools/validate_todo_schema.py
-python scripts/validate_todo_consistency.py --todo todo.json
+python scripts/validate_todo_consistency.py --todo todo_last.json
 ```
 
 The two builds are acceptable when the gate passes in both clean checkouts and both reports show all checks as `ok: true`.
