@@ -1,0 +1,5 @@
+ananta web ui
+screen: dashboard
+run_id: <RUN_ID>
+status: healthy
+widget: goals=1

@@ -110,6 +110,27 @@ Each run emits a JSON report at:
 - keep optional video capture disabled unless explicitly enabled
 - publish report and key snapshots/screenshots as artifacts
 
+## Reference commands
+
+Generate deterministic snapshots in mocked mode:
+
+- `python3 scripts/run_e2e_dogfood_checks.py`
+- `python3 scripts/e2e/capture_tui.py`
+- `python3 scripts/e2e/capture_web_ui.py`
+
+Generate aggregate reports:
+
+- `python3 scripts/e2e/generate_e2e_report.py`
+
+Run release gate with integrated E2E evidence:
+
+- `python3 scripts/run_release_gate.py --strict`
+
+Optional video capture (non-blocking):
+
+- `python3 scripts/e2e/record_tui_demo.py --enable`
+- `python3 scripts/e2e/record_web_demo.py --enable`
+
 ## Extension guidance
 
 Future Blender/FreeCAD/KiCad integrations should reuse:

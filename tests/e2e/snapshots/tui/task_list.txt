@@ -1,0 +1,6 @@
+ananta tui
+screen_id: <SCREEN_ID>
+run_id: <RUN_ID>
+tasks: 1
+selected_task: task-tui-smoke
+state: actionable
