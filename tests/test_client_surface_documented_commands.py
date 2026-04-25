@@ -35,3 +35,9 @@ def test_eclipse_docs_include_build_and_smoke_commands_with_existing_scripts() -
     assert (ROOT / "scripts/build_eclipse_runtime_plugin.py").exists()
     assert (ROOT / "scripts/smoke_eclipse_runtime_bootstrap.py").exists()
     assert (ROOT / "scripts/smoke_eclipse_runtime_headless.py").exists()
+
+
+def test_release_docs_include_consolidated_client_surface_test_gate_command() -> None:
+    release_guide = _read_doc("docs/release-golden-path.md")
+    assert "python3 scripts/run_client_surface_test_gate.py --out ci-artifacts/client-surface-test-gate.json" in release_guide
+    assert (ROOT / "scripts/run_client_surface_test_gate.py").exists()

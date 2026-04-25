@@ -40,6 +40,10 @@ Headless hardening smoke (runs runtime bootstrap smoke + Java runtime tests + au
 
 `python3 scripts/smoke_eclipse_runtime_headless.py`
 
+Operator smoke checklist:
+
+`docs/eclipse-runtime-smoke-checklist.md`
+
 ## Security and Governance Notes
 
 - Token values are excluded from profile persistence maps.

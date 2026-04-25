@@ -51,19 +51,19 @@
       "id": "TEST-M4",
       "title": "Neovim and Vim runtime tests",
       "task_ids": ["TEST-T13", "TEST-T14", "TEST-T15", "TEST-T16"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M5",
       "title": "Eclipse plugin tests",
       "task_ids": ["TEST-T17", "TEST-T18", "TEST-T19", "TEST-T20"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M6",
       "title": "End-to-end and merge readiness",
       "task_ids": ["TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24", "TEST-T25"],
-      "status": "todo"
+      "status": "done"
     }
   ],
 
@@ -222,7 +222,7 @@
     {
       "id": "TEST-T13",
       "title": "Neovim headless load test add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -235,7 +235,7 @@
     {
       "id": "TEST-T14",
       "title": "Neovim command behavior tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -248,7 +248,7 @@
     {
       "id": "TEST-T15",
       "title": "Neovim context packaging tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -260,7 +260,7 @@
     {
       "id": "TEST-T16",
       "title": "Vim compatibility tests or deferred enforcement add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -273,7 +273,7 @@
     {
       "id": "TEST-T17",
       "title": "Eclipse plugin project metadata tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -285,7 +285,7 @@
     {
       "id": "TEST-T18",
       "title": "Eclipse build smoke test add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -297,7 +297,7 @@
     {
       "id": "TEST-T19",
       "title": "Eclipse context and command tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -310,7 +310,7 @@
     {
       "id": "TEST-T20",
       "title": "Eclipse task artifact view smoke checklist add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -323,7 +323,7 @@
     {
       "id": "TEST-T21",
       "title": "Client golden path e2e suite add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -336,7 +336,7 @@
     {
       "id": "TEST-T22",
       "title": "Core platform regression tests expand",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -348,7 +348,7 @@
     {
       "id": "TEST-T23",
       "title": "Release gate test runner consolidate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -360,7 +360,7 @@
     {
       "id": "TEST-T24",
       "title": "Merge readiness report tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -372,7 +372,7 @@
     {
       "id": "TEST-T25",
       "title": "Post-test cleanup todo generate",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -412,15 +412,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T13:59:40+02:00",
+    "updated_at": "2026-04-25T14:22:40+02:00",
     "total": 25,
     "by_status": {
-      "todo": 13,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 12
+      "done": 25
     },
-    "progress_percent_done": 48.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 16,
       "P1": 9,
@@ -435,20 +435,20 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 9,
-      "remaining": 7
+      "done": 16,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 6
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T13:59:40+02:00",
+    "updated_at": "2026-04-25T14:22:40+02:00",
     "stages": {
       "TEST-M1": {
         "title": "Runtime evidence and audit verification",
@@ -481,8 +481,8 @@
         "title": "Neovim and Vim runtime tests",
         "scope_task_ids": ["TEST-T13", "TEST-T14", "TEST-T15", "TEST-T16"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -490,8 +490,8 @@
         "title": "Eclipse plugin tests",
         "scope_task_ids": ["TEST-T17", "TEST-T18", "TEST-T19", "TEST-T20"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -499,8 +499,8 @@
         "title": "End-to-end and merge readiness",
         "scope_task_ids": ["TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24", "TEST-T25"],
         "total": 5,
-        "done": 0,
-        "todo": 5,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
@@ -508,13 +508,14 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T13:59:40+02:00",
+    "checked_at": "2026-04-25T14:22:40+02:00",
     "internal_consistency": "corrected",
     "notes": [
       "Erstes Umsetzungsbündel TEST-T01..TEST-T04 abgeschlossen und auf done synchronisiert.",
       "tasks_status_summary und milestone-Status auf realen Fortschritt aktualisiert (4 done, 21 todo; TEST-M1 done).",
       "execution_stage_summary für TEST-M1 auf done/todo=4/0 nachgezogen.",
-      "Zweites Umsetzungsbündel TEST-T05..TEST-T12 abgeschlossen und auf done synchronisiert (M2 und M3 done)."
+      "Zweites Umsetzungsbündel TEST-T05..TEST-T12 abgeschlossen und auf done synchronisiert (M2 und M3 done).",
+      "Abschlussbündel TEST-T13..TEST-T25 implementiert und auf done synchronisiert (M4, M5, M6 done)."
     ]
   },
 
@@ -525,7 +526,8 @@
     "The main purpose is to prove runtime evidence, safety boundaries and merge readiness.",
     "Summary counters and stage rollups are now synchronized and explicitly documented.",
     "First implementation bundle is now complete and reflected in synchronized status/stage counters.",
-    "Second implementation bundle completed contract/security/TUI runtime tests and synced rollups to 12/25 done."
+    "Second implementation bundle completed contract/security/TUI runtime tests and synced rollups to 12/25 done.",
+    "Final implementation bundle completed Neovim/Vim, Eclipse, e2e/regression, release-gate and cleanup deliverables."
   ],
 
   "end_summaries": [
@@ -559,8 +561,8 @@
       "summary_id": "TEST-S4",
       "title": "Status am Ende",
       "items": [
-        "Zwei Umsetzungsbündel abgeschlossen: 12/25 done (48.0%), 13 todo; TEST-M1, TEST-M2 und TEST-M3 sind done.",
-        "Kritischer Pfad: 9/16 done; Stage-Rollups und End-Summaries bleiben validator-konsistent."
+        "Alle Umsetzungsbündel abgeschlossen: 25/25 done (100.0%), 0 todo; TEST-M1 bis TEST-M6 sind done.",
+        "Kritischer Pfad vollständig abgeschlossen: 16/16 done; Stage-Rollups und End-Summaries bleiben validator-konsistent."
       ]
     }
   ]

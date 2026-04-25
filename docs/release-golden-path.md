@@ -71,6 +71,18 @@ The command also runs `scripts/audit_client_surface_entrypoints.py` and writes t
 
 `ci-artifacts/client-surface-release-gate.json`
 
+Client runtime consolidated test gate (audit + unit/contract + smoke):
+
+```bash
+python3 scripts/run_client_surface_test_gate.py --out ci-artifacts/client-surface-test-gate.json
+```
+
+Optional advisory lane (non-blocking, for environments with full Docker/tooling availability):
+
+```bash
+python3 scripts/run_client_surface_test_gate.py --include-advisory --out ci-artifacts/client-surface-test-gate.json
+```
+
 Full local rebuild gate:
 
 ```bash

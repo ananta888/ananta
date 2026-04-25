@@ -85,6 +85,40 @@ def test_audit_enforces_vim_deferred_status_for_crt_t18() -> None:
     assert warnings_with_deferred == []
 
 
+def test_audit_enforces_vim_deferred_status_for_test_t16() -> None:
+    todo_payload = {
+        "tasks": [
+            {"id": "TEST-T16", "status": "done"},
+        ]
+    }
+    done_claims = collect_done_claims(todo_payload)
+    done_task_ids = collect_done_task_ids(todo_payload)
+    surface_reports = {
+        "tui_surface": {"classification": "real_implementation"},
+        "eclipse_plugin": {"classification": "real_implementation"},
+        "eclipse_views_extension": {"classification": "real_implementation"},
+        "nvim_plugin": {"classification": "real_implementation"},
+        "vim_plugin": {"classification": "foundation_only"},
+        "vscode_plugin": {"classification": "real_implementation"},
+    }
+
+    warnings_missing_status = build_blocking_warnings(
+        surface_reports,
+        done_claims,
+        done_task_ids,
+        {},
+    )
+    warnings_with_deferred = build_blocking_warnings(
+        surface_reports,
+        done_claims,
+        done_task_ids,
+        {"vim_plugin": "deferred"},
+    )
+
+    assert "TEST-T16 done requires surface_status.vim_plugin=deferred" in warnings_missing_status
+    assert warnings_with_deferred == []
+
+
 def test_done_claims_include_current_crt_runtime_ranges() -> None:
     todo_payload = {
         "tasks": [
@@ -204,6 +238,25 @@ def test_done_claims_include_vscode_runtime_ranges() -> None:
     }
     done_claims = collect_done_claims(todo_payload)
     assert done_claims["vscode_plugin"] == ["VSC-T01", "VSC-T24", "VSC-T36"]
+
+
+def test_done_claims_include_test_track_ranges() -> None:
+    todo_payload = {
+        "tasks": [
+            {"id": "TEST-T13", "status": "done"},
+            {"id": "TEST-T15", "status": "done"},
+            {"id": "TEST-T16", "status": "done"},
+            {"id": "TEST-T17", "status": "done"},
+            {"id": "TEST-T20", "status": "done"},
+        ]
+    }
+
+    done_claims = collect_done_claims(todo_payload)
+
+    assert done_claims["nvim_plugin"] == ["TEST-T13", "TEST-T15"]
+    assert done_claims["vim_plugin"] == []
+    assert done_claims["eclipse_plugin"] == ["TEST-T17", "TEST-T20"]
+    assert done_claims["eclipse_views_extension"] == ["TEST-T20"]
 
 
 def test_generate_report_fails_for_skeleton_only_runtime_claims(tmp_path) -> None:

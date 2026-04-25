@@ -144,9 +144,9 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
 
 DONE_CLAIM_RULES: dict[str, list[tuple[str, int, int]]] = {
     "tui_surface": [("CSH-T", 5, 10), ("TVM-T", 29, 38), ("CRT-T", 9, 13)],
-    "eclipse_plugin": [("CSH-T", 11, 17), ("EAC-T", 33, 58)],
-    "eclipse_views_extension": [("ECL-T", 27, 50), ("EAC-T", 45, 53)],
-    "nvim_plugin": [("TVM-T", 13, 22), ("CRT-T", 14, 17), ("CRT-T", 19, 19)],
+    "eclipse_plugin": [("CSH-T", 11, 17), ("EAC-T", 33, 58), ("TEST-T", 17, 20)],
+    "eclipse_views_extension": [("ECL-T", 27, 50), ("EAC-T", 45, 53), ("TEST-T", 19, 20)],
+    "nvim_plugin": [("TVM-T", 13, 22), ("CRT-T", 14, 17), ("CRT-T", 19, 19), ("TEST-T", 13, 15)],
     "vim_plugin": [("TVM-T", 23, 28)],
     "vscode_plugin": [("VSC-T", 1, 36)],
 }
@@ -280,10 +280,12 @@ def build_blocking_warnings(
                     f"{done_claims[surface_name]}"
                 )
             )
-    if "CRT-T18" in done_task_ids:
+    for vim_gate_task in ("CRT-T18", "TEST-T16"):
+        if vim_gate_task not in done_task_ids:
+            continue
         vim_status = surface_status.get("vim_plugin", "")
         if vim_status != "deferred":
-            warnings.append("CRT-T18 done requires surface_status.vim_plugin=deferred")
+            warnings.append(f"{vim_gate_task} done requires surface_status.vim_plugin=deferred")
     return warnings
 
 

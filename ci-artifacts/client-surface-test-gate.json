@@ -1,0 +1,59 @@
+{
+  "schema": "client_surface_test_gate_v1",
+  "blocking": {
+    "ok": true,
+    "checks": [
+      {
+        "name": "audit-runtime-claims",
+        "ok": true,
+        "returncode": 0,
+        "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/audit_client_surface_entrypoints.py --todo todo.json --fail-on-warning",
+        "output_tail": " \"classification\": \"real_implementation\",\n      \"runtime_evidence\": [\n        \".github/workflows/quality-and-docs.yml\",\n        \"client_surfaces/vscode_extension/package.json\",\n        \"client_surfaces/vscode_extension/src/runtime/backendClient.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/capabilityGate.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/contextCapture.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/redaction.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/resultLinks.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/secretStore.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/settings.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/types.ts\",\n        \"client_surfaces/vscode_extension/src/runtime/webFallback.ts\",\n        \"client_surfaces/vscode_extension/src/views/sidebarProviders.ts\",\n        \"client_surfaces/vscode_extension/src/views/statusTreeProvider.ts\"\n      ],\n      \"foundation_evidence\": [\n        \"docs/vscode-extension-architecture.md\",\n        \"docs/vscode-plugin-scope-boundary.md\",\n        \"tests/test_vscode_extension_bootstrap.py\"\n      ],\n      \"docs_evidence\": [\n        \"docs/vscode-extension-build-and-package.md\",\n        \"docs/vscode-extension-developer-smoke-checklist.md\",\n        \"docs/vscode-extension-user-guide.md\"\n      ]\n    }\n  },\n  \"surface_status\": {\n    \"tui_surface\": \"runtime_mvp\",\n    \"nvim_plugin\": \"runtime_mvp\",\n    \"vim_plugin\": \"deferred\",\n    \"eclipse_plugin\": \"runtime_mvp\",\n    \"eclipse_views_extension\": \"runtime_mvp\",\n    \"vscode_plugin\": \"runtime_mvp\"\n  },\n  \"done_claims\": {\n    \"tui_surface\": [],\n    \"eclipse_plugin\": [\n      \"TEST-T17\",\n      \"TEST-T18\",\n      \"TEST-T19\",\n      \"TEST-T20\"\n    ],\n    \"eclipse_views_extension\": [\n      \"TEST-T19\",\n      \"TEST-T20\"\n    ],\n    \"nvim_plugin\": [\n      \"TEST-T13\",\n      \"TEST-T14\",\n      \"TEST-T15\"\n    ],\n    \"vim_plugin\": [],\n    \"vscode_plugin\": []\n  },\n  \"blocking_warnings\": [],\n  \"ok\": true\n}"
+      },
+      {
+        "name": "client-runtime-pytest",
+        "ok": true,
+        "returncode": 0,
+        "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m pytest -q tests/test_client_surface_api_contracts.py tests/test_client_surface_security_contracts.py tests/test_client_surface_runtime_inventory_evidence.py tests/test_tui_runtime_app.py tests/test_nvim_runtime_surface.py tests/test_nvim_runtime_bridge_contract.py tests/test_eclipse_runtime_bootstrap.py tests/test_client_surface_golden_path_smoke.py tests/test_client_surface_core_regressions.py tests/test_client_surface_merge_readiness_report.py tests/test_client_surface_post_test_cleanup_todo.py tests/test_release_gate_contract.py",
+        "output_tail": "============================= test session starts ==============================\nplatform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0\nrootdir: /mnt/c/Users/pst/IdeaProjects/ananta\nconfigfile: pyproject.toml\nplugins: anyio-4.13.0, cov-7.1.0\ncollected 61 items\n\ntests/test_client_surface_api_contracts.py ....                          [  6%]\ntests/test_client_surface_security_contracts.py .......                  [ 18%]\ntests/test_client_surface_runtime_inventory_evidence.py ...              [ 22%]\ntests/test_tui_runtime_app.py ...............                            [ 47%]\ntests/test_nvim_runtime_surface.py ....                                  [ 54%]\ntests/test_nvim_runtime_bridge_contract.py .....                         [ 62%]\ntests/test_eclipse_runtime_bootstrap.py ..........                       [ 78%]\ntests/test_client_surface_golden_path_smoke.py .                         [ 80%]\ntests/test_client_surface_core_regressions.py ....                       [ 86%]\ntests/test_client_surface_merge_readiness_report.py ...                  [ 91%]\ntests/test_client_surface_post_test_cleanup_todo.py ..                   [ 95%]\ntests/test_release_gate_contract.py ...                                  [100%]\n\n============================= 61 passed in 58.90s =============================="
+      },
+      {
+        "name": "smoke-tui-runtime",
+        "ok": true,
+        "returncode": 0,
+        "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/smoke_tui_runtime.py",
+        "output_tail": "tui-runtime-smoke-ok"
+      },
+      {
+        "name": "smoke-nvim-runtime",
+        "ok": true,
+        "returncode": 0,
+        "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/smoke_nvim_runtime.py",
+        "output_tail": "nvim-runtime-smoke-skipped:nvim-not-found"
+      },
+      {
+        "name": "smoke-eclipse-bootstrap",
+        "ok": true,
+        "returncode": 0,
+        "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/smoke_eclipse_runtime_bootstrap.py",
+        "output_tail": "eclipse-runtime-bootstrap-smoke-ok\neclipse-runtime-build-command\ndocker run --rm -v /mnt/c/Users/pst/IdeaProjects/ananta:/workspace -w /workspace/client_surfaces/eclipse_runtime/ananta_eclipse_plugin gradle:8.10.2-jdk17 gradle --no-daemon clean test\neclipse-runtime-build-validate-ok"
+      },
+      {
+        "name": "smoke-client-golden-paths",
+        "ok": true,
+        "returncode": 0,
+        "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/smoke_client_golden_paths.py",
+        "output_tail": "client-golden-path-smoke-ok\n{\n  \"schema\": \"client_surface_golden_path_smoke_v1\",\n  \"results\": [\n    {\n      \"path\": \"tui\",\n      \"ok\": true,\n      \"goal_response\": {\n        \"state\": \"healthy\",\n        \"status_code\": 201,\n        \"data\": {\n          \"goal_id\": \"G-3\",\n          \"task_id\": \"T-3\",\n          \"accepted\": true,\n          \"mode\": null\n        }\n      },\n      \"tasks_count\": 3,\n      \"artifacts_count\": 2\n    },\n    {\n      \"path\": \"nvim\",\n      \"ok\": true,\n      \"returncode\": 0,\n      \"response\": {\n        \"ok\": true,\n        \"status_code\": 200,\n        \"state\": \"healthy\",\n        \"data\": {\n          \"goal_id\": \"goal-nvim-fixture\",\n          \"task_id\": \"task-nvim-goal-1\",\n          \"browser_url\": \"http://localhost:8080/goals/goal-nvim-fixture\"\n        },\n        \"error\": null,\n        \"retriable\": false\n      },\n      \"stderr\": \"\"\n    },\n    {\n      \"path\": \"eclipse\",\n      \"ok\": true,\n      \"status\": \"runtime_mvp\",\n      \"detail\": \"runtime_mvp declared with command registry and headless smoke evidence path\"\n    }\n  ],\n  \"ok\": true,\n  \"failures\": []\n}"
+      }
+    ]
+  },
+  "advisory": {
+    "executed": false,
+    "ok": true,
+    "checks": [],
+    "notes": [
+      "Advisory checks are non-blocking and may require additional local tooling (for example Docker)."
+    ]
+  },
+  "ok": true
+}
