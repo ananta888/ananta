@@ -352,6 +352,60 @@
         "todo": 1,
         "in_progress": 0,
         "blocked": 0
+      },
+      "TEST-M1": {
+        "title": "Compatibility stage 1",
+        "scope_task_ids": ["PG-T01", "PG-T02"],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M2": {
+        "title": "Compatibility stage 2",
+        "scope_task_ids": ["PG-T03", "PG-T04"],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M3": {
+        "title": "Compatibility stage 3",
+        "scope_task_ids": ["PG-T05", "PG-T06"],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M4": {
+        "title": "Compatibility stage 4",
+        "scope_task_ids": ["PG-T07", "PG-T08"],
+        "total": 2,
+        "done": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 2
+      },
+      "TEST-M5": {
+        "title": "Compatibility stage 5",
+        "scope_task_ids": ["PG-T09", "PG-T10"],
+        "total": 2,
+        "done": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "blocked": 1
+      },
+      "TEST-M6": {
+        "title": "Compatibility stage 6",
+        "scope_task_ids": ["PG-T11", "PG-T12"],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
       }
     }
   },
@@ -361,7 +415,8 @@
     "notes": [
       "Stale references to missing todo.security.json and todo.ananta-worker.json were replaced with explicit KRITIS gating task references.",
       "Milestone-level execution_stage_summary was added and synchronized with task statuses.",
-      "Cross-track dependency mapping/validation was added as PG-T12 to reduce future track drift."
+      "Cross-track dependency mapping/validation was added as PG-T12 to reduce future track drift.",
+      "Compatibility stage aliases TEST-M1..TEST-M6 were added for test-track tooling expectations."
     ]
   },
   "summary_notes": [
