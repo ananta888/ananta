@@ -1,346 +1,730 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "creative_cad_eda_domain_foundation",
-  "purpose": "Create a shared pre-foundation for Blender, FreeCAD and KiCad domains after the generic domain integration foundation. This track defines common safety language, domain descriptors, capability conventions, artifact families, RAG source conventions and correctness gates without implementing full runtime plugins.",
+  "track": "ananta_native_coding_worker",
+  "purpose": "Design and implement an Ananta-native optimized coding and shell worker that combines the best ideas from Aider, OpenCode, ShellGPT, GitHub Copilot CLI and similar tools while remaining policy-aware, RAG-aware, artifact-first, approval-gated and Hub-controlled. External tools may be used as optional adapters or inspiration, but the worker core must be owned by Ananta.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Prepare Blender, FreeCAD and KiCad as honest, conservative Ananta domains so the later Blender plugin and future CAD/EDA integrations can share generic contracts while keeping correctness, approval and audit boundaries explicit.",
+  "goal": "Create a native Ananta worker that can plan code changes, propose patches, run bounded tests, generate shell command plans, create artifacts, verify results and optionally invoke external coding tools through controlled adapters without bypassing Hub policy, approval or audit.",
   "non_goals": [
-    "Do not implement full Blender, FreeCAD or KiCad runtime plugins in this track.",
-    "Do not enable mutating CAD/EDA operations by default.",
-    "Do not claim runtime_mvp for FreeCAD or KiCad.",
-    "Do not merge FreeCAD and KiCad into one plugin implementation.",
-    "Do not bypass the generic domain foundation."
+    "Do not fork ShellGPT, Aider, OpenCode or Copilot CLI as the core Ananta worker.",
+    "Do not make any external coding CLI a required dependency for the OSS golden path.",
+    "Do not let the worker create its own orchestration, approval or policy decisions.",
+    "Do not execute arbitrary shell commands without policy evaluation and approval where required.",
+    "Do not apply patches directly to the main working tree without explicit approval and trace metadata.",
+    "Do not copy incompatible licensed code from other projects without review.",
+    "Do not turn this worker into a separate autonomous product disconnected from Ananta contracts."
   ],
   "success_criteria": [
-    "Blender, FreeCAD and KiCad have consistent planned/foundation domain descriptors.",
-    "Each domain has conservative capability names and default policy classification.",
-    "Common artifact families are defined for findings, plans, previews, exports and execution reports.",
-    "RAG source profile conventions exist for docs, source code, examples and domain references.",
-    "FreeCAD and KiCad are marked stricter than Blender for correctness and mutation gates.",
-    "Release gates can prevent descriptor-only domains from being treated as runtime-ready."
+    "Worker accepts Task, ContextEnvelope, capability, policy decision and execution constraints from the Hub.",
+    "Worker can produce PlanArtifact, PatchArtifact, CommandPlanArtifact, TestResultArtifact and VerificationArtifact.",
+    "Worker can propose code patches using bounded context and codecompass/rag_helper retrieval references.",
+    "Worker can apply patches only in an isolated worktree/sandbox and only after approval when policy requires it.",
+    "Worker can run allow-listed tests/commands and capture stdout/stderr/exit codes as artifacts.",
+    "Worker can generate ShellGPT-style command explanations/plans without executing by default.",
+    "Worker supports optional adapters for Aider, OpenCode, ShellGPT-like command helpers and GitHub Copilot CLI without making them core dependencies.",
+    "All worker results include provenance, hashes, trace IDs, model/provider metadata where applicable and reproducibility hints.",
+    "E2E dogfood tests prove a tiny repo patch flow, failing-test repair flow, denied-command flow and approval-gated apply flow."
   ],
   "architecture_guardrails": [
-    "Use todo.more-generic.json mechanisms instead of creating separate backend frameworks.",
-    "Blender can be creative and preview-oriented; FreeCAD and KiCad require stricter correctness gates.",
-    "Mutating operations are default-deny unless a later domain-specific track explicitly enables them.",
-    "Read-only analysis and planning are the initial safe capabilities for all three domains.",
-    "All RAG ingestion must go through codecompass/rag_helper profiles.",
-    "All future plugins or bridges remain thin clients/bridges controlled by the Ananta Hub."
+    "Hub owns Goal -> Plan -> Task -> Execution -> Verification -> Artifact orchestration.",
+    "Worker executes only tasks delegated by the Hub and must return artifacts, not hidden side effects.",
+    "Worker never evaluates final policy itself; it consumes policy decisions and enforces constraints passed by Hub.",
+    "Worker may perform local safety checks, but local checks cannot loosen Hub policy.",
+    "All file writes happen in an explicit workspace/worktree and are represented as patch artifacts before final apply.",
+    "Shell command execution is default-deny unless allow-listed or explicitly approved through Hub policy.",
+    "RAG/code context must arrive through ContextEnvelope or approved retrieval services with provenance.",
+    "External adapters are optional, isolated and capability-declared.",
+    "External tool output is untrusted and must be parsed, validated and converted into Ananta artifacts.",
+    "The worker must degrade cleanly when no LLM or external coding tool is configured."
   ],
+  "inspiration_sources": [
+    {
+      "name": "Aider",
+      "use_as": "inspiration_and_optional_adapter",
+      "ideas": ["git-first workflow", "diff/patch-centered editing", "selected files context", "test-after-change loop", "repo map style relevance"]
+    },
+    {
+      "name": "OpenCode",
+      "use_as": "inspiration_and_optional_adapter",
+      "ideas": ["agentic coding session shape", "tool loop UX ideas", "coding assistant workflow patterns"]
+    },
+    {
+      "name": "ShellGPT",
+      "use_as": "shell_mode_inspiration_and_optional_adapter",
+      "ideas": ["explain shell command", "suggest shell command", "terminal-first UX", "command preview before execution"]
+    },
+    {
+      "name": "GitHub Copilot CLI",
+      "use_as": "optional_experimental_adapter",
+      "ideas": ["bring-your-own-account coding helper", "external CLI provider", "not OSS core dependency"]
+    }
+  ],
+  "planned_repository_layout": {
+    "worker_core": "worker/core/",
+    "worker_coding": "worker/coding/",
+    "worker_shell": "worker/shell/",
+    "worker_adapters": "worker/adapters/",
+    "schemas": "schemas/worker/",
+    "policies": "policies/worker/",
+    "tests": "tests/worker/",
+    "e2e": "tests/e2e/worker/",
+    "docs": "docs/architecture/ananta_native_worker.md"
+  },
   "milestones": [
+    {"id": "AW-M1", "title": "Worker contract and artifact schemas", "task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "status": "todo"},
+    {"id": "AW-M2", "title": "Workspace, sandbox and patch engine", "task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "status": "todo"},
+    {"id": "AW-M3", "title": "RAG-aware coding planner", "task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "status": "todo"},
+    {"id": "AW-M4", "title": "Shell command planning and execution controls", "task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "status": "todo"},
+    {"id": "AW-M5", "title": "Model provider and external tool adapters", "task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "status": "todo"},
+    {"id": "AW-M6", "title": "Verification, audit and reproducibility", "task_ids": ["AW-T23", "AW-T24", "AW-T25", "AW-T26"], "status": "todo"},
+    {"id": "AW-M7", "title": "Tests, E2E dogfood and docs", "task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "status": "todo"},
     {
-      "id": "CCE-M1",
-      "title": "Shared taxonomy and safety baseline",
-      "task_ids": ["CCE-T01", "CCE-T02", "CCE-T03", "CCE-T04"],
-      "status": "done"
-    },
-    {
-      "id": "CCE-M2",
-      "title": "Domain descriptors and capabilities",
-      "task_ids": ["CCE-T05", "CCE-T06", "CCE-T07", "CCE-T08"],
-      "status": "done"
-    },
-    {
-      "id": "CCE-M3",
-      "title": "Common artifacts, RAG and release gates",
-      "task_ids": ["CCE-T09", "CCE-T10", "CCE-T11", "CCE-T12"],
-      "status": "done"
+      "id": "AW-M8",
+      "title": "Controlled autonomous worker loop",
+      "task_ids": ["AW-T33", "AW-T34", "AW-T35", "AW-T36"],
+      "status": "todo"
     }
   ],
   "tasks": [
     {
-      "id": "CCE-T01",
-      "title": "Creative CAD EDA domain taxonomy define",
-      "status": "done",
+      "id": "AW-T01",
+      "title": "Ananta native worker architecture define",
+      "status": "todo",
       "priority": "P0",
-      "risk": "high",
+      "risk": "critical",
       "blocking": true,
       "depends_on": [],
-      "expected_files": ["docs/architecture/creative_cad_eda_domain_taxonomy.md"],
+      "expected_files": ["docs/architecture/ananta_native_worker.md"],
       "acceptance_criteria": [
-        "Document separates creative scene domains, mechanical CAD domains and EDA/PCB domains.",
-        "Document explains why Blender can tolerate preview-heavy iteration while FreeCAD and KiCad require stricter correctness gates.",
-        "Document defines shared terms: context, finding, plan, preview, export, mutation, execution report and verification artifact."
+        "Document defines worker as Ananta-native, Hub-controlled and artifact-first.",
+        "Document distinguishes native worker core, shell mode, coding mode and optional external adapters.",
+        "Document explains why Aider/OpenCode/ShellGPT/Copilot CLI are inspiration or optional adapters, not the worker core.",
+        "Document maps worker operations to Policy, Approval, Audit, ContextEnvelope and TraceBundle."
       ]
     },
     {
-      "id": "CCE-T02",
-      "title": "Shared safety baseline define",
-      "status": "done",
+      "id": "AW-T02",
+      "title": "Worker execution request schema define",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
-      "depends_on": ["CCE-T01"],
-      "expected_files": ["docs/architecture/creative_cad_eda_safety_baseline.md"],
+      "depends_on": ["AW-T01"],
+      "expected_files": ["schemas/worker/worker_execution_request.v1.json"],
       "acceptance_criteria": [
-        "Baseline classifies read-only, planning, preview/export, mutation and script/macro execution operations.",
-        "Baseline marks CAD/EDA mutations as stricter than Blender mutations.",
-        "Baseline requires approval and audit for any file write, model mutation, PCB mutation, script execution or macro execution."
+        "Schema includes task_id, goal_id, trace_id, capability_id, mode, ContextEnvelope reference, policy decision reference, approval reference, workspace constraints and requested outputs.",
+        "Schema distinguishes plan_only, patch_propose, patch_apply, command_plan, command_execute, test_run and verify modes.",
+        "Schema supports required approvals and denied/degraded states.",
+        "Schema does not allow unbounded raw repo access or unlabelled context blobs."
       ]
     },
     {
-      "id": "CCE-T03",
-      "title": "Common capability naming conventions define",
-      "status": "done",
+      "id": "AW-T03",
+      "title": "Worker result and artifact schemas define",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["CCE-T02"],
-      "expected_files": ["docs/architecture/domain_capability_naming.md"],
+      "depends_on": ["AW-T02"],
+      "expected_files": ["schemas/worker/worker_execution_result.v1.json", "schemas/worker/patch_artifact.v1.json", "schemas/worker/command_plan_artifact.v1.json", "schemas/worker/test_result_artifact.v1.json", "schemas/worker/verification_artifact.v1.json"],
       "acceptance_criteria": [
-        "Capability naming conventions cover domain.resource.action format such as blender.scene.read, freecad.document.read and kicad.drc.plan.",
-        "Naming distinguishes plan from execute and read from mutate.",
-        "Document provides initial capability examples for Blender, FreeCAD and KiCad."
+        "Result schema captures status, produced artifacts, stdout/stderr refs, exit code, error class, trace IDs and reproducibility metadata.",
+        "Patch artifact includes target files, diff, patch hash, base commit/ref, risk classification and expected effects.",
+        "Command plan artifact includes command, explanation, risk, required approval, working directory and expected effects.",
+        "Test/verification artifacts capture command, exit code, output summary, failure hints and links to logs."
       ]
     },
     {
-      "id": "CCE-T04",
-      "title": "Correctness gate levels define",
-      "status": "done",
+      "id": "AW-T04",
+      "title": "Worker capability pack define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T02"],
+      "expected_files": ["domains/ananta_worker/capabilities.json", "policies/worker/worker_policy.v1.json"],
+      "acceptance_criteria": [
+        "Capabilities include worker.code.plan, worker.patch.propose, worker.patch.apply, worker.test.run, worker.command.plan, worker.command.execute and worker.verify.result.",
+        "Patch apply and command execute are approval-required or default-deny by default.",
+        "Capabilities align with todo.security.json and todo.more-generic.json conventions.",
+        "Policy pack denies unknown or unclassified operations."
+      ]
+    },
+    {
+      "id": "AW-T05",
+      "title": "Worker workspace model define",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
-      "depends_on": ["CCE-T02"],
-      "expected_files": ["schemas/domain/correctness_gate_level.v1.json", "docs/architecture/correctness_gates.md"],
+      "depends_on": ["AW-T02"],
+      "expected_files": ["docs/architecture/worker_workspace_model.md", "schemas/worker/workspace_constraints.v1.json"],
       "acceptance_criteria": [
-        "Gate levels distinguish creative_preview, reversible_scene_change, mechanical_model_change, pcb_design_change and production_export.",
-        "FreeCAD and KiCad default to stricter levels for mutation and production export.",
-        "Gate levels can be referenced by domain policy packs and approval metadata."
+        "Workspace model defines allowed roots, temporary worktrees, read-only inputs, writable outputs and cleanup behavior.",
+        "Model forbids direct writes to main working tree unless explicitly approved and routed through apply logic.",
+        "Workspace constraints include max files, max bytes, allowed commands and allowed output paths.",
+        "Document explains local developer usage versus CI/test usage."
       ]
     },
     {
-      "id": "CCE-T05",
-      "title": "Blender foundation descriptor align",
-      "status": "done",
+      "id": "AW-T06",
+      "title": "Git worktree sandbox implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T05"],
+      "expected_files": ["worker/core/workspace.py", "worker/coding/worktree_sandbox.py", "tests/worker/test_worktree_sandbox.py"],
+      "acceptance_criteria": [
+        "Worker can create isolated temp worktree for patch proposal and test runs.",
+        "Worker records base ref/commit and changed files.",
+        "Worker cleanup is safe and testable.",
+        "Tests verify patch operations do not modify the original working tree unless apply is explicitly invoked."
+      ]
+    },
+    {
+      "id": "AW-T07",
+      "title": "Patch planner and diff builder implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T06", "AW-T03"],
+      "expected_files": ["worker/coding/patch_planner.py", "worker/coding/diff_builder.py", "tests/worker/test_patch_planner.py"],
+      "acceptance_criteria": [
+        "Patch planner can create a plan artifact before any file write.",
+        "Diff builder produces unified diffs from sandbox changes.",
+        "Patch artifact includes patch hash, file list, expected effects and RAG/context refs.",
+        "Tests cover add, modify, delete, malformed patch and empty patch cases."
+      ]
+    },
+    {
+      "id": "AW-T08",
+      "title": "Approval-gated patch apply implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T07", "AW-T04"],
+      "expected_files": ["worker/coding/patch_apply.py", "tests/worker/test_patch_apply_approval.py"],
+      "acceptance_criteria": [
+        "Patch apply requires matching approval reference when policy requires approval.",
+        "Approval binding includes patch hash, task id, capability id and context hash.",
+        "Stale, mismatched or missing approval prevents apply.",
+        "Apply result records changed files and artifact references."
+      ]
+    },
+    {
+      "id": "AW-T09",
+      "title": "Patch rollback and failure handling add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["AW-T08"],
+      "expected_files": ["worker/coding/rollback.py", "tests/worker/test_patch_failure_handling.py"],
+      "acceptance_criteria": [
+        "Worker can report partial apply failures without hiding changed state.",
+        "Worker can provide rollback guidance or reset sandbox state where safe.",
+        "Failure artifacts include enough detail for repair planning.",
+        "Tests cover patch conflict and invalid target state."
+      ]
+    },
+    {
+      "id": "AW-T10",
+      "title": "RAG-aware file selection service implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T02"],
+      "expected_files": ["worker/coding/file_selection.py", "tests/worker/test_rag_file_selection.py"],
+      "acceptance_criteria": [
+        "Service selects candidate files/symbols from ContextEnvelope and codecompass/rag_helper refs.",
+        "Selection returns reasons and source provenance.",
+        "Selection respects max file/count/byte limits.",
+        "Selection can degrade to explicit user-provided files when RAG is unavailable."
+      ]
+    },
+    {
+      "id": "AW-T11",
+      "title": "Coding prompt assembly implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T10"],
+      "expected_files": ["worker/coding/prompt_assembly.py", "tests/worker/test_coding_prompt_assembly.py"],
+      "acceptance_criteria": [
+        "Prompt assembly includes task, constraints, selected files, relevant symbols, policies, expected output schema and forbidden actions.",
+        "Prompt assembly records prompt template version and context hash.",
+        "Prompt does not include unbounded full repo dumps.",
+        "Tests verify redaction and bounded context behavior."
+      ]
+    },
+    {
+      "id": "AW-T12",
+      "title": "Native model-backed patch proposal implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T07", "AW-T11"],
+      "expected_files": ["worker/coding/native_patch_proposer.py", "tests/worker/test_native_patch_proposer.py"],
+      "acceptance_criteria": [
+        "Native proposer can call configured model provider to produce structured patch proposal or edit plan.",
+        "LLM output is parsed, schema-validated and never blindly applied.",
+        "Invalid output produces degraded/repairable artifact rather than hidden failure.",
+        "Tests use deterministic mocked model output."
+      ]
+    },
+    {
+      "id": "AW-T13",
+      "title": "Deterministic no-LLM coding fallback add",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["CCE-T03", "CCE-T04"],
-      "expected_files": ["domains/blender/domain.json", "domains/blender/capabilities.json"],
+      "depends_on": ["AW-T07"],
+      "expected_files": ["worker/coding/deterministic_fallback.py", "tests/worker/test_no_llm_coding_fallback.py"],
       "acceptance_criteria": [
-        "Blender descriptor uses generic domain foundation fields.",
-        "Blender capabilities align with todo.blender.json and shared naming conventions.",
-        "Descriptor remains honest and does not claim runtime_mvp before addon smoke evidence exists."
+        "Worker can produce useful analysis/plan artifacts when no model is configured.",
+        "Fallback does not claim semantic patch generation when no model is used.",
+        "Result metadata records llm_used=false and fallback_reason.",
+        "Tests verify no-LLM mode remains schema-valid and honest."
       ]
     },
     {
-      "id": "CCE-T06",
-      "title": "FreeCAD foundation descriptor add",
-      "status": "done",
+      "id": "AW-T14",
+      "title": "Shell command plan mode implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["CCE-T03", "CCE-T04"],
-      "expected_files": ["domains/freecad/domain.json", "domains/freecad/capabilities.json"],
+      "depends_on": ["AW-T03", "AW-T04"],
+      "expected_files": ["worker/shell/command_planner.py", "tests/worker/test_command_planner.py"],
       "acceptance_criteria": [
-        "FreeCAD descriptor is planned or foundation_only, not runtime_mvp.",
-        "Initial capabilities include freecad.document.read, freecad.model.inspect, freecad.export.plan and freecad.macro.plan.",
-        "Mutation and macro execution capabilities are present only as default-deny or deferred where useful."
+        "Worker can generate ShellGPT-style command explanations and command plans as artifacts.",
+        "Command plans include explanation, risk, working directory, expected effects and required approval state.",
+        "Command planning does not execute commands by default.",
+        "Tests cover safe command, risky command and malformed request."
       ]
     },
     {
-      "id": "CCE-T07",
-      "title": "KiCad foundation descriptor add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CCE-T03", "CCE-T04"],
-      "expected_files": ["domains/kicad/domain.json", "domains/kicad/capabilities.json"],
-      "acceptance_criteria": [
-        "KiCad descriptor is planned or foundation_only, not runtime_mvp.",
-        "Initial capabilities include kicad.project.read, kicad.erc.plan, kicad.drc.plan, kicad.bom.plan and kicad.export.plan.",
-        "PCB mutation, routing and manufacturing export execution are default-deny or deferred."
-      ]
-    },
-    {
-      "id": "CCE-T08",
-      "title": "Cross-domain capability consistency tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CCE-T05", "CCE-T06", "CCE-T07"],
-      "expected_files": ["tests/test_creative_cad_eda_capabilities.py"],
-      "acceptance_criteria": [
-        "Tests verify capability naming conventions for Blender, FreeCAD and KiCad descriptors.",
-        "Tests verify mutating and execution capabilities are not silently allowed.",
-        "Tests verify descriptor status does not imply runtime readiness."
-      ]
-    },
-    {
-      "id": "CCE-T09",
-      "title": "Common artifact families define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["CCE-T04"],
-      "expected_files": ["schemas/domain/creative_cad_eda_artifact_family.v1.json", "docs/architecture/creative_cad_eda_artifacts.md"],
-      "acceptance_criteria": [
-        "Artifact families cover findings, action plans, script/macro plans, preview renders, export plans, verification reports and execution reports.",
-        "Families can map to Blender, FreeCAD and KiCad-specific artifact schemas later.",
-        "Artifact families include safety classification and expected verification level."
-      ]
-    },
-    {
-      "id": "CCE-T10",
-      "title": "Shared RAG source conventions define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CCE-T01"],
-      "expected_files": ["docs/architecture/creative_cad_eda_rag_sources.md"],
-      "acceptance_criteria": [
-        "Document defines source categories for docs, API docs, source code, examples, plugins/addons, project samples and verification rules.",
-        "Document states that ingestion goes through codecompass/rag_helper only.",
-        "Document includes initial source profile expectations for Blender, FreeCAD and KiCad."
-      ]
-    },
-    {
-      "id": "CCE-T11",
-      "title": "Domain inventory entries add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CCE-T05", "CCE-T06", "CCE-T07"],
-      "expected_files": ["data/domain_runtime_inventory.json"],
-      "acceptance_criteria": [
-        "Inventory includes Blender, FreeCAD and KiCad with honest status and required evidence rules.",
-        "FreeCAD and KiCad do not claim runtime_mvp.",
-        "Blender status remains aligned with todo.blender.json implementation evidence."
-      ]
-    },
-    {
-      "id": "CCE-T12",
-      "title": "Creative CAD EDA release gate hook add",
-      "status": "done",
+      "id": "AW-T15",
+      "title": "Shell command allowlist and denylist implement",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
-      "depends_on": ["CCE-T08", "CCE-T11"],
-      "expected_files": ["tests/test_creative_cad_eda_release_gate.py"],
+      "depends_on": ["AW-T14"],
+      "expected_files": ["worker/shell/command_policy.py", "policies/worker/shell_command_policy.v1.json", "tests/worker/test_shell_command_policy.py"],
       "acceptance_criteria": [
-        "Tests verify release gate fails if FreeCAD or KiCad descriptors claim runtime readiness without smoke evidence.",
-        "Tests verify default-deny capabilities remain denied unless explicitly changed by policy pack.",
-        "Tests verify Blender runtime claims require addon load/context/policy smoke evidence."
+        "Policy classifies commands into safe, approval_required, denied and unknown.",
+        "Dangerous patterns such as destructive filesystem operations are denied or approval-required by default.",
+        "Command policy cannot loosen Hub policy decisions.",
+        "Tests cover allowlist, denylist, unknown command and path escape cases."
+      ]
+    },
+    {
+      "id": "AW-T16",
+      "title": "Approval-gated command execution implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T15"],
+      "expected_files": ["worker/shell/command_executor.py", "tests/worker/test_command_execution_approval.py"],
+      "acceptance_criteria": [
+        "Command execution requires policy allow or matching approval for approval-required commands.",
+        "Executor captures stdout, stderr, exit code, duration and environment summary.",
+        "Executor runs with constrained cwd and environment.",
+        "Tests verify denied command does not execute."
+      ]
+    },
+    {
+      "id": "AW-T17",
+      "title": "Shell explain and repair hints add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["AW-T16"],
+      "expected_files": ["worker/shell/command_explain.py", "worker/shell/command_repair_hints.py"],
+      "acceptance_criteria": [
+        "Worker can explain a command and likely effects without executing it.",
+        "Worker can summarize failure output and suggest next safe commands as plans.",
+        "Repair hints remain plan artifacts unless approved for execution.",
+        "Tests cover failed test command and missing dependency command."
+      ]
+    },
+    {
+      "id": "AW-T18",
+      "title": "Worker model provider interface add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T12"],
+      "expected_files": ["worker/core/model_provider.py", "tests/worker/test_worker_model_provider.py"],
+      "acceptance_criteria": [
+        "Interface supports OpenAI-compatible providers and local providers through configuration.",
+        "Interface records model id, provider, base_url label, timeout and prompt template version in result metadata.",
+        "Interface supports deterministic mock provider for tests.",
+        "Missing provider produces degraded no-LLM mode instead of crash where operation supports fallback."
+      ]
+    },
+    {
+      "id": "AW-T19",
+      "title": "External coding tool adapter interface define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T03", "AW-T04"],
+      "expected_files": ["worker/adapters/coding_tool_base.py", "docs/architecture/external_coding_tool_adapters.md"],
+      "acceptance_criteria": [
+        "Interface defines capabilities, plan, propose_patch, run_tests and optional apply_patch methods.",
+        "Adapters return Ananta artifacts and cannot directly commit/apply changes without approval path.",
+        "Interface declares whether adapter is native, optional, experimental or unavailable.",
+        "Document explains external tool outputs are untrusted."
+      ]
+    },
+    {
+      "id": "AW-T20",
+      "title": "Aider adapter prototype add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["AW-T19"],
+      "expected_files": ["worker/adapters/aider_adapter.py", "tests/worker/test_aider_adapter_contract.py"],
+      "acceptance_criteria": [
+        "Adapter can be disabled when aider is not installed.",
+        "Adapter exposes plan/propose_patch capabilities without becoming required dependency.",
+        "Adapter output is captured and converted to PatchArtifact or degraded result.",
+        "Tests use mocked subprocess calls."
+      ]
+    },
+    {
+      "id": "AW-T21",
+      "title": "ShellGPT-style adapter prototype add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["AW-T19", "AW-T14"],
+      "expected_files": ["worker/adapters/shellgpt_adapter.py", "tests/worker/test_shellgpt_adapter_contract.py"],
+      "acceptance_criteria": [
+        "Adapter is optional and disabled when shellgpt-compatible tool is unavailable.",
+        "Adapter is used only for command explanation/planning by default.",
+        "Adapter cannot execute commands without going through Ananta command executor.",
+        "Tests use mocked subprocess calls."
+      ]
+    },
+    {
+      "id": "AW-T22",
+      "title": "Copilot CLI and OpenCode experimental adapters add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["AW-T19"],
+      "expected_files": ["worker/adapters/copilot_cli_adapter.py", "worker/adapters/opencode_adapter.py", "tests/worker/test_experimental_coding_adapters.py"],
+      "acceptance_criteria": [
+        "Adapters are marked experimental and disabled unless explicitly configured.",
+        "Copilot CLI adapter requires bring-your-own local auth and is never an OSS default dependency.",
+        "OpenCode adapter handles unavailable or archived/upstream-changing tool state gracefully.",
+        "Adapters cannot bypass patch artifact, approval or audit path."
+      ]
+    },
+    {
+      "id": "AW-T23",
+      "title": "Worker verification service implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T16", "AW-T07"],
+      "expected_files": ["worker/core/verification.py", "tests/worker/test_worker_verification.py"],
+      "acceptance_criteria": [
+        "Verification service can evaluate patch/test command results and produce VerificationArtifact.",
+        "Verification distinguishes passed, failed, skipped, degraded and inconclusive.",
+        "Verification records commands, outputs, exit codes and artifact refs.",
+        "Tests cover passing test, failing test and skipped verification."
+      ]
+    },
+    {
+      "id": "AW-T24",
+      "title": "Worker audit and trace metadata implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T03", "AW-T23"],
+      "expected_files": ["worker/core/trace.py", "tests/worker/test_worker_trace_metadata.py"],
+      "acceptance_criteria": [
+        "Worker results include trace_id, task_id, capability_id, context_hash, policy_decision_ref and approval_ref where applicable.",
+        "Patch and command artifacts include stable hashes.",
+        "Trace metadata supports todo.security.json TraceBundle expectations.",
+        "Tests verify missing trace metadata fails for execution-capable paths."
+      ]
+    },
+    {
+      "id": "AW-T25",
+      "title": "Worker redaction and secret hygiene add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T11", "AW-T16", "AW-T24"],
+      "expected_files": ["worker/core/redaction.py", "tests/worker/test_worker_redaction.py"],
+      "acceptance_criteria": [
+        "Worker redacts likely secrets from logs, prompts, command output summaries and visual/e2e reports where practical.",
+        "Worker avoids injecting API keys or tokens into external tool subprocess environments unless explicitly required and allowed.",
+        "Tests include token-like, path-like and false-positive cases.",
+        "Redaction failures can block release evidence publication."
+      ]
+    },
+    {
+      "id": "AW-T26",
+      "title": "Worker degradation states implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["AW-T18", "AW-T19"],
+      "expected_files": ["worker/core/degraded.py", "tests/worker/test_worker_degradation.py"],
+      "acceptance_criteria": [
+        "Worker reports unavailable model, unavailable external tool, missing git repo, denied policy and missing approval as distinct states.",
+        "Degraded states are user-readable and machine-readable.",
+        "Degraded states never masquerade as success.",
+        "Tests cover each major degraded state."
+      ]
+    },
+    {
+      "id": "AW-T27",
+      "title": "Native worker unit test suite add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T06", "AW-T07", "AW-T14", "AW-T16", "AW-T23", "AW-T24"],
+      "expected_files": ["tests/worker/"],
+      "acceptance_criteria": [
+        "Unit tests cover workspace, patch planner, diff builder, command planner, command executor, verification and trace metadata.",
+        "Tests use deterministic fixtures and mock model providers.",
+        "Tests do not require external Aider/OpenCode/Copilot/ShellGPT tools.",
+        "Tests are included in release gate when worker runtime is claimed."
+      ]
+    },
+    {
+      "id": "AW-T28",
+      "title": "Tiny repo patch E2E add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T12", "AW-T23", "AW-T24"],
+      "expected_files": ["tests/e2e/worker/test_tiny_repo_patch_flow.py", "tests/e2e/fixtures/tiny_patch_repo/"],
+      "acceptance_criteria": [
+        "E2E runs on a tiny fixture repo and produces plan, patch, test result, verification and trace artifacts.",
+        "E2E uses mocked model output by default.",
+        "E2E verifies original working tree is not modified before approval.",
+        "E2E stores evidence compatible with todo.e2e-dogfood.json."
+      ]
+    },
+    {
+      "id": "AW-T29",
+      "title": "Failing test repair E2E add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["AW-T28"],
+      "expected_files": ["tests/e2e/worker/test_failing_test_repair_flow.py"],
+      "acceptance_criteria": [
+        "E2E simulates failing test output and generates repair plan or patch artifact.",
+        "Repair path goes through same policy/approval/trace expectations as normal patch flow.",
+        "E2E verifies failure output is summarized and not hidden.",
+        "E2E stores repair artifact and verification result."
+      ]
+    },
+    {
+      "id": "AW-T30",
+      "title": "Denied command E2E add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T15", "AW-T16", "AW-T24"],
+      "expected_files": ["tests/e2e/worker/test_denied_command_flow.py"],
+      "acceptance_criteria": [
+        "E2E submits a dangerous command request and verifies it is denied before execution.",
+        "E2E proves no command side effects occurred.",
+        "Policy denied artifact and trace metadata are produced.",
+        "E2E includes CLI/TUI snapshot hooks where available."
+      ]
+    },
+    {
+      "id": "AW-T31",
+      "title": "Worker release gate integration add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T27", "AW-T28", "AW-T30"],
+      "expected_files": ["scripts/run_worker_checks.py", "scripts/run_release_gate.py"],
+      "acceptance_criteria": [
+        "Release gate runs worker unit tests and core E2E flows when native worker runtime is claimed.",
+        "Gate fails on policy bypass, direct main-tree mutation, missing trace metadata or denied command execution.",
+        "Gate treats experimental external adapters as optional unless explicitly enabled.",
+        "Gate prints worker evidence/report paths."
+      ]
+    },
+    {
+      "id": "AW-T32",
+      "title": "Worker documentation and comparison write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["AW-T01", "AW-T28", "AW-T31"],
+      "expected_files": ["docs/worker/README.md", "docs/worker/comparison_aider_opencode_shellgpt_copilot.md", "docs/worker/adapter_configuration.md"],
+      "acceptance_criteria": [
+        "Docs explain native worker concepts, modes, safety boundaries and golden path usage.",
+        "Comparison explains what Ananta borrows conceptually from Aider/OpenCode/ShellGPT/Copilot CLI and what it deliberately does differently.",
+        "Adapter docs explain optional installation/configuration and why adapters are not default dependencies.",
+        "Docs include honest limitations and unsupported flows."
+      ]
+    },
+    {
+      "id": "AW-T33",
+      "title": "Controlled autonomous worker loop implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T07","AW-T12","AW-T16","AW-T23","AW-T24"],
+      "expected_files": [
+        "worker/loop/controlled_worker_loop.py",
+        "schemas/worker/worker_loop_state.v1.json"
+      ],
+      "acceptance_criteria": [
+        "Loop implements observe -> plan -> patch -> test -> inspect -> repair -> retest -> summarize.",
+        "Loop consumes Task + ContextEnvelope + policy + approval.",
+        "Loop produces intermediate artifacts per iteration.",
+        "Loop never bypasses policy or approval.",
+        "Loop state is externally observable."
+      ]
+    },
+    {
+      "id": "AW-T34",
+      "title": "Worker loop budgets and stop conditions add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T33"],
+      "expected_files": [
+        "worker/loop/budgets.py",
+        "worker/loop/stop_conditions.py"
+      ],
+      "acceptance_criteria": [
+        "Supports max_iterations, max_patch_attempts, max_runtime_seconds.",
+        "Stops on policy_denied, approval_required, repeated_failure.",
+        "Stops on no_progress_detected.",
+        "Stop reason is recorded in trace."
+      ]
+    },
+    {
+      "id": "AW-T35",
+      "title": "Worker progress events and intermediate artifacts add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["AW-T33","AW-T34"],
+      "expected_files": [
+        "worker/loop/progress_events.py",
+        "schemas/worker/worker_progress_event.v1.json"
+      ],
+      "acceptance_criteria": [
+        "Each iteration emits progress events.",
+        "Events include phase, iteration, artifacts.",
+        "Intermediate results visible.",
+        "No silent internal loop state."
+      ]
+    },
+    {
+      "id": "AW-T36",
+      "title": "OpenCode-like autonomous coding E2E add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["AW-T28","AW-T29","AW-T30","AW-T33"],
+      "expected_files": [
+        "tests/e2e/worker/test_controlled_loop_flow.py"
+      ],
+      "acceptance_criteria": [
+        "Worker fixes a failing test in iterative loop.",
+        "Loop stops correctly on failure/approval.",
+        "No uncontrolled execution.",
+        "Artifacts + trace prove full loop."
       ]
     }
   ],
   "execution_order_summary": [
-    "Stage 1: Define taxonomy, safety baseline, capability naming and correctness gates.",
-    "Stage 2: Add foundation descriptors for Blender, FreeCAD and KiCad.",
-    "Stage 3: Add common artifact families, RAG conventions, inventory and release-gate checks."
+    "Stage 1: Define worker architecture, request/result schemas and capabilities.",
+    "Stage 2: Build isolated workspace/worktree and patch artifact flow.",
+    "Stage 3: Add RAG-aware file selection, prompt assembly and native patch proposal.",
+    "Stage 4: Add ShellGPT-style command planning and approval-gated command execution.",
+    "Stage 5: Add model provider interface and optional external tool adapters.",
+    "Stage 6: Add verification, trace, redaction and degradation states.",
+    "Stage 7: Add unit tests, E2E dogfood evidence, release-gate integration and docs."
   ],
   "critical_path_tasks": [
-    "CCE-T01",
-    "CCE-T02",
-    "CCE-T03",
-    "CCE-T04",
-    "CCE-T06",
-    "CCE-T07",
-    "CCE-T08",
-    "CCE-T09",
-    "CCE-T10",
-    "CCE-T11",
-    "CCE-T12"
+    "AW-T01",
+    "AW-T02",
+    "AW-T03",
+    "AW-T04",
+    "AW-T05",
+    "AW-T06",
+    "AW-T07",
+    "AW-T08",
+    "AW-T10",
+    "AW-T11",
+    "AW-T12",
+    "AW-T14",
+    "AW-T15",
+    "AW-T16",
+    "AW-T18",
+    "AW-T19",
+    "AW-T23",
+    "AW-T24",
+    "AW-T25",
+    "AW-T27",
+    "AW-T28",
+    "AW-T30",
+    "AW-T31"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T18:23:01+02:00",
-    "total": 12,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 12},
-    "progress_percent_done": 100.0,
-    "by_priority": {"P0": 11, "P1": 1, "P2": 0, "P3": 0},
-    "by_risk": {"low": 0, "medium": 2, "high": 7, "critical": 3},
-    "critical_path": {"total": 11, "done": 11, "remaining": 0},
-    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
-  },
-  "execution_stage_summary": {
-    "updated_at": "2026-04-25T18:23:01+02:00",
-    "stages": {
-      "CCE-M1": {
-        "title": "Shared taxonomy and safety baseline",
-        "scope_task_ids": ["CCE-T01", "CCE-T02", "CCE-T03", "CCE-T04"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "CCE-M2": {
-        "title": "Domain descriptors and capabilities",
-        "scope_task_ids": ["CCE-T05", "CCE-T06", "CCE-T07", "CCE-T08"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "CCE-M3": {
-        "title": "Common artifacts, RAG and release gates",
-        "scope_task_ids": ["CCE-T09", "CCE-T10", "CCE-T11", "CCE-T12"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      }
-    }
-  },
-  "analysis_checks": {
-    "checked_at": "2026-04-25T18:23:01+02:00",
-    "internal_consistency": "corrected_and_extended",
-    "notes": [
-      "tasks_status_summary.by_risk wurde mit den realen Task-Risiken synchronisiert.",
-      "Alle geforderten Architekturdocs/Schemas für Taxonomie, Safety, Naming, Correctness-Gates, Artifact-Familien und RAG-Quellen wurden ergänzt.",
-      "Blender/FreeCAD/KiCad Descriptor- und Capability-Baselines inkl. stricter default-deny Mutations-/Execution-Caps wurden umgesetzt.",
-      "Cross-domain Consistency- und Release-Gate-Tests wurden ergänzt und der Track auf done synchronisiert."
-    ]
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 32,
+    "by_status": {"todo": 32, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 23, "P1": 7, "P2": 1, "P3": 0},
+    "by_risk": {"low": 0, "medium": 7, "high": 13, "critical": 12},
+    "critical_path": {"total": 23, "done": 0, "remaining": 23},
+    "milestones": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "summary_notes": [
-    "This is the small shared pre-todo after todo.more-generic.json and before full FreeCAD/KiCad runtime tracks.",
-    "It keeps FreeCAD and KiCad conservative while still preparing them as first-class Ananta domains.",
-    "Blender remains the first large runtime/plugin track, but it should align with these shared conventions.",
-    "Rollups now match task data and include per-milestone stage counters.",
-    "All creative CAD/EDA foundation tasks are completed in this revision."
-  ],
-  "end_summaries": [
-    {
-      "summary_id": "CCE-S1",
-      "title": "Analyseergebnis",
-      "items": [
-        "Die Datei ist strukturell als task_track geeignet und schema-konform.",
-        "Die Datei war inhaltlich gut, aber vollständig offen (12 todo) und ohne abgeschlossene Track-Synchronisierung."
-      ]
-    },
-    {
-      "summary_id": "CCE-S2",
-      "title": "Korrekturen",
-      "items": [
-        "Alle Tasks CCE-T01..CCE-T12 sowie Milestones CCE-M1..CCE-M3 wurden auf done gesetzt.",
-        "tasks_status_summary, critical_path und milestone/stage Counters wurden auf den umgesetzten Stand synchronisiert."
-      ]
-    },
-    {
-      "summary_id": "CCE-S3",
-      "title": "Verbesserungen/Erweiterungen",
-      "items": [
-        "Taxonomie-, Safety-, Naming-, Correctness-Gate-, Artifact- und RAG-Konventionsartefakte ergänzt.",
-        "FreeCAD/KiCad geplante Descriptor-Baselines und strengere Capability-Governance ergänzt; kreative CAD/EDA Gate-Tests hinzugefügt."
-      ]
-    },
-    {
-      "summary_id": "CCE-S4",
-      "title": "Status am Ende",
-      "items": [
-        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 12 done (100.0%).",
-        "Kritischer Pfad: 11 total, 11 done, 0 remaining."
-      ]
-    }
+    "This track should come after todo.tests.json, todo.security.json and enough of todo.more-generic.json to provide stable ContextEnvelope, Policy, Approval, Artifact and Trace primitives.",
+    "The worker should be Ananta-native first. External tools are adapters, not architecture owners.",
+    "Aider is the strongest inspiration for patch/git workflow; ShellGPT is useful for shell command UX; Copilot CLI is optional/experimental because it depends on a commercial service and local auth.",
+    "The first real deliverable should be a tiny repo patch E2E that proves plan -> patch artifact -> test -> verification -> approval-gated apply."
   ]
 }
