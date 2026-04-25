@@ -1,0 +1,5 @@
+ananta web ui
+screen: artifact_view
+run_id: <RUN_ID>
+artifact: visible
+render: readable

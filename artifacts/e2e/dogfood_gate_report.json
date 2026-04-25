@@ -1,0 +1,38 @@
+{
+  "schema": "e2e_dogfood_checks_v1",
+  "ok": true,
+  "checks": [
+    {
+      "name": "pytest-e2e-dogfood",
+      "ok": true,
+      "returncode": 0,
+      "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m pytest -q tests/e2e/test_core_golden_path.py tests/e2e/test_cli_golden_path_snapshots.py tests/e2e/test_cli_degraded_policy_snapshots.py tests/e2e/test_tui_scripted_smoke.py tests/e2e/test_web_ui_screenshots.py tests/e2e/test_rag_dogfood_tiny_repo.py tests/e2e/test_policy_approval_visual_evidence.py tests/e2e/test_visual_evidence_redaction.py tests/e2e/test_e2e_report_generation.py",
+      "output_tail": "============================= test session starts ==============================\nplatform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0\nrootdir: /mnt/c/Users/pst/IdeaProjects/ananta\nconfigfile: pyproject.toml\nplugins: anyio-4.13.0, cov-7.1.0\ncollected 15 items\n\ntests/e2e/test_core_golden_path.py .                                     [  6%]\ntests/e2e/test_cli_golden_path_snapshots.py .                            [ 13%]\ntests/e2e/test_cli_degraded_policy_snapshots.py .                        [ 20%]\ntests/e2e/test_tui_scripted_smoke.py ...                                 [ 40%]\ntests/e2e/test_web_ui_screenshots.py ...                                 [ 60%]\ntests/e2e/test_rag_dogfood_tiny_repo.py .                                [ 66%]\ntests/e2e/test_policy_approval_visual_evidence.py .                      [ 73%]\ntests/e2e/test_visual_evidence_redaction.py ...                          [ 93%]\ntests/e2e/test_e2e_report_generation.py .                                [100%]\n\n============================= 15 passed in 32.34s ==============================\n\n"
+    },
+    {
+      "name": "generate-e2e-report",
+      "ok": true,
+      "returncode": 0,
+      "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/e2e/generate_e2e_report.py --artifact-root /mnt/c/Users/pst/IdeaProjects/ananta/artifacts/e2e --out-json artifacts/e2e/aggregate_report.json --out-md artifacts/e2e/aggregate_report.md",
+      "output_tail": "aggregate_json=artifacts/e2e/aggregate_report.json\naggregate_md=artifacts/e2e/aggregate_report.md\n\n"
+    },
+    {
+      "name": "required-evidence",
+      "ok": true,
+      "returncode": 0,
+      "command": "internal:required-evidence-validation",
+      "output_tail": "ok"
+    }
+  ],
+  "aggregate_report_path": "artifacts/e2e/aggregate_report.json",
+  "aggregate_markdown_path": "artifacts/e2e/aggregate_report.md",
+  "summary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "advisory": 0,
+    "blocking_failed": 0
+  },
+  "key_evidence_refs": []
+}

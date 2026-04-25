@@ -1,0 +1,6 @@
+ananta web ui
+screen: goals_tasks
+run_id: <RUN_ID>
+goals: visible
+tasks: visible
+state: actionable
