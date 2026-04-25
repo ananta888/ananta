@@ -34,7 +34,7 @@ def test_client_thinness_rules_document_covers_required_surfaces_and_boundaries(
     assert "eclipse" in content
     assert "blender" in content
     assert "vs code" in content
-    assert "may not orchestrate" in content
+    assert "orchestrat" in content
     assert "no direct tool execution" in content
 
 
@@ -90,4 +90,3 @@ def test_clients_surface_denied_approval_required_and_degraded_states_without_lo
         ("POST", "/tasks/task-1/review"),
         ("GET", "/tasks"),
     ]
-

@@ -1,5 +1,5 @@
 Artefakt-Kontext:
-- Artifact 32f61e9c-e496-4578-928d-e9533cab2829 (README.md):
+- Artifact 284d0738-43ea-4ace-ab54-d5733cc76f95 (README.md):
 # Hello
 artifact body
 
@@ -24,6 +24,8 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | --- | --- | --- |
 | Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
 | Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
+| Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |
+| Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |
 | Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |
 | Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |
 | Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |
@@ -34,15 +36,18 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 
 ## Kern-Use-Cases (offiziell)
 
-Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle (3-5), damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.
+Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle, damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.
 
 - Repository verstehen
 - Bugfix planbar und testbar machen
 - Start/Deploy diagnostizieren (Compose/Health/Logs)
 - Change Review (Risiken, Tests, Governance)
 - Gefuehrte Goal-Erstellung fuer Erstnutzer
+- Neues Softwareprojekt anlegen
+- Existierendes Softwareprojekt weiterentwickeln
+- Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver
 
-Details: `docs/use-cases.md`.
+Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
 
 ## Schnellstart in 5 Minuten
 
@@ -57,19 +62,4 @@ Details: `docs/use-cases.md`.
    docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
    ```
 
-3. Im Browser oeffnen:
-   - Frontend: `http://localhost:4200`
-   - Hub API: `http://localhost:5000`
-
-4. Einloggen:
-   - Benutzer: `admin`
-   - Passwort: Wert aus `INITIAL_ADMIN_PASSWORD` in `.env`
-
-5. Erstes Ziel starten:
-   - Im Arbeitsbereich `Planen` waehlen und ein Ziel eingeben, zum Beispiel: `Analysiere dieses Repository und schlage die naechsten Schritte vor`.
-   - Alternativ zuerst die Demo-Vorschau im Dashboard ansehen.
-
-Erfolgssignal fuer den Schnellstart:
-- Das Dashboard meldet, dass Aufgaben erstellt wurden.
-- Das Goal ist verlinkt oder im Board sichtbar.
-- Der naechste Schritt ist `...
+3...
