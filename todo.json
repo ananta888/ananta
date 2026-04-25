@@ -75,9 +75,9 @@
   "milestones": [
     {"id": "AW-M1", "title": "Worker contract and artifact schemas", "task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "status": "done"},
     {"id": "AW-M2", "title": "Workspace, sandbox and patch engine", "task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "status": "done"},
-    {"id": "AW-M3", "title": "RAG-aware coding planner", "task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "status": "todo"},
-    {"id": "AW-M4", "title": "Shell command planning and execution controls", "task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "status": "todo"},
-    {"id": "AW-M5", "title": "Model provider and external tool adapters", "task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "status": "todo"},
+    {"id": "AW-M3", "title": "RAG-aware coding planner", "task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "status": "done"},
+    {"id": "AW-M4", "title": "Shell command planning and execution controls", "task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "status": "done"},
+    {"id": "AW-M5", "title": "Model provider and external tool adapters", "task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "status": "done"},
     {"id": "AW-M6", "title": "Verification, audit and reproducibility", "task_ids": ["AW-T23", "AW-T24", "AW-T25", "AW-T26"], "status": "todo"},
     {"id": "AW-M7", "title": "Tests, E2E dogfood and docs", "task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "status": "todo"},
     {
@@ -235,7 +235,7 @@
     {
       "id": "AW-T10",
       "title": "RAG-aware file selection service implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -251,7 +251,7 @@
     {
       "id": "AW-T11",
       "title": "Coding prompt assembly implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -267,7 +267,7 @@
     {
       "id": "AW-T12",
       "title": "Native model-backed patch proposal implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -283,7 +283,7 @@
     {
       "id": "AW-T13",
       "title": "Deterministic no-LLM coding fallback add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -299,7 +299,7 @@
     {
       "id": "AW-T14",
       "title": "Shell command plan mode implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -315,7 +315,7 @@
     {
       "id": "AW-T15",
       "title": "Shell command allowlist and denylist implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -331,7 +331,7 @@
     {
       "id": "AW-T16",
       "title": "Approval-gated command execution implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -347,7 +347,7 @@
     {
       "id": "AW-T17",
       "title": "Shell explain and repair hints add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -363,7 +363,7 @@
     {
       "id": "AW-T18",
       "title": "Worker model provider interface add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -379,7 +379,7 @@
     {
       "id": "AW-T19",
       "title": "External coding tool adapter interface define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -395,7 +395,7 @@
     {
       "id": "AW-T20",
       "title": "Aider adapter prototype add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -411,7 +411,7 @@
     {
       "id": "AW-T21",
       "title": "ShellGPT-style adapter prototype add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -427,7 +427,7 @@
     {
       "id": "AW-T22",
       "title": "Copilot CLI and OpenCode experimental adapters add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "blocking": false,
@@ -712,35 +712,35 @@
     "AW-T31"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T18:38:35+02:00",
+    "updated_at": "2026-04-25T20:15:00+02:00",
     "total": 36,
-    "by_status": {"todo": 27, "in_progress": 0, "blocked": 0, "done": 9},
-    "progress_percent_done": 25.0,
+    "by_status": {"todo": 14, "in_progress": 0, "blocked": 0, "done": 22},
+    "progress_percent_done": 61.11,
     "by_priority": {"P0": 27, "P1": 8, "P2": 1, "P3": 0},
     "by_risk": {"low": 0, "medium": 6, "high": 14, "critical": 16},
-    "critical_path": {"total": 23, "done": 8, "remaining": 15},
-    "milestones": {"total": 8, "todo": 6, "in_progress": 0, "blocked": 0, "done": 2}
+    "critical_path": {"total": 23, "done": 16, "remaining": 7},
+    "milestones": {"total": 8, "todo": 3, "in_progress": 0, "blocked": 0, "done": 5}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T18:38:35+02:00",
+    "updated_at": "2026-04-25T20:15:00+02:00",
     "stages": {
       "AW-M1": {"title": "Worker contract and artifact schemas", "scope_task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
       "AW-M2": {"title": "Workspace, sandbox and patch engine", "scope_task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M3": {"title": "RAG-aware coding planner", "scope_task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
-      "AW-M4": {"title": "Shell command planning and execution controls", "scope_task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
-      "AW-M5": {"title": "Model provider and external tool adapters", "scope_task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "total": 5, "done": 0, "todo": 5, "in_progress": 0, "blocked": 0},
+      "AW-M3": {"title": "RAG-aware coding planner", "scope_task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
+      "AW-M4": {"title": "Shell command planning and execution controls", "scope_task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
+      "AW-M5": {"title": "Model provider and external tool adapters", "scope_task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0},
       "AW-M6": {"title": "Verification, audit and reproducibility", "scope_task_ids": ["AW-T23", "AW-T24", "AW-T25", "AW-T26"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
       "AW-M7": {"title": "Tests, E2E dogfood and docs", "scope_task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "total": 6, "done": 0, "todo": 6, "in_progress": 0, "blocked": 0},
       "AW-M8": {"title": "Controlled autonomous worker loop", "scope_task_ids": ["AW-T33", "AW-T34", "AW-T35", "AW-T36"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0}
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T18:38:35+02:00",
+    "checked_at": "2026-04-25T20:15:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "AW-M1 and AW-M2 (AW-T01..AW-T09) were implemented and marked done.",
-      "Rollups were synchronized to reflect 9 done tasks and 2 done milestones.",
-      "Stage counters keep remaining bundles (AW-M3..AW-M8) explicitly visible."
+      "AW-M3, AW-M4 and AW-M5 (AW-T10..AW-T22) were implemented and marked done.",
+      "Rollups were synchronized to reflect 22 done tasks and 5 done milestones.",
+      "Stage counters keep remaining bundles (AW-M6..AW-M8) explicitly visible."
     ]
   },
   "summary_notes": [
@@ -763,7 +763,7 @@
       "summary_id": "AW-S2",
       "title": "Korrekturen",
       "items": [
-        "AW-T01..AW-T09 wurden auf done gesetzt; AW-M1 und AW-M2 auf done synchronisiert.",
+        "AW-T10..AW-T22 wurden auf done gesetzt; AW-M3, AW-M4 und AW-M5 auf done synchronisiert.",
         "tasks_status_summary, critical_path und milestone-Counter wurden auf den neuen Zwischenstand aktualisiert."
       ]
     },
@@ -779,8 +779,8 @@
       "summary_id": "AW-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 27 todo, 0 in_progress, 0 blocked, 9 done (25.0%).",
-        "Kritischer Pfad: 23 total, 8 done, 15 remaining."
+        "Aktueller Umsetzungsstand: 14 todo, 0 in_progress, 0 blocked, 22 done (61.11%).",
+        "Kritischer Pfad: 23 total, 16 done, 7 remaining."
       ]
     }
   ]
