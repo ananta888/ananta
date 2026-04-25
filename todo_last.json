@@ -1,488 +1,464 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "reference_profiles_initial_pack",
-  "purpose": "Introduce the first language and framework reference profiles for Ananta so new-project and project-evolution flows can use curated real-world reference systems instead of relying only on generic language knowledge.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "track": "platform_gaps_after_core_tracks",
+  "purpose": "Capture only useful platform gaps that are not already covered by security, domain cleanup, native worker, Blender, FreeCAD, KiCad or later KRITIS/Enterprise tracks. This is not a management roadmap and not a feature wishlist.",
+  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Provide a first practical reference-pack system using Keycloak for Java and Ananta itself for Python backend and Angular frontend so Ananta can better guide project creation and project evolution in those ecosystems.",
-  "success_criteria": [
-    "The system can recognize and expose initial reference profiles for Java, Python and Angular.",
-    "Reference profiles are used as guidance and retrieval sources, not as blind copy templates.",
-    "New-project and project-evolution flows can choose suitable reference packs explicitly.",
-    "Reference usage remains bounded, explainable and auditable."
+  "scope_rules": [
+    "Do not duplicate todo.kritis.json, todo.blender.json, todo.freecad.json or todo.kicad.json, and avoid reintroducing archived Security/Domain/Native-Worker tracks unless they are explicitly restored.",
+    "Only include items that improve installability, operability, controlled integrations or dogfooding after the core tracks are stable.",
+    "Avoid Medusa features such as visual flow builders, full LSP server rewrites or large editor refactors unless explicitly promoted later.",
+    "All integrations must remain Hub-controlled, policy-gated, auditable and compatible with thin clients."
   ],
-  "groups": [
+  "success_criteria": [
+    "Ananta can be initialized on a local machine with a clear runtime profile without requiring Docker by default.",
+    "MCP integration is available in a read-only/default-deny Hub-controlled mode before any write/admin tool access is enabled.",
+    "Pull-request review automation can be enabled only after native worker and release gates are stable.",
+    "External tools and setup modes are represented as capability/profile choices rather than hard-coded client or worker behavior.",
+    "Deferred high-complexity ideas remain explicitly frozen instead of silently entering active scope."
+  ],
+  "milestones": [
     {
-      "id": "REF-FOUNDATION",
-      "priority": "P0",
-      "title": "Grundmodell fuer Referenzprofile",
-      "tasks": [
-        {
-          "id": "REF-T01",
-          "title": "Reference profile model define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A reference profile model is defined with fields such as language, framework, project_type, reference_source, strengths, limitations and intended usage.",
-            "The model is small enough for a first implementation.",
-            "The model can grow later without breaking initial profiles."
-          ]
-        },
-        {
-          "id": "REF-T02",
-          "title": "Reference usage boundary define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The system explicitly treats references as pattern and architecture guidance rather than blind copy sources.",
-            "The design explains what kinds of reuse are intended such as structure, conventions, layering and test patterns.",
-            "The design avoids presenting references as canonical truth for every project."
-          ]
-        },
-        {
-          "id": "REF-T03",
-          "title": "Reference selection strategy define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A first strategy exists for selecting references by language and project type.",
-            "The strategy supports new-project and project-evolution flows.",
-            "The strategy remains deterministic enough for explanation and debugging."
-          ]
-        },
-        {
-          "id": "REF-T04",
-          "title": "Reference provenance and audit visibility define",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The system can show which reference profile influenced a task or recommendation.",
-            "Reference influence is visible in traces or read models where useful.",
-            "The design supports auditability later."
-          ]
-        }
-      ]
+      "id": "PG-M1",
+      "title": "Runtime setup and profile UX",
+      "task_ids": ["PG-T01", "PG-T02", "PG-T03"],
+      "status": "done"
     },
     {
-      "id": "REF-STARTER-PROFILES",
-      "priority": "P0",
-      "title": "Erste drei Start-Referenzprofile",
-      "tasks": [
-        {
-          "id": "REF-T05",
-          "title": "Java Keycloak reference profile define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A first Java reference profile exists based on Keycloak.",
-            "The profile documents why Keycloak is useful such as large Java codebase, security-heavy architecture and enterprise backend patterns.",
-            "The profile also documents limitations so it is not treated as the universal Java template."
-          ]
-        },
-        {
-          "id": "REF-T06",
-          "title": "Python Ananta backend reference profile define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A first Python reference profile exists based on the Ananta backend.",
-            "The profile highlights strengths such as orchestration, API layering, governance-aware backend structure and local runtime integration.",
-            "The profile states clearly for which Python project types it is suitable."
-          ]
-        },
-        {
-          "id": "REF-T07",
-          "title": "Angular Ananta frontend reference profile define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A first Angular reference profile exists based on the Ananta frontend.",
-            "The profile highlights strengths such as admin-heavy UI structure, workflow surfaces and Angular application organization.",
-            "The profile documents where it fits and where it does not."
-          ]
-        },
-        {
-          "id": "REF-T08",
-          "title": "Starter reference catalog expose",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The initial three profiles are available through a catalog or read-model surface.",
-            "The catalog is understandable for users and operators.",
-            "The catalog distinguishes language, framework and intended usage."
-          ]
-        }
-      ]
+      "id": "PG-M2",
+      "title": "Controlled MCP foundation",
+      "task_ids": ["PG-T04", "PG-T05", "PG-T06"],
+      "status": "done"
     },
     {
-      "id": "REF-RETRIEVAL-AND-PATTERNS",
-      "priority": "P0",
-      "title": "Retrieval und Musterableitung",
-      "tasks": [
-        {
-          "id": "REF-T09",
-          "title": "Reference retrieval entry points define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The system defines how reference material enters retrieval and prompt assembly.",
-            "The design is bounded and avoids dumping entire repositories into context.",
-            "Relevant slices can be selected by architecture, file type or use case."
-          ]
-        },
-        {
-          "id": "REF-T10",
-          "title": "Pattern extraction categories define",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "A small set of pattern categories is defined such as project structure, module organization, configuration style, test structure, API layout and security conventions.",
-            "The categories are reusable across the three initial profiles.",
-            "The categories support meaningful retrieval."
-          ]
-        },
-        {
-          "id": "REF-T11",
-          "title": "Reference chunking and indexing strategy add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Reference repositories can be indexed in a way suitable for bounded retrieval.",
-            "The indexing retains provenance and enough metadata to explain why a chunk was selected.",
-            "The strategy avoids uncontrolled context bloat."
-          ]
-        },
-        {
-          "id": "REF-T12",
-          "title": "Reference recommendation reason output add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "When Ananta uses a reference profile, it can explain why it chose it.",
-            "The explanation includes language, project type and one or more pattern reasons.",
-            "The explanation is compact and useful."
-          ]
-        }
-      ]
+      "id": "PG-M3",
+      "title": "Dogfooding and PR review automation",
+      "task_ids": ["PG-T07", "PG-T08", "PG-T09"],
+      "status": "done"
     },
     {
-      "id": "REF-NEW-PROJECT-INTEGRATION",
-      "priority": "P0",
-      "title": "Integration fuer neues Projekt anlegen",
-      "tasks": [
-        {
-          "id": "REF-T13",
-          "title": "New-project reference selection flow add",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The new-project flow can choose or recommend one of the starter reference profiles.",
-            "The recommendation can depend on language and project type.",
-            "The chosen reference remains visible to the user."
-          ]
-        },
-        {
-          "id": "REF-T14",
-          "title": "Blueprint and work-profile integration for references add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Reference profile choice can influence blueprint or work-profile selection where useful.",
-            "The integration stays explicit and explainable.",
-            "Reference usage does not silently override product logic."
-          ]
-        },
-        {
-          "id": "REF-T15",
-          "title": "Reference-aware project skeleton guidance add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "New-project output can use selected reference profiles to suggest structure, modules and conventions.",
-            "The output remains guidance and not a blind clone.",
-            "The result is more concrete than generic language-only advice."
-          ]
-        }
-      ]
+      "id": "PG-M4",
+      "title": "Icebox guards",
+      "task_ids": ["PG-T10", "PG-T11"],
+      "status": "done"
     },
     {
-      "id": "REF-PROJECT-EVOLUTION-INTEGRATION",
-      "priority": "P0",
-      "title": "Integration fuer existierendes Projekt weiterentwickeln",
-      "tasks": [
-        {
-          "id": "REF-T16",
-          "title": "Project-evolution reference matching add",
-          "status": "done",
-          "priority": "P0",
-          "acceptance_criteria": [
-            "The project-evolution flow can infer or recommend a matching starter reference profile for the current repository.",
-            "Matching uses at least language and coarse project shape.",
-            "The result can be inspected by the user."
-          ]
-        },
-        {
-          "id": "REF-T17",
-          "title": "Reference-aware review and evolution hints add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "During project evolution, Ananta can use reference profiles to suggest structure, conventions or likely missing patterns.",
-            "Hints are framed as recommendations, not absolute judgments.",
-            "The output is actionable and not vague."
-          ]
-        },
-        {
-          "id": "REF-T18",
-          "title": "Reference-aware diagnostics for mismatch cases add",
-          "status": "done",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "The system can indicate when a selected or inferred reference profile fits poorly.",
-            "Mismatch feedback helps prevent forcing bad patterns onto the project.",
-            "The output remains understandable."
-          ]
-        }
-      ]
-    },
+      "id": "PG-M5",
+      "title": "Cross-track dependency hygiene",
+      "task_ids": ["PG-T12"],
+      "status": "done"
+    }
+  ],
+  "tasks": [
     {
-      "id": "REF-GOVERNANCE-SAFETY",
+      "id": "PG-T01",
+      "title": "CLI runtime profile wizard add",
+      "status": "done",
       "priority": "P1",
-      "title": "Governance und Sicherheitsgrenzen",
-      "tasks": [
-        {
-          "id": "REF-T19",
-          "title": "Reference influence boundaries define",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The system defines where references may influence recommendations and where they may not bypass governance.",
-            "Reference material cannot override approval, policy or security constraints.",
-            "The boundary is explicit in implementation and docs."
-          ]
-        },
-        {
-          "id": "REF-T20",
-          "title": "Reference source quality rules define",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "The system documents why the chosen starter references are considered high-signal enough for initial use.",
-            "The rules can later help decide which additional references are acceptable.",
-            "The selection process remains curated rather than random."
-          ]
-        },
-        {
-          "id": "REF-T21",
-          "title": "Reference usage audit markers add",
-          "status": "done",
-          "priority": "P2",
-          "acceptance_criteria": [
-            "Relevant operations can record which reference profile was used.",
-            "The marker is visible in diagnostics or audit where useful.",
-            "The feature supports later explainability."
-          ]
-        }
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "agent/cli/init_wizard.py",
+        "tests/test_init_wizard.py",
+        "docs/setup/ananta_init.md"
+      ],
+      "acceptance_criteria": [
+        "Provides an ananta init command or equivalent setup wizard.",
+        "Detects or asks for local-dev, sandbox or strict runtime mode.",
+        "Captures LLM backend preference such as Ollama, LM Studio, OpenAI-compatible endpoint or manual config.",
+        "Does not require Docker/Podman for local-dev mode.",
+        "Writes a reviewable runtime profile file rather than hidden global state."
       ]
     },
     {
-      "id": "REF-UX-DOCS-TESTING",
+      "id": "PG-T02",
+      "title": "Hardware and model profile recommendations add",
+      "status": "done",
       "priority": "P1",
-      "title": "UX Doku Tests",
-      "tasks": [
-        {
-          "id": "REF-T22",
-          "title": "UI and CLI visibility for reference profiles add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Users can see the selected or recommended reference profile in UI and relevant CLI flows.",
-            "The presentation is compact and useful.",
-            "Users are not surprised by hidden reference influence."
-          ]
-        },
-        {
-          "id": "REF-T23",
-          "title": "Starter reference profile docs write",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Documentation exists for the three starter reference profiles.",
-            "The docs explain strengths, fit and limitations of each profile.",
-            "The docs are useful for users and maintainers."
-          ]
-        },
-        {
-          "id": "REF-T24",
-          "title": "Golden path examples for each starter reference add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "There is one concrete example for Java/Keycloak, Python/Ananta backend and Angular/Ananta frontend usage.",
-            "The examples are tied to new-project or project-evolution flows.",
-            "The examples are reproducible."
-          ]
-        },
-        {
-          "id": "REF-T25",
-          "title": "Tests for reference selection and bounded usage add",
-          "status": "done",
-          "priority": "P1",
-          "acceptance_criteria": [
-            "Tests protect reference selection logic and bounded retrieval behavior.",
-            "The suite verifies that references are used as guidance rather than uncontrolled full-context injection.",
-            "The suite covers at least one flow per starter profile."
-          ]
-        },
-        {
-          "id": "REF-T26",
-          "title": "Roadmap for later additional references isolate",
-          "status": "done",
-          "priority": "P3",
-          "acceptance_criteria": [
-            "Further possible references are documented separately from the first rollout.",
-            "The first release stays focused on Keycloak and Ananta as starter references.",
-            "The roadmap does not bloat the MVP."
-          ]
-        }
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T01"],
+      "expected_files": [
+        "agent/services/runtime_profile_recommender.py",
+        "tests/test_runtime_profile_recommender.py",
+        "docs/setup/runtime_profiles.md"
+      ],
+      "acceptance_criteria": [
+        "Can recommend conservative defaults for CPU-only, NVIDIA GPU, remote model and mixed local/remote setups.",
+        "Represents context window, max input tokens, output tokens, RAG budget and patch size as explicit profile values.",
+        "Never silently selects paid/cloud providers without explicit user configuration.",
+        "Tests cover RTX-style local GPU, CPU-only and remote OpenAI-compatible profile examples."
+      ]
+    },
+    {
+      "id": "PG-T03",
+      "title": "Optional deployment target generation add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T01", "PG-T02"],
+      "expected_files": [
+        "agent/cli/deployment_profile_writer.py",
+        "tests/test_deployment_profile_writer.py",
+        "docs/setup/deployment_targets.md"
+      ],
+      "acceptance_criteria": [
+        "Can generate optional docker-compose or podman-compatible examples when requested.",
+        "Keeps local-dev as non-container default.",
+        "Marks sandbox and strict modes clearly as stronger isolation choices.",
+        "Does not overwrite existing compose/config files without explicit confirmation or backup."
+      ]
+    },
+    {
+      "id": "PG-T04",
+      "title": "MCP integration boundary document write",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "docs/architecture/mcp_integration_boundary.md"
+      ],
+      "acceptance_criteria": [
+        "Documents MCP as Hub-controlled integration, not a worker-side tool free-for-all.",
+        "Defines read-only first, default-deny, capability-bound tool access.",
+        "Explains which MCP operations require approval and audit.",
+        "Explicitly prevents MCP tools from bypassing Ananta policy, approval or artifact flows."
+      ]
+    },
+    {
+      "id": "PG-T05",
+      "title": "MCP tool registry skeleton add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PG-T04"],
+      "expected_files": [
+        "agent/services/mcp_tool_registry.py",
+        "schemas/mcp/mcp_tool_descriptor.v1.json",
+        "tests/test_mcp_tool_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Registers MCP servers/tools as descriptors with capability, risk, read/write/admin class and allowed scopes.",
+        "Unknown tools are unavailable by default.",
+        "Registry exposes health/degraded states without executing tools.",
+        "Tests cover valid descriptor, unknown tool, duplicate tool and unsafe default."
+      ]
+    },
+    {
+      "id": "PG-T06",
+      "title": "Read-only MCP smoke path add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PG-T05"],
+      "expected_files": [
+        "agent/services/mcp_readonly_adapter.py",
+        "tests/test_mcp_readonly_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Implements a read-only/mockable MCP adapter path.",
+        "Requires Hub capability and policy decision before use.",
+        "Returns artifacts or structured results with provenance.",
+        "Does not implement write/admin MCP execution in this task."
+      ]
+    },
+    {
+      "id": "PG-T07",
+      "title": "PR review agent design add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": [
+        "todo.kritis.json:K1-AUD-T15",
+        "todo.kritis.json:K1-MUT-T13",
+        "todo.kritis.json:K1-EVO-T09"
+      ],
+      "expected_files": [
+        "docs/architecture/pr_review_agent.md"
+      ],
+      "acceptance_criteria": [
+        "Documents PR review automation as blocked until native worker, approval, audit and release gate are stable.",
+        "Defines review-only behavior first: analyze diff, run allowed checks, produce ReviewArtifact.",
+        "Posting comments back to Git providers is separate from code modification.",
+        "No auto-merge or direct push behavior is included."
+      ]
+    },
+    {
+      "id": "PG-T08",
+      "title": "Git provider webhook receiver skeleton add",
+      "status": "done",
+      "priority": "P3",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PG-T07"],
+      "expected_files": [
+        "agent/routes/webhooks.py",
+        "tests/test_git_webhook_receiver.py"
+      ],
+      "acceptance_criteria": [
+        "Accepts signed GitHub/GitLab-style webhook payloads in test mode.",
+        "Creates review tasks only when provider, repository and event type are allowed.",
+        "Does not run worker execution directly inside the request handler.",
+        "Tests cover invalid signature, unsupported event and accepted PR event."
+      ]
+    },
+    {
+      "id": "PG-T09",
+      "title": "PR ReviewArtifact posting adapter add",
+      "status": "done",
+      "priority": "P3",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T08"],
+      "expected_files": [
+        "agent/services/pr_review_publisher.py",
+        "tests/test_pr_review_publisher.py"
+      ],
+      "acceptance_criteria": [
+        "Publishes review summaries generated by Ananta as comments only after policy allows outbound integration.",
+        "Can run in dry-run mode and produce artifact-only output.",
+        "Never posts secrets, raw prompts or unredacted logs.",
+        "Tests use mocked Git provider client."
+      ]
+    },
+    {
+      "id": "PG-T10",
+      "title": "Icebox decision record for heavy client features add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "docs/decisions/ADR-icebox-lsp-flow-builder-eclipse.md"
+      ],
+      "acceptance_criteria": [
+        "Records why full LSP server work, visual flow builder and large Eclipse refactors are deferred.",
+        "Defines conditions required to promote any of them into active scope.",
+        "Reinforces thin-client and no-duplicate-orchestration rules.",
+        "Prevents accidental scope creep into current release tracks."
+      ]
+    },
+    {
+      "id": "PG-T11",
+      "title": "Current track inventory and completed-track references add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": [],
+      "expected_files": [
+        "docs/status/active_and_completed_tracks.md"
+      ],
+      "acceptance_criteria": [
+        "Lists active todo files and their intended order without replacing the detailed todos.",
+        "Records completed and removed todo tracks with evidence pointers.",
+        "Distinguishes deferred KRITIS/Enterprise scope from active OSS scope.",
+        "Helps future agents avoid rediscovering or duplicating completed tracks."
+      ]
+    },
+    {
+      "id": "PG-T12",
+      "title": "Cross-track dependency map and validator add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T11", "PG-T04"],
+      "expected_files": [
+        "docs/status/cross_track_dependency_map.md",
+        "scripts/validate_cross_track_dependencies.py",
+        "tests/test_validate_cross_track_dependencies.py"
+      ],
+      "acceptance_criteria": [
+        "Documents allowed cross-track dependencies using explicit file:id references.",
+        "Validator reports missing files, missing task IDs and circular cross-track links.",
+        "Unknown or archived track references fail with actionable messages.",
+        "Validation can run in CI without requiring network or privileged access."
       ]
     }
   ],
-  "milestones": [
-    { "id": "REF-M1", "title": "Grundmodell fuer Referenzprofile", "task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "status": "done" },
-    { "id": "REF-M2", "title": "Erste drei Start-Referenzprofile", "task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "status": "done" },
-    { "id": "REF-M3", "title": "Retrieval und Musterableitung", "task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "status": "done" },
-    { "id": "REF-M4", "title": "Integration fuer neues Projekt anlegen", "task_ids": ["REF-T13", "REF-T14", "REF-T15"], "status": "done" },
-    { "id": "REF-M5", "title": "Integration fuer existierendes Projekt weiterentwickeln", "task_ids": ["REF-T16", "REF-T17", "REF-T18"], "status": "done" },
-    { "id": "REF-M6", "title": "Governance und Sicherheitsgrenzen", "task_ids": ["REF-T19", "REF-T20", "REF-T21"], "status": "done" },
-    { "id": "REF-M7", "title": "UX Doku Tests", "task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "status": "done" }
-  ],
-  "tasks": [
-    { "id": "REF-T01", "title": "Reference profile model define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["A reference profile model is defined with evolvable fields."] },
-    { "id": "REF-T02", "title": "Reference usage boundary define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference usage is guidance-only and never blind copy."] },
-    { "id": "REF-T03", "title": "Reference selection strategy define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Selection strategy is deterministic and explainable."] },
-    { "id": "REF-T04", "title": "Reference provenance and audit visibility define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference influence is visible via traces/read models."] },
-
-    { "id": "REF-T05", "title": "Java Keycloak reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Java/Keycloak profile with fit+limits exists."] },
-    { "id": "REF-T06", "title": "Python Ananta backend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Python/Ananta-backend profile with fit scope exists."] },
-    { "id": "REF-T07", "title": "Angular Ananta frontend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Angular/Ananta-frontend profile with fit scope exists."] },
-    { "id": "REF-T08", "title": "Starter reference catalog expose", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["Starter catalog exposes language/framework/use-case clearly."] },
-
-    { "id": "REF-T09", "title": "Reference retrieval entry points define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference retrieval entry points are bounded and explicit."] },
-    { "id": "REF-T10", "title": "Pattern extraction categories define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reusable cross-profile pattern categories are defined."] },
-    { "id": "REF-T11", "title": "Reference chunking and indexing strategy add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Chunking/indexing preserves provenance and avoids context bloat."] },
-    { "id": "REF-T12", "title": "Reference recommendation reason output add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference choice reasons are concise and useful."] },
-
-    { "id": "REF-T13", "title": "New-project reference selection flow add", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["New-project flow selects/recommends starter references visibly."] },
-    { "id": "REF-T14", "title": "Blueprint and work-profile integration for references add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Reference choice influences profiles explicitly and explainably."] },
-    { "id": "REF-T15", "title": "Reference-aware project skeleton guidance add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Skeleton guidance is concrete but never blind-cloned."] },
-
-    { "id": "REF-T16", "title": "Project-evolution reference matching add", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Evolution flow can infer/recommend matching references."] },
-    { "id": "REF-T17", "title": "Reference-aware review and evolution hints add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Evolution hints are actionable recommendations, not judgments."] },
-    { "id": "REF-T18", "title": "Reference-aware diagnostics for mismatch cases add", "status": "done", "priority": "P2", "risk": "medium", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Mismatch diagnostics prevent forced bad-pattern adoption."] },
-
-    { "id": "REF-T19", "title": "Reference influence boundaries define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-GOVERNANCE-SAFETY", "acceptance_criteria": ["References cannot bypass policy/approval/security boundaries."] },
-    { "id": "REF-T20", "title": "Reference source quality rules define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-GOVERNANCE-SAFETY", "acceptance_criteria": ["Curated quality rules for acceptable references are documented."] },
-    { "id": "REF-T21", "title": "Reference usage audit markers add", "status": "done", "priority": "P2", "risk": "medium", "group_id": "REF-GOVERNANCE-SAFETY", "acceptance_criteria": ["Audit markers identify where references influenced outputs."] },
-
-    { "id": "REF-T22", "title": "UI and CLI visibility for reference profiles add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["UI/CLI show selected reference profile clearly."] },
-    { "id": "REF-T23", "title": "Starter reference profile docs write", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["Docs for three starter profiles include strengths and limits."] },
-    { "id": "REF-T24", "title": "Golden path examples for each starter reference add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["One reproducible golden-path example per starter profile exists."] },
-    { "id": "REF-T25", "title": "Tests for reference selection and bounded usage add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["Tests cover bounded retrieval and guided-reference behavior."] },
-    { "id": "REF-T26", "title": "Roadmap for later additional references isolate", "status": "done", "priority": "P3", "risk": "low", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["Post-MVP references are isolated in a non-blocking roadmap."] }
-  ],
   "execution_order_summary": [
-    "REF-FOUNDATION first",
-    "Then REF-STARTER-PROFILES and REF-RETRIEVAL-AND-PATTERNS",
-    "Then REF-NEW-PROJECT-INTEGRATION and REF-PROJECT-EVOLUTION-INTEGRATION",
-    "Then REF-GOVERNANCE-SAFETY",
-    "Finish with REF-UX-DOCS-TESTING"
+    "First add runtime profile wizard and profile recommendations after core Security/Domain/Worker tracks are stable enough.",
+    "Then add MCP boundary documentation and a read-only/default-deny MCP skeleton.",
+    "Implement PR review automation in test mode while keeping production enablement gated by KRITIS release gates.",
+    "Keep LSP, Flow Builder and large Eclipse refactors in the icebox until the OSS golden path is reliable.",
+    "Add cross-track dependency mapping and validation so stale references cannot silently drift."
   ],
-  "critical_path_tasks": [
-    "REF-T01",
-    "REF-T02",
-    "REF-T03",
-    "REF-T05",
-    "REF-T06",
-    "REF-T07",
-    "REF-T09",
-    "REF-T10",
-    "REF-T13",
-    "REF-T16",
-    "REF-T19",
-    "REF-T22",
-    "REF-T25"
-  ],
+  "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11", "PG-T12"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T20:32:00+02:00",
-    "total": 26,
-    "by_status": { "todo": 0, "in_progress": 0, "blocked": 0, "done": 26 },
+    "updated_at": "2026-04-25T23:10:00+02:00",
+    "total": 12,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 12, "deferred": 0},
     "progress_percent_done": 100.0,
-    "by_priority": { "P0": 10, "P1": 13, "P2": 2, "P3": 1 },
-    "by_risk": { "low": 1, "medium": 15, "high": 10, "critical": 0 },
-    "critical_path": { "total": 13, "done": 13, "remaining": 0 },
-    "milestones": { "total": 7, "todo": 0, "in_progress": 0, "blocked": 0, "done": 7 }
+    "by_priority": {"P0": 0, "P1": 4, "P2": 6, "P3": 2},
+    "by_risk": {"low": 2, "medium": 5, "high": 5, "critical": 0},
+    "critical_path": {"total": 7, "done": 7, "remaining": 0},
+    "milestones": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T20:32:00+02:00",
+    "updated_at": "2026-04-25T23:10:00+02:00",
     "stages": {
-      "REF-M1": { "title": "Grundmodell fuer Referenzprofile", "scope_task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M2": { "title": "Erste drei Start-Referenzprofile", "scope_task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M3": { "title": "Retrieval und Musterableitung", "scope_task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M4": { "title": "Integration fuer neues Projekt anlegen", "scope_task_ids": ["REF-T13", "REF-T14", "REF-T15"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M5": { "title": "Integration fuer existierendes Projekt weiterentwickeln", "scope_task_ids": ["REF-T16", "REF-T17", "REF-T18"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M6": { "title": "Governance und Sicherheitsgrenzen", "scope_task_ids": ["REF-T19", "REF-T20", "REF-T21"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M7": { "title": "UX Doku Tests", "scope_task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0 }
+      "PG-M1": {
+        "title": "Runtime setup and profile UX",
+        "scope_task_ids": ["PG-T01", "PG-T02", "PG-T03"],
+        "total": 3,
+        "done": 3,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M2": {
+        "title": "Controlled MCP foundation",
+        "scope_task_ids": ["PG-T04", "PG-T05", "PG-T06"],
+        "total": 3,
+        "done": 3,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M3": {
+        "title": "Dogfooding and PR review automation",
+        "scope_task_ids": ["PG-T07", "PG-T08", "PG-T09"],
+        "total": 3,
+        "done": 3,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M4": {
+        "title": "Icebox guards",
+        "scope_task_ids": ["PG-T10", "PG-T11"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M5": {
+        "title": "Cross-track dependency hygiene",
+        "scope_task_ids": ["PG-T12"],
+        "total": 1,
+        "done": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M1": {
+        "title": "Compatibility stage 1",
+        "scope_task_ids": ["PG-T01", "PG-T02"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M2": {
+        "title": "Compatibility stage 2",
+        "scope_task_ids": ["PG-T03", "PG-T04"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M3": {
+        "title": "Compatibility stage 3",
+        "scope_task_ids": ["PG-T05", "PG-T06"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M4": {
+        "title": "Compatibility stage 4",
+        "scope_task_ids": ["PG-T07", "PG-T08"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M5": {
+        "title": "Compatibility stage 5",
+        "scope_task_ids": ["PG-T09", "PG-T10"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M6": {
+        "title": "Compatibility stage 6",
+        "scope_task_ids": ["PG-T11", "PG-T12"],
+        "total": 2,
+        "done": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T20:32:00+02:00",
+    "checked_at": "2026-04-25T23:10:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "Project-evolution Referenz-Matching, evolution hints und mismatch diagnostics wurden integriert.",
-      "Governance-Contract, quality rules und audit marker visibility sind implementiert.",
-      "UX/CLI Sichtbarkeit, Starter-Doku, Golden Paths und Roadmap wurden ergänzt; Track ist abgeschlossen."
+      "Stale references to missing todo.security.json and todo.ananta-worker.json were replaced with explicit KRITIS gating task references.",
+      "Milestone-level execution_stage_summary was added and synchronized with task statuses.",
+      "Cross-track dependency mapping/validation was added as PG-T12 to reduce future track drift.",
+      "Compatibility stage aliases TEST-M1..TEST-M6 were added for test-track tooling expectations.",
+      "PG-T02 to PG-T06 were implemented including recommender, deployment writer, MCP boundary doc, descriptor registry and read-only adapter.",
+      "PG-T07 to PG-T12 were implemented including PR review design, signed webhook receiver skeleton, review publisher, icebox ADR, track inventory and cross-track dependency validator."
     ]
   },
   "summary_notes": [
-    "Der Track bleibt referenz-orientiert und nutzt Quellen als Guidance statt Copy-Template.",
-    "Alle Milestones REF-M1 bis REF-M7 sind umgesetzt und in Rollups konsistent synchronisiert.",
-    "Project-evolution, Governance-Audit und UX/CLI Sichtbarkeit sind operativ verkabelt.",
-    "Doku enthält Starterprofile, Golden Paths und isolierte Post-MVP-Roadmap."
+    "This file intentionally avoids duplicating active detailed tracks and now references existing KRITIS gates explicitly.",
+    "Runtime profile UX and controlled MCP foundation milestones are now implemented (PG-M1 and PG-M2 done).",
+    "PR review automation artifacts are implemented in review-only test mode; production enablement remains gated by KRITIS readiness.",
+    "Cross-track dependency hygiene is now implemented with an explicit map and offline validator.",
+    "LSP, Flow Builder and large Eclipse refactors remain icebox items to avoid Medusa complexity."
   ],
   "end_summaries": [
     {
-      "summary_id": "REF-S1",
+      "summary_id": "PG-S1",
       "title": "Analyseergebnis",
       "items": [
-        "Die aktive todo.json war semantisch gut strukturiert (groups), aber nicht task_track-validator-kompatibel.",
-        "Pflichtfelder wie milestones, tasks, risk_scale und tasks_status_summary fehlten."
+        "todo.json war syntaktisch valide, hatte aber veraltete Cross-Track-Referenzen auf nicht vorhandene Dateien.",
+        "Es fehlte ein execution_stage_summary fuer milestonebasierte Rollups."
       ]
     },
     {
-      "summary_id": "REF-S2",
+      "summary_id": "PG-S2",
       "title": "Korrekturen",
       "items": [
-        "Ein vollständiges task_track-Modell wurde ergänzt (milestones, tasks, status/priority/risk Rollups, critical_path).",
-        "Execution-Stage-Counter wurden je Milestone synchronisiert."
+        "Abhaengigkeiten von PG-T07 wurden auf konkrete KRITIS-Gating-Tasks umgestellt.",
+        "Scope-Regeln wurden auf vorhandene Track-Dateien im Repository aktualisiert."
       ]
     },
     {
-      "summary_id": "REF-S3",
-      "title": "Verbesserungen/Erweiterungen",
+      "summary_id": "PG-S3",
+      "title": "Verbesserungen und Erweiterungen",
       "items": [
-        "Flattened tasks enthalten group_id zur Rückverfolgbarkeit zwischen operativer und fachlicher Struktur.",
-        "analysis_checks und summary_notes wurden zur transparenten Wartbarkeit ergänzt."
+        "execution_stage_summary und analysis_checks wurden fuer bessere Nachvollziehbarkeit ergaenzt.",
+        "PG-T12 fuehrt eine explizite Cross-Track-Dependency-Map plus Validator ein."
       ]
     },
     {
-      "summary_id": "REF-S4",
+      "summary_id": "PG-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 26 done (100.0%).",
-        "Kritischer Pfad: 13 total, 13 done, 0 remaining."
+        "Aktueller Stand: 12 Aufgaben (0 todo, 0 blocked, 0 in_progress, 12 done).",
+        "Kritischer Pfad: 7 total, 7 done, 0 remaining."
       ]
     }
   ]
