@@ -56,13 +56,13 @@
       "id": "VSC-M3",
       "title": "Editor context and command palette workflows",
       "task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "VSC-M4",
       "title": "Sidebar views for tasks, artifacts and approvals",
       "task_ids": ["VSC-T17", "VSC-T18", "VSC-T19", "VSC-T20", "VSC-T21"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VSC-M5",
@@ -285,7 +285,7 @@
     {
       "id": "VSC-T16",
       "title": "Result rendering and notification flow implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -299,7 +299,7 @@
     {
       "id": "VSC-T17",
       "title": "Ananta activity bar and sidebar container implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -312,7 +312,7 @@
     {
       "id": "VSC-T18",
       "title": "Tasks and goals tree view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -325,7 +325,7 @@
     {
       "id": "VSC-T19",
       "title": "Task detail and log view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -338,7 +338,7 @@
     {
       "id": "VSC-T20",
       "title": "Artifact view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -351,7 +351,7 @@
     {
       "id": "VSC-T21",
       "title": "Approval and review queue view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -596,15 +596,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T02:16:18+02:00",
+    "updated_at": "2026-04-25T12:13:40+02:00",
     "total": 36,
     "by_status": {
-      "todo": 21,
+      "todo": 15,
       "in_progress": 0,
       "blocked": 0,
-      "done": 15
+      "done": 21
     },
-    "progress_percent_done": 41.67,
+    "progress_percent_done": 58.33,
     "by_priority": {
       "P0": 25,
       "P1": 11,
@@ -619,20 +619,20 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 10,
-      "remaining": 11
+      "done": 14,
+      "remaining": 7
     },
     "milestones": {
       "total": 7,
-      "todo": 4,
-      "in_progress": 1,
+      "todo": 3,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T02:16:18+02:00",
+    "updated_at": "2026-04-25T12:13:40+02:00",
     "stages": {
       "VSC-M1": {
         "title": "Scope, architecture and project bootstrap",
@@ -656,8 +656,8 @@
         "title": "Editor context and command palette workflows",
         "scope_task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
         "total": 6,
-        "done": 5,
-        "todo": 1,
+        "done": 6,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -665,8 +665,8 @@
         "title": "Sidebar views for tasks, artifacts and approvals",
         "scope_task_ids": ["VSC-T17", "VSC-T18", "VSC-T19", "VSC-T20", "VSC-T21"],
         "total": 5,
-        "done": 0,
-        "todo": 5,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -701,12 +701,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T02:16:18+02:00",
+    "checked_at": "2026-04-25T12:13:40+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "Second implementation bundle VSC-T09..VSC-T15 was completed and tracked to done state.",
-      "Capability-gated commands, bounded context preview/confirmation and status diagnostics are now reflected in task completion state.",
-      "tasks_status_summary and execution_stage_summary were synchronized after milestone transitions (VSC-M2 done, VSC-M3 in progress)."
+      "Third implementation bundle VSC-T16..VSC-T21 was completed and tracked to done state.",
+      "Result detail rendering, sidebar sections, tasks/artifacts detail views and approval queue actions are now reflected in task completion state.",
+      "tasks_status_summary and execution_stage_summary were synchronized after milestone transitions (VSC-M3 done, VSC-M4 done)."
     ]
   },
 
@@ -716,7 +716,7 @@
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
     "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
     "Current todo file now contains synchronized status counters and explicit stage-level rollup data.",
-    "Milestone VSC-M1 and VSC-M2 are complete; VSC-M3 is now in progress with command palette and context menu workflows shipped."
+    "Milestones VSC-M1 through VSC-M4 are complete; remaining work now starts with runtime/audit/repair/TUI integration."
   ],
 
   "end_summaries": [
@@ -750,7 +750,7 @@
       "summary_id": "VSC-S4",
       "title": "Status am Ende",
       "items": [
-        "Zweites Umsetzungsbündel ist abgeschlossen: insgesamt 15 done, 2 milestones done (VSC-M1, VSC-M2), 1 milestone in_progress (VSC-M3).",
+        "Drittes Umsetzungsbündel ist abgeschlossen: insgesamt 21 done, 4 milestones done (VSC-M1 bis VSC-M4), 0 milestones in_progress.",
         "Die Datei bleibt validator-konsistent und enthält aktualisierte Stage- sowie End-Summaries."
       ]
     }

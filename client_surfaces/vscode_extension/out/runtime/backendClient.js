@@ -139,11 +139,35 @@ class AnantaBackendClient {
     listTasks() {
         return this.requestJson("GET", "/tasks");
     }
+    getTask(taskId) {
+        return this.requestJson("GET", `/tasks/${encodeURIComponent(String(taskId || "").trim())}`);
+    }
+    getTaskLogs(taskId) {
+        return this.requestJson("GET", `/tasks/${encodeURIComponent(String(taskId || "").trim())}/logs`);
+    }
     listArtifacts() {
         return this.requestJson("GET", "/artifacts");
     }
+    getArtifact(artifactId) {
+        return this.requestJson("GET", `/artifacts/${encodeURIComponent(String(artifactId || "").trim())}`);
+    }
     listApprovals() {
         return this.requestJson("GET", "/approvals");
+    }
+    approveApproval(approvalId, comment = "") {
+        const normalizedComment = String(comment || "").trim();
+        return this.requestJson("POST", `/approvals/${encodeURIComponent(String(approvalId || "").trim())}/approve`, {
+            comment: normalizedComment
+        });
+    }
+    rejectApproval(approvalId, comment = "") {
+        const normalizedComment = String(comment || "").trim();
+        return this.requestJson("POST", `/approvals/${encodeURIComponent(String(approvalId || "").trim())}/reject`, {
+            comment: normalizedComment
+        });
+    }
+    getGoal(goalId) {
+        return this.requestJson("GET", `/goals/${encodeURIComponent(String(goalId || "").trim())}`);
     }
     getAuditLogs(limit = 30, offset = 0) {
         const safeLimit = Math.max(1, Math.trunc(limit));

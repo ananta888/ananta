@@ -12,9 +12,19 @@ It does not duplicate orchestration, approval, governance, or repair logic.
 - `Ananta: Patch Plan`
 - `Ananta: Project New`
 - `Ananta: Project Evolve`
+- `Ananta: Refresh Sidebar Data`
+- `Ananta: Filter Goals/Tasks by Status`
 
 Commands are capability-gated using `/capabilities` handshake and rechecked at execution time.
 Editor context payloads are bounded, previewed, and explicitly confirmed before send.
+
+## Sidebar views
+
+- **Status**: connection/capability diagnostics.
+- **Goals & Tasks**: list + status filter + detail panel.
+- **Artifacts**: list + read-only detail or browser fallback for binary/rich artifacts.
+- **Approvals**: pending queue + explicit approve/reject actions (backend-permission aware).
+- **Runtime**: summary counts + active filter + refresh diagnostics.
 
 ## Development
 

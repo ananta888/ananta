@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { AnantaBackendClient, WorkflowRequestMetadata } from "./runtime/backendClient";
 import {
   buildCapabilitySnapshot,
+  evaluateCapabilityAction,
   evaluateWorkflowCommand,
   toCommandContextKey,
   WorkflowCommandId,
@@ -14,6 +15,15 @@ import { AnantaSecretStore } from "./runtime/secretStore";
 import { resolveRuntimeSettings } from "./runtime/settings";
 import { RuntimeSettings } from "./runtime/types";
 import { AnantaStatusTreeProvider } from "./views/statusTreeProvider";
+import {
+  ApprovalQueueTreeProvider,
+  ApprovalRef,
+  ArtifactsTreeProvider,
+  ArtifactRef,
+  GoalsTasksTreeProvider,
+  GoalTaskRef,
+  RuntimeOverviewTreeProvider
+} from "./views/sidebarProviders";
 
 const COMMANDS = {
   checkHealth: "ananta.checkHealth",
@@ -26,7 +36,19 @@ const COMMANDS = {
   reviewFile: "ananta.reviewFile",
   patchPlan: "ananta.patchPlan",
   projectNew: "ananta.projectNew",
-  projectEvolve: "ananta.projectEvolve"
+  projectEvolve: "ananta.projectEvolve",
+  refreshSidebarData: "ananta.refreshSidebarData",
+  setGoalTaskStatusFilter: "ananta.setGoalTaskStatusFilter",
+  openGoalOrTaskDetail: "ananta.openGoalOrTaskDetail",
+  openArtifactDetail: "ananta.openArtifactDetail",
+  openApprovalDetail: "ananta.openApprovalDetail",
+  approveApproval: "ananta.approveApproval",
+  rejectApproval: "ananta.rejectApproval"
+} as const;
+
+const APPROVAL_CONTEXT_KEYS = {
+  approve: "ananta.capability.approvalApprove",
+  reject: "ananta.capability.approvalReject"
 } as const;
 
 interface RuntimeClientContext {
@@ -47,6 +69,14 @@ interface WorkflowDefinition {
     goalText: string,
     metadata: WorkflowRequestMetadata
   ) => Promise<unknown>;
+}
+
+interface CapabilityExecutionState {
+  workflowAvailability: Record<WorkflowCommandId, boolean>;
+  approvalActions: {
+    approve: boolean;
+    reject: boolean;
+  };
 }
 
 const WORKFLOW_DEFINITIONS: Record<WorkflowCommandId, WorkflowDefinition> = {
@@ -139,15 +169,114 @@ function workflowDefaultState(): Record<WorkflowCommandId, boolean> {
   );
 }
 
+function defaultCapabilityState(): CapabilityExecutionState {
+  return {
+    workflowAvailability: workflowDefaultState(),
+    approvalActions: {
+      approve: false,
+      reject: false
+    }
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function readString(record: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function readItems(payload: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(payload)) {
+    return payload.map((entry) => asRecord(entry)).filter((entry): entry is Record<string, unknown> => entry !== null);
+  }
+  const record = asRecord(payload);
+  if (!record || !Array.isArray(record.items)) {
+    return [];
+  }
+  return record.items.map((entry) => asRecord(entry)).filter((entry): entry is Record<string, unknown> => entry !== null);
+}
+
 function extractTaskId(data: unknown): string {
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
+  const parsed = asRecord(data);
+  if (!parsed) {
     return "";
   }
-  const value = (data as Record<string, unknown>).task_id;
-  if (typeof value !== "string") {
+  return readString(parsed, "task_id");
+}
+
+function extractGoalId(data: unknown): string {
+  const parsed = asRecord(data);
+  if (!parsed) {
     return "";
   }
-  return value.trim();
+  return readString(parsed, "goal_id");
+}
+
+function extractArtifactId(data: unknown): string {
+  const parsed = asRecord(data);
+  if (!parsed) {
+    return "";
+  }
+  return readString(parsed, "artifact_id");
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function openJsonPanel(title: string, payload: unknown): void {
+  const panel = vscode.window.createWebviewPanel("ananta.detailPanel", title, vscode.ViewColumn.Beside, {
+    enableScripts: false
+  });
+  const json = JSON.stringify(payload, null, 2);
+  panel.webview.html = [
+    "<html><body>",
+    '<style>body{font-family:var(--vscode-editor-font-family);padding:12px;} pre{white-space:pre-wrap;word-break:break-word;}</style>',
+    `<pre>${escapeHtml(json)}</pre>`,
+    "</body></html>"
+  ].join("");
+}
+
+function statusBarText(connectionState: string, capabilitiesState: string): string {
+  if (connectionState === "healthy" && capabilitiesState === "healthy") {
+    return "$(check) Ananta Connected";
+  }
+  if (connectionState === "invalid_config") {
+    return "$(error) Ananta Invalid Config";
+  }
+  if (capabilitiesState === "capability_missing" || capabilitiesState === "policy_denied") {
+    return "$(warning) Ananta Limited";
+  }
+  if (connectionState === "backend_unreachable" || connectionState === "backend_timeout") {
+    return "$(error) Ananta Unreachable";
+  }
+  if (connectionState === "auth_failed") {
+    return "$(error) Ananta Auth Failed";
+  }
+  return "$(warning) Ananta Degraded";
+}
+
+function diagnosticSeverity(state: string): vscode.DiagnosticSeverity {
+  if (state === "capability_missing" || state === "policy_denied") {
+    return vscode.DiagnosticSeverity.Warning;
+  }
+  return vscode.DiagnosticSeverity.Error;
 }
 
 function readActiveEditorContext(): RawEditorContextInput {
@@ -193,36 +322,41 @@ function buildPreviewDetail(preview: ReturnType<typeof packageEditorContext>["pr
   return lines.join("\n");
 }
 
-function statusBarText(connectionState: string, capabilitiesState: string): string {
-  if (connectionState === "healthy" && capabilitiesState === "healthy") {
-    return "$(check) Ananta Connected";
+function isTextArtifact(payload: Record<string, unknown>): boolean {
+  const type = readString(payload, "type", "artifact_type", "mime_type", "kind").toLowerCase();
+  if (!type) {
+    return true;
   }
-  if (connectionState === "invalid_config") {
-    return "$(error) Ananta Invalid Config";
+  if (type.includes("text") || type.includes("report") || type.includes("diff") || type.includes("review")) {
+    return true;
   }
-  if (capabilitiesState === "capability_missing" || capabilitiesState === "policy_denied") {
-    return "$(warning) Ananta Limited";
+  if (type.includes("json") || type.includes("markdown") || type.includes("log")) {
+    return true;
   }
-  if (connectionState === "backend_unreachable" || connectionState === "backend_timeout") {
-    return "$(error) Ananta Unreachable";
+  if (
+    type.includes("binary") ||
+    type.includes("image") ||
+    type.includes("pdf") ||
+    type.includes("zip") ||
+    type.includes("audio") ||
+    type.includes("video")
+  ) {
+    return false;
   }
-  if (connectionState === "auth_failed") {
-    return "$(error) Ananta Auth Failed";
-  }
-  return "$(warning) Ananta Degraded";
+  return true;
 }
 
-function diagnosticSeverity(state: string): vscode.DiagnosticSeverity {
-  if (state === "capability_missing" || state === "policy_denied") {
-    return vscode.DiagnosticSeverity.Warning;
-  }
-  return vscode.DiagnosticSeverity.Error;
-}
-
-async function applyCapabilityContexts(values: Record<WorkflowCommandId, boolean>): Promise<void> {
+async function applyWorkflowContexts(values: Record<WorkflowCommandId, boolean>): Promise<void> {
   await Promise.all(
     WORKFLOW_COMMANDS.map((commandId) => vscode.commands.executeCommand("setContext", toCommandContextKey(commandId), values[commandId]))
   );
+}
+
+async function applyApprovalActionContexts(approve: boolean, reject: boolean): Promise<void> {
+  await Promise.all([
+    vscode.commands.executeCommand("setContext", APPROVAL_CONTEXT_KEYS.approve, approve),
+    vscode.commands.executeCommand("setContext", APPROVAL_CONTEXT_KEYS.reject, reject)
+  ]);
 }
 
 async function buildRuntimeClient(
@@ -255,6 +389,10 @@ async function buildRuntimeClient(
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel("Ananta");
   const statusView = new AnantaStatusTreeProvider();
+  const goalsTasksView = new GoalsTasksTreeProvider();
+  const artifactsView = new ArtifactsTreeProvider();
+  const approvalsView = new ApprovalQueueTreeProvider();
+  const runtimeView = new RuntimeOverviewTreeProvider();
   const diagnostics = vscode.languages.createDiagnosticCollection("ananta-runtime");
   const diagnosticsUri = vscode.Uri.parse("ananta:/runtime/status");
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -263,8 +401,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   statusBar.tooltip = "Ananta runtime status";
   statusBar.show();
 
+  let capabilityState = defaultCapabilityState();
+
   context.subscriptions.push(output, diagnostics, statusBar);
   context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.statusView", statusView));
+  context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.goalsTasksView", goalsTasksView));
+  context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.artifactsView", artifactsView));
+  context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.approvalsView", approvalsView));
+  context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.runtimeView", runtimeView));
 
   const setRuntimeUi = (
     connectionState: string,
@@ -305,21 +449,113 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     diagnostics.set(diagnosticsUri, entries);
   };
 
-  async function refreshCapabilities(runtime: RuntimeClientContext): Promise<Record<WorkflowCommandId, boolean>> {
-    const capabilities = await runtime.client.getCapabilities();
-    const snapshot = buildCapabilitySnapshot(capabilities);
-    const commandAvailability = workflowDefaultState();
-    const details: string[] = [`capabilities_status=${capabilities.statusCode ?? "none"}`];
-    for (const commandId of WORKFLOW_COMMANDS) {
-      const gate = evaluateWorkflowCommand(snapshot, commandId);
-      commandAvailability[commandId] = gate.allowed;
-      if (!gate.allowed) {
-        details.push(`${commandId}=${gate.reason}`);
-      }
+  const setRuntimeOverview = (
+    runtime: RuntimeClientContext | null,
+    connectionState: string,
+    capabilitiesState: string,
+    counts: { goals: number; tasks: number; artifacts: number; approvals: number },
+    details: string[]
+  ): void => {
+    runtimeView.setSnapshot({
+      connectionState,
+      capabilitiesState,
+      endpoint: runtime?.settings.baseUrl ?? "-",
+      profileId: runtime?.settings.profileId ?? "-",
+      goalCount: counts.goals,
+      taskCount: counts.tasks,
+      artifactCount: counts.artifacts,
+      approvalCount: counts.approvals,
+      filterStatus: goalsTasksView.getFilter(),
+      details
+    });
+  };
+
+  const resetSidebarViews = (reason: string): void => {
+    goalsTasksView.setData([], [], reason);
+    artifactsView.setData([], reason);
+    approvalsView.setData([], reason);
+    setRuntimeOverview(null, "invalid_config", "unknown", { goals: 0, tasks: 0, artifacts: 0, approvals: 0 }, [reason]);
+  };
+
+  async function refreshSidebarData(source: string): Promise<RuntimeClientContext | null> {
+    const runtime = await buildRuntimeClient(context, statusView, output);
+    if (!runtime) {
+      capabilityState = defaultCapabilityState();
+      await applyWorkflowContexts(capabilityState.workflowAvailability);
+      await applyApprovalActionContexts(false, false);
+      resetSidebarViews("runtime_settings_invalid");
+      return null;
     }
-    await applyCapabilityContexts(commandAvailability);
-    setRuntimeUi("configured", capabilities.state, runtime.settings.baseUrl, runtime.settings.profileId, details);
-    return commandAvailability;
+
+    try {
+      const [health, capabilities, goals, tasks, artifacts, approvals] = await Promise.all([
+        runtime.client.getHealth(),
+        runtime.client.getCapabilities(),
+        runtime.client.listGoals(),
+        runtime.client.listTasks(),
+        runtime.client.listArtifacts(),
+        runtime.client.listApprovals()
+      ]);
+
+      const capabilitySnapshot = buildCapabilitySnapshot(capabilities);
+      const workflowAvailability = workflowDefaultState();
+      for (const commandId of WORKFLOW_COMMANDS) {
+        workflowAvailability[commandId] = evaluateWorkflowCommand(capabilitySnapshot, commandId).allowed;
+      }
+      const approvalApprove = evaluateCapabilityAction(capabilitySnapshot, {
+        actionId: COMMANDS.approveApproval,
+        requiredCapability: "approvals",
+        actionAliases: ["approvals.approve", "approve_approval"]
+      }).allowed;
+      const approvalReject = evaluateCapabilityAction(capabilitySnapshot, {
+        actionId: COMMANDS.rejectApproval,
+        requiredCapability: "approvals",
+        actionAliases: ["approvals.reject", "reject_approval"]
+      }).allowed;
+
+      capabilityState = {
+        workflowAvailability,
+        approvalActions: {
+          approve: approvalApprove,
+          reject: approvalReject
+        }
+      };
+      await applyWorkflowContexts(workflowAvailability);
+      await applyApprovalActionContexts(approvalApprove, approvalReject);
+
+      goalsTasksView.setData(goals.data, tasks.data, goals.ok && tasks.ok ? "" : `goals=${goals.state}, tasks=${tasks.state}`);
+      artifactsView.setData(artifacts.data, artifacts.ok ? "" : `artifacts=${artifacts.state}`);
+      approvalsView.setData(approvals.data, approvals.ok ? "" : `approvals=${approvals.state}`);
+
+      const goalCount = readItems(goals.data).length;
+      const taskCount = readItems(tasks.data).length;
+      const artifactCount = readItems(artifacts.data).length;
+      const approvalCount = readItems(approvals.data).length;
+
+      const details = [
+        `refresh_source=${source}`,
+        `health_status=${health.statusCode ?? "none"}`,
+        `capabilities_status=${capabilities.statusCode ?? "none"}`
+      ];
+      setRuntimeUi(health.state, capabilities.state, runtime.settings.baseUrl, runtime.settings.profileId, details);
+      setRuntimeOverview(
+        runtime,
+        health.state,
+        capabilities.state,
+        { goals: goalCount, tasks: taskCount, artifacts: artifactCount, approvals: approvalCount },
+        details
+      );
+      return runtime;
+    } catch (error) {
+      const safeError = sanitizeErrorMessage(error);
+      output.appendLine(`[sidebar] refresh failed=${safeError}`);
+      capabilityState = defaultCapabilityState();
+      await applyWorkflowContexts(capabilityState.workflowAvailability);
+      await applyApprovalActionContexts(false, false);
+      setRuntimeUi("backend_unreachable", "unknown", runtime.settings.baseUrl, runtime.settings.profileId, [safeError]);
+      resetSidebarViews(`backend_unreachable:${safeError}`);
+      return runtime;
+    }
   }
 
   async function openResultLink(links: ReturnType<typeof buildResultLinks>): Promise<void> {
@@ -403,31 +639,133 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       })),
       {
         title: "Ananta Goal Mode",
-        placeHolder: "Select goal mode (optional mode selection)"
+        placeHolder: "Select goal mode"
       }
     );
     return picked?.workflow ?? null;
   }
 
-  async function executeWorkflowCommand(commandId: WorkflowCommandId): Promise<void> {
-    const runtime = await buildRuntimeClient(context, statusView, output);
-    if (!runtime) {
-      await applyCapabilityContexts(workflowDefaultState());
+  async function openGoalOrTaskDetailInternal(runtime: RuntimeClientContext, ref: GoalTaskRef): Promise<void> {
+    if (ref.kind === "goal") {
+      const goal = await runtime.client.getGoal(ref.id);
+      if (!goal.ok) {
+        const fallback = `${runtime.settings.baseUrl.replace(/\/+$/, "")}/goals/${encodeURIComponent(ref.id)}`;
+        await vscode.env.openExternal(vscode.Uri.parse(fallback));
+        void vscode.window.showWarningMessage(`Goal detail degraded (${goal.state}); browser fallback opened.`);
+        return;
+      }
+      openJsonPanel(`Ananta Goal ${ref.id}`, {
+        schema: "vscode_goal_detail_v1",
+        goal_id: ref.id,
+        detail: goal.data
+      });
       return;
     }
 
-    const availability = await refreshCapabilities(runtime);
+    const [task, logs] = await Promise.all([runtime.client.getTask(ref.id), runtime.client.getTaskLogs(ref.id)]);
+    const detailPayload = {
+      schema: "vscode_task_detail_v1",
+      task_id: ref.id,
+      task_state: task.state,
+      task_status_code: task.statusCode,
+      task_missing: !task.ok,
+      task_detail: task.data,
+      logs_state: logs.state,
+      logs_status_code: logs.statusCode,
+      logs_available: logs.ok,
+      logs_payload: logs.data,
+      stale_or_missing_state_explicit: !task.ok || !logs.ok
+    };
+    openJsonPanel(`Ananta Task ${ref.id}`, detailPayload);
+  }
+
+  async function openArtifactDetailInternal(runtime: RuntimeClientContext, ref: ArtifactRef): Promise<void> {
+    const artifact = await runtime.client.getArtifact(ref.id);
+    if (!artifact.ok) {
+      const fallback = `${runtime.settings.baseUrl.replace(/\/+$/, "")}/artifacts/${encodeURIComponent(ref.id)}`;
+      await vscode.env.openExternal(vscode.Uri.parse(fallback));
+      void vscode.window.showWarningMessage(`Artifact detail degraded (${artifact.state}); browser fallback opened.`);
+      return;
+    }
+    const payload = asRecord(artifact.data);
+    if (!payload) {
+      openJsonPanel(`Ananta Artifact ${ref.id}`, {
+        schema: "vscode_artifact_detail_v1",
+        artifact_id: ref.id,
+        unsupported_payload: artifact.data,
+        fallback_url: `${runtime.settings.baseUrl.replace(/\/+$/, "")}/artifacts/${encodeURIComponent(ref.id)}`
+      });
+      return;
+    }
+    if (!isTextArtifact(payload)) {
+      const fallback = `${runtime.settings.baseUrl.replace(/\/+$/, "")}/artifacts/${encodeURIComponent(ref.id)}`;
+      await vscode.env.openExternal(vscode.Uri.parse(fallback));
+      void vscode.window.showInformationMessage("Binary/rich artifact opened in browser fallback.");
+      return;
+    }
+    openJsonPanel(`Ananta Artifact ${ref.id}`, {
+      schema: "vscode_artifact_detail_v1",
+      artifact_id: ref.id,
+      read_only_render: true,
+      detail: payload
+    });
+  }
+
+  async function openApprovalDetailInternal(runtime: RuntimeClientContext, ref: ApprovalRef): Promise<void> {
+    const approvals = await runtime.client.listApprovals();
+    const all = readItems(approvals.data);
+    const found = all.find((entry) => readString(entry, "id", "approval_id") === ref.id) ?? null;
+    openJsonPanel(`Ananta Approval ${ref.id}`, {
+      schema: "vscode_approval_detail_v1",
+      approval_id: ref.id,
+      queue_state: approvals.state,
+      queue_status_code: approvals.statusCode,
+      stale_or_missing_state_explicit: found === null,
+      detail: found
+    });
+  }
+
+  async function renderWorkflowResult(
+    runtime: RuntimeClientContext,
+    workflowTitle: string,
+    data: unknown
+  ): Promise<void> {
+    const taskId = extractTaskId(data);
+    if (taskId) {
+      await openGoalOrTaskDetailInternal(runtime, { kind: "task", id: taskId });
+      return;
+    }
+    const artifactId = extractArtifactId(data);
+    if (artifactId) {
+      await openArtifactDetailInternal(runtime, { id: artifactId });
+      return;
+    }
+    const goalId = extractGoalId(data);
+    if (goalId) {
+      await openGoalOrTaskDetailInternal(runtime, { kind: "goal", id: goalId });
+      return;
+    }
+    openJsonPanel(`Ananta ${workflowTitle} Result`, {
+      schema: "vscode_result_fallback_v1",
+      note: "Unsupported result type; using text/browser fallback.",
+      payload: data,
+      browser_links: buildResultLinks(runtime.settings.baseUrl, data)
+    });
+  }
+
+  async function executeWorkflowCommand(commandId: WorkflowCommandId): Promise<void> {
+    const runtime = await refreshSidebarData("workflow_preflight");
+    if (!runtime) {
+      return;
+    }
+
     const effectiveCommand = commandId === COMMANDS.submitGoal ? await chooseQuickGoalMode() : commandId;
     if (!effectiveCommand) {
       return;
     }
     const workflow = WORKFLOW_DEFINITIONS[effectiveCommand];
-    if (!availability[effectiveCommand]) {
-      const requiredCapability = evaluateWorkflowCommand(
-        buildCapabilitySnapshot(await runtime.client.getCapabilities()),
-        effectiveCommand
-      );
-      const reason = requiredCapability.reason;
+    if (!capabilityState.workflowAvailability[effectiveCommand]) {
+      const reason = `command_not_available:${effectiveCommand}`;
       output.appendLine(`[capability] denied command=${effectiveCommand} reason=${reason}`);
       void vscode.window.showWarningMessage(`Ananta command denied (${reason}).`);
       return;
@@ -483,15 +821,59 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       : `Ananta accepted ${workflow.title}.`;
     const links = buildResultLinks(runtime.settings.baseUrl, response.data);
     output.appendLine(`[workflow] success command=${workflow.id} task_id=${taskId || "none"}`);
-    const action = await vscode.window.showInformationMessage(message, "Open Result", "Open Status");
-    if (action === "Open Result") {
+    const action = await vscode.window.showInformationMessage(message, "Open Detail", "Open Browser", "Open Status");
+    if (action === "Open Detail") {
+      await renderWorkflowResult(runtime, workflow.title, response.data);
+    } else if (action === "Open Browser") {
       await openResultLink(links);
     } else if (action === "Open Status") {
       await vscode.commands.executeCommand(COMMANDS.openStatusView);
     }
+    await refreshSidebarData("workflow_success");
   }
 
-  await applyCapabilityContexts(workflowDefaultState());
+  async function runApprovalAction(ref: ApprovalRef, action: "approve" | "reject"): Promise<void> {
+    const runtime = await refreshSidebarData(`approval_${action}_preflight`);
+    if (!runtime) {
+      return;
+    }
+    const allowed = action === "approve" ? capabilityState.approvalActions.approve : capabilityState.approvalActions.reject;
+    if (!allowed) {
+      void vscode.window.showWarningMessage(`Approval action denied: ${action} is not permitted by backend capabilities.`);
+      return;
+    }
+
+    const choice = await vscode.window.showWarningMessage(
+      `${action === "approve" ? "Approve" : "Reject"} approval ${ref.id}?`,
+      { modal: true, detail: "This calls backend approval APIs only; no local state mutation is performed." },
+      action === "approve" ? "Approve" : "Reject",
+      "Cancel"
+    );
+    if (!choice || choice === "Cancel") {
+      return;
+    }
+
+    const comment = await vscode.window.showInputBox({
+      title: `${action === "approve" ? "Approve" : "Reject"} approval ${ref.id}`,
+      prompt: "Optional comment",
+      ignoreFocusOut: true
+    });
+    const response =
+      action === "approve"
+        ? await runtime.client.approveApproval(ref.id, comment ?? "")
+        : await runtime.client.rejectApproval(ref.id, comment ?? "");
+    if (!response.ok) {
+      void vscode.window.showWarningMessage(
+        `Approval action degraded (${response.state}). Stale/denied/already-handled state may apply.`
+      );
+    } else {
+      void vscode.window.showInformationMessage(`Approval ${ref.id} ${action === "approve" ? "approved" : "rejected"}.`);
+    }
+    await refreshSidebarData(`approval_${action}_complete`);
+  }
+
+  await applyWorkflowContexts(workflowDefaultState());
+  await applyApprovalActionContexts(false, false);
 
   context.subscriptions.push(
     vscode.commands.registerCommand(COMMANDS.configureProfile, async () => {
@@ -503,6 +885,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand(COMMANDS.openStatusView, async () => {
       await vscode.commands.executeCommand("workbench.view.extension.ananta");
       await vscode.commands.executeCommand("ananta.statusView.focus");
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.refreshSidebarData, async () => {
+      await refreshSidebarData("manual_refresh");
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.setGoalTaskStatusFilter, async () => {
+      const statuses = goalsTasksView.availableStatuses();
+      const picked = await vscode.window.showQuickPick(
+        [{ label: "all", description: "Show all statuses" }, ...statuses.map((status) => ({ label: status }))],
+        {
+          title: "Filter Goals/Tasks by status",
+          placeHolder: "Select status filter"
+        }
+      );
+      if (!picked) {
+        return;
+      }
+      goalsTasksView.setFilter(picked.label);
+      runtimeView.refresh();
     })
   );
 
@@ -539,42 +945,78 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     vscode.commands.registerCommand(COMMANDS.checkHealth, async () => {
-      const runtime = await buildRuntimeClient(context, statusView, output);
+      const runtime = await refreshSidebarData("check_health");
       if (!runtime) {
-        await applyCapabilityContexts(workflowDefaultState());
         return;
       }
-      try {
-        const health = await runtime.client.getHealth();
-        const capabilities = await runtime.client.getCapabilities();
-        const capabilitySnapshot = buildCapabilitySnapshot(capabilities);
-        const availability = workflowDefaultState();
-        for (const commandId of WORKFLOW_COMMANDS) {
-          availability[commandId] = evaluateWorkflowCommand(capabilitySnapshot, commandId).allowed;
-        }
-        await applyCapabilityContexts(availability);
-        setRuntimeUi(
-          health.state,
-          capabilities.state,
-          runtime.settings.baseUrl,
-          runtime.settings.profileId,
-          [`health_status=${health.statusCode ?? "none"}`, `capabilities_status=${capabilities.statusCode ?? "none"}`]
-        );
-        output.appendLine(
-          `[health] state=${health.state} status=${health.statusCode ?? "none"} capabilities_state=${capabilities.state}`
-        );
-        if (health.ok && capabilities.ok) {
-          void vscode.window.showInformationMessage("Ananta backend is healthy and capabilities were loaded.");
-        } else {
-          void vscode.window.showWarningMessage(`Ananta degraded: health=${health.state}, capabilities=${capabilities.state}`);
-        }
-      } catch (error) {
-        const safeError = sanitizeErrorMessage(error);
-        output.appendLine(`[health] failed=${safeError}`);
-        setRuntimeUi("backend_unreachable", "unknown", runtime.settings.baseUrl, runtime.settings.profileId, [safeError]);
-        await applyCapabilityContexts(workflowDefaultState());
-        void vscode.window.showErrorMessage(`Ananta check failed: ${safeError}`);
+      const healthy = capabilityState.workflowAvailability[COMMANDS.submitGoal];
+      if (healthy) {
+        void vscode.window.showInformationMessage("Ananta runtime health/capabilities were refreshed.");
+      } else {
+        void vscode.window.showWarningMessage("Ananta runtime refreshed with degraded capability state.");
       }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.openGoalOrTaskDetail, async (ref?: GoalTaskRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No goal/task selected.");
+        return;
+      }
+      const runtime = await refreshSidebarData("open_goal_task_detail");
+      if (!runtime) {
+        return;
+      }
+      await openGoalOrTaskDetailInternal(runtime, ref);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.openArtifactDetail, async (ref?: ArtifactRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No artifact selected.");
+        return;
+      }
+      const runtime = await refreshSidebarData("open_artifact_detail");
+      if (!runtime) {
+        return;
+      }
+      await openArtifactDetailInternal(runtime, ref);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.openApprovalDetail, async (ref?: ApprovalRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No approval selected.");
+        return;
+      }
+      const runtime = await refreshSidebarData("open_approval_detail");
+      if (!runtime) {
+        return;
+      }
+      await openApprovalDetailInternal(runtime, ref);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.approveApproval, async (ref?: ApprovalRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No approval selected for approve action.");
+        return;
+      }
+      await runApprovalAction(ref, "approve");
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.rejectApproval, async (ref?: ApprovalRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No approval selected for reject action.");
+        return;
+      }
+      await runApprovalAction(ref, "reject");
     })
   );
 
@@ -591,10 +1033,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (!event.affectsConfiguration("ananta")) {
         return;
       }
-      await applyCapabilityContexts(workflowDefaultState());
-      setRuntimeUi("configured", "unknown", String(vscode.workspace.getConfiguration("ananta").get("baseUrl", "-")), String(vscode.workspace.getConfiguration("ananta").get("profileId", "-")), ["configuration_changed"]);
+      capabilityState = defaultCapabilityState();
+      await applyWorkflowContexts(capabilityState.workflowAvailability);
+      await applyApprovalActionContexts(false, false);
+      goalsTasksView.setFilter("all");
+      await refreshSidebarData("configuration_changed");
     })
   );
+
+  await refreshSidebarData("activate");
 }
 
 export function deactivate(): void {
