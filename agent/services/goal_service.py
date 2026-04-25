@@ -10,6 +10,7 @@ from agent.services.planning_service import get_goal_feature_flags, get_plan_gen
 from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.reference_profile_service import get_reference_profile_service
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -79,7 +80,14 @@ class GoalService:
     def normalize_mode_data(self, mode: str, mode_data: dict[str, Any]) -> dict[str, Any]:
         if mode == "admin_repair":
             return build_admin_repair_mode_data(mode_data)
-        return dict(mode_data or {})
+        normalized = dict(mode_data or {})
+        if mode == "new_software_project":
+            reference_plan = get_reference_profile_service().build_mode_reference_plan(flow="new_project", mode_data=normalized)
+            normalized["reference_profile_plan"] = reference_plan
+            selected = dict(((reference_plan.get("selection") or {}).get("selected_profile")) or {})
+            if selected:
+                normalized["reference_profile_id"] = selected.get("profile_id")
+        return normalized
 
     def build_goal_workflow_overrides(
         self,
@@ -104,11 +112,19 @@ class GoalService:
 
     def build_mode_workflow_defaults(self, mode: str, mode_data: dict[str, Any]) -> dict[str, Any]:
         if mode == "new_software_project":
+            reference_plan = dict(mode_data.get("reference_profile_plan") or {})
+            integration_hints = dict(reference_plan.get("integration_hints") or {})
             return {
                 "planning": {
                     "create_tasks": True,
                     "use_template": True,
                     "use_repo_context": False,
+                    "blueprint_hint": integration_hints.get("blueprint_name"),
+                },
+                "routing": {
+                    "work_profile": integration_hints.get("work_profile"),
+                    "reference_profile_id": integration_hints.get("reference_profile_id"),
+                    "reference_retrieval_intent": integration_hints.get("retrieval_intent"),
                 },
                 "verification": {
                     "enabled": True,
@@ -178,6 +194,11 @@ class GoalService:
     def build_mode_context(self, mode: str, mode_data: dict[str, Any], context: str | None) -> str | None:
         parts = [str(context or "").strip()] if str(context or "").strip() else []
         if mode == "new_software_project":
+            reference_plan = dict(mode_data.get("reference_profile_plan") or {})
+            selection = dict(reference_plan.get("selection") or {})
+            selected_profile = dict(selection.get("selected_profile") or {})
+            selected_reason = dict(selection.get("selected_reason") or {})
+            skeleton_guidance = dict(reference_plan.get("skeleton_guidance") or {})
             parts.append(
                 "\n".join(
                     [
@@ -187,6 +208,20 @@ class GoalService:
                     ]
                 )
             )
+            if selected_profile:
+                guidance_lines = list(skeleton_guidance.get("guidance_lines") or [])
+                guidance_text = " ".join(guidance_lines) if guidance_lines else "No profile-specific skeleton hints available."
+                parts.append(
+                    "\n".join(
+                        [
+                            "REFERENZKONTEXT: Starter-Referenzprofil wurde empfohlen.",
+                            f"Ausgewaehltes Profil: {selected_profile.get('profile_id')} ({selected_profile.get('language')}/{selected_profile.get('framework')}).",
+                            f"Auswahlgrund: {selected_reason.get('summary') or 'deterministic profile fit'}.",
+                            f"Skelett-Hinweise: {guidance_text}",
+                            "Boundary: Referenzen als Guidance nutzen, niemals als Blind-Copy-Template.",
+                        ]
+                    )
+                )
         elif mode == "project_evolution":
             affected_areas = str(mode_data.get("affected_areas") or "").strip()
             constraints = str(mode_data.get("constraints") or "").strip()
@@ -227,6 +262,7 @@ class GoalService:
             constraints = [
                 "Keine unkontrollierte Vollautomatik beim Projektstart.",
                 "Schreib- und Runtime-Schritte bleiben bestaetigungspflichtig.",
+                "Referenzprofile dienen nur als Guidance, Blind-Copy ist unzulaessig.",
             ]
             non_goals = str(mode_data.get("non_goals") or "").strip()
             if non_goals:
@@ -254,6 +290,7 @@ class GoalService:
             return [
                 "Projekt-Blueprint mit Scope, Architekturvorschlag und initialem Backlog ist sichtbar.",
                 "Review- und Verification-Schritte bleiben aktiv.",
+                "Referenzprofil-Auswahl und Auswahlgrund sind im Goal-Kontext sichtbar.",
             ]
         if mode == "project_evolution":
             return [
@@ -598,6 +635,14 @@ class GoalService:
                     {"name": "target_users", "label": "Zielgruppe", "type": "text", "required": True},
                     {"name": "platform", "label": "Plattform", "type": "text", "placeholder": "z.B. Web, CLI, API", "required": True},
                     {"name": "preferred_stack", "label": "Bevorzugter Stack (optional)", "type": "text", "required": False},
+                    {
+                        "name": "reference_profile_id",
+                        "label": "Referenzprofil (optional)",
+                        "type": "select",
+                        "options": ["auto", "ref.python.ananta_backend", "ref.angular.ananta_frontend", "ref.java.keycloak"],
+                        "default": "auto",
+                        "required": False,
+                    },
                     {"name": "non_goals", "label": "Nicht-Ziele (optional)", "type": "textarea", "required": False},
                 ],
                 "recommended_capabilities": ["file_read", "file_write", "file_patch"]
