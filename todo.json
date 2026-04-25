@@ -390,19 +390,122 @@
     "E2E-T17"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:00:00+02:00",
+    "updated_at": "2026-04-25T14:31:16+02:00",
     "total": 18,
     "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
     "by_priority": {"P0": 12, "P1": 3, "P2": 3, "P3": 0},
-    "by_risk": {"low": 0, "medium": 6, "high": 8, "critical": 4},
+    "by_risk": {"low": 0, "medium": 6, "high": 6, "critical": 6},
     "critical_path": {"total": 12, "done": 0, "remaining": 12},
     "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-25T14:31:16+02:00",
+    "stages": {
+      "E2E-M1": {
+        "title": "E2E harness and artifact model",
+        "scope_task_ids": ["E2E-T01", "E2E-T02", "E2E-T03"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "E2E-M2": {
+        "title": "CLI and core golden path evidence",
+        "scope_task_ids": ["E2E-T04", "E2E-T05", "E2E-T06"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "E2E-M3": {
+        "title": "TUI visual evidence",
+        "scope_task_ids": ["E2E-T07", "E2E-T08", "E2E-T09"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "E2E-M4": {
+        "title": "Web UI screenshots and optional video",
+        "scope_task_ids": ["E2E-T10", "E2E-T11", "E2E-T12"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "E2E-M5": {
+        "title": "RAG and policy visual dogfood flows",
+        "scope_task_ids": ["E2E-T13", "E2E-T14", "E2E-T15"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "E2E-M6": {
+        "title": "Release gate and documentation",
+        "scope_task_ids": ["E2E-T16", "E2E-T17", "E2E-T18"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+  "analysis_checks": {
+    "checked_at": "2026-04-25T14:31:16+02:00",
+    "internal_consistency": "corrected",
+    "notes": [
+      "tasks_status_summary.by_risk wurde auf die realen Task-Zahlen korrigiert (medium=6, high=6, critical=6).",
+      "updated_at auf den aktuellen Analysezeitpunkt gesetzt.",
+      "execution_stage_summary ergänzt, um Rollups je Meilenstein transparent und validator-kompatibel zu machen."
+    ]
   },
   "summary_notes": [
     "This track is the automated substitute for early manual dogfooding while Ananta is still pre-release.",
     "Videos are useful but optional; screenshots and terminal snapshots are required for key flows where practical.",
     "Visual evidence should make it obvious when CLI/TUI/Web UI states are confusing, empty or misleading even if APIs technically pass.",
-    "Future Blender, FreeCAD and KiCad integrations should reuse this evidence model for plugin/UI smoke tests."
+    "Future Blender, FreeCAD and KiCad integrations should reuse this evidence model for plugin/UI smoke tests.",
+    "Summary counters and stage rollups are now synchronized and explicitly documented."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "E2E-S1",
+      "title": "Analyseergebnis",
+      "items": [
+        "Die aktuelle todo.json beschreibt einen konsistent strukturierten E2E-Dogfood-Track mit 18 Tasks und 6 Meilensteinen.",
+        "Auffällig war ein Drift in tasks_status_summary.by_risk gegenüber den tatsächlichen Task-Risiken."
+      ]
+    },
+    {
+      "summary_id": "E2E-S2",
+      "title": "Korrekturen",
+      "items": [
+        "by_risk korrigiert auf low=0, medium=6, high=6, critical=6.",
+        "updated_at/checked_at auf aktuellen Analysezeitpunkt gesetzt."
+      ]
+    },
+    {
+      "summary_id": "E2E-S3",
+      "title": "Verbesserungen und Erweiterungen",
+      "items": [
+        "execution_stage_summary ergänzt (je Meilenstein: scope_task_ids + total/done/todo/in_progress/blocked).",
+        "analysis_checks ergänzt, um Validierungsstand und Korrekturinhalte nachvollziehbar zu dokumentieren."
+      ]
+    },
+    {
+      "summary_id": "E2E-S4",
+      "title": "Status am Ende",
+      "items": [
+        "Inhaltlich bleibt der Track im Startzustand (18 todo, 0 done), jetzt jedoch zähler- und rollup-synchron.",
+        "Die Datei ist damit als belastbare Basis für die nächste Umsetzungsrunde vorbereitet."
+      ]
+    }
   ]
 }
