@@ -412,7 +412,7 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-24T00:00:00+02:00",
+    "updated_at": "2026-04-25T13:43:10+02:00",
     "total": 25,
     "by_status": {
       "todo": 25,
@@ -422,16 +422,16 @@
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 15,
-      "P1": 10,
+      "P0": 16,
+      "P1": 9,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
       "medium": 4,
-      "high": 13,
-      "critical": 8
+      "high": 10,
+      "critical": 11
     },
     "critical_path": {
       "total": 16,
@@ -447,10 +447,118 @@
     }
   },
 
+  "execution_stage_summary": {
+    "updated_at": "2026-04-25T13:43:10+02:00",
+    "stages": {
+      "TEST-M1": {
+        "title": "Runtime evidence and audit verification",
+        "scope_task_ids": ["TEST-T01", "TEST-T02", "TEST-T03", "TEST-T04"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M2": {
+        "title": "Shared client contract and security tests",
+        "scope_task_ids": ["TEST-T05", "TEST-T06", "TEST-T07", "TEST-T08"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M3": {
+        "title": "TUI runtime tests",
+        "scope_task_ids": ["TEST-T09", "TEST-T10", "TEST-T11", "TEST-T12"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M4": {
+        "title": "Neovim and Vim runtime tests",
+        "scope_task_ids": ["TEST-T13", "TEST-T14", "TEST-T15", "TEST-T16"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M5": {
+        "title": "Eclipse plugin tests",
+        "scope_task_ids": ["TEST-T17", "TEST-T18", "TEST-T19", "TEST-T20"],
+        "total": 4,
+        "done": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M6": {
+        "title": "End-to-end and merge readiness",
+        "scope_task_ids": ["TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24", "TEST-T25"],
+        "total": 5,
+        "done": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+
+  "analysis_checks": {
+    "checked_at": "2026-04-25T13:43:10+02:00",
+    "internal_consistency": "corrected",
+    "notes": [
+      "tasks_status_summary.by_priority wurde auf die realen Task-Zahlen synchronisiert (P0=16, P1=9).",
+      "tasks_status_summary.by_risk wurde auf die realen Task-Zahlen synchronisiert (high=10, critical=11).",
+      "execution_stage_summary ergänzt, damit Stage-Rollups pro Meilenstein transparent und prüfbar sind."
+    ]
+  },
+
   "summary_notes": [
     "This test todo assumes the runtime delivery todo.json has been fully and correctly implemented.",
     "It no longer treats missing clients as the normal path; it verifies implemented runtime behavior.",
     "Eclipse may still be deferred/blocked only if todo.json explicitly chose that path and inventory/docs agree.",
-    "The main purpose is to prove runtime evidence, safety boundaries and merge readiness."
+    "The main purpose is to prove runtime evidence, safety boundaries and merge readiness.",
+    "Summary counters and stage rollups are now synchronized and explicitly documented."
+  ],
+
+  "end_summaries": [
+    {
+      "summary_id": "TEST-S1",
+      "title": "Analyseergebnis",
+      "items": [
+        "Die aktuelle todo.json bildet einen eigenständigen Test-Hardening-Track mit 25 Tasks über 6 Meilensteine ab.",
+        "Struktur und Task-Zuordnung waren konsistent, aber die Priority-/Risk-Zähler in tasks_status_summary waren veraltet."
+      ]
+    },
+    {
+      "summary_id": "TEST-S2",
+      "title": "Korrekturen",
+      "items": [
+        "by_priority korrigiert auf P0=16 und P1=9.",
+        "by_risk korrigiert auf high=10 und critical=11.",
+        "updated_at/checked_at auf den aktuellen Bearbeitungszeitpunkt gesetzt."
+      ]
+    },
+    {
+      "summary_id": "TEST-S3",
+      "title": "Verbesserungen und Erweiterungen",
+      "items": [
+        "execution_stage_summary ergänzt (pro Meilenstein: scope_task_ids plus total/done/todo/in_progress/blocked).",
+        "analysis_checks ergänzt, um Prüfstand und Korrekturinhalt nachvollziehbar zu dokumentieren.",
+        "summary_notes um den synchronisierten Rollup-Status erweitert."
+      ]
+    },
+    {
+      "summary_id": "TEST-S4",
+      "title": "Status am Ende",
+      "items": [
+        "Der Test-Hardening-Track bleibt inhaltlich auf Startzustand (25 todo), ist aber jetzt zähler- und konsistenzsynchron.",
+        "Die Datei enthält nun belastbare Stage-Rollups und End-Summaries für den weiteren Umsetzungsfortschritt."
+      ]
+    }
   ]
 }
