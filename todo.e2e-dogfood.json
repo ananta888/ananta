@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "e2e_dogfood_visual_evidence",
+  "purpose": "Add automated end-to-end dogfood tests that produce human-reviewable evidence for CLI, TUI and Web UI flows. The tests should not only assert API success, but also capture snapshots, screenshots and optional short videos so usability, degraded states and golden-path behavior can be inspected before manual dogfooding.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Make Ananta's pre-release confidence visible: each important E2E flow should produce deterministic logs plus visual artifacts such as terminal snapshots, TUI screenshots, Web UI screenshots and optional videos.",
+  "non_goals": [
+    "Do not require manual UI polishing before tests exist.",
+    "Do not make videos mandatory for every CI run if they are too heavy.",
+    "Do not use visual tests as a replacement for contract, policy or security tests.",
+    "Do not allow visual snapshot tests to mask functional failures.",
+    "Do not require KRITIS/Enterprise infrastructure for OSS E2E evidence."
+  ],
+  "success_criteria": [
+    "Golden-path E2E creates goal, task, artifact and trace evidence with mocked worker/LLM execution.",
+    "CLI E2E captures command output snapshots for success, degraded and policy-denied states.",
+    "TUI E2E captures terminal snapshots or screenshots for health, task list, artifact view and degraded states.",
+    "Web UI E2E captures screenshots for dashboard/golden-path states where the Web UI is available.",
+    "Optional short videos are produced for at least one representative TUI or Web UI golden path when the environment supports it.",
+    "Artifacts are stored in a predictable test output directory and referenced from the E2E report.",
+    "Release gate can attach or summarize visual evidence without making heavy video capture mandatory."
+  ],
+  "architecture_guardrails": [
+    "E2E must use controlled/mocked worker and LLM paths unless explicitly marked external/manual.",
+    "Visual evidence must not include secrets, tokens, private local paths or unrelated project files.",
+    "Snapshots should be stable enough for regression use but not overly brittle on timestamps or terminal dimensions.",
+    "Screenshots/videos are evidence, not the only assertion mechanism.",
+    "Policy-denied and degraded-state visuals are as important as happy-path visuals.",
+    "The report must separate blocking functional failures from visual-diff review items."
+  ],
+  "planned_repository_layout": {
+    "tests": "tests/e2e/",
+    "scripts": "scripts/e2e/",
+    "artifacts": "artifacts/e2e/",
+    "reports": "artifacts/e2e/report.json",
+    "snapshots": "tests/e2e/snapshots/",
+    "docs": "docs/testing/e2e_visual_evidence.md"
+  },
+  "milestones": [
+    {
+      "id": "E2E-M1",
+      "title": "E2E harness and artifact model",
+      "task_ids": ["E2E-T01", "E2E-T02", "E2E-T03"],
+      "status": "todo"
+    },
+    {
+      "id": "E2E-M2",
+      "title": "CLI and core golden path evidence",
+      "task_ids": ["E2E-T04", "E2E-T05", "E2E-T06"],
+      "status": "todo"
+    },
+    {
+      "id": "E2E-M3",
+      "title": "TUI visual evidence",
+      "task_ids": ["E2E-T07", "E2E-T08", "E2E-T09"],
+      "status": "todo"
+    },
+    {
+      "id": "E2E-M4",
+      "title": "Web UI screenshots and optional video",
+      "task_ids": ["E2E-T10", "E2E-T11", "E2E-T12"],
+      "status": "todo"
+    },
+    {
+      "id": "E2E-M5",
+      "title": "RAG and policy visual dogfood flows",
+      "task_ids": ["E2E-T13", "E2E-T14", "E2E-T15"],
+      "status": "todo"
+    },
+    {
+      "id": "E2E-M6",
+      "title": "Release gate and documentation",
+      "task_ids": ["E2E-T16", "E2E-T17", "E2E-T18"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "E2E-T01",
+      "title": "E2E visual evidence strategy define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": ["docs/testing/e2e_visual_evidence.md"],
+      "acceptance_criteria": [
+        "Document defines which flows require logs, terminal snapshots, screenshots and optional videos.",
+        "Document separates blocking functional assertions from advisory visual review artifacts.",
+        "Document defines redaction rules for screenshots, terminal output and videos.",
+        "Document explains how CI and local runs store and reference evidence."
+      ]
+    },
+    {
+      "id": "E2E-T02",
+      "title": "E2E artifact directory and report schema add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["E2E-T01"],
+      "expected_files": ["schemas/testing/e2e_report.v1.json", "scripts/e2e/e2e_artifacts.py"],
+      "acceptance_criteria": [
+        "Report schema records flow id, status, logs, snapshots, screenshots, videos, trace bundle refs and artifact refs.",
+        "Artifacts are stored under artifacts/e2e/<run_id>/<flow_id>/ with predictable names.",
+        "Report distinguishes missing optional videos from blocking failures.",
+        "Report supports compact console summary for release gate output."
+      ]
+    },
+    {
+      "id": "E2E-T03",
+      "title": "Mocked backend worker LLM harness add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T02"],
+      "expected_files": ["tests/e2e/harness.py", "tests/e2e/mock_worker.py", "tests/e2e/mock_llm.py"],
+      "acceptance_criteria": [
+        "Harness can run golden paths without external model dependency.",
+        "Mock worker produces deterministic task/artifact outputs.",
+        "Mock LLM produces stable responses suitable for snapshot tests.",
+        "Harness records trace/correlation IDs for each flow."
+      ]
+    },
+    {
+      "id": "E2E-T04",
+      "title": "Core golden path E2E add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/test_core_golden_path.py"],
+      "acceptance_criteria": [
+        "Test starts controlled backend/harness or uses an in-process test server where practical.",
+        "Test submits a goal and verifies task creation, mocked execution, artifact creation and trace bundle presence.",
+        "Test stores structured logs and report entries.",
+        "Test fails if artifact or trace metadata is missing."
+      ]
+    },
+    {
+      "id": "E2E-T05",
+      "title": "CLI golden path output snapshots add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["E2E-T04"],
+      "expected_files": ["tests/e2e/test_cli_golden_path_snapshots.py", "tests/e2e/snapshots/cli/"],
+      "acceptance_criteria": [
+        "CLI E2E captures stdout/stderr snapshots for health, goal submit, task status and artifact display.",
+        "Snapshots normalize timestamps, IDs and paths where needed.",
+        "Snapshot failures are readable and point to the changed command output.",
+        "CLI output includes useful next-step information."
+      ]
+    },
+    {
+      "id": "E2E-T06",
+      "title": "CLI degraded and policy denied snapshots add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["E2E-T05"],
+      "expected_files": ["tests/e2e/test_cli_degraded_policy_snapshots.py"],
+      "acceptance_criteria": [
+        "Snapshots cover backend unreachable, invalid auth/config, approval required and policy denied states.",
+        "CLI never renders denied/degraded states as success.",
+        "Output avoids secrets and excessive internal stack traces.",
+        "Artifacts/report include text snapshots for review."
+      ]
+    },
+    {
+      "id": "E2E-T07",
+      "title": "TUI headless scripted smoke add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/test_tui_scripted_smoke.py", "scripts/e2e/capture_tui.py"],
+      "acceptance_criteria": [
+        "TUI can run in headless/scripted mode or via a terminal capture harness.",
+        "Test captures at least health, task list, artifact view and degraded state screens.",
+        "Captured terminal output is stored as text snapshot and optionally image screenshot.",
+        "Test fails if TUI exits unexpectedly or renders an empty unhelpful screen."
+      ]
+    },
+    {
+      "id": "E2E-T08",
+      "title": "TUI visual snapshots add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["E2E-T07"],
+      "expected_files": ["tests/e2e/snapshots/tui/", "scripts/e2e/render_terminal_snapshot.py"],
+      "acceptance_criteria": [
+        "TUI snapshots normalize terminal size and volatile values.",
+        "Snapshots include representative screens for connected, empty, task/artifact populated and policy-denied states.",
+        "Diffs are reviewable as text or images.",
+        "Snapshots are advisory unless a core required element is missing."
+      ]
+    },
+    {
+      "id": "E2E-T09",
+      "title": "TUI short video capture optional add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T07"],
+      "expected_files": ["scripts/e2e/record_tui_demo.py"],
+      "acceptance_criteria": [
+        "Local runs can record a short TUI golden-path video or terminal cast where tooling is available.",
+        "CI may skip video capture unless explicitly enabled.",
+        "Report marks video as optional evidence and links it when produced.",
+        "Video capture redacts secrets and avoids private paths."
+      ]
+    },
+    {
+      "id": "E2E-T10",
+      "title": "Web UI screenshot harness add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/test_web_ui_screenshots.py", "scripts/e2e/capture_web_ui.py"],
+      "acceptance_criteria": [
+        "Harness can start or connect to Web UI in test mode where available.",
+        "Screenshots cover dashboard/health, goals/tasks, artifact view and degraded state where implemented.",
+        "Screenshots are saved into E2E artifacts and referenced in report.json.",
+        "If Web UI is unavailable, test is skipped/advisory without blocking CLI/TUI golden path."
+      ]
+    },
+    {
+      "id": "E2E-T11",
+      "title": "Web UI visual baseline snapshots add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T10"],
+      "expected_files": ["tests/e2e/snapshots/web/"],
+      "acceptance_criteria": [
+        "Visual baselines exist for stable Web UI screens.",
+        "Baselines account for volatile values such as IDs and timestamps where practical.",
+        "Visual diffs are advisory unless required text/status elements are missing.",
+        "Screenshots help detect broken layout and empty-state regressions."
+      ]
+    },
+    {
+      "id": "E2E-T12",
+      "title": "Web UI short video capture optional add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T10"],
+      "expected_files": ["scripts/e2e/record_web_demo.py"],
+      "acceptance_criteria": [
+        "Local or enabled CI runs can record a short Web UI golden-path video.",
+        "Video shows goal submission, task status and artifact viewing when Web UI supports it.",
+        "Video is referenced from E2E report when produced.",
+        "Video capture is optional and not required for every release gate run."
+      ]
+    },
+    {
+      "id": "E2E-T13",
+      "title": "RAG dogfood E2E with tiny repo add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/fixtures/tiny_project/", "tests/e2e/test_rag_dogfood_tiny_repo.py"],
+      "acceptance_criteria": [
+        "Test indexes a tiny fixture project with codecompass/rag_helper or a deterministic fixture index.",
+        "Test asks a project question and verifies relevant source/path/reason metadata appears.",
+        "Test verifies context remains bounded and uses explicit source refs.",
+        "Test stores retrieval report and optional CLI/TUI snapshot for review."
+      ]
+    },
+    {
+      "id": "E2E-T14",
+      "title": "Policy and approval E2E visual evidence add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T04", "E2E-T06"],
+      "expected_files": ["tests/e2e/test_policy_approval_visual_evidence.py"],
+      "acceptance_criteria": [
+        "E2E covers unsafe action -> approval_required, denied action -> no execution, approved safe action -> execution.",
+        "CLI/TUI/Web evidence shows approval-required and policy-denied states clearly where surfaces exist.",
+        "Trace/report includes policy decision, approval decision and artifact refs.",
+        "Test fails if denied action executes or approval state is rendered as success."
+      ]
+    },
+    {
+      "id": "E2E-T15",
+      "title": "Visual evidence redaction tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T02"],
+      "expected_files": ["tests/e2e/test_visual_evidence_redaction.py"],
+      "acceptance_criteria": [
+        "Tests verify tokens, likely secrets and sensitive local paths are redacted from snapshots, screenshots metadata and reports where practical.",
+        "Tests include positive and negative examples.",
+        "Redaction failures block release-gate evidence publication.",
+        "Redaction does not hide policy/audit facts needed for debugging."
+      ]
+    },
+    {
+      "id": "E2E-T16",
+      "title": "E2E visual report generator add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["E2E-T04", "E2E-T05", "E2E-T07", "E2E-T13", "E2E-T14"],
+      "expected_files": ["scripts/e2e/generate_e2e_report.py"],
+      "acceptance_criteria": [
+        "Generator creates a compact markdown and JSON report listing each flow, status and evidence links.",
+        "Report highlights blocking failures, advisory visual diffs and skipped optional video captures separately.",
+        "Report can be attached to release artifacts or read locally.",
+        "Report includes enough information to review UI/UX regressions without rerunning tests immediately."
+      ]
+    },
+    {
+      "id": "E2E-T17",
+      "title": "Release gate integration for E2E evidence add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T16"],
+      "expected_files": ["scripts/run_e2e_dogfood_checks.py", "scripts/run_release_gate.py"],
+      "acceptance_criteria": [
+        "Release gate can run core E2E dogfood checks with visual evidence generation.",
+        "Gate blocks on functional failures and missing required evidence for claimed runtime surfaces.",
+        "Gate does not block solely because optional videos are skipped.",
+        "Gate prints path to E2E report and key snapshots/screenshots."
+      ]
+    },
+    {
+      "id": "E2E-T18",
+      "title": "E2E visual evidence docs write",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T16", "E2E-T17"],
+      "expected_files": ["docs/testing/e2e_visual_evidence.md", "docs/testing/e2e_artifact_review.md"],
+      "acceptance_criteria": [
+        "Docs explain how to run E2E locally, where to find snapshots/screenshots/videos and how to review diffs.",
+        "Docs explain optional video dependencies and skip behavior.",
+        "Docs include guidance for adding new visual evidence flows for future Blender, FreeCAD or KiCad integrations.",
+        "Docs keep the process lightweight enough for OSS contributors."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "Stage 1: Define visual evidence strategy, report schema and mocked E2E harness.",
+    "Stage 2: Add core and CLI golden-path snapshots.",
+    "Stage 3: Add TUI terminal snapshots and optional videos.",
+    "Stage 4: Add Web UI screenshots and optional videos where available.",
+    "Stage 5: Add RAG, policy and approval dogfood flows with evidence.",
+    "Stage 6: Generate reports and integrate with release gate."
+  ],
+  "critical_path_tasks": [
+    "E2E-T01",
+    "E2E-T02",
+    "E2E-T03",
+    "E2E-T04",
+    "E2E-T05",
+    "E2E-T06",
+    "E2E-T07",
+    "E2E-T13",
+    "E2E-T14",
+    "E2E-T15",
+    "E2E-T16",
+    "E2E-T17"
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 18,
+    "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 12, "P1": 3, "P2": 3, "P3": 0},
+    "by_risk": {"low": 0, "medium": 6, "high": 8, "critical": 4},
+    "critical_path": {"total": 12, "done": 0, "remaining": 12},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "This track is the automated substitute for early manual dogfooding while Ananta is still pre-release.",
+    "Videos are useful but optional; screenshots and terminal snapshots are required for key flows where practical.",
+    "Visual evidence should make it obvious when CLI/TUI/Web UI states are confusing, empty or misleading even if APIs technically pass.",
+    "Future Blender, FreeCAD and KiCad integrations should reuse this evidence model for plugin/UI smoke tests."
+  ]
+}
