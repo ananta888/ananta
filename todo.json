@@ -36,13 +36,13 @@
       "id": "CLI-M2",
       "title": "Command aliases and compatibility",
       "task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CLI-M3",
       "title": "Docs and smoke tests",
       "task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -148,7 +148,7 @@
     {
       "id": "CLI-T06",
       "title": "TUI and optional Web launch commands wire",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -167,7 +167,7 @@
     {
       "id": "CLI-T07",
       "title": "Module invocation compatibility keep",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "blocking": false,
@@ -186,7 +186,7 @@
     {
       "id": "CLI-T08",
       "title": "Quickstart and README command examples update",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "blocking": true,
@@ -206,7 +206,7 @@
     {
       "id": "CLI-T09",
       "title": "Unified CLI smoke and release gate hook add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -232,17 +232,17 @@
   ],
   "critical_path_tasks": ["CLI-T01", "CLI-T02", "CLI-T03", "CLI-T04", "CLI-T05", "CLI-T08"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T00:35:00+02:00",
+    "updated_at": "2026-04-26T00:48:00+02:00",
     "total": 9,
-    "by_status": {"todo": 4, "in_progress": 0, "blocked": 0, "done": 5},
-    "progress_percent_done": 55.56,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 5, "P1": 4, "P2": 0, "P3": 0},
     "by_risk": {"low": 2, "medium": 6, "high": 1, "critical": 0},
-    "critical_path": {"total": 6, "done": 5, "remaining": 1},
-    "milestones": {"total": 3, "todo": 1, "in_progress": 1, "blocked": 0, "done": 1}
+    "critical_path": {"total": 6, "done": 6, "remaining": 0},
+    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T00:35:00+02:00",
+    "updated_at": "2026-04-26T00:48:00+02:00",
     "stages": {
       "CLI-M1": {
         "title": "Unified command entrypoint",
@@ -257,8 +257,8 @@
         "title": "Command aliases and compatibility",
         "scope_task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
         "total": 3,
-        "done": 2,
-        "todo": 1,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -266,8 +266,8 @@
         "title": "Docs and smoke tests",
         "scope_task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
@@ -280,14 +280,15 @@
     "This track reuses the existing runtime wizard and goal CLI modules as backend behavior sources."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T00:35:00+02:00",
+    "checked_at": "2026-04-26T00:48:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Stale dependency reference `todo.platform-gaps.json:PG-T01` was replaced with in-track dependency `CLI-T02`.",
       "Scope rules were added to keep this track focused on unified CLI UX without orchestration duplication.",
       "Execution stage rollup data was added for milestone-level progress visibility.",
       "End summaries were added to provide explicit analysis, corrections and extension status.",
-      "CLI-T01 to CLI-T05 were implemented and validated by CLI-focused pytest coverage."
+      "CLI-T01 to CLI-T05 were implemented and validated by CLI-focused pytest coverage.",
+      "CLI-T06 to CLI-T09 completed TUI/Web wiring, compatibility docs, quickstart refresh, and release-gate smoke integration."
     ]
   },
   "end_summaries": [
@@ -320,9 +321,9 @@
       "summary_id": "CLI-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Stand: 9 Aufgaben (4 todo, 0 in_progress, 0 blocked, 5 done).",
-        "Kritischer Pfad: 6 total, 5 done, 1 remaining.",
-        "CLI-M1 ist abgeschlossen; CLI-M2 laeuft mit verbleibendem Fokus auf TUI/Web-Wiring."
+        "Aktueller Stand: 9 Aufgaben (0 todo, 0 in_progress, 0 blocked, 9 done).",
+        "Kritischer Pfad: 6 total, 6 done, 0 remaining.",
+        "Alle drei Milestones sind abgeschlossen; Unified CLI Track ist vollständig umgesetzt."
       ]
     }
   ]

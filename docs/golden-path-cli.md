@@ -7,16 +7,16 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 ## Golden Path: Goal planen (Standard)
 
 1. Offiziellen Ersteinstieg anzeigen:
-   - `python -m agent.cli_goals --first-run`
+   - `ananta first-run`
 2. Readiness pruefen:
-   - `python -m agent.cli_goals --status`
+   - `ananta status`
 3. Ein Goal als Shortcut planen:
-   - `python -m agent.cli_goals plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"`
+   - `ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"`
 4. Erfolgssignal:
    - CLI gibt Goal-ID, Status, Task-Anzahl und das naechste Detailkommando aus.
 5. Danach:
-   - `python -m agent.cli_goals --tasks --task-status todo`
-   - `python -m agent.cli_goals --goal-detail <goal_id>`
+   - `ananta goal --tasks --task-status todo`
+   - `ananta goal --goal-detail <goal_id>`
 
 ## Erste Hilfe bei typischen Startfehlern
 
@@ -41,7 +41,7 @@ Ziel: **ein eindeutiger Standardweg**, der sich vom Diagnose- oder Expertenpfad 
 Neues Softwareprojekt anlegen:
 
 ```bash
-python -m agent.cli_goals new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
+ananta new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
 ```
 
 Erwartetes Erfolgssignal: ein Goal mit Modus `new_software_project`, erstellten Tasks, Projekt-Blueprint, initialem Backlog und sichtbaren Review-/Governance-Hinweisen.
@@ -49,17 +49,17 @@ Erwartetes Erfolgssignal: ein Goal mit Modus `new_software_project`, erstellten 
 Existierendes Projekt weiterentwickeln:
 
 ```bash
-python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
 ```
 
 Erwartetes Erfolgssignal: ein Goal mit Modus `project_evolution`, kleinen Aenderungsschritten, Risiko-/Testsicht und Review-Plan.
 
 ## Nebenpfade (nicht Golden Path)
 
-- Status/Readiness: `python -m agent.cli_goals --status`
-- Task-Liste: `python -m agent.cli_goals --tasks --task-status todo`
-- Diagnose-Fokus: `python -m agent.cli_goals diagnose "..."`
-- Admin-Repair Shared Foundation: `python -m agent.cli_goals repair-admin "Service restart loop nach Paketupdate"`
+- Status/Readiness: `ananta status`
+- Task-Liste: `ananta goal --tasks --task-status todo`
+- Diagnose-Fokus: `ananta diagnose "..."`
+- Admin-Repair Shared Foundation: `ananta repair-admin "Service restart loop nach Paketupdate"`
 
 Erwartetes Repair-Output-Signal:
 - sichtbare Abschnitte fuer `Diagnosis`, `Repair Plan`, `Risk and Approval`, `Verification`
@@ -75,4 +75,4 @@ Future Extension Boundaries:
 - Netzwerk-/Container-Orchestrator-/App-spezifische Repair-Architekturen sind ausserhalb des MVP
 - Erweiterungen muessen dasselbe Repair-Action-Schema wiederverwenden (keine parallelen Modelle)
 
-Der CLI-Pfad ist abgeschlossen, wenn `--first-run` den Einstieg erklaert, `--status` die Bereitschaft prueft und ein Shortcut-Goal Goal-ID, Status, Task-Anzahl und naechstes Detailkommando ausgibt.
+Der CLI-Pfad ist abgeschlossen, wenn `first-run` den Einstieg erklaert, `status` die Bereitschaft prueft und ein Shortcut-Goal Goal-ID, Status, Task-Anzahl und naechstes Detailkommando ausgibt.

@@ -114,8 +114,11 @@ Kernaussage:
 - Specialized Worker Guidance: `docs/ml-intern-fit-assessment.md`, `docs/ml-intern-adapter-boundary.md`, `docs/ml-intern-capability-profile.md`, `docs/ml-intern-backend-spike.md`, `docs/specialized-worker-guidance.md`
 - Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
 - Frontend Entwicklung: `frontend-angular/README.md`
-- CLI fuer Goals, Diagnose und Artefakte: `python -m agent.cli_goals --help`
-- Runtime-Setup-Wizard: `ananta init --help` (oder `python -m agent.ananta_cli init --help`)
+- CLI fuer Goals, Diagnose und Artefakte: `ananta --help`
+- Runtime-Setup-Wizard: `ananta init --help`
+- CLI Quickstart: `docs/setup/quickstart.md`
+- CLI Befehlsuebersicht (Nutzerpfad): `docs/cli/commands.md`
+- Developer-Fallback Entry Points: `docs/cli/developer_entrypoints.md`
 
 ## Einfache CLI- und API-Beispiele
 
@@ -123,20 +126,25 @@ CLI-Kurzbefehle fuer typische Einstiege:
 
 ```bash
 ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
-python -m agent.cli_goals --first-run
-python -m agent.cli_goals --status
-python -m agent.cli_goals ask "Was sollte ich als naechstes pruefen?"
-python -m agent.cli_goals plan "Bereite den Release-Abschluss vor"
-python -m agent.cli_goals analyze "Analysiere dieses Repository"
-python -m agent.cli_goals review "Pruefe die Login-Aenderungen"
-python -m agent.cli_goals diagnose "Frontend erreicht den Hub nicht"
-python -m agent.cli_goals patch "Plane einen kleinen Fix fuer die Validierung"
-python -m agent.cli_goals repair-admin "Service restart loop nach Paketupdate"
-python -m agent.cli_goals new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
-python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+ananta first-run
+ananta status
+ananta ask "Was sollte ich als naechstes pruefen?"
+ananta plan "Bereite den Release-Abschluss vor"
+ananta analyze "Analysiere dieses Repository"
+ananta review "Pruefe die Login-Aenderungen"
+ananta diagnose "Frontend erreicht den Hub nicht"
+ananta patch "Plane einen kleinen Fix fuer die Validierung"
+ananta repair-admin "Service restart loop nach Paketupdate"
+ananta new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
+ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+ananta tui --help
+ananta doctor
+ananta web
 ```
 
 Die beiden Produkt-Shortcuts nutzen dieselben Kernmodi wie der UI-Wizard: `new_software_project` fuer neue Projekte und `project_evolution` fuer aktive Weiterentwicklung bestehender Projekte.
+
+Dev-Fallback (nur intern/kompatibilitaet): `python -m agent.cli_goals ...` bleibt verfuegbar, ist aber nicht der normale Nutzerpfad.
 
 Minimaler API-Start:
 
