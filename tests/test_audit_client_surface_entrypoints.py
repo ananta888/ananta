@@ -3,6 +3,7 @@ from scripts.audit_client_surface_entrypoints import (
     classify_surface,
     collect_done_claims,
     collect_done_task_ids,
+    generate_report,
 )
 
 
@@ -203,3 +204,35 @@ def test_done_claims_include_vscode_runtime_ranges() -> None:
     }
     done_claims = collect_done_claims(todo_payload)
     assert done_claims["vscode_plugin"] == ["VSC-T01", "VSC-T24", "VSC-T36"]
+
+
+def test_generate_report_fails_for_skeleton_only_runtime_claims(tmp_path) -> None:
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "data" / "client_surface_runtime_status.json").write_text(
+        '{"surface_status":{"tui_surface":"runtime_mvp"}}',
+        encoding="utf-8",
+    )
+    todo_payload = {"tasks": [{"id": "CSH-T05", "status": "done"}]}
+
+    report = generate_report(tmp_path, todo_payload)
+
+    assert report["ok"] is False
+    assert any("surface=tui_surface has done claims" in warning for warning in report["blocking_warnings"])
+
+
+def test_generate_report_passes_when_runtime_files_and_status_match(tmp_path) -> None:
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "client_surfaces" / "tui_runtime" / "ananta_tui").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "client_surfaces" / "tui_runtime" / "ananta_tui" / "__main__.py").write_text(
+        'print("ok")\n', encoding="utf-8"
+    )
+    (tmp_path / "data" / "client_surface_runtime_status.json").write_text(
+        '{"surface_status":{"tui_surface":"runtime_mvp"}}',
+        encoding="utf-8",
+    )
+    todo_payload = {"tasks": [{"id": "CSH-T05", "status": "done"}]}
+
+    report = generate_report(tmp_path, todo_payload)
+
+    assert report["ok"] is True
+    assert report["blocking_warnings"] == []
