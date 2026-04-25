@@ -159,6 +159,9 @@ class TestGoalsAPI:
         assert workflow["planning"]["blueprint_hint"] == reference_plan["integration_hints"]["blueprint_name"]
         assert workflow["routing"]["work_profile"] == reference_plan["integration_hints"]["work_profile"]
         assert reference_plan["skeleton_guidance"]["guidance_lines"]
+        assert goal_payload["reference_profile"]["profile_id"] == selected_profile["profile_id"]
+        assert goal_payload["reference_profile"]["audit_marker"]["task_or_goal_id"] == goal_payload["id"]
+        assert any(log.action == "reference_profile_used" for log in audit_repo.get_all(limit=40))
         tasks = task_repo.get_by_goal_id(goal_payload["id"])
         titles = {task.title for task in tasks}
         assert "Projekt-Blueprint erstellen" in titles
@@ -199,11 +202,24 @@ class TestGoalsAPI:
         assert workflow["planning"]["use_repo_context"] is True
         assert workflow["verification"]["mode"] == "risk_and_regression_review"
         assert workflow["artifacts"]["include_risk_view"] is True
+        assert workflow["routing"]["reference_profile_id"] in {
+            "ref.python.ananta_backend",
+            "ref.angular.ananta_frontend",
+            "ref.java.keycloak",
+        }
         persisted_goal = goal_repo.get_by_id(goal_payload["id"])
         assert persisted_goal is not None
         assert "MODUSKONTEXT: Existierendes Softwareprojekt weiterentwickeln" in persisted_goal.context
+        assert "Referenzprofil-Empfehlung" in persisted_goal.context
+        assert "Reference-Fit-Diagnose" in persisted_goal.context
         assert "frontend-angular, agent/services" in persisted_goal.context
         assert "Keine Worker-zu-Worker-Orchestrierung" in persisted_goal.constraints
+        assert any("Referenzprofile bleiben advisory" in item for item in persisted_goal.constraints)
+        assert "Referenzprofil-Empfehlung, Hinweise und Fit-Diagnose" in persisted_goal.acceptance_criteria[2]
+        reference_plan = persisted_goal.mode_data["reference_profile_plan"]
+        assert reference_plan["selection"]["selected_profile"]["profile_id"] == goal_payload["reference_profile"]["profile_id"]
+        assert reference_plan["evolution_hints"]["actionable_hints"]
+        assert reference_plan["mismatch_diagnostics"]["fit_level"] in {"high_fit", "partial_fit", "low_fit"}
         tasks = task_repo.get_by_goal_id(goal_payload["id"])
         descriptions = "\n".join(task.description or "" for task in tasks)
         assert "Risiko-, Diff- und Testsicht erstellen" in {task.title for task in tasks}
@@ -215,9 +231,30 @@ class TestGoalsAPI:
         planned_artifacts = detail["artifacts"]["planned_artifacts"]
         assert any(item["artifact"] == "risiko_test_review_plan" and item["test_focus"] for item in planned_artifacts)
         assert any(item["artifact"] == "aenderungsplan" for item in planned_artifacts)
-        assert "aktive Weiterentwicklung" in next(
-            item for item in client.get("/goals/modes", headers=admin_auth_header).get_json()["data"] if item["id"] == "project_evolution"
-        )["description"]
+        mode_entry = next(item for item in client.get("/goals/modes", headers=admin_auth_header).get_json()["data"] if item["id"] == "project_evolution")
+        assert "aktive Weiterentwicklung" in mode_entry["description"]
+        field_names = {field.get("name") for field in mode_entry["fields"]}
+        assert "reference_profile_id" in field_names
+
+    def test_project_evolution_reference_mismatch_diagnostics_visible(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "project_evolution",
+                "mode_data": {
+                    "change_goal": "Refactor backend policy execution pipeline",
+                    "affected_areas": "agent/services, agent/routes/tasks",
+                    "risk_level": "mittel",
+                    "reference_profile_id": "ref.angular.ananta_frontend",
+                },
+            },
+        )
+        assert res.status_code == 201
+        goal_payload = res.get_json()["data"]["goal"]
+        assert goal_payload["reference_profile"]["fit_level"] == "low_fit"
+        assert "frontend_profile_for_backend_change" in goal_payload["reference_profile"]["mismatch_signals"]
 
     def test_project_evolution_high_risk_uses_strict_review_defaults(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)

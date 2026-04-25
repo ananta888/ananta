@@ -87,6 +87,12 @@ class GoalService:
             selected = dict(((reference_plan.get("selection") or {}).get("selected_profile")) or {})
             if selected:
                 normalized["reference_profile_id"] = selected.get("profile_id")
+        if mode == "project_evolution":
+            reference_plan = get_reference_profile_service().build_mode_reference_plan(flow="project_evolution", mode_data=normalized)
+            normalized["reference_profile_plan"] = reference_plan
+            selected = dict(((reference_plan.get("selection") or {}).get("selected_profile")) or {})
+            if selected:
+                normalized["reference_profile_id"] = selected.get("profile_id")
         return normalized
 
     def build_goal_workflow_overrides(
@@ -141,11 +147,19 @@ class GoalService:
         if mode == "project_evolution":
             risk_level = str(mode_data.get("risk_level") or "mittel").strip().lower()
             security_level = "strict_review" if risk_level == "hoch" else "review_required"
+            reference_plan = dict(mode_data.get("reference_profile_plan") or {})
+            integration_hints = dict(reference_plan.get("integration_hints") or {})
             return {
                 "planning": {
                     "create_tasks": True,
                     "use_template": True,
                     "use_repo_context": True,
+                    "blueprint_hint": integration_hints.get("blueprint_name"),
+                },
+                "routing": {
+                    "work_profile": integration_hints.get("work_profile"),
+                    "reference_profile_id": integration_hints.get("reference_profile_id"),
+                    "reference_retrieval_intent": integration_hints.get("retrieval_intent"),
                 },
                 "verification": {
                     "enabled": True,
@@ -227,6 +241,12 @@ class GoalService:
             constraints = str(mode_data.get("constraints") or "").strip()
             risk_level = str(mode_data.get("risk_level") or "mittel").strip()
             change_type = str(mode_data.get("change_type") or "kleine_erweiterung").strip()
+            reference_plan = dict(mode_data.get("reference_profile_plan") or {})
+            selection = dict(reference_plan.get("selection") or {})
+            selected_profile = dict(selection.get("selected_profile") or {})
+            selected_reason = dict(selection.get("selected_reason") or {})
+            evolution_hints = dict(reference_plan.get("evolution_hints") or {})
+            mismatch = dict(reference_plan.get("mismatch_diagnostics") or {})
             lines = [
                 "MODUSKONTEXT: Existierendes Softwareprojekt weiterentwickeln.",
                 "Nutze bestehendes Repo-, Artifact- und Task-Wissen als Startkontext, aber bevorzuge relevante Bereiche gegenueber langer Rohhistorie.",
@@ -238,6 +258,22 @@ class GoalService:
                 lines.append(f"Betroffene Bereiche: {affected_areas}.")
             if constraints:
                 lines.append(f"Restriktionen: {constraints}.")
+            if selected_profile:
+                lines.append(
+                    f"Referenzprofil-Empfehlung: {selected_profile.get('profile_id')} ({selected_profile.get('language')}/{selected_profile.get('framework')})."
+                )
+                lines.append(f"Auswahlgrund: {selected_reason.get('summary') or 'deterministic profile fit'}.")
+            if evolution_hints:
+                hint_lines = list(evolution_hints.get("actionable_hints") or [])
+                if hint_lines:
+                    lines.append(f"Reference-Evolution-Hinweise: {' '.join(hint_lines)}")
+            if mismatch:
+                lines.append(
+                    f"Reference-Fit-Diagnose: {mismatch.get('fit_level', 'partial_fit')}."
+                )
+                mismatch_signals = list(mismatch.get("mismatch_signals") or [])
+                if mismatch_signals:
+                    lines.append(f"Mismatch-Signale: {', '.join(mismatch_signals)}.")
             parts.append("\n".join(lines))
         elif mode == "admin_repair":
             detection = dict(mode_data.get("platform_detection") or {})
@@ -272,6 +308,7 @@ class GoalService:
             constraints = [
                 "Keine monolithische Aenderung als Standard.",
                 "Grosse oder riskante Aenderungen in reviewbare Schritte zerlegen.",
+                "Referenzprofile bleiben advisory und duerfen Governance-/Approval-Grenzen nicht umgehen.",
             ]
             user_constraints = str(mode_data.get("constraints") or "").strip()
             if user_constraints:
@@ -296,6 +333,7 @@ class GoalService:
             return [
                 "Aenderungsplan enthaelt betroffene Bereiche, Risiken, Tests und Review-Hinweise.",
                 "Naechste Schritte sind klein und einzeln verifizierbar.",
+                "Referenzprofil-Empfehlung, Hinweise und Fit-Diagnose bleiben sichtbar und nachvollziehbar.",
             ]
         if mode == "admin_repair":
             return [
@@ -361,7 +399,47 @@ class GoalService:
         data = goal.model_dump()
         data["task_count"] = len(repos.task_repo.get_by_goal_id(goal.id))
         data["instruction_layers"] = get_instruction_layer_service().goal_selection_summary(data)
+        reference_summary = self.build_goal_reference_summary(goal)
+        if reference_summary:
+            data["reference_profile"] = reference_summary
         return data
+
+    def build_goal_reference_summary(self, goal: GoalDB) -> dict[str, Any] | None:
+        mode = str(goal.mode or "").strip()
+        flow = self._reference_flow_for_mode(mode)
+        if not flow:
+            return None
+        mode_data = dict(goal.mode_data or {})
+        reference_plan = dict(mode_data.get("reference_profile_plan") or {})
+        selection = dict(reference_plan.get("selection") or {})
+        selected_profile = dict(selection.get("selected_profile") or {})
+        selected_reason = dict(selection.get("selected_reason") or {})
+        if not selected_profile:
+            return None
+        mismatch = dict(reference_plan.get("mismatch_diagnostics") or {})
+        audit_marker = get_reference_profile_service().build_usage_audit_marker(
+            profile_id=str(selected_profile.get("profile_id") or ""),
+            flow=flow,
+            task_or_goal_id=str(goal.id),
+        )
+        return {
+            "profile_id": selected_profile.get("profile_id"),
+            "language": selected_profile.get("language"),
+            "framework": selected_profile.get("framework"),
+            "project_type": selected_profile.get("project_type"),
+            "flow": flow,
+            "reason_summary": selected_reason.get("summary"),
+            "fit_level": mismatch.get("fit_level"),
+            "mismatch_signals": list(mismatch.get("mismatch_signals") or []),
+            "audit_marker": audit_marker,
+        }
+
+    def _reference_flow_for_mode(self, mode: str) -> str | None:
+        if mode == "new_software_project":
+            return "new_project"
+        if mode == "project_evolution":
+            return "project_evolution"
+        return None
 
     def team_scope_allows(self, goal: GoalDB, user_payload: dict[str, Any] | None, is_admin: bool) -> bool:
         if not goal.team_id or is_admin:
@@ -664,6 +742,14 @@ class GoalService:
                     },
                     {"name": "affected_areas", "label": "Betroffene Bereiche (optional)", "type": "text", "required": False},
                     {
+                        "name": "reference_profile_id",
+                        "label": "Referenzprofil (optional)",
+                        "type": "select",
+                        "options": ["auto", "ref.python.ananta_backend", "ref.angular.ananta_frontend", "ref.java.keycloak"],
+                        "default": "auto",
+                        "required": False,
+                    },
+                    {
                         "name": "risk_level",
                         "label": "Risikoniveau",
                         "type": "select",
@@ -766,6 +852,11 @@ class GoalService:
             affected_areas = str(mode_data.get("affected_areas", "")).strip()
             risk_level = str(mode_data.get("risk_level", "mittel")).strip()
             constraints = str(mode_data.get("constraints", "")).strip()
+            reference_plan = dict(mode_data.get("reference_profile_plan") or {})
+            selection = dict(reference_plan.get("selection") or {})
+            selected_profile = dict(selection.get("selected_profile") or {})
+            selected_reason = dict(selection.get("selected_reason") or {})
+            mismatch = dict(reference_plan.get("mismatch_diagnostics") or {})
             goal = (
                 f"Plane eine kontrollierte Weiterentwicklung eines bestehenden Projekts: {change_goal}. "
                 f"Art der Weiterentwicklung: {change_type}. Risikoniveau: {risk_level}. "
@@ -776,6 +867,15 @@ class GoalService:
                 goal += f" Betroffene Bereiche: {affected_areas}."
             if constraints:
                 goal += f" Restriktionen: {constraints}."
+            if selected_profile:
+                goal += (
+                    f" Referenzprofil-Empfehlung: {selected_profile.get('profile_id')} "
+                    f"({selected_profile.get('language')}/{selected_profile.get('framework')})."
+                )
+            if selected_reason.get("summary"):
+                goal += f" Auswahlgrund: {selected_reason.get('summary')}."
+            if mismatch.get("fit_level"):
+                goal += f" Reference-Fit: {mismatch.get('fit_level')}."
             return goal
         if mode == "runtime_repair":
             runtime_target = str(mode_data.get("runtime_target", "")).strip()

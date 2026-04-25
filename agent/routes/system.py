@@ -241,6 +241,12 @@ def reference_profile_retrieval_contract():
     return api_response(data=get_reference_profile_service().build_retrieval_contract())
 
 
+@system_bp.route("/reference-profiles/governance-contract", methods=["GET"])
+@check_auth
+def reference_profile_governance_contract():
+    return api_response(data=get_reference_profile_service().governance_contract())
+
+
 @system_bp.route("/ready", methods=["GET"])
 def readiness_check():
     """

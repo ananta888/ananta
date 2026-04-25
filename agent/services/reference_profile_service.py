@@ -63,6 +63,51 @@ REFERENCE_USAGE_BOUNDARY: dict[str, Any] = {
     "governance_guardrail": "reference guidance never overrides policy, approval or security constraints",
 }
 
+REFERENCE_INFLUENCE_BOUNDARIES: dict[str, Any] = {
+    "influence_allowed": [
+        "architecture_recommendations",
+        "module_structure_hints",
+        "convention_suggestions",
+        "test_strategy_hints",
+    ],
+    "influence_forbidden": [
+        "policy_override",
+        "approval_bypass",
+        "security_control_bypass",
+        "blind_code_copy",
+    ],
+    "enforcement_points": [
+        "goal_workflow_policy",
+        "approval_gate",
+        "verification_gate",
+        "audit_trace",
+    ],
+}
+
+REFERENCE_SOURCE_QUALITY_RULES: dict[str, Any] = {
+    "version": "v1",
+    "selection_principles": [
+        "use mature and high-signal repositories for first rollout",
+        "prefer references with explicit architecture boundaries",
+        "document strengths and limitations before activation",
+        "keep starter pack curated and intentionally small",
+    ],
+    "starter_profiles_quality": {
+        "ref.java.keycloak": {
+            "signal": "mature security-heavy enterprise java architecture",
+            "limits_acknowledged": True,
+        },
+        "ref.python.ananta_backend": {
+            "signal": "native orchestration/governance backend with explicit policy flows",
+            "limits_acknowledged": True,
+        },
+        "ref.angular.ananta_frontend": {
+            "signal": "workflow-first angular frontend with clear admin domain surfaces",
+            "limits_acknowledged": True,
+        },
+    },
+}
+
 
 STARTER_REFERENCE_PROFILES: tuple[ReferenceProfile, ...] = (
     ReferenceProfile(
@@ -290,6 +335,24 @@ REFERENCE_SKELETON_GUIDANCE: dict[str, list[str]] = {
     ],
 }
 
+REFERENCE_EVOLUTION_HINTS: dict[str, list[str]] = {
+    "ref.java.keycloak": [
+        "Review identity/security boundaries before broad refactors.",
+        "Favor additive changes around authn/authz seams with explicit regression tests.",
+        "Keep policy-sensitive modules and public APIs evolution-safe.",
+    ],
+    "ref.python.ananta_backend": [
+        "Keep orchestration, policy and persistence concerns separated while evolving.",
+        "Use explicit service contracts when introducing new backend capabilities.",
+        "Preserve trace/audit metadata on modified execution paths.",
+    ],
+    "ref.angular.ananta_frontend": [
+        "Evolve workflow screens with explicit state transitions and review visibility.",
+        "Avoid mixing API adapter logic into component presentation layers.",
+        "Add targeted UI tests for workflow-critical transitions.",
+    ],
+}
+
 
 class ReferenceProfileService:
     """Curated starter reference profiles with bounded usage and deterministic selection."""
@@ -322,6 +385,38 @@ class ReferenceProfileService:
             "chunking": dict(REFERENCE_CHUNKING_INDEXING_STRATEGY["chunking"]),
             "indexing": dict(REFERENCE_CHUNKING_INDEXING_STRATEGY["indexing"]),
             "guardrails": dict(REFERENCE_CHUNKING_INDEXING_STRATEGY["guardrails"]),
+        }
+
+    def influence_boundaries(self) -> dict[str, Any]:
+        return {
+            "influence_allowed": list(REFERENCE_INFLUENCE_BOUNDARIES["influence_allowed"]),
+            "influence_forbidden": list(REFERENCE_INFLUENCE_BOUNDARIES["influence_forbidden"]),
+            "enforcement_points": list(REFERENCE_INFLUENCE_BOUNDARIES["enforcement_points"]),
+        }
+
+    def source_quality_rules(self) -> dict[str, Any]:
+        return {
+            "version": REFERENCE_SOURCE_QUALITY_RULES["version"],
+            "selection_principles": list(REFERENCE_SOURCE_QUALITY_RULES["selection_principles"]),
+            "starter_profiles_quality": dict(REFERENCE_SOURCE_QUALITY_RULES["starter_profiles_quality"]),
+        }
+
+    def governance_contract(self) -> dict[str, Any]:
+        return {
+            "version": "v1",
+            "usage_boundary": self.usage_boundary(),
+            "influence_boundaries": self.influence_boundaries(),
+            "source_quality_rules": self.source_quality_rules(),
+            "audit_marker_shape": {
+                "required_fields": [
+                    "reference_profile_id",
+                    "flow",
+                    "task_or_goal_id",
+                    "reference_source_repo",
+                    "reference_source_path_hint",
+                ],
+                "visibility": "goal_read_model_and_audit",
+            },
         }
 
     def selection_strategy(self) -> dict[str, Any]:
@@ -515,6 +610,16 @@ class ReferenceProfileService:
             if selected_profile_id
             else None
         )
+        evolution_hints = (
+            self.build_project_evolution_hints(profile_id=selected_profile_id, mode_data=mode_data)
+            if selected_profile_id and str(flow or "").strip().lower() == "project_evolution"
+            else None
+        )
+        mismatch_diagnostics = (
+            self.build_project_evolution_mismatch_diagnostics(profile_id=selected_profile_id, mode_data=mode_data)
+            if selected_profile_id and str(flow or "").strip().lower() == "project_evolution"
+            else None
+        )
         return {
             "selection": recommendation,
             "retrieval": {
@@ -524,7 +629,10 @@ class ReferenceProfileService:
             },
             "integration_hints": integration_hints,
             "skeleton_guidance": skeleton_guidance,
+            "evolution_hints": evolution_hints,
+            "mismatch_diagnostics": mismatch_diagnostics,
             "usage_boundary": self.usage_boundary(),
+            "governance_contract": self.governance_contract(),
         }
 
     def build_catalog_read_model(self) -> dict[str, Any]:
@@ -545,13 +653,67 @@ class ReferenceProfileService:
             "pattern_categories": self.pattern_categories(),
             "retrieval_entry_points": self.retrieval_entry_points(),
             "chunking_indexing_strategy": self.chunking_indexing_strategy(),
+            "governance_contract": self.governance_contract(),
             "items": items,
+        }
+
+    def build_project_evolution_hints(self, *, profile_id: str, mode_data: dict[str, Any]) -> dict[str, Any]:
+        hints = list(REFERENCE_EVOLUTION_HINTS.get(str(profile_id or "").strip()) or [])
+        if not hints:
+            hints = [
+                "Favor small reviewable increments with explicit test and rollback notes.",
+                "Keep reference usage advisory and bounded by governance controls.",
+            ]
+        affected_areas = str(mode_data.get("affected_areas") or "").strip()
+        if affected_areas:
+            hints.append(f"Prioritize impacted areas first: {affected_areas}.")
+        return {
+            "profile_id": str(profile_id or "").strip(),
+            "actionable_hints": hints,
+            "framing": "recommendations_not_judgments",
+        }
+
+    def build_project_evolution_mismatch_diagnostics(self, *, profile_id: str, mode_data: dict[str, Any]) -> dict[str, Any]:
+        normalized_profile_id = str(profile_id or "").strip()
+        affected_areas = str(mode_data.get("affected_areas") or "").strip().lower()
+        change_goal = str(mode_data.get("change_goal") or "").strip().lower()
+        combined = f"{affected_areas} {change_goal}"
+        mismatch_signals: list[str] = []
+        if normalized_profile_id == "ref.angular.ananta_frontend" and any(token in combined for token in ("backend", "api", "worker")):
+            mismatch_signals.append("frontend_profile_for_backend_change")
+        if normalized_profile_id == "ref.python.ananta_backend" and any(token in combined for token in ("frontend", "angular", "ui")):
+            mismatch_signals.append("backend_profile_for_frontend_change")
+        if normalized_profile_id == "ref.java.keycloak" and any(token in combined for token in ("frontend", "angular", "ui")):
+            mismatch_signals.append("security_java_profile_for_frontend_change")
+        if normalized_profile_id == "ref.angular.ananta_frontend" and "security" in combined:
+            mismatch_signals.append("frontend_profile_for_security_backend_focus")
+
+        if mismatch_signals:
+            fit_level = "low_fit"
+            guidance = [
+                "Selected profile appears weak for the current change scope.",
+                "Switch profile or narrow the change plan before applying reference patterns.",
+            ]
+        elif any(token in combined for token in ("backend", "api", "frontend", "angular", "security", "auth")):
+            fit_level = "high_fit"
+            guidance = ["Selected profile aligns with the current change scope."]
+        else:
+            fit_level = "partial_fit"
+            guidance = ["Profile fit is plausible but lacks strong scope signals; keep recommendations conservative."]
+
+        return {
+            "profile_id": normalized_profile_id,
+            "fit_level": fit_level,
+            "mismatch_signals": mismatch_signals,
+            "guidance": guidance,
         }
 
     def _infer_language_candidates(self, mode_data: dict[str, Any]) -> list[str]:
         preferred_stack = str(mode_data.get("preferred_stack") or "").strip().lower()
         platform = str(mode_data.get("platform") or "").strip().lower()
-        combined = f"{preferred_stack} {platform}"
+        affected_areas = str(mode_data.get("affected_areas") or "").strip().lower()
+        change_goal = str(mode_data.get("change_goal") or "").strip().lower()
+        combined = f"{preferred_stack} {platform} {affected_areas} {change_goal}"
         candidates: list[str] = []
         if "java" in combined:
             candidates.append("java")
@@ -577,7 +739,8 @@ class ReferenceProfileService:
         preferred_stack = str(mode_data.get("preferred_stack") or "").strip().lower()
         project_idea = str(mode_data.get("project_idea") or mode_data.get("change_goal") or "").strip().lower()
         platform = str(mode_data.get("platform") or "").strip().lower()
-        combined = f"{preferred_stack} {project_idea} {platform} {flow}".strip()
+        affected_areas = str(mode_data.get("affected_areas") or "").strip().lower()
+        combined = f"{preferred_stack} {project_idea} {platform} {affected_areas} {flow}".strip()
         candidates: list[str] = []
         if "security" in combined or "auth" in combined or "keycloak" in combined:
             candidates.append("backend_security_service")

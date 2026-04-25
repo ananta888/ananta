@@ -230,6 +230,16 @@ def test_reference_profile_retrieval_contract_endpoint(client, admin_auth_header
     assert data["chunking_indexing_strategy"]["guardrails"]["reject_unbounded_repository_context"] is True
 
 
+def test_reference_profile_governance_contract_endpoint(client, admin_auth_header):
+    response = client.get("/api/system/reference-profiles/governance-contract", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["version"] == "v1"
+    assert "policy_override" in data["influence_boundaries"]["influence_forbidden"]
+    assert "starter_profiles_quality" in data["source_quality_rules"]
+
+
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),

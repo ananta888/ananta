@@ -302,6 +302,28 @@ def create_goal():
         goal_record.execution_preferences = dict(goal_record.execution_preferences or {})
         goal_record.execution_preferences["instruction_layers"] = get_instruction_layer_service().goal_selection_summary(goal_record)
         goal_record = _repos().goal_repo.save(goal_record)
+    reference_summary = _goal_service().build_goal_reference_summary(goal_record)
+    if reference_summary:
+        log_audit(
+            "reference_profile_used",
+            {
+                "goal_id": goal_record.id,
+                "trace_id": goal_record.trace_id,
+                "source": goal_record.source,
+                "reference_profile": reference_summary,
+            },
+        )
+        record_product_event(
+            "reference_profile_selected",
+            actor=_current_username(),
+            details={
+                "mode": goal_record.mode,
+                "profile_id": reference_summary.get("profile_id"),
+                "fit_level": reference_summary.get("fit_level"),
+            },
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
+        )
     record_product_event(
         "product_flow_started",
         actor=_current_username(),
