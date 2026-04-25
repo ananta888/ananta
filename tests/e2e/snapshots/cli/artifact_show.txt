@@ -1,0 +1,6 @@
+ananta cli
+command: artifact show
+status: success
+artifact: <ARTIFACT_REF>
+render: text
+next step: inspect artifact or open report.json

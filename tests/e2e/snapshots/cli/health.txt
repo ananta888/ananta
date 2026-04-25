@@ -1,0 +1,6 @@
+ananta cli
+command: health
+status: ok
+mode: mocked-e2e
+run_id: <RUN_ID>
+next step: python -m agent.cli_goals --list-modes

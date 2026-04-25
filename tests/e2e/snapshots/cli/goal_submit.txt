@@ -1,0 +1,7 @@
+ananta cli
+command: goal submit
+status: success
+goal_id: <GOAL_ID>
+task_id: <TASK_ID>
+trace_id: <TRACE_ID>
+next step: python -m agent.cli_goals --goal-detail goal-id

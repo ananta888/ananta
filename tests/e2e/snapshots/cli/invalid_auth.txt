@@ -1,0 +1,6 @@
+ananta cli
+command: goal submit
+status: denied
+reason: invalid auth or config
+retryable: yes
+next step: refresh token and re-run command
