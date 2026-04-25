@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from agent.routes.config.shared import normalize_ml_intern_spike_config
+from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config
 
 
 class MlInternAdapterService:
