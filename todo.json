@@ -38,7 +38,7 @@
       "id": "SEC-M1",
       "title": "State ownership and invariant model",
       "task_ids": ["SEC-T01", "SEC-T02", "SEC-T03"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SEC-M2",
@@ -69,7 +69,7 @@
     {
       "id": "SEC-T01",
       "title": "State ownership matrix define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -85,7 +85,7 @@
     {
       "id": "SEC-T02",
       "title": "State ownership validation tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -101,7 +101,7 @@
     {
       "id": "SEC-T03",
       "title": "Core invariant checklist document add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -327,15 +327,15 @@
     "SEC-T15"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T16:20:16+02:00",
+    "updated_at": "2026-04-25T16:31:38+02:00",
     "total": 15,
     "by_status": {
-      "todo": 15,
+      "todo": 12,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 20.0,
     "by_priority": {
       "P0": 13,
       "P1": 2,
@@ -350,26 +350,26 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 2,
+      "remaining": 11
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T16:20:16+02:00",
+    "updated_at": "2026-04-25T16:31:38+02:00",
     "stages": {
       "SEC-M1": {
         "title": "State ownership and invariant model",
         "scope_task_ids": ["SEC-T01", "SEC-T02", "SEC-T03"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -412,13 +412,14 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T16:20:16+02:00",
+    "checked_at": "2026-04-25T16:31:38+02:00",
     "internal_consistency": "validated_and_extended",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=1, high=6, critical=8).",
       "execution_stage_summary wurde ergänzt, damit Milestone-Rollups transparent und maschinenlesbar sind.",
       "updated_at/checked_at wurden auf den aktuellen Analysezeitpunkt gesetzt.",
-      "Keine fehlenden Task-Referenzen in milestones, depends_on oder critical_path_tasks gefunden."
+      "Keine fehlenden Task-Referenzen in milestones, depends_on oder critical_path_tasks gefunden.",
+      "Bundle SEC-M1 wurde umgesetzt: state_ownership matrix/docs und zugehoerige Validierungstests sind vorhanden."
     ]
   },
   "summary_notes": [
@@ -426,7 +427,8 @@
     "The goal is to make Ananta structurally safe enough for local-first OSS usage without pulling in heavyweight compliance infrastructure.",
     "KRITIS can later extend these invariants with RBAC, SSO, tenancy, signed audit, WORM storage, SIEM export and regulated evidence packages.",
     "This track should run after client runtime tests and before large domain integrations create additional execution paths.",
-    "Status counters and milestone stage rollups are now synchronized and explicitly documented."
+    "Status counters and milestone stage rollups are now synchronized and explicitly documented.",
+    "SEC-M1 is implemented as the first completed bundle and establishes the ownership baseline for follow-up policy and trace tasks."
   ],
   "end_summaries": [
     {
@@ -457,8 +459,8 @@
       "summary_id": "SEC-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 15 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
-        "Alle Milestones stehen konsistent auf todo; die kritische Pfadlänge bleibt 13 Tasks."
+        "Aktueller Umsetzungsstand: 12 todo, 0 in_progress, 0 blocked, 3 done (20.0%).",
+        "SEC-M1 ist done; verbleibend sind SEC-M2 bis SEC-M5 mit unveränderter kritischer Pfadlänge von 13 Tasks (2 erledigt, 11 offen)."
       ]
     }
   ]
