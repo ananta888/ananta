@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/domain_audit_event.v1.json",
+  "title": "Ananta Domain Audit Event v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "event_id",
+    "event_type",
+    "task_id",
+    "domain_id",
+    "capability_id",
+    "action_id",
+    "policy_decision",
+    "result_status",
+    "context_hash",
+    "artifact_ids"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "domain_audit_event.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "plan_created",
+        "policy_denied",
+        "approval_requested",
+        "approval_decided",
+        "execution_started",
+        "execution_finished",
+        "execution_failed"
+      ]
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approval_id": {
+      "type": "string"
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "action_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_decision": {
+      "type": "string",
+      "enum": ["allow", "deny", "approval_required", "degraded", "default_deny"]
+    },
+    "result_status": {
+      "type": "string",
+      "enum": ["planned", "denied", "approval_pending", "approved", "started", "finished", "failed"]
+    },
+    "context_hash": {
+      "type": "string",
+      "minLength": 8
+    },
+    "artifact_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

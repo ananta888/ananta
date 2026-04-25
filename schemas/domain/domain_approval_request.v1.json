@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/domain_approval_request.v1.json",
+  "title": "Ananta Domain Approval Request v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "approval_id",
+    "task_id",
+    "domain_id",
+    "capability_id",
+    "action_id",
+    "expected_effects",
+    "risk",
+    "artifact_refs",
+    "context_hash",
+    "status"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "domain_approval_request.v1"
+    },
+    "approval_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "action_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expected_effects": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "context_hash": {
+      "type": "string",
+      "minLength": 8
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "denied", "expired"]
+    },
+    "decision_reason": {
+      "type": "string"
+    },
+    "decided_by": {
+      "type": "string"
+    },
+    "decided_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

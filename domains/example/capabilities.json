@@ -1,0 +1,19 @@
+{
+  "schema": "capability_pack.v1",
+  "domain_id": "example",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "capability_id": "example.read.status",
+      "domain_id": "example",
+      "display_name": "Read example status",
+      "category": "read",
+      "risk": "low",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Descriptor-only sample capability for registry validation."]
+    }
+  ]
+}

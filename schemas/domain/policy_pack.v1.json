@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/domain/policy_pack.v1.json",
+  "title": "Ananta Domain Policy Pack v1",
+  "type": "object",
+  "required": ["schema", "domain_id", "version", "default_decision", "rules"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "policy_pack.v1"
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "default_decision": {
+      "type": "string",
+      "enum": ["allow", "deny", "approval_required", "default_deny"]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["capability_id", "action_id", "decision"],
+        "properties": {
+          "capability_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+          },
+          "action_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision": {
+            "type": "string",
+            "enum": ["allow", "deny", "approval_required", "default_deny"]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -57,13 +57,13 @@
       "id": "GEN-M2",
       "title": "Registries for domains, capabilities, schemas and artifacts",
       "task_ids": ["GEN-T05", "GEN-T06", "GEN-T07", "GEN-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GEN-M3",
       "title": "Generic policy, approval and audit integration",
       "task_ids": ["GEN-T09", "GEN-T10", "GEN-T11", "GEN-T12"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GEN-M4",
@@ -157,7 +157,7 @@
     {
       "id": "GEN-T05",
       "title": "Domain registry service implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -174,7 +174,7 @@
     {
       "id": "GEN-T06",
       "title": "Capability registry service implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -190,7 +190,7 @@
     {
       "id": "GEN-T07",
       "title": "Context schema registry implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -206,7 +206,7 @@
     {
       "id": "GEN-T08",
       "title": "Artifact type registry implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -222,7 +222,7 @@
     {
       "id": "GEN-T09",
       "title": "Domain policy pack loader implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -238,7 +238,7 @@
     {
       "id": "GEN-T10",
       "title": "Generic domain policy evaluation integrate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -254,7 +254,7 @@
     {
       "id": "GEN-T11",
       "title": "Generic approval metadata extend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -270,7 +270,7 @@
     {
       "id": "GEN-T12",
       "title": "Generic domain audit event model add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -523,15 +523,15 @@
     "GEN-T22"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T15:19:29+02:00",
+    "updated_at": "2026-04-25T15:25:39+02:00",
     "total": 25,
     "by_status": {
-      "todo": 21,
+      "todo": 13,
       "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 12
     },
-    "progress_percent_done": 16.0,
+    "progress_percent_done": 48.0,
     "by_priority": {
       "P0": 20,
       "P1": 4,
@@ -546,19 +546,19 @@
     },
     "critical_path": {
       "total": 20,
-      "done": 3,
-      "remaining": 17
+      "done": 11,
+      "remaining": 9
     },
     "milestones": {
       "total": 7,
-      "todo": 6,
+      "todo": 4,
       "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 3
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T15:19:29+02:00",
+    "updated_at": "2026-04-25T15:25:39+02:00",
     "stages": {
       "GEN-M1": {
         "title": "Scope, model and descriptor contracts",
@@ -573,8 +573,8 @@
         "title": "Registries for domains, capabilities, schemas and artifacts",
         "scope_task_ids": ["GEN-T05", "GEN-T06", "GEN-T07", "GEN-T08"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -582,8 +582,8 @@
         "title": "Generic policy, approval and audit integration",
         "scope_task_ids": ["GEN-T09", "GEN-T10", "GEN-T11", "GEN-T12"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -626,13 +626,14 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T15:19:29+02:00",
-    "internal_consistency": "bundle_1_completed",
+    "checked_at": "2026-04-25T15:25:39+02:00",
+    "internal_consistency": "bundles_2_3_completed",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=4, high=10, critical=11).",
       "execution_stage_summary ergänzt, damit Rollups je Meilenstein transparent und validator-kompatibel sind.",
       "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt.",
-      "Bundle GEN-T01..GEN-T04 umgesetzt und in Tasks/Milestones/Stage-Rollups als done synchronisiert."
+      "Bundle GEN-T01..GEN-T04 umgesetzt und in Tasks/Milestones/Stage-Rollups als done synchronisiert.",
+      "Bundles GEN-T05..GEN-T12 umgesetzt und als abgeschlossene Meilensteine GEN-M2 und GEN-M3 synchronisiert."
     ]
   },
   "summary_notes": [
@@ -641,7 +642,8 @@
     "The generic model should strengthen Ananta's core positioning as a controlled AI control plane rather than a collection of one-off tool integrations.",
     "FreeCAD and KiCad can later reuse this foundation with stricter domain-specific policies and correctness gates.",
     "Summary counters and milestone stage rollups are now synchronized and explicitly documented.",
-    "Bundle 1 now provides scope docs, descriptor/status schemas, and a descriptor-only example domain baseline."
+    "Bundle 1 now provides scope docs, descriptor/status schemas, and a descriptor-only example domain baseline.",
+    "Bundles 2 and 3 now provide generic registries plus policy/approval/audit contracts without introducing domain-specific orchestration logic."
   ],
   "end_summaries": [
     {
@@ -672,8 +674,8 @@
       "summary_id": "GEN-S4",
       "title": "Status am Ende",
       "items": [
-        "Erstes Umsetzungsbündel abgeschlossen: 21 todo, 0 in_progress, 0 blocked, 4 done (16.0%).",
-        "Meilenstein GEN-M1 ist done; der verbleibende Track ist für Bundle 2 vorbereitet."
+        "Drei Umsetzungsbündel abgeschlossen: 13 todo, 0 in_progress, 0 blocked, 12 done (48.0%).",
+        "Meilensteine GEN-M1 bis GEN-M3 sind done; der verbleibende Track startet bei RAG/Bridge/Release-Gate-Arbeiten."
       ]
     }
   ]
