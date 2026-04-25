@@ -43,4 +43,30 @@ describe("context capture", () => {
     });
     expect(packaged.preview.blockedReasons).toContain("selection_contains_high_risk_secret");
   });
+
+  it("flags aws/slack style high-risk tokens and keeps unrelated path flag false", () => {
+    const packaged = packageEditorContext({
+      filePath: "/workspace/src/handler.ts",
+      projectRoot: "/workspace",
+      languageId: "typescript",
+      selectionText: "const aws='AKIAIOSFODNN7EXAMPLE'; const slack='xoxb-1234567890-abcdefghi';",
+      fileContentExcerpt: "noop"
+    });
+    expect(packaged.preview.blockedReasons).toContain("selection_contains_high_risk_secret");
+    expect(packaged.payload.implicit_unrelated_paths_included).toBe(false);
+  });
+
+  it("preserves provenance metadata for missing editor values", () => {
+    const packaged = packageEditorContext({
+      filePath: null,
+      projectRoot: null,
+      languageId: null,
+      selectionText: "",
+      fileContentExcerpt: ""
+    });
+    expect(packaged.payload.provenance.has_selection).toBe(false);
+    expect(packaged.payload.provenance.has_file_path).toBe(false);
+    expect(packaged.payload.provenance.has_project_root).toBe(false);
+    expect(packaged.preview.selectionLength).toBe(0);
+  });
 });

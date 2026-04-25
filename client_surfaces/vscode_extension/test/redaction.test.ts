@@ -16,4 +16,13 @@ describe("redaction", () => {
     expect(redacted).not.toContain("hunter2");
     expect(redacted).toContain("***");
   });
+
+  it("redacts jwt-like values and api-key assignments", () => {
+    const raw = "jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.aaaaaaaa.bbbbbbbb api_key: abcdef1234567890";
+    const redacted = redactSensitiveText(raw);
+    expect(redacted).not.toContain("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
+    expect(redacted).not.toContain("abcdef1234567890");
+    expect(redacted).toContain("***jwt***");
+    expect(redacted).toContain("api_key=***");
+  });
 });

@@ -37,6 +37,7 @@ cd client_surfaces/vscode_extension
 npm ci
 npm run lint
 npm run test
+npm run test:smoke
 npm run compile
 ```
 

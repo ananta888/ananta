@@ -38,6 +38,7 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
     assert "onCommand:ananta.checkHealth" in activation_events or "ananta.checkHealth" in activation_events
     assert "compile" in scripts
     assert "test" in scripts
+    assert "test:smoke" in scripts
     assert "lint" in scripts
     assert "package" in scripts
     assert "ananta.baseUrl" in configuration
