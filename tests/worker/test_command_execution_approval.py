@@ -9,7 +9,7 @@ from worker.shell.command_executor import execute_command_plan
 
 
 POLICY = {
-    "allowlist": ["echo", "python", "pytest"],
+    "allowlist": ["echo", "python", "python3", "pytest"],
     "approval_required_commands": ["pip", "npm"],
     "denylist_tokens": ["rm -rf /", "mkfs"],
 }
@@ -58,7 +58,7 @@ def test_approval_required_command_rejects_missing_approval(tmp_path: Path) -> N
 
 
 def test_command_execution_with_matching_approval_succeeds(tmp_path: Path) -> None:
-    command = "python -c \"print('ok')\""
+    command = "python3 -c \"print('ok')\""
     command_hash = hashlib.sha256(command.encode("utf-8")).hexdigest()
     artifact = execute_command_plan(
         repository_root=tmp_path,
