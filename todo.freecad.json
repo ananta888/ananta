@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "freecad_integration",
+  "purpose": "Introduce a controlled FreeCAD integration for Ananta with strong correctness and safety constraints. Focus initially on inspection, planning and export rather than direct mutation.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Provide FreeCAD context inspection, model analysis, export planning and macro planning through Ananta with approval and audit, without unsafe automatic model modification.",
+  "non_goals": [
+    "No uncontrolled macro execution.",
+    "No automatic constraint editing without approval.",
+    "No runtime_mvp claim without reproducible smoke evidence.",
+    "No bypass of generic domain foundation."
+  ],
+  "milestones": [
+    {"id": "FC-M1", "title": "Foundation", "task_ids": ["FC-T01", "FC-T02", "FC-T03"], "status": "todo"},
+    {"id": "FC-M2", "title": "Context and planning", "task_ids": ["FC-T04", "FC-T05", "FC-T06"], "status": "todo"},
+    {"id": "FC-M3", "title": "Controlled execution", "task_ids": ["FC-T07", "FC-T08"], "status": "todo"}
+  ],
+  "tasks": [
+    {"id": "FC-T01", "title": "FreeCAD context schema define", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "FC-T02", "title": "FreeCAD RAG profiles define", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "FC-T03", "title": "FreeCAD policy pack add", "status": "todo", "priority": "P0", "risk": "critical"},
+    {"id": "FC-T04", "title": "Model inspection service", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "FC-T05", "title": "Export plan service", "status": "todo", "priority": "P0", "risk": "medium"},
+    {"id": "FC-T06", "title": "Macro planning (dry-run)", "status": "todo", "priority": "P0", "risk": "critical"},
+    {"id": "FC-T07", "title": "Approval-gated macro execution", "status": "todo", "priority": "P1", "risk": "critical"},
+    {"id": "FC-T08", "title": "Audit and verification artifacts", "status": "todo", "priority": "P1", "risk": "high"}
+  ]
+}
