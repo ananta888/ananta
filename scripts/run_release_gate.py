@@ -35,6 +35,13 @@ def main() -> int:
         help="Run worker unit/E2E gate checks when native worker runtime is part of release claim.",
     )
     parser.add_argument("--skip-worker-checks", action="store_true", help="Skip native worker gate checks.")
+    parser.add_argument(
+        "--cli-runtime-claimed",
+        action="store_true",
+        help="Run unified CLI smoke checks when user-facing CLI runtime is part of release claim.",
+    )
+    parser.add_argument("--skip-cli-smoke", action="store_true", help="Skip unified CLI smoke checks.")
+    parser.add_argument("--cli-smoke-test", default="tests/smoke/test_unified_cli_smoke.py")
     parser.add_argument("--domain-inventory", default="data/domain_runtime_inventory.json")
     parser.add_argument("--domain-audit-out", default="artifacts/domain/domain_integration_audit_report.json")
     parser.add_argument("--security-invariant-out", default="artifacts/security/security_invariant_gate_report.json")
@@ -88,6 +95,18 @@ def main() -> int:
         worker_result = subprocess.run(worker_command, cwd=str(ROOT), check=False)
         if worker_result.returncode != 0:
             return worker_result.returncode
+
+    if args.cli_runtime_claimed and not args.skip_cli_smoke:
+        cli_smoke_command = [
+            python_exec,
+            "-m",
+            "pytest",
+            "-q",
+            args.cli_smoke_test,
+        ]
+        cli_smoke_result = subprocess.run(cli_smoke_command, cwd=str(ROOT), check=False)
+        if cli_smoke_result.returncode != 0:
+            return cli_smoke_result.returncode
 
     if args.skip_e2e:
         return 0
