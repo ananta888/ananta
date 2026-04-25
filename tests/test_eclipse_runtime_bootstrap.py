@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -242,3 +243,72 @@ def test_headless_smoke_and_ci_lane_artifacts_exist() -> None:
     workflow = (ROOT / ".github" / "workflows" / "quality-and-docs.yml").read_text(encoding="utf-8")
     assert "eclipse-runtime-headless" in workflow
     assert "python3 scripts/smoke_eclipse_runtime_headless.py" in workflow
+
+
+def test_eclipse_build_script_pins_java17_baseline_and_build_command() -> None:
+    build_script = (ROOT / "scripts" / "build_eclipse_runtime_plugin.py").read_text(encoding="utf-8")
+    assert 'DEFAULT_GRADLE_IMAGE = "gradle:8.10.2-jdk17"' in build_script
+    assert 'parser.add_argument("--mode", choices=["validate", "build", "test"], default="validate")' in build_script
+    assert 'gradle_tasks = ["clean", "build"] if args.mode == "build" else ["clean", "test"]' in build_script
+
+
+def test_eclipse_runtime_status_is_mvp_not_runtime_complete() -> None:
+    status_payload = json.loads((ROOT / "data" / "client_surface_runtime_status.json").read_text(encoding="utf-8"))
+    surface_status = dict(status_payload.get("surface_status") or {})
+    assert surface_status.get("eclipse_plugin") == "runtime_mvp"
+    assert surface_status.get("eclipse_plugin") != "runtime_complete"
+
+
+def test_eclipse_command_handlers_route_via_api_client_only() -> None:
+    analyze_review_patch = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "commands"
+        / "AnalyzeReviewPatchRuntimeHandler.java"
+    ).read_text(encoding="utf-8")
+    project_runtime = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "commands"
+        / "ProjectRuntimeHandler.java"
+    ).read_text(encoding="utf-8")
+    goal_panel = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "commands"
+        / "GoalSubmissionRuntimePanel.java"
+    ).read_text(encoding="utf-8")
+
+    assert "apiClient.analyzeContext(" in analyze_review_patch
+    assert "apiClient.reviewContext(" in analyze_review_patch
+    assert "apiClient.patchPlan(" in analyze_review_patch
+    assert "apiClient.createProjectNew(" in project_runtime
+    assert "apiClient.createProjectEvolve(" in project_runtime
+    assert "apiClient.submitGoal(" in goal_panel
+
+
+def test_eclipse_runtime_smoke_checklist_covers_expected_results_and_failures() -> None:
+    checklist = (ROOT / "docs" / "eclipse-runtime-smoke-checklist.md").read_text(encoding="utf-8")
+    assert "python3 scripts/smoke_eclipse_runtime_bootstrap.py" in checklist
+    assert "python3 scripts/smoke_eclipse_runtime_headless.py" in checklist
+    assert "Expected result" in checklist
+    assert "Known failure symptoms" in checklist
+    assert "task and artifact references" in checklist

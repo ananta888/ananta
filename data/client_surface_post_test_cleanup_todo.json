@@ -1,0 +1,43 @@
+{
+  "schema": "client_surface_post_test_cleanup_todo_v1",
+  "track": "client_runtime_test_hardening",
+  "generated_at": "2026-04-25T14:18:00+02:00",
+  "excluded_scopes": [
+    "kritis",
+    "ref-profile"
+  ],
+  "items": [
+    {
+      "id": "CRT-CLEAN-01",
+      "category": "missing_implementation",
+      "surface": "vim_plugin",
+      "priority": "P1",
+      "description": "Define explicit Vim compatibility subset and implement runtime plugin/autoload artifacts when Neovim baseline is considered stable.",
+      "status": "deferred"
+    },
+    {
+      "id": "CRT-CLEAN-02",
+      "category": "weak_test_coverage",
+      "surface": "eclipse_plugin",
+      "priority": "P1",
+      "description": "Add higher-fidelity Eclipse UI automation beyond headless smoke once deterministic CI runtime is available.",
+      "status": "todo"
+    },
+    {
+      "id": "CRT-CLEAN-03",
+      "category": "documentation_drift",
+      "surface": "all_client_surfaces",
+      "priority": "P2",
+      "description": "Keep command examples and smoke evidence references synchronized whenever runtime scripts or CI lanes change.",
+      "status": "todo"
+    },
+    {
+      "id": "CRT-CLEAN-04",
+      "category": "future_enhancement",
+      "surface": "vscode_plugin",
+      "priority": "P2",
+      "description": "Evaluate migration of selected browser-first deep admin flows into editor-native guarded experiences after dedicated hardening gates exist.",
+      "status": "todo"
+    }
+  ]
+}
