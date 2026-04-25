@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from worker.core.redaction import sanitize_subprocess_environment
 from worker.shell.command_policy import classify_command
 
 
@@ -87,7 +88,8 @@ def _bounded_environment(environment: dict[str, str] | None) -> dict[str, str]:
         "LC_ALL": "C.UTF-8",
         "PATH": os.environ.get("PATH", ""),
     }
-    for key, value in dict(environment or {}).items():
+    sanitized = sanitize_subprocess_environment(dict(environment or {}), explicitly_allowed_sensitive_keys=set())
+    for key, value in sanitized.items():
         normalized_key = str(key).strip()
         if not normalized_key:
             continue

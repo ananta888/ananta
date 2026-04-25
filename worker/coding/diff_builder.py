@@ -19,6 +19,14 @@ def _run_git(args: list[str], *, cwd: Path) -> str:
     return completed.stdout or ""
 
 
+def _read_text_if_possible(path: Path) -> str | None:
+    raw = path.read_bytes()
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 @dataclass(frozen=True)
 class BuiltDiff:
     diff: str
@@ -52,7 +60,11 @@ def build_unified_diff(*, repository_root: Path, base_ref: str = "HEAD") -> Buil
         # include untracked files in unified diff form by comparing against /dev/null
         for rel_path in untracked_files:
             file_path = repo / rel_path
-            content = file_path.read_text(encoding="utf-8")
+            if "__pycache__" in rel_path:
+                continue
+            content = _read_text_if_possible(file_path)
+            if content is None:
+                continue
             lines = content.splitlines()
             escaped = rel_path.replace("\\", "/")
             diff_parts.append(

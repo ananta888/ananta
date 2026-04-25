@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_progress_event.v1.json",
+  "title": "Ananta Worker Progress Event v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "trace_id",
+    "phase",
+    "iteration",
+    "artifact_refs",
+    "detail",
+    "emitted_at"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "worker_progress_event.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "phase": { "type": "string", "enum": ["observe", "plan", "patch", "test", "inspect", "repair", "retest", "summarize"] },
+    "iteration": { "type": "integer", "minimum": 0 },
+    "artifact_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "detail": { "type": "string" },
+    "emitted_at": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

@@ -20,6 +20,7 @@ def test_command_planner_generates_safe_command_plan() -> None:
         policy=POLICY,
     )
     assert artifact["schema"] == "command_plan_artifact.v1"
+    assert artifact["command_hash"]
     assert artifact["required_approval"] is False
     assert artifact["risk_classification"] == "low"
 
