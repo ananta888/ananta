@@ -15,6 +15,7 @@ def _args(**overrides) -> Namespace:
     base = {
         "runtime_mode": "auto",
         "llm_backend": None,
+        "hardware_profile": "cpu-only",
         "endpoint_url": "",
         "model": "",
         "api_key_env": "OPENAI_API_KEY",
@@ -22,6 +23,9 @@ def _args(**overrides) -> Namespace:
         "profile_path": "ananta.runtime-profile.json",
         "apply_config": False,
         "config_path": "config.json",
+        "deployment_target": "none",
+        "deployment_path": "ananta.deployment-profile.json",
+        "backup_existing_deployment": True,
         "yes": True,
         "force": False,
     }
@@ -51,7 +55,9 @@ def test_run_init_writes_local_dev_ollama_profile(tmp_path: Path) -> None:
 
     payload = json.loads((tmp_path / "runtime.profile.json").read_text(encoding="utf-8"))
     assert payload["runtime_mode"] == "local-dev"
+    assert payload["hardware_profile"] == "cpu-only"
     assert payload["container_runtime"]["required"] is False
+    assert payload["runtime_recommendation"]["limits"]["max_input_tokens"] == 8000
     assert payload["llm_backend"]["kind"] == "ollama"
     assert payload["config_patch"]["runtime_profile"] == "local-dev"
     assert payload["config_patch"]["default_provider"] == "ollama"
@@ -143,3 +149,28 @@ def test_ananta_cli_dispatches_init_to_wizard(monkeypatch) -> None:
     assert rc == 0
     assert captured["argv"] == ["--yes", "--runtime-mode", "local-dev"]
 
+
+def test_run_init_generates_deployment_profile_and_backup(tmp_path: Path) -> None:
+    existing = tmp_path / "deploy.profile.json"
+    existing.write_text('{"old": true}\n', encoding="utf-8")
+    args = _args(
+        runtime_mode="sandbox",
+        llm_backend="ollama",
+        deployment_target="docker-compose",
+        deployment_path="deploy.profile.json",
+        force=False,
+    )
+
+    result = init_wizard.run_init(
+        args,
+        cwd=tmp_path,
+        output_fn=lambda _msg: None,
+        now_fn=_fixed_now,
+    )
+
+    deployment_payload = json.loads((tmp_path / "deploy.profile.json").read_text(encoding="utf-8"))
+    assert deployment_payload["target"] == "docker-compose"
+    assert deployment_payload["isolation_level"] == "stronger"
+    assert result["deployment_profile_path"] is not None
+    assert result["deployment_backup_path"] is not None
+    assert Path(result["deployment_backup_path"]).exists()
