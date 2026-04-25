@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-25T16:31:38+02:00",
+  "description": "OSS core state ownership matrix for Hub-governed orchestration and security invariants.",
+  "states": [
+    {
+      "state_type": "goal",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "public_api_request_to_hub_only"
+    },
+    {
+      "state_type": "plan",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "hub_only"
+    },
+    {
+      "state_type": "task",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "hub_only"
+    },
+    {
+      "state_type": "execution",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub", "worker"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "worker_updates_via_hub_contracts"
+    },
+    {
+      "state_type": "approval",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub"],
+      "allowed_readers": ["hub", "client"],
+      "write_path": "hub_policy_approval_flow_only"
+    },
+    {
+      "state_type": "artifact",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub", "worker"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "worker_produces_hub_persists"
+    },
+    {
+      "state_type": "audit",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": false,
+      "append_only": true,
+      "allowed_writers": ["hub"],
+      "allowed_readers": ["hub", "client"],
+      "write_path": "append_only_hub_audit_sink"
+    },
+    {
+      "state_type": "verification",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub", "worker"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "verification_events_via_hub"
+    },
+    {
+      "state_type": "repair",
+      "owner": "hub",
+      "server_owned": true,
+      "mutable": true,
+      "allowed_writers": ["hub"],
+      "allowed_readers": ["hub", "worker", "client"],
+      "write_path": "hub_controlled_repair_flow_only"
+    },
+    {
+      "state_type": "client_ui_state",
+      "owner": "client",
+      "server_owned": false,
+      "mutable": true,
+      "allowed_writers": ["client"],
+      "allowed_readers": ["client", "hub"],
+      "write_path": "client_local_state_only"
+    }
+  ],
+  "rules": {
+    "single_owner_per_state": true,
+    "no_direct_client_writes_to_server_owned_state": true,
+    "audit_state_append_only": true
+  }
+}
