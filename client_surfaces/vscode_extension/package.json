@@ -40,12 +40,18 @@
     "onCommand:ananta.openGoalOrTaskDetail",
     "onCommand:ananta.openArtifactDetail",
     "onCommand:ananta.openApprovalDetail",
+    "onCommand:ananta.openAuditDetail",
+    "onCommand:ananta.openRepairDetail",
+    "onCommand:ananta.openWebFallback",
+    "onCommand:ananta.launchTui",
     "onCommand:ananta.approveApproval",
     "onCommand:ananta.rejectApproval",
     "onView:ananta.statusView",
     "onView:ananta.goalsTasksView",
     "onView:ananta.artifactsView",
     "onView:ananta.approvalsView",
+    "onView:ananta.auditView",
+    "onView:ananta.repairView",
     "onView:ananta.runtimeView"
   ],
   "contributes": {
@@ -121,6 +127,22 @@
         "title": "Ananta: Open Approval Detail"
       },
       {
+        "command": "ananta.openAuditDetail",
+        "title": "Ananta: Open Audit Detail"
+      },
+      {
+        "command": "ananta.openRepairDetail",
+        "title": "Ananta: Open Repair Detail"
+      },
+      {
+        "command": "ananta.openWebFallback",
+        "title": "Ananta: Open Browser Fallback"
+      },
+      {
+        "command": "ananta.launchTui",
+        "title": "Ananta: Launch TUI in Terminal"
+      },
+      {
         "command": "ananta.approveApproval",
         "title": "Ananta: Approve Approval Item",
         "enablement": "ananta.capability.approvalApprove"
@@ -157,6 +179,14 @@
         {
           "id": "ananta.approvalsView",
           "name": "Approvals"
+        },
+        {
+          "id": "ananta.auditView",
+          "name": "Audit"
+        },
+        {
+          "id": "ananta.repairView",
+          "name": "Repair"
         },
         {
           "id": "ananta.runtimeView",
@@ -214,9 +244,79 @@
           "group": "navigation@10"
         },
         {
+          "command": "ananta.openWebFallback",
+          "when": "view == ananta.goalsTasksView",
+          "group": "navigation@12",
+          "arguments": [
+            {
+              "target": "tasks",
+              "source": "goals_tasks_view"
+            }
+          ]
+        },
+        {
+          "command": "ananta.openWebFallback",
+          "when": "view == ananta.artifactsView",
+          "group": "navigation@12",
+          "arguments": [
+            {
+              "target": "artifacts",
+              "source": "artifacts_view"
+            }
+          ]
+        },
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.auditView",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openWebFallback",
+          "when": "view == ananta.auditView",
+          "group": "navigation@12",
+          "arguments": [
+            {
+              "target": "audit",
+              "source": "audit_view"
+            }
+          ]
+        },
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.repairView",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openWebFallback",
+          "when": "view == ananta.repairView",
+          "group": "navigation@12",
+          "arguments": [
+            {
+              "target": "repair",
+              "source": "repair_view"
+            }
+          ]
+        },
+        {
           "command": "ananta.refreshSidebarData",
           "when": "view == ananta.runtimeView",
           "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openWebFallback",
+          "when": "view == ananta.runtimeView",
+          "group": "navigation@12",
+          "arguments": [
+            {
+              "target": "config",
+              "source": "runtime_view"
+            }
+          ]
+        },
+        {
+          "command": "ananta.launchTui",
+          "when": "view == ananta.runtimeView",
+          "group": "navigation@13"
         }
       ],
       "view/item/context": [
@@ -233,6 +333,16 @@
         {
           "command": "ananta.openApprovalDetail",
           "when": "view == ananta.approvalsView && (viewItem == ananta.approval.pending || viewItem == ananta.approval.item)",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openAuditDetail",
+          "when": "view == ananta.auditView && viewItem == ananta.audit.item",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openRepairDetail",
+          "when": "view == ananta.repairView && viewItem == ananta.repair.item",
           "group": "navigation@10"
         },
         {

@@ -14,6 +14,8 @@ It does not duplicate orchestration, approval, governance, or repair logic.
 - `Ananta: Project Evolve`
 - `Ananta: Refresh Sidebar Data`
 - `Ananta: Filter Goals/Tasks by Status`
+- `Ananta: Open Browser Fallback` (tasks/artifacts/audit/config/repair)
+- `Ananta: Launch TUI in Terminal`
 
 Commands are capability-gated using `/capabilities` handshake and rechecked at execution time.
 Editor context payloads are bounded, previewed, and explicitly confirmed before send.
@@ -24,7 +26,9 @@ Editor context payloads are bounded, previewed, and explicitly confirmed before 
 - **Goals & Tasks**: list + status filter + detail panel.
 - **Artifacts**: list + read-only detail or browser fallback for binary/rich artifacts.
 - **Approvals**: pending queue + explicit approve/reject actions (backend-permission aware).
-- **Runtime**: summary counts + active filter + refresh diagnostics.
+- **Audit**: audit log summaries with related IDs and browser deep-analysis fallback.
+- **Repair**: read-only repair visibility (diagnosis/steps/dry-run/approval/verification fields where provided).
+- **Runtime**: summary counts, active profile/governance/provider/model diagnostics, refresh/TUI/fallback actions.
 
 ## Development
 

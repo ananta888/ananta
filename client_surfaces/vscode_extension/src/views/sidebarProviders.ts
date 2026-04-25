@@ -16,6 +16,18 @@ export interface ApprovalRef {
   state: string;
 }
 
+export interface AuditRef {
+  id: string;
+  relatedGoalId?: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  traceId?: string;
+}
+
+export interface RepairRef {
+  id: string;
+}
+
 export interface RuntimeOverviewSnapshot {
   connectionState: string;
   capabilitiesState: string;
@@ -25,6 +37,8 @@ export interface RuntimeOverviewSnapshot {
   taskCount: number;
   artifactCount: number;
   approvalCount: number;
+  auditCount: number;
+  repairCount: number;
   filterStatus: string;
   details: string[];
 }
@@ -345,6 +359,8 @@ export class RuntimeOverviewTreeProvider implements vscode.TreeDataProvider<vsco
     taskCount: 0,
     artifactCount: 0,
     approvalCount: 0,
+    auditCount: 0,
+    repairCount: 0,
     filterStatus: "all",
     details: []
   };
@@ -372,8 +388,155 @@ export class RuntimeOverviewTreeProvider implements vscode.TreeDataProvider<vsco
       new MessageItem("Tasks", String(this.snapshot.taskCount)),
       new MessageItem("Artifacts", String(this.snapshot.artifactCount)),
       new MessageItem("Approvals", String(this.snapshot.approvalCount)),
+      new MessageItem("Audit entries", String(this.snapshot.auditCount)),
+      new MessageItem("Repair sessions", String(this.snapshot.repairCount)),
       new MessageItem("Task/Goal Filter", this.snapshot.filterStatus),
       ...this.snapshot.details.map((detail) => new MessageItem(detail))
     ];
+  }
+}
+
+class AuditItem extends vscode.TreeItem {
+  public constructor(public readonly ref: AuditRef, label: string, description: string, tooltip: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.description = description;
+    this.tooltip = tooltip;
+    this.contextValue = "ananta.audit.item";
+    this.command = {
+      command: "ananta.openAuditDetail",
+      title: "Open audit detail",
+      arguments: [this.ref]
+    };
+    this.iconPath = new vscode.ThemeIcon("history");
+  }
+}
+
+export class AuditTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+  private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
+  public readonly onDidChangeTreeData = this.onDidChangeEmitter.event;
+
+  private audits: Array<Record<string, unknown>> = [];
+  private degradedReason = "";
+
+  public setData(payload: unknown, degradedReason = ""): void {
+    this.audits = readItems(payload);
+    this.degradedReason = degradedReason;
+    this.onDidChangeEmitter.fire();
+  }
+
+  public refresh(): void {
+    this.onDidChangeEmitter.fire();
+  }
+
+  public getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  public getChildren(): vscode.ProviderResult<vscode.TreeItem[]> {
+    if (this.degradedReason) {
+      return [new MessageItem("Audit unavailable", this.degradedReason)];
+    }
+    if (this.audits.length === 0) {
+      return [new MessageItem("No audit entries", "No audit entries returned.")];
+    }
+
+    const items: vscode.TreeItem[] = [];
+    for (const audit of this.audits) {
+      const id = readString(audit, "id", "audit_id", "event_id");
+      if (!id) {
+        continue;
+      }
+      const state = readStatus(audit);
+      const category = readString(audit, "category", "event_type", "kind");
+      const summary = readString(audit, "summary", "message", "event", "action") || id;
+      const relatedGoalId = readString(audit, "goal_id", "related_goal_id");
+      const relatedTaskId = readString(audit, "task_id", "related_task_id");
+      const relatedArtifactId = readString(audit, "artifact_id", "related_artifact_id");
+      const traceId = readString(audit, "trace_id", "trace", "request_id");
+      const description = [
+        `state=${state}`,
+        category ? `category=${category}` : "",
+        relatedTaskId ? `task=${relatedTaskId}` : "",
+        relatedArtifactId ? `artifact=${relatedArtifactId}` : ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+      items.push(
+        new AuditItem(
+          { id, relatedGoalId, relatedTaskId, relatedArtifactId, traceId },
+          summary,
+          description,
+          JSON.stringify(audit, null, 2)
+        )
+      );
+    }
+    return items.length > 0 ? items : [new MessageItem("No audit entries", "No valid audit entries returned.")];
+  }
+}
+
+class RepairItem extends vscode.TreeItem {
+  public constructor(public readonly ref: RepairRef, label: string, description: string, tooltip: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.description = description;
+    this.tooltip = tooltip;
+    this.contextValue = "ananta.repair.item";
+    this.command = {
+      command: "ananta.openRepairDetail",
+      title: "Open repair detail",
+      arguments: [this.ref]
+    };
+    this.iconPath = new vscode.ThemeIcon("wrench");
+  }
+}
+
+export class RepairTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+  private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
+  public readonly onDidChangeTreeData = this.onDidChangeEmitter.event;
+
+  private repairs: Array<Record<string, unknown>> = [];
+  private degradedReason = "";
+
+  public setData(payload: unknown, degradedReason = ""): void {
+    this.repairs = readItems(payload);
+    this.degradedReason = degradedReason;
+    this.onDidChangeEmitter.fire();
+  }
+
+  public refresh(): void {
+    this.onDidChangeEmitter.fire();
+  }
+
+  public getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  public getChildren(): vscode.ProviderResult<vscode.TreeItem[]> {
+    if (this.degradedReason) {
+      return [new MessageItem("Repair unavailable", this.degradedReason)];
+    }
+    if (this.repairs.length === 0) {
+      return [new MessageItem("No repair sessions", "No repair sessions returned.")];
+    }
+
+    const items: vscode.TreeItem[] = [];
+    for (const repair of this.repairs) {
+      const id = readString(repair, "session_id", "id", "repair_id");
+      if (!id) {
+        continue;
+      }
+      const diagnosis = readString(repair, "diagnosis", "summary", "title") || id;
+      const dryRun = readString(repair, "dry_run_status", "dry_run_state");
+      const approval = readString(repair, "approval_state", "approval_status");
+      const verification = readString(repair, "verification_result", "verification_state");
+      const description = [
+        dryRun ? `dry-run=${dryRun}` : "",
+        approval ? `approval=${approval}` : "",
+        verification ? `verify=${verification}` : ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+      items.push(new RepairItem({ id }, diagnosis, description, JSON.stringify(repair, null, 2)));
+    }
+    return items.length > 0 ? items : [new MessageItem("No repair sessions", "No valid repair entries returned.")];
   }
 }

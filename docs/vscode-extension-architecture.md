@@ -29,12 +29,15 @@ It must not duplicate hub orchestration or policy logic.
 7. `runtime/contextCapture.ts`
    - Builds bounded editor-context payloads with warning/block signals.
 8. `runtime/resultLinks.ts`
-   - Builds result deep-links from backend task/goal/artifact payloads.
-9. `views/statusTreeProvider.ts`
-     - Read-only status surface for connection/capability diagnostics.
-10. `views/sidebarProviders.ts`
-    - Goals/Tasks, Artifacts, Approvals and Runtime sidebar providers.
-    - Encodes empty/degraded-state rendering and typed item commands.
+    - Builds result deep-links from backend task/goal/artifact payloads.
+9. `runtime/webFallback.ts`
+    - Safe browser fallback URL generation from configured base URL.
+    - Centralized fallback target labels/path rules.
+10. `views/statusTreeProvider.ts`
+      - Read-only status surface for connection/capability diagnostics.
+11. `views/sidebarProviders.ts`
+     - Goals/Tasks, Artifacts, Approvals, Audit, Repair and Runtime sidebar providers.
+     - Encodes empty/degraded-state rendering and typed item commands.
 
 ## API reuse policy
 
@@ -46,6 +49,8 @@ Sidebar actions remain backend-owned:
 1. Task/goal/artifact/approval detail is read-only rendering.
 2. Approval approve/reject actions call backend approval APIs only.
 3. Unsupported artifact/result types degrade to browser fallback.
+4. Deep audit and repair execution flows stay fallback-first unless backend-gated.
+5. TUI launch is explicit user-triggered terminal integration; secrets are not passed on CLI.
 
 ## SOLID-oriented notes
 

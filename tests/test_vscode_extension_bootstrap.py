@@ -20,6 +20,7 @@ def test_vscode_extension_bootstrap_files_exist() -> None:
         EXT_ROOT / "src" / "runtime" / "capabilityGate.ts",
         EXT_ROOT / "src" / "runtime" / "contextCapture.ts",
         EXT_ROOT / "src" / "runtime" / "resultLinks.ts",
+        EXT_ROOT / "src" / "runtime" / "webFallback.ts",
         EXT_ROOT / "src" / "views" / "statusTreeProvider.ts",
         EXT_ROOT / "src" / "views" / "sidebarProviders.ts",
     ]
@@ -58,6 +59,10 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
         "ananta.openGoalOrTaskDetail",
         "ananta.openArtifactDetail",
         "ananta.openApprovalDetail",
+        "ananta.openAuditDetail",
+        "ananta.openRepairDetail",
+        "ananta.openWebFallback",
+        "ananta.launchTui",
         "ananta.approveApproval",
         "ananta.rejectApproval",
     }
@@ -70,6 +75,8 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
         "ananta.goalsTasksView",
         "ananta.artifactsView",
         "ananta.approvalsView",
+        "ananta.auditView",
+        "ananta.repairView",
         "ananta.runtimeView",
     }
     assert expected_views.issubset({view.get("id") for view in views["ananta"]})

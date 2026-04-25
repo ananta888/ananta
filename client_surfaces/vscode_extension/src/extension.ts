@@ -14,14 +14,19 @@ import { buildResultLinks } from "./runtime/resultLinks";
 import { AnantaSecretStore } from "./runtime/secretStore";
 import { resolveRuntimeSettings } from "./runtime/settings";
 import { RuntimeSettings } from "./runtime/types";
+import { buildWebFallbackUrl, fallbackTargetLabel, WebFallbackTarget } from "./runtime/webFallback";
 import { AnantaStatusTreeProvider } from "./views/statusTreeProvider";
 import {
+  AuditRef,
+  AuditTreeProvider,
   ApprovalQueueTreeProvider,
   ApprovalRef,
   ArtifactsTreeProvider,
   ArtifactRef,
   GoalsTasksTreeProvider,
   GoalTaskRef,
+  RepairRef,
+  RepairTreeProvider,
   RuntimeOverviewTreeProvider
 } from "./views/sidebarProviders";
 
@@ -42,6 +47,10 @@ const COMMANDS = {
   openGoalOrTaskDetail: "ananta.openGoalOrTaskDetail",
   openArtifactDetail: "ananta.openArtifactDetail",
   openApprovalDetail: "ananta.openApprovalDetail",
+  openAuditDetail: "ananta.openAuditDetail",
+  openRepairDetail: "ananta.openRepairDetail",
+  openWebFallback: "ananta.openWebFallback",
+  launchTui: "ananta.launchTui",
   approveApproval: "ananta.approveApproval",
   rejectApproval: "ananta.rejectApproval"
 } as const;
@@ -207,6 +216,95 @@ function readItems(payload: unknown): Array<Record<string, unknown>> {
   return record.items.map((entry) => asRecord(entry)).filter((entry): entry is Record<string, unknown> => entry !== null);
 }
 
+function redactSensitiveValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return redactSensitiveText(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactSensitiveValue(entry));
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return value;
+  }
+  const output: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    const lowered = key.toLowerCase();
+    if (
+      lowered.includes("token") ||
+      lowered.includes("secret") ||
+      lowered.includes("password") ||
+      lowered.includes("authorization")
+    ) {
+      output[key] = "[REDACTED]";
+      continue;
+    }
+    output[key] = redactSensitiveValue(entry);
+  }
+  return output;
+}
+
+function firstRecord(payload: unknown): Record<string, unknown> | null {
+  const items = readItems(payload);
+  if (items.length > 0) {
+    return items[0];
+  }
+  return asRecord(payload);
+}
+
+function extractProviderSummary(providerPayload: unknown, catalogPayload: unknown): string {
+  const providers = readItems(providerPayload);
+  const names = new Set<string>();
+  for (const provider of providers) {
+    const name = readString(provider, "provider", "name", "id");
+    if (name) {
+      names.add(name);
+    }
+  }
+  const catalog = asRecord(catalogPayload);
+  if (catalog && Array.isArray(catalog.providers)) {
+    for (const provider of catalog.providers) {
+      if (typeof provider === "string" && provider.trim().length > 0) {
+        names.add(provider.trim());
+      }
+    }
+  }
+  if (names.size === 0) {
+    return "provider_summary=unavailable";
+  }
+  return `provider_summary=${Array.from(names).sort().join(",")}`;
+}
+
+function extractModelSummary(benchmarksPayload: unknown): string {
+  const top = firstRecord(benchmarksPayload);
+  if (!top) {
+    return "model_summary=unavailable";
+  }
+  const model = readString(top, "model", "model_name", "id", "provider_model");
+  const score = readString(top, "score", "quality_score", "latency_score");
+  if (!model) {
+    return "model_summary=unavailable";
+  }
+  return score ? `model_summary=${model} (score=${score})` : `model_summary=${model}`;
+}
+
+function extractGovernanceSummary(
+  assistantPayload: unknown,
+  configPayload: unknown,
+  capabilityState: string,
+  healthState: string
+): string {
+  const assistant = asRecord(assistantPayload);
+  const config = asRecord(configPayload);
+  const mode = assistant ? readString(assistant, "active_mode", "mode") : "";
+  const governance = config ? readString(config, "governance_mode", "policy_mode", "policy_profile") : "";
+  const policyState = capabilityState === "healthy" && healthState === "healthy" ? "ok" : "degraded";
+  const parts = [mode ? `assistant_mode=${mode}` : "", governance ? `governance=${governance}` : "", `policy_state=${policyState}`]
+    .filter(Boolean)
+    .join(" ");
+  return parts.length > 0 ? parts : "governance=unavailable";
+}
+
 function extractTaskId(data: unknown): string {
   const parsed = asRecord(data);
   if (!parsed) {
@@ -238,6 +336,10 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function shellQuote(value: string): string {
+  return "'" + String(value || "").replace(/'/g, "'\\''") + "'";
 }
 
 function openJsonPanel(title: string, payload: unknown): void {
@@ -277,6 +379,13 @@ function diagnosticSeverity(state: string): vscode.DiagnosticSeverity {
     return vscode.DiagnosticSeverity.Warning;
   }
   return vscode.DiagnosticSeverity.Error;
+}
+
+interface WebFallbackArgs {
+  target?: WebFallbackTarget;
+  id?: string;
+  traceId?: string;
+  source?: string;
 }
 
 function readActiveEditorContext(): RawEditorContextInput {
@@ -392,6 +501,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const goalsTasksView = new GoalsTasksTreeProvider();
   const artifactsView = new ArtifactsTreeProvider();
   const approvalsView = new ApprovalQueueTreeProvider();
+  const auditView = new AuditTreeProvider();
+  const repairView = new RepairTreeProvider();
   const runtimeView = new RuntimeOverviewTreeProvider();
   const diagnostics = vscode.languages.createDiagnosticCollection("ananta-runtime");
   const diagnosticsUri = vscode.Uri.parse("ananta:/runtime/status");
@@ -408,6 +519,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.goalsTasksView", goalsTasksView));
   context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.artifactsView", artifactsView));
   context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.approvalsView", approvalsView));
+  context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.auditView", auditView));
+  context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.repairView", repairView));
   context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.runtimeView", runtimeView));
 
   const setRuntimeUi = (
@@ -453,18 +566,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     runtime: RuntimeClientContext | null,
     connectionState: string,
     capabilitiesState: string,
-    counts: { goals: number; tasks: number; artifacts: number; approvals: number },
-    details: string[]
+    counts: { goals: number; tasks: number; artifacts: number; approvals: number; audits: number; repairs: number },
+    details: string[],
+    activeProfileId?: string
   ): void => {
     runtimeView.setSnapshot({
       connectionState,
       capabilitiesState,
       endpoint: runtime?.settings.baseUrl ?? "-",
-      profileId: runtime?.settings.profileId ?? "-",
+      profileId: activeProfileId || runtime?.settings.profileId || "-",
       goalCount: counts.goals,
       taskCount: counts.tasks,
       artifactCount: counts.artifacts,
       approvalCount: counts.approvals,
+      auditCount: counts.audits,
+      repairCount: counts.repairs,
       filterStatus: goalsTasksView.getFilter(),
       details
     });
@@ -474,7 +590,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     goalsTasksView.setData([], [], reason);
     artifactsView.setData([], reason);
     approvalsView.setData([], reason);
-    setRuntimeOverview(null, "invalid_config", "unknown", { goals: 0, tasks: 0, artifacts: 0, approvals: 0 }, [reason]);
+    auditView.setData([], reason);
+    repairView.setData([], reason);
+    setRuntimeOverview(
+      null,
+      "invalid_config",
+      "unknown",
+      { goals: 0, tasks: 0, artifacts: 0, approvals: 0, audits: 0, repairs: 0 },
+      [reason],
+      undefined
+    );
   };
 
   async function refreshSidebarData(source: string): Promise<RuntimeClientContext | null> {
@@ -488,13 +613,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     try {
-      const [health, capabilities, goals, tasks, artifacts, approvals] = await Promise.all([
+      const [health, capabilities, goals, tasks, artifacts, approvals, audits, repairs, dashboard, assistant, providers, providerCatalog, benchmarks, config] = await Promise.all([
         runtime.client.getHealth(),
         runtime.client.getCapabilities(),
         runtime.client.listGoals(),
         runtime.client.listTasks(),
         runtime.client.listArtifacts(),
-        runtime.client.listApprovals()
+        runtime.client.listApprovals(),
+        runtime.client.getAuditLogs(30, 0),
+        runtime.client.listRepairs(),
+        runtime.client.getDashboardReadModel(),
+        runtime.client.getAssistantReadModel(),
+        runtime.client.listProviders(),
+        runtime.client.listProviderCatalog(),
+        runtime.client.getLlmBenchmarks("analysis", 3),
+        runtime.client.getConfig()
       ]);
 
       const capabilitySnapshot = buildCapabilitySnapshot(capabilities);
@@ -526,24 +659,51 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       goalsTasksView.setData(goals.data, tasks.data, goals.ok && tasks.ok ? "" : `goals=${goals.state}, tasks=${tasks.state}`);
       artifactsView.setData(artifacts.data, artifacts.ok ? "" : `artifacts=${artifacts.state}`);
       approvalsView.setData(approvals.data, approvals.ok ? "" : `approvals=${approvals.state}`);
+      const redactedAudits = readItems(audits.data).map((entry) => redactSensitiveValue(entry) as Record<string, unknown>);
+      const redactedRepairs = readItems(repairs.data).map((entry) => redactSensitiveValue(entry) as Record<string, unknown>);
+      auditView.setData(redactedAudits, audits.ok ? "" : `audit=${audits.state}`);
+      repairView.setData(redactedRepairs, repairs.ok ? "" : `repairs=${repairs.state}`);
 
       const goalCount = readItems(goals.data).length;
       const taskCount = readItems(tasks.data).length;
       const artifactCount = readItems(artifacts.data).length;
       const approvalCount = readItems(approvals.data).length;
+      const auditCount = redactedAudits.length;
+      const repairCount = redactedRepairs.length;
+      const dashboardSnapshot = firstRecord(dashboard.data);
+      const activeProfile =
+        (dashboardSnapshot ? readString(dashboardSnapshot, "active_profile_id", "profile_id", "active_profile") : "") ||
+        runtime.settings.profileId;
+      const providerSummary = extractProviderSummary(providers.data, providerCatalog.data);
+      const modelSummary = extractModelSummary(benchmarks.data);
+      const governanceSummary = extractGovernanceSummary(assistant.data, config.data, capabilities.state, health.state);
 
       const details = [
         `refresh_source=${source}`,
         `health_status=${health.statusCode ?? "none"}`,
-        `capabilities_status=${capabilities.statusCode ?? "none"}`
+        `capabilities_status=${capabilities.statusCode ?? "none"}`,
+        `audit_status=${audits.statusCode ?? "none"}(${audits.state})`,
+        `repair_status=${repairs.statusCode ?? "none"}(${repairs.state})`,
+        `active_profile=${activeProfile}`,
+        governanceSummary,
+        providerSummary,
+        modelSummary
       ];
-      setRuntimeUi(health.state, capabilities.state, runtime.settings.baseUrl, runtime.settings.profileId, details);
+      setRuntimeUi(health.state, capabilities.state, runtime.settings.baseUrl, activeProfile, details);
       setRuntimeOverview(
         runtime,
         health.state,
         capabilities.state,
-        { goals: goalCount, tasks: taskCount, artifacts: artifactCount, approvals: approvalCount },
-        details
+        {
+          goals: goalCount,
+          tasks: taskCount,
+          artifacts: artifactCount,
+          approvals: approvalCount,
+          audits: auditCount,
+          repairs: repairCount
+        },
+        details,
+        activeProfile
       );
       return runtime;
     } catch (error) {
@@ -573,6 +733,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     await vscode.env.openExternal(vscode.Uri.parse(picked.link.url));
+  }
+
+  async function openWebFallbackInternal(runtime: RuntimeClientContext, args?: WebFallbackArgs): Promise<boolean> {
+    const providedTarget = args?.target;
+    let target = providedTarget;
+    if (!target) {
+      const picked = await vscode.window.showQuickPick(
+        (["tasks", "artifacts", "audit", "config", "repair"] as WebFallbackTarget[]).map((value) => ({
+          label: fallbackTargetLabel(value),
+          target: value
+        })),
+        {
+          title: "Ananta browser fallback",
+          placeHolder: "Select the page to open in browser fallback"
+        }
+      );
+      target = picked?.target;
+    }
+    if (!target) {
+      return false;
+    }
+    const url = buildWebFallbackUrl(runtime.settings.baseUrl, target, args?.id, args?.traceId);
+    if (!url) {
+      void vscode.window.showWarningMessage("Ananta browser fallback unavailable: configure a valid HTTP(S) ananta.baseUrl.");
+      return false;
+    }
+    await vscode.env.openExternal(vscode.Uri.parse(url));
+    const source = args?.source ? ` (${args.source})` : "";
+    void vscode.window.showInformationMessage(`Opened Ananta ${fallbackTargetLabel(target)} browser fallback${source}.`);
+    return true;
   }
 
   async function confirmContextPreview(
@@ -649,8 +839,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (ref.kind === "goal") {
       const goal = await runtime.client.getGoal(ref.id);
       if (!goal.ok) {
-        const fallback = `${runtime.settings.baseUrl.replace(/\/+$/, "")}/goals/${encodeURIComponent(ref.id)}`;
-        await vscode.env.openExternal(vscode.Uri.parse(fallback));
+        await openWebFallbackInternal(runtime, { target: "goals", id: ref.id, source: "goal_detail_degraded" });
         void vscode.window.showWarningMessage(`Goal detail degraded (${goal.state}); browser fallback opened.`);
         return;
       }
@@ -682,8 +871,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   async function openArtifactDetailInternal(runtime: RuntimeClientContext, ref: ArtifactRef): Promise<void> {
     const artifact = await runtime.client.getArtifact(ref.id);
     if (!artifact.ok) {
-      const fallback = `${runtime.settings.baseUrl.replace(/\/+$/, "")}/artifacts/${encodeURIComponent(ref.id)}`;
-      await vscode.env.openExternal(vscode.Uri.parse(fallback));
+      await openWebFallbackInternal(runtime, { target: "artifacts", id: ref.id, source: "artifact_detail_degraded" });
       void vscode.window.showWarningMessage(`Artifact detail degraded (${artifact.state}); browser fallback opened.`);
       return;
     }
@@ -693,13 +881,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         schema: "vscode_artifact_detail_v1",
         artifact_id: ref.id,
         unsupported_payload: artifact.data,
-        fallback_url: `${runtime.settings.baseUrl.replace(/\/+$/, "")}/artifacts/${encodeURIComponent(ref.id)}`
+        fallback_url: buildWebFallbackUrl(runtime.settings.baseUrl, "artifacts", ref.id)
       });
       return;
     }
     if (!isTextArtifact(payload)) {
-      const fallback = `${runtime.settings.baseUrl.replace(/\/+$/, "")}/artifacts/${encodeURIComponent(ref.id)}`;
-      await vscode.env.openExternal(vscode.Uri.parse(fallback));
+      await openWebFallbackInternal(runtime, { target: "artifacts", id: ref.id, source: "artifact_binary" });
       void vscode.window.showInformationMessage("Binary/rich artifact opened in browser fallback.");
       return;
     }
@@ -722,6 +909,60 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       queue_status_code: approvals.statusCode,
       stale_or_missing_state_explicit: found === null,
       detail: found
+    });
+  }
+
+  async function openAuditDetailInternal(runtime: RuntimeClientContext, ref: AuditRef): Promise<void> {
+    const auditLogs = await runtime.client.getAuditLogs(50, 0);
+    const all = readItems(auditLogs.data);
+    const found = all.find((entry) => readString(entry, "id", "audit_id", "event_id") === ref.id) ?? null;
+    const relatedLinks = {
+      goal: ref.relatedGoalId ? buildWebFallbackUrl(runtime.settings.baseUrl, "goals", ref.relatedGoalId) : null,
+      task: ref.relatedTaskId ? buildWebFallbackUrl(runtime.settings.baseUrl, "tasks", ref.relatedTaskId) : null,
+      artifact: ref.relatedArtifactId ? buildWebFallbackUrl(runtime.settings.baseUrl, "artifacts", ref.relatedArtifactId) : null,
+      audit: buildWebFallbackUrl(runtime.settings.baseUrl, "audit", ref.id, ref.traceId)
+    };
+    openJsonPanel(`Ananta Audit ${ref.id}`, {
+      schema: "vscode_audit_detail_v1",
+      audit_id: ref.id,
+      queue_state: auditLogs.state,
+      queue_status_code: auditLogs.statusCode,
+      stale_or_missing_state_explicit: found === null,
+      related_refs: {
+        goal_id: ref.relatedGoalId || null,
+        task_id: ref.relatedTaskId || null,
+        artifact_id: ref.relatedArtifactId || null,
+        trace_id: ref.traceId || null
+      },
+      browser_fallback: relatedLinks,
+      deep_analysis_note: "Use audit browser fallback for deep trace navigation.",
+      detail: redactSensitiveValue(found)
+    });
+  }
+
+  async function openRepairDetailInternal(runtime: RuntimeClientContext, ref: RepairRef): Promise<void> {
+    const [repairs, session] = await Promise.all([runtime.client.listRepairs(), runtime.client.getRepairSession(ref.id)]);
+    const all = readItems(repairs.data);
+    const summary = all.find((entry) => readString(entry, "session_id", "id", "repair_id") === ref.id) ?? null;
+    const detail = session.ok ? session.data : summary;
+    const parsed = asRecord(detail);
+    const proposedSteps = parsed?.proposed_steps;
+    openJsonPanel(`Ananta Repair ${ref.id}`, {
+      schema: "vscode_repair_detail_v1",
+      repair_session_id: ref.id,
+      queue_state: repairs.state,
+      queue_status_code: repairs.statusCode,
+      detail_state: session.state,
+      detail_status_code: session.statusCode,
+      diagnosis: parsed ? readString(parsed, "diagnosis", "summary", "issue") || null : null,
+      proposed_steps: Array.isArray(proposedSteps) ? proposedSteps : proposedSteps ? [proposedSteps] : [],
+      dry_run_status: parsed ? readString(parsed, "dry_run_status", "dry_run_state") || null : null,
+      approval_state: parsed ? readString(parsed, "approval_state", "approval_status") || null : null,
+      verification_result: parsed ? readString(parsed, "verification_result", "verification_state") || null : null,
+      execution_guardrail:
+        "Opening/refreshing this view never executes repairs. Execution/approval remains backend-gated and explicit.",
+      browser_fallback: buildWebFallbackUrl(runtime.settings.baseUrl, "repair", ref.id),
+      detail: redactSensitiveValue(detail)
     });
   }
 
@@ -895,6 +1136,42 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.openWebFallback, async (args?: WebFallbackArgs) => {
+      const runtime = await refreshSidebarData("open_web_fallback");
+      if (!runtime) {
+        return;
+      }
+      await openWebFallbackInternal(runtime, args);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.launchTui, async () => {
+      const runtime = await refreshSidebarData("launch_tui");
+      if (!runtime) {
+        return;
+      }
+      const terminal = vscode.window.createTerminal({
+        name: "Ananta TUI",
+        env: {
+          ANANTA_BASE_URL: runtime.settings.baseUrl,
+          ANANTA_PROFILE_ID: runtime.settings.profileId,
+          ANANTA_AUTH_MODE: runtime.settings.authMode
+        }
+      });
+      const launchCommand = [
+        "python -m client_surfaces.tui_runtime.ananta_tui",
+        `--base-url ${shellQuote(runtime.settings.baseUrl)}`,
+        `--profile-id ${shellQuote(runtime.settings.profileId)}`,
+        `--auth-mode ${shellQuote(runtime.settings.authMode)}`
+      ].join(" ");
+      terminal.show(true);
+      terminal.sendText(launchCommand, true);
+      void vscode.window.showInformationMessage("Ananta TUI launched in integrated terminal (without passing token on CLI).");
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand(COMMANDS.setGoalTaskStatusFilter, async () => {
       const statuses = goalsTasksView.availableStatuses();
       const picked = await vscode.window.showQuickPick(
@@ -997,6 +1274,34 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       }
       await openApprovalDetailInternal(runtime, ref);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.openAuditDetail, async (ref?: AuditRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No audit entry selected.");
+        return;
+      }
+      const runtime = await refreshSidebarData("open_audit_detail");
+      if (!runtime) {
+        return;
+      }
+      await openAuditDetailInternal(runtime, ref);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(COMMANDS.openRepairDetail, async (ref?: RepairRef) => {
+      if (!ref || !ref.id) {
+        void vscode.window.showWarningMessage("No repair session selected.");
+        return;
+      }
+      const runtime = await refreshSidebarData("open_repair_detail");
+      if (!runtime) {
+        return;
+      }
+      await openRepairDetailInternal(runtime, ref);
     })
   );
 

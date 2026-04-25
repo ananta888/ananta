@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeOverviewTreeProvider = exports.ApprovalQueueTreeProvider = exports.ArtifactsTreeProvider = exports.GoalsTasksTreeProvider = void 0;
+exports.RepairTreeProvider = exports.AuditTreeProvider = exports.RuntimeOverviewTreeProvider = exports.ApprovalQueueTreeProvider = exports.ArtifactsTreeProvider = exports.GoalsTasksTreeProvider = void 0;
 const vscode = __importStar(require("vscode"));
 class MessageItem extends vscode.TreeItem {
     constructor(label, description) {
@@ -312,6 +312,8 @@ class RuntimeOverviewTreeProvider {
         taskCount: 0,
         artifactCount: 0,
         approvalCount: 0,
+        auditCount: 0,
+        repairCount: 0,
         filterStatus: "all",
         details: []
     };
@@ -335,10 +337,140 @@ class RuntimeOverviewTreeProvider {
             new MessageItem("Tasks", String(this.snapshot.taskCount)),
             new MessageItem("Artifacts", String(this.snapshot.artifactCount)),
             new MessageItem("Approvals", String(this.snapshot.approvalCount)),
+            new MessageItem("Audit entries", String(this.snapshot.auditCount)),
+            new MessageItem("Repair sessions", String(this.snapshot.repairCount)),
             new MessageItem("Task/Goal Filter", this.snapshot.filterStatus),
             ...this.snapshot.details.map((detail) => new MessageItem(detail))
         ];
     }
 }
 exports.RuntimeOverviewTreeProvider = RuntimeOverviewTreeProvider;
+class AuditItem extends vscode.TreeItem {
+    ref;
+    constructor(ref, label, description, tooltip) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        this.ref = ref;
+        this.description = description;
+        this.tooltip = tooltip;
+        this.contextValue = "ananta.audit.item";
+        this.command = {
+            command: "ananta.openAuditDetail",
+            title: "Open audit detail",
+            arguments: [this.ref]
+        };
+        this.iconPath = new vscode.ThemeIcon("history");
+    }
+}
+class AuditTreeProvider {
+    onDidChangeEmitter = new vscode.EventEmitter();
+    onDidChangeTreeData = this.onDidChangeEmitter.event;
+    audits = [];
+    degradedReason = "";
+    setData(payload, degradedReason = "") {
+        this.audits = readItems(payload);
+        this.degradedReason = degradedReason;
+        this.onDidChangeEmitter.fire();
+    }
+    refresh() {
+        this.onDidChangeEmitter.fire();
+    }
+    getTreeItem(element) {
+        return element;
+    }
+    getChildren() {
+        if (this.degradedReason) {
+            return [new MessageItem("Audit unavailable", this.degradedReason)];
+        }
+        if (this.audits.length === 0) {
+            return [new MessageItem("No audit entries", "No audit entries returned.")];
+        }
+        const items = [];
+        for (const audit of this.audits) {
+            const id = readString(audit, "id", "audit_id", "event_id");
+            if (!id) {
+                continue;
+            }
+            const state = readStatus(audit);
+            const category = readString(audit, "category", "event_type", "kind");
+            const summary = readString(audit, "summary", "message", "event", "action") || id;
+            const relatedGoalId = readString(audit, "goal_id", "related_goal_id");
+            const relatedTaskId = readString(audit, "task_id", "related_task_id");
+            const relatedArtifactId = readString(audit, "artifact_id", "related_artifact_id");
+            const traceId = readString(audit, "trace_id", "trace", "request_id");
+            const description = [
+                `state=${state}`,
+                category ? `category=${category}` : "",
+                relatedTaskId ? `task=${relatedTaskId}` : "",
+                relatedArtifactId ? `artifact=${relatedArtifactId}` : ""
+            ]
+                .filter(Boolean)
+                .join(" ");
+            items.push(new AuditItem({ id, relatedGoalId, relatedTaskId, relatedArtifactId, traceId }, summary, description, JSON.stringify(audit, null, 2)));
+        }
+        return items.length > 0 ? items : [new MessageItem("No audit entries", "No valid audit entries returned.")];
+    }
+}
+exports.AuditTreeProvider = AuditTreeProvider;
+class RepairItem extends vscode.TreeItem {
+    ref;
+    constructor(ref, label, description, tooltip) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        this.ref = ref;
+        this.description = description;
+        this.tooltip = tooltip;
+        this.contextValue = "ananta.repair.item";
+        this.command = {
+            command: "ananta.openRepairDetail",
+            title: "Open repair detail",
+            arguments: [this.ref]
+        };
+        this.iconPath = new vscode.ThemeIcon("wrench");
+    }
+}
+class RepairTreeProvider {
+    onDidChangeEmitter = new vscode.EventEmitter();
+    onDidChangeTreeData = this.onDidChangeEmitter.event;
+    repairs = [];
+    degradedReason = "";
+    setData(payload, degradedReason = "") {
+        this.repairs = readItems(payload);
+        this.degradedReason = degradedReason;
+        this.onDidChangeEmitter.fire();
+    }
+    refresh() {
+        this.onDidChangeEmitter.fire();
+    }
+    getTreeItem(element) {
+        return element;
+    }
+    getChildren() {
+        if (this.degradedReason) {
+            return [new MessageItem("Repair unavailable", this.degradedReason)];
+        }
+        if (this.repairs.length === 0) {
+            return [new MessageItem("No repair sessions", "No repair sessions returned.")];
+        }
+        const items = [];
+        for (const repair of this.repairs) {
+            const id = readString(repair, "session_id", "id", "repair_id");
+            if (!id) {
+                continue;
+            }
+            const diagnosis = readString(repair, "diagnosis", "summary", "title") || id;
+            const dryRun = readString(repair, "dry_run_status", "dry_run_state");
+            const approval = readString(repair, "approval_state", "approval_status");
+            const verification = readString(repair, "verification_result", "verification_state");
+            const description = [
+                dryRun ? `dry-run=${dryRun}` : "",
+                approval ? `approval=${approval}` : "",
+                verification ? `verify=${verification}` : ""
+            ]
+                .filter(Boolean)
+                .join(" ");
+            items.push(new RepairItem({ id }, diagnosis, description, JSON.stringify(repair, null, 2)));
+        }
+        return items.length > 0 ? items : [new MessageItem("No repair sessions", "No valid repair entries returned.")];
+    }
+}
+exports.RepairTreeProvider = RepairTreeProvider;
 //# sourceMappingURL=sidebarProviders.js.map
