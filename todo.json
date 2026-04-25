@@ -7,7 +7,7 @@
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "scope_rules": [
-    "Do not duplicate todo.security.json, todo.domain-cleanup.json, todo.ananta-worker.json, todo.blender.json, todo.freecad.json, todo.kicad.json or KRITIS scope.",
+    "Do not duplicate todo.kritis.json, todo.blender.json, todo.freecad.json or todo.kicad.json, and avoid reintroducing archived Security/Domain/Native-Worker tracks unless they are explicitly restored.",
     "Only include items that improve installability, operability, controlled integrations or dogfooding after the core tracks are stable.",
     "Avoid Medusa features such as visual flow builders, full LSP server rewrites or large editor refactors unless explicitly promoted later.",
     "All integrations must remain Hub-controlled, policy-gated, auditable and compatible with thin clients."
@@ -42,6 +42,12 @@
       "id": "PG-M4",
       "title": "Icebox guards",
       "task_ids": ["PG-T10", "PG-T11"],
+      "status": "todo"
+    },
+    {
+      "id": "PG-M5",
+      "title": "Cross-track dependency hygiene",
+      "task_ids": ["PG-T12"],
       "status": "todo"
     }
   ],
@@ -171,7 +177,11 @@
       "priority": "P2",
       "risk": "high",
       "blocking": false,
-      "depends_on": ["todo.ananta-worker.json:AW-T31", "todo.security.json"],
+      "depends_on": [
+        "todo.kritis.json:K1-AUD-T15",
+        "todo.kritis.json:K1-MUT-T13",
+        "todo.kritis.json:K1-EVO-T09"
+      ],
       "expected_files": [
         "docs/architecture/pr_review_agent.md"
       ],
@@ -255,29 +265,144 @@
         "Distinguishes deferred KRITIS/Enterprise scope from active OSS scope.",
         "Helps future agents avoid rediscovering or duplicating completed tracks."
       ]
+    },
+    {
+      "id": "PG-T12",
+      "title": "Cross-track dependency map and validator add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PG-T11", "PG-T04"],
+      "expected_files": [
+        "docs/status/cross_track_dependency_map.md",
+        "scripts/validate_cross_track_dependencies.py",
+        "tests/test_validate_cross_track_dependencies.py"
+      ],
+      "acceptance_criteria": [
+        "Documents allowed cross-track dependencies using explicit file:id references.",
+        "Validator reports missing files, missing task IDs and circular cross-track links.",
+        "Unknown or archived track references fail with actionable messages.",
+        "Validation can run in CI without requiring network or privileged access."
+      ]
     }
   ],
   "execution_order_summary": [
     "First add runtime profile wizard and profile recommendations after core Security/Domain/Worker tracks are stable enough.",
     "Then add MCP boundary documentation and a read-only/default-deny MCP skeleton.",
     "Keep PR review automation blocked until worker release gates are stable.",
-    "Keep LSP, Flow Builder and large Eclipse refactors in the icebox until the OSS golden path is reliable."
+    "Keep LSP, Flow Builder and large Eclipse refactors in the icebox until the OSS golden path is reliable.",
+    "Add cross-track dependency mapping and validation so stale references cannot silently drift."
   ],
-  "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11"],
+  "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11", "PG-T12"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:00:00+02:00",
-    "total": 11,
-    "by_status": {"todo": 8, "in_progress": 0, "blocked": 3, "done": 0, "deferred": 0},
+    "updated_at": "2026-04-25T22:24:00+02:00",
+    "total": 12,
+    "by_status": {"todo": 9, "in_progress": 0, "blocked": 3, "done": 0, "deferred": 0},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 0, "P1": 4, "P2": 5, "P3": 2},
-    "by_risk": {"low": 2, "medium": 4, "high": 5, "critical": 0},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6},
-    "milestones": {"total": 4, "todo": 3, "in_progress": 0, "blocked": 1, "done": 0}
+    "by_priority": {"P0": 0, "P1": 4, "P2": 6, "P3": 2},
+    "by_risk": {"low": 2, "medium": 5, "high": 5, "critical": 0},
+    "critical_path": {"total": 7, "done": 0, "remaining": 7},
+    "milestones": {"total": 5, "todo": 4, "in_progress": 0, "blocked": 1, "done": 0}
+  },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-25T22:24:00+02:00",
+    "stages": {
+      "PG-M1": {
+        "title": "Runtime setup and profile UX",
+        "scope_task_ids": ["PG-T01", "PG-T02", "PG-T03"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M2": {
+        "title": "Controlled MCP foundation",
+        "scope_task_ids": ["PG-T04", "PG-T05", "PG-T06"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M3": {
+        "title": "Dogfooding and PR review automation",
+        "scope_task_ids": ["PG-T07", "PG-T08", "PG-T09"],
+        "total": 3,
+        "done": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 3
+      },
+      "PG-M4": {
+        "title": "Icebox guards",
+        "scope_task_ids": ["PG-T10", "PG-T11"],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "PG-M5": {
+        "title": "Cross-track dependency hygiene",
+        "scope_task_ids": ["PG-T12"],
+        "total": 1,
+        "done": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+  "analysis_checks": {
+    "checked_at": "2026-04-25T22:24:00+02:00",
+    "internal_consistency": "corrected_and_extended",
+    "notes": [
+      "Stale references to missing todo.security.json and todo.ananta-worker.json were replaced with explicit KRITIS gating task references.",
+      "Milestone-level execution_stage_summary was added and synchronized with task statuses.",
+      "Cross-track dependency mapping/validation was added as PG-T12 to reduce future track drift."
+    ]
   },
   "summary_notes": [
-    "This file intentionally avoids duplicating the active detailed tracks.",
-    "Runtime profile UX and controlled MCP are the only near-term additions that seem broadly useful after the current core tracks.",
-    "PR review automation is useful but blocked until the native worker, approval, audit and release gate paths are trustworthy.",
+    "This file intentionally avoids duplicating active detailed tracks and now references existing KRITIS gates explicitly.",
+    "Runtime profile UX and controlled MCP remain the near-term additions with the best OSS value/risk ratio.",
+    "PR review automation remains blocked until audit/mutation/evolver gates in KRITIS are verifiably stable.",
+    "Cross-track dependency hygiene is now an explicit work item to prevent stale references.",
     "LSP, Flow Builder and large Eclipse refactors remain icebox items to avoid Medusa complexity."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "PG-S1",
+      "title": "Analyseergebnis",
+      "items": [
+        "todo.json war syntaktisch valide, hatte aber veraltete Cross-Track-Referenzen auf nicht vorhandene Dateien.",
+        "Es fehlte ein execution_stage_summary fuer milestonebasierte Rollups."
+      ]
+    },
+    {
+      "summary_id": "PG-S2",
+      "title": "Korrekturen",
+      "items": [
+        "Abhaengigkeiten von PG-T07 wurden auf konkrete KRITIS-Gating-Tasks umgestellt.",
+        "Scope-Regeln wurden auf vorhandene Track-Dateien im Repository aktualisiert."
+      ]
+    },
+    {
+      "summary_id": "PG-S3",
+      "title": "Verbesserungen und Erweiterungen",
+      "items": [
+        "execution_stage_summary und analysis_checks wurden fuer bessere Nachvollziehbarkeit ergaenzt.",
+        "PG-T12 fuehrt eine explizite Cross-Track-Dependency-Map plus Validator ein."
+      ]
+    },
+    {
+      "summary_id": "PG-S4",
+      "title": "Status am Ende",
+      "items": [
+        "Aktueller Stand: 12 Aufgaben (9 todo, 3 blocked, 0 in_progress, 0 done).",
+        "Kritischer Pfad: 7 total, 0 done, 7 remaining."
+      ]
+    }
   ]
 }
