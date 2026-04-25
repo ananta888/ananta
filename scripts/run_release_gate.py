@@ -29,9 +29,16 @@ def main() -> int:
         help="Skip OSS security invariant checks (not recommended for merge readiness).",
     )
     parser.add_argument("--skip-domain-audit", action="store_true", help="Skip generic domain integration audit.")
+    parser.add_argument(
+        "--worker-runtime-claimed",
+        action="store_true",
+        help="Run worker unit/E2E gate checks when native worker runtime is part of release claim.",
+    )
+    parser.add_argument("--skip-worker-checks", action="store_true", help="Skip native worker gate checks.")
     parser.add_argument("--domain-inventory", default="data/domain_runtime_inventory.json")
     parser.add_argument("--domain-audit-out", default="artifacts/domain/domain_integration_audit_report.json")
     parser.add_argument("--security-invariant-out", default="artifacts/security/security_invariant_gate_report.json")
+    parser.add_argument("--worker-out", default="artifacts/worker/worker_gate_report.json")
     parser.add_argument("--e2e-artifact-root", default="artifacts/e2e")
     parser.add_argument("--e2e-out", default="artifacts/e2e/dogfood_gate_report.json")
     args = parser.parse_args()
@@ -68,6 +75,19 @@ def main() -> int:
         domain_audit_result = subprocess.run(domain_audit_command, cwd=str(ROOT), check=False)
         if domain_audit_result.returncode != 0:
             return domain_audit_result.returncode
+
+    if args.worker_runtime_claimed and not args.skip_worker_checks:
+        worker_command = [
+            python_exec,
+            "scripts/run_worker_checks.py",
+            "--out",
+            args.worker_out,
+        ]
+        if args.strict:
+            worker_command.append("--strict")
+        worker_result = subprocess.run(worker_command, cwd=str(ROOT), check=False)
+        if worker_result.returncode != 0:
+            return worker_result.returncode
 
     if args.skip_e2e:
         return 0

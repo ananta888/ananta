@@ -36,11 +36,13 @@ class AiderAdapter:
 
     def plan(self, *, task_id: str, capability_id: str, prompt: str) -> dict[str, Any]:
         descriptor = self.descriptor()
+        command = f"aider --message {prompt!r}"
         return {
             "schema": "command_plan_artifact.v1",
             "task_id": str(task_id).strip(),
             "capability_id": str(capability_id).strip(),
-            "command": f"aider --message {prompt!r}",
+            "command": command,
+            "command_hash": hashlib.sha256(command.encode("utf-8")).hexdigest(),
             "explanation": "Plan-only preview for aider patch proposal.",
             "risk_classification": "high",
             "required_approval": True,

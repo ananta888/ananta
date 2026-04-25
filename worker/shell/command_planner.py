@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from worker.shell.command_policy import classify_command
@@ -18,12 +19,14 @@ def build_command_plan_artifact(
 ) -> dict[str, Any]:
     normalized_command = str(command).strip()
     normalized_explanation = str(explanation).strip()
+    command_hash = hashlib.sha256(normalized_command.encode("utf-8")).hexdigest() if normalized_command else ""
     if not normalized_command or not normalized_explanation:
         return {
             "schema": "command_plan_artifact.v1",
             "task_id": str(task_id).strip(),
             "capability_id": str(capability_id).strip(),
             "command": normalized_command or "echo '<missing command>'",
+            "command_hash": command_hash or "missing-command",
             "explanation": normalized_explanation or "Malformed request: command or explanation missing.",
             "risk_classification": "critical",
             "required_approval": True,
@@ -36,6 +39,7 @@ def build_command_plan_artifact(
         "task_id": str(task_id).strip(),
         "capability_id": str(capability_id).strip(),
         "command": normalized_command,
+        "command_hash": command_hash,
         "explanation": normalized_explanation,
         "risk_classification": decision.risk_classification,
         "required_approval": decision.required_approval,

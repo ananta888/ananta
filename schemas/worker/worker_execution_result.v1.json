@@ -14,6 +14,30 @@
     "schema": { "type": "string", "const": "worker_execution_result.v1" },
     "task_id": { "type": "string", "minLength": 1 },
     "trace_id": { "type": "string", "minLength": 1 },
+    "capability_id": { "type": "string", "minLength": 1 },
+    "context_hash": { "type": "string", "minLength": 1 },
+    "policy_decision_ref": {
+      "type": "object",
+      "required": ["decision_id", "decision", "policy_version"],
+      "properties": {
+        "decision_id": { "type": "string", "minLength": 1 },
+        "decision": { "type": "string", "enum": ["allow", "deny", "approval_required", "default_deny"] },
+        "policy_version": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "approval_ref": {
+      "type": "object",
+      "required": ["approval_id", "status"],
+      "properties": {
+        "approval_id": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["approved", "pending", "denied", "expired"] },
+        "task_id": { "type": "string", "minLength": 1 },
+        "capability_id": { "type": "string", "minLength": 1 },
+        "context_hash": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
     "status": { "type": "string", "enum": ["completed", "failed", "denied", "approval_required", "degraded"] },
     "error_class": { "type": "string" },
     "exit_code": { "type": "integer" },

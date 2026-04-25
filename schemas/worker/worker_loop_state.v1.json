@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_loop_state.v1.json",
+  "title": "Ananta Worker Loop State v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "trace_id",
+    "context_hash",
+    "policy_state",
+    "phase",
+    "iteration",
+    "patch_attempts",
+    "status",
+    "stop_reason",
+    "artifacts",
+    "events"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "worker_loop_state.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "context_hash": { "type": "string", "minLength": 1 },
+    "policy_state": { "type": "string", "enum": ["allow", "deny", "approval_required", "default_deny"] },
+    "phase": { "type": "string", "enum": ["observe", "plan", "patch", "test", "inspect", "repair", "retest", "summarize"] },
+    "iteration": { "type": "integer", "minimum": 0 },
+    "patch_attempts": { "type": "integer", "minimum": 0 },
+    "status": { "type": "string", "enum": ["running", "completed", "stopped"] },
+    "stop_reason": { "type": "string" },
+    "artifacts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["schema", "task_id", "trace_id", "phase", "iteration", "artifact_refs", "detail", "emitted_at"],
+        "properties": {
+          "schema": { "type": "string", "const": "worker_progress_event.v1" },
+          "task_id": { "type": "string", "minLength": 1 },
+          "trace_id": { "type": "string", "minLength": 1 },
+          "phase": { "type": "string", "enum": ["observe", "plan", "patch", "test", "inspect", "repair", "retest", "summarize"] },
+          "iteration": { "type": "integer", "minimum": 0 },
+          "artifact_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "detail": { "type": "string" },
+          "emitted_at": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

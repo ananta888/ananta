@@ -83,3 +83,21 @@ def test_run_release_gate_stops_when_security_invariants_fail(monkeypatch) -> No
     assert commands[0] == ["python3", "scripts/release_gate.py"]
     assert commands[1][0:2] == ["python3", "scripts/run_security_invariant_checks.py"]
     assert len(commands) == 2
+
+
+def test_run_release_gate_runs_worker_checks_when_runtime_claimed(monkeypatch) -> None:
+    commands: list[list[str]] = []
+    monkeypatch.setattr(run_release_gate, "_python_executable", lambda: "python3")
+    monkeypatch.setattr(run_release_gate, "_domain_inventory_exists", lambda _path: False)
+
+    def fake_run(command, cwd=None, check=False):  # noqa: ANN001
+        commands.append(list(command))
+        return _completed(0)
+
+    monkeypatch.setattr(run_release_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["run_release_gate.py", "--worker-runtime-claimed", "--skip-e2e"])
+
+    assert run_release_gate.main() == 0
+    assert commands[0] == ["python3", "scripts/release_gate.py"]
+    assert commands[1][0:2] == ["python3", "scripts/run_security_invariant_checks.py"]
+    assert commands[2][0:2] == ["python3", "scripts/run_worker_checks.py"]

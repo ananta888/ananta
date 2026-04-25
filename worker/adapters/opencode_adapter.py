@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import shutil
 from typing import Any
 
@@ -33,11 +34,13 @@ class OpenCodeAdapter:
 
     def plan(self, *, task_id: str, capability_id: str, prompt: str) -> dict[str, Any]:
         descriptor = self.descriptor()
+        command = "echo '<opencode experimental plan-only>'"
         return {
             "schema": "command_plan_artifact.v1",
             "task_id": str(task_id).strip(),
             "capability_id": str(capability_id).strip(),
-            "command": "echo '<opencode experimental plan-only>'",
+            "command": command,
+            "command_hash": hashlib.sha256(command.encode("utf-8")).hexdigest(),
             "explanation": f"Experimental OpenCode adapter plan. Prompt preview: {str(prompt)[:120]}",
             "risk_classification": "high",
             "required_approval": True,

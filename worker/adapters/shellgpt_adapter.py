@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import shutil
 import subprocess
 from typing import Any
@@ -46,11 +47,13 @@ class ShellGptAdapter:
             generated = (completed.stdout or "").strip()
             if generated:
                 explanation = generated.splitlines()[0]
+        command = "echo '<plan-only: run via worker.command.execute>'"
         return {
             "schema": "command_plan_artifact.v1",
             "task_id": str(task_id).strip(),
             "capability_id": str(capability_id).strip(),
-            "command": "echo '<plan-only: run via worker.command.execute>'",
+            "command": command,
+            "command_hash": hashlib.sha256(command.encode("utf-8")).hexdigest(),
             "explanation": explanation,
             "risk_classification": "medium",
             "required_approval": True,
