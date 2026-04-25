@@ -1,0 +1,19 @@
+{
+  "schema": "capability_pack.v1",
+  "domain_id": "kicad",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "capability_id": "kicad.project.read",
+      "domain_id": "kicad",
+      "display_name": "Read project metadata",
+      "category": "project",
+      "risk": "low",
+      "read_only": true,
+      "mutating": false,
+      "approval_required": false,
+      "default_policy_state": "allow",
+      "notes": ["Deferred baseline capability for registry and policy-contract readiness."]
+    }
+  ]
+}

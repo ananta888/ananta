@@ -1,0 +1,25 @@
+{
+  "schema": "domain_descriptor.v1",
+  "domain_id": "kicad",
+  "display_name": "KiCad Deferred Domain",
+  "version": "1.0.0",
+  "lifecycle_status": "deferred",
+  "runtime_status": "descriptor_only",
+  "owner": "ananta",
+  "description": "Deferred KiCad domain baseline for generic descriptor and capability contract readiness.",
+  "supported_clients": ["bridge", "cli", "tui", "web"],
+  "source_paths": {
+    "descriptor_root": "domains/kicad",
+    "code_paths": [],
+    "docs_paths": ["docs/architecture/domain_integration_foundation.md"]
+  },
+  "capability_pack": "domains/kicad/capabilities.json",
+  "context_schemas": [],
+  "artifact_schemas": [],
+  "policy_packs": [],
+  "rag_profiles": [],
+  "bridge_adapter_type": "none",
+  "extensions": {
+    "runtime_claim": "descriptor_only"
+  }
+}

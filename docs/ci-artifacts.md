@@ -8,6 +8,7 @@ Artifact names use the `ananta-` prefix and describe the diagnostic surface:
 
 - `ananta-compose-configs`: rendered Docker Compose configurations from the compose validation job.
 - `ananta-release-verification-report`: release-gate evidence for the current commit.
+- `ananta-domain-integration-audit`: domain integration audit report generated in the release-gate job.
 - `ananta-e2e-compose-results`: Playwright and E2E failure output from the compose-backed E2E job.
 - `ananta-live-llm-smoke-diagnostics`: compact hosted OpenAI Live-LLM smoke summary.
 - `ananta-architecture-diagrams`: rendered architecture diagrams.
@@ -33,12 +34,13 @@ Avoid `/tmp` for files that are useful after a failed run. `/tmp` is acceptable 
 For a failed run, inspect artifacts in this order:
 
 1. `ananta-release-verification-report` for release-gate or reproducibility failures.
-2. `ananta-e2e-compose-results` for browser failures, traces, screenshots, and `failure-summary.md`.
-3. `ananta-compose-configs` for rendered service configuration differences.
-4. `ananta-live-llm-smoke-diagnostics` for hosted model, timeout, token-limit and skip/failure reason.
-5. `ananta-architecture-diagrams` for documentation rendering failures.
-6. `ananta-github-release-assets` for prepared release payload inspection.
-7. `ananta-nightly-rc-validation` for RC validation evidence.
-8. `ananta-container-release-metadata` for release image build provenance.
+2. `ananta-domain-integration-audit` for runtime-claim/inventory/domain-descriptor blockers.
+3. `ananta-e2e-compose-results` for browser failures, traces, screenshots, and `failure-summary.md`.
+4. `ananta-compose-configs` for rendered service configuration differences.
+5. `ananta-live-llm-smoke-diagnostics` for hosted model, timeout, token-limit and skip/failure reason.
+6. `ananta-architecture-diagrams` for documentation rendering failures.
+7. `ananta-github-release-assets` for prepared release payload inspection.
+8. `ananta-nightly-rc-validation` for RC validation evidence.
+9. `ananta-container-release-metadata` for release image build provenance.
 
 If a workflow creates a new class of diagnostic output, update this document in the same pull request.

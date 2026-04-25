@@ -44,6 +44,12 @@ from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service
 from agent.services.live_terminal_session_service import get_live_terminal_session_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.bridge_adapter_registry import BridgeAdapterRegistry
+from agent.services.capability_registry import CapabilityRegistry
+from agent.services.domain_action_router import DomainActionRouter
+from agent.services.domain_policy_loader import DomainPolicyLoader
+from agent.services.domain_policy_service import DomainPolicyService
+from agent.services.domain_registry import DomainRegistry
 from agent.services.repository_registry import get_repository_registry
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
@@ -277,6 +283,17 @@ class TaskScopedExecutionService:
             tool_calls = proposal.get("tool_calls")
             reason = proposal.get("reason", "Vorschlag ausgeführt")
 
+        if task_kind == "domain_action":
+            return self._execute_domain_action(
+                tid=tid,
+                task=task,
+                task_kind=task_kind,
+                request_data=request_data,
+                command=command,
+                reason=reason,
+                execution_policy=execution_policy,
+            )
+
         if command == _INTERACTIVE_TERMINAL_FINALIZE_COMMAND:
             return self._finalize_interactive_terminal_execution(
                 tid=tid,
@@ -375,6 +392,151 @@ class TaskScopedExecutionService:
             output=execution_run.output,
             exit_code=execution_run.exit_code,
             task_id=tid,
+        )
+        return TaskScopedRouteResponse(data=response_payload)
+
+    @staticmethod
+    def _build_domain_action_router() -> DomainActionRouter:
+        domain_registry = DomainRegistry()
+        descriptors = domain_registry.load()
+        capability_registry = CapabilityRegistry()
+        capability_registry.load_from_descriptors(descriptors)
+        policy_loader = DomainPolicyLoader(capability_registry=capability_registry)
+        policy_service = DomainPolicyService(capability_registry=capability_registry)
+        bridge_adapter_registry = BridgeAdapterRegistry()
+        bridge_adapter_registry.load_from_descriptors(descriptors)
+        return DomainActionRouter(
+            domain_registry=domain_registry,
+            capability_registry=capability_registry,
+            policy_loader=policy_loader,
+            policy_service=policy_service,
+            bridge_adapter_registry=bridge_adapter_registry,
+        )
+
+    @staticmethod
+    def _resolve_domain_action_payload(*, task: dict, command: str | None) -> dict:
+        command_text = str(command or "").strip()
+        inline_payload = None
+        if command_text:
+            try:
+                parsed = json.loads(command_text)
+            except json.JSONDecodeError as exc:
+                raise TaskConflictError(
+                    "domain_action_payload_invalid",
+                    details={"reason": "command_must_be_valid_json_object", "error": str(exc)},
+                )
+            if not isinstance(parsed, dict):
+                raise TaskConflictError(
+                    "domain_action_payload_invalid",
+                    details={"reason": "command_must_be_json_object"},
+                )
+            inline_payload = dict(parsed)
+        payload = inline_payload or dict(task.get("domain_action_request") or {})
+        if not payload:
+            raise TaskConflictError(
+                "domain_action_payload_missing",
+                details={"reason": "provide_json_command_or_domain_action_request"},
+            )
+        required = ("domain_id", "capability_id", "action_id")
+        missing = [key for key in required if not str(payload.get(key) or "").strip()]
+        if missing:
+            raise TaskConflictError(
+                "domain_action_payload_invalid",
+                details={"reason": "missing_required_fields", "fields": missing},
+            )
+        return payload
+
+    def _execute_domain_action(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        task_kind: str,
+        request_data,
+        command: str | None,
+        reason: str,
+        execution_policy,
+    ) -> TaskScopedRouteResponse:
+        payload = self._resolve_domain_action_payload(task=task, command=command)
+        route_result = self._build_domain_action_router().route(
+            domain_id=str(payload.get("domain_id") or "").strip(),
+            capability_id=str(payload.get("capability_id") or "").strip(),
+            action_id=str(payload.get("action_id") or "").strip(),
+            execution_mode=str(payload.get("execution_mode") or "execute").strip() or "execute",
+            context_summary=dict(payload.get("context_summary") or {}),
+            actor_metadata=dict(payload.get("actor_metadata") or {}),
+            approval=dict(payload.get("approval") or {}) if isinstance(payload.get("approval"), dict) else None,
+        )
+        route = route_result.as_dict()
+
+        state = str(route.get("state") or "").strip().lower()
+        if state in {"plan", "execution_started"}:
+            status = "completed"
+            exit_code = 0
+            failure_type = "success"
+        elif state == "approval_required":
+            status = "blocked"
+            exit_code = 1
+            failure_type = "approval_required"
+        elif state == "denied":
+            status = "failed"
+            exit_code = 1
+            failure_type = "policy_denied"
+        else:
+            status = "failed"
+            exit_code = 1
+            failure_type = "degraded"
+
+        pipeline = new_pipeline_trace(
+            pipeline="task_execute",
+            task_kind=task_kind,
+            policy_version="domain_action_router_v1",
+            metadata={
+                "task_id": tid,
+                "domain_id": route.get("domain_id"),
+                "capability_id": route.get("capability_id"),
+                "action_id": route.get("action_id"),
+            },
+        )
+        append_stage(
+            pipeline,
+            name="domain_action_route",
+            status="ok" if status == "completed" else "failed",
+            metadata={"route_state": state, "route_reason": route.get("reason")},
+        )
+        trace = build_trace_record(
+            task_id=tid,
+            event_type="execution_result",
+            task_kind=task_kind,
+            backend="domain_action_router",
+            requested_backend="domain_action_router",
+            routing_reason="domain_action_router",
+            policy_version="domain_action_router_v1",
+            metadata={
+                "source": "domain_action_execute",
+                "domain_action_route": route,
+            },
+        )
+        response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
+            tid=tid,
+            task=task,
+            status=status,
+            reason=reason or "Domain action routed",
+            command=command,
+            tool_calls=request_data.tool_calls if isinstance(getattr(request_data, "tool_calls", None), list) else None,
+            output=json.dumps(route, ensure_ascii=False),
+            exit_code=exit_code,
+            retries_used=0,
+            retry_history=[],
+            failure_type=failure_type,
+            execution_duration_ms=0,
+            trace=trace,
+            pipeline={**pipeline, "trace_id": trace["trace_id"]},
+            execution_policy=execution_policy,
+            extra_history={
+                "domain_action_route": route,
+                "domain_action_payload": payload,
+            },
         )
         return TaskScopedRouteResponse(data=response_payload)
 

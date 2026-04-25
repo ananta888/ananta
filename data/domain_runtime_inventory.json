@@ -30,11 +30,35 @@
         "client_surfaces/blender/bridge/ananta_blender_bridge.py"
       ],
       "smoke_commands": [
-        "python scripts/run_blender_smoke_checks.py"
+        "python scripts/run_blender_smoke_checks.py --report-out ci-artifacts/domain-runtime/blender-smoke-report.json"
       ],
+      "runtime_evidence_refs": [
+        "ci-artifacts/domain-runtime/blender-smoke-report.json"
+      ],
+      "notes": [
+        "Foundation-only declaration with additive runtime skeleton/evidence; promotion to runtime_mvp requires policy-approved execution wiring."
+      ]
+    },
+    {
+      "domain_id": "freecad",
+      "inventory_status": "deferred",
+      "descriptor_path": "domains/freecad/domain.json",
+      "required_runtime_files": [],
+      "smoke_commands": [],
       "runtime_evidence_refs": [],
       "notes": [
-        "Foundation-only declaration until addon runtime, bridge execution path and smoke evidence are delivered."
+        "Deferred descriptor baseline only; runtime integration is intentionally out of scope for this cleanup track."
+      ]
+    },
+    {
+      "domain_id": "kicad",
+      "inventory_status": "deferred",
+      "descriptor_path": "domains/kicad/domain.json",
+      "required_runtime_files": [],
+      "smoke_commands": [],
+      "runtime_evidence_refs": [],
+      "notes": [
+        "Deferred descriptor baseline only; runtime integration is intentionally out of scope for this cleanup track."
       ]
     }
   ],
@@ -43,7 +67,7 @@
     "foundation_only": 2,
     "runtime_mvp": 0,
     "runtime_complete": 0,
-    "deferred": 0,
+    "deferred": 2,
     "blocked": 0
   }
 }
