@@ -35,7 +35,18 @@
     "onCommand:ananta.patchPlan",
     "onCommand:ananta.projectNew",
     "onCommand:ananta.projectEvolve",
-    "onView:ananta.statusView"
+    "onCommand:ananta.refreshSidebarData",
+    "onCommand:ananta.setGoalTaskStatusFilter",
+    "onCommand:ananta.openGoalOrTaskDetail",
+    "onCommand:ananta.openArtifactDetail",
+    "onCommand:ananta.openApprovalDetail",
+    "onCommand:ananta.approveApproval",
+    "onCommand:ananta.rejectApproval",
+    "onView:ananta.statusView",
+    "onView:ananta.goalsTasksView",
+    "onView:ananta.artifactsView",
+    "onView:ananta.approvalsView",
+    "onView:ananta.runtimeView"
   ],
   "contributes": {
     "commands": [
@@ -88,6 +99,36 @@
         "command": "ananta.projectEvolve",
         "title": "Ananta: Project Evolve",
         "enablement": "ananta.capability.projectEvolve"
+      },
+      {
+        "command": "ananta.refreshSidebarData",
+        "title": "Ananta: Refresh Sidebar Data"
+      },
+      {
+        "command": "ananta.setGoalTaskStatusFilter",
+        "title": "Ananta: Filter Goals/Tasks by Status"
+      },
+      {
+        "command": "ananta.openGoalOrTaskDetail",
+        "title": "Ananta: Open Goal/Task Detail"
+      },
+      {
+        "command": "ananta.openArtifactDetail",
+        "title": "Ananta: Open Artifact Detail"
+      },
+      {
+        "command": "ananta.openApprovalDetail",
+        "title": "Ananta: Open Approval Detail"
+      },
+      {
+        "command": "ananta.approveApproval",
+        "title": "Ananta: Approve Approval Item",
+        "enablement": "ananta.capability.approvalApprove"
+      },
+      {
+        "command": "ananta.rejectApproval",
+        "title": "Ananta: Reject Approval Item",
+        "enablement": "ananta.capability.approvalReject"
       }
     ],
     "viewsContainers": {
@@ -104,6 +145,22 @@
         {
           "id": "ananta.statusView",
           "name": "Status"
+        },
+        {
+          "id": "ananta.goalsTasksView",
+          "name": "Goals & Tasks"
+        },
+        {
+          "id": "ananta.artifactsView",
+          "name": "Artifacts"
+        },
+        {
+          "id": "ananta.approvalsView",
+          "name": "Approvals"
+        },
+        {
+          "id": "ananta.runtimeView",
+          "name": "Runtime"
         }
       ]
     },
@@ -128,6 +185,65 @@
           "command": "ananta.submitGoal",
           "when": "editorTextFocus && ananta.capability.submitGoal",
           "group": "navigation@23"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.statusView",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.goalsTasksView",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.setGoalTaskStatusFilter",
+          "when": "view == ananta.goalsTasksView",
+          "group": "navigation@11"
+        },
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.artifactsView",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.approvalsView",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.refreshSidebarData",
+          "when": "view == ananta.runtimeView",
+          "group": "navigation@10"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ananta.openGoalOrTaskDetail",
+          "when": "view == ananta.goalsTasksView && viewItem == ananta.goalTask.item",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openArtifactDetail",
+          "when": "view == ananta.artifactsView && (viewItem == ananta.artifact.text || viewItem == ananta.artifact.binary)",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.openApprovalDetail",
+          "when": "view == ananta.approvalsView && (viewItem == ananta.approval.pending || viewItem == ananta.approval.item)",
+          "group": "navigation@10"
+        },
+        {
+          "command": "ananta.approveApproval",
+          "when": "view == ananta.approvalsView && viewItem == ananta.approval.pending && ananta.capability.approvalApprove",
+          "group": "inline@1"
+        },
+        {
+          "command": "ananta.rejectApproval",
+          "when": "view == ananta.approvalsView && viewItem == ananta.approval.pending && ananta.capability.approvalReject",
+          "group": "inline@2"
         }
       ]
     },

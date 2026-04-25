@@ -170,12 +170,42 @@ export class AnantaBackendClient {
     return this.requestJson("GET", "/tasks");
   }
 
+  public getTask(taskId: string): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", `/tasks/${encodeURIComponent(String(taskId || "").trim())}`);
+  }
+
+  public getTaskLogs(taskId: string): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", `/tasks/${encodeURIComponent(String(taskId || "").trim())}/logs`);
+  }
+
   public listArtifacts(): Promise<ClientResponse<Record<string, unknown>>> {
     return this.requestJson("GET", "/artifacts");
   }
 
+  public getArtifact(artifactId: string): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", `/artifacts/${encodeURIComponent(String(artifactId || "").trim())}`);
+  }
+
   public listApprovals(): Promise<ClientResponse<Record<string, unknown>>> {
     return this.requestJson("GET", "/approvals");
+  }
+
+  public approveApproval(approvalId: string, comment = ""): Promise<ClientResponse<Record<string, unknown>>> {
+    const normalizedComment = String(comment || "").trim();
+    return this.requestJson("POST", `/approvals/${encodeURIComponent(String(approvalId || "").trim())}/approve`, {
+      comment: normalizedComment
+    });
+  }
+
+  public rejectApproval(approvalId: string, comment = ""): Promise<ClientResponse<Record<string, unknown>>> {
+    const normalizedComment = String(comment || "").trim();
+    return this.requestJson("POST", `/approvals/${encodeURIComponent(String(approvalId || "").trim())}/reject`, {
+      comment: normalizedComment
+    });
+  }
+
+  public getGoal(goalId: string): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", `/goals/${encodeURIComponent(String(goalId || "").trim())}`);
   }
 
   public getAuditLogs(limit = 30, offset = 0): Promise<ClientResponse<Record<string, unknown>>> {

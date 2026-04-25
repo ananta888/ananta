@@ -17,7 +17,11 @@ def test_vscode_extension_bootstrap_files_exist() -> None:
         EXT_ROOT / "src" / "runtime" / "settings.ts",
         EXT_ROOT / "src" / "runtime" / "secretStore.ts",
         EXT_ROOT / "src" / "runtime" / "redaction.ts",
+        EXT_ROOT / "src" / "runtime" / "capabilityGate.ts",
+        EXT_ROOT / "src" / "runtime" / "contextCapture.ts",
+        EXT_ROOT / "src" / "runtime" / "resultLinks.ts",
         EXT_ROOT / "src" / "views" / "statusTreeProvider.ts",
+        EXT_ROOT / "src" / "views" / "sidebarProviders.ts",
     ]
     for path in required:
         assert path.exists(), f"missing file: {path}"
@@ -49,12 +53,26 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
         "ananta.patchPlan",
         "ananta.projectNew",
         "ananta.projectEvolve",
+        "ananta.refreshSidebarData",
+        "ananta.setGoalTaskStatusFilter",
+        "ananta.openGoalOrTaskDetail",
+        "ananta.openArtifactDetail",
+        "ananta.openApprovalDetail",
+        "ananta.approveApproval",
+        "ananta.rejectApproval",
     }
     assert expected_commands.issubset(commands)
 
     views = contributes.get("views") or {}
     assert "ananta" in views
-    assert any(view.get("id") == "ananta.statusView" for view in views["ananta"])
+    expected_views = {
+        "ananta.statusView",
+        "ananta.goalsTasksView",
+        "ananta.artifactsView",
+        "ananta.approvalsView",
+        "ananta.runtimeView",
+    }
+    assert expected_views.issubset({view.get("id") for view in views["ananta"]})
 
 
 def test_vscode_frontend_api_surface_map_is_backend_reuse_focused() -> None:

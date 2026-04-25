@@ -62,6 +62,12 @@ export interface CommandGateDecision {
   requiredCapability: string;
 }
 
+export interface CapabilityActionGateInput {
+  actionId: string;
+  requiredCapability: string;
+  actionAliases?: string[];
+}
+
 function normalizeToken(value: string): string {
   return String(value || "").trim().toLowerCase();
 }
@@ -132,14 +138,12 @@ function parseActionPermissions(payload: Record<string, unknown>): Map<string, b
   return actionPermissions;
 }
 
-function resolveActionPermission(snapshot: CapabilitySnapshot, commandId: WorkflowCommandId): boolean {
+function resolvePermissionCandidates(snapshot: CapabilitySnapshot, candidates: string[]): boolean {
   if (snapshot.actionPermissions.size === 0) {
     return true;
   }
-  const rule = GATE_RULES[commandId];
-  const candidates = [commandId, ...rule.actionAliases].map((value) => normalizeToken(value));
   let sawExplicitPermission = false;
-  for (const candidate of candidates) {
+  for (const candidate of candidates.map((value) => normalizeToken(value))) {
     if (!snapshot.actionPermissions.has(candidate)) {
       continue;
     }
@@ -197,7 +201,46 @@ export function evaluateWorkflowCommand(snapshot: CapabilitySnapshot, commandId:
     };
   }
 
-  if (!resolveActionPermission(snapshot, commandId)) {
+  const rule = GATE_RULES[commandId];
+  if (!resolvePermissionCandidates(snapshot, [commandId, ...rule.actionAliases])) {
+    return {
+      allowed: false,
+      reason: "permission_denied",
+      requiredCapability
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: "allowed",
+    requiredCapability
+  };
+}
+
+export function evaluateCapabilityAction(
+  snapshot: CapabilitySnapshot,
+  input: CapabilityActionGateInput
+): CommandGateDecision {
+  const requiredCapability = String(input.requiredCapability || "").trim();
+  if (!snapshot.loaded || snapshot.state !== "healthy") {
+    return {
+      allowed: false,
+      reason: `capability_probe_${snapshot.state}`,
+      requiredCapability
+    };
+  }
+
+  if (requiredCapability.length > 0 && !snapshot.capabilities.has(normalizeToken(requiredCapability))) {
+    return {
+      allowed: false,
+      reason: `capability_missing:${requiredCapability}`,
+      requiredCapability
+    };
+  }
+
+  const actionId = String(input.actionId || "").trim();
+  const aliases = Array.isArray(input.actionAliases) ? input.actionAliases : [];
+  if (actionId.length > 0 && !resolvePermissionCandidates(snapshot, [actionId, ...aliases])) {
     return {
       allowed: false,
       reason: "permission_denied",

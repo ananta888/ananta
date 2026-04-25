@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildCapabilitySnapshot, evaluateWorkflowCommand, toCommandContextKey } from "../src/runtime/capabilityGate";
+import {
+  buildCapabilitySnapshot,
+  evaluateCapabilityAction,
+  evaluateWorkflowCommand,
+  toCommandContextKey
+} from "../src/runtime/capabilityGate";
 import { ClientResponse } from "../src/runtime/types";
 
 function response(
@@ -46,5 +51,28 @@ describe("capability gate", () => {
 
   it("exposes stable context keys", () => {
     expect(toCommandContextKey("ananta.projectEvolve")).toBe("ananta.capability.projectEvolve");
+  });
+
+  it("evaluates generic approval actions with capability and permissions", () => {
+    const snapshot = buildCapabilitySnapshot(
+      response({
+        capabilities: ["approvals"],
+        action_permissions: {
+          "ananta.approveApproval": true,
+          "ananta.rejectApproval": false
+        }
+      })
+    );
+    const approve = evaluateCapabilityAction(snapshot, {
+      actionId: "ananta.approveApproval",
+      requiredCapability: "approvals"
+    });
+    const reject = evaluateCapabilityAction(snapshot, {
+      actionId: "ananta.rejectApproval",
+      requiredCapability: "approvals"
+    });
+    expect(approve.allowed).toBe(true);
+    expect(reject.allowed).toBe(false);
+    expect(reject.reason).toBe("permission_denied");
   });
 });

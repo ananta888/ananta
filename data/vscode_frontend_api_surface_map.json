@@ -61,6 +61,14 @@
         "endpoint": "/goals",
         "classification": "vscode-mvp",
         "source": "backend_api"
+      },
+      {
+        "feature": "goal_detail_panel",
+        "method": "getGoal",
+        "http_method": "GET",
+        "endpoint": "/goals/{id}",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
       }
     ],
     "Projects": [
@@ -113,6 +121,22 @@
         "endpoint": "/tasks/patch-plan",
         "classification": "vscode-mvp",
         "source": "backend_api"
+      },
+      {
+        "feature": "task_detail_panel",
+        "method": "getTask",
+        "http_method": "GET",
+        "endpoint": "/tasks/{id}",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "task_logs_panel",
+        "method": "getTaskLogs",
+        "http_method": "GET",
+        "endpoint": "/tasks/{id}/logs",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
       }
     ],
     "Artifacts": [
@@ -123,6 +147,22 @@
         "endpoint": "/artifacts",
         "classification": "vscode-mvp",
         "source": "backend_api"
+      },
+      {
+        "feature": "artifact_detail_panel",
+        "method": "getArtifact",
+        "http_method": "GET",
+        "endpoint": "/artifacts/{id}",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "artifact_binary_fallback",
+        "method": "openWebFallback",
+        "http_method": "N/A",
+        "endpoint": "browser://artifacts/{id}",
+        "classification": "browser-fallback",
+        "source": "fallback_policy"
       }
     ],
     "Approvals": [
@@ -131,6 +171,22 @@
         "method": "listApprovals",
         "http_method": "GET",
         "endpoint": "/approvals",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "approval_action_approve",
+        "method": "approveApproval",
+        "http_method": "POST",
+        "endpoint": "/approvals/{id}/approve",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "approval_action_reject",
+        "method": "rejectApproval",
+        "http_method": "POST",
+        "endpoint": "/approvals/{id}/reject",
         "classification": "vscode-mvp",
         "source": "backend_api"
       }

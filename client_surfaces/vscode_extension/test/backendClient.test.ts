@@ -115,4 +115,34 @@ describe("AnantaBackendClient", () => {
     );
     expect(response.ok).toBe(true);
   });
+
+  it("requests task detail and logs with encoded task id", async () => {
+    const calls: string[] = [];
+    const transport = new StubTransport(async (request) => {
+      calls.push(request.url);
+      return { status: 200, body: JSON.stringify({ ok: true }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    await client.getTask("task/1");
+    await client.getTaskLogs("task/1");
+    expect(calls).toEqual([
+      "http://localhost:8080/tasks/task%2F1",
+      "http://localhost:8080/tasks/task%2F1/logs"
+    ]);
+  });
+
+  it("sends approval action payloads to backend endpoints", async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const transport = new StubTransport(async (request) => {
+      calls.push({ url: request.url, body: JSON.parse(request.body ?? "{}") as Record<string, unknown> });
+      return { status: 200, body: JSON.stringify({ updated: true }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    await client.approveApproval("approval-1", "looks good");
+    await client.rejectApproval("approval-1", "needs follow-up");
+    expect(calls[0]?.url).toBe("http://localhost:8080/approvals/approval-1/approve");
+    expect(calls[0]?.body.comment).toBe("looks good");
+    expect(calls[1]?.url).toBe("http://localhost:8080/approvals/approval-1/reject");
+    expect(calls[1]?.body.comment).toBe("needs follow-up");
+  });
 });
