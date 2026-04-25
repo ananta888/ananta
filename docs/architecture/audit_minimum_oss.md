@@ -39,3 +39,11 @@ Out of scope for OSS minimum:
 - hardware attestation and formal compliance bundles
 
 These can be added later as incremental hardening layers.
+
+## Automated OSS invariant gate
+
+Use this command for the consolidated OSS invariant suite:
+
+`python3 scripts/run_security_invariant_checks.py --out artifacts/security/security_invariant_gate_report.json`
+
+`scripts/run_release_gate.py` executes this gate as a blocking step (unless explicitly skipped).

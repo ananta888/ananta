@@ -23,9 +23,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run release gate with integrated E2E dogfood checks.")
     parser.add_argument("--strict", action="store_true", help="Enable strict mode for release_gate.py.")
     parser.add_argument("--skip-e2e", action="store_true", help="Skip E2E dogfood checks.")
+    parser.add_argument(
+        "--skip-security-invariants",
+        action="store_true",
+        help="Skip OSS security invariant checks (not recommended for merge readiness).",
+    )
     parser.add_argument("--skip-domain-audit", action="store_true", help="Skip generic domain integration audit.")
     parser.add_argument("--domain-inventory", default="data/domain_runtime_inventory.json")
     parser.add_argument("--domain-audit-out", default="artifacts/domain/domain_integration_audit_report.json")
+    parser.add_argument("--security-invariant-out", default="artifacts/security/security_invariant_gate_report.json")
     parser.add_argument("--e2e-artifact-root", default="artifacts/e2e")
     parser.add_argument("--e2e-out", default="artifacts/e2e/dogfood_gate_report.json")
     args = parser.parse_args()
@@ -38,6 +44,17 @@ def main() -> int:
     release_gate_result = subprocess.run(release_gate_command, cwd=str(ROOT), check=False)
     if release_gate_result.returncode != 0:
         return release_gate_result.returncode
+
+    if not args.skip_security_invariants:
+        security_command = [
+            python_exec,
+            "scripts/run_security_invariant_checks.py",
+            "--out",
+            args.security_invariant_out,
+        ]
+        security_result = subprocess.run(security_command, cwd=str(ROOT), check=False)
+        if security_result.returncode != 0:
+            return security_result.returncode
 
     if (not args.skip_domain_audit) and _domain_inventory_exists(args.domain_inventory):
         domain_audit_command = [

@@ -24,8 +24,9 @@ def test_run_release_gate_runs_release_gate_then_e2e(monkeypatch) -> None:
 
     assert run_release_gate.main() == 0
     assert commands[0] == ["python3", "scripts/release_gate.py", "--strict"]
-    assert commands[1][0:2] == ["python3", "scripts/audit_domain_integrations.py"]
-    assert commands[2][0:2] == ["python3", "scripts/run_e2e_dogfood_checks.py"]
+    assert commands[1][0:2] == ["python3", "scripts/run_security_invariant_checks.py"]
+    assert commands[2][0:2] == ["python3", "scripts/audit_domain_integrations.py"]
+    assert commands[3][0:2] == ["python3", "scripts/run_e2e_dogfood_checks.py"]
 
 
 def test_run_release_gate_stops_when_release_gate_fails(monkeypatch) -> None:
@@ -59,4 +60,26 @@ def test_run_release_gate_can_skip_domain_audit(monkeypatch) -> None:
     monkeypatch.setattr(sys, "argv", ["run_release_gate.py", "--skip-domain-audit", "--skip-e2e"])
 
     assert run_release_gate.main() == 0
-    assert commands == [["python3", "scripts/release_gate.py"]]
+    assert commands[0] == ["python3", "scripts/release_gate.py"]
+    assert commands[1][0:2] == ["python3", "scripts/run_security_invariant_checks.py"]
+    assert len(commands) == 2
+
+
+def test_run_release_gate_stops_when_security_invariants_fail(monkeypatch) -> None:
+    commands: list[list[str]] = []
+    monkeypatch.setattr(run_release_gate, "_python_executable", lambda: "python3")
+    monkeypatch.setattr(run_release_gate, "_domain_inventory_exists", lambda _path: True)
+
+    def fake_run(command, cwd=None, check=False):  # noqa: ANN001
+        commands.append(list(command))
+        if any(str(part).endswith("run_security_invariant_checks.py") for part in command):
+            return _completed(1)
+        return _completed(0)
+
+    monkeypatch.setattr(run_release_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["run_release_gate.py"])
+
+    assert run_release_gate.main() == 1
+    assert commands[0] == ["python3", "scripts/release_gate.py"]
+    assert commands[1][0:2] == ["python3", "scripts/run_security_invariant_checks.py"]
+    assert len(commands) == 2

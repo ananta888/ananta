@@ -88,6 +88,8 @@ class ResearchContextBridgeService:
                     "chunks": [
                         {
                             "source": chunk.source,
+                            "source_ref": chunk.source,
+                            "retrieval_reason": "query_match" if query else "collection_reference",
                             "content": self._clip_text(chunk.content, per_item_limit),
                             "score": round(float(chunk.score), 3),
                             "metadata": dict(chunk.metadata or {}),

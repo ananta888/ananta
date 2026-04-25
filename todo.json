@@ -56,13 +56,13 @@
       "id": "SEC-M4",
       "title": "Thin clients and explicit context",
       "task_ids": ["SEC-T10", "SEC-T11", "SEC-T12"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SEC-M5",
       "title": "Lightweight reproducibility and release gate",
       "task_ids": ["SEC-T13", "SEC-T14", "SEC-T15"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -210,7 +210,7 @@
     {
       "id": "SEC-T10",
       "title": "Client thinness rules and tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -226,7 +226,7 @@
     {
       "id": "SEC-T11",
       "title": "ContextEnvelope v1 schema add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -242,7 +242,7 @@
     {
       "id": "SEC-T12",
       "title": "Implicit context negative tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -258,7 +258,7 @@
     {
       "id": "SEC-T13",
       "title": "TraceBundle v1 lightweight schema add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -274,7 +274,7 @@
     {
       "id": "SEC-T14",
       "title": "Artifact provenance and hash tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -290,7 +290,7 @@
     {
       "id": "SEC-T15",
       "title": "OSS security invariant release gate add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -327,15 +327,15 @@
     "SEC-T15"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T16:38:54+02:00",
+    "updated_at": "2026-04-25T17:46:00+02:00",
     "total": 15,
     "by_status": {
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 9
+      "done": 15
     },
-    "progress_percent_done": 60.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 13,
       "P1": 2,
@@ -350,19 +350,19 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 7,
-      "remaining": 6
+      "done": 13,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 5
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T16:38:54+02:00",
+    "updated_at": "2026-04-25T17:46:00+02:00",
     "stages": {
       "SEC-M1": {
         "title": "State ownership and invariant model",
@@ -395,8 +395,8 @@
         "title": "Thin clients and explicit context",
         "scope_task_ids": ["SEC-T10", "SEC-T11", "SEC-T12"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -404,15 +404,15 @@
         "title": "Lightweight reproducibility and release gate",
         "scope_task_ids": ["SEC-T13", "SEC-T14", "SEC-T15"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T16:38:54+02:00",
+    "checked_at": "2026-04-25T17:46:00+02:00",
     "internal_consistency": "validated_and_extended",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=1, high=6, critical=8).",
@@ -420,7 +420,8 @@
       "updated_at/checked_at wurden auf den aktuellen Analysezeitpunkt gesetzt.",
       "Keine fehlenden Task-Referenzen in milestones, depends_on oder critical_path_tasks gefunden.",
       "Bundle SEC-M1 wurde umgesetzt: state_ownership matrix/docs und zugehoerige Validierungstests sind vorhanden.",
-      "Bundles SEC-M2 und SEC-M3 wurden umgesetzt: Gatekeeper-Doku, Bypass-/Approval-Binding-Tests, Transition-Event-Schema sowie Trace-/Audit-Minimum-Tests sind vorhanden."
+      "Bundles SEC-M2 und SEC-M3 wurden umgesetzt: Gatekeeper-Doku, Bypass-/Approval-Binding-Tests, Transition-Event-Schema sowie Trace-/Audit-Minimum-Tests sind vorhanden.",
+      "Bundles SEC-M4 und SEC-M5 wurden umgesetzt: Client-Thinness-Regeln, ContextEnvelope/TraceBundle-Schemata, Kontext-/Provenance-Tests und OSS-Sicherheits-Invariant-Release-Gate sind integriert."
     ]
   },
   "summary_notes": [
@@ -431,6 +432,8 @@
     "Status counters and milestone stage rollups are now synchronized and explicitly documented.",
     "SEC-M1 is implemented as the first completed bundle and establishes the ownership baseline for follow-up policy and trace tasks.",
     "SEC-M2 and SEC-M3 now enforce policy/approval/trace/audit invariants across normal, retry, repair and domain-action execution surfaces."
+    ,
+    "SEC-M4 and SEC-M5 complete the track with thin-client enforcement, explicit context schema/testing, trace-bundle/artifact-hash coverage and a blocking OSS security invariant gate."
   ],
   "end_summaries": [
     {
@@ -461,8 +464,8 @@
       "summary_id": "SEC-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 6 todo, 0 in_progress, 0 blocked, 9 done (60.0%).",
-        "SEC-M1 bis SEC-M3 sind done; verbleibend sind SEC-M4 und SEC-M5 mit kritischer Pfadlänge 13 (7 erledigt, 6 offen)."
+        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 15 done (100.0%).",
+        "SEC-M1 bis SEC-M5 sind done; kritischer Pfad vollständig abgeschlossen (13 erledigt, 0 offen)."
       ]
     }
   ]
