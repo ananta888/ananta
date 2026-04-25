@@ -80,7 +80,7 @@
       "id": "VSC-M7",
       "title": "Docs, smoke checks and release readiness",
       "task_ids": ["VSC-T33", "VSC-T34", "VSC-T35", "VSC-T36"],
-      "status": "todo"
+      "status": "done"
     }
   ],
 
@@ -510,7 +510,7 @@
     {
       "id": "VSC-T33",
       "title": "VS Code user guide write",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -523,7 +523,7 @@
     {
       "id": "VSC-T34",
       "title": "Developer smoke checklist write",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -536,7 +536,7 @@
     {
       "id": "VSC-T35",
       "title": "Runtime inventory and audit integration update",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -549,7 +549,7 @@
     {
       "id": "VSC-T36",
       "title": "VS Code merge readiness report generate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -596,15 +596,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T12:58:00+02:00",
+    "updated_at": "2026-04-25T13:15:00+02:00",
     "total": 36,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 32
+      "done": 36
     },
-    "progress_percent_done": 88.89,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 25,
       "P1": 11,
@@ -619,20 +619,20 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 19,
-      "remaining": 2
+      "done": 21,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 6
+      "done": 7
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T12:58:00+02:00",
+    "updated_at": "2026-04-25T13:15:00+02:00",
     "stages": {
       "VSC-M1": {
         "title": "Scope, architecture and project bootstrap",
@@ -692,8 +692,8 @@
         "title": "Docs, smoke checks and release readiness",
         "scope_task_ids": ["VSC-T33", "VSC-T34", "VSC-T35", "VSC-T36"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
@@ -701,12 +701,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T12:58:00+02:00",
+    "checked_at": "2026-04-25T13:15:00+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "Fifth implementation bundle VSC-T27..VSC-T32 was completed and tracked to done state.",
-      "Security/context/backend/command/view/smoke tests and dedicated VS Code CI lane are now reflected in completion state.",
-      "tasks_status_summary and execution_stage_summary were synchronized after milestone transition (VSC-M6 done)."
+      "Final implementation bundle VSC-T33..VSC-T36 was completed and tracked to done state.",
+      "VS Code user/developer docs, runtime inventory+audit integration updates, and merge-readiness reporting are reflected in completion state.",
+      "tasks_status_summary and execution_stage_summary were synchronized after milestone transition (VSC-M7 done)."
     ]
   },
 
@@ -716,7 +716,7 @@
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
     "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
     "Current todo file now contains synchronized status counters and explicit stage-level rollup data.",
-    "Milestones VSC-M1 through VSC-M6 are complete; remaining work starts with docs, inventory/audit integration and merge-readiness reporting."
+    "Milestones VSC-M1 through VSC-M7 are complete; VS Code runtime delivery track is fully complete."
   ],
 
   "end_summaries": [
@@ -750,7 +750,7 @@
       "summary_id": "VSC-S4",
       "title": "Status am Ende",
       "items": [
-        "Fünftes Umsetzungsbündel ist abgeschlossen: insgesamt 32 done, 6 milestones done (VSC-M1 bis VSC-M6), 0 milestones in_progress.",
+        "Sechstes Umsetzungsbündel ist abgeschlossen: insgesamt 36 done, 7 milestones done (VSC-M1 bis VSC-M7), 0 milestones in_progress.",
         "Die Datei bleibt validator-konsistent und enthält aktualisierte Stage- sowie End-Summaries."
       ]
     }

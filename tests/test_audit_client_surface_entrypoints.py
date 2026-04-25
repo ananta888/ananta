@@ -42,6 +42,7 @@ def test_done_claims_and_blocking_warning_detect_mismatch() -> None:
         "eclipse_views_extension": {"classification": "foundation_only"},
         "nvim_plugin": {"classification": "foundation_only"},
         "vim_plugin": {"classification": "missing"},
+        "vscode_plugin": {"classification": "foundation_only"},
     }
     warnings = build_blocking_warnings(surface_reports, done_claims, set(), {})
 
@@ -63,6 +64,7 @@ def test_audit_enforces_vim_deferred_status_for_crt_t18() -> None:
         "eclipse_views_extension": {"classification": "foundation_only"},
         "nvim_plugin": {"classification": "foundation_only"},
         "vim_plugin": {"classification": "foundation_only"},
+        "vscode_plugin": {"classification": "foundation_only"},
     }
 
     warnings_missing_status = build_blocking_warnings(
@@ -165,3 +167,39 @@ def test_eclipse_views_extension_requires_runtime_registry_for_classification() 
 
     assert report_bootstrap_only["classification"] == "foundation_only"
     assert report_with_registry["classification"] == "real_implementation"
+
+
+def test_vscode_plugin_requires_smoke_and_runtime_entrypoint_for_classification() -> None:
+    foundation_only = {
+        "docs/vscode-plugin-scope-boundary.md",
+        "docs/vscode-extension-architecture.md",
+        "tests/test_vscode_extension_bootstrap.py",
+    }
+    runtime_without_smoke = foundation_only | {
+        "client_surfaces/vscode_extension/package.json",
+        "client_surfaces/vscode_extension/src/extension.ts",
+        "client_surfaces/vscode_extension/src/runtime/backendClient.ts",
+        ".github/workflows/quality-and-docs.yml",
+    }
+    with_smoke = runtime_without_smoke | {
+        "client_surfaces/vscode_extension/test/extension.smoke.test.ts",
+    }
+
+    report_without_smoke = classify_surface("vscode_plugin", runtime_without_smoke)
+    report_with_smoke = classify_surface("vscode_plugin", with_smoke)
+
+    assert report_without_smoke["classification"] == "foundation_only"
+    assert report_with_smoke["classification"] == "real_implementation"
+
+
+def test_done_claims_include_vscode_runtime_ranges() -> None:
+    todo_payload = {
+        "tasks": [
+            {"id": "VSC-T01", "status": "done"},
+            {"id": "VSC-T24", "status": "done"},
+            {"id": "VSC-T36", "status": "done"},
+            {"id": "VSC-T37", "status": "done"},
+        ]
+    }
+    done_claims = collect_done_claims(todo_payload)
+    assert done_claims["vscode_plugin"] == ["VSC-T01", "VSC-T24", "VSC-T36"]

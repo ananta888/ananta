@@ -6,7 +6,8 @@
     "eclipse_plugin",
     "eclipse_views_extension",
     "nvim_plugin",
-    "vim_plugin"
+    "vim_plugin",
+    "vscode_plugin"
   ],
   "classification_scale": [
     "real_implementation",
@@ -163,12 +164,44 @@
         "runtime": []
       },
       "decision": "deferred_until_neovim_runtime_stabilized"
+    },
+    {
+      "surface": "vscode_plugin",
+      "classification": "real_implementation",
+      "delivery_status": "runtime_mvp_operational",
+      "decision": "runtime_commands_views_tests_ci_and_docs_delivered",
+      "evidence": {
+        "foundation": [
+          "docs/vscode-plugin-scope-boundary.md",
+          "docs/vscode-extension-architecture.md",
+          "tests/test_vscode_extension_bootstrap.py"
+        ],
+        "docs": [
+          "docs/vscode-extension-build-and-package.md",
+          "docs/vscode-extension-user-guide.md",
+          "docs/vscode-extension-developer-smoke-checklist.md"
+        ],
+        "runtime": [
+          "client_surfaces/vscode_extension/package.json",
+          "client_surfaces/vscode_extension/src/extension.ts",
+          "client_surfaces/vscode_extension/src/runtime/backendClient.ts",
+          "client_surfaces/vscode_extension/src/runtime/contextCapture.ts",
+          "client_surfaces/vscode_extension/src/runtime/capabilityGate.ts",
+          "client_surfaces/vscode_extension/src/runtime/webFallback.ts",
+          "client_surfaces/vscode_extension/src/views/sidebarProviders.ts",
+          "client_surfaces/vscode_extension/test/backendClient.test.ts",
+          "client_surfaces/vscode_extension/test/sidebarProviders.test.ts",
+          "client_surfaces/vscode_extension/test/extension.smoke.test.ts",
+          ".github/workflows/quality-and-docs.yml"
+        ]
+      }
     }
   ],
   "gap_summary": {
     "missing_runtime_artifacts": [
       "No Vim runtime plugin/autoload files available in a runtime plugin directory while Vim remains deferred.",
-      "TUI runtime exists as MVP but still needs expanded feature coverage and release packaging."
+      "TUI runtime exists as MVP but still needs expanded feature coverage and release packaging.",
+      "VS Code extension keeps high-risk admin/repair execution browser-first by design."
     ]
   }
 }

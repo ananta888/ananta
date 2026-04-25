@@ -5,13 +5,15 @@
     "nvim_plugin": "runtime_mvp",
     "vim_plugin": "deferred",
     "eclipse_plugin": "runtime_mvp",
-    "eclipse_views_extension": "runtime_mvp"
+    "eclipse_views_extension": "runtime_mvp",
+    "vscode_plugin": "runtime_mvp"
   },
   "notes": [
     "TUI runtime has executable MVP entrypoint and smoke check.",
     "Neovim runtime has executable plugin modules, command registration and headless smoke coverage.",
     "Vim compatibility is intentionally deferred until Neovim runtime delivery reaches stability.",
     "Eclipse runtime has command/view MVP delivery (command registry, bounded context capture, runtime views registry, smoke evidence).",
-    "Eclipse runtime hardening block (Java unit/integration/security/contract tests, headless smoke, CI lane, docs truth, merge-readiness report) is implemented."
+    "Eclipse runtime hardening block (Java unit/integration/security/contract tests, headless smoke, CI lane, docs truth, merge-readiness report) is implemented.",
+    "VS Code runtime has command/view MVP delivery, smoke coverage, and dedicated CI lane packaging evidence."
   ]
 }
