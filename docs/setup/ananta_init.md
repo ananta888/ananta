@@ -6,7 +6,9 @@ Der Wizard unterstuetzt:
 
 - Runtime-Modus: `local-dev`, `sandbox`, `strict` (oder `auto` mit Erkennung)
 - LLM-Backend: `ollama`, `lmstudio`, `openai-compatible`, `manual`
+- Hardware-Profil fuer konservative Empfehlungen: `cpu-only`, `nvidia-gpu`, `remote-model`, `mixed-local-remote`
 - Lokalen Start ohne Docker-Zwang im Modus `local-dev`
+- Optionale Deployment-Profile fuer `docker-compose` oder `podman`
 
 ## Schnellstart
 
@@ -31,6 +33,20 @@ ananta init --yes \
 
 Dabei wird zusaetzlich `config.json` aktualisiert (u. a. `runtime_profile`, `governance_mode`, Backend-Defaults).
 
+## Mit optionalem Deployment-Profil
+
+```bash
+ananta init --yes \
+  --runtime-mode sandbox \
+  --llm-backend ollama \
+  --deployment-target docker-compose
+```
+
+## Weiterfuehrende Doku
+
+- Runtime-Empfehlungen: `docs/setup/runtime_profiles.md`
+- Deployment-Targets: `docs/setup/deployment_targets.md`
+
 ## Interaktiv
 
 ```bash
@@ -43,12 +59,16 @@ Ohne `--yes` fragt der Wizard fehlende Werte interaktiv ab.
 
 - `--runtime-mode auto|local-dev|sandbox|strict`
 - `--llm-backend ollama|lmstudio|openai-compatible|manual`
+- `--hardware-profile cpu-only|nvidia-gpu|remote-model|mixed-local-remote`
 - `--endpoint-url <url>`
 - `--model <model-id>`
 - `--manual-json '{"default_provider":"custom","default_model":"model"}'`
 - `--profile-path <path>`
 - `--apply-config`
 - `--config-path <path>`
+- `--deployment-target none|docker-compose|podman`
+- `--deployment-path <path>`
+- `--[no-]backup-existing-deployment`
 - `--yes`
 - `--force`
 
@@ -56,4 +76,3 @@ Ohne `--yes` fragt der Wizard fehlende Werte interaktiv ab.
 
 - `0`: erfolgreich
 - `2`: Eingabe-/Validierungsfehler (z. B. ungueltige Werte oder vorhandene Zieldatei ohne `--force`)
-
