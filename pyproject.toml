@@ -55,7 +55,7 @@ dev = [
 ]
 
 [project.scripts]
-ananta = "agent.ananta_cli:main"
+ananta = "agent.cli.main:main"
 
 [tool.ruff]
 line-length = 120

@@ -426,7 +426,7 @@ def _parse_mode_data(raw: str | None) -> dict:
     return parsed
 
 
-def main():
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="CLI for Ananta Goals, Tasks, Artifacts and Diagnostics",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -502,7 +502,7 @@ Examples:
     parser.add_argument("--set-runtime-profile", default="", help="Update runtime_profile via POST /config")
     parser.add_argument("--set-governance-mode", default="", help="Update governance_mode via POST /config")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.first_run:
         show_first_run()
