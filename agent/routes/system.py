@@ -25,6 +25,7 @@ from agent.models import (
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
+from agent.services.reference_profile_service import get_reference_profile_service
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
@@ -226,6 +227,12 @@ def contract_catalog():
 @check_auth
 def openapi_document():
     return api_response(data=get_system_contract_service().build_openapi_document())
+
+
+@system_bp.route("/reference-profiles/catalog", methods=["GET"])
+@check_auth
+def reference_profile_catalog():
+    return api_response(data=get_reference_profile_service().build_catalog_read_model())
 
 
 @system_bp.route("/ready", methods=["GET"])

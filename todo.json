@@ -22,7 +22,7 @@
         {
           "id": "REF-T01",
           "title": "Reference profile model define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A reference profile model is defined with fields such as language, framework, project_type, reference_source, strengths, limitations and intended usage.",
@@ -33,7 +33,7 @@
         {
           "id": "REF-T02",
           "title": "Reference usage boundary define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system explicitly treats references as pattern and architecture guidance rather than blind copy sources.",
@@ -44,7 +44,7 @@
         {
           "id": "REF-T03",
           "title": "Reference selection strategy define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A first strategy exists for selecting references by language and project type.",
@@ -55,7 +55,7 @@
         {
           "id": "REF-T04",
           "title": "Reference provenance and audit visibility define",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The system can show which reference profile influenced a task or recommendation.",
@@ -73,7 +73,7 @@
         {
           "id": "REF-T05",
           "title": "Java Keycloak reference profile define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A first Java reference profile exists based on Keycloak.",
@@ -84,7 +84,7 @@
         {
           "id": "REF-T06",
           "title": "Python Ananta backend reference profile define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A first Python reference profile exists based on the Ananta backend.",
@@ -95,7 +95,7 @@
         {
           "id": "REF-T07",
           "title": "Angular Ananta frontend reference profile define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A first Angular reference profile exists based on the Ananta frontend.",
@@ -106,7 +106,7 @@
         {
           "id": "REF-T08",
           "title": "Starter reference catalog expose",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "The initial three profiles are available through a catalog or read-model surface.",
@@ -351,8 +351,8 @@
     }
   ],
   "milestones": [
-    { "id": "REF-M1", "title": "Grundmodell fuer Referenzprofile", "task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "status": "todo" },
-    { "id": "REF-M2", "title": "Erste drei Start-Referenzprofile", "task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "status": "todo" },
+    { "id": "REF-M1", "title": "Grundmodell fuer Referenzprofile", "task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "status": "done" },
+    { "id": "REF-M2", "title": "Erste drei Start-Referenzprofile", "task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "status": "done" },
     { "id": "REF-M3", "title": "Retrieval und Musterableitung", "task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "status": "todo" },
     { "id": "REF-M4", "title": "Integration fuer neues Projekt anlegen", "task_ids": ["REF-T13", "REF-T14", "REF-T15"], "status": "todo" },
     { "id": "REF-M5", "title": "Integration fuer existierendes Projekt weiterentwickeln", "task_ids": ["REF-T16", "REF-T17", "REF-T18"], "status": "todo" },
@@ -360,15 +360,15 @@
     { "id": "REF-M7", "title": "UX Doku Tests", "task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "status": "todo" }
   ],
   "tasks": [
-    { "id": "REF-T01", "title": "Reference profile model define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["A reference profile model is defined with evolvable fields."] },
-    { "id": "REF-T02", "title": "Reference usage boundary define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference usage is guidance-only and never blind copy."] },
-    { "id": "REF-T03", "title": "Reference selection strategy define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Selection strategy is deterministic and explainable."] },
-    { "id": "REF-T04", "title": "Reference provenance and audit visibility define", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference influence is visible via traces/read models."] },
+    { "id": "REF-T01", "title": "Reference profile model define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["A reference profile model is defined with evolvable fields."] },
+    { "id": "REF-T02", "title": "Reference usage boundary define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference usage is guidance-only and never blind copy."] },
+    { "id": "REF-T03", "title": "Reference selection strategy define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Selection strategy is deterministic and explainable."] },
+    { "id": "REF-T04", "title": "Reference provenance and audit visibility define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference influence is visible via traces/read models."] },
 
-    { "id": "REF-T05", "title": "Java Keycloak reference profile define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Java/Keycloak profile with fit+limits exists."] },
-    { "id": "REF-T06", "title": "Python Ananta backend reference profile define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Python/Ananta-backend profile with fit scope exists."] },
-    { "id": "REF-T07", "title": "Angular Ananta frontend reference profile define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Angular/Ananta-frontend profile with fit scope exists."] },
-    { "id": "REF-T08", "title": "Starter reference catalog expose", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["Starter catalog exposes language/framework/use-case clearly."] },
+    { "id": "REF-T05", "title": "Java Keycloak reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Java/Keycloak profile with fit+limits exists."] },
+    { "id": "REF-T06", "title": "Python Ananta backend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Python/Ananta-backend profile with fit scope exists."] },
+    { "id": "REF-T07", "title": "Angular Ananta frontend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Angular/Ananta-frontend profile with fit scope exists."] },
+    { "id": "REF-T08", "title": "Starter reference catalog expose", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["Starter catalog exposes language/framework/use-case clearly."] },
 
     { "id": "REF-T09", "title": "Reference retrieval entry points define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference retrieval entry points are bounded and explicit."] },
     { "id": "REF-T10", "title": "Pattern extraction categories define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reusable cross-profile pattern categories are defined."] },
@@ -416,20 +416,20 @@
     "REF-T25"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T19:21:00+02:00",
+    "updated_at": "2026-04-25T19:48:00+02:00",
     "total": 26,
-    "by_status": { "todo": 26, "in_progress": 0, "blocked": 0, "done": 0 },
-    "progress_percent_done": 0.0,
+    "by_status": { "todo": 18, "in_progress": 0, "blocked": 0, "done": 8 },
+    "progress_percent_done": 30.77,
     "by_priority": { "P0": 10, "P1": 13, "P2": 2, "P3": 1 },
     "by_risk": { "low": 1, "medium": 15, "high": 10, "critical": 0 },
-    "critical_path": { "total": 13, "done": 0, "remaining": 13 },
-    "milestones": { "total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0 }
+    "critical_path": { "total": 13, "done": 6, "remaining": 7 },
+    "milestones": { "total": 7, "todo": 5, "in_progress": 0, "blocked": 0, "done": 2 }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T19:21:00+02:00",
+    "updated_at": "2026-04-25T19:48:00+02:00",
     "stages": {
-      "REF-M1": { "title": "Grundmodell fuer Referenzprofile", "scope_task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0 },
-      "REF-M2": { "title": "Erste drei Start-Referenzprofile", "scope_task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0 },
+      "REF-M1": { "title": "Grundmodell fuer Referenzprofile", "scope_task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M2": { "title": "Erste drei Start-Referenzprofile", "scope_task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
       "REF-M3": { "title": "Retrieval und Musterableitung", "scope_task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0 },
       "REF-M4": { "title": "Integration fuer neues Projekt anlegen", "scope_task_ids": ["REF-T13", "REF-T14", "REF-T15"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0 },
       "REF-M5": { "title": "Integration fuer existierendes Projekt weiterentwickeln", "scope_task_ids": ["REF-T16", "REF-T17", "REF-T18"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0 },
@@ -438,7 +438,7 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T19:21:00+02:00",
+    "checked_at": "2026-04-25T19:48:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Die vorherige Struktur enthielt nur groups/tasks ohne task_track-Rollups.",
@@ -481,8 +481,8 @@
       "summary_id": "REF-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 26 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
-        "Kritischer Pfad: 13 total, 0 done, 13 remaining."
+        "Aktueller Umsetzungsstand: 18 todo, 0 in_progress, 0 blocked, 8 done (30.77%).",
+        "Kritischer Pfad: 13 total, 6 done, 7 remaining."
       ]
     }
   ]

@@ -204,6 +204,20 @@ def test_openapi_endpoint_is_generated_from_contract_catalog(client, admin_auth_
     assert response_schema.endswith("/task_scoped_step_execute_response")
 
 
+def test_reference_profile_catalog_exposes_starter_profiles(client, admin_auth_header):
+    response = client.get("/api/system/reference-profiles/catalog", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["version"] == "v1"
+    assert data["usage_boundary"]["mode"] == "guidance_not_clone"
+    assert data["selection_strategy"]["name"] == "deterministic_language_project_type_match_v1"
+    profile_ids = {item["profile_id"] for item in data["items"]}
+    assert "ref.java.keycloak" in profile_ids
+    assert "ref.python.ananta_backend" in profile_ids
+    assert "ref.angular.ananta_frontend" in profile_ids
+
+
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),
