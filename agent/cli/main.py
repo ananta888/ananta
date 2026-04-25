@@ -35,7 +35,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        help="Command: init, first-run, status, ask, plan, analyze, review, diagnose, patch, repair-admin, new-project, evolve-project, tui, doctor, web",
+        help=(
+            "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
+            "patch, repair-admin, new-project, evolve-project, tui, doctor, web"
+        ),
     )
     parser.add_argument("args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
     return parser
@@ -126,4 +129,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

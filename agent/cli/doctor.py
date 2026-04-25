@@ -37,7 +37,10 @@ def run_checks(cwd: Path, env: Mapping[str, str]) -> list[dict[str, str]]:
                 "id": "config-json",
                 "status": "fail",
                 "summary": "Missing config.json.",
-                "next_step": "Run `ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default --apply-config`.",
+                "next_step": (
+                    "Run `ananta init --yes --runtime-mode local-dev --llm-backend ollama "
+                    "--model ananta-default --apply-config`."
+                ),
             }
         )
 
@@ -168,4 +171,3 @@ def main(
         output_fn(f"Summary: {len(checks)} checks, {failures} failures, {warnings} warnings.")
 
     return 1 if failures else 0
-
