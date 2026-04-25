@@ -3,8 +3,41 @@
   "repository_root": "/mnt/c/Users/pst/IdeaProjects/ananta",
   "surfaces": {
     "eclipse_plugin": {
-      "classification": "foundation_only",
-      "runtime_evidence": [],
+      "classification": "real_implementation",
+      "runtime_evidence": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.properties",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/AnalyzeReviewPatchRuntimeHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/GoalSubmissionRuntimePanel.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/ProjectRuntimeHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/RuntimeCommandExecutionResult.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/RuntimeCommandHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/RuntimeCommandPayload.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/RuntimeCommandType.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/AnalyzeCommandHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/EvolveProjectCommandHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/NewProjectCommandHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/PatchCommandHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/ReviewCommandHandler.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/context/EclipseContextCaptureRuntime.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/CapabilityGate.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/ClientProfile.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/ClientResponse.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/DegradedState.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseApprovalRuntimeView.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseArtifactRuntimeView.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseAuditRuntimeView.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+        "scripts/smoke_eclipse_runtime_bootstrap.py"
+      ],
       "foundation_evidence": [
         "agent/services/eclipse_plugin_adapter_foundation_service.py",
         "tests/test_eclipse_plugin_adapter_foundation_service.py"
@@ -15,8 +48,11 @@
       ]
     },
     "eclipse_views_extension": {
-      "classification": "foundation_only",
-      "runtime_evidence": [],
+      "classification": "real_implementation",
+      "runtime_evidence": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml"
+      ],
       "foundation_evidence": [
         "agent/services/eclipse_plugin_adapter_foundation_service.py",
         "tests/test_eclipse_plugin_adapter_foundation_service.py"
@@ -72,33 +108,88 @@
         "docs/editor-tui-foundation.md",
         "docs/plugin-vs-tui-usage-guide.md"
       ]
+    },
+    "vscode_plugin": {
+      "classification": "real_implementation",
+      "runtime_evidence": [
+        ".github/workflows/quality-and-docs.yml",
+        "client_surfaces/vscode_extension/package.json",
+        "client_surfaces/vscode_extension/src/runtime/backendClient.ts",
+        "client_surfaces/vscode_extension/src/runtime/capabilityGate.ts",
+        "client_surfaces/vscode_extension/src/runtime/contextCapture.ts",
+        "client_surfaces/vscode_extension/src/runtime/redaction.ts",
+        "client_surfaces/vscode_extension/src/runtime/resultLinks.ts",
+        "client_surfaces/vscode_extension/src/runtime/secretStore.ts",
+        "client_surfaces/vscode_extension/src/runtime/settings.ts",
+        "client_surfaces/vscode_extension/src/runtime/types.ts",
+        "client_surfaces/vscode_extension/src/runtime/webFallback.ts",
+        "client_surfaces/vscode_extension/src/views/sidebarProviders.ts",
+        "client_surfaces/vscode_extension/src/views/statusTreeProvider.ts"
+      ],
+      "foundation_evidence": [
+        "docs/vscode-extension-architecture.md",
+        "docs/vscode-plugin-scope-boundary.md",
+        "tests/test_vscode_extension_bootstrap.py"
+      ],
+      "docs_evidence": [
+        "docs/vscode-extension-build-and-package.md",
+        "docs/vscode-extension-developer-smoke-checklist.md",
+        "docs/vscode-extension-user-guide.md"
+      ]
     }
   },
   "surface_status": {
     "tui_surface": "runtime_mvp",
     "nvim_plugin": "runtime_mvp",
     "vim_plugin": "deferred",
-    "eclipse_plugin": "blocked",
-    "eclipse_views_extension": "blocked"
+    "eclipse_plugin": "runtime_mvp",
+    "eclipse_views_extension": "runtime_mvp",
+    "vscode_plugin": "runtime_mvp"
   },
   "done_claims": {
-    "tui_surface": [
-      "CRT-T09",
-      "CRT-T10",
-      "CRT-T11",
-      "CRT-T12",
-      "CRT-T13"
-    ],
+    "tui_surface": [],
     "eclipse_plugin": [],
     "eclipse_views_extension": [],
-    "nvim_plugin": [
-      "CRT-T14",
-      "CRT-T15",
-      "CRT-T16",
-      "CRT-T17",
-      "CRT-T19"
-    ],
-    "vim_plugin": []
+    "nvim_plugin": [],
+    "vim_plugin": [],
+    "vscode_plugin": [
+      "VSC-T01",
+      "VSC-T02",
+      "VSC-T03",
+      "VSC-T04",
+      "VSC-T05",
+      "VSC-T06",
+      "VSC-T07",
+      "VSC-T08",
+      "VSC-T09",
+      "VSC-T10",
+      "VSC-T11",
+      "VSC-T12",
+      "VSC-T13",
+      "VSC-T14",
+      "VSC-T15",
+      "VSC-T16",
+      "VSC-T17",
+      "VSC-T18",
+      "VSC-T19",
+      "VSC-T20",
+      "VSC-T21",
+      "VSC-T22",
+      "VSC-T23",
+      "VSC-T24",
+      "VSC-T25",
+      "VSC-T26",
+      "VSC-T27",
+      "VSC-T28",
+      "VSC-T29",
+      "VSC-T30",
+      "VSC-T31",
+      "VSC-T32",
+      "VSC-T33",
+      "VSC-T34",
+      "VSC-T35",
+      "VSC-T36"
+    ]
   },
   "blocking_warnings": [],
   "ok": true

@@ -114,6 +114,31 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
             "docs/editor-tui-foundation.md",
         ],
     },
+    "vscode_plugin": {
+        "runtime_patterns": [
+            "client_surfaces/vscode_extension/package.json",
+            "client_surfaces/vscode_extension/src/**/*.ts",
+            "client_surfaces/vscode_extension/test/**/*.test.ts",
+            ".github/workflows/quality-and-docs.yml",
+        ],
+        "runtime_required_patterns": [
+            "client_surfaces/vscode_extension/package.json",
+            "client_surfaces/vscode_extension/src/extension.ts",
+            "client_surfaces/vscode_extension/src/runtime/backendClient.ts",
+            "client_surfaces/vscode_extension/test/extension.smoke.test.ts",
+            ".github/workflows/quality-and-docs.yml",
+        ],
+        "foundation_patterns": [
+            "docs/vscode-plugin-scope-boundary.md",
+            "docs/vscode-extension-architecture.md",
+            "tests/test_vscode_extension_bootstrap.py",
+        ],
+        "docs_patterns": [
+            "docs/vscode-extension-build-and-package.md",
+            "docs/vscode-extension-user-guide.md",
+            "docs/vscode-extension-developer-smoke-checklist.md",
+        ],
+    },
 }
 
 
@@ -123,6 +148,7 @@ DONE_CLAIM_RULES: dict[str, list[tuple[str, int, int]]] = {
     "eclipse_views_extension": [("ECL-T", 27, 50), ("EAC-T", 45, 53)],
     "nvim_plugin": [("TVM-T", 13, 22), ("CRT-T", 14, 17), ("CRT-T", 19, 19)],
     "vim_plugin": [("TVM-T", 23, 28)],
+    "vscode_plugin": [("VSC-T", 1, 36)],
 }
 
 

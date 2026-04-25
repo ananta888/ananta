@@ -72,6 +72,19 @@
         "Compatibility matrix checks run in CI.",
         "Editor-specific install and troubleshooting docs are verified."
       ]
+    },
+    "vscode_plugin": {
+      "runtime_mvp": [
+        "Extension manifest and runtime entrypoint exist (package.json, src/extension.ts).",
+        "Core command workflows and sidebar runtime views are implemented with capability gating.",
+        "Bounded/redacted context preview is enforced before workflow submission.",
+        "Smoke evidence exists for activation, command registration and one goal submission path."
+      ],
+      "runtime_complete": [
+        "Dedicated CI lane runs lint/test/smoke/compile/package checks.",
+        "User guide, build/package instructions and developer smoke checklist are maintained.",
+        "Fallback/deferred boundaries for high-risk admin operations remain explicit."
+      ]
     }
   }
 }

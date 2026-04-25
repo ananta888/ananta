@@ -10,7 +10,7 @@
     "legacy_claim_progress_percent": 100.0,
     "legacy_claim_done_tasks": 24,
     "current_unified_track": "client_runtime_delivery_after_skeletons",
-    "current_status": "tui_nvim_and_eclipse_runtime_mvp_hardened_with_vim_deferred"
+    "current_status": "tui_nvim_eclipse_and_vscode_runtime_mvp_hardened_with_vim_deferred"
   },
   "reclassification": [
     {
@@ -24,6 +24,12 @@
       "before_label": "foundation_complete_mixed_with_runtime_expectation",
       "after_label": "tui_and_nvim_runtime_mvp_with_vim_deferred",
       "reason": "Repository now includes runnable TUI and Neovim MVP runtime entrypoints with smoke evidence; Vim compatibility remains explicitly deferred."
+    },
+    {
+      "area": "vscode_plugin",
+      "before_label": "not_present_in_shared_runtime_reconciliation",
+      "after_label": "runtime_mvp_operational_with_ci_and_smoke_evidence",
+      "reason": "Repository now includes VS Code extension runtime entrypoint, command/view implementation, smoke tests, CI lane, and merge-readiness evidence."
     }
   ],
   "correction_note": "Earlier completion claims overstated runnable client status. Runtime claims now require executable evidence, and Eclipse now qualifies as runtime_mvp with hardening and merge-readiness evidence."

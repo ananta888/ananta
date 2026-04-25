@@ -101,6 +101,8 @@ def test_vscode_scope_and_architecture_docs_exist() -> None:
         ROOT / "docs" / "vscode-plugin-scope-boundary.md",
         ROOT / "docs" / "vscode-extension-architecture.md",
         ROOT / "docs" / "vscode-extension-build-and-package.md",
+        ROOT / "docs" / "vscode-extension-user-guide.md",
+        ROOT / "docs" / "vscode-extension-developer-smoke-checklist.md",
     ]
     for doc in docs:
         assert doc.exists(), f"missing doc: {doc}"
