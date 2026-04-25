@@ -9,8 +9,18 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 from urllib.parse import urlparse
 
+from agent.cli.deployment_profile_writer import (
+    build_deployment_profile,
+    write_deployment_profile,
+)
 from agent.local_llm_backends import normalize_openai_compatible_base_url
 from agent.runtime_profiles import runtime_profile_catalog
+from agent.services.runtime_profile_recommender import (
+    EnvironmentKind,
+    RuntimeRecommendation,
+    RuntimeRecommendationRequest,
+    recommend_runtime_profile,
+)
 
 RUNTIME_MODES = ("local-dev", "sandbox", "strict")
 LLM_BACKENDS = ("ollama", "lmstudio", "openai-compatible", "manual")
@@ -56,6 +66,7 @@ _DEFAULT_MODELS = {
 class InitAnswers:
     runtime_mode: str
     runtime_mode_source: str
+    hardware_profile: EnvironmentKind
     llm_backend: str
     endpoint_url: str | None
     model: str | None
@@ -205,6 +216,11 @@ def collect_answers(
         input_fn=input_fn,
         output_fn=output_fn,
     )
+    hardware_profile_raw = str(args.hardware_profile or "cpu-only").strip().lower()
+    allowed_hardware_profiles = {"cpu-only", "nvidia-gpu", "remote-model", "mixed-local-remote"}
+    if hardware_profile_raw not in allowed_hardware_profiles:
+        raise ValueError(f"invalid hardware profile '{args.hardware_profile}'")
+    hardware_profile = _normalize_hardware_profile(hardware_profile_raw)
 
     endpoint_url: str | None = None
     model: str | None = None
@@ -257,6 +273,7 @@ def collect_answers(
     return InitAnswers(
         runtime_mode=runtime_mode,
         runtime_mode_source=mode_source if str(args.runtime_mode or "auto").strip().lower() == "auto" else "cli.argument",
+        hardware_profile=hardware_profile,
         llm_backend=llm_backend,
         endpoint_url=endpoint_url,
         model=model,
@@ -314,6 +331,13 @@ def build_runtime_profile_document(
         "governance_mode": str(defaults["governance_mode"]),
         "platform_mode": str(defaults["platform_mode"]),
     }
+    recommendation = recommend_runtime_profile(
+        RuntimeRecommendationRequest(
+            environment=answers.hardware_profile,
+            allow_paid_providers=False,
+            explicit_remote_endpoint=answers.endpoint_url if answers.llm_backend == "openai-compatible" else None,
+        )
+    )
     backend_patch = _build_backend_config_patch(answers)
     config_patch = _deep_merge(base_patch, backend_patch)
 
@@ -332,9 +356,11 @@ def build_runtime_profile_document(
         "created_at": now.isoformat(),
         "runtime_mode": answers.runtime_mode,
         "runtime_mode_source": answers.runtime_mode_source,
+        "hardware_profile": answers.hardware_profile,
         "runtime_profile": runtime_profile_name,
         "governance_mode": str(defaults["governance_mode"]),
         "platform_mode": str(defaults["platform_mode"]),
+        "runtime_recommendation": _recommendation_payload(recommendation),
         "llm_backend": backend_payload,
         "container_runtime": {
             "required": bool(defaults["container_required"]),
@@ -342,6 +368,47 @@ def build_runtime_profile_document(
         },
         "config_patch": config_patch,
     }
+
+
+def _recommendation_payload(recommendation: RuntimeRecommendation) -> dict[str, Any]:
+    context_window_tokens = int(recommendation.context_window_tokens)
+    if context_window_tokens <= 12000:
+        window_profile = "compact_12k"
+    elif context_window_tokens <= 32000:
+        window_profile = "standard_32k"
+    else:
+        window_profile = "full_64k"
+    return {
+        "environment": recommendation.environment,
+        "provider": recommendation.provider,
+        "model": recommendation.model,
+        "limits": {
+            "context_window_tokens": recommendation.context_window_tokens,
+            "max_input_tokens": recommendation.max_input_tokens,
+            "max_output_tokens": recommendation.max_output_tokens,
+            "rag_budget_tokens": recommendation.rag_budget_tokens,
+            "patch_size_lines": recommendation.patch_size_lines,
+            "window_profile": window_profile,
+        },
+        "execution_mix": {
+            "local_weight": recommendation.local_execution_weight,
+            "remote_weight": recommendation.remote_execution_weight,
+        },
+        "requires_explicit_provider_config": recommendation.requires_explicit_provider_config,
+        "notes": list(recommendation.notes),
+    }
+
+
+def _normalize_hardware_profile(value: str) -> EnvironmentKind:
+    if value == "cpu-only":
+        return "cpu-only"
+    if value == "nvidia-gpu":
+        return "nvidia-gpu"
+    if value == "remote-model":
+        return "remote-model"
+    if value == "mixed-local-remote":
+        return "mixed-local-remote"
+    raise ValueError(f"invalid hardware profile '{value}'")
 
 
 def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
@@ -414,15 +481,42 @@ def run_init(
             force=bool(args.force),
         )
 
+    deployment_profile_path: Path | None = None
+    deployment_backup_path: str | None = None
+    deployment_target = str(args.deployment_target or "none").strip().lower()
+    if deployment_target != "none":
+        deployment_profile_path = (base_dir / str(args.deployment_path)).resolve()
+        deployment_payload = build_deployment_profile(
+            runtime_mode=answers.runtime_mode,
+            runtime_profile=str(profile_document["runtime_profile"]),
+            governance_mode=str(profile_document["governance_mode"]),
+            target=deployment_target,
+            config_patch=dict(profile_document.get("config_patch") or {}),
+        )
+        write_result = write_deployment_profile(
+            path=deployment_profile_path,
+            payload=deployment_payload,
+            overwrite_confirmed=bool(args.force),
+            backup_existing=bool(args.backup_existing_deployment),
+        )
+        deployment_backup_path = write_result.backup_path
+
     output_fn("Ananta init completed.")
     output_fn(f"Runtime mode: {profile_document['runtime_mode']} (source: {profile_document['runtime_mode_source']})")
     output_fn(f"Runtime profile file: {profile_path}")
+    output_fn(f"Hardware profile: {answers.hardware_profile}")
     if config_path is not None:
         output_fn(f"Config patch applied: {config_path}")
+    if deployment_profile_path is not None:
+        output_fn(f"Deployment profile file: {deployment_profile_path}")
+        if deployment_backup_path:
+            output_fn(f"Deployment backup file: {deployment_backup_path}")
     output_fn(f"Selected backend: {answers.llm_backend}")
     return {
         "profile_path": str(profile_path),
         "config_path": str(config_path) if config_path else None,
+        "deployment_profile_path": str(deployment_profile_path) if deployment_profile_path else None,
+        "deployment_backup_path": deployment_backup_path,
     }
 
 
@@ -443,6 +537,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=LLM_BACKENDS,
         help="Preferred LLM backend.",
     )
+    parser.add_argument(
+        "--hardware-profile",
+        default="cpu-only",
+        choices=("cpu-only", "nvidia-gpu", "remote-model", "mixed-local-remote"),
+        help="Hardware/runtime topology for conservative recommendation defaults.",
+    )
     parser.add_argument("--endpoint-url", default="", help="Backend endpoint URL (optional).")
     parser.add_argument("--model", default="", help="Default model identifier (optional).")
     parser.add_argument(
@@ -462,6 +562,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--apply-config", action="store_true", help="Apply generated config patch to config.json.")
     parser.add_argument("--config-path", default="config.json", help="Config path used with --apply-config.")
+    parser.add_argument(
+        "--deployment-target",
+        default="none",
+        choices=("none", "docker-compose", "podman"),
+        help="Optionally generate deployment profile examples.",
+    )
+    parser.add_argument(
+        "--deployment-path",
+        default="ananta.deployment-profile.json",
+        help="Path for generated deployment profile file.",
+    )
+    parser.add_argument(
+        "--backup-existing-deployment",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Backup existing deployment profile before overwrite if --force is not set.",
+    )
     parser.add_argument("--yes", action="store_true", help="Use defaults for missing values and skip prompts.")
     parser.add_argument("--force", action="store_true", help="Overwrite existing output files.")
     return parser
@@ -480,4 +597,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

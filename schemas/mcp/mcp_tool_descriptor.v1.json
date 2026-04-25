@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/mcp/mcp_tool_descriptor.v1.json",
+  "title": "MCP Tool Descriptor v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "tool_id",
+    "tool_name",
+    "capability",
+    "risk_class",
+    "access_class",
+    "allowed_scopes"
+  ],
+  "properties": {
+    "tool_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 1
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "access_class": {
+      "type": "string",
+      "enum": ["read", "write", "admin"]
+    },
+    "allowed_scopes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "default_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["enabled", "degraded", "disabled"],
+      "default": "enabled"
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "degraded", "disabled", "unknown"]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
+
