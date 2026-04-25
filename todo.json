@@ -36,19 +36,19 @@
       "id": "PG-M3",
       "title": "Dogfooding and PR review automation",
       "task_ids": ["PG-T07", "PG-T08", "PG-T09"],
-      "status": "blocked"
+      "status": "done"
     },
     {
       "id": "PG-M4",
       "title": "Icebox guards",
       "task_ids": ["PG-T10", "PG-T11"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PG-M5",
       "title": "Cross-track dependency hygiene",
       "task_ids": ["PG-T12"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -173,7 +173,7 @@
     {
       "id": "PG-T07",
       "title": "PR review agent design add",
-      "status": "blocked",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "blocking": false,
@@ -195,7 +195,7 @@
     {
       "id": "PG-T08",
       "title": "Git provider webhook receiver skeleton add",
-      "status": "blocked",
+      "status": "done",
       "priority": "P3",
       "risk": "high",
       "blocking": false,
@@ -214,7 +214,7 @@
     {
       "id": "PG-T09",
       "title": "PR ReviewArtifact posting adapter add",
-      "status": "blocked",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
       "blocking": false,
@@ -233,7 +233,7 @@
     {
       "id": "PG-T10",
       "title": "Icebox decision record for heavy client features add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -251,7 +251,7 @@
     {
       "id": "PG-T11",
       "title": "Current track inventory and completed-track references add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "blocking": false,
@@ -269,7 +269,7 @@
     {
       "id": "PG-T12",
       "title": "Cross-track dependency map and validator add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -290,23 +290,23 @@
   "execution_order_summary": [
     "First add runtime profile wizard and profile recommendations after core Security/Domain/Worker tracks are stable enough.",
     "Then add MCP boundary documentation and a read-only/default-deny MCP skeleton.",
-    "Keep PR review automation blocked until worker release gates are stable.",
+    "Implement PR review automation in test mode while keeping production enablement gated by KRITIS release gates.",
     "Keep LSP, Flow Builder and large Eclipse refactors in the icebox until the OSS golden path is reliable.",
     "Add cross-track dependency mapping and validation so stale references cannot silently drift."
   ],
   "critical_path_tasks": ["PG-T01", "PG-T02", "PG-T04", "PG-T05", "PG-T10", "PG-T11", "PG-T12"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T22:43:21+02:00",
+    "updated_at": "2026-04-25T23:10:00+02:00",
     "total": 12,
-    "by_status": {"todo": 3, "in_progress": 0, "blocked": 3, "done": 6, "deferred": 0},
-    "progress_percent_done": 50.0,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 12, "deferred": 0},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 0, "P1": 4, "P2": 6, "P3": 2},
     "by_risk": {"low": 2, "medium": 5, "high": 5, "critical": 0},
-    "critical_path": {"total": 7, "done": 4, "remaining": 3},
-    "milestones": {"total": 5, "todo": 2, "in_progress": 0, "blocked": 1, "done": 2}
+    "critical_path": {"total": 7, "done": 7, "remaining": 0},
+    "milestones": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T22:43:21+02:00",
+    "updated_at": "2026-04-25T23:10:00+02:00",
     "stages": {
       "PG-M1": {
         "title": "Runtime setup and profile UX",
@@ -330,17 +330,17 @@
         "title": "Dogfooding and PR review automation",
         "scope_task_ids": ["PG-T07", "PG-T08", "PG-T09"],
         "total": 3,
-        "done": 0,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
-        "blocked": 3
+        "blocked": 0
       },
       "PG-M4": {
         "title": "Icebox guards",
         "scope_task_ids": ["PG-T10", "PG-T11"],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -348,8 +348,8 @@
         "title": "Cross-track dependency hygiene",
         "scope_task_ids": ["PG-T12"],
         "total": 1,
-        "done": 0,
-        "todo": 1,
+        "done": 1,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -384,47 +384,48 @@
         "title": "Compatibility stage 4",
         "scope_task_ids": ["PG-T07", "PG-T08"],
         "total": 2,
-        "done": 0,
+        "done": 2,
         "todo": 0,
         "in_progress": 0,
-        "blocked": 2
+        "blocked": 0
       },
       "TEST-M5": {
         "title": "Compatibility stage 5",
         "scope_task_ids": ["PG-T09", "PG-T10"],
         "total": 2,
-        "done": 0,
-        "todo": 1,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
-        "blocked": 1
+        "blocked": 0
       },
       "TEST-M6": {
         "title": "Compatibility stage 6",
         "scope_task_ids": ["PG-T11", "PG-T12"],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T22:43:21+02:00",
+    "checked_at": "2026-04-25T23:10:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Stale references to missing todo.security.json and todo.ananta-worker.json were replaced with explicit KRITIS gating task references.",
       "Milestone-level execution_stage_summary was added and synchronized with task statuses.",
       "Cross-track dependency mapping/validation was added as PG-T12 to reduce future track drift.",
       "Compatibility stage aliases TEST-M1..TEST-M6 were added for test-track tooling expectations.",
-      "PG-T02 to PG-T06 were implemented including recommender, deployment writer, MCP boundary doc, descriptor registry and read-only adapter."
+      "PG-T02 to PG-T06 were implemented including recommender, deployment writer, MCP boundary doc, descriptor registry and read-only adapter.",
+      "PG-T07 to PG-T12 were implemented including PR review design, signed webhook receiver skeleton, review publisher, icebox ADR, track inventory and cross-track dependency validator."
     ]
   },
   "summary_notes": [
     "This file intentionally avoids duplicating active detailed tracks and now references existing KRITIS gates explicitly.",
     "Runtime profile UX and controlled MCP foundation milestones are now implemented (PG-M1 and PG-M2 done).",
-    "PR review automation remains blocked until audit/mutation/evolver gates in KRITIS are verifiably stable.",
-    "Cross-track dependency hygiene is now an explicit work item to prevent stale references.",
+    "PR review automation artifacts are implemented in review-only test mode; production enablement remains gated by KRITIS readiness.",
+    "Cross-track dependency hygiene is now implemented with an explicit map and offline validator.",
     "LSP, Flow Builder and large Eclipse refactors remain icebox items to avoid Medusa complexity."
   ],
   "end_summaries": [
@@ -456,8 +457,8 @@
       "summary_id": "PG-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Stand: 12 Aufgaben (3 todo, 3 blocked, 0 in_progress, 6 done).",
-        "Kritischer Pfad: 7 total, 4 done, 3 remaining."
+        "Aktueller Stand: 12 Aufgaben (0 todo, 0 blocked, 0 in_progress, 12 done).",
+        "Kritischer Pfad: 7 total, 7 done, 0 remaining."
       ]
     }
   ]
