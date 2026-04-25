@@ -51,7 +51,7 @@
       "id": "GEN-M1",
       "title": "Scope, model and descriptor contracts",
       "task_ids": ["GEN-T01", "GEN-T02", "GEN-T03", "GEN-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GEN-M2",
@@ -94,7 +94,7 @@
     {
       "id": "GEN-T01",
       "title": "Generic domain integration scope define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -110,7 +110,7 @@
     {
       "id": "GEN-T02",
       "title": "Domain descriptor schema define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -126,7 +126,7 @@
     {
       "id": "GEN-T03",
       "title": "Domain lifecycle and runtime status model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -142,7 +142,7 @@
     {
       "id": "GEN-T04",
       "title": "Example minimal domain descriptor add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -523,15 +523,15 @@
     "GEN-T22"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T15:16:34+02:00",
+    "updated_at": "2026-04-25T15:19:29+02:00",
     "total": 25,
     "by_status": {
-      "todo": 25,
+      "todo": 21,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 16.0,
     "by_priority": {
       "P0": 20,
       "P1": 4,
@@ -546,26 +546,26 @@
     },
     "critical_path": {
       "total": 20,
-      "done": 0,
-      "remaining": 20
+      "done": 3,
+      "remaining": 17
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 6,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T15:16:34+02:00",
+    "updated_at": "2026-04-25T15:19:29+02:00",
     "stages": {
       "GEN-M1": {
         "title": "Scope, model and descriptor contracts",
         "scope_task_ids": ["GEN-T01", "GEN-T02", "GEN-T03", "GEN-T04"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -626,12 +626,13 @@
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T15:16:34+02:00",
-    "internal_consistency": "corrected",
+    "checked_at": "2026-04-25T15:19:29+02:00",
+    "internal_consistency": "bundle_1_completed",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=4, high=10, critical=11).",
       "execution_stage_summary ergänzt, damit Rollups je Meilenstein transparent und validator-kompatibel sind.",
-      "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt."
+      "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt.",
+      "Bundle GEN-T01..GEN-T04 umgesetzt und in Tasks/Milestones/Stage-Rollups als done synchronisiert."
     ]
   },
   "summary_notes": [
@@ -639,7 +640,8 @@
     "The foundation is intentionally smaller than a marketplace: descriptors and allow-listed adapter contracts first, dynamic third-party plugin loading later if ever.",
     "The generic model should strengthen Ananta's core positioning as a controlled AI control plane rather than a collection of one-off tool integrations.",
     "FreeCAD and KiCad can later reuse this foundation with stricter domain-specific policies and correctness gates.",
-    "Summary counters and milestone stage rollups are now synchronized and explicitly documented."
+    "Summary counters and milestone stage rollups are now synchronized and explicitly documented.",
+    "Bundle 1 now provides scope docs, descriptor/status schemas, and a descriptor-only example domain baseline."
   ],
   "end_summaries": [
     {
@@ -670,8 +672,8 @@
       "summary_id": "GEN-S4",
       "title": "Status am Ende",
       "items": [
-        "Track bleibt bewusst im Startzustand für Umsetzung (25 todo, 0 done), jetzt jedoch zähler- und rollup-synchron.",
-        "Die Datei ist als belastbare Basis für die nächsten Umsetzungsbündel vorbereitet."
+        "Erstes Umsetzungsbündel abgeschlossen: 21 todo, 0 in_progress, 0 blocked, 4 done (16.0%).",
+        "Meilenstein GEN-M1 ist done; der verbleibende Track ist für Bundle 2 vorbereitet."
       ]
     }
   ]
