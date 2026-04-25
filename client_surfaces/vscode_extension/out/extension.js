@@ -37,7 +37,10 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./runtime/backendClient");
+const capabilityGate_1 = require("./runtime/capabilityGate");
+const contextCapture_1 = require("./runtime/contextCapture");
 const redaction_1 = require("./runtime/redaction");
+const resultLinks_1 = require("./runtime/resultLinks");
 const secretStore_1 = require("./runtime/secretStore");
 const settings_1 = require("./runtime/settings");
 const statusTreeProvider_1 = require("./views/statusTreeProvider");
@@ -45,8 +48,177 @@ const COMMANDS = {
     checkHealth: "ananta.checkHealth",
     configureProfile: "ananta.configureProfile",
     storeToken: "ananta.storeToken",
-    clearToken: "ananta.clearToken"
+    clearToken: "ananta.clearToken",
+    openStatusView: "ananta.openStatusView",
+    submitGoal: "ananta.submitGoal",
+    analyzeSelection: "ananta.analyzeSelection",
+    reviewFile: "ananta.reviewFile",
+    patchPlan: "ananta.patchPlan",
+    projectNew: "ananta.projectNew",
+    projectEvolve: "ananta.projectEvolve"
 };
+const WORKFLOW_DEFINITIONS = {
+    "ananta.submitGoal": {
+        id: "ananta.submitGoal",
+        operationPreset: "goal_submit",
+        title: "Submit Goal",
+        requiresGoalInput: true,
+        requiresSelection: false,
+        defaultGoalText: "Deliver requested change safely",
+        run: (client, contextPayload, goalText, metadata) => client.submitGoal(goalText, contextPayload, metadata)
+    },
+    "ananta.analyzeSelection": {
+        id: "ananta.analyzeSelection",
+        operationPreset: "analyze",
+        title: "Analyze Selection",
+        requiresGoalInput: false,
+        requiresSelection: true,
+        defaultGoalText: "Analyze current editor selection",
+        run: (client, contextPayload, goalText, metadata) => client.analyzeContext(contextPayload, metadata, goalText)
+    },
+    "ananta.reviewFile": {
+        id: "ananta.reviewFile",
+        operationPreset: "review",
+        title: "Review File",
+        requiresGoalInput: false,
+        requiresSelection: false,
+        defaultGoalText: "Review current file context",
+        run: (client, contextPayload, goalText, metadata) => client.reviewContext(contextPayload, metadata, goalText)
+    },
+    "ananta.patchPlan": {
+        id: "ananta.patchPlan",
+        operationPreset: "patch_plan",
+        title: "Patch Plan",
+        requiresGoalInput: true,
+        requiresSelection: false,
+        defaultGoalText: "Create patch plan for current context",
+        run: (client, contextPayload, goalText, metadata) => client.patchPlan(contextPayload, metadata, goalText)
+    },
+    "ananta.projectNew": {
+        id: "ananta.projectNew",
+        operationPreset: "project_new",
+        title: "Project New",
+        requiresGoalInput: true,
+        requiresSelection: false,
+        defaultGoalText: "Create a new software project",
+        run: (client, contextPayload, goalText, metadata) => client.createProjectNew(goalText, contextPayload, metadata)
+    },
+    "ananta.projectEvolve": {
+        id: "ananta.projectEvolve",
+        operationPreset: "project_evolve",
+        title: "Project Evolve",
+        requiresGoalInput: true,
+        requiresSelection: false,
+        defaultGoalText: "Evolve an existing software project",
+        run: (client, contextPayload, goalText, metadata) => client.createProjectEvolve(goalText, contextPayload, metadata)
+    }
+};
+const QUICK_GOAL_MODES = [
+    {
+        label: "Submit Goal",
+        description: "Create a normal goal task flow",
+        workflow: "ananta.submitGoal"
+    },
+    {
+        label: "Patch Plan",
+        description: "Create patch planning task flow",
+        workflow: "ananta.patchPlan"
+    },
+    {
+        label: "Project New",
+        description: "Create new project task flow",
+        workflow: "ananta.projectNew"
+    },
+    {
+        label: "Project Evolve",
+        description: "Create project evolution task flow",
+        workflow: "ananta.projectEvolve"
+    }
+];
+function workflowDefaultState() {
+    return capabilityGate_1.WORKFLOW_COMMANDS.reduce((acc, commandId) => {
+        acc[commandId] = false;
+        return acc;
+    }, {});
+}
+function extractTaskId(data) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return "";
+    }
+    const value = data.task_id;
+    if (typeof value !== "string") {
+        return "";
+    }
+    return value.trim();
+}
+function readActiveEditorContext() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return {
+            filePath: null,
+            projectRoot: null,
+            languageId: null,
+            selectionText: null,
+            fileContentExcerpt: null
+        };
+    }
+    const doc = editor.document;
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(doc.uri) ?? vscode.workspace.workspaceFolders?.[0];
+    const lineEnd = Math.max(0, Math.min(doc.lineCount - 1, 120));
+    const endCharacter = doc.lineAt(lineEnd).range.end.character;
+    const excerptRange = new vscode.Range(0, 0, lineEnd, endCharacter);
+    return {
+        filePath: doc.uri.scheme === "file" ? doc.uri.fsPath : doc.uri.toString(),
+        projectRoot: workspaceFolder?.uri.fsPath ?? null,
+        languageId: doc.languageId,
+        selectionText: editor.selection.isEmpty ? "" : doc.getText(editor.selection),
+        fileContentExcerpt: doc.getText(excerptRange)
+    };
+}
+function buildPreviewDetail(preview) {
+    const lines = [
+        `File: ${preview.filePath ?? "-"}`,
+        `Project: ${preview.projectRoot ?? "-"}`,
+        `Language: ${preview.languageId ?? "-"}`,
+        `Selection chars: ${preview.selectionLength}`,
+        `Selection clipped: ${preview.selectionClipped}`,
+        `Excerpt clipped: ${preview.fileContentClipped}`,
+        `Warnings: ${preview.warnings.length > 0 ? preview.warnings.join(", ") : "-"}`,
+        `Selection excerpt: ${preview.selectionExcerpt ?? "-"}`,
+        `File excerpt: ${preview.fileExcerpt ?? "-"}`
+    ];
+    if (preview.blockedReasons.length > 0) {
+        lines.push(`Blocked: ${preview.blockedReasons.join(", ")}`);
+    }
+    return lines.join("\n");
+}
+function statusBarText(connectionState, capabilitiesState) {
+    if (connectionState === "healthy" && capabilitiesState === "healthy") {
+        return "$(check) Ananta Connected";
+    }
+    if (connectionState === "invalid_config") {
+        return "$(error) Ananta Invalid Config";
+    }
+    if (capabilitiesState === "capability_missing" || capabilitiesState === "policy_denied") {
+        return "$(warning) Ananta Limited";
+    }
+    if (connectionState === "backend_unreachable" || connectionState === "backend_timeout") {
+        return "$(error) Ananta Unreachable";
+    }
+    if (connectionState === "auth_failed") {
+        return "$(error) Ananta Auth Failed";
+    }
+    return "$(warning) Ananta Degraded";
+}
+function diagnosticSeverity(state) {
+    if (state === "capability_missing" || state === "policy_denied") {
+        return vscode.DiagnosticSeverity.Warning;
+    }
+    return vscode.DiagnosticSeverity.Error;
+}
+async function applyCapabilityContexts(values) {
+    await Promise.all(capabilityGate_1.WORKFLOW_COMMANDS.map((commandId) => vscode.commands.executeCommand("setContext", (0, capabilityGate_1.toCommandContextKey)(commandId), values[commandId])));
+}
 async function buildRuntimeClient(context, statusView, output) {
     const config = vscode.workspace.getConfiguration("ananta");
     const secretStore = new secretStore_1.AnantaSecretStore(context.secrets);
@@ -64,26 +236,194 @@ async function buildRuntimeClient(context, statusView, output) {
         void vscode.window.showWarningMessage(message);
         return null;
     }
-    statusView.setSnapshot({
-        connectionState: "configured",
-        capabilitiesState: "unknown",
-        endpoint: resolved.settings.baseUrl,
-        profileId: resolved.settings.profileId,
-        details: []
-    });
     return {
         client: new backendClient_1.AnantaBackendClient(resolved.settings),
-        endpoint: resolved.settings.baseUrl,
-        profileId: resolved.settings.profileId
+        settings: resolved.settings
     };
 }
 async function activate(context) {
     const output = vscode.window.createOutputChannel("Ananta");
     const statusView = new statusTreeProvider_1.AnantaStatusTreeProvider();
-    context.subscriptions.push(output);
+    const diagnostics = vscode.languages.createDiagnosticCollection("ananta-runtime");
+    const diagnosticsUri = vscode.Uri.parse("ananta:/runtime/status");
+    const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    statusBar.command = COMMANDS.openStatusView;
+    statusBar.text = "$(circle-outline) Ananta Idle";
+    statusBar.tooltip = "Ananta runtime status";
+    statusBar.show();
+    context.subscriptions.push(output, diagnostics, statusBar);
     context.subscriptions.push(vscode.window.registerTreeDataProvider("ananta.statusView", statusView));
+    const setRuntimeUi = (connectionState, capabilitiesState, endpoint, profileId, details) => {
+        statusView.setSnapshot({
+            connectionState,
+            capabilitiesState,
+            endpoint,
+            profileId,
+            details
+        });
+        statusBar.text = statusBarText(connectionState, capabilitiesState);
+        statusBar.tooltip = [`Endpoint: ${endpoint}`, `Profile: ${profileId}`, ...details].join("\n");
+        if (connectionState === "healthy" && capabilitiesState === "healthy") {
+            diagnostics.delete(diagnosticsUri);
+            return;
+        }
+        const entries = [
+            new vscode.Diagnostic(new vscode.Range(0, 0, 0, 1), `Ananta connection state: ${connectionState}`, diagnosticSeverity(connectionState)),
+            new vscode.Diagnostic(new vscode.Range(0, 0, 0, 1), `Ananta capability state: ${capabilitiesState}`, diagnosticSeverity(capabilitiesState))
+        ];
+        for (const detail of details) {
+            entries.push(new vscode.Diagnostic(new vscode.Range(0, 0, 0, 1), detail, vscode.DiagnosticSeverity.Information));
+        }
+        diagnostics.set(diagnosticsUri, entries);
+    };
+    async function refreshCapabilities(runtime) {
+        const capabilities = await runtime.client.getCapabilities();
+        const snapshot = (0, capabilityGate_1.buildCapabilitySnapshot)(capabilities);
+        const commandAvailability = workflowDefaultState();
+        const details = [`capabilities_status=${capabilities.statusCode ?? "none"}`];
+        for (const commandId of capabilityGate_1.WORKFLOW_COMMANDS) {
+            const gate = (0, capabilityGate_1.evaluateWorkflowCommand)(snapshot, commandId);
+            commandAvailability[commandId] = gate.allowed;
+            if (!gate.allowed) {
+                details.push(`${commandId}=${gate.reason}`);
+            }
+        }
+        await applyCapabilityContexts(commandAvailability);
+        setRuntimeUi("configured", capabilities.state, runtime.settings.baseUrl, runtime.settings.profileId, details);
+        return commandAvailability;
+    }
+    async function openResultLink(links) {
+        if (links.length === 0) {
+            return;
+        }
+        const picked = await vscode.window.showQuickPick(links.map((link) => ({ label: link.label, description: link.url, link })), {
+            title: "Open Ananta result",
+            placeHolder: "Select result link to open in browser"
+        });
+        if (!picked) {
+            return;
+        }
+        await vscode.env.openExternal(vscode.Uri.parse(picked.link.url));
+    }
+    async function confirmContextPreview(workflow, preview) {
+        if (preview.blockedReasons.length > 0) {
+            const detail = buildPreviewDetail(preview);
+            await vscode.window.showErrorMessage(`${workflow.title} blocked due to high-risk secret detection (${preview.blockedReasons.join(", ")}).`, { modal: true, detail });
+            return false;
+        }
+        const detail = buildPreviewDetail(preview);
+        if (preview.warnings.length > 0) {
+            const choice = await vscode.window.showWarningMessage(`${workflow.title} context has warnings. Submit redacted payload?`, { modal: true, detail }, "Submit", "Cancel");
+            return choice === "Submit";
+        }
+        const choice = await vscode.window.showInformationMessage(`${workflow.title}: review context preview before sending.`, { modal: true, detail }, "Submit", "Cancel");
+        return choice === "Submit";
+    }
+    async function promptGoalText(workflow) {
+        if (!workflow.requiresGoalInput) {
+            return workflow.defaultGoalText;
+        }
+        return ((await vscode.window.showInputBox({
+            title: `Ananta ${workflow.title}`,
+            prompt: "Goal text",
+            value: workflow.defaultGoalText,
+            ignoreFocusOut: true,
+            validateInput(value) {
+                const normalized = String(value || "").trim();
+                if (normalized.length === 0) {
+                    return "Goal text must not be empty.";
+                }
+                if (normalized.length > 1200) {
+                    return "Goal text must be <= 1200 characters.";
+                }
+                return null;
+            }
+        })) ?? null);
+    }
+    async function chooseQuickGoalMode() {
+        const picked = await vscode.window.showQuickPick(QUICK_GOAL_MODES.map((entry) => ({
+            label: entry.label,
+            description: entry.description,
+            workflow: entry.workflow
+        })), {
+            title: "Ananta Goal Mode",
+            placeHolder: "Select goal mode (optional mode selection)"
+        });
+        return picked?.workflow ?? null;
+    }
+    async function executeWorkflowCommand(commandId) {
+        const runtime = await buildRuntimeClient(context, statusView, output);
+        if (!runtime) {
+            await applyCapabilityContexts(workflowDefaultState());
+            return;
+        }
+        const availability = await refreshCapabilities(runtime);
+        const effectiveCommand = commandId === COMMANDS.submitGoal ? await chooseQuickGoalMode() : commandId;
+        if (!effectiveCommand) {
+            return;
+        }
+        const workflow = WORKFLOW_DEFINITIONS[effectiveCommand];
+        if (!availability[effectiveCommand]) {
+            const requiredCapability = (0, capabilityGate_1.evaluateWorkflowCommand)((0, capabilityGate_1.buildCapabilitySnapshot)(await runtime.client.getCapabilities()), effectiveCommand);
+            const reason = requiredCapability.reason;
+            output.appendLine(`[capability] denied command=${effectiveCommand} reason=${reason}`);
+            void vscode.window.showWarningMessage(`Ananta command denied (${reason}).`);
+            return;
+        }
+        const rawContext = readActiveEditorContext();
+        const packaged = (0, contextCapture_1.packageEditorContext)(rawContext);
+        if (workflow.requiresSelection && packaged.preview.selectionLength === 0) {
+            void vscode.window.showWarningMessage(`${workflow.title} requires an active text selection.`);
+            return;
+        }
+        const goalText = await promptGoalText(workflow);
+        if (goalText === null) {
+            return;
+        }
+        if (!(await confirmContextPreview(workflow, packaged.preview))) {
+            return;
+        }
+        const metadata = {
+            operationPreset: workflow.operationPreset,
+            commandId: workflow.id,
+            profileId: runtime.settings.profileId,
+            runtimeTarget: runtime.settings.runtimeTarget,
+            mode: workflow.operationPreset
+        };
+        const response = (await workflow.run(runtime.client, packaged.payload, goalText, metadata));
+        const details = [
+            `command=${workflow.id}`,
+            `operation=${workflow.operationPreset}`,
+            `status=${response.statusCode ?? "none"}`
+        ];
+        setRuntimeUi(response.state, response.state, runtime.settings.baseUrl, runtime.settings.profileId, details);
+        if (!response.ok) {
+            const reason = response.error ?? `request_failed:${response.state}`;
+            output.appendLine(`[workflow] failed command=${workflow.id} reason=${reason}`);
+            void vscode.window.showWarningMessage(`Ananta degraded (${workflow.title}): ${reason}`);
+            return;
+        }
+        const taskId = extractTaskId(response.data);
+        const message = taskId
+            ? `Ananta accepted ${workflow.title}. task_id=${taskId}`
+            : `Ananta accepted ${workflow.title}.`;
+        const links = (0, resultLinks_1.buildResultLinks)(runtime.settings.baseUrl, response.data);
+        output.appendLine(`[workflow] success command=${workflow.id} task_id=${taskId || "none"}`);
+        const action = await vscode.window.showInformationMessage(message, "Open Result", "Open Status");
+        if (action === "Open Result") {
+            await openResultLink(links);
+        }
+        else if (action === "Open Status") {
+            await vscode.commands.executeCommand(COMMANDS.openStatusView);
+        }
+    }
+    await applyCapabilityContexts(workflowDefaultState());
     context.subscriptions.push(vscode.commands.registerCommand(COMMANDS.configureProfile, async () => {
         await vscode.commands.executeCommand("workbench.action.openSettings", "ananta.");
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand(COMMANDS.openStatusView, async () => {
+        await vscode.commands.executeCommand("workbench.view.extension.ananta");
+        await vscode.commands.executeCommand("ananta.statusView.focus");
     }));
     context.subscriptions.push(vscode.commands.registerCommand(COMMANDS.storeToken, async () => {
         const value = await vscode.window.showInputBox({
@@ -113,23 +453,19 @@ async function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand(COMMANDS.checkHealth, async () => {
         const runtime = await buildRuntimeClient(context, statusView, output);
         if (!runtime) {
+            await applyCapabilityContexts(workflowDefaultState());
             return;
         }
-        const { client, endpoint, profileId } = runtime;
         try {
-            const health = await client.getHealth();
-            const capabilities = await client.getCapabilities();
-            const capabilityCount = Array.isArray(capabilities.data?.capabilities) &&
-                capabilities.data.capabilities
-                ? capabilities.data.capabilities.length
-                : 0;
-            statusView.setSnapshot({
-                connectionState: health.state,
-                capabilitiesState: capabilities.state,
-                endpoint,
-                profileId,
-                details: [`capability_count=${capabilityCount}`, `health_status=${health.statusCode ?? "none"}`]
-            });
+            const health = await runtime.client.getHealth();
+            const capabilities = await runtime.client.getCapabilities();
+            const capabilitySnapshot = (0, capabilityGate_1.buildCapabilitySnapshot)(capabilities);
+            const availability = workflowDefaultState();
+            for (const commandId of capabilityGate_1.WORKFLOW_COMMANDS) {
+                availability[commandId] = (0, capabilityGate_1.evaluateWorkflowCommand)(capabilitySnapshot, commandId).allowed;
+            }
+            await applyCapabilityContexts(availability);
+            setRuntimeUi(health.state, capabilities.state, runtime.settings.baseUrl, runtime.settings.profileId, [`health_status=${health.statusCode ?? "none"}`, `capabilities_status=${capabilities.statusCode ?? "none"}`]);
             output.appendLine(`[health] state=${health.state} status=${health.statusCode ?? "none"} capabilities_state=${capabilities.state}`);
             if (health.ok && capabilities.ok) {
                 void vscode.window.showInformationMessage("Ananta backend is healthy and capabilities were loaded.");
@@ -141,15 +477,22 @@ async function activate(context) {
         catch (error) {
             const safeError = (0, redaction_1.sanitizeErrorMessage)(error);
             output.appendLine(`[health] failed=${safeError}`);
-            statusView.setSnapshot({
-                connectionState: "backend_unreachable",
-                capabilitiesState: "unknown",
-                endpoint,
-                profileId,
-                details: [safeError]
-            });
+            setRuntimeUi("backend_unreachable", "unknown", runtime.settings.baseUrl, runtime.settings.profileId, [safeError]);
+            await applyCapabilityContexts(workflowDefaultState());
             void vscode.window.showErrorMessage(`Ananta check failed: ${safeError}`);
         }
+    }));
+    for (const workflowCommand of capabilityGate_1.WORKFLOW_COMMANDS) {
+        context.subscriptions.push(vscode.commands.registerCommand(workflowCommand, async () => {
+            await executeWorkflowCommand(workflowCommand);
+        }));
+    }
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (event) => {
+        if (!event.affectsConfiguration("ananta")) {
+            return;
+        }
+        await applyCapabilityContexts(workflowDefaultState());
+        setRuntimeUi("configured", "unknown", String(vscode.workspace.getConfiguration("ananta").get("baseUrl", "-")), String(vscode.workspace.getConfiguration("ananta").get("profileId", "-")), ["configuration_changed"]);
     }));
 }
 function deactivate() {

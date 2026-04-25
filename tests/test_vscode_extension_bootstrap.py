@@ -40,6 +40,18 @@ def test_vscode_package_manifest_declares_runtime_contributions() -> None:
     assert "ananta.auth.secretStorageKey" in configuration
     assert "ananta.timeoutMs" in configuration
 
+    commands = {entry.get("command") for entry in (contributes.get("commands") or [])}
+    expected_commands = {
+        "ananta.checkHealth",
+        "ananta.submitGoal",
+        "ananta.analyzeSelection",
+        "ananta.reviewFile",
+        "ananta.patchPlan",
+        "ananta.projectNew",
+        "ananta.projectEvolve",
+    }
+    assert expected_commands.issubset(commands)
+
     views = contributes.get("views") or {}
     assert "ananta" in views
     assert any(view.get("id") == "ananta.statusView" for view in views["ananta"])

@@ -28,6 +28,13 @@
     "onCommand:ananta.configureProfile",
     "onCommand:ananta.storeToken",
     "onCommand:ananta.clearToken",
+    "onCommand:ananta.openStatusView",
+    "onCommand:ananta.submitGoal",
+    "onCommand:ananta.analyzeSelection",
+    "onCommand:ananta.reviewFile",
+    "onCommand:ananta.patchPlan",
+    "onCommand:ananta.projectNew",
+    "onCommand:ananta.projectEvolve",
     "onView:ananta.statusView"
   ],
   "contributes": {
@@ -47,6 +54,40 @@
       {
         "command": "ananta.clearToken",
         "title": "Ananta: Clear Auth Token"
+      },
+      {
+        "command": "ananta.openStatusView",
+        "title": "Ananta: Open Status View"
+      },
+      {
+        "command": "ananta.submitGoal",
+        "title": "Ananta: Submit Goal",
+        "enablement": "ananta.capability.submitGoal"
+      },
+      {
+        "command": "ananta.analyzeSelection",
+        "title": "Ananta: Analyze Selection",
+        "enablement": "ananta.capability.analyzeSelection"
+      },
+      {
+        "command": "ananta.reviewFile",
+        "title": "Ananta: Review File",
+        "enablement": "ananta.capability.reviewFile"
+      },
+      {
+        "command": "ananta.patchPlan",
+        "title": "Ananta: Patch Plan",
+        "enablement": "ananta.capability.patchPlan"
+      },
+      {
+        "command": "ananta.projectNew",
+        "title": "Ananta: Project New",
+        "enablement": "ananta.capability.projectNew"
+      },
+      {
+        "command": "ananta.projectEvolve",
+        "title": "Ananta: Project Evolve",
+        "enablement": "ananta.capability.projectEvolve"
       }
     ],
     "viewsContainers": {
@@ -63,6 +104,30 @@
         {
           "id": "ananta.statusView",
           "name": "Status"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "ananta.analyzeSelection",
+          "when": "editorTextFocus && editorHasSelection && ananta.capability.analyzeSelection",
+          "group": "navigation@20"
+        },
+        {
+          "command": "ananta.reviewFile",
+          "when": "editorTextFocus && ananta.capability.reviewFile",
+          "group": "navigation@21"
+        },
+        {
+          "command": "ananta.patchPlan",
+          "when": "editorTextFocus && ananta.capability.patchPlan",
+          "group": "navigation@22"
+        },
+        {
+          "command": "ananta.submitGoal",
+          "when": "editorTextFocus && ananta.capability.submitGoal",
+          "group": "navigation@23"
         }
       ]
     },

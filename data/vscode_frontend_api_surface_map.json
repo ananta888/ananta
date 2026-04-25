@@ -10,6 +10,7 @@
   "sections": [
     "Connection",
     "Goals",
+    "Projects",
     "Tasks",
     "Artifacts",
     "Approvals",
@@ -52,6 +53,32 @@
         "endpoint": "/goals",
         "classification": "vscode-mvp",
         "source": "backend_api"
+      },
+      {
+        "feature": "goal_submit_from_command_palette",
+        "method": "submitGoal",
+        "http_method": "POST",
+        "endpoint": "/goals",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      }
+    ],
+    "Projects": [
+      {
+        "feature": "project_new_from_command_palette",
+        "method": "createProjectNew",
+        "http_method": "POST",
+        "endpoint": "/projects/new",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "project_evolve_from_command_palette",
+        "method": "createProjectEvolve",
+        "http_method": "POST",
+        "endpoint": "/projects/evolve",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
       }
     ],
     "Tasks": [
@@ -60,6 +87,30 @@
         "method": "listTasks",
         "http_method": "GET",
         "endpoint": "/tasks",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "analyze_selection",
+        "method": "analyzeContext",
+        "http_method": "POST",
+        "endpoint": "/tasks/analyze",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "review_file",
+        "method": "reviewContext",
+        "http_method": "POST",
+        "endpoint": "/tasks/review",
+        "classification": "vscode-mvp",
+        "source": "backend_api"
+      },
+      {
+        "feature": "patch_plan",
+        "method": "patchPlan",
+        "http_method": "POST",
+        "endpoint": "/tasks/patch-plan",
         "classification": "vscode-mvp",
         "source": "backend_api"
       }

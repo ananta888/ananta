@@ -50,13 +50,13 @@
       "id": "VSC-M2",
       "title": "Connection, auth and backend client",
       "task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "VSC-M3",
       "title": "Editor context and command palette workflows",
       "task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "VSC-M4",
@@ -193,7 +193,7 @@
     {
       "id": "VSC-T09",
       "title": "Capability and permission handshake implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -206,7 +206,7 @@
     {
       "id": "VSC-T10",
       "title": "Runtime status bar and diagnostics implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -220,7 +220,7 @@
     {
       "id": "VSC-T11",
       "title": "Bounded editor context capture implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -233,7 +233,7 @@
     {
       "id": "VSC-T12",
       "title": "Context preview and confirmation UI implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -246,7 +246,7 @@
     {
       "id": "VSC-T13",
       "title": "Command Palette goal workflows implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -259,7 +259,7 @@
     {
       "id": "VSC-T14",
       "title": "Quick goal input panel implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -272,7 +272,7 @@
     {
       "id": "VSC-T15",
       "title": "Editor context menu actions implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -596,15 +596,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T01:31:55+02:00",
+    "updated_at": "2026-04-25T02:16:18+02:00",
     "total": 36,
     "by_status": {
-      "todo": 28,
+      "todo": 21,
       "in_progress": 0,
       "blocked": 0,
-      "done": 8
+      "done": 15
     },
-    "progress_percent_done": 22.22,
+    "progress_percent_done": 41.67,
     "by_priority": {
       "P0": 25,
       "P1": 11,
@@ -619,20 +619,20 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 6,
-      "remaining": 15
+      "done": 10,
+      "remaining": 11
     },
     "milestones": {
       "total": 7,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T01:31:55+02:00",
+    "updated_at": "2026-04-25T02:16:18+02:00",
     "stages": {
       "VSC-M1": {
         "title": "Scope, architecture and project bootstrap",
@@ -647,8 +647,8 @@
         "title": "Connection, auth and backend client",
         "scope_task_ids": ["VSC-T06", "VSC-T07", "VSC-T08", "VSC-T09", "VSC-T10"],
         "total": 5,
-        "done": 3,
-        "todo": 2,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -656,8 +656,8 @@
         "title": "Editor context and command palette workflows",
         "scope_task_ids": ["VSC-T11", "VSC-T12", "VSC-T13", "VSC-T14", "VSC-T15", "VSC-T16"],
         "total": 6,
-        "done": 0,
-        "todo": 6,
+        "done": 5,
+        "todo": 1,
         "in_progress": 0,
         "blocked": 0
       },
@@ -701,12 +701,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T01:31:55+02:00",
+    "checked_at": "2026-04-25T02:16:18+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "First implementation bundle VSC-T01..VSC-T08 was completed and tracked to done state.",
-      "tasks_status_summary and execution_stage_summary were synchronized with task and milestone status changes.",
-      "VSIX packaging command was made non-blocking on Node 18 by pinning cheerio to rc.12 and ensuring dist output directory creation."
+      "Second implementation bundle VSC-T09..VSC-T15 was completed and tracked to done state.",
+      "Capability-gated commands, bounded context preview/confirmation and status diagnostics are now reflected in task completion state.",
+      "tasks_status_summary and execution_stage_summary were synchronized after milestone transitions (VSC-M2 done, VSC-M3 in progress)."
     ]
   },
 
@@ -716,7 +716,7 @@
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
     "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
     "Current todo file now contains synchronized status counters and explicit stage-level rollup data.",
-    "Milestone VSC-M1 is complete and VSC-M2 is in progress after shipping the first 8-task bootstrap bundle."
+    "Milestone VSC-M1 and VSC-M2 are complete; VSC-M3 is now in progress with command palette and context menu workflows shipped."
   ],
 
   "end_summaries": [
@@ -750,7 +750,7 @@
       "summary_id": "VSC-S4",
       "title": "Status am Ende",
       "items": [
-        "Erstes Umsetzungsbündel ist abgeschlossen: 8 done, 1 milestone done (VSC-M1), 1 milestone in_progress (VSC-M2).",
+        "Zweites Umsetzungsbündel ist abgeschlossen: insgesamt 15 done, 2 milestones done (VSC-M1, VSC-M2), 1 milestone in_progress (VSC-M3).",
         "Die Datei bleibt validator-konsistent und enthält aktualisierte Stage- sowie End-Summaries."
       ]
     }
