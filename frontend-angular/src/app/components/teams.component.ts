@@ -272,7 +272,7 @@ type GuidedSetupForm = {
                   </select>
                 </label>
               </div>
-              @if (guidedSetupRecommendation() as recommendation) {
+              @if (guidedSetupRecommendation(); as recommendation) {
                 <div class="teams-inline-card mt-md">
                   <div class="row flex-between">
                     <strong>Empfehlter Blueprint: {{ recommendation.card.name }}</strong>
