@@ -21,19 +21,26 @@ It must not duplicate hub orchestration or policy logic.
 4. `runtime/redaction.ts`
    - Secret-safe logging/error redaction helpers.
 5. `runtime/backendClient.ts`
-   - Typed backend HTTP client.
-   - Timeout handling and degraded-state mapping.
-6. `views/statusTreeProvider.ts`
-   - Read-only status surface for connection/capability diagnostics.
+    - Typed backend HTTP client.
+    - Timeout handling and degraded-state mapping.
+6. `runtime/capabilityGate.ts`
+   - Parses capability/permission handshake responses.
+   - Evaluates command enablement and execution gates.
+7. `runtime/contextCapture.ts`
+   - Builds bounded editor-context payloads with warning/block signals.
+8. `runtime/resultLinks.ts`
+   - Builds result deep-links from backend task/goal/artifact payloads.
+9. `views/statusTreeProvider.ts`
+    - Read-only status surface for connection/capability diagnostics.
 
 ## API reuse policy
 
-Runtime features must use existing backend endpoints/read models (health, capabilities, goals/tasks/artifacts, approvals, audit, repair, config-read).
+Runtime features must use existing backend endpoints/read models (health, capabilities, goals/tasks/artifacts, approvals, audit, repair, config-read, goal/analyze/review/patch/project workflows).
 No local fake data model may be used to claim runtime completion.
 
 ## SOLID-oriented notes
 
-1. SRP: config, secret handling, transport/client and view rendering are separated.
+1. SRP: config, secret handling, transport/client, capability gate, context packaging and view rendering are separated.
 2. OCP: backend client can be extended with additional methods without rewriting activation flow.
 3. DIP: backend client depends on transport abstraction (`HttpTransport`) for testability.
 

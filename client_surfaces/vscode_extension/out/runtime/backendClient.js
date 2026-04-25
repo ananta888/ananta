@@ -54,6 +54,19 @@ function mapStatusToState(statusCode, parseError) {
 function isRetriableState(state) {
     return state === "backend_timeout" || state === "backend_unreachable";
 }
+function metadataPayload(metadata) {
+    const payload = {
+        operation_preset: String(metadata.operationPreset || "").trim(),
+        command_id: String(metadata.commandId || "").trim(),
+        profile_id: String(metadata.profileId || "").trim(),
+        runtime_target: String(metadata.runtimeTarget || "").trim()
+    };
+    const mode = String(metadata.mode || "").trim();
+    if (mode.length > 0) {
+        payload.mode = mode;
+    }
+    return payload;
+}
 class AnantaBackendClient {
     settings;
     transport;
@@ -142,6 +155,48 @@ class AnantaBackendClient {
     }
     getConfig() {
         return this.requestJson("GET", "/config");
+    }
+    submitGoal(goalText, context, metadata) {
+        return this.requestJson("POST", "/goals", {
+            goal_text: String(goalText || "").trim(),
+            context,
+            ...metadataPayload(metadata)
+        });
+    }
+    analyzeContext(context, metadata, goalText) {
+        return this.requestJson("POST", "/tasks/analyze", {
+            goal_text: String(goalText || "").trim(),
+            context,
+            ...metadataPayload(metadata)
+        });
+    }
+    reviewContext(context, metadata, goalText) {
+        return this.requestJson("POST", "/tasks/review", {
+            goal_text: String(goalText || "").trim(),
+            context,
+            ...metadataPayload(metadata)
+        });
+    }
+    patchPlan(context, metadata, goalText) {
+        return this.requestJson("POST", "/tasks/patch-plan", {
+            goal_text: String(goalText || "").trim(),
+            context,
+            ...metadataPayload(metadata)
+        });
+    }
+    createProjectNew(goalText, context, metadata) {
+        return this.requestJson("POST", "/projects/new", {
+            goal_text: String(goalText || "").trim(),
+            context,
+            ...metadataPayload(metadata)
+        });
+    }
+    createProjectEvolve(goalText, context, metadata) {
+        return this.requestJson("POST", "/projects/evolve", {
+            goal_text: String(goalText || "").trim(),
+            context,
+            ...metadataPayload(metadata)
+        });
     }
 }
 exports.AnantaBackendClient = AnantaBackendClient;

@@ -17,6 +17,14 @@ export interface HttpTransport {
   request(request: HttpTransportRequest): Promise<HttpTransportResponse>;
 }
 
+export interface WorkflowRequestMetadata {
+  operationPreset: string;
+  commandId: string;
+  profileId: string;
+  runtimeTarget: string;
+  mode?: string;
+}
+
 export class FetchHttpTransport implements HttpTransport {
   public async request(request: HttpTransportRequest): Promise<HttpTransportResponse> {
     const controller = new AbortController();
@@ -69,6 +77,20 @@ function mapStatusToState(statusCode: number, parseError: boolean): DegradedStat
 
 function isRetriableState(state: DegradedState): boolean {
   return state === "backend_timeout" || state === "backend_unreachable";
+}
+
+function metadataPayload(metadata: WorkflowRequestMetadata): Record<string, string> {
+  const payload: Record<string, string> = {
+    operation_preset: String(metadata.operationPreset || "").trim(),
+    command_id: String(metadata.commandId || "").trim(),
+    profile_id: String(metadata.profileId || "").trim(),
+    runtime_target: String(metadata.runtimeTarget || "").trim()
+  };
+  const mode = String(metadata.mode || "").trim();
+  if (mode.length > 0) {
+    payload.mode = mode;
+  }
+  return payload;
 }
 
 export class AnantaBackendClient {
@@ -168,5 +190,77 @@ export class AnantaBackendClient {
 
   public getConfig(): Promise<ClientResponse<Record<string, unknown>>> {
     return this.requestJson("GET", "/config");
+  }
+
+  public submitGoal(
+    goalText: string,
+    context: object,
+    metadata: WorkflowRequestMetadata
+  ): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("POST", "/goals", {
+      goal_text: String(goalText || "").trim(),
+      context,
+      ...metadataPayload(metadata)
+    });
+  }
+
+  public analyzeContext(
+    context: object,
+    metadata: WorkflowRequestMetadata,
+    goalText?: string
+  ): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("POST", "/tasks/analyze", {
+      goal_text: String(goalText || "").trim(),
+      context,
+      ...metadataPayload(metadata)
+    });
+  }
+
+  public reviewContext(
+    context: object,
+    metadata: WorkflowRequestMetadata,
+    goalText?: string
+  ): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("POST", "/tasks/review", {
+      goal_text: String(goalText || "").trim(),
+      context,
+      ...metadataPayload(metadata)
+    });
+  }
+
+  public patchPlan(
+    context: object,
+    metadata: WorkflowRequestMetadata,
+    goalText?: string
+  ): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("POST", "/tasks/patch-plan", {
+      goal_text: String(goalText || "").trim(),
+      context,
+      ...metadataPayload(metadata)
+    });
+  }
+
+  public createProjectNew(
+    goalText: string,
+    context: object,
+    metadata: WorkflowRequestMetadata
+  ): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("POST", "/projects/new", {
+      goal_text: String(goalText || "").trim(),
+      context,
+      ...metadataPayload(metadata)
+    });
+  }
+
+  public createProjectEvolve(
+    goalText: string,
+    context: object,
+    metadata: WorkflowRequestMetadata
+  ): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("POST", "/projects/evolve", {
+      goal_text: String(goalText || "").trim(),
+      context,
+      ...metadataPayload(metadata)
+    });
   }
 }

@@ -3,7 +3,8 @@ import {
   AnantaBackendClient,
   HttpTransport,
   HttpTransportRequest,
-  HttpTransportResponse
+  HttpTransportResponse,
+  WorkflowRequestMetadata
 } from "../src/runtime/backendClient";
 import { RuntimeSettings } from "../src/runtime/types";
 
@@ -15,6 +16,14 @@ const settings: RuntimeSettings = {
   authToken: "fixture-token",
   timeoutMs: 8000,
   secretStorageKey: "ananta.auth.token"
+};
+
+const metadata: WorkflowRequestMetadata = {
+  operationPreset: "review",
+  commandId: "ananta.reviewFile",
+  profileId: "default",
+  runtimeTarget: "local",
+  mode: "review"
 };
 
 class StubTransport implements HttpTransport {
@@ -65,5 +74,45 @@ describe("AnantaBackendClient", () => {
     expect(response.ok).toBe(false);
     expect(response.state).toBe("backend_unreachable");
     expect(response.retriable).toBe(true);
+  });
+
+  it("sends goal workflow payload with explicit metadata", async () => {
+    const transport = new StubTransport(async (request) => {
+      expect(request.url).toBe("http://localhost:8080/goals");
+      const body = JSON.parse(request.body ?? "{}") as Record<string, unknown>;
+      expect(body.goal_text).toBe("Ship the feature");
+      expect(body.context).toMatchObject({ schema: "client_bounded_context_payload_v1" });
+      expect(body.operation_preset).toBe("review");
+      expect(body.command_id).toBe("ananta.reviewFile");
+      expect(body.profile_id).toBe("default");
+      expect(body.runtime_target).toBe("local");
+      expect(body.mode).toBe("review");
+      return { status: 200, body: JSON.stringify({ task_id: "task-1" }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    const response = await client.submitGoal(
+      "Ship the feature",
+      { schema: "client_bounded_context_payload_v1", selection_text: "print('x')" },
+      metadata
+    );
+    expect(response.ok).toBe(true);
+    expect(response.data?.task_id).toBe("task-1");
+  });
+
+  it("sends analyze payload with contextual goal text", async () => {
+    const transport = new StubTransport(async (request) => {
+      expect(request.url).toBe("http://localhost:8080/tasks/analyze");
+      const body = JSON.parse(request.body ?? "{}") as Record<string, unknown>;
+      expect(body.goal_text).toBe("Analyze this selection");
+      expect(body.context).toMatchObject({ schema: "client_bounded_context_payload_v1" });
+      return { status: 200, body: JSON.stringify({ task_id: "task-analyze-1" }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    const response = await client.analyzeContext(
+      { schema: "client_bounded_context_payload_v1", selection_text: "print('x')" },
+      metadata,
+      "Analyze this selection"
+    );
+    expect(response.ok).toBe(true);
   });
 });
