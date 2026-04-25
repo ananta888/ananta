@@ -12,7 +12,7 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { TerminalComponent } from './terminal.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
-import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
+import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from '../shared/ui/display';
 
 @Component({
   standalone: true,
@@ -26,7 +26,6 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
     UiSkeletonComponent,
     DecisionExplanationComponent,
     NextStepsComponent,
-    SafetyNoticeComponent,
   ],
   styles: [`
     .tab-btn {
