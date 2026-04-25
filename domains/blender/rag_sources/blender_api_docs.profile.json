@@ -1,0 +1,31 @@
+{
+  "schema": "rag_source_profile.v1",
+  "source_id": "blender.api.docs",
+  "domain_id": "blender",
+  "source_type": "api_docs",
+  "repo": "ananta888/ananta",
+  "path": "docs/integrations/blender",
+  "ref": "main",
+  "allowed_paths": [
+    "docs/integrations/blender/",
+    "client_surfaces/blender/"
+  ],
+  "include_globs": [
+    "docs/integrations/blender/**/*.md",
+    "client_surfaces/blender/**/*.py"
+  ],
+  "exclude_globs": [
+    "**/__pycache__/**",
+    "**/*.blend"
+  ],
+  "license_note": "Project-owned integration documentation and bridge code references only.",
+  "intended_usage": "Blender addon API questions, bridge behavior planning, and policy-safe execution guidance.",
+  "indexing_config_ref": "rag-helper/spring-large-project-profile.json",
+  "ingestion_path": "codecompass/rag_helper",
+  "retrieval_source_types": ["repo", "artifact"],
+  "provenance": {
+    "owner": "ananta",
+    "captured_at": "2026-04-25T15:49:33+02:00",
+    "explanation": "Initial Blender foundation RAG profile for bounded API/doc retrieval."
+  }
+}

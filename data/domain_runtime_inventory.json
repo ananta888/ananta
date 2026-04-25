@@ -1,0 +1,49 @@
+{
+  "schema": "domain_runtime_inventory_v1",
+  "generated_for_track": "generic_domain_integration_foundation",
+  "status_scale": [
+    "planned",
+    "foundation_only",
+    "runtime_mvp",
+    "runtime_complete",
+    "deferred",
+    "blocked"
+  ],
+  "domains": [
+    {
+      "domain_id": "example",
+      "inventory_status": "foundation_only",
+      "descriptor_path": "domains/example/domain.json",
+      "required_runtime_files": [],
+      "smoke_commands": [],
+      "runtime_evidence_refs": [],
+      "notes": [
+        "Descriptor-only reference domain for contract and registry validation."
+      ]
+    },
+    {
+      "domain_id": "blender",
+      "inventory_status": "foundation_only",
+      "descriptor_path": "domains/blender/domain.json",
+      "required_runtime_files": [
+        "client_surfaces/blender/addon/__init__.py",
+        "client_surfaces/blender/bridge/ananta_blender_bridge.py"
+      ],
+      "smoke_commands": [
+        "python scripts/run_blender_smoke_checks.py"
+      ],
+      "runtime_evidence_refs": [],
+      "notes": [
+        "Foundation-only declaration until addon runtime, bridge execution path and smoke evidence are delivered."
+      ]
+    }
+  ],
+  "status_counters": {
+    "planned": 0,
+    "foundation_only": 2,
+    "runtime_mvp": 0,
+    "runtime_complete": 0,
+    "deferred": 0,
+    "blocked": 0
+  }
+}

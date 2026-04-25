@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/domains/blender/schemas/artifact.v1.json",
+  "title": "Blender Artifact v1",
+  "type": "object",
+  "required": ["schema", "artifact_type", "summary"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "blender_artifact.v1"
+    },
+    "artifact_type": {
+      "type": "string",
+      "enum": ["scene_finding", "script_plan", "render_preview", "execution_report"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_ref": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

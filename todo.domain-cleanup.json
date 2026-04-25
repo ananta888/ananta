@@ -1,0 +1,92 @@
+{
+  "schema": "domain_cleanup_todo_v1",
+  "generated_from_track": "generic_domain_integration_foundation",
+  "purpose": "Capture post-foundation implementation gaps and follow-up work without mixing in Enterprise or KRITIS scope.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "cleanup_buckets": [
+    {
+      "bucket": "generic_gaps",
+      "items": [
+        {
+          "id": "CLEAN-T01",
+          "title": "Wire domain action router into production task execution path",
+          "category": "missing_implementation",
+          "status": "todo",
+          "priority": "P0",
+          "notes": "Current router is foundation skeleton; production execution integration is still pending."
+        },
+        {
+          "id": "CLEAN-T02",
+          "title": "Extend domain audit with CI artifact publishing",
+          "category": "future_enhancement",
+          "status": "todo",
+          "priority": "P1",
+          "notes": "Publish domain audit report in CI artifacts for release evidence review."
+        },
+        {
+          "id": "CLEAN-T03",
+          "title": "Harden domain retrieval tests with retrieval backend contract fixtures",
+          "category": "weak_tests",
+          "status": "todo",
+          "priority": "P1",
+          "notes": "Add integration-like fixtures for source-type routing and bounded chunk selection."
+        }
+      ]
+    },
+    {
+      "bucket": "blender_alignment_gaps",
+      "items": [
+        {
+          "id": "CLEAN-T10",
+          "title": "Implement Blender addon runtime skeleton",
+          "category": "missing_implementation",
+          "status": "todo",
+          "priority": "P0",
+          "notes": "Deliver addon bootstrap and bridge runtime files before any runtime_mvp claim."
+        },
+        {
+          "id": "CLEAN-T11",
+          "title": "Add Blender smoke runner and runtime evidence capture",
+          "category": "missing_implementation",
+          "status": "todo",
+          "priority": "P0",
+          "notes": "Required for promoting Blender from foundation_only to runtime_mvp."
+        },
+        {
+          "id": "CLEAN-T12",
+          "title": "Align Blender task IDs to generic service ownership map",
+          "category": "documentation_drift",
+          "status": "todo",
+          "priority": "P1",
+          "notes": "Keep blender-specific tasks from reintroducing duplicated registry/policy/retrieval logic."
+        }
+      ]
+    },
+    {
+      "bucket": "deferred_freecad_kicad_preparation",
+      "items": [
+        {
+          "id": "CLEAN-T20",
+          "title": "Prepare FreeCAD domain descriptor baseline",
+          "category": "future_enhancement",
+          "status": "todo",
+          "priority": "P2",
+          "notes": "Descriptor/capability groundwork only; no runtime execution in this cleanup scope."
+        },
+        {
+          "id": "CLEAN-T21",
+          "title": "Prepare KiCad domain descriptor baseline",
+          "category": "future_enhancement",
+          "status": "todo",
+          "priority": "P2",
+          "notes": "Descriptor/capability groundwork only; no runtime execution in this cleanup scope."
+        }
+      ]
+    }
+  ],
+  "scope_guardrails": [
+    "No Enterprise-only RBAC, tenancy or KRITIS requirements are included in this cleanup todo.",
+    "Cleanup remains OSS-foundation focused and additive to the existing hub-governed architecture."
+  ]
+}

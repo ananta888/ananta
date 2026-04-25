@@ -81,13 +81,13 @@
       "id": "GEN-M6",
       "title": "Runtime inventory and release-gate integration",
       "task_ids": ["GEN-T19", "GEN-T20", "GEN-T21"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GEN-M7",
       "title": "Blender migration alignment and docs",
       "task_ids": ["GEN-T22", "GEN-T23", "GEN-T24", "GEN-T25"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -382,7 +382,7 @@
     {
       "id": "GEN-T19",
       "title": "Domain runtime inventory integrate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -398,7 +398,7 @@
     {
       "id": "GEN-T20",
       "title": "Generic domain audit script add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -414,7 +414,7 @@
     {
       "id": "GEN-T21",
       "title": "Release gate integration for domains add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -430,7 +430,7 @@
     {
       "id": "GEN-T22",
       "title": "Blender descriptor alignment plan add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -446,7 +446,7 @@
     {
       "id": "GEN-T23",
       "title": "Example Blender foundation descriptor add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -462,7 +462,7 @@
     {
       "id": "GEN-T24",
       "title": "Generic domain foundation docs write",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -478,7 +478,7 @@
     {
       "id": "GEN-T25",
       "title": "Post-foundation cleanup todo generate",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -523,15 +523,15 @@
     "GEN-T22"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T15:58:20+02:00",
+    "updated_at": "2026-04-25T16:10:40+02:00",
     "total": 25,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 18
+      "done": 25
     },
-    "progress_percent_done": 72.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 20,
       "P1": 4,
@@ -546,19 +546,19 @@
     },
     "critical_path": {
       "total": 20,
-      "done": 16,
-      "remaining": 4
+      "done": 20,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 7
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T15:58:20+02:00",
+    "updated_at": "2026-04-25T16:10:40+02:00",
     "stages": {
       "GEN-M1": {
         "title": "Scope, model and descriptor contracts",
@@ -609,8 +609,8 @@
         "title": "Runtime inventory and release-gate integration",
         "scope_task_ids": ["GEN-T19", "GEN-T20", "GEN-T21"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -618,23 +618,24 @@
         "title": "Blender migration alignment and docs",
         "scope_task_ids": ["GEN-T22", "GEN-T23", "GEN-T24", "GEN-T25"],
         "total": 4,
-        "done": 0,
-        "todo": 4,
+        "done": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T15:58:20+02:00",
-    "internal_consistency": "bundles_4_5_completed",
+    "checked_at": "2026-04-25T16:10:40+02:00",
+    "internal_consistency": "all_bundles_completed",
     "notes": [
       "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=4, high=10, critical=11).",
       "execution_stage_summary ergänzt, damit Rollups je Meilenstein transparent und validator-kompatibel sind.",
       "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt.",
       "Bundle GEN-T01..GEN-T04 umgesetzt und in Tasks/Milestones/Stage-Rollups als done synchronisiert.",
       "Bundles GEN-T05..GEN-T12 umgesetzt und als abgeschlossene Meilensteine GEN-M2 und GEN-M3 synchronisiert.",
-      "Bundles GEN-T13..GEN-T18 umgesetzt und als abgeschlossene Meilensteine GEN-M4 und GEN-M5 synchronisiert."
+      "Bundles GEN-T13..GEN-T18 umgesetzt und als abgeschlossene Meilensteine GEN-M4 und GEN-M5 synchronisiert.",
+      "Bundles GEN-T19..GEN-T25 umgesetzt und als abgeschlossene Meilensteine GEN-M6 und GEN-M7 synchronisiert."
     ]
   },
   "summary_notes": [
@@ -645,7 +646,8 @@
     "Summary counters and milestone stage rollups are now synchronized and explicitly documented.",
     "Bundle 1 now provides scope docs, descriptor/status schemas, and a descriptor-only example domain baseline.",
     "Bundles 2 and 3 now provide generic registries plus policy/approval/audit contracts without introducing domain-specific orchestration logic.",
-    "Bundles 4 and 5 now add generic RAG profile loading/retrieval plus bridge contract/registry/routing skeleton under hub-governed policy checks."
+    "Bundles 4 and 5 now add generic RAG profile loading/retrieval plus bridge contract/registry/routing skeleton under hub-governed policy checks.",
+    "Bundles 6 and 7 now complete runtime inventory + domain audit + release-gate integration and add Blender alignment/docs/cleanup follow-up planning."
   ],
   "end_summaries": [
     {
@@ -676,8 +678,8 @@
       "summary_id": "GEN-S4",
       "title": "Status am Ende",
       "items": [
-        "Fünf Umsetzungsbündel abgeschlossen: 7 todo, 0 in_progress, 0 blocked, 18 done (72.0%).",
-        "Meilensteine GEN-M1 bis GEN-M5 sind done; der verbleibende Track fokussiert auf Runtime-Inventory, Audit-Script, Release-Gate und Blender-Alignment."
+        "Alle Umsetzungsbündel abgeschlossen: 0 todo, 0 in_progress, 0 blocked, 25 done (100.0%).",
+        "Meilensteine GEN-M1 bis GEN-M7 sind done; der Track ist vollständig umgesetzt und auf Cleanup-Folgearbeiten überführt."
       ]
     }
   ]

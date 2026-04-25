@@ -75,3 +75,33 @@ That keeps clients thin and avoids repeating backend control-plane logic for eac
 - **SRP:** descriptors describe; Hub services orchestrate.
 - **OCP:** new domains extend by data contracts instead of patching core orchestration paths.
 - **DIP:** runtime routing depends on abstract contracts (descriptor/capability/policy schemas), not concrete domain implementations.
+
+## How to add a new domain
+
+1. Add a descriptor at `domains/<domain_id>/domain.json` and validate it against `schemas/domain/domain_descriptor.v1.json`.
+2. Add a capability pack at `domains/<domain_id>/capabilities.json` using `capability_pack.v1`.
+3. Add context/artifact schemas under `domains/<domain_id>/schemas/` and reference them from the descriptor.
+4. Add a domain policy pack under `domains/<domain_id>/policies/` with explicit allow/deny/approval rules.
+5. Add one or more RAG source profiles under `domains/<domain_id>/rag_sources/` using `rag_source_profile.v1`.
+6. Select an allow-listed bridge adapter type in the descriptor; never load executable code dynamically from domain folders.
+7. Register domain status in `data/domain_runtime_inventory.json` with honest `inventory_status`.
+
+## Runtime readiness and release-gate checks
+
+Runtime readiness is not inferred from descriptor presence alone.
+
+- `scripts/audit_domain_integrations.py` validates descriptors, packs, policy references, RAG profiles and runtime inventory consistency.
+- `scripts/run_release_gate.py` runs this audit automatically when `data/domain_runtime_inventory.json` exists.
+- `runtime_mvp` / `runtime_complete` inventory claims must include runtime files, smoke commands and runtime evidence references.
+- Descriptor-only domains are blocked from claiming runtime readiness.
+
+## Safety notes for domain authors
+
+- Never add arbitrary import paths or executable hooks to descriptors.
+- Keep policy and approval checks in Hub services, not in domain metadata.
+- Treat generated scripts as untrusted artifacts until policy + approval allow execution.
+
+## Consumer roadmap
+
+Blender is the first large consumer of this model, but not the only one.
+The same contracts are intended for future FreeCAD and KiCad integrations with domain-specific rules layered on top of the shared foundation.
