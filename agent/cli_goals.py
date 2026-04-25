@@ -224,6 +224,12 @@ def submit_goal(
         print(f"Tasks created: {len(created_task_ids)}")
         for task_id in created_task_ids:
             _print_terminal("  - {}", task_id)
+        reference_profile = dict(goal_payload.get("reference_profile") or {})
+        if reference_profile:
+            _print_terminal("Reference profile: {}", reference_profile.get("profile_id") or "-")
+            _print_terminal("Reference fit: {}", reference_profile.get("fit_level") or "n/a")
+            if reference_profile.get("reason_summary"):
+                _print_terminal("Reference reason: {}", reference_profile.get("reason_summary"))
         goal_id = goal_payload.get("id")
         if goal_id:
             _print_terminal("Next step: python -m agent.cli_goals --goal-detail {}", goal_id)

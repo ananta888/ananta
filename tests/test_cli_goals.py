@@ -102,6 +102,40 @@ def test_submit_goal_prints_first_run_success_signal(monkeypatch, capsys):
     assert "Success signal:" in out
 
 
+def test_submit_goal_prints_reference_profile_visibility(monkeypatch, capsys):
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+
+    def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
+        return _FakeResponse(
+            201,
+            {
+                "data": {
+                    "goal": {
+                        "id": "goal-ref-1",
+                        "goal": json["goal"],
+                        "status": "planned",
+                        "reference_profile": {
+                            "profile_id": "ref.python.ananta_backend",
+                            "fit_level": "high_fit",
+                            "reason_summary": "ref.python.ananta_backend selected via language_exact",
+                        },
+                    },
+                    "created_task_ids": ["task-ref-1"],
+                }
+            },
+        )
+
+    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+
+    cli_goals.submit_goal(goal="reference visible")
+
+    out = capsys.readouterr().out
+    assert "Reference profile: ref.python.ananta_backend" in out
+    assert "Reference fit: high_fit" in out
+    assert "Reference reason:" in out
+
+
 def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
     calls: list[dict] = []
 

@@ -109,3 +109,43 @@ def test_mode_reference_plan_provides_selection_reason_and_integration_hints():
     assert selection["selected_reason"]["summary"]
     assert plan["integration_hints"]["work_profile"] == "governed_backend_orchestration"
     assert plan["skeleton_guidance"]["boundary_note"].startswith("Use reference guidance")
+
+
+def test_project_evolution_plan_contains_hints_and_fit_diagnostics():
+    service = get_reference_profile_service()
+
+    plan = service.build_mode_reference_plan(
+        flow="project_evolution",
+        mode_data={
+            "change_goal": "Evolve frontend workflow states",
+            "affected_areas": "frontend-angular/src/app/workflows",
+            "reference_profile_id": "ref.angular.ananta_frontend",
+        },
+    )
+
+    assert plan["selection"]["selected_profile"]["profile_id"] == "ref.angular.ananta_frontend"
+    assert plan["evolution_hints"]["actionable_hints"]
+    assert plan["mismatch_diagnostics"]["fit_level"] in {"high_fit", "partial_fit", "low_fit"}
+    assert "governance_contract" in plan
+
+
+def test_project_evolution_mismatch_diagnostics_flag_obvious_scope_mismatch():
+    service = get_reference_profile_service()
+
+    diagnostics = service.build_project_evolution_mismatch_diagnostics(
+        profile_id="ref.angular.ananta_frontend",
+        mode_data={"change_goal": "Refactor backend API policy layer", "affected_areas": "agent/services agent/routes"},
+    )
+
+    assert diagnostics["fit_level"] == "low_fit"
+    assert "frontend_profile_for_backend_change" in diagnostics["mismatch_signals"]
+
+
+def test_governance_contract_exposes_influence_boundaries_and_quality_rules():
+    service = get_reference_profile_service()
+
+    contract = service.governance_contract()
+
+    assert contract["version"] == "v1"
+    assert "policy_override" in contract["influence_boundaries"]["influence_forbidden"]
+    assert contract["source_quality_rules"]["starter_profiles_quality"]["ref.java.keycloak"]["limits_acknowledged"] is True
