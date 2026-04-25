@@ -147,7 +147,18 @@ class TestGoalsAPI:
         persisted_goal = goal_repo.get_by_id(goal_payload["id"])
         assert persisted_goal is not None
         assert "Keine unkontrollierte Vollautomatik" in persisted_goal.constraints[0]
+        assert any("Referenzprofile dienen nur als Guidance" in item for item in persisted_goal.constraints)
         assert "Projekt-Blueprint" in persisted_goal.acceptance_criteria[0]
+        assert "Referenzprofil-Auswahl und Auswahlgrund" in persisted_goal.acceptance_criteria[2]
+        assert "REFERENZKONTEXT" in persisted_goal.context
+        reference_plan = persisted_goal.mode_data["reference_profile_plan"]
+        selected_profile = reference_plan["selection"]["selected_profile"]
+        assert selected_profile["profile_id"] in {"ref.python.ananta_backend", "ref.angular.ananta_frontend"}
+        assert reference_plan["selection"]["selected_reason"]["summary"]
+        assert workflow["routing"]["reference_profile_id"] == selected_profile["profile_id"]
+        assert workflow["planning"]["blueprint_hint"] == reference_plan["integration_hints"]["blueprint_name"]
+        assert workflow["routing"]["work_profile"] == reference_plan["integration_hints"]["work_profile"]
+        assert reference_plan["skeleton_guidance"]["guidance_lines"]
         tasks = task_repo.get_by_goal_id(goal_payload["id"])
         titles = {task.title for task in tasks}
         assert "Projekt-Blueprint erstellen" in titles

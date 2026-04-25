@@ -124,7 +124,7 @@
         {
           "id": "REF-T09",
           "title": "Reference retrieval entry points define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The system defines how reference material enters retrieval and prompt assembly.",
@@ -135,7 +135,7 @@
         {
           "id": "REF-T10",
           "title": "Pattern extraction categories define",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "A small set of pattern categories is defined such as project structure, module organization, configuration style, test structure, API layout and security conventions.",
@@ -146,7 +146,7 @@
         {
           "id": "REF-T11",
           "title": "Reference chunking and indexing strategy add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Reference repositories can be indexed in a way suitable for bounded retrieval.",
@@ -157,7 +157,7 @@
         {
           "id": "REF-T12",
           "title": "Reference recommendation reason output add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "When Ananta uses a reference profile, it can explain why it chose it.",
@@ -175,7 +175,7 @@
         {
           "id": "REF-T13",
           "title": "New-project reference selection flow add",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "acceptance_criteria": [
             "The new-project flow can choose or recommend one of the starter reference profiles.",
@@ -186,7 +186,7 @@
         {
           "id": "REF-T14",
           "title": "Blueprint and work-profile integration for references add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "Reference profile choice can influence blueprint or work-profile selection where useful.",
@@ -197,7 +197,7 @@
         {
           "id": "REF-T15",
           "title": "Reference-aware project skeleton guidance add",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "acceptance_criteria": [
             "New-project output can use selected reference profiles to suggest structure, modules and conventions.",
@@ -353,8 +353,8 @@
   "milestones": [
     { "id": "REF-M1", "title": "Grundmodell fuer Referenzprofile", "task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "status": "done" },
     { "id": "REF-M2", "title": "Erste drei Start-Referenzprofile", "task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "status": "done" },
-    { "id": "REF-M3", "title": "Retrieval und Musterableitung", "task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "status": "todo" },
-    { "id": "REF-M4", "title": "Integration fuer neues Projekt anlegen", "task_ids": ["REF-T13", "REF-T14", "REF-T15"], "status": "todo" },
+    { "id": "REF-M3", "title": "Retrieval und Musterableitung", "task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "status": "done" },
+    { "id": "REF-M4", "title": "Integration fuer neues Projekt anlegen", "task_ids": ["REF-T13", "REF-T14", "REF-T15"], "status": "done" },
     { "id": "REF-M5", "title": "Integration fuer existierendes Projekt weiterentwickeln", "task_ids": ["REF-T16", "REF-T17", "REF-T18"], "status": "todo" },
     { "id": "REF-M6", "title": "Governance und Sicherheitsgrenzen", "task_ids": ["REF-T19", "REF-T20", "REF-T21"], "status": "todo" },
     { "id": "REF-M7", "title": "UX Doku Tests", "task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "status": "todo" }
@@ -370,14 +370,14 @@
     { "id": "REF-T07", "title": "Angular Ananta frontend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Angular/Ananta-frontend profile with fit scope exists."] },
     { "id": "REF-T08", "title": "Starter reference catalog expose", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["Starter catalog exposes language/framework/use-case clearly."] },
 
-    { "id": "REF-T09", "title": "Reference retrieval entry points define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference retrieval entry points are bounded and explicit."] },
-    { "id": "REF-T10", "title": "Pattern extraction categories define", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reusable cross-profile pattern categories are defined."] },
-    { "id": "REF-T11", "title": "Reference chunking and indexing strategy add", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Chunking/indexing preserves provenance and avoids context bloat."] },
-    { "id": "REF-T12", "title": "Reference recommendation reason output add", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference choice reasons are concise and useful."] },
+    { "id": "REF-T09", "title": "Reference retrieval entry points define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference retrieval entry points are bounded and explicit."] },
+    { "id": "REF-T10", "title": "Pattern extraction categories define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reusable cross-profile pattern categories are defined."] },
+    { "id": "REF-T11", "title": "Reference chunking and indexing strategy add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Chunking/indexing preserves provenance and avoids context bloat."] },
+    { "id": "REF-T12", "title": "Reference recommendation reason output add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference choice reasons are concise and useful."] },
 
-    { "id": "REF-T13", "title": "New-project reference selection flow add", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["New-project flow selects/recommends starter references visibly."] },
-    { "id": "REF-T14", "title": "Blueprint and work-profile integration for references add", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Reference choice influences profiles explicitly and explainably."] },
-    { "id": "REF-T15", "title": "Reference-aware project skeleton guidance add", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Skeleton guidance is concrete but never blind-cloned."] },
+    { "id": "REF-T13", "title": "New-project reference selection flow add", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["New-project flow selects/recommends starter references visibly."] },
+    { "id": "REF-T14", "title": "Blueprint and work-profile integration for references add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Reference choice influences profiles explicitly and explainably."] },
+    { "id": "REF-T15", "title": "Reference-aware project skeleton guidance add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Skeleton guidance is concrete but never blind-cloned."] },
 
     { "id": "REF-T16", "title": "Project-evolution reference matching add", "status": "todo", "priority": "P0", "risk": "high", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Evolution flow can infer/recommend matching references."] },
     { "id": "REF-T17", "title": "Reference-aware review and evolution hints add", "status": "todo", "priority": "P1", "risk": "medium", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Evolution hints are actionable recommendations, not judgments."] },
@@ -416,29 +416,29 @@
     "REF-T25"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T19:48:00+02:00",
+    "updated_at": "2026-04-25T20:10:00+02:00",
     "total": 26,
-    "by_status": { "todo": 18, "in_progress": 0, "blocked": 0, "done": 8 },
-    "progress_percent_done": 30.77,
+    "by_status": { "todo": 11, "in_progress": 0, "blocked": 0, "done": 15 },
+    "progress_percent_done": 57.69,
     "by_priority": { "P0": 10, "P1": 13, "P2": 2, "P3": 1 },
     "by_risk": { "low": 1, "medium": 15, "high": 10, "critical": 0 },
-    "critical_path": { "total": 13, "done": 6, "remaining": 7 },
-    "milestones": { "total": 7, "todo": 5, "in_progress": 0, "blocked": 0, "done": 2 }
+    "critical_path": { "total": 13, "done": 9, "remaining": 4 },
+    "milestones": { "total": 7, "todo": 3, "in_progress": 0, "blocked": 0, "done": 4 }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T19:48:00+02:00",
+    "updated_at": "2026-04-25T20:10:00+02:00",
     "stages": {
       "REF-M1": { "title": "Grundmodell fuer Referenzprofile", "scope_task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
       "REF-M2": { "title": "Erste drei Start-Referenzprofile", "scope_task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
-      "REF-M3": { "title": "Retrieval und Musterableitung", "scope_task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0 },
-      "REF-M4": { "title": "Integration fuer neues Projekt anlegen", "scope_task_ids": ["REF-T13", "REF-T14", "REF-T15"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0 },
+      "REF-M3": { "title": "Retrieval und Musterableitung", "scope_task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M4": { "title": "Integration fuer neues Projekt anlegen", "scope_task_ids": ["REF-T13", "REF-T14", "REF-T15"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
       "REF-M5": { "title": "Integration fuer existierendes Projekt weiterentwickeln", "scope_task_ids": ["REF-T16", "REF-T17", "REF-T18"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0 },
       "REF-M6": { "title": "Governance und Sicherheitsgrenzen", "scope_task_ids": ["REF-T19", "REF-T20", "REF-T21"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0 },
       "REF-M7": { "title": "UX Doku Tests", "scope_task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "total": 5, "done": 0, "todo": 5, "in_progress": 0, "blocked": 0 }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T19:48:00+02:00",
+    "checked_at": "2026-04-25T20:10:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Die vorherige Struktur enthielt nur groups/tasks ohne task_track-Rollups.",
@@ -481,8 +481,8 @@
       "summary_id": "REF-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 18 todo, 0 in_progress, 0 blocked, 8 done (30.77%).",
-        "Kritischer Pfad: 13 total, 6 done, 7 remaining."
+        "Aktueller Umsetzungsstand: 11 todo, 0 in_progress, 0 blocked, 15 done (57.69%).",
+        "Kritischer Pfad: 13 total, 9 done, 4 remaining."
       ]
     }
   ]
