@@ -1,794 +1,488 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "ananta_native_coding_worker",
-  "purpose": "Design and implement an Ananta-native optimized coding and shell worker that combines the best ideas from Aider, OpenCode, ShellGPT, GitHub Copilot CLI and similar tools while remaining policy-aware, RAG-aware, artifact-first, approval-gated and Hub-controlled. External tools may be used as optional adapters or inspiration, but the worker core must be owned by Ananta.",
+  "track": "reference_profiles_initial_pack",
+  "purpose": "Introduce the first language and framework reference profiles for Ananta so new-project and project-evolution flows can use curated real-world reference systems instead of relying only on generic language knowledge.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Create a native Ananta worker that can plan code changes, propose patches, run bounded tests, generate shell command plans, create artifacts, verify results and optionally invoke external coding tools through controlled adapters without bypassing Hub policy, approval or audit.",
-  "non_goals": [
-    "Do not fork ShellGPT, Aider, OpenCode or Copilot CLI as the core Ananta worker.",
-    "Do not make any external coding CLI a required dependency for the OSS golden path.",
-    "Do not let the worker create its own orchestration, approval or policy decisions.",
-    "Do not execute arbitrary shell commands without policy evaluation and approval where required.",
-    "Do not apply patches directly to the main working tree without explicit approval and trace metadata.",
-    "Do not copy incompatible licensed code from other projects without review.",
-    "Do not turn this worker into a separate autonomous product disconnected from Ananta contracts."
-  ],
+  "goal": "Provide a first practical reference-pack system using Keycloak for Java and Ananta itself for Python backend and Angular frontend so Ananta can better guide project creation and project evolution in those ecosystems.",
   "success_criteria": [
-    "Worker accepts Task, ContextEnvelope, capability, policy decision and execution constraints from the Hub.",
-    "Worker can produce PlanArtifact, PatchArtifact, CommandPlanArtifact, TestResultArtifact and VerificationArtifact.",
-    "Worker can propose code patches using bounded context and codecompass/rag_helper retrieval references.",
-    "Worker can apply patches only in an isolated worktree/sandbox and only after approval when policy requires it.",
-    "Worker can run allow-listed tests/commands and capture stdout/stderr/exit codes as artifacts.",
-    "Worker can generate ShellGPT-style command explanations/plans without executing by default.",
-    "Worker supports optional adapters for Aider, OpenCode, ShellGPT-like command helpers and GitHub Copilot CLI without making them core dependencies.",
-    "All worker results include provenance, hashes, trace IDs, model/provider metadata where applicable and reproducibility hints.",
-    "E2E dogfood tests prove a tiny repo patch flow, failing-test repair flow, denied-command flow and approval-gated apply flow."
+    "The system can recognize and expose initial reference profiles for Java, Python and Angular.",
+    "Reference profiles are used as guidance and retrieval sources, not as blind copy templates.",
+    "New-project and project-evolution flows can choose suitable reference packs explicitly.",
+    "Reference usage remains bounded, explainable and auditable."
   ],
-  "architecture_guardrails": [
-    "Hub owns Goal -> Plan -> Task -> Execution -> Verification -> Artifact orchestration.",
-    "Worker executes only tasks delegated by the Hub and must return artifacts, not hidden side effects.",
-    "Worker never evaluates final policy itself; it consumes policy decisions and enforces constraints passed by Hub.",
-    "Worker may perform local safety checks, but local checks cannot loosen Hub policy.",
-    "All file writes happen in an explicit workspace/worktree and are represented as patch artifacts before final apply.",
-    "Shell command execution is default-deny unless allow-listed or explicitly approved through Hub policy.",
-    "RAG/code context must arrive through ContextEnvelope or approved retrieval services with provenance.",
-    "External adapters are optional, isolated and capability-declared.",
-    "External tool output is untrusted and must be parsed, validated and converted into Ananta artifacts.",
-    "The worker must degrade cleanly when no LLM or external coding tool is configured."
-  ],
-  "inspiration_sources": [
+  "groups": [
     {
-      "name": "Aider",
-      "use_as": "inspiration_and_optional_adapter",
-      "ideas": ["git-first workflow", "diff/patch-centered editing", "selected files context", "test-after-change loop", "repo map style relevance"]
+      "id": "REF-FOUNDATION",
+      "priority": "P0",
+      "title": "Grundmodell fuer Referenzprofile",
+      "tasks": [
+        {
+          "id": "REF-T01",
+          "title": "Reference profile model define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A reference profile model is defined with fields such as language, framework, project_type, reference_source, strengths, limitations and intended usage.",
+            "The model is small enough for a first implementation.",
+            "The model can grow later without breaking initial profiles."
+          ]
+        },
+        {
+          "id": "REF-T02",
+          "title": "Reference usage boundary define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system explicitly treats references as pattern and architecture guidance rather than blind copy sources.",
+            "The design explains what kinds of reuse are intended such as structure, conventions, layering and test patterns.",
+            "The design avoids presenting references as canonical truth for every project."
+          ]
+        },
+        {
+          "id": "REF-T03",
+          "title": "Reference selection strategy define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first strategy exists for selecting references by language and project type.",
+            "The strategy supports new-project and project-evolution flows.",
+            "The strategy remains deterministic enough for explanation and debugging."
+          ]
+        },
+        {
+          "id": "REF-T04",
+          "title": "Reference provenance and audit visibility define",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system can show which reference profile influenced a task or recommendation.",
+            "Reference influence is visible in traces or read models where useful.",
+            "The design supports auditability later."
+          ]
+        }
+      ]
     },
     {
-      "name": "OpenCode",
-      "use_as": "inspiration_and_optional_adapter",
-      "ideas": ["agentic coding session shape", "tool loop UX ideas", "coding assistant workflow patterns"]
+      "id": "REF-STARTER-PROFILES",
+      "priority": "P0",
+      "title": "Erste drei Start-Referenzprofile",
+      "tasks": [
+        {
+          "id": "REF-T05",
+          "title": "Java Keycloak reference profile define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first Java reference profile exists based on Keycloak.",
+            "The profile documents why Keycloak is useful such as large Java codebase, security-heavy architecture and enterprise backend patterns.",
+            "The profile also documents limitations so it is not treated as the universal Java template."
+          ]
+        },
+        {
+          "id": "REF-T06",
+          "title": "Python Ananta backend reference profile define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first Python reference profile exists based on the Ananta backend.",
+            "The profile highlights strengths such as orchestration, API layering, governance-aware backend structure and local runtime integration.",
+            "The profile states clearly for which Python project types it is suitable."
+          ]
+        },
+        {
+          "id": "REF-T07",
+          "title": "Angular Ananta frontend reference profile define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A first Angular reference profile exists based on the Ananta frontend.",
+            "The profile highlights strengths such as admin-heavy UI structure, workflow surfaces and Angular application organization.",
+            "The profile documents where it fits and where it does not."
+          ]
+        },
+        {
+          "id": "REF-T08",
+          "title": "Starter reference catalog expose",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The initial three profiles are available through a catalog or read-model surface.",
+            "The catalog is understandable for users and operators.",
+            "The catalog distinguishes language, framework and intended usage."
+          ]
+        }
+      ]
     },
     {
-      "name": "ShellGPT",
-      "use_as": "shell_mode_inspiration_and_optional_adapter",
-      "ideas": ["explain shell command", "suggest shell command", "terminal-first UX", "command preview before execution"]
+      "id": "REF-RETRIEVAL-AND-PATTERNS",
+      "priority": "P0",
+      "title": "Retrieval und Musterableitung",
+      "tasks": [
+        {
+          "id": "REF-T09",
+          "title": "Reference retrieval entry points define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The system defines how reference material enters retrieval and prompt assembly.",
+            "The design is bounded and avoids dumping entire repositories into context.",
+            "Relevant slices can be selected by architecture, file type or use case."
+          ]
+        },
+        {
+          "id": "REF-T10",
+          "title": "Pattern extraction categories define",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "A small set of pattern categories is defined such as project structure, module organization, configuration style, test structure, API layout and security conventions.",
+            "The categories are reusable across the three initial profiles.",
+            "The categories support meaningful retrieval."
+          ]
+        },
+        {
+          "id": "REF-T11",
+          "title": "Reference chunking and indexing strategy add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Reference repositories can be indexed in a way suitable for bounded retrieval.",
+            "The indexing retains provenance and enough metadata to explain why a chunk was selected.",
+            "The strategy avoids uncontrolled context bloat."
+          ]
+        },
+        {
+          "id": "REF-T12",
+          "title": "Reference recommendation reason output add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "When Ananta uses a reference profile, it can explain why it chose it.",
+            "The explanation includes language, project type and one or more pattern reasons.",
+            "The explanation is compact and useful."
+          ]
+        }
+      ]
     },
     {
-      "name": "GitHub Copilot CLI",
-      "use_as": "optional_experimental_adapter",
-      "ideas": ["bring-your-own-account coding helper", "external CLI provider", "not OSS core dependency"]
+      "id": "REF-NEW-PROJECT-INTEGRATION",
+      "priority": "P0",
+      "title": "Integration fuer neues Projekt anlegen",
+      "tasks": [
+        {
+          "id": "REF-T13",
+          "title": "New-project reference selection flow add",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The new-project flow can choose or recommend one of the starter reference profiles.",
+            "The recommendation can depend on language and project type.",
+            "The chosen reference remains visible to the user."
+          ]
+        },
+        {
+          "id": "REF-T14",
+          "title": "Blueprint and work-profile integration for references add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Reference profile choice can influence blueprint or work-profile selection where useful.",
+            "The integration stays explicit and explainable.",
+            "Reference usage does not silently override product logic."
+          ]
+        },
+        {
+          "id": "REF-T15",
+          "title": "Reference-aware project skeleton guidance add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "New-project output can use selected reference profiles to suggest structure, modules and conventions.",
+            "The output remains guidance and not a blind clone.",
+            "The result is more concrete than generic language-only advice."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-PROJECT-EVOLUTION-INTEGRATION",
+      "priority": "P0",
+      "title": "Integration fuer existierendes Projekt weiterentwickeln",
+      "tasks": [
+        {
+          "id": "REF-T16",
+          "title": "Project-evolution reference matching add",
+          "status": "done",
+          "priority": "P0",
+          "acceptance_criteria": [
+            "The project-evolution flow can infer or recommend a matching starter reference profile for the current repository.",
+            "Matching uses at least language and coarse project shape.",
+            "The result can be inspected by the user."
+          ]
+        },
+        {
+          "id": "REF-T17",
+          "title": "Reference-aware review and evolution hints add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "During project evolution, Ananta can use reference profiles to suggest structure, conventions or likely missing patterns.",
+            "Hints are framed as recommendations, not absolute judgments.",
+            "The output is actionable and not vague."
+          ]
+        },
+        {
+          "id": "REF-T18",
+          "title": "Reference-aware diagnostics for mismatch cases add",
+          "status": "done",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "The system can indicate when a selected or inferred reference profile fits poorly.",
+            "Mismatch feedback helps prevent forcing bad patterns onto the project.",
+            "The output remains understandable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-GOVERNANCE-SAFETY",
+      "priority": "P1",
+      "title": "Governance und Sicherheitsgrenzen",
+      "tasks": [
+        {
+          "id": "REF-T19",
+          "title": "Reference influence boundaries define",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system defines where references may influence recommendations and where they may not bypass governance.",
+            "Reference material cannot override approval, policy or security constraints.",
+            "The boundary is explicit in implementation and docs."
+          ]
+        },
+        {
+          "id": "REF-T20",
+          "title": "Reference source quality rules define",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "The system documents why the chosen starter references are considered high-signal enough for initial use.",
+            "The rules can later help decide which additional references are acceptable.",
+            "The selection process remains curated rather than random."
+          ]
+        },
+        {
+          "id": "REF-T21",
+          "title": "Reference usage audit markers add",
+          "status": "done",
+          "priority": "P2",
+          "acceptance_criteria": [
+            "Relevant operations can record which reference profile was used.",
+            "The marker is visible in diagnostics or audit where useful.",
+            "The feature supports later explainability."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REF-UX-DOCS-TESTING",
+      "priority": "P1",
+      "title": "UX Doku Tests",
+      "tasks": [
+        {
+          "id": "REF-T22",
+          "title": "UI and CLI visibility for reference profiles add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Users can see the selected or recommended reference profile in UI and relevant CLI flows.",
+            "The presentation is compact and useful.",
+            "Users are not surprised by hidden reference influence."
+          ]
+        },
+        {
+          "id": "REF-T23",
+          "title": "Starter reference profile docs write",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Documentation exists for the three starter reference profiles.",
+            "The docs explain strengths, fit and limitations of each profile.",
+            "The docs are useful for users and maintainers."
+          ]
+        },
+        {
+          "id": "REF-T24",
+          "title": "Golden path examples for each starter reference add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "There is one concrete example for Java/Keycloak, Python/Ananta backend and Angular/Ananta frontend usage.",
+            "The examples are tied to new-project or project-evolution flows.",
+            "The examples are reproducible."
+          ]
+        },
+        {
+          "id": "REF-T25",
+          "title": "Tests for reference selection and bounded usage add",
+          "status": "done",
+          "priority": "P1",
+          "acceptance_criteria": [
+            "Tests protect reference selection logic and bounded retrieval behavior.",
+            "The suite verifies that references are used as guidance rather than uncontrolled full-context injection.",
+            "The suite covers at least one flow per starter profile."
+          ]
+        },
+        {
+          "id": "REF-T26",
+          "title": "Roadmap for later additional references isolate",
+          "status": "done",
+          "priority": "P3",
+          "acceptance_criteria": [
+            "Further possible references are documented separately from the first rollout.",
+            "The first release stays focused on Keycloak and Ananta as starter references.",
+            "The roadmap does not bloat the MVP."
+          ]
+        }
+      ]
     }
   ],
-  "planned_repository_layout": {
-    "worker_core": "worker/core/",
-    "worker_coding": "worker/coding/",
-    "worker_shell": "worker/shell/",
-    "worker_adapters": "worker/adapters/",
-    "schemas": "schemas/worker/",
-    "policies": "policies/worker/",
-    "tests": "tests/worker/",
-    "e2e": "tests/e2e/worker/",
-    "docs": "docs/architecture/ananta_native_worker.md"
-  },
   "milestones": [
-    {"id": "AW-M1", "title": "Worker contract and artifact schemas", "task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "status": "done"},
-    {"id": "AW-M2", "title": "Workspace, sandbox and patch engine", "task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "status": "done"},
-    {"id": "AW-M3", "title": "RAG-aware coding planner", "task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "status": "done"},
-    {"id": "AW-M4", "title": "Shell command planning and execution controls", "task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "status": "done"},
-    {"id": "AW-M5", "title": "Model provider and external tool adapters", "task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "status": "done"},
-    {"id": "AW-M6", "title": "Verification, audit and reproducibility", "task_ids": ["AW-T23", "AW-T24", "AW-T25", "AW-T26"], "status": "done"},
-    {"id": "AW-M7", "title": "Tests, E2E dogfood and docs", "task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "status": "done"},
-    {
-      "id": "AW-M8",
-      "title": "Controlled autonomous worker loop",
-      "task_ids": ["AW-T33", "AW-T34", "AW-T35", "AW-T36"],
-      "status": "done"
-    }
+    { "id": "REF-M1", "title": "Grundmodell fuer Referenzprofile", "task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "status": "done" },
+    { "id": "REF-M2", "title": "Erste drei Start-Referenzprofile", "task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "status": "done" },
+    { "id": "REF-M3", "title": "Retrieval und Musterableitung", "task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "status": "done" },
+    { "id": "REF-M4", "title": "Integration fuer neues Projekt anlegen", "task_ids": ["REF-T13", "REF-T14", "REF-T15"], "status": "done" },
+    { "id": "REF-M5", "title": "Integration fuer existierendes Projekt weiterentwickeln", "task_ids": ["REF-T16", "REF-T17", "REF-T18"], "status": "done" },
+    { "id": "REF-M6", "title": "Governance und Sicherheitsgrenzen", "task_ids": ["REF-T19", "REF-T20", "REF-T21"], "status": "done" },
+    { "id": "REF-M7", "title": "UX Doku Tests", "task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "status": "done" }
   ],
   "tasks": [
-    {
-      "id": "AW-T01",
-      "title": "Ananta native worker architecture define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [],
-      "expected_files": ["docs/architecture/ananta_native_worker.md"],
-      "acceptance_criteria": [
-        "Document defines worker as Ananta-native, Hub-controlled and artifact-first.",
-        "Document distinguishes native worker core, shell mode, coding mode and optional external adapters.",
-        "Document explains why Aider/OpenCode/ShellGPT/Copilot CLI are inspiration or optional adapters, not the worker core.",
-        "Document maps worker operations to Policy, Approval, Audit, ContextEnvelope and TraceBundle."
-      ]
-    },
-    {
-      "id": "AW-T02",
-      "title": "Worker execution request schema define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T01"],
-      "expected_files": ["schemas/worker/worker_execution_request.v1.json"],
-      "acceptance_criteria": [
-        "Schema includes task_id, goal_id, trace_id, capability_id, mode, ContextEnvelope reference, policy decision reference, approval reference, workspace constraints and requested outputs.",
-        "Schema distinguishes plan_only, patch_propose, patch_apply, command_plan, command_execute, test_run and verify modes.",
-        "Schema supports required approvals and denied/degraded states.",
-        "Schema does not allow unbounded raw repo access or unlabelled context blobs."
-      ]
-    },
-    {
-      "id": "AW-T03",
-      "title": "Worker result and artifact schemas define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T02"],
-      "expected_files": ["schemas/worker/worker_execution_result.v1.json", "schemas/worker/patch_artifact.v1.json", "schemas/worker/command_plan_artifact.v1.json", "schemas/worker/test_result_artifact.v1.json", "schemas/worker/verification_artifact.v1.json"],
-      "acceptance_criteria": [
-        "Result schema captures status, produced artifacts, stdout/stderr refs, exit code, error class, trace IDs and reproducibility metadata.",
-        "Patch artifact includes target files, diff, patch hash, base commit/ref, risk classification and expected effects.",
-        "Command plan artifact includes command, explanation, risk, required approval, working directory and expected effects.",
-        "Test/verification artifacts capture command, exit code, output summary, failure hints and links to logs."
-      ]
-    },
-    {
-      "id": "AW-T04",
-      "title": "Worker capability pack define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T02"],
-      "expected_files": ["domains/ananta_worker/capabilities.json", "policies/worker/worker_policy.v1.json"],
-      "acceptance_criteria": [
-        "Capabilities include worker.code.plan, worker.patch.propose, worker.patch.apply, worker.test.run, worker.command.plan, worker.command.execute and worker.verify.result.",
-        "Patch apply and command execute are approval-required or default-deny by default.",
-        "Capabilities align with todo.security.json and todo.more-generic.json conventions.",
-        "Policy pack denies unknown or unclassified operations."
-      ]
-    },
-    {
-      "id": "AW-T05",
-      "title": "Worker workspace model define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T02"],
-      "expected_files": ["docs/architecture/worker_workspace_model.md", "schemas/worker/workspace_constraints.v1.json"],
-      "acceptance_criteria": [
-        "Workspace model defines allowed roots, temporary worktrees, read-only inputs, writable outputs and cleanup behavior.",
-        "Model forbids direct writes to main working tree unless explicitly approved and routed through apply logic.",
-        "Workspace constraints include max files, max bytes, allowed commands and allowed output paths.",
-        "Document explains local developer usage versus CI/test usage."
-      ]
-    },
-    {
-      "id": "AW-T06",
-      "title": "Git worktree sandbox implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T05"],
-      "expected_files": ["worker/core/workspace.py", "worker/coding/worktree_sandbox.py", "tests/worker/test_worktree_sandbox.py"],
-      "acceptance_criteria": [
-        "Worker can create isolated temp worktree for patch proposal and test runs.",
-        "Worker records base ref/commit and changed files.",
-        "Worker cleanup is safe and testable.",
-        "Tests verify patch operations do not modify the original working tree unless apply is explicitly invoked."
-      ]
-    },
-    {
-      "id": "AW-T07",
-      "title": "Patch planner and diff builder implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T06", "AW-T03"],
-      "expected_files": ["worker/coding/patch_planner.py", "worker/coding/diff_builder.py", "tests/worker/test_patch_planner.py"],
-      "acceptance_criteria": [
-        "Patch planner can create a plan artifact before any file write.",
-        "Diff builder produces unified diffs from sandbox changes.",
-        "Patch artifact includes patch hash, file list, expected effects and RAG/context refs.",
-        "Tests cover add, modify, delete, malformed patch and empty patch cases."
-      ]
-    },
-    {
-      "id": "AW-T08",
-      "title": "Approval-gated patch apply implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T07", "AW-T04"],
-      "expected_files": ["worker/coding/patch_apply.py", "tests/worker/test_patch_apply_approval.py"],
-      "acceptance_criteria": [
-        "Patch apply requires matching approval reference when policy requires approval.",
-        "Approval binding includes patch hash, task id, capability id and context hash.",
-        "Stale, mismatched or missing approval prevents apply.",
-        "Apply result records changed files and artifact references."
-      ]
-    },
-    {
-      "id": "AW-T09",
-      "title": "Patch rollback and failure handling add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["AW-T08"],
-      "expected_files": ["worker/coding/rollback.py", "tests/worker/test_patch_failure_handling.py"],
-      "acceptance_criteria": [
-        "Worker can report partial apply failures without hiding changed state.",
-        "Worker can provide rollback guidance or reset sandbox state where safe.",
-        "Failure artifacts include enough detail for repair planning.",
-        "Tests cover patch conflict and invalid target state."
-      ]
-    },
-    {
-      "id": "AW-T10",
-      "title": "RAG-aware file selection service implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T02"],
-      "expected_files": ["worker/coding/file_selection.py", "tests/worker/test_rag_file_selection.py"],
-      "acceptance_criteria": [
-        "Service selects candidate files/symbols from ContextEnvelope and codecompass/rag_helper refs.",
-        "Selection returns reasons and source provenance.",
-        "Selection respects max file/count/byte limits.",
-        "Selection can degrade to explicit user-provided files when RAG is unavailable."
-      ]
-    },
-    {
-      "id": "AW-T11",
-      "title": "Coding prompt assembly implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T10"],
-      "expected_files": ["worker/coding/prompt_assembly.py", "tests/worker/test_coding_prompt_assembly.py"],
-      "acceptance_criteria": [
-        "Prompt assembly includes task, constraints, selected files, relevant symbols, policies, expected output schema and forbidden actions.",
-        "Prompt assembly records prompt template version and context hash.",
-        "Prompt does not include unbounded full repo dumps.",
-        "Tests verify redaction and bounded context behavior."
-      ]
-    },
-    {
-      "id": "AW-T12",
-      "title": "Native model-backed patch proposal implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T07", "AW-T11"],
-      "expected_files": ["worker/coding/native_patch_proposer.py", "tests/worker/test_native_patch_proposer.py"],
-      "acceptance_criteria": [
-        "Native proposer can call configured model provider to produce structured patch proposal or edit plan.",
-        "LLM output is parsed, schema-validated and never blindly applied.",
-        "Invalid output produces degraded/repairable artifact rather than hidden failure.",
-        "Tests use deterministic mocked model output."
-      ]
-    },
-    {
-      "id": "AW-T13",
-      "title": "Deterministic no-LLM coding fallback add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["AW-T07"],
-      "expected_files": ["worker/coding/deterministic_fallback.py", "tests/worker/test_no_llm_coding_fallback.py"],
-      "acceptance_criteria": [
-        "Worker can produce useful analysis/plan artifacts when no model is configured.",
-        "Fallback does not claim semantic patch generation when no model is used.",
-        "Result metadata records llm_used=false and fallback_reason.",
-        "Tests verify no-LLM mode remains schema-valid and honest."
-      ]
-    },
-    {
-      "id": "AW-T14",
-      "title": "Shell command plan mode implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T03", "AW-T04"],
-      "expected_files": ["worker/shell/command_planner.py", "tests/worker/test_command_planner.py"],
-      "acceptance_criteria": [
-        "Worker can generate ShellGPT-style command explanations and command plans as artifacts.",
-        "Command plans include explanation, risk, working directory, expected effects and required approval state.",
-        "Command planning does not execute commands by default.",
-        "Tests cover safe command, risky command and malformed request."
-      ]
-    },
-    {
-      "id": "AW-T15",
-      "title": "Shell command allowlist and denylist implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T14"],
-      "expected_files": ["worker/shell/command_policy.py", "policies/worker/shell_command_policy.v1.json", "tests/worker/test_shell_command_policy.py"],
-      "acceptance_criteria": [
-        "Policy classifies commands into safe, approval_required, denied and unknown.",
-        "Dangerous patterns such as destructive filesystem operations are denied or approval-required by default.",
-        "Command policy cannot loosen Hub policy decisions.",
-        "Tests cover allowlist, denylist, unknown command and path escape cases."
-      ]
-    },
-    {
-      "id": "AW-T16",
-      "title": "Approval-gated command execution implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T15"],
-      "expected_files": ["worker/shell/command_executor.py", "tests/worker/test_command_execution_approval.py"],
-      "acceptance_criteria": [
-        "Command execution requires policy allow or matching approval for approval-required commands.",
-        "Executor captures stdout, stderr, exit code, duration and environment summary.",
-        "Executor runs with constrained cwd and environment.",
-        "Tests verify denied command does not execute."
-      ]
-    },
-    {
-      "id": "AW-T17",
-      "title": "Shell explain and repair hints add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["AW-T16"],
-      "expected_files": ["worker/shell/command_explain.py", "worker/shell/command_repair_hints.py"],
-      "acceptance_criteria": [
-        "Worker can explain a command and likely effects without executing it.",
-        "Worker can summarize failure output and suggest next safe commands as plans.",
-        "Repair hints remain plan artifacts unless approved for execution.",
-        "Tests cover failed test command and missing dependency command."
-      ]
-    },
-    {
-      "id": "AW-T18",
-      "title": "Worker model provider interface add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T12"],
-      "expected_files": ["worker/core/model_provider.py", "tests/worker/test_worker_model_provider.py"],
-      "acceptance_criteria": [
-        "Interface supports OpenAI-compatible providers and local providers through configuration.",
-        "Interface records model id, provider, base_url label, timeout and prompt template version in result metadata.",
-        "Interface supports deterministic mock provider for tests.",
-        "Missing provider produces degraded no-LLM mode instead of crash where operation supports fallback."
-      ]
-    },
-    {
-      "id": "AW-T19",
-      "title": "External coding tool adapter interface define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T03", "AW-T04"],
-      "expected_files": ["worker/adapters/coding_tool_base.py", "docs/architecture/external_coding_tool_adapters.md"],
-      "acceptance_criteria": [
-        "Interface defines capabilities, plan, propose_patch, run_tests and optional apply_patch methods.",
-        "Adapters return Ananta artifacts and cannot directly commit/apply changes without approval path.",
-        "Interface declares whether adapter is native, optional, experimental or unavailable.",
-        "Document explains external tool outputs are untrusted."
-      ]
-    },
-    {
-      "id": "AW-T20",
-      "title": "Aider adapter prototype add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["AW-T19"],
-      "expected_files": ["worker/adapters/aider_adapter.py", "tests/worker/test_aider_adapter_contract.py"],
-      "acceptance_criteria": [
-        "Adapter can be disabled when aider is not installed.",
-        "Adapter exposes plan/propose_patch capabilities without becoming required dependency.",
-        "Adapter output is captured and converted to PatchArtifact or degraded result.",
-        "Tests use mocked subprocess calls."
-      ]
-    },
-    {
-      "id": "AW-T21",
-      "title": "ShellGPT-style adapter prototype add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["AW-T19", "AW-T14"],
-      "expected_files": ["worker/adapters/shellgpt_adapter.py", "tests/worker/test_shellgpt_adapter_contract.py"],
-      "acceptance_criteria": [
-        "Adapter is optional and disabled when shellgpt-compatible tool is unavailable.",
-        "Adapter is used only for command explanation/planning by default.",
-        "Adapter cannot execute commands without going through Ananta command executor.",
-        "Tests use mocked subprocess calls."
-      ]
-    },
-    {
-      "id": "AW-T22",
-      "title": "Copilot CLI and OpenCode experimental adapters add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["AW-T19"],
-      "expected_files": ["worker/adapters/copilot_cli_adapter.py", "worker/adapters/opencode_adapter.py", "tests/worker/test_experimental_coding_adapters.py"],
-      "acceptance_criteria": [
-        "Adapters are marked experimental and disabled unless explicitly configured.",
-        "Copilot CLI adapter requires bring-your-own local auth and is never an OSS default dependency.",
-        "OpenCode adapter handles unavailable or archived/upstream-changing tool state gracefully.",
-        "Adapters cannot bypass patch artifact, approval or audit path."
-      ]
-    },
-    {
-      "id": "AW-T23",
-      "title": "Worker verification service implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T16", "AW-T07"],
-      "expected_files": ["worker/core/verification.py", "tests/worker/test_worker_verification.py"],
-      "acceptance_criteria": [
-        "Verification service can evaluate patch/test command results and produce VerificationArtifact.",
-        "Verification distinguishes passed, failed, skipped, degraded and inconclusive.",
-        "Verification records commands, outputs, exit codes and artifact refs.",
-        "Tests cover passing test, failing test and skipped verification."
-      ]
-    },
-    {
-      "id": "AW-T24",
-      "title": "Worker audit and trace metadata implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T03", "AW-T23"],
-      "expected_files": ["worker/core/trace.py", "tests/worker/test_worker_trace_metadata.py"],
-      "acceptance_criteria": [
-        "Worker results include trace_id, task_id, capability_id, context_hash, policy_decision_ref and approval_ref where applicable.",
-        "Patch and command artifacts include stable hashes.",
-        "Trace metadata supports todo.security.json TraceBundle expectations.",
-        "Tests verify missing trace metadata fails for execution-capable paths."
-      ]
-    },
-    {
-      "id": "AW-T25",
-      "title": "Worker redaction and secret hygiene add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T11", "AW-T16", "AW-T24"],
-      "expected_files": ["worker/core/redaction.py", "tests/worker/test_worker_redaction.py"],
-      "acceptance_criteria": [
-        "Worker redacts likely secrets from logs, prompts, command output summaries and visual/e2e reports where practical.",
-        "Worker avoids injecting API keys or tokens into external tool subprocess environments unless explicitly required and allowed.",
-        "Tests include token-like, path-like and false-positive cases.",
-        "Redaction failures can block release evidence publication."
-      ]
-    },
-    {
-      "id": "AW-T26",
-      "title": "Worker degradation states implement",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["AW-T18", "AW-T19"],
-      "expected_files": ["worker/core/degraded.py", "tests/worker/test_worker_degradation.py"],
-      "acceptance_criteria": [
-        "Worker reports unavailable model, unavailable external tool, missing git repo, denied policy and missing approval as distinct states.",
-        "Degraded states are user-readable and machine-readable.",
-        "Degraded states never masquerade as success.",
-        "Tests cover each major degraded state."
-      ]
-    },
-    {
-      "id": "AW-T27",
-      "title": "Native worker unit test suite add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T06", "AW-T07", "AW-T14", "AW-T16", "AW-T23", "AW-T24"],
-      "expected_files": ["tests/worker/"],
-      "acceptance_criteria": [
-        "Unit tests cover workspace, patch planner, diff builder, command planner, command executor, verification and trace metadata.",
-        "Tests use deterministic fixtures and mock model providers.",
-        "Tests do not require external Aider/OpenCode/Copilot/ShellGPT tools.",
-        "Tests are included in release gate when worker runtime is claimed."
-      ]
-    },
-    {
-      "id": "AW-T28",
-      "title": "Tiny repo patch E2E add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T12", "AW-T23", "AW-T24"],
-      "expected_files": ["tests/e2e/worker/test_tiny_repo_patch_flow.py", "tests/e2e/fixtures/tiny_patch_repo/"],
-      "acceptance_criteria": [
-        "E2E runs on a tiny fixture repo and produces plan, patch, test result, verification and trace artifacts.",
-        "E2E uses mocked model output by default.",
-        "E2E verifies original working tree is not modified before approval.",
-        "E2E stores evidence compatible with todo.e2e-dogfood.json."
-      ]
-    },
-    {
-      "id": "AW-T29",
-      "title": "Failing test repair E2E add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["AW-T28"],
-      "expected_files": ["tests/e2e/worker/test_failing_test_repair_flow.py"],
-      "acceptance_criteria": [
-        "E2E simulates failing test output and generates repair plan or patch artifact.",
-        "Repair path goes through same policy/approval/trace expectations as normal patch flow.",
-        "E2E verifies failure output is summarized and not hidden.",
-        "E2E stores repair artifact and verification result."
-      ]
-    },
-    {
-      "id": "AW-T30",
-      "title": "Denied command E2E add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T15", "AW-T16", "AW-T24"],
-      "expected_files": ["tests/e2e/worker/test_denied_command_flow.py"],
-      "acceptance_criteria": [
-        "E2E submits a dangerous command request and verifies it is denied before execution.",
-        "E2E proves no command side effects occurred.",
-        "Policy denied artifact and trace metadata are produced.",
-        "E2E includes CLI/TUI snapshot hooks where available."
-      ]
-    },
-    {
-      "id": "AW-T31",
-      "title": "Worker release gate integration add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T27", "AW-T28", "AW-T30"],
-      "expected_files": ["scripts/run_worker_checks.py", "scripts/run_release_gate.py"],
-      "acceptance_criteria": [
-        "Release gate runs worker unit tests and core E2E flows when native worker runtime is claimed.",
-        "Gate fails on policy bypass, direct main-tree mutation, missing trace metadata or denied command execution.",
-        "Gate treats experimental external adapters as optional unless explicitly enabled.",
-        "Gate prints worker evidence/report paths."
-      ]
-    },
-    {
-      "id": "AW-T32",
-      "title": "Worker documentation and comparison write",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["AW-T01", "AW-T28", "AW-T31"],
-      "expected_files": ["docs/worker/README.md", "docs/worker/comparison_aider_opencode_shellgpt_copilot.md", "docs/worker/adapter_configuration.md"],
-      "acceptance_criteria": [
-        "Docs explain native worker concepts, modes, safety boundaries and golden path usage.",
-        "Comparison explains what Ananta borrows conceptually from Aider/OpenCode/ShellGPT/Copilot CLI and what it deliberately does differently.",
-        "Adapter docs explain optional installation/configuration and why adapters are not default dependencies.",
-        "Docs include honest limitations and unsupported flows."
-      ]
-    },
-    {
-      "id": "AW-T33",
-      "title": "Controlled autonomous worker loop implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T07","AW-T12","AW-T16","AW-T23","AW-T24"],
-      "expected_files": [
-        "worker/loop/controlled_worker_loop.py",
-        "schemas/worker/worker_loop_state.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Loop implements observe -> plan -> patch -> test -> inspect -> repair -> retest -> summarize.",
-        "Loop consumes Task + ContextEnvelope + policy + approval.",
-        "Loop produces intermediate artifacts per iteration.",
-        "Loop never bypasses policy or approval.",
-        "Loop state is externally observable."
-      ]
-    },
-    {
-      "id": "AW-T34",
-      "title": "Worker loop budgets and stop conditions add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T33"],
-      "expected_files": [
-        "worker/loop/budgets.py",
-        "worker/loop/stop_conditions.py"
-      ],
-      "acceptance_criteria": [
-        "Supports max_iterations, max_patch_attempts, max_runtime_seconds.",
-        "Stops on policy_denied, approval_required, repeated_failure.",
-        "Stops on no_progress_detected.",
-        "Stop reason is recorded in trace."
-      ]
-    },
-    {
-      "id": "AW-T35",
-      "title": "Worker progress events and intermediate artifacts add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["AW-T33","AW-T34"],
-      "expected_files": [
-        "worker/loop/progress_events.py",
-        "schemas/worker/worker_progress_event.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Each iteration emits progress events.",
-        "Events include phase, iteration, artifacts.",
-        "Intermediate results visible.",
-        "No silent internal loop state."
-      ]
-    },
-    {
-      "id": "AW-T36",
-      "title": "OpenCode-like autonomous coding E2E add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["AW-T28","AW-T29","AW-T30","AW-T33"],
-      "expected_files": [
-        "tests/e2e/worker/test_controlled_loop_flow.py"
-      ],
-      "acceptance_criteria": [
-        "Worker fixes a failing test in iterative loop.",
-        "Loop stops correctly on failure/approval.",
-        "No uncontrolled execution.",
-        "Artifacts + trace prove full loop."
-      ]
-    }
+    { "id": "REF-T01", "title": "Reference profile model define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["A reference profile model is defined with evolvable fields."] },
+    { "id": "REF-T02", "title": "Reference usage boundary define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference usage is guidance-only and never blind copy."] },
+    { "id": "REF-T03", "title": "Reference selection strategy define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Selection strategy is deterministic and explainable."] },
+    { "id": "REF-T04", "title": "Reference provenance and audit visibility define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-FOUNDATION", "acceptance_criteria": ["Reference influence is visible via traces/read models."] },
+
+    { "id": "REF-T05", "title": "Java Keycloak reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Java/Keycloak profile with fit+limits exists."] },
+    { "id": "REF-T06", "title": "Python Ananta backend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Python/Ananta-backend profile with fit scope exists."] },
+    { "id": "REF-T07", "title": "Angular Ananta frontend reference profile define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["A curated Angular/Ananta-frontend profile with fit scope exists."] },
+    { "id": "REF-T08", "title": "Starter reference catalog expose", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-STARTER-PROFILES", "acceptance_criteria": ["Starter catalog exposes language/framework/use-case clearly."] },
+
+    { "id": "REF-T09", "title": "Reference retrieval entry points define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference retrieval entry points are bounded and explicit."] },
+    { "id": "REF-T10", "title": "Pattern extraction categories define", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reusable cross-profile pattern categories are defined."] },
+    { "id": "REF-T11", "title": "Reference chunking and indexing strategy add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Chunking/indexing preserves provenance and avoids context bloat."] },
+    { "id": "REF-T12", "title": "Reference recommendation reason output add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-RETRIEVAL-AND-PATTERNS", "acceptance_criteria": ["Reference choice reasons are concise and useful."] },
+
+    { "id": "REF-T13", "title": "New-project reference selection flow add", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["New-project flow selects/recommends starter references visibly."] },
+    { "id": "REF-T14", "title": "Blueprint and work-profile integration for references add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Reference choice influences profiles explicitly and explainably."] },
+    { "id": "REF-T15", "title": "Reference-aware project skeleton guidance add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-NEW-PROJECT-INTEGRATION", "acceptance_criteria": ["Skeleton guidance is concrete but never blind-cloned."] },
+
+    { "id": "REF-T16", "title": "Project-evolution reference matching add", "status": "done", "priority": "P0", "risk": "high", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Evolution flow can infer/recommend matching references."] },
+    { "id": "REF-T17", "title": "Reference-aware review and evolution hints add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Evolution hints are actionable recommendations, not judgments."] },
+    { "id": "REF-T18", "title": "Reference-aware diagnostics for mismatch cases add", "status": "done", "priority": "P2", "risk": "medium", "group_id": "REF-PROJECT-EVOLUTION-INTEGRATION", "acceptance_criteria": ["Mismatch diagnostics prevent forced bad-pattern adoption."] },
+
+    { "id": "REF-T19", "title": "Reference influence boundaries define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-GOVERNANCE-SAFETY", "acceptance_criteria": ["References cannot bypass policy/approval/security boundaries."] },
+    { "id": "REF-T20", "title": "Reference source quality rules define", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-GOVERNANCE-SAFETY", "acceptance_criteria": ["Curated quality rules for acceptable references are documented."] },
+    { "id": "REF-T21", "title": "Reference usage audit markers add", "status": "done", "priority": "P2", "risk": "medium", "group_id": "REF-GOVERNANCE-SAFETY", "acceptance_criteria": ["Audit markers identify where references influenced outputs."] },
+
+    { "id": "REF-T22", "title": "UI and CLI visibility for reference profiles add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["UI/CLI show selected reference profile clearly."] },
+    { "id": "REF-T23", "title": "Starter reference profile docs write", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["Docs for three starter profiles include strengths and limits."] },
+    { "id": "REF-T24", "title": "Golden path examples for each starter reference add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["One reproducible golden-path example per starter profile exists."] },
+    { "id": "REF-T25", "title": "Tests for reference selection and bounded usage add", "status": "done", "priority": "P1", "risk": "medium", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["Tests cover bounded retrieval and guided-reference behavior."] },
+    { "id": "REF-T26", "title": "Roadmap for later additional references isolate", "status": "done", "priority": "P3", "risk": "low", "group_id": "REF-UX-DOCS-TESTING", "acceptance_criteria": ["Post-MVP references are isolated in a non-blocking roadmap."] }
   ],
   "execution_order_summary": [
-    "Stage 1: Define worker architecture, request/result schemas and capabilities.",
-    "Stage 2: Build isolated workspace/worktree and patch artifact flow.",
-    "Stage 3: Add RAG-aware file selection, prompt assembly and native patch proposal.",
-    "Stage 4: Add ShellGPT-style command planning and approval-gated command execution.",
-    "Stage 5: Add model provider interface and optional external tool adapters.",
-    "Stage 6: Add verification, trace, redaction and degradation states.",
-    "Stage 7: Add unit tests, E2E dogfood evidence, release-gate integration and docs."
+    "REF-FOUNDATION first",
+    "Then REF-STARTER-PROFILES and REF-RETRIEVAL-AND-PATTERNS",
+    "Then REF-NEW-PROJECT-INTEGRATION and REF-PROJECT-EVOLUTION-INTEGRATION",
+    "Then REF-GOVERNANCE-SAFETY",
+    "Finish with REF-UX-DOCS-TESTING"
   ],
   "critical_path_tasks": [
-    "AW-T01",
-    "AW-T02",
-    "AW-T03",
-    "AW-T04",
-    "AW-T05",
-    "AW-T06",
-    "AW-T07",
-    "AW-T08",
-    "AW-T10",
-    "AW-T11",
-    "AW-T12",
-    "AW-T14",
-    "AW-T15",
-    "AW-T16",
-    "AW-T18",
-    "AW-T19",
-    "AW-T23",
-    "AW-T24",
-    "AW-T25",
-    "AW-T27",
-    "AW-T28",
-    "AW-T30",
-    "AW-T31"
+    "REF-T01",
+    "REF-T02",
+    "REF-T03",
+    "REF-T05",
+    "REF-T06",
+    "REF-T07",
+    "REF-T09",
+    "REF-T10",
+    "REF-T13",
+    "REF-T16",
+    "REF-T19",
+    "REF-T22",
+    "REF-T25"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T21:00:00+02:00",
-    "total": 36,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 36},
+    "updated_at": "2026-04-25T20:32:00+02:00",
+    "total": 26,
+    "by_status": { "todo": 0, "in_progress": 0, "blocked": 0, "done": 26 },
     "progress_percent_done": 100.0,
-    "by_priority": {"P0": 27, "P1": 8, "P2": 1, "P3": 0},
-    "by_risk": {"low": 0, "medium": 6, "high": 14, "critical": 16},
-    "critical_path": {"total": 23, "done": 23, "remaining": 0},
-    "milestones": {"total": 8, "todo": 0, "in_progress": 0, "blocked": 0, "done": 8}
+    "by_priority": { "P0": 10, "P1": 13, "P2": 2, "P3": 1 },
+    "by_risk": { "low": 1, "medium": 15, "high": 10, "critical": 0 },
+    "critical_path": { "total": 13, "done": 13, "remaining": 0 },
+    "milestones": { "total": 7, "todo": 0, "in_progress": 0, "blocked": 0, "done": 7 }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T21:00:00+02:00",
+    "updated_at": "2026-04-25T20:32:00+02:00",
     "stages": {
-      "AW-M1": {"title": "Worker contract and artifact schemas", "scope_task_ids": ["AW-T01", "AW-T02", "AW-T03", "AW-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M2": {"title": "Workspace, sandbox and patch engine", "scope_task_ids": ["AW-T05", "AW-T06", "AW-T07", "AW-T08", "AW-T09"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M3": {"title": "RAG-aware coding planner", "scope_task_ids": ["AW-T10", "AW-T11", "AW-T12", "AW-T13"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M4": {"title": "Shell command planning and execution controls", "scope_task_ids": ["AW-T14", "AW-T15", "AW-T16", "AW-T17"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M5": {"title": "Model provider and external tool adapters", "scope_task_ids": ["AW-T18", "AW-T19", "AW-T20", "AW-T21", "AW-T22"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M6": {"title": "Verification, audit and reproducibility", "scope_task_ids": ["AW-T23", "AW-T24", "AW-T25", "AW-T26"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M7": {"title": "Tests, E2E dogfood and docs", "scope_task_ids": ["AW-T27", "AW-T28", "AW-T29", "AW-T30", "AW-T31", "AW-T32"], "total": 6, "done": 6, "todo": 0, "in_progress": 0, "blocked": 0},
-      "AW-M8": {"title": "Controlled autonomous worker loop", "scope_task_ids": ["AW-T33", "AW-T34", "AW-T35", "AW-T36"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0}
+      "REF-M1": { "title": "Grundmodell fuer Referenzprofile", "scope_task_ids": ["REF-T01", "REF-T02", "REF-T03", "REF-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M2": { "title": "Erste drei Start-Referenzprofile", "scope_task_ids": ["REF-T05", "REF-T06", "REF-T07", "REF-T08"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M3": { "title": "Retrieval und Musterableitung", "scope_task_ids": ["REF-T09", "REF-T10", "REF-T11", "REF-T12"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M4": { "title": "Integration fuer neues Projekt anlegen", "scope_task_ids": ["REF-T13", "REF-T14", "REF-T15"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M5": { "title": "Integration fuer existierendes Projekt weiterentwickeln", "scope_task_ids": ["REF-T16", "REF-T17", "REF-T18"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M6": { "title": "Governance und Sicherheitsgrenzen", "scope_task_ids": ["REF-T19", "REF-T20", "REF-T21"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0 },
+      "REF-M7": { "title": "UX Doku Tests", "scope_task_ids": ["REF-T22", "REF-T23", "REF-T24", "REF-T25", "REF-T26"], "total": 5, "done": 5, "todo": 0, "in_progress": 0, "blocked": 0 }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T21:00:00+02:00",
+    "checked_at": "2026-04-25T20:32:00+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "AW-M6, AW-M7 and AW-M8 (AW-T23..AW-T36) were implemented and marked done.",
-      "Rollups were synchronized to reflect 36 done tasks and 8 done milestones.",
-      "Track is now fully complete with all stage counters at done."
+      "Project-evolution Referenz-Matching, evolution hints und mismatch diagnostics wurden integriert.",
+      "Governance-Contract, quality rules und audit marker visibility sind implementiert.",
+      "UX/CLI Sichtbarkeit, Starter-Doku, Golden Paths und Roadmap wurden ergänzt; Track ist abgeschlossen."
     ]
   },
   "summary_notes": [
-    "This track should come after todo.tests.json, todo.security.json and enough of todo.more-generic.json to provide stable ContextEnvelope, Policy, Approval, Artifact and Trace primitives.",
-    "The worker should be Ananta-native first. External tools are adapters, not architecture owners.",
-    "Aider is the strongest inspiration for patch/git workflow; ShellGPT is useful for shell command UX; Copilot CLI is optional/experimental because it depends on a commercial service and local auth.",
-    "The first real deliverable should be a tiny repo patch E2E that proves plan -> patch artifact -> test -> verification -> approval-gated apply.",
-    "Track metadata now includes per-stage counters aligned with milestone scope."
+    "Der Track bleibt referenz-orientiert und nutzt Quellen als Guidance statt Copy-Template.",
+    "Alle Milestones REF-M1 bis REF-M7 sind umgesetzt und in Rollups konsistent synchronisiert.",
+    "Project-evolution, Governance-Audit und UX/CLI Sichtbarkeit sind operativ verkabelt.",
+    "Doku enthält Starterprofile, Golden Paths und isolierte Post-MVP-Roadmap."
   ],
   "end_summaries": [
     {
-      "summary_id": "AW-S1",
+      "summary_id": "REF-S1",
       "title": "Analyseergebnis",
       "items": [
-        "Die Aufgabenliste umfasst 36 Tasks (AW-T01..AW-T36) und 8 Milestones (AW-M1..AW-M8).",
-        "Die vorhandenen Rollups waren veraltet (32/7 statt 36/8)."
+        "Die aktive todo.json war semantisch gut strukturiert (groups), aber nicht task_track-validator-kompatibel.",
+        "Pflichtfelder wie milestones, tasks, risk_scale und tasks_status_summary fehlten."
       ]
     },
     {
-      "summary_id": "AW-S2",
+      "summary_id": "REF-S2",
       "title": "Korrekturen",
       "items": [
-        "AW-T23..AW-T36 wurden auf done gesetzt; AW-M6, AW-M7 und AW-M8 auf done synchronisiert.",
-        "tasks_status_summary, critical_path und milestone-Counter wurden auf den vollständigen Endstand aktualisiert."
+        "Ein vollständiges task_track-Modell wurde ergänzt (milestones, tasks, status/priority/risk Rollups, critical_path).",
+        "Execution-Stage-Counter wurden je Milestone synchronisiert."
       ]
     },
     {
-      "summary_id": "AW-S3",
+      "summary_id": "REF-S3",
       "title": "Verbesserungen/Erweiterungen",
       "items": [
-        "execution_stage_summary ergänzt (AW-M1..AW-M8 mit done/todo/in_progress/blocked).",
-        "analysis_checks ergänzt, um Korrekturgrund und Datenstand transparent zu dokumentieren."
+        "Flattened tasks enthalten group_id zur Rückverfolgbarkeit zwischen operativer und fachlicher Struktur.",
+        "analysis_checks und summary_notes wurden zur transparenten Wartbarkeit ergänzt."
       ]
     },
     {
-      "summary_id": "AW-S4",
+      "summary_id": "REF-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 36 done (100.0%).",
-        "Kritischer Pfad: 23 total, 23 done, 0 remaining."
-      ]
-    },
-    {
-      "summary_id": "AW-S5",
-      "title": "Abschluss",
-      "items": [
-        "Alle Bundles AW-M1..AW-M8 sind abgeschlossen.",
-        "Der native Worker-Track ist inklusive Core, Tests, E2E, Gate-Integration, Doku und kontrollierter Loop-Logik vollständig umgesetzt."
+        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 26 done (100.0%).",
+        "Kritischer Pfad: 13 total, 13 done, 0 remaining."
       ]
     }
   ]
