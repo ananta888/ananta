@@ -1,7 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
@@ -12,7 +11,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
 @Component({
   standalone: true,
   selector: 'app-auto-planner',
-  imports: [CommonModule, FormsModule, RouterLink, DecisionExplanationComponent, NextStepsComponent, SafetyNoticeComponent],
+  imports: [CommonModule, FormsModule, DecisionExplanationComponent, NextStepsComponent, SafetyNoticeComponent],
   styles: [`
     .ap-subtitle { margin-top: 4px; }
     .ap-grid-top { margin-top: 12px; }
