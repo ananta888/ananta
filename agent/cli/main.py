@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Sequence
 
 from agent.cli import init_wizard
@@ -84,12 +85,33 @@ def _run_tui(argv: Sequence[str]) -> int:
 
 def _run_web(argv: Sequence[str]) -> int:
     if any(arg in {"-h", "--help"} for arg in argv):
-        print("Usage: ananta web")
-        print("Web launcher is optional and not wired in this build.")
+        print("Usage: ananta web [--url <web-url>]")
+        print("Prints the configured Web UI URL when available.")
         return 0
-    print("Error: `ananta web` is not wired in this build yet.")
-    print("Use the existing frontend startup flow from README/docs.")
-    return 2
+
+    url_override = None
+    if len(argv) == 2 and argv[0] == "--url":
+        url_override = argv[1]
+    elif argv:
+        print("Error: `ananta web` only supports optional `--url <web-url>`.")
+        return 2
+
+    configured_url = url_override or os.getenv("ANANTA_WEB_URL") or "http://localhost:4200"
+    print(f"Web UI URL: {configured_url}")
+    print("Open it in your browser, or set ANANTA_WEB_URL for a different target.")
+    if configured_url == "http://localhost:4200":
+        print("If unreachable, start the frontend stack as described in README/docs.")
+    return 0
+
+
+def _run_compat_goals(argv: Sequence[str]) -> int:
+    if not argv:
+        print("Error: `ananta goal|goals` expects arguments.")
+        print("Use `ananta status`, `ananta ask ...`, or `ananta --help`.")
+        return 2
+    if argv[0] in GOAL_ALIAS_COMMANDS:
+        return run_goal_alias(argv[0], argv[1:])
+    return run_cli_goals(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -117,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     if command == "web":
         return _run_web(rest)
     if command in COMPAT_COMMANDS:
-        return run_cli_goals(rest)
+        return _run_compat_goals(rest)
     if command == "help":
         parser.print_help()
         return 0
