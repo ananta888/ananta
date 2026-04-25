@@ -29,6 +29,13 @@ def _as_bool(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _header_value(headers: dict[str, Any], name: str) -> str:
+    for key, value in headers.items():
+        if str(key).strip().lower() == name.strip().lower():
+            return str(value or "")
+    return ""
+
+
 def _webhook_config() -> dict[str, Any]:
     cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("pr_review_webhooks", {}) or {}
     return {
@@ -55,9 +62,9 @@ def _is_test_mode_enabled(config: dict[str, Any]) -> bool:
 
 def _canonical_event(provider: str, headers: dict[str, Any]) -> str:
     if provider == "github":
-        return str(headers.get("X-GitHub-Event") or "").strip().lower()
+        return _header_value(headers, "X-GitHub-Event").strip().lower()
     if provider == "gitlab":
-        raw_event = str(headers.get("X-Gitlab-Event") or "").strip().lower()
+        raw_event = _header_value(headers, "X-Gitlab-Event").strip().lower()
         if raw_event == "merge request hook":
             return "merge_request"
         return raw_event
@@ -93,7 +100,7 @@ def _extract_pr_metadata(provider: str, payload: dict[str, Any]) -> tuple[str, s
 
 def _verify_signature(provider: str, payload_raw: bytes, headers: dict[str, Any], secret: str) -> bool:
     if provider == "github":
-        signature = str(headers.get("X-Hub-Signature-256") or "").strip()
+        signature = _header_value(headers, "X-Hub-Signature-256").strip()
         if signature.startswith("sha256="):
             signature = signature[7:]
         if not signature:
@@ -102,7 +109,7 @@ def _verify_signature(provider: str, payload_raw: bytes, headers: dict[str, Any]
         return hmac.compare_digest(expected, signature)
 
     if provider == "gitlab":
-        token = str(headers.get("X-Gitlab-Token") or "").strip()
+        token = _header_value(headers, "X-Gitlab-Token").strip()
         if not token:
             return False
         return hmac.compare_digest(token, secret)
@@ -179,7 +186,9 @@ def git_provider_webhook(provider: str):
             "event_type": event_type,
             "action": action,
             "pull_request_number": pr_number,
-            "delivery_id": str(headers.get("X-GitHub-Delivery") or headers.get("X-Gitlab-Event-UUID") or ""),
+            "delivery_id": str(
+                _header_value(headers, "X-GitHub-Delivery") or _header_value(headers, "X-Gitlab-Event-UUID") or ""
+            ),
             "review_only": True,
             "execution_mode": "queued_only",
         },
@@ -203,4 +212,3 @@ def git_provider_webhook(provider: str):
             "execution": "queued_only",
         }
     )
-
