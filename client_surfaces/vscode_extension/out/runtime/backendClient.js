@@ -133,6 +133,23 @@ class AnantaBackendClient {
     getCapabilities() {
         return this.requestJson("GET", "/capabilities");
     }
+    getDashboardReadModel() {
+        return this.requestJson("GET", "/dashboard/read-model?benchmark_task_kind=analysis&include_task_snapshot=1");
+    }
+    getAssistantReadModel() {
+        return this.requestJson("GET", "/assistant/read-model");
+    }
+    listProviders() {
+        return this.requestJson("GET", "/providers");
+    }
+    listProviderCatalog() {
+        return this.requestJson("GET", "/providers/catalog");
+    }
+    getLlmBenchmarks(taskKind = "analysis", topN = 3) {
+        const safeTaskKind = encodeURIComponent(String(taskKind || "analysis").trim() || "analysis");
+        const safeTopN = Math.max(1, Math.trunc(topN));
+        return this.requestJson("GET", `/llm/benchmarks?task_kind=${safeTaskKind}&top_n=${safeTopN}`);
+    }
     listGoals() {
         return this.requestJson("GET", "/goals");
     }
@@ -176,6 +193,9 @@ class AnantaBackendClient {
     }
     listRepairs() {
         return this.requestJson("GET", "/repairs");
+    }
+    getRepairSession(sessionId) {
+        return this.requestJson("GET", `/repairs/${encodeURIComponent(String(sessionId || "").trim())}`);
     }
     getConfig() {
         return this.requestJson("GET", "/config");

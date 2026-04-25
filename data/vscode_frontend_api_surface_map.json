@@ -43,6 +43,46 @@
         "endpoint": "/config",
         "classification": "vscode-mvp",
         "source": "backend_api"
+      },
+      {
+        "feature": "dashboard_runtime_read_model",
+        "method": "getDashboardReadModel",
+        "http_method": "GET",
+        "endpoint": "/dashboard/read-model?benchmark_task_kind=analysis&include_task_snapshot=1",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      },
+      {
+        "feature": "assistant_runtime_read_model",
+        "method": "getAssistantReadModel",
+        "http_method": "GET",
+        "endpoint": "/assistant/read-model",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      },
+      {
+        "feature": "provider_inventory_summary",
+        "method": "listProviders",
+        "http_method": "GET",
+        "endpoint": "/providers",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      },
+      {
+        "feature": "provider_catalog_summary",
+        "method": "listProviderCatalog",
+        "http_method": "GET",
+        "endpoint": "/providers/catalog",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      },
+      {
+        "feature": "model_benchmark_summary",
+        "method": "getLlmBenchmarks",
+        "http_method": "GET",
+        "endpoint": "/llm/benchmarks",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
       }
     ],
     "Goals": [
@@ -199,6 +239,14 @@
         "endpoint": "/api/system/audit-logs",
         "classification": "vscode-advanced",
         "source": "backend_api"
+      },
+      {
+        "feature": "audit_deep_analysis_fallback",
+        "method": "openWebFallback",
+        "http_method": "N/A",
+        "endpoint": "browser://audit/{id}",
+        "classification": "browser-fallback",
+        "source": "fallback_policy"
       }
     ],
     "Repair": [
@@ -207,6 +255,14 @@
         "method": "listRepairs",
         "http_method": "GET",
         "endpoint": "/repairs",
+        "classification": "vscode-advanced",
+        "source": "backend_api"
+      },
+      {
+        "feature": "repair_session_detail",
+        "method": "getRepairSession",
+        "http_method": "GET",
+        "endpoint": "/repairs/{id}",
         "classification": "vscode-advanced",
         "source": "backend_api"
       },
@@ -227,6 +283,14 @@
         "endpoint": "browser://config",
         "classification": "browser-fallback",
         "source": "fallback_policy"
+      },
+      {
+        "feature": "launch_tui_terminal",
+        "method": "launchTui",
+        "http_method": "N/A",
+        "endpoint": "terminal://python -m client_surfaces.tui_runtime.ananta_tui",
+        "classification": "vscode-advanced",
+        "source": "terminal_integration"
       }
     ]
   },

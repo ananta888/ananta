@@ -162,6 +162,28 @@ export class AnantaBackendClient {
     return this.requestJson("GET", "/capabilities");
   }
 
+  public getDashboardReadModel(): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", "/dashboard/read-model?benchmark_task_kind=analysis&include_task_snapshot=1");
+  }
+
+  public getAssistantReadModel(): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", "/assistant/read-model");
+  }
+
+  public listProviders(): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", "/providers");
+  }
+
+  public listProviderCatalog(): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", "/providers/catalog");
+  }
+
+  public getLlmBenchmarks(taskKind = "analysis", topN = 3): Promise<ClientResponse<Record<string, unknown>>> {
+    const safeTaskKind = encodeURIComponent(String(taskKind || "analysis").trim() || "analysis");
+    const safeTopN = Math.max(1, Math.trunc(topN));
+    return this.requestJson("GET", `/llm/benchmarks?task_kind=${safeTaskKind}&top_n=${safeTopN}`);
+  }
+
   public listGoals(): Promise<ClientResponse<Record<string, unknown>>> {
     return this.requestJson("GET", "/goals");
   }
@@ -216,6 +238,10 @@ export class AnantaBackendClient {
 
   public listRepairs(): Promise<ClientResponse<Record<string, unknown>>> {
     return this.requestJson("GET", "/repairs");
+  }
+
+  public getRepairSession(sessionId: string): Promise<ClientResponse<Record<string, unknown>>> {
+    return this.requestJson("GET", `/repairs/${encodeURIComponent(String(sessionId || "").trim())}`);
   }
 
   public getConfig(): Promise<ClientResponse<Record<string, unknown>>> {

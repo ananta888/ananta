@@ -68,7 +68,7 @@
       "id": "VSC-M5",
       "title": "Runtime, audit, repair and TUI integration",
       "task_ids": ["VSC-T22", "VSC-T23", "VSC-T24", "VSC-T25", "VSC-T26"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VSC-M6",
@@ -365,7 +365,7 @@
     {
       "id": "VSC-T22",
       "title": "System and runtime overview view implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -378,7 +378,7 @@
     {
       "id": "VSC-T23",
       "title": "Audit explorer MVP implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -391,7 +391,7 @@
     {
       "id": "VSC-T24",
       "title": "Repair visibility MVP implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "acceptance_criteria": [
@@ -404,7 +404,7 @@
     {
       "id": "VSC-T25",
       "title": "Launch Ananta TUI in VS Code terminal implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -417,7 +417,7 @@
     {
       "id": "VSC-T26",
       "title": "Open Ananta Web UI fallback implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -596,15 +596,15 @@
   ],
 
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T12:13:40+02:00",
+    "updated_at": "2026-04-25T13:05:00+02:00",
     "total": 36,
     "by_status": {
-      "todo": 15,
+      "todo": 10,
       "in_progress": 0,
       "blocked": 0,
-      "done": 21
+      "done": 26
     },
-    "progress_percent_done": 58.33,
+    "progress_percent_done": 72.22,
     "by_priority": {
       "P0": 25,
       "P1": 11,
@@ -619,20 +619,20 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 14,
-      "remaining": 7
+      "done": 15,
+      "remaining": 6
     },
     "milestones": {
       "total": 7,
-      "todo": 3,
+      "todo": 2,
       "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
 
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T12:13:40+02:00",
+    "updated_at": "2026-04-25T13:05:00+02:00",
     "stages": {
       "VSC-M1": {
         "title": "Scope, architecture and project bootstrap",
@@ -674,8 +674,8 @@
         "title": "Runtime, audit, repair and TUI integration",
         "scope_task_ids": ["VSC-T22", "VSC-T23", "VSC-T24", "VSC-T25", "VSC-T26"],
         "total": 5,
-        "done": 0,
-        "todo": 5,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -701,12 +701,12 @@
   },
 
   "analysis_checks": {
-    "checked_at": "2026-04-25T12:13:40+02:00",
+    "checked_at": "2026-04-25T13:05:00+02:00",
     "internal_consistency": "corrected",
     "notes": [
-      "Third implementation bundle VSC-T16..VSC-T21 was completed and tracked to done state.",
-      "Result detail rendering, sidebar sections, tasks/artifacts detail views and approval queue actions are now reflected in task completion state.",
-      "tasks_status_summary and execution_stage_summary were synchronized after milestone transitions (VSC-M3 done, VSC-M4 done)."
+      "Fourth implementation bundle VSC-T22..VSC-T26 was completed and tracked to done state.",
+      "Runtime overview, audit/repair visibility, TUI launch command and explicit web fallback commands are now reflected in completion state.",
+      "tasks_status_summary and execution_stage_summary were synchronized after milestone transition (VSC-M5 done)."
     ]
   },
 
@@ -716,7 +716,7 @@
     "MVP should focus on command palette, bounded context, task/artifact views, approval visibility and TUI launch.",
     "Repair execution, config writes and deep admin workflows should remain browser-first or backend-gated until explicitly hardened.",
     "Current todo file now contains synchronized status counters and explicit stage-level rollup data.",
-    "Milestones VSC-M1 through VSC-M4 are complete; remaining work now starts with runtime/audit/repair/TUI integration."
+    "Milestones VSC-M1 through VSC-M5 are complete; remaining work starts with safety/tests and release-readiness bundles."
   ],
 
   "end_summaries": [
@@ -750,7 +750,7 @@
       "summary_id": "VSC-S4",
       "title": "Status am Ende",
       "items": [
-        "Drittes Umsetzungsbündel ist abgeschlossen: insgesamt 21 done, 4 milestones done (VSC-M1 bis VSC-M4), 0 milestones in_progress.",
+        "Viertes Umsetzungsbündel ist abgeschlossen: insgesamt 26 done, 5 milestones done (VSC-M1 bis VSC-M5), 0 milestones in_progress.",
         "Die Datei bleibt validator-konsistent und enthält aktualisierte Stage- sowie End-Summaries."
       ]
     }

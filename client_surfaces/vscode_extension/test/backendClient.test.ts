@@ -131,6 +131,44 @@ describe("AnantaBackendClient", () => {
     ]);
   });
 
+  it("requests runtime overview read models and provider inventory", async () => {
+    const calls: string[] = [];
+    const transport = new StubTransport(async (request) => {
+      calls.push(request.url);
+      return { status: 200, body: JSON.stringify({ items: [] }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    await client.getDashboardReadModel();
+    await client.getAssistantReadModel();
+    await client.listProviders();
+    await client.listProviderCatalog();
+    await client.getLlmBenchmarks("analysis", 5);
+    expect(calls).toEqual([
+      "http://localhost:8080/dashboard/read-model?benchmark_task_kind=analysis&include_task_snapshot=1",
+      "http://localhost:8080/assistant/read-model",
+      "http://localhost:8080/providers",
+      "http://localhost:8080/providers/catalog",
+      "http://localhost:8080/llm/benchmarks?task_kind=analysis&top_n=5"
+    ]);
+  });
+
+  it("requests audit and repair visibility/detail endpoints", async () => {
+    const calls: string[] = [];
+    const transport = new StubTransport(async (request) => {
+      calls.push(request.url);
+      return { status: 200, body: JSON.stringify({ items: [] }) };
+    });
+    const client = new AnantaBackendClient(settings, transport);
+    await client.getAuditLogs(30, 0);
+    await client.listRepairs();
+    await client.getRepairSession("repair/1");
+    expect(calls).toEqual([
+      "http://localhost:8080/api/system/audit-logs?limit=30&offset=0",
+      "http://localhost:8080/repairs",
+      "http://localhost:8080/repairs/repair%2F1"
+    ]);
+  });
+
   it("sends approval action payloads to backend endpoints", async () => {
     const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
     const transport = new StubTransport(async (request) => {
