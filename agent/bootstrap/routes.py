@@ -18,6 +18,7 @@ from agent.routes.sgpt import sgpt_bp
 from agent.routes.system import system_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
+from agent.routes.webhooks import webhooks_bp
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -37,6 +38,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(instruction_layers_bp)
+    app.register_blueprint(webhooks_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     register_ws_terminal(app)
 
