@@ -1,0 +1,244 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "unified_ananta_cli",
+  "purpose": "Provide a consistent user-facing CLI entrypoint so normal users can start every common workflow with `ananta ...` instead of mixing `ananta init` with `python -m agent.cli_goals ...`. Existing python module invocations may remain as internal/dev fallback but must not be the documented golden path.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "non_goals": [
+    "Do not rewrite the full CLI implementation if existing modules can be wrapped.",
+    "Do not duplicate orchestration, policy or approval logic in the CLI.",
+    "Do not remove existing `python -m agent.cli_goals` developer entrypoints until compatibility is intentionally deprecated.",
+    "Do not make Docker a required dependency for the CLI entrypoint."
+  ],
+  "success_criteria": [
+    "A single `ananta` command is available after installation or editable install.",
+    "Common workflows are documented as `ananta init`, `ananta status`, `ananta ask`, `ananta plan`, `ananta analyze`, `ananta review`, `ananta diagnose`, `ananta patch`, `ananta repair-admin`, `ananta new-project`, `ananta evolve-project`, `ananta tui`, `ananta doctor` and optionally `ananta web`.",
+    "Existing module-based commands remain usable for developers.",
+    "README/Quickstart uses only `ananta ...` commands for normal users.",
+    "CLI smoke tests prove the user-facing command dispatches to existing behavior without client-side orchestration."
+  ],
+  "milestones": [
+    {
+      "id": "CLI-M1",
+      "title": "Unified command entrypoint",
+      "task_ids": ["CLI-T01", "CLI-T02", "CLI-T03"],
+      "status": "todo"
+    },
+    {
+      "id": "CLI-M2",
+      "title": "Command aliases and compatibility",
+      "task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
+      "status": "todo"
+    },
+    {
+      "id": "CLI-M3",
+      "title": "Docs and smoke tests",
+      "task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CLI-T01",
+      "title": "Console script entrypoint add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": [
+        "pyproject.toml",
+        "agent/cli/main.py",
+        "tests/test_unified_cli_entrypoint.py"
+      ],
+      "acceptance_criteria": [
+        "Project exposes `ananta = agent.cli.main:main` or equivalent console script.",
+        "`ananta --help` works after editable install.",
+        "Entrypoint performs command dispatch only and does not duplicate Hub orchestration.",
+        "Tests verify the console script target can be imported."
+      ]
+    },
+    {
+      "id": "CLI-T02",
+      "title": "Top-level command structure define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CLI-T01"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "tests/test_unified_cli_commands.py"
+      ],
+      "acceptance_criteria": [
+        "Defines stable user-facing subcommands: init, first-run, status, ask, plan, analyze, review, diagnose, patch, repair-admin, new-project, evolve-project, tui, doctor.",
+        "Optional web command is included only if a stable backend/UI launcher exists or degrades with a useful message.",
+        "Unknown commands show concise help and exit non-zero.",
+        "All commands support `--help`."
+      ]
+    },
+    {
+      "id": "CLI-T03",
+      "title": "Init command wire to runtime wizard",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CLI-T01", "todo.platform-gaps.json:PG-T01"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "agent/cli/init_wizard.py",
+        "tests/test_ananta_init_command.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta init` dispatches to the runtime profile wizard.",
+        "`ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default` is accepted or clearly rejected with actionable validation.",
+        "Init writes reviewable profile/config files and does not require Docker in local-dev mode.",
+        "Tests cover non-interactive --yes mode."
+      ]
+    },
+    {
+      "id": "CLI-T04",
+      "title": "Goal command aliases wire to cli_goals",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CLI-T02"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "agent/cli/goal_aliases.py",
+        "tests/test_goal_command_aliases.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta ask <text>` maps to existing ask/goal behavior.",
+        "`ananta plan <text>`, `ananta analyze <text>`, `ananta review <text>`, `ananta diagnose <text>`, `ananta patch <text>`, `ananta repair-admin <text>`, `ananta new-project <text>` and `ananta evolve-project <text>` map to existing cli_goals behavior or return a clear not-yet-supported message.",
+        "Mappings preserve existing request payload semantics.",
+        "No alias performs direct worker/tool execution locally; it routes through existing Hub/goal paths."
+      ]
+    },
+    {
+      "id": "CLI-T05",
+      "title": "Status first-run doctor commands wire",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["CLI-T02"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "agent/cli/doctor.py",
+        "tests/test_status_doctor_commands.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta first-run` runs or delegates the first-run flow.",
+        "`ananta status` shows concise Hub/Worker/LLM/RAG state or a degraded explanation.",
+        "`ananta doctor` performs local setup checks and prints actionable next steps.",
+        "Commands are safe to run repeatedly."
+      ]
+    },
+    {
+      "id": "CLI-T06",
+      "title": "TUI and optional Web launch commands wire",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CLI-T02"],
+      "expected_files": [
+        "agent/cli/main.py",
+        "tests/test_tui_web_launch_commands.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta tui` launches or delegates to the existing TUI entrypoint.",
+        "`ananta web` launches, opens, or prints the configured Web UI URL if supported.",
+        "If TUI/Web dependencies are missing, command exits with a helpful degraded message.",
+        "No TUI/Web command owns orchestration logic."
+      ]
+    },
+    {
+      "id": "CLI-T07",
+      "title": "Module invocation compatibility keep",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["CLI-T04"],
+      "expected_files": [
+        "tests/test_cli_backward_compatibility.py",
+        "docs/cli/developer_entrypoints.md"
+      ],
+      "acceptance_criteria": [
+        "Existing `python -m agent.cli_goals ...` developer commands still work or have documented compatibility shims.",
+        "Developer docs clearly mark module invocations as internal/dev fallback.",
+        "Normal user docs prefer `ananta ...` only.",
+        "Tests cover at least one old command path and one new command path."
+      ]
+    },
+    {
+      "id": "CLI-T08",
+      "title": "Quickstart and README command examples update",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "blocking": true,
+      "depends_on": ["CLI-T03", "CLI-T04", "CLI-T05"],
+      "expected_files": [
+        "README.md",
+        "docs/setup/quickstart.md",
+        "docs/cli/commands.md"
+      ],
+      "acceptance_criteria": [
+        "Quickstart uses `ananta init`, `ananta status`, `ananta ask`, `ananta plan`, `ananta analyze`, `ananta tui` style commands.",
+        "No normal-user quickstart command starts with `python -m agent.cli_goals`.",
+        "Docs explain local-dev default and optional Docker/Podman modes consistently.",
+        "Examples are short and copy-pasteable."
+      ]
+    },
+    {
+      "id": "CLI-T09",
+      "title": "Unified CLI smoke and release gate hook add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CLI-T01", "CLI-T02", "CLI-T08"],
+      "expected_files": [
+        "tests/smoke/test_unified_cli_smoke.py",
+        "scripts/run_release_gate.py"
+      ],
+      "acceptance_criteria": [
+        "Smoke test verifies `ananta --help`, `ananta init --help`, `ananta status --help`, `ananta ask --help` and `ananta tui --help`.",
+        "Release gate includes unified CLI smoke when CLI runtime is claimed.",
+        "Smoke does not require a live cloud LLM provider.",
+        "Failure output tells users which command or packaging entrypoint is broken."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "Add console script and command dispatcher first.",
+    "Wire init, goal aliases and status/doctor commands to existing modules instead of rewriting behavior.",
+    "Keep old python -m entrypoints as developer fallback.",
+    "Update Quickstart so normal users only see `ananta ...` commands.",
+    "Add smoke tests and release-gate coverage."
+  ],
+  "critical_path_tasks": ["CLI-T01", "CLI-T02", "CLI-T03", "CLI-T04", "CLI-T05", "CLI-T08"],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 9,
+    "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 5, "P1": 4, "P2": 0, "P3": 0},
+    "by_risk": {"low": 2, "medium": 6, "high": 1, "critical": 0},
+    "critical_path": {"total": 6, "done": 0, "remaining": 6},
+    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "This track is primarily a UX/DX wrapper track. It should not create another orchestration layer.",
+    "The user-facing golden path should start with `ananta init` and continue with `ananta ...` commands everywhere.",
+    "Module-based python commands can remain available for developers, tests and backwards compatibility.",
+    "This track pairs naturally with todo.platform-gaps.json PG-T01/PG-T02."
+  ]
+}
