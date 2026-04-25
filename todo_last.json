@@ -1,568 +1,517 @@
 {
-  "version": 3,
+  "version": 1,
   "owner": "ananta",
-  "track": "client_runtime_test_hardening",
-  "purpose": "Verify the completed client runtime delivery for TUI, Neovim/Vim and Eclipse with unit, integration, smoke, e2e, security and release-gate tests.",
-  "assumption": "todo.json track client_runtime_delivery_after_skeletons is fully implemented correctly before this test track is executed.",
+  "track": "e2e_dogfood_visual_evidence",
+  "purpose": "Add automated end-to-end dogfood tests that produce human-reviewable evidence for CLI, TUI and Web UI flows. The tests should not only assert API success, but also capture snapshots, screenshots and optional short videos so usability, degraded states and golden-path behavior can be inspected before manual dogfooding.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-
-  "goal": "Prove that the implemented TUI, Neovim/Vim and Eclipse client surfaces are runnable, thin, safe, test-covered and merge-ready.",
-
+  "goal": "Make Ananta's pre-release confidence visible: each important E2E flow should produce deterministic logs plus visual artifacts such as terminal snapshots, TUI screenshots, Web UI screenshots and optional videos.",
+  "non_goals": [
+    "Do not require manual UI polishing before tests exist.",
+    "Do not make videos mandatory for every CI run if they are too heavy.",
+    "Do not use visual tests as a replacement for contract, policy or security tests.",
+    "Do not allow visual snapshot tests to mask functional failures.",
+    "Do not require KRITIS/Enterprise infrastructure for OSS E2E evidence."
+  ],
   "success_criteria": [
-    "TUI runtime starts in automated or scripted smoke mode.",
-    "Neovim plugin loads headlessly and exposes expected Ananta commands.",
-    "Vim compatibility is either tested or explicitly marked deferred and enforced.",
-    "Eclipse plugin project existence/build/install path is tested or explicitly deferred/blocked according to runtime inventory.",
-    "All client surfaces use backend APIs and cannot bypass policy, approval, audit or bounded-context rules.",
-    "Golden path tests verify client goal submission to task/artifact result with mocked worker/LLM execution.",
-    "Release gate blocks false runtime claims."
+    "Golden-path E2E creates goal, task, artifact and trace evidence with mocked worker/LLM execution.",
+    "CLI E2E captures command output snapshots for success, degraded and policy-denied states.",
+    "TUI E2E captures terminal snapshots or screenshots for health, task list, artifact view and degraded states.",
+    "Web UI E2E captures screenshots for dashboard/golden-path states where the Web UI is available.",
+    "Optional short videos are produced for at least one representative TUI or Web UI golden path when the environment supports it.",
+    "Artifacts are stored in a predictable test output directory and referenced from the E2E report.",
+    "Release gate can attach or summarize visual evidence without making heavy video capture mandatory."
   ],
-
   "architecture_guardrails": [
-    "Tests must verify executable behavior, not only foundation services.",
-    "Tests must fail on .keep-only or docs-only client surfaces if runtime_mvp is claimed.",
-    "No test may treat foundation_only as runtime_complete.",
-    "Security and approval tests must include negative cases.",
-    "Manual smoke checks are allowed only where automation is impractical, and must be explicitly marked."
+    "E2E must use controlled/mocked worker and LLM paths unless explicitly marked external/manual.",
+    "Visual evidence must not include secrets, tokens, private local paths or unrelated project files.",
+    "Snapshots should be stable enough for regression use but not overly brittle on timestamps or terminal dimensions.",
+    "Screenshots/videos are evidence, not the only assertion mechanism.",
+    "Policy-denied and degraded-state visuals are as important as happy-path visuals.",
+    "The report must separate blocking functional failures from visual-diff review items."
   ],
-
+  "planned_repository_layout": {
+    "tests": "tests/e2e/",
+    "scripts": "scripts/e2e/",
+    "artifacts": "artifacts/e2e/",
+    "reports": "artifacts/e2e/report.json",
+    "snapshots": "tests/e2e/snapshots/",
+    "docs": "docs/testing/e2e_visual_evidence.md"
+  },
   "milestones": [
     {
-      "id": "TEST-M1",
-      "title": "Runtime evidence and audit verification",
-      "task_ids": ["TEST-T01", "TEST-T02", "TEST-T03", "TEST-T04"],
+      "id": "E2E-M1",
+      "title": "E2E harness and artifact model",
+      "task_ids": ["E2E-T01", "E2E-T02", "E2E-T03"],
       "status": "done"
     },
     {
-      "id": "TEST-M2",
-      "title": "Shared client contract and security tests",
-      "task_ids": ["TEST-T05", "TEST-T06", "TEST-T07", "TEST-T08"],
+      "id": "E2E-M2",
+      "title": "CLI and core golden path evidence",
+      "task_ids": ["E2E-T04", "E2E-T05", "E2E-T06"],
       "status": "done"
     },
     {
-      "id": "TEST-M3",
-      "title": "TUI runtime tests",
-      "task_ids": ["TEST-T09", "TEST-T10", "TEST-T11", "TEST-T12"],
+      "id": "E2E-M3",
+      "title": "TUI visual evidence",
+      "task_ids": ["E2E-T07", "E2E-T08", "E2E-T09"],
       "status": "done"
     },
     {
-      "id": "TEST-M4",
-      "title": "Neovim and Vim runtime tests",
-      "task_ids": ["TEST-T13", "TEST-T14", "TEST-T15", "TEST-T16"],
+      "id": "E2E-M4",
+      "title": "Web UI screenshots and optional video",
+      "task_ids": ["E2E-T10", "E2E-T11", "E2E-T12"],
       "status": "done"
     },
     {
-      "id": "TEST-M5",
-      "title": "Eclipse plugin tests",
-      "task_ids": ["TEST-T17", "TEST-T18", "TEST-T19", "TEST-T20"],
+      "id": "E2E-M5",
+      "title": "RAG and policy visual dogfood flows",
+      "task_ids": ["E2E-T13", "E2E-T14", "E2E-T15"],
       "status": "done"
     },
     {
-      "id": "TEST-M6",
-      "title": "End-to-end and merge readiness",
-      "task_ids": ["TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24", "TEST-T25"],
+      "id": "E2E-M6",
+      "title": "Release gate and documentation",
+      "task_ids": ["E2E-T16", "E2E-T17", "E2E-T18"],
       "status": "done"
     }
   ],
-
   "tasks": [
     {
-      "id": "TEST-T01",
-      "title": "Runtime inventory evidence tests add",
+      "id": "E2E-T01",
+      "title": "E2E visual evidence strategy define",
       "status": "done",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": ["docs/testing/e2e_visual_evidence.md"],
       "acceptance_criteria": [
-        "Tests verify data/client_surface_runtime_inventory.json contains runtime evidence for every surface classified as runtime_mvp or runtime_complete.",
-        "Tests fail if runtime evidence contains only .keep files, docs or foundation services.",
-        "Tests verify TUI, Neovim/Vim and Eclipse status values match actual repository artifacts."
+        "Document defines which flows require logs, terminal snapshots, screenshots and optional videos.",
+        "Document separates blocking functional assertions from advisory visual review artifacts.",
+        "Document defines redaction rules for screenshots, terminal output and videos.",
+        "Document explains how CI and local runs store and reference evidence."
       ]
     },
     {
-      "id": "TEST-T02",
-      "title": "Client surface audit script tests expand",
+      "id": "E2E-T02",
+      "title": "E2E artifact directory and report schema add",
       "status": "done",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["E2E-T01"],
+      "expected_files": ["schemas/testing/e2e_report.v1.json", "scripts/e2e/e2e_artifacts.py"],
       "acceptance_criteria": [
-        "tests/test_audit_client_surface_entrypoints.py covers CRT task mappings.",
-        "Tests verify audit_client_surface_entrypoints.py fails on skeleton-only runtime claims.",
-        "Tests verify audit passes when real runtime files and required commands/build metadata exist."
+        "Report schema records flow id, status, logs, snapshots, screenshots, videos, trace bundle refs and artifact refs.",
+        "Artifacts are stored under artifacts/e2e/<run_id>/<flow_id>/ with predictable names.",
+        "Report distinguishes missing optional videos from blocking failures.",
+        "Report supports compact console summary for release gate output."
       ]
     },
     {
-      "id": "TEST-T03",
-      "title": "Todo summary consistency tests add",
+      "id": "E2E-T03",
+      "title": "Mocked backend worker LLM harness add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T02"],
+      "expected_files": ["tests/e2e/harness.py", "tests/e2e/mock_worker.py", "tests/e2e/mock_llm.py"],
+      "acceptance_criteria": [
+        "Harness can run golden paths without external model dependency.",
+        "Mock worker produces deterministic task/artifact outputs.",
+        "Mock LLM produces stable responses suitable for snapshot tests.",
+        "Harness records trace/correlation IDs for each flow."
+      ]
+    },
+    {
+      "id": "E2E-T04",
+      "title": "Core golden path E2E add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/test_core_golden_path.py"],
+      "acceptance_criteria": [
+        "Test starts controlled backend/harness or uses an in-process test server where practical.",
+        "Test submits a goal and verifies task creation, mocked execution, artifact creation and trace bundle presence.",
+        "Test stores structured logs and report entries.",
+        "Test fails if artifact or trace metadata is missing."
+      ]
+    },
+    {
+      "id": "E2E-T05",
+      "title": "CLI golden path output snapshots add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["E2E-T04"],
+      "expected_files": ["tests/e2e/test_cli_golden_path_snapshots.py", "tests/e2e/snapshots/cli/"],
+      "acceptance_criteria": [
+        "CLI E2E captures stdout/stderr snapshots for health, goal submit, task status and artifact display.",
+        "Snapshots normalize timestamps, IDs and paths where needed.",
+        "Snapshot failures are readable and point to the changed command output.",
+        "CLI output includes useful next-step information."
+      ]
+    },
+    {
+      "id": "E2E-T06",
+      "title": "CLI degraded and policy denied snapshots add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["E2E-T05"],
+      "expected_files": ["tests/e2e/test_cli_degraded_policy_snapshots.py"],
+      "acceptance_criteria": [
+        "Snapshots cover backend unreachable, invalid auth/config, approval required and policy denied states.",
+        "CLI never renders denied/degraded states as success.",
+        "Output avoids secrets and excessive internal stack traces.",
+        "Artifacts/report include text snapshots for review."
+      ]
+    },
+    {
+      "id": "E2E-T07",
+      "title": "TUI headless scripted smoke add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/test_tui_scripted_smoke.py", "scripts/e2e/capture_tui.py"],
+      "acceptance_criteria": [
+        "TUI can run in headless/scripted mode or via a terminal capture harness.",
+        "Test captures at least health, task list, artifact view and degraded state screens.",
+        "Captured terminal output is stored as text snapshot and optionally image screenshot.",
+        "Test fails if TUI exits unexpectedly or renders an empty unhelpful screen."
+      ]
+    },
+    {
+      "id": "E2E-T08",
+      "title": "TUI visual snapshots add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["E2E-T07"],
+      "expected_files": ["tests/e2e/snapshots/tui/", "scripts/e2e/render_terminal_snapshot.py"],
+      "acceptance_criteria": [
+        "TUI snapshots normalize terminal size and volatile values.",
+        "Snapshots include representative screens for connected, empty, task/artifact populated and policy-denied states.",
+        "Diffs are reviewable as text or images.",
+        "Snapshots are advisory unless a core required element is missing."
+      ]
+    },
+    {
+      "id": "E2E-T09",
+      "title": "TUI short video capture optional add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T07"],
+      "expected_files": ["scripts/e2e/record_tui_demo.py"],
+      "acceptance_criteria": [
+        "Local runs can record a short TUI golden-path video or terminal cast where tooling is available.",
+        "CI may skip video capture unless explicitly enabled.",
+        "Report marks video as optional evidence and links it when produced.",
+        "Video capture redacts secrets and avoids private paths."
+      ]
+    },
+    {
+      "id": "E2E-T10",
+      "title": "Web UI screenshot harness add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/test_web_ui_screenshots.py", "scripts/e2e/capture_web_ui.py"],
+      "acceptance_criteria": [
+        "Harness can start or connect to Web UI in test mode where available.",
+        "Screenshots cover dashboard/health, goals/tasks, artifact view and degraded state where implemented.",
+        "Screenshots are saved into E2E artifacts and referenced in report.json.",
+        "If Web UI is unavailable, test is skipped/advisory without blocking CLI/TUI golden path."
+      ]
+    },
+    {
+      "id": "E2E-T11",
+      "title": "Web UI visual baseline snapshots add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T10"],
+      "expected_files": ["tests/e2e/snapshots/web/"],
+      "acceptance_criteria": [
+        "Visual baselines exist for stable Web UI screens.",
+        "Baselines account for volatile values such as IDs and timestamps where practical.",
+        "Visual diffs are advisory unless required text/status elements are missing.",
+        "Screenshots help detect broken layout and empty-state regressions."
+      ]
+    },
+    {
+      "id": "E2E-T12",
+      "title": "Web UI short video capture optional add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T10"],
+      "expected_files": ["scripts/e2e/record_web_demo.py"],
+      "acceptance_criteria": [
+        "Local or enabled CI runs can record a short Web UI golden-path video.",
+        "Video shows goal submission, task status and artifact viewing when Web UI supports it.",
+        "Video is referenced from E2E report when produced.",
+        "Video capture is optional and not required for every release gate run."
+      ]
+    },
+    {
+      "id": "E2E-T13",
+      "title": "RAG dogfood E2E with tiny repo add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["E2E-T03"],
+      "expected_files": ["tests/e2e/fixtures/tiny_project/", "tests/e2e/test_rag_dogfood_tiny_repo.py"],
+      "acceptance_criteria": [
+        "Test indexes a tiny fixture project with codecompass/rag_helper or a deterministic fixture index.",
+        "Test asks a project question and verifies relevant source/path/reason metadata appears.",
+        "Test verifies context remains bounded and uses explicit source refs.",
+        "Test stores retrieval report and optional CLI/TUI snapshot for review."
+      ]
+    },
+    {
+      "id": "E2E-T14",
+      "title": "Policy and approval E2E visual evidence add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T04", "E2E-T06"],
+      "expected_files": ["tests/e2e/test_policy_approval_visual_evidence.py"],
+      "acceptance_criteria": [
+        "E2E covers unsafe action -> approval_required, denied action -> no execution, approved safe action -> execution.",
+        "CLI/TUI/Web evidence shows approval-required and policy-denied states clearly where surfaces exist.",
+        "Trace/report includes policy decision, approval decision and artifact refs.",
+        "Test fails if denied action executes or approval state is rendered as success."
+      ]
+    },
+    {
+      "id": "E2E-T15",
+      "title": "Visual evidence redaction tests add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T02"],
+      "expected_files": ["tests/e2e/test_visual_evidence_redaction.py"],
+      "acceptance_criteria": [
+        "Tests verify tokens, likely secrets and sensitive local paths are redacted from snapshots, screenshots metadata and reports where practical.",
+        "Tests include positive and negative examples.",
+        "Redaction failures block release-gate evidence publication.",
+        "Redaction does not hide policy/audit facts needed for debugging."
+      ]
+    },
+    {
+      "id": "E2E-T16",
+      "title": "E2E visual report generator add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["E2E-T04", "E2E-T05", "E2E-T07", "E2E-T13", "E2E-T14"],
+      "expected_files": ["scripts/e2e/generate_e2e_report.py"],
+      "acceptance_criteria": [
+        "Generator creates a compact markdown and JSON report listing each flow, status and evidence links.",
+        "Report highlights blocking failures, advisory visual diffs and skipped optional video captures separately.",
+        "Report can be attached to release artifacts or read locally.",
+        "Report includes enough information to review UI/UX regressions without rerunning tests immediately."
+      ]
+    },
+    {
+      "id": "E2E-T17",
+      "title": "Release gate integration for E2E evidence add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["E2E-T16"],
+      "expected_files": ["scripts/run_e2e_dogfood_checks.py", "scripts/run_release_gate.py"],
+      "acceptance_criteria": [
+        "Release gate can run core E2E dogfood checks with visual evidence generation.",
+        "Gate blocks on functional failures and missing required evidence for claimed runtime surfaces.",
+        "Gate does not block solely because optional videos are skipped.",
+        "Gate prints path to E2E report and key snapshots/screenshots."
+      ]
+    },
+    {
+      "id": "E2E-T18",
+      "title": "E2E visual evidence docs write",
       "status": "done",
       "priority": "P1",
       "risk": "medium",
+      "blocking": false,
+      "depends_on": ["E2E-T16", "E2E-T17"],
+      "expected_files": ["docs/testing/e2e_visual_evidence.md", "docs/testing/e2e_artifact_review.md"],
       "acceptance_criteria": [
-        "Tests verify tasks_status_summary matches actual task counts.",
-        "Tests verify milestone and execution_stage_summary counters match referenced task IDs.",
-        "Tests fail if done/todo counters drift from real task status."
-      ]
-    },
-    {
-      "id": "TEST-T04",
-      "title": "Documentation command verification add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Documented TUI start command is validated or explicitly marked manual.",
-        "Documented Neovim/Vim load/test commands are validated or explicitly marked manual.",
-        "Documented Eclipse build/install commands are validated or explicitly marked manual/deferred."
-      ]
-    },
-
-    {
-      "id": "TEST-T05",
-      "title": "External client API contract tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Contract tests cover health, capabilities, goals, tasks, artifacts, approvals, traces and errors.",
-        "Tests verify fields used by TUI, Neovim/Vim and Eclipse clients remain stable.",
-        "Tests include degraded-state response shapes."
-      ]
-    },
-    {
-      "id": "TEST-T06",
-      "title": "Client auth and degraded-state tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Tests cover missing token, invalid token, backend unreachable and capability missing.",
-        "Tests verify each client receives explicit degraded state rather than success.",
-        "Tests verify no token or secret appears in rendered errors/logs."
-      ]
-    },
-    {
-      "id": "TEST-T07",
-      "title": "Bounded context and provenance tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Tests cover selection, current file, buffer excerpt and project metadata packaging.",
-        "Tests verify payload size limits.",
-        "Tests verify provenance metadata is present.",
-        "Tests verify unrelated files and likely secrets are not silently included."
-      ]
-    },
-    {
-      "id": "TEST-T08",
-      "title": "Client-originated policy and approval tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Tests verify client-originated actions cannot bypass backend approval or policy.",
-        "Tests cover denied, stale, malformed and unauthorized approval/action requests.",
-        "Tests verify mutation-like actions remain explicit and auditable."
-      ]
-    },
-
-    {
-      "id": "TEST-T09",
-      "title": "TUI import and startup tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Test imports the TUI package without side effects.",
-        "Test starts TUI in scripted/headless/smoke mode.",
-        "Startup works with mocked backend configuration.",
-        "Startup failure path is readable and structured."
-      ]
-    },
-    {
-      "id": "TEST-T10",
-      "title": "TUI view model tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Tests cover health/connection view.",
-        "Tests cover task list and task detail views.",
-        "Tests cover artifact list and artifact detail views.",
-        "Tests cover empty, malformed, auth-failed and backend-unreachable states."
-      ]
-    },
-    {
-      "id": "TEST-T11",
-      "title": "TUI approval and repair safety tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Tests verify approval-required and policy-denied states render clearly.",
-        "Tests verify approval/reject actions call backend approval APIs only.",
-        "Tests verify repair session views do not execute repair actions implicitly.",
-        "Tests cover dry-run-first behavior where applicable."
-      ]
-    },
-    {
-      "id": "TEST-T12",
-      "title": "TUI smoke checklist or automated terminal smoke add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Automated smoke verifies health plus task/artifact rendering, or manual smoke checklist exists.",
-        "Smoke evidence is referenced from runtime inventory or release report.",
-        "Failure blocks runtime_complete claim."
-      ]
-    },
-
-    {
-      "id": "TEST-T13",
-      "title": "Neovim headless load test add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Headless Neovim loads the plugin from client_surfaces/nvim_runtime.",
-        "Expected Ananta commands are registered.",
-        "Load test fails on missing Lua modules or plugin entrypoint.",
-        "Test can run locally without a real backend by using mocked command paths."
-      ]
-    },
-    {
-      "id": "TEST-T14",
-      "title": "Neovim command behavior tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Tests cover AnantaGoalSubmit, AnantaAnalyze and AnantaReview command paths.",
-        "Tests verify commands call backend/client layer rather than local orchestration.",
-        "Tests verify degraded states render visibly.",
-        "Tests verify no command mutates files silently."
-      ]
-    },
-    {
-      "id": "TEST-T15",
-      "title": "Neovim context packaging tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Tests cover current file path, buffer excerpt and visual selection packaging.",
-        "Tests verify bounded size and provenance metadata.",
-        "Tests verify context inspection/confirmation path exists before send."
-      ]
-    },
-    {
-      "id": "TEST-T16",
-      "title": "Vim compatibility tests or deferred enforcement add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "If Vim support is claimed, Vim plugin/autoload files are tested or manually smoke-checked.",
-        "If Vim is deferred, tests verify inventory/docs mark Vim as deferred and not runtime_mvp.",
-        "Audit script enforces the chosen Vim status."
-      ]
-    },
-
-    {
-      "id": "TEST-T17",
-      "title": "Eclipse plugin project metadata tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "If Eclipse runtime_mvp is claimed, tests verify plugin project directory exists.",
-        "Tests verify plugin.xml and META-INF/MANIFEST.MF or equivalent build metadata.",
-        "If Eclipse is deferred/blocked, tests verify inventory/docs do not claim runtime availability."
-      ]
-    },
-    {
-      "id": "TEST-T18",
-      "title": "Eclipse build smoke test add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "If Eclipse plugin is implemented, a build smoke command verifies compilation/packaging.",
-        "Build smoke validates target Eclipse/Java baseline metadata.",
-        "If build automation is not possible, manual build checklist is required and runtime_complete is blocked."
-      ]
-    },
-    {
-      "id": "TEST-T19",
-      "title": "Eclipse context and command tests add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Tests cover selection/file/project metadata handoff where practical.",
-        "Tests cover analyze/review/custom goal command mapping.",
-        "Tests verify context is bounded and user-visible before send.",
-        "Tests verify commands call Ananta backend APIs only."
-      ]
-    },
-    {
-      "id": "TEST-T20",
-      "title": "Eclipse task artifact view smoke checklist add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Checklist covers install/open, configure backend, send selection, create goal and inspect task/artifact.",
-        "Checklist includes expected results and known failure symptoms.",
-        "Checklist is required for runtime_mvp if automated Eclipse UI tests are not implemented."
-      ]
-    },
-
-    {
-      "id": "TEST-T21",
-      "title": "Client golden path e2e suite add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "E2E suite covers client goal submission to task/artifact result with mocked worker/LLM execution.",
-        "TUI and Neovim paths are included when runtime_mvp is claimed.",
-        "Eclipse path is included as automated or manual smoke when runtime_mvp is claimed.",
-        "Visible status transitions and artifact availability are verified."
-      ]
-    },
-    {
-      "id": "TEST-T22",
-      "title": "Core platform regression tests expand",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Regression suite covers CLI goal, repair flow, approval flow, artifact flow and degraded backend behavior.",
-        "Repair tests include unsafe/denied repair where execution must not happen.",
-        "Approval tests include allow, deny, approval-required and malformed action cases."
-      ]
-    },
-    {
-      "id": "TEST-T23",
-      "title": "Release gate test runner consolidate",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "One documented command runs audit, unit tests, contract tests and smoke checks where available.",
-        "Gate separates blocking automated checks from manual/advisory checks.",
-        "Gate fails on false runtime claims."
-      ]
-    },
-    {
-      "id": "TEST-T24",
-      "title": "Merge readiness report tests add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Tests verify merge readiness report includes final status for TUI, Neovim, Vim and Eclipse.",
-        "Report includes runtime file evidence, commands and test/smoke results.",
-        "Report separates blockers from later enhancements."
-      ]
-    },
-    {
-      "id": "TEST-T25",
-      "title": "Post-test cleanup todo generate",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Remaining gaps are written into a cleanup todo or issue list.",
-        "Gaps distinguish missing implementation, weak test coverage, documentation drift and future enhancements.",
-        "Cleanup list excludes KRITIS and ref-profile unless directly impacted by client runtime tests."
+        "Docs explain how to run E2E locally, where to find snapshots/screenshots/videos and how to review diffs.",
+        "Docs explain optional video dependencies and skip behavior.",
+        "Docs include guidance for adding new visual evidence flows for future Blender, FreeCAD or KiCad integrations.",
+        "Docs keep the process lightweight enough for OSS contributors."
       ]
     }
   ],
-
   "execution_order_summary": [
-    "Stage 1: Verify runtime evidence, audit behavior and todo consistency.",
-    "Stage 2: Test shared client contracts, auth, context and security.",
-    "Stage 3: Test TUI runtime startup and views.",
-    "Stage 4: Test Neovim/Vim runtime behavior.",
-    "Stage 5: Test or explicitly defer Eclipse plugin runtime.",
-    "Stage 6: Add e2e/golden-path and release-gate coverage."
+    "Stage 1: Define visual evidence strategy, report schema and mocked E2E harness.",
+    "Stage 2: Add core and CLI golden-path snapshots.",
+    "Stage 3: Add TUI terminal snapshots and optional videos.",
+    "Stage 4: Add Web UI screenshots and optional videos where available.",
+    "Stage 5: Add RAG, policy and approval dogfood flows with evidence.",
+    "Stage 6: Generate reports and integrate with release gate."
   ],
-
   "critical_path_tasks": [
-    "TEST-T01",
-    "TEST-T02",
-    "TEST-T05",
-    "TEST-T06",
-    "TEST-T07",
-    "TEST-T08",
-    "TEST-T09",
-    "TEST-T10",
-    "TEST-T11",
-    "TEST-T13",
-    "TEST-T14",
-    "TEST-T15",
-    "TEST-T17",
-    "TEST-T18",
-    "TEST-T21",
-    "TEST-T23"
+    "E2E-T01",
+    "E2E-T02",
+    "E2E-T03",
+    "E2E-T04",
+    "E2E-T05",
+    "E2E-T06",
+    "E2E-T07",
+    "E2E-T13",
+    "E2E-T14",
+    "E2E-T15",
+    "E2E-T16",
+    "E2E-T17"
   ],
-
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T14:22:40+02:00",
-    "total": 25,
-    "by_status": {
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 25
-    },
+    "updated_at": "2026-04-25T18:02:00+02:00",
+    "total": 18,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 18},
     "progress_percent_done": 100.0,
-    "by_priority": {
-      "P0": 16,
-      "P1": 9,
-      "P2": 0,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 0,
-      "medium": 4,
-      "high": 10,
-      "critical": 11
-    },
-    "critical_path": {
-      "total": 16,
-      "done": 16,
-      "remaining": 0
-    },
-    "milestones": {
-      "total": 6,
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 6
-    }
+    "by_priority": {"P0": 12, "P1": 3, "P2": 3, "P3": 0},
+    "by_risk": {"low": 0, "medium": 6, "high": 6, "critical": 6},
+    "critical_path": {"total": 12, "done": 12, "remaining": 0},
+    "milestones": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
   },
-
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T14:22:40+02:00",
+    "updated_at": "2026-04-25T18:02:00+02:00",
     "stages": {
-      "TEST-M1": {
-        "title": "Runtime evidence and audit verification",
-        "scope_task_ids": ["TEST-T01", "TEST-T02", "TEST-T03", "TEST-T04"],
-        "total": 4,
-        "done": 4,
+      "E2E-M1": {
+        "title": "E2E harness and artifact model",
+        "scope_task_ids": ["E2E-T01", "E2E-T02", "E2E-T03"],
+        "total": 3,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "TEST-M2": {
-        "title": "Shared client contract and security tests",
-        "scope_task_ids": ["TEST-T05", "TEST-T06", "TEST-T07", "TEST-T08"],
-        "total": 4,
-        "done": 4,
+      "E2E-M2": {
+        "title": "CLI and core golden path evidence",
+        "scope_task_ids": ["E2E-T04", "E2E-T05", "E2E-T06"],
+        "total": 3,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "TEST-M3": {
-        "title": "TUI runtime tests",
-        "scope_task_ids": ["TEST-T09", "TEST-T10", "TEST-T11", "TEST-T12"],
-        "total": 4,
-        "done": 4,
+      "E2E-M3": {
+        "title": "TUI visual evidence",
+        "scope_task_ids": ["E2E-T07", "E2E-T08", "E2E-T09"],
+        "total": 3,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "TEST-M4": {
-        "title": "Neovim and Vim runtime tests",
-        "scope_task_ids": ["TEST-T13", "TEST-T14", "TEST-T15", "TEST-T16"],
-        "total": 4,
-        "done": 4,
+      "E2E-M4": {
+        "title": "Web UI screenshots and optional video",
+        "scope_task_ids": ["E2E-T10", "E2E-T11", "E2E-T12"],
+        "total": 3,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "TEST-M5": {
-        "title": "Eclipse plugin tests",
-        "scope_task_ids": ["TEST-T17", "TEST-T18", "TEST-T19", "TEST-T20"],
-        "total": 4,
-        "done": 4,
+      "E2E-M5": {
+        "title": "RAG and policy visual dogfood flows",
+        "scope_task_ids": ["E2E-T13", "E2E-T14", "E2E-T15"],
+        "total": 3,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "TEST-M6": {
-        "title": "End-to-end and merge readiness",
-        "scope_task_ids": ["TEST-T21", "TEST-T22", "TEST-T23", "TEST-T24", "TEST-T25"],
-        "total": 5,
-        "done": 5,
+      "E2E-M6": {
+        "title": "Release gate and documentation",
+        "scope_task_ids": ["E2E-T16", "E2E-T17", "E2E-T18"],
+        "total": 3,
+        "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
-
   "analysis_checks": {
-    "checked_at": "2026-04-25T14:22:40+02:00",
-    "internal_consistency": "corrected",
+    "checked_at": "2026-04-25T18:02:00+02:00",
+    "internal_consistency": "all_e2e_tasks_completed",
     "notes": [
-      "Erstes Umsetzungsbündel TEST-T01..TEST-T04 abgeschlossen und auf done synchronisiert.",
-      "tasks_status_summary und milestone-Status auf realen Fortschritt aktualisiert (4 done, 21 todo; TEST-M1 done).",
-      "execution_stage_summary für TEST-M1 auf done/todo=4/0 nachgezogen.",
-      "Zweites Umsetzungsbündel TEST-T05..TEST-T12 abgeschlossen und auf done synchronisiert (M2 und M3 done).",
-      "Abschlussbündel TEST-T13..TEST-T25 implementiert und auf done synchronisiert (M4, M5, M6 done)."
+      "tasks_status_summary.by_risk wurde auf die realen Task-Zahlen korrigiert (medium=6, high=6, critical=6).",
+      "updated_at auf den aktuellen Analysezeitpunkt gesetzt.",
+      "execution_stage_summary ergänzt, um Rollups je Meilenstein transparent und validator-kompatibel zu machen.",
+      "Bundle E2E-T01..E2E-T06 umgesetzt und in tasks/milestones/stage-rollups als done synchronisiert.",
+      "Restliche Tasks E2E-T07..E2E-T18 mit TUI/Web/RAG/Policy/Redaction/Report/Gate/Doku-Artefakten abgeschlossen."
     ]
   },
-
   "summary_notes": [
-    "This test todo assumes the runtime delivery todo.json has been fully and correctly implemented.",
-    "It no longer treats missing clients as the normal path; it verifies implemented runtime behavior.",
-    "Eclipse may still be deferred/blocked only if todo.json explicitly chose that path and inventory/docs agree.",
-    "The main purpose is to prove runtime evidence, safety boundaries and merge readiness.",
+    "This track is the automated substitute for early manual dogfooding while Ananta is still pre-release.",
+    "Videos are useful but optional; screenshots and terminal snapshots are required for key flows where practical.",
+    "Visual evidence should make it obvious when CLI/TUI/Web UI states are confusing, empty or misleading even if APIs technically pass.",
+    "Future Blender, FreeCAD and KiCad integrations should reuse this evidence model for plugin/UI smoke tests.",
     "Summary counters and stage rollups are now synchronized and explicitly documented.",
-    "First implementation bundle is now complete and reflected in synchronized status/stage counters.",
-    "Second implementation bundle completed contract/security/TUI runtime tests and synced rollups to 12/25 done.",
-    "Final implementation bundle completed Neovim/Vim, Eclipse, e2e/regression, release-gate and cleanup deliverables."
+    "Bundle 1 delivered deterministic schema/artifact helpers plus mocked CLI/core E2E snapshot evidence.",
+    "Track completion now includes TUI/Web harnesses, tiny-repo RAG flow, policy-approval evidence, redaction checks and release-gate integration."
   ],
-
   "end_summaries": [
     {
-      "summary_id": "TEST-S1",
+      "summary_id": "E2E-S1",
       "title": "Analyseergebnis",
       "items": [
-        "Die aktuelle todo.json bildet einen eigenständigen Test-Hardening-Track mit 25 Tasks über 6 Meilensteine ab.",
-        "Struktur und Task-Zuordnung waren konsistent, aber die Priority-/Risk-Zähler in tasks_status_summary waren veraltet."
+        "Die aktuelle todo.json beschreibt einen konsistent strukturierten E2E-Dogfood-Track mit 18 Tasks und 6 Meilensteinen.",
+        "Auffällig war ein Drift in tasks_status_summary.by_risk gegenüber den tatsächlichen Task-Risiken."
       ]
     },
     {
-      "summary_id": "TEST-S2",
+      "summary_id": "E2E-S2",
       "title": "Korrekturen",
       "items": [
-        "by_priority korrigiert auf P0=16 und P1=9.",
-        "by_risk korrigiert auf high=10 und critical=11.",
-        "updated_at/checked_at auf den aktuellen Bearbeitungszeitpunkt gesetzt."
+        "by_risk korrigiert auf low=0, medium=6, high=6, critical=6.",
+        "updated_at/checked_at auf aktuellen Analysezeitpunkt gesetzt.",
+        "E2E-T01 bis E2E-T06 auf done gesetzt und mit den Rollup-Zählern abgeglichen.",
+        "E2E-T07 bis E2E-T18 auf done gesetzt und sämtliche Stage/Milestone-Rollups auf Abschlussstand synchronisiert."
       ]
     },
     {
-      "summary_id": "TEST-S3",
+      "summary_id": "E2E-S3",
       "title": "Verbesserungen und Erweiterungen",
       "items": [
-        "execution_stage_summary ergänzt (pro Meilenstein: scope_task_ids plus total/done/todo/in_progress/blocked).",
-        "analysis_checks ergänzt, um Prüfstand und Korrekturinhalt nachvollziehbar zu dokumentieren.",
-        "summary_notes um den synchronisierten Rollup-Status erweitert."
+        "execution_stage_summary ergänzt (je Meilenstein: scope_task_ids + total/done/todo/in_progress/blocked).",
+        "analysis_checks ergänzt, um Validierungsstand und Korrekturinhalte nachvollziehbar zu dokumentieren.",
+        "Neue E2E-Artefakte ergänzt: TUI/Web Capture, optionale Video-Recorder, RAG tiny fixture, Policy/Approval Visual Evidence, Redaction-Tests, Aggregate Report Generator, Gate-Runner und Artifact-Review-Doku."
       ]
     },
     {
-      "summary_id": "TEST-S4",
+      "summary_id": "E2E-S4",
       "title": "Status am Ende",
       "items": [
-        "Alle Umsetzungsbündel abgeschlossen: 25/25 done (100.0%), 0 todo; TEST-M1 bis TEST-M6 sind done.",
-        "Kritischer Pfad vollständig abgeschlossen: 16/16 done; Stage-Rollups und End-Summaries bleiben validator-konsistent."
+        "Gesamter Track abgeschlossen: 0 todo, 0 in_progress, 0 blocked, 18 done (100.0%).",
+        "Alle Meilensteine E2E-M1 bis E2E-M6 sind done; die E2E-Dogfood-Visual-Evidence-Basis ist vollständig vorhanden."
       ]
     }
   ]
