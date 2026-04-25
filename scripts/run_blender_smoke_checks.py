@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ def _load_module(module_name: str, file_path: Path):
     if spec is None or spec.loader is None:
         raise RuntimeError(f"module load failed for {file_path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 

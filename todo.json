@@ -32,7 +32,7 @@
           "id": "CLEAN-T01",
           "title": "Wire domain action router into production task execution path",
           "category": "missing_implementation",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "notes": "Current router is foundation skeleton; production execution integration is still pending."
         },
@@ -40,7 +40,7 @@
           "id": "CLEAN-T02",
           "title": "Extend domain audit with CI artifact publishing",
           "category": "future_enhancement",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "notes": "Publish domain audit report in CI artifacts for release evidence review."
         },
@@ -48,7 +48,7 @@
           "id": "CLEAN-T03",
           "title": "Harden domain retrieval tests with retrieval backend contract fixtures",
           "category": "weak_tests",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "notes": "Add integration-like fixtures for source-type routing and bounded chunk selection."
         }
@@ -61,7 +61,7 @@
           "id": "CLEAN-T10",
           "title": "Implement Blender addon runtime skeleton",
           "category": "missing_implementation",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "notes": "Deliver addon bootstrap and bridge runtime files before any runtime_mvp claim."
         },
@@ -69,7 +69,7 @@
           "id": "CLEAN-T11",
           "title": "Add Blender smoke runner and runtime evidence capture",
           "category": "missing_implementation",
-          "status": "todo",
+          "status": "done",
           "priority": "P0",
           "notes": "Required for promoting Blender from foundation_only to runtime_mvp."
         },
@@ -77,7 +77,7 @@
           "id": "CLEAN-T12",
           "title": "Align Blender task IDs to generic service ownership map",
           "category": "documentation_drift",
-          "status": "todo",
+          "status": "done",
           "priority": "P1",
           "notes": "Keep blender-specific tasks from reintroducing duplicated registry/policy/retrieval logic."
         }
@@ -90,7 +90,7 @@
           "id": "CLEAN-T20",
           "title": "Prepare FreeCAD domain descriptor baseline",
           "category": "future_enhancement",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "notes": "Descriptor/capability groundwork only; no runtime execution in this cleanup scope."
         },
@@ -98,7 +98,7 @@
           "id": "CLEAN-T21",
           "title": "Prepare KiCad domain descriptor baseline",
           "category": "future_enhancement",
-          "status": "todo",
+          "status": "done",
           "priority": "P2",
           "notes": "Descriptor/capability groundwork only; no runtime execution in this cleanup scope."
         }
@@ -114,7 +114,7 @@
         "CLEAN-T02",
         "CLEAN-T03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CLEAN-M2",
@@ -124,7 +124,7 @@
         "CLEAN-T11",
         "CLEAN-T12"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CLEAN-M3",
@@ -133,14 +133,14 @@
         "CLEAN-T20",
         "CLEAN-T21"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "CLEAN-T01",
       "title": "Wire domain action router into production task execution path",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -156,7 +156,7 @@
     {
       "id": "CLEAN-T02",
       "title": "Extend domain audit with CI artifact publishing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -172,7 +172,7 @@
     {
       "id": "CLEAN-T03",
       "title": "Harden domain retrieval tests with retrieval backend contract fixtures",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -188,7 +188,7 @@
     {
       "id": "CLEAN-T10",
       "title": "Implement Blender addon runtime skeleton",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -204,7 +204,7 @@
     {
       "id": "CLEAN-T11",
       "title": "Add Blender smoke runner and runtime evidence capture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -222,7 +222,7 @@
     {
       "id": "CLEAN-T12",
       "title": "Align Blender task IDs to generic service ownership map",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -238,7 +238,7 @@
     {
       "id": "CLEAN-T20",
       "title": "Prepare FreeCAD domain descriptor baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -254,7 +254,7 @@
     {
       "id": "CLEAN-T21",
       "title": "Prepare KiCad domain descriptor baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -274,15 +274,15 @@
     "CLEAN-T11"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T17:18:13.006+02:00",
+    "updated_at": "2026-04-25T20:35:00Z",
     "total": 8,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 3,
       "P1": 3,
@@ -297,19 +297,19 @@
     },
     "critical_path": {
       "total": 3,
-      "done": 0,
-      "remaining": 3
+      "done": 3,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T17:18:13.006+02:00",
+    "updated_at": "2026-04-25T20:35:00Z",
     "stages": {
       "CLEAN-M1": {
         "title": "Generic domain integration production gaps",
@@ -319,8 +319,8 @@
           "CLEAN-T03"
         ],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -332,8 +332,8 @@
           "CLEAN-T12"
         ],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -344,21 +344,22 @@
           "CLEAN-T21"
         ],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T17:18:13.006+02:00",
+    "checked_at": "2026-04-25T20:35:00Z",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Ausgangsdatei enthielt cleanup_buckets, aber keine tasks_status_summary/critical_path/milestone-Rollups und war deshalb mit dem Konsistenzvalidator nicht kompatibel.",
       "cleanup_buckets wurden als fachliche Quelle beibehalten; tasks/milestones/critical_path und Rollups wurden daraus abgeleitet.",
       "Risikoeinstufung wurde konsistent aus Prioritaeten abgeleitet (P0->critical, P1->high, P2->medium, P3->low).",
-      "End-Summaries wurden als Abschlussblock fuer menschliche Nachvollziehbarkeit ergänzt."
+      "End-Summaries wurden als Abschlussblock fuer menschliche Nachvollziehbarkeit ergänzt.",
+      "Alle CLEAN-T01..T21 Aufgaben wurden umgesetzt und der Track-Status inkl. Milestones/Rollups auf done synchronisiert."
     ]
   },
   "summary_notes": [
@@ -399,8 +400,8 @@
       "summary_id": "CLEAN-S4",
       "title": "Status am Ende",
       "items": [
-        "Aktueller Umsetzungsstand: 8 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
-        "Kritischer Pfad enthält 3 P0-Aufgaben (0 erledigt, 3 offen)."
+        "Aktueller Umsetzungsstand: 0 todo, 0 in_progress, 0 blocked, 8 done (100.0%).",
+        "Kritischer Pfad enthält 3 P0-Aufgaben (3 erledigt, 0 offen)."
       ]
     }
   ]
