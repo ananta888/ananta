@@ -1,685 +1,464 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "generic_domain_integration_foundation",
-  "purpose": "Introduce a small but solid generic domain/plugin foundation so integrations such as Blender, FreeCAD, KiCad, Odoo or future domain clients can share the same backend mechanisms for domains, capabilities, policies, schemas, artifacts, RAG profiles, bridge routing, audit and release gates. This track exists to prevent large integrations from becoming hard-coded backend special cases.",
+  "track": "oss_core_security_invariants",
+  "purpose": "Add the non-KRITIS security and architecture invariant hardening required for Ananta as an OSS AI control plane. This track focuses on state ownership, policy enforcement, transition traceability, thin clients, explicit context and lightweight deterministic reproducibility. It intentionally avoids Enterprise/KRITIS scope such as tenancy, SSO, RBAC, compliance reports, SIEM, WORM storage or runtime attestation.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "goal": "Create a generic integration foundation that lets Ananta load and validate domain definitions, capability packs, policy packs, context schemas, artifact types, RAG source profiles and bridge adapter contracts while keeping orchestration, approval, policy and audit centralized in the Hub.",
+  "goal": "Prove that core Ananta execution cannot bypass Hub-controlled policy, approval, audit and explicit context boundaries, while keeping the OSS implementation small, testable and usable.",
   "non_goals": [
-    "Do not build a marketplace or dynamic third-party plugin ecosystem in this track.",
-    "Do not allow arbitrary unreviewed Python modules to be loaded as backend plugins.",
-    "Do not duplicate client orchestration or policy logic in domain modules.",
-    "Do not implement Blender, FreeCAD or KiCad runtime behavior here; only generic mechanisms and minimal example wiring.",
-    "Do not introduce Enterprise/KRITIS-specific RBAC or tenancy complexity in this OSS foundation track."
+    "Do not implement KRITIS or Enterprise RBAC/ABAC in this track.",
+    "Do not implement OIDC/SSO, tenant isolation, SIEM export or compliance reporting here.",
+    "Do not implement WORM storage, signed audit ledgers, hardware attestation or formal regulated evidence packages here.",
+    "Do not build a full replay lab or deterministic VM/container capture system.",
+    "Do not block OSS usability with heavyweight enterprise controls."
   ],
   "success_criteria": [
-    "A domain registry can load and validate domain descriptors from configuration files.",
-    "Capabilities are declared as data and evaluated generically by Hub services.",
-    "Context schemas and artifact types can be registered per domain and validated generically.",
-    "Policy packs can be loaded per domain without hard-coding domain rules in service code.",
-    "RAG source profiles can be registered per domain and routed to codecompass/rag_helper ingestion and retrieval.",
-    "Bridge adapter contracts are defined generically for health, capabilities, context capture, action execution and result reporting.",
-    "Audit and approval metadata support domain/capability/action IDs generically.",
-    "Release gates can detect false runtime claims for domains without domain-specific hard-coding.",
-    "Blender can later consume this foundation instead of creating many blender_* backend special cases."
+    "Every core state type has one declared owner and controlled writers.",
+    "All execution-like paths go through one policy and approval gatekeeper.",
+    "Goal, plan, task, approval, execution, artifact, verification and repair transitions are traceable with correlation IDs.",
+    "Clients can submit requests and render states but cannot orchestrate, approve or execute directly.",
+    "Context passed to models, workers or tools is explicit, bounded and provenance-aware.",
+    "Artifacts and runs contain enough hashes, references and metadata for lightweight reproducibility.",
+    "Tests fail on policy bypass, implicit context, client-side orchestration or missing trace metadata.",
+    "Release gate can include these checks without requiring KRITIS infrastructure."
   ],
   "architecture_guardrails": [
-    "The Hub remains the authority for orchestration, policy, approval, audit and retrieval.",
-    "Domain modules are declarative first: descriptors, schemas, capabilities, policies and RAG profiles before code.",
-    "Runtime code extension points must be explicit, reviewed and allow-listed.",
-    "No generic mechanism may permit policy or approval bypass.",
-    "No domain registry may silently load untrusted executable code.",
-    "Generic services must expose degraded and validation-failed states clearly.",
-    "Domain descriptors must be versioned and migration-friendly.",
-    "Domain-specific clients remain thin and speak stable Ananta APIs."
+    "Hub remains the single authority for orchestration, policy, approval and audit.",
+    "Worker and tool execution must never be reachable from clients directly.",
+    "Repair and retry paths must be treated as execution paths and pass through the same gatekeeper.",
+    "Audit/trace must be append-oriented and must not silently overwrite prior decisions.",
+    "Context must be explicit: no hidden project scan, implicit global path use or unprovenanced RAG chunks.",
+    "Deterministic reproducibility is lightweight in OSS: record refs, hashes and versions, not full regulated replay infrastructure.",
+    "KRITIS hardening can extend this track later but must not be required for the OSS golden path."
   ],
-  "planned_repository_layout": {
-    "domain_descriptors": "domains/<domain_id>/domain.json",
-    "capabilities": "domains/<domain_id>/capabilities.json",
-    "context_schemas": "domains/<domain_id>/schemas/context.v1.json",
-    "artifact_schemas": "domains/<domain_id>/schemas/artifact.v1.json",
-    "policies": "domains/<domain_id>/policies/policy.v1.json",
-    "rag_profiles": "domains/<domain_id>/rag_sources/*.profile.json",
-    "backend_services": "agent/services/domain_*.py",
-    "tests": "tests/test_domain_*.py",
-    "docs": "docs/architecture/domain_integration_foundation.md"
-  },
   "milestones": [
     {
-      "id": "GEN-M1",
-      "title": "Scope, model and descriptor contracts",
-      "task_ids": ["GEN-T01", "GEN-T02", "GEN-T03", "GEN-T04"],
-      "status": "done"
+      "id": "SEC-M1",
+      "title": "State ownership and invariant model",
+      "task_ids": ["SEC-T01", "SEC-T02", "SEC-T03"],
+      "status": "todo"
     },
     {
-      "id": "GEN-M2",
-      "title": "Registries for domains, capabilities, schemas and artifacts",
-      "task_ids": ["GEN-T05", "GEN-T06", "GEN-T07", "GEN-T08"],
-      "status": "done"
+      "id": "SEC-M2",
+      "title": "Policy gatekeeper and bypass tests",
+      "task_ids": ["SEC-T04", "SEC-T05", "SEC-T06"],
+      "status": "todo"
     },
     {
-      "id": "GEN-M3",
-      "title": "Generic policy, approval and audit integration",
-      "task_ids": ["GEN-T09", "GEN-T10", "GEN-T11", "GEN-T12"],
-      "status": "done"
+      "id": "SEC-M3",
+      "title": "Transition traceability and audit minimum",
+      "task_ids": ["SEC-T07", "SEC-T08", "SEC-T09"],
+      "status": "todo"
     },
     {
-      "id": "GEN-M4",
-      "title": "RAG source profile and retrieval integration",
-      "task_ids": ["GEN-T13", "GEN-T14", "GEN-T15"],
-      "status": "done"
+      "id": "SEC-M4",
+      "title": "Thin clients and explicit context",
+      "task_ids": ["SEC-T10", "SEC-T11", "SEC-T12"],
+      "status": "todo"
     },
     {
-      "id": "GEN-M5",
-      "title": "Bridge adapter interface and runtime routing",
-      "task_ids": ["GEN-T16", "GEN-T17", "GEN-T18"],
-      "status": "done"
-    },
-    {
-      "id": "GEN-M6",
-      "title": "Runtime inventory and release-gate integration",
-      "task_ids": ["GEN-T19", "GEN-T20", "GEN-T21"],
-      "status": "done"
-    },
-    {
-      "id": "GEN-M7",
-      "title": "Blender migration alignment and docs",
-      "task_ids": ["GEN-T22", "GEN-T23", "GEN-T24", "GEN-T25"],
-      "status": "done"
+      "id": "SEC-M5",
+      "title": "Lightweight reproducibility and release gate",
+      "task_ids": ["SEC-T13", "SEC-T14", "SEC-T15"],
+      "status": "todo"
     }
   ],
   "tasks": [
     {
-      "id": "GEN-T01",
-      "title": "Generic domain integration scope define",
-      "status": "done",
+      "id": "SEC-T01",
+      "title": "State ownership matrix define",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
       "depends_on": [],
-      "expected_files": ["docs/architecture/domain_integration_foundation.md"],
+      "expected_files": ["docs/architecture/state_ownership.md", "data/state_ownership_matrix.json"],
       "acceptance_criteria": [
-        "Document explains why Ananta needs a generic domain foundation before large integrations become hard-coded.",
-        "Document separates generic platform mechanisms from domain-specific descriptors and bridge implementations.",
-        "Document explicitly states that this is not a plugin marketplace and not an arbitrary code-loading system.",
-        "Document explains how Blender, FreeCAD and KiCad can later share the same foundation."
+        "Matrix declares owner, allowed writers and readers for goal, plan, task, execution, approval, artifact, audit, verification, repair and client UI state.",
+        "Every fachlicher/core state has exactly one owner.",
+        "Clients are not writers for server-owned state except through public API requests.",
+        "Document explains that audit is append-oriented and not ordinary mutable state."
       ]
     },
     {
-      "id": "GEN-T02",
-      "title": "Domain descriptor schema define",
-      "status": "done",
+      "id": "SEC-T02",
+      "title": "State ownership validation tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["GEN-T01"],
-      "expected_files": ["schemas/domain/domain_descriptor.v1.json"],
+      "depends_on": ["SEC-T01"],
+      "expected_files": ["tests/test_state_ownership_matrix.py"],
       "acceptance_criteria": [
-        "Schema defines domain_id, display_name, version, lifecycle_status, runtime_status, owner, description, supported_clients and source paths.",
-        "Schema references capability pack, context schemas, artifact schemas, policy packs, RAG profiles and bridge adapter type.",
-        "Schema supports stable versioning and future non-breaking extension fields.",
-        "Invalid descriptors fail validation with readable errors."
+        "Tests verify each core state has exactly one owner.",
+        "Tests verify writer lists are explicit and non-empty where mutation is possible.",
+        "Tests fail on unknown state types, duplicate owners or client-owned server state.",
+        "Tests are included in the OSS release gate."
       ]
     },
     {
-      "id": "GEN-T03",
-      "title": "Domain lifecycle and runtime status model define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["GEN-T02"],
-      "expected_files": ["schemas/domain/domain_status.v1.json"],
-      "acceptance_criteria": [
-        "Lifecycle states cover planned, foundation_only, runtime_mvp, runtime_complete, deferred, blocked and deprecated.",
-        "Runtime status clearly separates descriptor existence from executable behavior.",
-        "Status model can be used by release gates to block false runtime claims.",
-        "Status model is compatible with existing client surface runtime inventory concepts."
-      ]
-    },
-    {
-      "id": "GEN-T04",
-      "title": "Example minimal domain descriptor add",
-      "status": "done",
+      "id": "SEC-T03",
+      "title": "Core invariant checklist document add",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["GEN-T02", "GEN-T03"],
-      "expected_files": ["domains/example/domain.json"],
+      "depends_on": ["SEC-T01"],
+      "expected_files": ["docs/architecture/core_invariants_checklist.md"],
       "acceptance_criteria": [
-        "Example descriptor is intentionally non-runtime or foundation_only.",
-        "Example demonstrates descriptor structure without implying a real integration is complete.",
-        "Example is used by validation tests."
+        "Checklist covers state ownership, policy gate, transition traceability, thin clients, explicit context and lightweight reproducibility.",
+        "Checklist is written for OSS maintainers and AI coding agents.",
+        "Checklist explicitly separates OSS invariants from KRITIS/Enterprise enhancements."
       ]
     },
     {
-      "id": "GEN-T05",
-      "title": "Domain registry service implement",
-      "status": "done",
+      "id": "SEC-T04",
+      "title": "Single execution gatekeeper define",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
-      "depends_on": ["GEN-T02", "GEN-T03"],
-      "expected_files": ["agent/services/domain_registry.py", "tests/test_domain_registry.py"],
+      "depends_on": ["SEC-T01"],
+      "expected_files": ["docs/architecture/execution_gatekeeper.md"],
       "acceptance_criteria": [
-        "Service loads domain descriptors from configured domain directories.",
-        "Service validates descriptors against schema before exposing them.",
-        "Service refuses duplicate domain_id values and malformed descriptors.",
-        "Service exposes read-only domain metadata for clients and release gates.",
-        "Tests cover valid, invalid, duplicate and missing referenced files."
+        "Document defines one required gatekeeper path for execution-like actions: validate context, resolve capability, evaluate policy, check approval, audit pre-event, execute, audit result and store artifact.",
+        "Repair, retry, tool execution, worker execution and domain action execution are explicitly classified as execution-like paths.",
+        "Document forbids trusted shortcuts and direct client-to-worker execution."
       ]
     },
     {
-      "id": "GEN-T06",
-      "title": "Capability registry service implement",
-      "status": "done",
+      "id": "SEC-T05",
+      "title": "Policy bypass negative tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
-      "depends_on": ["GEN-T05"],
-      "expected_files": ["schemas/domain/capability_pack.v1.json", "agent/services/capability_registry.py", "tests/test_capability_registry.py"],
+      "depends_on": ["SEC-T04"],
+      "expected_files": ["tests/test_no_policy_bypass.py"],
       "acceptance_criteria": [
-        "Capability pack schema defines capability_id, domain_id, display_name, category, risk, read_only, mutating, approval_required and default_policy_state.",
-        "Capability IDs use stable names such as blender.scene.read or kicad.drc.run without hard-coded enum lists.",
-        "Registry validates capability packs and exposes capabilities by domain and category.",
-        "Registry refuses unknown risk levels, duplicate capability IDs and missing domain references."
+        "Tests verify representative execution paths call policy evaluation before execution.",
+        "Tests cover normal execution, repair execution, retry execution and domain action execution if available.",
+        "Tests verify denied policy does not fall back to direct worker/tool execution.",
+        "Tests fail when a new execution path is registered without policy enforcement metadata."
       ]
     },
     {
-      "id": "GEN-T07",
-      "title": "Context schema registry implement",
-      "status": "done",
+      "id": "SEC-T06",
+      "title": "Approval binding tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["SEC-T05"],
+      "expected_files": ["tests/test_approval_binding.py"],
+      "acceptance_criteria": [
+        "Tests verify approval is bound to the specific action/capability/context hash it approved.",
+        "Tests cover stale approval, malformed approval, approval for different action and missing approval.",
+        "Tests verify approval-required actions cannot execute with only a client-side approval flag.",
+        "Tests verify repair paths also require fresh approval where policy requires it."
+      ]
+    },
+    {
+      "id": "SEC-T07",
+      "title": "Transition event schema add",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["GEN-T05"],
-      "expected_files": ["agent/services/context_schema_registry.py", "tests/test_context_schema_registry.py"],
+      "depends_on": ["SEC-T01"],
+      "expected_files": ["schemas/trace/transition_event.v1.json"],
       "acceptance_criteria": [
-        "Registry loads context schemas referenced by domain descriptors.",
-        "Registry validates incoming domain context payloads generically.",
-        "Validation returns structured accepted, rejected or degraded states.",
-        "Tests cover valid payload, oversized payload, malformed payload and unknown domain."
+        "Schema supports goal_created, plan_proposed, task_created, approval_requested, approval_decided, execution_started, execution_finished, execution_failed, artifact_created, verification_finished and repair_proposed.",
+        "Schema requires event_id, timestamp, correlation_id, causation_id, actor/system component, state type and entity id.",
+        "Schema supports compact metadata without storing sensitive full context by default.",
+        "Schema is versioned and backwards-compatible for basic extension."
       ]
     },
     {
-      "id": "GEN-T08",
-      "title": "Artifact type registry implement",
-      "status": "done",
+      "id": "SEC-T08",
+      "title": "Transition trace consistency tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["GEN-T05"],
-      "expected_files": ["schemas/domain/artifact_type_pack.v1.json", "agent/services/artifact_type_registry.py", "tests/test_artifact_type_registry.py"],
+      "depends_on": ["SEC-T07"],
+      "expected_files": ["tests/test_transition_trace_consistency.py"],
       "acceptance_criteria": [
-        "Artifact type pack schema defines artifact_type_id, domain_id, display_name, schema_ref, render_hint, safety_classification and allowed_clients.",
-        "Registry allows TUI/Web/CLI/clients to discover artifact types without hard-coded domain assumptions.",
-        "Registry validates artifact payloads against referenced schemas where practical.",
-        "Tests cover known, unknown, malformed and unsupported artifact types."
+        "Tests verify core transitions emit correlation IDs and causation IDs.",
+        "Tests verify execution result events reference the matching execution start event.",
+        "Tests verify artifacts reference task/execution IDs.",
+        "Tests detect missing or orphaned transition events in golden-path flows."
       ]
     },
     {
-      "id": "GEN-T09",
-      "title": "Domain policy pack loader implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T06"],
-      "expected_files": ["schemas/domain/policy_pack.v1.json", "agent/services/domain_policy_loader.py", "tests/test_domain_policy_loader.py"],
-      "acceptance_criteria": [
-        "Policy pack schema maps capabilities/actions to allow, deny, approval_required or default_deny decisions.",
-        "Loader validates that policy rules reference existing domain capabilities.",
-        "Loader supports safe defaults when a policy pack is missing or incomplete.",
-        "Tests verify missing policy defaults do not permit unsafe actions."
-      ]
-    },
-    {
-      "id": "GEN-T10",
-      "title": "Generic domain policy evaluation integrate",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T09"],
-      "expected_files": ["agent/services/domain_policy_service.py", "tests/test_domain_policy_service.py"],
-      "acceptance_criteria": [
-        "Policy evaluation accepts domain_id, capability_id, action_id, context summary and actor metadata.",
-        "Evaluation returns allow, deny, approval_required or degraded with reasons.",
-        "Evaluation is used before execution for any domain action.",
-        "Tests cover allowed read-only action, approval-required mutation, denied script execution and unknown capability."
-      ]
-    },
-    {
-      "id": "GEN-T11",
-      "title": "Generic approval metadata extend",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T10"],
-      "expected_files": ["schemas/domain/domain_approval_request.v1.json", "tests/test_domain_approval_metadata.py"],
-      "acceptance_criteria": [
-        "Approval requests can include domain_id, capability_id, action_id, expected_effects, risk, artifact_refs and context_hash.",
-        "Approval responses can be correlated to domain actions without domain-specific service code.",
-        "Stale, malformed or unauthorized approvals remain denied.",
-        "Tests verify approval metadata is present for approval-required domain actions."
-      ]
-    },
-    {
-      "id": "GEN-T12",
-      "title": "Generic domain audit event model add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T10", "GEN-T11"],
-      "expected_files": ["schemas/domain/domain_audit_event.v1.json", "tests/test_domain_audit_events.py"],
-      "acceptance_criteria": [
-        "Audit events record domain_id, capability_id, action_id, task_id, approval_id, context_hash, artifact_ids, policy_decision and result status.",
-        "Audit distinguishes plan_created, policy_denied, approval_requested, approval_decided, execution_started, execution_finished and execution_failed.",
-        "Audit avoids storing full sensitive context unless explicitly allowed by policy.",
-        "Tests verify denied and approved flows produce appropriate audit events."
-      ]
-    },
-    {
-      "id": "GEN-T13",
-      "title": "RAG source profile schema define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["GEN-T05"],
-      "expected_files": ["schemas/domain/rag_source_profile.v1.json"],
-      "acceptance_criteria": [
-        "Schema defines source_id, domain_id, source_type, repo/url/path/ref, allowed_paths, include/exclude globs, license_note, intended_usage and indexing_config_ref.",
-        "Schema supports source categories such as api_docs, source_code, examples, project_reference and internal_docs.",
-        "Schema requires provenance fields sufficient for audit and explanation.",
-        "Schema explicitly supports codecompass/rag_helper as ingestion path."
-      ]
-    },
-    {
-      "id": "GEN-T14",
-      "title": "RAG source profile loader implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["GEN-T13"],
-      "expected_files": ["agent/services/rag_source_profile_loader.py", "tests/test_rag_source_profile_loader.py"],
-      "acceptance_criteria": [
-        "Loader discovers RAG source profiles referenced by domain descriptors.",
-        "Loader validates profiles and rejects missing domain references, malformed globs and missing intended usage.",
-        "Loader exposes profiles to indexing and retrieval services without requiring domain-specific code.",
-        "Tests cover valid, invalid, unknown-domain and missing-index-config cases."
-      ]
-    },
-    {
-      "id": "GEN-T15",
-      "title": "Generic domain retrieval interface define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["GEN-T14"],
-      "expected_files": ["agent/services/domain_retrieval_service.py", "tests/test_domain_retrieval_service.py"],
-      "acceptance_criteria": [
-        "Retrieval interface accepts domain_id, retrieval_intent, query, context_summary and max_results.",
-        "Retrieval returns bounded chunks with source_id, ref/version, path, symbol/section, score/reason and usage limits.",
-        "Retrieval refuses unbounded full-repo or full-doc requests by default.",
-        "Interface can delegate to existing rag_helper index service or future retrieval backends."
-      ]
-    },
-    {
-      "id": "GEN-T16",
-      "title": "Bridge adapter contract define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T06", "GEN-T10"],
-      "expected_files": ["schemas/domain/bridge_adapter_contract.v1.json", "docs/architecture/bridge_adapter_contract.md"],
-      "acceptance_criteria": [
-        "Contract defines health, capabilities, capture_context, execute_action, report_result and cancel where practical.",
-        "Contract requires correlation IDs, domain_id, capability_id, approval token/reference and result artifact metadata.",
-        "Contract states that adapters cannot approve their own actions or bypass Hub policy.",
-        "Contract supports local client bridges such as Blender addon bridge without making them backend plugins."
-      ]
-    },
-    {
-      "id": "GEN-T17",
-      "title": "Bridge adapter registry implement",
-      "status": "done",
+      "id": "SEC-T09",
+      "title": "Append-oriented audit minimum document and tests add",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
-      "depends_on": ["GEN-T16"],
-      "expected_files": ["agent/services/bridge_adapter_registry.py", "tests/test_bridge_adapter_registry.py"],
+      "depends_on": ["SEC-T07"],
+      "expected_files": ["docs/architecture/audit_minimum_oss.md", "tests/test_audit_append_minimum.py"],
       "acceptance_criteria": [
-        "Registry maps domain descriptors to bridge adapter types and allowed communication modes.",
-        "Registry does not dynamically import arbitrary executable code from domain directories.",
-        "Registry can report missing or unavailable bridges as degraded state.",
-        "Tests cover known adapter, unknown adapter, disabled adapter and malformed descriptor."
+        "Document defines OSS audit minimum and explicitly excludes WORM/tamper-evident KRITIS storage.",
+        "Tests verify audit/trace events are appended for policy denial, approval request, approval decision and execution result.",
+        "Tests verify audit events avoid raw secrets and excessive full context by default."
       ]
     },
     {
-      "id": "GEN-T18",
-      "title": "Generic action routing skeleton add",
-      "status": "done",
+      "id": "SEC-T10",
+      "title": "Client thinness rules and tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
-      "depends_on": ["GEN-T10", "GEN-T16"],
-      "expected_files": ["agent/services/domain_action_router.py", "tests/test_domain_action_router.py"],
+      "depends_on": ["SEC-T04"],
+      "expected_files": ["docs/architecture/client_thinness_rules.md", "tests/test_client_thinness.py"],
       "acceptance_criteria": [
-        "Router accepts domain action requests and performs validation, policy evaluation and approval-state checks before any execution path.",
-        "Router returns plan, denied, approval_required, execution_started or degraded states.",
-        "Router refuses unknown domains, unknown capabilities and missing approval for approval-required actions.",
-        "Tests verify no route bypasses policy evaluation."
+        "Rules define that clients may collect bounded context, submit requests and render Hub states but may not orchestrate, approve, evaluate policy or execute tools directly.",
+        "Tests or audit scripts check representative client surfaces for forbidden imports or direct execution calls where practical.",
+        "Tests verify clients handle denied, approval-required and degraded states rather than transforming them into local actions.",
+        "Rules cover CLI, TUI, Neovim, Eclipse and future Blender/VS Code surfaces."
       ]
     },
     {
-      "id": "GEN-T19",
-      "title": "Domain runtime inventory integrate",
-      "status": "done",
+      "id": "SEC-T11",
+      "title": "ContextEnvelope v1 schema add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["SEC-T07"],
+      "expected_files": ["schemas/context/context_envelope.v1.json"],
+      "acceptance_criteria": [
+        "Schema defines explicit_inputs, user_selection, retrieved_context, source_refs, redactions, size_limits, context_hash and provenance metadata.",
+        "Schema distinguishes user-provided context, client-captured context and RAG-retrieved context.",
+        "Schema forbids unlabelled raw context blobs for execution-critical paths.",
+        "Schema can be reused by domain integrations such as Blender, FreeCAD and KiCad."
+      ]
+    },
+    {
+      "id": "SEC-T12",
+      "title": "Implicit context negative tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["SEC-T11"],
+      "expected_files": ["tests/test_no_implicit_context.py"],
+      "acceptance_criteria": [
+        "Tests verify model/worker/tool requests require a ContextEnvelope or equivalent explicit context metadata.",
+        "Tests verify RAG chunks include source refs and retrieval reasons.",
+        "Tests verify likely secrets or unrelated files are not silently included in context.",
+        "Tests verify oversized or malformed context is rejected or degraded explicitly."
+      ]
+    },
+    {
+      "id": "SEC-T13",
+      "title": "TraceBundle v1 lightweight schema add",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["GEN-T05", "GEN-T03"],
-      "expected_files": ["data/domain_runtime_inventory.json", "tests/test_domain_runtime_inventory.py"],
+      "depends_on": ["SEC-T07", "SEC-T11"],
+      "expected_files": ["schemas/trace/trace_bundle.v1.json"],
       "acceptance_criteria": [
-        "Inventory records domain status, descriptor paths, required runtime files, smoke commands and evidence references.",
-        "Inventory can mark domains as planned, foundation_only, runtime_mvp, runtime_complete, deferred or blocked.",
-        "Inventory does not allow descriptor-only domains to be treated as runtime-complete.",
-        "Tests verify status counters and referenced domain IDs remain consistent."
+        "Schema records goal_id, plan_id, task_ids, model id where applicable, prompt template version, context_hash, RAG refs, policy decisions, approval decisions and artifact hashes.",
+        "Schema supports lightweight replay/debugging without requiring full KRITIS replay infrastructure.",
+        "Schema avoids embedding secrets or full large contexts by default.",
+        "Schema can be attached to release/golden-path artifacts."
       ]
     },
     {
-      "id": "GEN-T20",
-      "title": "Generic domain audit script add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T19"],
-      "expected_files": ["scripts/audit_domain_integrations.py", "tests/test_audit_domain_integrations.py"],
-      "acceptance_criteria": [
-        "Audit script verifies domain descriptors, capability packs, schemas, policies, RAG profiles and inventory entries are internally consistent.",
-        "Audit fails on missing required files for runtime_mvp/runtime_complete domains.",
-        "Audit fails on skeleton-only or docs-only domains claiming runtime_mvp.",
-        "Audit is usable by release gates."
-      ]
-    },
-    {
-      "id": "GEN-T21",
-      "title": "Release gate integration for domains add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["GEN-T20"],
-      "expected_files": ["scripts/run_release_gate.py"],
-      "acceptance_criteria": [
-        "Release gate runs generic domain integration audit when domain inventory exists.",
-        "Gate separates blocking automated checks from manual/advisory smoke evidence.",
-        "Gate blocks false runtime claims for domains without per-domain hard-coding.",
-        "Gate output lists blockers and deferred domains clearly."
-      ]
-    },
-    {
-      "id": "GEN-T22",
-      "title": "Blender descriptor alignment plan add",
-      "status": "done",
+      "id": "SEC-T14",
+      "title": "Artifact provenance and hash tests add",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["GEN-T02", "GEN-T06", "GEN-T13", "GEN-T19"],
-      "expected_files": ["docs/integrations/blender/generic_domain_alignment.md"],
+      "depends_on": ["SEC-T13"],
+      "expected_files": ["tests/test_artifact_provenance_hashes.py"],
       "acceptance_criteria": [
-        "Document maps todo.blender.json tasks to generic domain foundation mechanisms where possible.",
-        "Document identifies which planned blender_* backend services should become generic services plus Blender descriptors.",
-        "Document keeps Blender-specific context, bridge and policy details clearly separated.",
-        "Document prevents the Blender track from duplicating generic registry/policy/retrieval logic."
+        "Tests verify artifacts include task/execution reference, artifact type, provenance summary and content hash or equivalent stable digest.",
+        "Tests verify generated scripts/plans include source context refs where RAG influenced them.",
+        "Tests verify artifact metadata is enough to connect artifact to trace bundle.",
+        "Tests avoid requiring Enterprise-grade signatures or immutable storage."
       ]
     },
     {
-      "id": "GEN-T23",
-      "title": "Example Blender foundation descriptor add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["GEN-T22", "GEN-T05", "GEN-T06"],
-      "expected_files": ["domains/blender/domain.json", "domains/blender/capabilities.json"],
+      "id": "SEC-T15",
+      "title": "OSS security invariant release gate add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["SEC-T02", "SEC-T05", "SEC-T06", "SEC-T08", "SEC-T10", "SEC-T12", "SEC-T14"],
+      "expected_files": ["scripts/run_security_invariant_checks.py", "scripts/run_release_gate.py"],
       "acceptance_criteria": [
-        "Descriptor marks Blender honestly as planned or foundation_only until runtime evidence exists.",
-        "Capabilities include at least scene.read, selection.read, preview.render, script.plan and script.execute with correct safety flags.",
-        "Descriptor references future schemas/policies/RAG profiles without claiming runtime completion.",
-        "Generic audit accepts the descriptor only at its honest lifecycle status."
-      ]
-    },
-    {
-      "id": "GEN-T24",
-      "title": "Generic domain foundation docs write",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["GEN-T05", "GEN-T06", "GEN-T09", "GEN-T15", "GEN-T18"],
-      "expected_files": ["docs/architecture/domain_integration_foundation.md", "docs/architecture/domain_descriptor_reference.md"],
-      "acceptance_criteria": [
-        "Docs explain how to add a new domain descriptor, capability pack, schema, policy pack and RAG profile.",
-        "Docs include minimal examples and warning notes about not loading arbitrary code.",
-        "Docs explain how release gates determine whether a domain is runtime-ready.",
-        "Docs mention Blender as first large consumer but not as the only target."
-      ]
-    },
-    {
-      "id": "GEN-T25",
-      "title": "Post-foundation cleanup todo generate",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["GEN-T21", "GEN-T22"],
-      "expected_files": ["todo.domain-cleanup.json"],
-      "acceptance_criteria": [
-        "Cleanup todo lists remaining generic gaps, Blender alignment gaps and deferred FreeCAD/KiCad preparation gaps.",
-        "Cleanup distinguishes missing implementation, weak tests, documentation drift and future enhancements.",
-        "Cleanup does not pull Enterprise/KRITIS scope into the OSS foundation."
+        "One documented command runs OSS security invariant checks.",
+        "Release gate includes these checks as blocking for runtime/merge readiness claims.",
+        "Gate output separates OSS invariant failures from deferred KRITIS/Enterprise hardening.",
+        "Gate fails on policy bypass, missing state owner, direct client execution, implicit context or missing artifact provenance."
       ]
     }
   ],
   "execution_order_summary": [
-    "Stage 1: Define generic domain scope and descriptor contracts.",
-    "Stage 2: Implement registries for domains, capabilities, context schemas and artifact types.",
-    "Stage 3: Integrate generic policy, approval and audit metadata for domain actions.",
-    "Stage 4: Add RAG source profile loading and generic retrieval interface for codecompass/rag_helper-backed domain knowledge.",
-    "Stage 5: Define bridge adapter contract and generic action routing skeleton.",
-    "Stage 6: Add domain runtime inventory, audit script and release-gate checks.",
-    "Stage 7: Align Blender with the generic foundation and document the model."
+    "Stage 1: Define state ownership and core invariant model.",
+    "Stage 2: Define and test the single execution gatekeeper and approval binding.",
+    "Stage 3: Add transition event and audit minimum traceability.",
+    "Stage 4: Enforce thin clients and explicit ContextEnvelope usage.",
+    "Stage 5: Add lightweight TraceBundle, artifact provenance and release-gate integration."
   ],
   "critical_path_tasks": [
-    "GEN-T01",
-    "GEN-T02",
-    "GEN-T03",
-    "GEN-T05",
-    "GEN-T06",
-    "GEN-T07",
-    "GEN-T08",
-    "GEN-T09",
-    "GEN-T10",
-    "GEN-T11",
-    "GEN-T12",
-    "GEN-T13",
-    "GEN-T14",
-    "GEN-T15",
-    "GEN-T16",
-    "GEN-T18",
-    "GEN-T19",
-    "GEN-T20",
-    "GEN-T21",
-    "GEN-T22"
+    "SEC-T01",
+    "SEC-T02",
+    "SEC-T04",
+    "SEC-T05",
+    "SEC-T06",
+    "SEC-T07",
+    "SEC-T08",
+    "SEC-T10",
+    "SEC-T11",
+    "SEC-T12",
+    "SEC-T13",
+    "SEC-T14",
+    "SEC-T15"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T16:10:40+02:00",
-    "total": 25,
+    "updated_at": "2026-04-25T16:20:16+02:00",
+    "total": 15,
     "by_status": {
-      "todo": 0,
+      "todo": 15,
       "in_progress": 0,
       "blocked": 0,
-      "done": 25
+      "done": 0
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 20,
-      "P1": 4,
-      "P2": 1,
+      "P0": 13,
+      "P1": 2,
+      "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
-      "medium": 4,
-      "high": 10,
-      "critical": 11
+      "medium": 1,
+      "high": 6,
+      "critical": 8
     },
     "critical_path": {
-      "total": 20,
-      "done": 20,
-      "remaining": 0
+      "total": 13,
+      "done": 0,
+      "remaining": 13
     },
     "milestones": {
-      "total": 7,
-      "todo": 0,
+      "total": 5,
+      "todo": 5,
       "in_progress": 0,
       "blocked": 0,
-      "done": 7
+      "done": 0
     }
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-25T16:10:40+02:00",
+    "updated_at": "2026-04-25T16:20:16+02:00",
     "stages": {
-      "GEN-M1": {
-        "title": "Scope, model and descriptor contracts",
-        "scope_task_ids": ["GEN-T01", "GEN-T02", "GEN-T03", "GEN-T04"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "GEN-M2": {
-        "title": "Registries for domains, capabilities, schemas and artifacts",
-        "scope_task_ids": ["GEN-T05", "GEN-T06", "GEN-T07", "GEN-T08"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "GEN-M3": {
-        "title": "Generic policy, approval and audit integration",
-        "scope_task_ids": ["GEN-T09", "GEN-T10", "GEN-T11", "GEN-T12"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "GEN-M4": {
-        "title": "RAG source profile and retrieval integration",
-        "scope_task_ids": ["GEN-T13", "GEN-T14", "GEN-T15"],
+      "SEC-M1": {
+        "title": "State ownership and invariant model",
+        "scope_task_ids": ["SEC-T01", "SEC-T02", "SEC-T03"],
         "total": 3,
-        "done": 3,
-        "todo": 0,
+        "done": 0,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       },
-      "GEN-M5": {
-        "title": "Bridge adapter interface and runtime routing",
-        "scope_task_ids": ["GEN-T16", "GEN-T17", "GEN-T18"],
+      "SEC-M2": {
+        "title": "Policy gatekeeper and bypass tests",
+        "scope_task_ids": ["SEC-T04", "SEC-T05", "SEC-T06"],
         "total": 3,
-        "done": 3,
-        "todo": 0,
+        "done": 0,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       },
-      "GEN-M6": {
-        "title": "Runtime inventory and release-gate integration",
-        "scope_task_ids": ["GEN-T19", "GEN-T20", "GEN-T21"],
+      "SEC-M3": {
+        "title": "Transition traceability and audit minimum",
+        "scope_task_ids": ["SEC-T07", "SEC-T08", "SEC-T09"],
         "total": 3,
-        "done": 3,
-        "todo": 0,
+        "done": 0,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       },
-      "GEN-M7": {
-        "title": "Blender migration alignment and docs",
-        "scope_task_ids": ["GEN-T22", "GEN-T23", "GEN-T24", "GEN-T25"],
-        "total": 4,
-        "done": 4,
-        "todo": 0,
+      "SEC-M4": {
+        "title": "Thin clients and explicit context",
+        "scope_task_ids": ["SEC-T10", "SEC-T11", "SEC-T12"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "SEC-M5": {
+        "title": "Lightweight reproducibility and release gate",
+        "scope_task_ids": ["SEC-T13", "SEC-T14", "SEC-T15"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       }
     }
   },
   "analysis_checks": {
-    "checked_at": "2026-04-25T16:10:40+02:00",
-    "internal_consistency": "all_bundles_completed",
+    "checked_at": "2026-04-25T16:20:16+02:00",
+    "internal_consistency": "validated_and_extended",
     "notes": [
-      "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=4, high=10, critical=11).",
-      "execution_stage_summary ergänzt, damit Rollups je Meilenstein transparent und validator-kompatibel sind.",
-      "updated_at/checked_at auf den aktuellen Analysezeitpunkt gesetzt.",
-      "Bundle GEN-T01..GEN-T04 umgesetzt und in Tasks/Milestones/Stage-Rollups als done synchronisiert.",
-      "Bundles GEN-T05..GEN-T12 umgesetzt und als abgeschlossene Meilensteine GEN-M2 und GEN-M3 synchronisiert.",
-      "Bundles GEN-T13..GEN-T18 umgesetzt und als abgeschlossene Meilensteine GEN-M4 und GEN-M5 synchronisiert.",
-      "Bundles GEN-T19..GEN-T25 umgesetzt und als abgeschlossene Meilensteine GEN-M6 und GEN-M7 synchronisiert."
+      "tasks_status_summary.by_risk wurde auf die realen Task-Risiken korrigiert (medium=1, high=6, critical=8).",
+      "execution_stage_summary wurde ergänzt, damit Milestone-Rollups transparent und maschinenlesbar sind.",
+      "updated_at/checked_at wurden auf den aktuellen Analysezeitpunkt gesetzt.",
+      "Keine fehlenden Task-Referenzen in milestones, depends_on oder critical_path_tasks gefunden."
     ]
   },
   "summary_notes": [
-    "This track should be implemented before or alongside the Blender integration to avoid hard-coded blender_* backend services where generic domain mechanisms are sufficient.",
-    "The foundation is intentionally smaller than a marketplace: descriptors and allow-listed adapter contracts first, dynamic third-party plugin loading later if ever.",
-    "The generic model should strengthen Ananta's core positioning as a controlled AI control plane rather than a collection of one-off tool integrations.",
-    "FreeCAD and KiCad can later reuse this foundation with stricter domain-specific policies and correctness gates.",
-    "Summary counters and milestone stage rollups are now synchronized and explicitly documented.",
-    "Bundle 1 now provides scope docs, descriptor/status schemas, and a descriptor-only example domain baseline.",
-    "Bundles 2 and 3 now provide generic registries plus policy/approval/audit contracts without introducing domain-specific orchestration logic.",
-    "Bundles 4 and 5 now add generic RAG profile loading/retrieval plus bridge contract/registry/routing skeleton under hub-governed policy checks.",
-    "Bundles 6 and 7 now complete runtime inventory + domain audit + release-gate integration and add Blender alignment/docs/cleanup follow-up planning."
+    "This is the OSS-core version of security hardening, not the KRITIS/Enterprise track.",
+    "The goal is to make Ananta structurally safe enough for local-first OSS usage without pulling in heavyweight compliance infrastructure.",
+    "KRITIS can later extend these invariants with RBAC, SSO, tenancy, signed audit, WORM storage, SIEM export and regulated evidence packages.",
+    "This track should run after client runtime tests and before large domain integrations create additional execution paths.",
+    "Status counters and milestone stage rollups are now synchronized and explicitly documented."
   ],
   "end_summaries": [
     {
-      "summary_id": "GEN-S1",
+      "summary_id": "SEC-S1",
       "title": "Analyseergebnis",
       "items": [
-        "Die Datei ist strukturell als Task-Track konsistent aufgebaut und deckt Scope, Milestones, Critical Path und Abhängigkeiten klar ab.",
-        "Ein inhaltlicher Drift wurde in tasks_status_summary.by_risk gefunden."
+        "Die Datei ist strukturell konsistent aufgebaut (Milestones, Dependencies und Critical Path referenzieren nur vorhandene Tasks).",
+        "Ein Drift wurde in tasks_status_summary.by_risk gefunden (vorher nicht deckungsgleich mit den tatsächlichen Task-Risiken)."
       ]
     },
     {
-      "summary_id": "GEN-S2",
+      "summary_id": "SEC-S2",
       "title": "Korrekturen",
       "items": [
-        "by_risk korrigiert auf low=0, medium=4, high=10, critical=11.",
-        "updated_at in tasks_status_summary und checked_at in analysis_checks aktualisiert."
+        "by_risk korrigiert auf low=0, medium=1, high=6, critical=8.",
+        "updated_at in tasks_status_summary auf den aktuellen Analysezeitpunkt gesetzt."
       ]
     },
     {
-      "summary_id": "GEN-S3",
+      "summary_id": "SEC-S3",
       "title": "Verbesserungen und Erweiterungen",
       "items": [
-        "execution_stage_summary ergänzt (je Meilenstein: scope_task_ids + total/done/todo/in_progress/blocked).",
-        "analysis_checks ergänzt, damit Konsistenzprüfung und Korrekturhistorie nachvollziehbar sind."
+        "execution_stage_summary ergänzt (pro Milestone: scope_task_ids + total/done/todo/in_progress/blocked).",
+        "analysis_checks ergänzt, damit Prüfergebnis und Korrekturhistorie nachvollziehbar dokumentiert sind."
       ]
     },
     {
-      "summary_id": "GEN-S4",
+      "summary_id": "SEC-S4",
       "title": "Status am Ende",
       "items": [
-        "Alle Umsetzungsbündel abgeschlossen: 0 todo, 0 in_progress, 0 blocked, 25 done (100.0%).",
-        "Meilensteine GEN-M1 bis GEN-M7 sind done; der Track ist vollständig umgesetzt und auf Cleanup-Folgearbeiten überführt."
+        "Aktueller Umsetzungsstand: 15 todo, 0 in_progress, 0 blocked, 0 done (0.0%).",
+        "Alle Milestones stehen konsistent auf todo; die kritische Pfadlänge bleibt 13 Tasks."
       ]
     }
   ]
