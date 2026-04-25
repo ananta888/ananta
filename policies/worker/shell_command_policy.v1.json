@@ -1,0 +1,32 @@
+{
+  "schema": "worker_shell_command_policy.v1",
+  "version": "1.0.0",
+  "allowlist": [
+    "echo",
+    "cat",
+    "ls",
+    "pwd",
+    "python",
+    "python3",
+    "pytest",
+    "git"
+  ],
+  "approval_required_commands": [
+    "pip",
+    "pip3",
+    "npm",
+    "apt",
+    "apt-get",
+    "docker",
+    "kubectl",
+    "make"
+  ],
+  "denylist_tokens": [
+    "rm -rf /",
+    ":(){",
+    "mkfs",
+    "dd if=/dev/zero",
+    "shutdown",
+    "reboot"
+  ]
+}
