@@ -1,8 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const resultsPath = path.join(process.cwd(), 'test-results', 'results.json');
 const outPath = path.join(process.cwd(), 'test-results', 'failure-summary.md');
+const fallbackPaths = [
+  path.join(process.cwd(), 'failure-summary.md'),
+  path.join(os.tmpdir(), `ananta-e2e-failure-summary-${Date.now()}.md`),
+];
 
 function collectFailures(node, acc) {
   if (!node) return;
@@ -40,9 +45,23 @@ function ensureDir(filePath) {
 }
 
 function writeSummary(content) {
-  ensureDir(outPath);
-  fs.writeFileSync(outPath, content, 'utf8');
-  console.log(`[e2e-summary] Wrote ${outPath}`);
+  const attempted = [outPath, ...fallbackPaths];
+  for (const targetPath of attempted) {
+    try {
+      ensureDir(targetPath);
+      fs.writeFileSync(targetPath, content, 'utf8');
+      console.log(`[e2e-summary] Wrote ${targetPath}`);
+      return;
+    } catch (error) {
+      const code = String(error?.code || '');
+      if (!['EACCES', 'EPERM', 'EROFS'].includes(code)) {
+        throw error;
+      }
+      console.warn(`[e2e-summary] Cannot write ${targetPath} (${code}), trying fallback...`);
+    }
+  }
+  console.warn('[e2e-summary] Could not persist summary file; printing summary to stdout:');
+  console.log(content);
 }
 
 function formatError(value) {
