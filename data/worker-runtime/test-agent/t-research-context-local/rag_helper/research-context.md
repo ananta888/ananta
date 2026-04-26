@@ -1,5 +1,5 @@
 Artefakt-Kontext:
-- Artifact 284d0738-43ea-4ace-ab54-d5733cc76f95 (README.md):
+- Artifact d09c2627-8986-4dd4-af1d-db7a0fe8eff4 (README.md):
 # Hello
 artifact body
 
@@ -23,6 +23,7 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | Einstieg | Fuer wen | Link |
 | --- | --- | --- |
 | Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
+| Ein-Kommando-Installation | lokale Nutzer und Reviewer | [Bootstrap Install](docs/setup/bootstrap-install.md) |
 | Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
 | Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |
 | Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |
@@ -51,15 +52,9 @@ Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-fl
 
 ## Schnellstart in 5 Minuten
 
-1. Umgebung vorbereiten:
-   ```powershell
-   .\setup.ps1
-   ```
-   Das Script prueft Docker, Python und Node, legt eine `.env` an und installiert lokale Abhaengigkeiten.
+### A) CLI-first ohne Docker (lokal)
 
-2. Lite-Stack starten:
-   ```bash
-   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
-   ```
+Wenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:
 
-3...
+```bash
+ananta init --yes --runtime-mode local-dev --llm-backend ollama --mo...
