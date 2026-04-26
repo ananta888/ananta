@@ -1,237 +1,283 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
-  "track": "single_image_quickstart_no_ollama",
-  "purpose": "Einen echten Single-Image-Quickstart ohne Docker Compose und ohne Ollama bereitstellen. Ein einziges Image soll per docker run Hub, Worker, Angular Frontend und OpenCode starten und per OpenAI/OpenAI-kompatiblem Endpoint konfigurierbar sein.",
+  "track": "single_image_fullstack_no_ollama",
+  "purpose": "Ein direkt verwendbares Fullstack-Setup aus genau einem auslieferbaren Image bereitstellen: Hub, Worker, Angular Frontend, Evolver, DeerFlow und ml-intern als konfigurierbare Rollen ohne Ollama.",
   "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "design_principles": [
-    "Ein Image, direkter Start per docker run, kein Docker Compose fuer den Hauptpfad.",
-    "Kein Ollama im no-ollama Quickstart-Image.",
-    "OpenAI oder OpenAI-kompatible Backends werden ausschliesslich per Env konfiguriert.",
-    "Hub, Worker und Angular Frontend duerfen im Single-Container-Modus gemeinsam laufen, aber bleiben logisch getrennte Rollen.",
-    "Bestehende Compose-Nutzung desselben Images muss kompatibel bleiben.",
-    "Quickstart-Defaults duerfen nicht als Produktionswerte dargestellt werden.",
-    "Provider-Interna duerfen nicht in den Core wachsen."
+    "Ein einziges Build-Artefakt (Image) fuer alle Rollen.",
+    "Hub bleibt Control Plane; Worker bleiben delegierte Ausfuehrer.",
+    "Containergrenzen der Rollen bleiben erhalten (ein Image, mehrere Rollen-Container).",
+    "No-Ollama by default; OpenAI/OpenAI-kompatible Endpoints und LM Studio nur per Env.",
+    "Fullstack soll mit einem klaren Hauptkommando startbar sein.",
+    "Evolver, DeerFlow und ml-intern werden als optionale interne Rollen aus demselben Image gestartet.",
+    "Compose darf fuer den Fullstack-Orchestrierungsstart genutzt werden, das Image bleibt aber singular.",
+    "Quickstart-Werte sind explizit als Dev/Test zu kennzeichnen, nicht als Production Defaults."
   ],
   "non_goals": [
-    "Ollama in dieses Image einbauen.",
-    "n8n, DeerFlow, Evolver oder ml-intern hart als Core-Startup-Abhaengigkeiten einbauen.",
-    "Mehrere neue Release-Images statt eines Quickstart-Images erzeugen.",
-    "Produktionsdeployment mit Quickstart-Defaults bewerben.",
-    "Bestehende Docker-Compose-Pfade brechen."
+    "Hub-Ownership oder Task-Ownership auf spezialisierte Worker verlagern.",
+    "Ollama in dieses Fullstack-Image integrieren.",
+    "Automatischen Registry-Push ohne Release-Freigabe aktivieren.",
+    "Produktionsharter Betrieb ohne zusaetzliche Security/Operations-Hardening behaupten."
   ],
   "success_criteria": [
     "docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local . funktioniert.",
-    "docker run ... ananta-quickstart-no-ollama:local startet Hub, Worker und Angular Frontend in einem Container.",
-    "Der Hauptpfad benoetigt kein Docker Compose.",
-    "OpenAI/OpenAI-kompatibler Endpoint, Modell und Token sind per Env konfigurierbar.",
-    "Fehlender OPENAI_API_KEY bei DEFAULT_PROVIDER=openai fuehrt zu klarer Fehlermeldung.",
-    "OpenCode bleibt im Image verfuegbar.",
-    "Ollama ist nicht enthalten und wird nicht vorausgesetzt.",
-    "Bestehende Compose-Nutzung kann das Image weiterhin im agent-only Modus verwenden.",
-    "Release Workflow baut das Quickstart-Image als Evidence mit.",
-    "README, Quickstart-Doku und Container-Release-Doku sind konsistent."
+    "Hub, Worker und Angular Frontend laufen aus demselben Image.",
+    "Ein Fullstack-Startpfad startet zusaetzlich Evolver, DeerFlow und ml-intern aus demselben Image.",
+    "DEFAULT_PROVIDER, DEFAULT_MODEL, OPENAI_URL, OPENAI_API_KEY und LMSTUDIO_URL sind zentral dokumentiert.",
+    "Bei DEFAULT_PROVIDER=openai und leerem OPENAI_API_KEY entsteht eine klare Fehlermeldung im Quickstart-Pfad.",
+    "Ollama wird im no-ollama Fullstack-Hauptpfad weder installiert noch vorausgesetzt.",
+    "Compose-basierte Fullstack-Orchestrierung nutzt nur dieses eine Image fuer alle Ananta-Rollen.",
+    "README und Setup-Doku enthalten einen konsistenten Hauptpfad fuer dieses Zielbild.",
+    "Container-Release-Workflow fuehrt das Quickstart-Image als Evidence-Artefakt."
   ],
   "milestones": [
-    {"id": "SQI-M1", "title": "Single-container Entrypoint", "task_ids": ["SQI-T01", "SQI-T02", "SQI-T03"], "status": "todo"},
-    {"id": "SQI-M2", "title": "Dockerfile und Compose-Kompatibilitaet", "task_ids": ["SQI-T04", "SQI-T05"], "status": "todo"},
-    {"id": "SQI-M3", "title": "Tests und Smoke Checks", "task_ids": ["SQI-T06", "SQI-T07"], "status": "todo"},
-    {"id": "SQI-M4", "title": "Release Build und Dokumentation", "task_ids": ["SQI-T08", "SQI-T09", "SQI-T10"], "status": "todo"}
+    {
+      "id": "SIF-M1",
+      "title": "Single-image baseline",
+      "task_ids": ["SIF-T01", "SIF-T02"],
+      "status": "done"
+    },
+    {
+      "id": "SIF-M2",
+      "title": "Fullstack Rollen aus einem Image",
+      "task_ids": ["SIF-T03", "SIF-T04", "SIF-T05", "SIF-T06"],
+      "status": "todo"
+    },
+    {
+      "id": "SIF-M3",
+      "title": "Verifikation und Release-Evidence",
+      "task_ids": ["SIF-T07", "SIF-T08"],
+      "status": "todo"
+    },
+    {
+      "id": "SIF-M4",
+      "title": "Doku-Hauptpfad",
+      "task_ids": ["SIF-T09", "SIF-T10"],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
-      "id": "SQI-T01",
-      "title": "Quickstart Entrypoint fuer Single-Container-Modus anlegen",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "expected_files": ["scripts/quickstart-no-ollama-entrypoint.sh"],
-      "acceptance_criteria": [
-        "Entrypoint unterstuetzt ANANTA_QUICKSTART_MODE=single-container.",
-        "Entrypoint startet Hub auf HUB_PORT default 5000.",
-        "Entrypoint startet Worker auf WORKER_PORT default 5001.",
-        "Entrypoint startet Angular Frontend auf FRONTEND_PORT default 4200.",
-        "Entrypoint nutzt SQLite und benoetigt kein Postgres/Redis fuer den Single-Container-Hauptpfad.",
-        "Entrypoint verwendet set -euo pipefail.",
-        "Entrypoint behandelt SIGTERM/SIGINT und beendet Kindprozesse sauber.",
-        "Logs sind mit klaren Prefixes wie [hub], [worker], [frontend] unterscheidbar."
-      ]
-    },
-    {
-      "id": "SQI-T02",
-      "title": "Agent-only Modus fuer bestehende Compose-Nutzung erhalten",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "expected_files": ["scripts/quickstart-no-ollama-entrypoint.sh", "docker-compose.quickstart-no-ollama.yml"],
-      "acceptance_criteria": [
-        "ANANTA_QUICKSTART_MODE=agent-only fuehrt das bisherige Verhalten aus: alembic upgrade head && exec python -m agent.ai_agent.",
-        "Compose-Agent-Services setzen ANANTA_QUICKSTART_MODE=agent-only.",
-        "Bestehende Hub/Worker-Compose-Rollen bleiben kompatibel.",
-        "Angular-Frontend-Service bleibt im Compose-Pfad startbar."
-      ]
-    },
-    {
-      "id": "SQI-T03",
-      "title": "OpenAI/OpenAI-kompatible Env-Konfiguration absichern",
-      "status": "todo",
+      "id": "SIF-T01",
+      "title": "Single-Image-Basis fuer Hub/Worker/Frontend sichern",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
-      "expected_files": ["scripts/quickstart-no-ollama-entrypoint.sh", "Dockerfile.quickstart-no-ollama"],
+      "expected_files": [
+        "Dockerfile.quickstart-no-ollama",
+        "docker-compose.quickstart-no-ollama.yml"
+      ],
       "acceptance_criteria": [
-        "DEFAULT_PROVIDER defaultet im Single-Image-Quickstart auf openai.",
-        "DEFAULT_MODEL defaultet auf gpt-4o oder einen dokumentierten Quickstart-Default.",
-        "OPENAI_URL defaultet auf https://api.openai.com/v1/chat/completions.",
-        "Bei DEFAULT_PROVIDER=openai und leerem OPENAI_API_KEY bricht der Entrypoint mit klarer Fehlermeldung ab.",
-        "OpenAI-kompatible lokale Endpoints koennen per OPENAI_URL und OPENAI_API_KEY gesetzt werden."
+        "Dockerfile.quickstart-no-ollama enthaelt Python-Runtime, Node-Runtime und Frontend-Dependencies.",
+        "Compose-Overlay startet Hub, Worker und Angular Frontend aus demselben Image.",
+        "OpenCode bleibt im Image verfuegbar."
       ]
     },
     {
-      "id": "SQI-T04",
-      "title": "Dockerfile.quickstart-no-ollama auf Single-Image-Start umstellen",
+      "id": "SIF-T02",
+      "title": "Provider-Konfiguration im No-Ollama-Pfad sichtbar machen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "blocking": true,
+      "expected_files": [
+        "Dockerfile.quickstart-no-ollama",
+        "docker-compose.quickstart-no-ollama.yml",
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "OpenAI und LM Studio Variablen sind im Quickstart-Pfad dokumentiert.",
+        "No-Ollama Defaults sind gesetzt.",
+        "README zeigt direkte Startbeispiele fuer OpenAI und LM Studio."
+      ]
+    },
+    {
+      "id": "SIF-T03",
+      "title": "Fullstack-Overlay aus einem Image erweitern (Evolver/DeerFlow/ml-intern)",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "expected_files": ["Dockerfile.quickstart-no-ollama", "scripts/quickstart-no-ollama-entrypoint.sh"],
+      "expected_files": [
+        "docker-compose.quickstart-no-ollama.yml",
+        "docker-compose.single-image-fullstack.yml"
+      ],
       "acceptance_criteria": [
-        "Dockerfile kopiert den Entrypoint ins Image.",
-        "Entrypoint ist ausfuehrbar.",
-        "Dockerfile setzt ENTRYPOINT auf scripts/quickstart-no-ollama-entrypoint.sh.",
-        "Dockerfile setzt ENV ANANTA_QUICKSTART_MODE=single-container.",
-        "Dockerfile exposed 5000, 5001 und 4200.",
-        "OpenCode Installation bleibt enthalten.",
-        "Ollama wird nicht installiert und nicht referenziert."
+        "Es gibt ein Fullstack-Overlay fuer Evolver, DeerFlow und ml-intern.",
+        "Alle Ananta-Rollen referenzieren dasselbe Image-Tag.",
+        "Hub/Worker/Frontend bleiben weiterhin separat startbar."
       ]
     },
     {
-      "id": "SQI-T05",
-      "title": "docker-compose.quickstart-no-ollama.yml kompatibel halten",
+      "id": "SIF-T04",
+      "title": "Rollen-Entrypoint fuer Image-Modi bereitstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "expected_files": [
+        "scripts/quickstart-single-image-entrypoint.sh",
+        "Dockerfile.quickstart-no-ollama"
+      ],
+      "acceptance_criteria": [
+        "Entrypoint unterstuetzt mindestens Modi: hub, worker, frontend, evolver_bridge, deerflow_runner, ml_intern_runner.",
+        "Entrypoint nutzt set -euo pipefail und sauberes Signal-Handling.",
+        "Mode-Auswahl erfolgt eindeutig ueber Env (zum Beispiel ANANTA_QUICKSTART_ROLE)."
+      ]
+    },
+    {
+      "id": "SIF-T05",
+      "title": "Evolver-Rolle im Single-Image lauffaehig machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "expected_files": [
+        "Dockerfile.quickstart-no-ollama",
+        "services/evolver_bridge/server.js",
+        "docker-compose.single-image-fullstack.yml"
+      ],
+      "acceptance_criteria": [
+        "Evolver-Bridge kann aus demselben Image auf Port 8080 gestartet werden.",
+        "Hub kann EVOLVER_BASE_URL auf diesen Service zeigen.",
+        "Evolver bleibt optional profilgesteuert."
+      ]
+    },
+    {
+      "id": "SIF-T06",
+      "title": "DeerFlow/ml-intern als interne Spezial-Worker-Modi vorbereiten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "expected_files": [
+        "scripts/quickstart-single-image-entrypoint.sh",
+        "agent/research_backend.py",
+        "agent/services/ml_intern_adapter_service.py",
+        "docker-compose.single-image-fullstack.yml"
+      ],
+      "acceptance_criteria": [
+        "DeerFlow-Runner ist als startbarer Service-Modus aus demselben Image verfuegbar.",
+        "ml-intern-Runner ist als startbarer Service-Modus aus demselben Image verfuegbar.",
+        "Hub-Routing bleibt Owner-gesteuert (nur Delegation, keine zweite Control Plane).",
+        "Fehlende externe Binaries/Config werden klar als Preflight-Fehler ausgewiesen."
+      ]
+    },
+    {
+      "id": "SIF-T07",
+      "title": "Contract- und Compose-Tests fuer Single-Image-Fullstack ergaenzen",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "expected_files": ["docker-compose.quickstart-no-ollama.yml"],
+      "expected_files": [
+        "tests/test_quickstart_no_ollama_image_contract.py",
+        "tests/test_quickstart_single_image_fullstack_compose.py"
+      ],
       "acceptance_criteria": [
-        "Compose nutzt weiterhin dasselbe Image fuer Hub, Worker und Frontend.",
-        "Agent-Services setzen ANANTA_QUICKSTART_MODE=agent-only.",
-        "Keine harte Ollama-Abhaengigkeit im no-ollama Overlay.",
-        "Quickstart-Defaults verhindern unnoetige .env-Pflicht fuer den no-ollama Pfad oder dokumentieren sie klar.",
-        "Compose-Pfad bleibt optionale Alternative, nicht Hauptpfad."
+        "Tests pruefen Rollen-Entrypoint-Modi.",
+        "Tests pruefen Compose-Rendering fuer Fullstack-Overlay.",
+        "Tests pruefen OPENAI_API_KEY-Fehlermeldung fuer DEFAULT_PROVIDER=openai."
       ]
     },
     {
-      "id": "SQI-T06",
-      "title": "Statische Contract-Tests fuer Quickstart-Image ergaenzen",
+      "id": "SIF-T08",
+      "title": "Container-Release Evidence um Single-Image erweitern",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "expected_files": ["tests/test_quickstart_no_ollama_image_contract.py"],
+      "expected_files": [
+        ".github/workflows/container-release.yml",
+        "docs/container-release-strategy.md"
+      ],
       "acceptance_criteria": [
-        "Test prueft, dass Dockerfile den Entrypoint referenziert.",
-        "Test prueft, dass Dockerfile keine Ollama-Installation enthaelt.",
-        "Test prueft, dass OpenCode im Dockerfile installiert wird.",
-        "Test prueft EXPOSE 5000 5001 4200.",
-        "Test prueft, dass Entrypoint single-container und agent-only kennt.",
-        "Test prueft, dass Entrypoint OPENAI_API_KEY validiert.",
-        "Test prueft, dass README docker run fuer den Single-Image-Pfad dokumentiert."
+        "Workflow baut ananta-quickstart-no-ollama:<tag>.",
+        "Metadata enthaelt quickstart-no-ollama-image.json.",
+        "image-tags.txt listet das Quickstart-Image.",
+        "Kein automatischer Push ohne gesonderte Freigabe."
       ]
     },
     {
-      "id": "SQI-T07",
-      "title": "Optionales Smoke-Script fuer lokalen Image-Build ergaenzen",
+      "id": "SIF-T09",
+      "title": "README-Hauptpfad auf Fullstack aus einem Image aktualisieren",
       "status": "todo",
-      "priority": "P2",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "expected_files": [
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "README zeigt den Fullstack-Hauptpfad aus einem Image inkl. Evolver, DeerFlow, ml-intern.",
+        "README nennt klar die Rollen-Trennung trotz einheitlichem Image.",
+        "README beschreibt die Provider-Konfiguration fuer OpenAI/LM Studio ohne Ollama-Zwang."
+      ]
+    },
+    {
+      "id": "SIF-T10",
+      "title": "Quickstart-Doku konsistent ziehen",
+      "status": "todo",
+      "priority": "P1",
       "risk": "low",
       "blocking": false,
-      "expected_files": ["scripts/smoke_quickstart_no_ollama_image.sh"],
+      "expected_files": [
+        "docs/setup/quickstart.md",
+        "docs/INSTALL_TEST_BETRIEB.md",
+        "docs/release-process.md"
+      ],
       "acceptance_criteria": [
-        "Script baut das Image mit Dockerfile.quickstart-no-ollama.",
-        "Script kann lokal oder CI-gated laufen.",
-        "Script dokumentiert, dass echte docker run Smoke-Checks optional sind.",
-        "Script ist robust gegen fehlenden Docker-Daemon und meldet das klar."
-      ]
-    },
-    {
-      "id": "SQI-T08",
-      "title": "Container Release Workflow um Quickstart-Image erweitern",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "expected_files": [".github/workflows/container-release.yml"],
-      "acceptance_criteria": [
-        "Workflow baut ananta-quickstart-no-ollama:<tag> aus Dockerfile.quickstart-no-ollama.",
-        "Workflow schreibt quickstart-no-ollama-image.json in container-release-metadata.",
-        "image-tags.txt enthaelt ananta-quickstart-no-ollama:<tag>.",
-        "Workflow pusht Images weiterhin nicht automatisch, solange Publishing nicht freigegeben ist."
-      ]
-    },
-    {
-      "id": "SQI-T09",
-      "title": "Dokumentation fuer Single-Image Quickstart vollstaendig nachziehen",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "expected_files": ["README.md", "docs/setup/quickstart.md", "docs/container-release-strategy.md"],
-      "acceptance_criteria": [
-        "README enthaelt Abschnitt Docker Single-Image Quickstart ohne Ollama.",
-        "README zeigt docker build und docker run Beispiel ohne Compose.",
-        "README erklaert Ports 5000, 5001 und 4200.",
-        "README erklaert Login admin/ananta-local-dev-admin als Quickstart-Default.",
-        "README erklaert OpenAI und OpenAI-kompatible Endpoint-Konfiguration.",
-        "README sagt klar, dass Ollama nicht enthalten ist.",
-        "README Entscheidungstabelle enthaelt den neuen Single-Image-Pfad.",
-        "docs/setup/quickstart.md enthaelt denselben Pfad ohne Widerspruch.",
-        "docs/container-release-strategy.md nennt ananta-quickstart-no-ollama als Release-Evidence-Image.",
-        "Keine no-ollama Doku behauptet, dass Ollama oder Docker Compose fuer den Hauptpfad noetig ist."
-      ]
-    },
-    {
-      "id": "SQI-T10",
-      "title": "Dokumentationsdrift und alte Aussagen bereinigen",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "low",
-      "blocking": false,
-      "expected_files": ["README.md", "docs/setup/quickstart.md", "docs/INSTALL_TEST_BETRIEB.md", "docs/DOCKER_WINDOWS.md", "docs/release-process.md", "docs/release-golden-path.md"],
-      "acceptance_criteria": [
-        "Bestehende Compose-Doku bleibt erhalten, aber wird klar als Multi-Container/Compose-Pfad bezeichnet.",
-        "Single-Image Quickstart wird klar als docker run Hauptpfad ohne Compose beschrieben.",
-        "Keine DEFAULT_PROVIDER=ollama Beispiele im no-ollama Single-Image Abschnitt.",
-        "Keine echten Secrets in Beispielen.",
-        "Release-Doku sagt, dass das Quickstart-Image Evidence ist und nicht automatisch gepusht wird."
+        "Quickstart-Doku widerspricht nicht dem README-Hauptpfad.",
+        "Compose bleibt als Orchestrierungspfad benannt, das Image bleibt singular.",
+        "No-Ollama Aussagen sind ueberall konsistent."
       ]
     }
   ],
   "execution_order_summary": [
-    "Zuerst Entrypoint und agent-only Kompatibilitaet bauen.",
-    "Danach Dockerfile auf Entrypoint umstellen und Compose-Kompatibilitaet sichern.",
-    "Dann statische Tests und optionales Smoke-Script ergaenzen.",
-    "Danach Release Workflow und Dokumentation aktualisieren.",
-    "Zum Schluss README/Quickstart/Release-Doku auf Widersprueche pruefen."
+    "Bestehende Single-Image-Basis beibehalten.",
+    "Danach Rollen-Entrypoint und Fullstack-Overlay fuer Evolver/DeerFlow/ml-intern aus demselben Image bauen.",
+    "Dann Contract- und Compose-Tests ergaenzen.",
+    "Danach Release-Evidence erweitern.",
+    "Zum Schluss README und Setup-Doku auf einen klaren Hauptpfad angleichen."
   ],
-  "critical_path_tasks": ["SQI-T01", "SQI-T02", "SQI-T03", "SQI-T04", "SQI-T08", "SQI-T09"],
+  "critical_path_tasks": ["SIF-T03", "SIF-T04", "SIF-T05", "SIF-T06", "SIF-T09"],
   "tasks_status_summary": {
     "total": 10,
-    "by_status": {"todo": 10, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
-    "progress_percent_done": 0.0,
-    "by_priority": {"P0": 6, "P1": 3, "P2": 1, "P3": 0},
-    "by_risk": {"low": 2, "medium": 5, "high": 3, "critical": 0},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6}
+    "by_status": {
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 2,
+      "deferred": 0
+    },
+    "progress_percent_done": 20.0,
+    "by_priority": {
+      "P0": 7,
+      "P1": 3,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 4,
+      "high": 4,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 5,
+      "done": 0,
+      "remaining": 5
+    }
   },
   "summary_notes": [
-    "Dieses Todo beschreibt bewusst einen Quickstart-/Testpfad, kein Produktionsdeployment.",
-    "DeerFlow, Evolver, n8n und ml-intern sollen nicht hart in den Core-Startup oder dieses Image gezwungen werden.",
-    "OpenCode ist im bestehenden Dockerfile bereits enthalten und soll erhalten bleiben.",
-    "Ollama bleibt bewusst draussen; OpenAI/OpenAI-kompatible Backends werden ueber Env angebunden.",
-    "Das Release-Image ist zunaechst Evidence/Build-Output und wird nicht automatisch gepusht."
+    "Das Ziel bleibt: ein direkt nutzbares Fullstack-Setup aus einem einzigen Image-Artefakt.",
+    "Die Rollen werden aus Architekturgruenden weiterhin als getrennte Container gestartet, aber alle aus demselben Image.",
+    "DeerFlow und ml-intern sind im Code als optionale Spezial-Backends vorhanden und werden fuer den Fullstack-Pfad als startbare Rollen konkretisiert.",
+    "Evolver ist als separate Integration vorhanden und wird in denselben Single-Image-Stack uebernommen.",
+    "Kein Ollama im Hauptpfad; LLM-Anbindung erfolgt ueber OpenAI/OpenAI-kompatible Endpoints oder LM Studio."
   ]
 }
