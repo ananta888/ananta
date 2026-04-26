@@ -141,6 +141,17 @@ Start:
 scripts/compose-test-stack.sh up
 ```
 
+Ein-Kommando-Volltest (inkl. WSL2/Vulkan-Ollama, Dogfood, Live-Click und Deep-Checks):
+```bash
+python3 scripts/run_full_local_test_suite.py
+```
+- Standard nutzt `ANANTA_USE_WSL_VULKAN=1` fuer den Ollama-GPU-Pfad.
+- Report: `artifacts/test-gates/full_local_test_suite_report.json`
+- Optional ohne Vulkan/GPU:
+```bash
+python3 scripts/run_full_local_test_suite.py --cpu
+```
+
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
 ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh up
