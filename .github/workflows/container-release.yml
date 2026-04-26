@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: container-release-${{ github.workflow }}-${{ github.ref_name || inputs.tag }}
@@ -32,22 +33,36 @@ jobs:
         run: |
           tag="${INPUT_TAG:-$REF_NAME}"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "quickstart_image=ghcr.io/${{ github.repository_owner }}/ananta-quickstart-no-ollama:${tag}" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build backend image
         run: docker build -t "ananta-backend:${{ steps.image-tag.outputs.tag }}" .
       - name: Build frontend image
         run: docker build -t "ananta-frontend:${{ steps.image-tag.outputs.tag }}" frontend-angular
       - name: Build single-image quickstart (no ollama)
-        run: docker build -f Dockerfile.quickstart-no-ollama -t "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" .
+        run: |
+          docker build \
+            -f Dockerfile.quickstart-no-ollama \
+            -t "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" \
+            -t "${{ steps.image-tag.outputs.quickstart_image }}" \
+            .
+      - name: Push single-image quickstart (no ollama)
+        run: docker push "${{ steps.image-tag.outputs.quickstart_image }}"
       - name: Collect image metadata
         run: |
           mkdir -p container-release-metadata
           docker image inspect "ananta-backend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/backend-image.json
           docker image inspect "ananta-frontend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/frontend-image.json
-          docker image inspect "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/quickstart-no-ollama-image.json
+          docker image inspect "${{ steps.image-tag.outputs.quickstart_image }}" > container-release-metadata/quickstart-no-ollama-image.json
           printf '%s\n' \
             "ananta-backend:${{ steps.image-tag.outputs.tag }}" \
             "ananta-frontend:${{ steps.image-tag.outputs.tag }}" \
-            "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" \
+            "${{ steps.image-tag.outputs.quickstart_image }}" \
             > container-release-metadata/image-tags.txt
       - name: Upload image metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
