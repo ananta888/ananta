@@ -166,7 +166,7 @@ Wenn du Docker nutzen willst, aber den Stack standardmaessig **ohne Ollama** sta
 Lite (Hub + Worker + Frontend):
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 ```
 
 Full-Stack mit Evolver-Profil:
@@ -184,7 +184,7 @@ docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compos
 Live-Code:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.live-code.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.live-code.yml up -d --build
 ```
 
 Hinweis: Falls du spaeter doch Ollama im selben Setup aktivieren willst, fuege `--profile ollama` hinzu.
