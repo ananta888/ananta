@@ -19,15 +19,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("agents", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("registration_validated", sa.Boolean(), nullable=False, server_default=sa.true()))
-        batch_op.add_column(sa.Column("validation_errors", sa.JSON(), nullable=True))
-        batch_op.add_column(sa.Column("validated_at", sa.Float(), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column["name"] for column in inspector.get_columns("agents")}
 
-    op.execute("UPDATE agents SET validation_errors = '[]'::json WHERE validation_errors IS NULL")
+    if "registration_validated" not in columns:
+        op.add_column("agents", sa.Column("registration_validated", sa.Boolean(), nullable=False, server_default=sa.true()))
+    if "validation_errors" not in columns:
+        op.add_column("agents", sa.Column("validation_errors", sa.JSON(), nullable=True))
+    if "validated_at" not in columns:
+        op.add_column("agents", sa.Column("validated_at", sa.Float(), nullable=True))
 
-    with op.batch_alter_table("agents", schema=None) as batch_op:
-        batch_op.alter_column("registration_validated", server_default=None)
+    if bind.dialect.name == "postgresql":
+        op.execute("UPDATE agents SET validation_errors = '[]'::json WHERE validation_errors IS NULL")
+        op.alter_column("agents", "registration_validated", server_default=None)
+    else:
+        op.execute("UPDATE agents SET validation_errors = '[]' WHERE validation_errors IS NULL")
 
 
 def downgrade() -> None:
