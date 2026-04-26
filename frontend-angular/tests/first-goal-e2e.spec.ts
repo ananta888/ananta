@@ -21,12 +21,20 @@ function liveBaseUrl(): string {
   if (liveProvider() === 'ollama') {
     return String(process.env.E2E_OLLAMA_URL || process.env.OLLAMA_URL || 'http://localhost:11434/api/generate').trim();
   }
+  if (liveProvider() === 'openai') {
+    return String(process.env.E2E_OPENAI_URL || process.env.OPENAI_URL || 'https://api.openai.com/v1/chat/completions').trim();
+  }
   return String(process.env.E2E_LMSTUDIO_URL || process.env.LMSTUDIO_URL || 'http://192.168.56.1:1234/v1').trim();
 }
 
 function liveModel(): string {
   if (liveProvider() === 'ollama') {
     return String(process.env.E2E_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'ananta-default').trim();
+  }
+  if (liveProvider() === 'openai') {
+    return String(
+      process.env.E2E_OPENAI_MODEL || process.env.OPENAI_MODEL || process.env.LIVE_LLM_MODEL || 'gpt-4o-mini'
+    ).trim();
   }
   return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
 }
@@ -71,6 +79,13 @@ function selectPreferredLiveModel(modelIds: string[]): string {
   return fallback[0] || candidates[0] || '';
 }
 
+function liveRequestHeaders(): Record<string, string> {
+  if (liveProvider() !== 'openai') return {};
+  const key = String(process.env.OPENAI_API_KEY || '').trim();
+  if (!key) return {};
+  return { Authorization: `Bearer ${key}` };
+}
+
 async function resolveLiveModel(): Promise<string> {
   const requestedModel = liveModel();
   if (requestedModel && !requestedModel.includes('thinking')) {
@@ -78,7 +93,7 @@ async function resolveLiveModel(): Promise<string> {
   }
 
   try {
-    const response = await fetch(liveModelsUrl());
+    const response = await fetch(liveModelsUrl(), { headers: liveRequestHeaders() });
     if (!response.ok) return requestedModel;
     const payload = await response.json().catch(() => ({}));
     const modelIds = liveProvider() === 'ollama'

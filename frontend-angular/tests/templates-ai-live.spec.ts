@@ -10,15 +10,30 @@ function normalizeOllamaBaseUrl(rawUrl: string) {
   return normalized;
 }
 
+function normalizeOpenAiModelsUrl(rawUrl: string) {
+  const normalized = rawUrl.replace(/\/+$/, '');
+  if (normalized.endsWith('/v1')) return `${normalized}/models`;
+  if (normalized.endsWith('/models')) return normalized;
+  if (normalized.includes('/v1/')) return `${normalized.split('/v1/', 1)[0]}/v1/models`;
+  return `${normalized}/v1/models`;
+}
+
 async function isLlmReachable() {
   const provider = (process.env.LIVE_LLM_PROVIDER || 'ollama').trim().toLowerCase();
+  const headers: Record<string, string> = {};
   const url = provider === 'ollama'
     ? `${normalizeOllamaBaseUrl(process.env.OLLAMA_URL || 'http://localhost:11434/api/generate')}/api/tags`
-    : `${(process.env.LMSTUDIO_URL || 'http://localhost:1234/v1').replace(/\/+$/, '')}/models`;
+    : provider === 'openai'
+      ? normalizeOpenAiModelsUrl(process.env.OPENAI_URL || 'https://api.openai.com/v1/chat/completions')
+      : `${(process.env.LMSTUDIO_URL || 'http://localhost:1234/v1').replace(/\/+$/, '')}/models`;
+  if (provider === 'openai') {
+    const key = String(process.env.OPENAI_API_KEY || '').trim();
+    if (key) headers.Authorization = `Bearer ${key}`;
+  }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, headers });
     if (!res.ok) return false;
     const payload = await res.json().catch(() => ({}));
     if (provider === 'ollama') {

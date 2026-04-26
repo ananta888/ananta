@@ -18,6 +18,8 @@ LIVE_LLM_DETERMINISTIC_MODEL_ENV = "LIVE_LLM_DETERMINISTIC_MODEL"
 LIVE_LLM_TIMEOUT_ENV = "LIVE_LLM_TIMEOUT_SEC"
 LIVE_LLM_RETRY_ATTEMPTS_ENV = "LIVE_LLM_RETRY_ATTEMPTS"
 LIVE_LLM_RETRY_BACKOFF_ENV = "LIVE_LLM_RETRY_BACKOFF_SEC"
+LIVE_OPENAI_URL_ENV = "OPENAI_URL"
+LIVE_OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 LIVE_OLLAMA_URL_ENV = "OLLAMA_URL"
 LIVE_E2E_OLLAMA_URL_ENV = "E2E_OLLAMA_URL"
 LIVE_OLLAMA_MODEL_ENV = "OLLAMA_MODEL"
@@ -28,6 +30,7 @@ LIVE_LMSTUDIO_MODEL_ENV = "LMSTUDIO_MODEL"
 LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV = "LMSTUDIO_DETERMINISTIC_MODEL"
 DEFAULT_OLLAMA_URL = "http://ollama:11434/api/generate"
 DEFAULT_LMSTUDIO_URL = "http://localhost:1234/v1"
+DEFAULT_OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
 def _live_llm_provider() -> str:
@@ -35,17 +38,17 @@ def _live_llm_provider() -> str:
 
 
 def _live_llm_base_url() -> str:
-    if _live_llm_provider() == "ollama":
+    provider = _live_llm_provider()
+    if provider == "ollama":
         return str(
-            os.environ.get(LIVE_OLLAMA_URL_ENV)
-            or os.environ.get(LIVE_E2E_OLLAMA_URL_ENV)
-            or DEFAULT_OLLAMA_URL
+            os.environ.get(LIVE_OLLAMA_URL_ENV) or os.environ.get(LIVE_E2E_OLLAMA_URL_ENV) or DEFAULT_OLLAMA_URL
         ).strip()
 
+    if provider == "openai":
+        return str(os.environ.get(LIVE_OPENAI_URL_ENV) or DEFAULT_OPENAI_URL).strip()
+
     return str(
-        os.environ.get(LIVE_LMSTUDIO_URL_ENV)
-        or os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV)
-        or DEFAULT_LMSTUDIO_URL
+        os.environ.get(LIVE_LMSTUDIO_URL_ENV) or os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV) or DEFAULT_LMSTUDIO_URL
     ).strip()
 
 
@@ -59,7 +62,8 @@ def _normalize_ollama_base_url(base_url: str) -> str:
 
 def _live_llm_models_url() -> str:
     base_url = _live_llm_base_url().rstrip("/")
-    if _live_llm_provider() == "ollama":
+    provider = _live_llm_provider()
+    if provider == "ollama":
         return f"{_normalize_ollama_base_url(base_url)}/api/tags"
     if base_url.endswith("/v1"):
         return f"{base_url}/models"
@@ -129,7 +133,9 @@ def _select_deterministic_live_goal_model(models: list[dict]) -> str:
     explicit = str(
         os.environ.get(LIVE_LLM_DETERMINISTIC_MODEL_ENV)
         or os.environ.get(
-            LIVE_OLLAMA_DETERMINISTIC_MODEL_ENV if _live_llm_provider() == "ollama" else LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV
+            LIVE_OLLAMA_DETERMINISTIC_MODEL_ENV
+            if _live_llm_provider() == "ollama"
+            else LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV
         )
         or ""
     ).strip()
@@ -155,16 +161,26 @@ def _require_live_llm() -> dict:
     if not _should_run_live_llm_tests():
         pytest.skip(f"Requires live local LLM backend (set {LIVE_LLM_FLAG}=1).")
 
+    provider = _live_llm_provider()
+    headers: dict[str, str] = {}
+    if provider == "openai":
+        api_key = str(os.environ.get(LIVE_OPENAI_API_KEY_ENV) or "").strip()
+        if not api_key:
+            pytest.skip(f"Configured openai live test requires {LIVE_OPENAI_API_KEY_ENV}.")
+        headers["Authorization"] = f"Bearer {api_key}"
+
     deadline = time.time() + float(os.environ.get("LIVE_LLM_READY_TIMEOUT_SEC") or "45")
     last_error = None
     models = []
     while time.time() < deadline:
         try:
-            response = requests.get(_live_llm_models_url(), timeout=5)
+            response = requests.get(_live_llm_models_url(), timeout=5, headers=headers or None)
             response.raise_for_status()
             payload = response.json()
-            if _live_llm_provider() == "ollama":
-                models = [{"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])]
+            if provider == "ollama":
+                models = [
+                    {"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])
+                ]
             else:
                 models = list((payload or {}).get("data") or [])
             if models:
