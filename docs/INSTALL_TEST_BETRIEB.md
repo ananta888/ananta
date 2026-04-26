@@ -4,15 +4,36 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
 
 ## 1. Schnellstart
 
-Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
+Es gibt zwei offizielle Startpfade:
+
+1. CLI-first lokal ohne Docker (fuer Goal-/CLI-Workflows).
+2. Full-Stack mit Docker Compose und Web-UI.
 
 ### Voraussetzungen
 - **Docker & Docker Compose**: Empfohlen fuer den schnellsten Start.
-- **Python 3.11+**: Fuer lokale Tools, Tests und manuelle Agent-Starts.
+- **Python 3.10+**: Fuer lokale Tools, Tests und manuelle Agent-Starts.
 - **Node.js 20.19+ & npm**: Fuer die manuelle Frontend-Entwicklung.
 - **Postgres 16**: Nur noetig, wenn nicht der Compose-Stack genutzt wird.
 
-### A. Schnellstart mit Docker (Empfohlen)
+### A. CLI-first ohne Docker
+1. Runtime-Profil erzeugen:
+   ```bash
+   ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
+   ```
+2. Readiness pruefen:
+   ```bash
+   ananta first-run
+   ananta status
+   ananta doctor
+   ```
+3. Erstes Goal starten:
+   ```bash
+   ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
+   ```
+
+Weiterfuehrung: `docs/setup/quickstart.md`, `docs/cli/commands.md`.
+
+### B. Schnellstart mit Docker (Empfohlen fuer UI + Full-Stack)
 1. Automatisches Setup ausfuehren:
    ```powershell
    .\setup.ps1
@@ -34,7 +55,7 @@ Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
 
 5. Im Dashboard ein erstes Ziel eingeben oder die Demo-Vorschau oeffnen.
 
-### B. Welche Compose-Variante passt?
+### C. Welche Compose-Variante passt?
 
 | Ziel | Variante | Empfehlung |
 | --- | --- | --- |
@@ -45,7 +66,7 @@ Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
 | Worker-Verteilung pruefen | Distributed Stack | Fuer Routing-, Team- und Mehr-Worker-Tests. |
 | Automatisierte Browsertests | Test-Stack | Fuer Playwright/CI, nicht fuer den normalen Browserzugriff. |
 
-### C. Weitere Compose-Befehle
+### D. Weitere Compose-Befehle
 
    Unter WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service nutzen Sie stattdessen das additive Overlay:
    ```bash
@@ -56,7 +77,7 @@ Der einfachste lokale Start nutzt Docker Compose und den Lite-Stack.
    powershell -ExecutionPolicy Bypass -File devtools/compose-lite.ps1 -Action up -Build
    ```
 
-### D. Manuelle Installation (Entwicklung)
+### E. Manuelle Installation (Entwicklung)
 
 #### AI-Agent (Hub oder Worker)
 1. In das Verzeichnis `agent/` wechseln.

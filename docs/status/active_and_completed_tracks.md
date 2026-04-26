@@ -6,10 +6,12 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
-| `todo.json` | `platform_gaps_after_core_tracks` | Runtime UX, MCP boundary, PR review dogfooding, cross-track hygiene |
+| `todo.json` | `core_boundary_plugin_architecture` | Core-boundary/provider-plugin architecture and integration hygiene |
+| `todo.doc.json` | `documentation_code_reconciliation` | Documentation vs code contract reconciliation and drift guardrails |
 | `todo.blender.json` | `blender_control_surface_and_runtime` | Blender integration backlog |
 | `todo.freecad.json` | `freecad_integration` | FreeCAD integration backlog |
 | `todo.kicad.json` | `kicad_integration` | KiCad integration backlog |
+| `todo.n8n-integration.json` | `workflow_automation_adapter_layer` | Workflow automation integration backlog |
 
 ## Deferred KRITIS / Enterprise-related scope
 

@@ -98,7 +98,7 @@ def test_submit_goal_prints_first_run_success_signal(monkeypatch, capsys):
     assert "Goal ID: goal-1" in out
     assert "Status: planned" in out
     assert "Tasks created: 1" in out
-    assert "Next step: python -m agent.cli_goals --goal-detail goal-1" in out
+    assert "Next step: ananta goal --goal-detail goal-1" in out
     assert "Success signal:" in out
 
 

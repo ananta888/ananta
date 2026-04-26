@@ -49,38 +49,38 @@
       "id": "DOC-M1",
       "title": "Code-backed inventory and decision framework",
       "task_ids": ["DOC-T01", "DOC-T02", "DOC-T03"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DOC-M2",
       "title": "CLI and bootstrap contract alignment",
       "task_ids": ["DOC-T04", "DOC-T05", "DOC-T06", "DOC-T07", "DOC-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DOC-M3",
       "title": "Architecture and fallback reconciliation",
       "task_ids": ["DOC-T09", "DOC-T10", "DOC-T11", "DOC-T12"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DOC-M4",
       "title": "Automated drift guardrails",
       "task_ids": ["DOC-T13", "DOC-T14", "DOC-T15"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DOC-M5",
       "title": "Migration cleanup and governance",
       "task_ids": ["DOC-T16", "DOC-T17", "DOC-T18"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "DOC-T01",
       "title": "Executable command contract inventory add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -97,7 +97,7 @@
     {
       "id": "DOC-T02",
       "title": "Documentation command usage inventory add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -114,7 +114,7 @@
     {
       "id": "DOC-T03",
       "title": "Doc-vs-code decision matrix add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -131,7 +131,7 @@
     {
       "id": "DOC-T04",
       "title": "OpenAI init flag mismatch in bootstrap path fix",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -151,7 +151,7 @@
     {
       "id": "DOC-T05",
       "title": "Init URL flag compatibility policy (docs-first, code optional)",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -168,7 +168,7 @@
     {
       "id": "DOC-T06",
       "title": "User-facing next-step command wording align",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -190,7 +190,7 @@
     {
       "id": "DOC-T07",
       "title": "CLI-first vs Docker-first onboarding split clarify",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -209,7 +209,7 @@
     {
       "id": "DOC-T08",
       "title": "Python minimum version drift resolve (docs-first)",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -227,7 +227,7 @@
     {
       "id": "DOC-T09",
       "title": "Hub fallback vocabulary reconcile (docs-first with alias mapping)",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -245,7 +245,7 @@
     {
       "id": "DOC-T10",
       "title": "Architecture source-of-truth mapping add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -262,7 +262,7 @@
     {
       "id": "DOC-T11",
       "title": "Historical vs active architecture labeling normalize",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -281,7 +281,7 @@
     {
       "id": "DOC-T12",
       "title": "Code-vs-description architecture decision review",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -298,7 +298,7 @@
     {
       "id": "DOC-T13",
       "title": "Documentation command contract tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -316,7 +316,7 @@
     {
       "id": "DOC-T14",
       "title": "Docs reference and track inventory validation add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -334,7 +334,7 @@
     {
       "id": "DOC-T15",
       "title": "CLI help dependency coupling assessment (fix only with proven value)",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -351,7 +351,7 @@
     {
       "id": "DOC-T16",
       "title": "Demo docs default path normalize",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -370,7 +370,7 @@
     {
       "id": "DOC-T17",
       "title": "Documentation track inventory integration add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -387,7 +387,7 @@
     {
       "id": "DOC-T18",
       "title": "Release gate documentation drift hook add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -422,16 +422,16 @@
     "DOC-T13"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T11:50:10+02:00",
+    "updated_at": "2026-04-26T13:30:00+02:00",
     "total": 18,
     "by_status": {
-      "todo": 18,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0,
+      "done": 18,
       "deferred": 0
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 8,
       "P1": 7,
@@ -446,15 +446,15 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "summary_notes": [

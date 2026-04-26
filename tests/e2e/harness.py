@@ -91,7 +91,7 @@ class E2EHarness:
                 "status: ok",
                 "mode: mocked-e2e",
                 f"run_id: {run_id}",
-                "next step: python -m agent.cli_goals --list-modes",
+                "next step: ananta goal --modes",
                 "",
             ]
         )
@@ -105,7 +105,7 @@ class E2EHarness:
                 f"goal_id: {goal_id}",
                 f"task_id: {task_id}",
                 f"trace_id: {trace_id}",
-                "next step: python -m agent.cli_goals --goal-detail goal-id",
+                "next step: ananta goal --goal-detail goal-id",
                 "",
             ]
         )
@@ -118,7 +118,7 @@ class E2EHarness:
                 "status: completed",
                 f"task_id: {task_id}",
                 "artifact_ready: yes",
-                "next step: python -m agent.cli_goals --task-detail task-id",
+                "next step: ananta goal --tasks --task-status completed",
                 "",
             ]
         )

@@ -1,5 +1,8 @@
 # Architekturplan fuer Ananta
 
+> Lifecycle status: **active-supporting** (architecture companion).
+> Canonical control-plane fallback guardrails live in `docs/hub-fallback-and-reliability.md`.
+
 Dieses Dokument beschreibt die Hub-Worker-Architektur und die zentralen Laufzeitpfade.
 
 ## Komponenten

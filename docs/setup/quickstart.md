@@ -2,6 +2,8 @@
 
 Dieser Quickstart nutzt den einheitlichen Nutzerpfad ueber `ananta ...`.
 
+Wenn du statt CLI-only den kompletten Stack mit Web-UI brauchst, nutze den Full-Stack-Pfad in `README.md` und `docs/INSTALL_TEST_BETRIEB.md`.
+
 ## 0) Optional: Bootstrap installer (recommended for first install)
 
 If `ananta` is not installed yet, use the one-file bootstrap installer first:

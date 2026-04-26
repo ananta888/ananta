@@ -14,6 +14,11 @@ TEAMS_ROUTE_PATH = ROOT / "agent" / "routes" / "teams.py"
 HARDCODED_TEMPLATE_LITERAL_PATTERN = re.compile(r"(?m)^GOAL_TEMPLATES\s*=\s*\{")
 SEED_BLUEPRINT_LITERAL_PATTERN = re.compile(r"(?m)^SEED_BLUEPRINTS\s*=\s*\{")
 INITIAL_TASKS_LITERAL_PATTERN = re.compile(r"(?m)^[A-Z0-9_]+_INITIAL_TASKS\s*=\s*\[")
+DEFAULT_DOCS_DRIFT_TESTS = (
+    "tests/test_cli_docs_contract.py",
+    "tests/test_docs_presence.py",
+    "tests/test_bootstrap_docs.py",
+)
 
 
 def _python_executable() -> str:
@@ -109,6 +114,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run release gate with integrated E2E dogfood checks.")
     parser.add_argument("--strict", action="store_true", help="Enable strict mode for release_gate.py.")
     parser.add_argument("--skip-e2e", action="store_true", help="Skip E2E dogfood checks.")
+    parser.add_argument(
+        "--docs-drift-check",
+        choices=("off", "report", "strict"),
+        default="off",
+        help="Run docs drift checks: off (default), report (non-blocking), or strict (blocking).",
+    )
+    parser.add_argument(
+        "--docs-drift-test",
+        action="append",
+        default=[],
+        help="Override/add pytest test target for docs drift checks (repeatable).",
+    )
     parser.add_argument(
         "--skip-security-invariants",
         action="store_true",
@@ -227,6 +244,20 @@ def main() -> int:
         if not tdd_ok:
             print(f"tdd_gate_error={tdd_reason}")
             return 1
+
+    if args.docs_drift_check != "off":
+        docs_drift_command = [
+            python_exec,
+            "-m",
+            "pytest",
+            "-q",
+            *(args.docs_drift_test or list(DEFAULT_DOCS_DRIFT_TESTS)),
+        ]
+        docs_drift_result = subprocess.run(docs_drift_command, cwd=str(ROOT), check=False)
+        if docs_drift_result.returncode != 0:
+            if args.docs_drift_check == "strict":
+                return docs_drift_result.returncode
+            print("docs_drift_report_error=contract_or_reference_mismatch")
 
     if args.skip_e2e:
         return 0

@@ -36,3 +36,9 @@ ananta web
 - `docs/setup/quickstart.md`
 - `docs/setup/ananta_init.md`
 - `docs/golden-path-cli.md`
+
+## Dependency precondition decision
+
+- Entscheidung: kein Code-Refactor fuer "help ohne Backend-Abhaengigkeiten" in diesem Track.
+- Begruendung: es gibt aktuell keinen nachgewiesenen Nutzerwert, der den Eingriff in CLI-Importpfade rechtfertigt.
+- Dokumentierter Zustand: der normale Nutzerpfad bleibt `ananta ...`; Entwickler-Fallback bleibt `python -m agent.cli_goals ...` laut `docs/cli/developer_entrypoints.md`.

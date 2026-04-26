@@ -3,4 +3,4 @@ command: task status
 status: completed
 task_id: <TASK_ID>
 artifact_ready: yes
-next step: python -m agent.cli_goals --task-detail task-id
+next step: ananta goal --tasks --task-status completed

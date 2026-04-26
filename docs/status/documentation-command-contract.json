@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "generated_from": [
+    "agent/cli/main.py",
+    "agent/cli/init_wizard.py",
+    "agent/cli/update.py",
+    "agent/cli/doctor.py",
+    "agent/cli_goals.py",
+    "agent/cli/goal_aliases.py"
+  ],
+  "entrypoints": {
+    "user_path": {
+      "command": "ananta",
+      "core_commands": [
+        "init",
+        "first-run",
+        "status",
+        "update",
+        "ask",
+        "plan",
+        "analyze",
+        "review",
+        "diagnose",
+        "patch",
+        "new-project",
+        "evolve-project",
+        "repair-admin",
+        "tui",
+        "doctor",
+        "web"
+      ],
+      "compatibility_commands": ["goal", "goals"]
+    },
+    "developer_fallback": {
+      "command": "python -m agent.cli_goals",
+      "scope": "dev and compatibility entrypoint, not default user path"
+    }
+  },
+  "option_contracts": [
+    {
+      "surface": "ananta init",
+      "context": "openai-compatible backend endpoint",
+      "primary_flag": "--endpoint-url",
+      "alias_policy": {
+        "base-url": "not supported by init_wizard parser; migrate docs/snippets to --endpoint-url"
+      }
+    },
+    {
+      "surface": "ananta goal/compatibility mode",
+      "context": "guided mode payload",
+      "primary_flags": ["--mode", "--mode-data", "--goal", "--goals", "--tasks", "--goal-detail", "--modes"]
+    }
+  ],
+  "default_user_guidance_policy": "All user-facing next-step output should prefer `ananta ...` commands. Developer fallback remains documented separately."
+}
