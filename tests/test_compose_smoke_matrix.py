@@ -68,6 +68,8 @@ def test_final_compose_file_chains_all_tests_without_extra_profiles():
     assert "all-tests:" in compose
     assert "Dockerfile.ollama-wsl-amd" in compose
     assert "Dockerfile.compose-test" in compose
+    assert "--ignore-glob=tests/**/fixtures/**" in compose
+    assert "OLLAMA_BASE_URL: \"http://ollama:11434\"" in compose
 
 
 def test_openai_final_compose_file_requires_openai_key_and_chains_all_tests():
