@@ -26,26 +26,26 @@
       "id": "BOOT-M1",
       "title": "One-file bootstrap installers",
       "task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BOOT-M2",
       "title": "In-system update command",
       "task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BOOT-M3",
       "title": "Docs and smoke tests",
       "task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "BOOT-T01",
       "title": "Windows PowerShell bootstrap installer add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -66,7 +66,7 @@
     {
       "id": "BOOT-T02",
       "title": "Linux and macOS Bash bootstrap installer add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -87,7 +87,7 @@
     {
       "id": "BOOT-T03",
       "title": "Installer options and idempotency add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -107,7 +107,7 @@
     {
       "id": "BOOT-T04",
       "title": "Post-install init handoff add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -127,7 +127,7 @@
     {
       "id": "BOOT-T05",
       "title": "ananta update command add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -149,7 +149,7 @@
     {
       "id": "BOOT-T06",
       "title": "Update rollback and checkpoint guidance add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -169,7 +169,7 @@
     {
       "id": "BOOT-T07",
       "title": "Installer update path unify",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -189,7 +189,7 @@
     {
       "id": "BOOT-T08",
       "title": "Bootstrap install docs add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "blocking": true,
@@ -209,7 +209,7 @@
     {
       "id": "BOOT-T09",
       "title": "Bootstrap smoke tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -228,7 +228,7 @@
     {
       "id": "BOOT-T10",
       "title": "Quickstart simplify around bootstrap installers",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "blocking": false,
@@ -259,21 +259,21 @@
   },
   "critical_path_tasks": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T05", "BOOT-T08"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T11:18:16+02:00",
+    "updated_at": "2026-04-26T11:27:29+02:00",
     "total": 10,
-    "by_status": {"todo": 10, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 10},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 6, "P1": 4, "P2": 0, "P3": 0},
     "by_risk": {"low": 2, "medium": 4, "high": 4, "critical": 0},
-    "critical_path": {"total": 5, "done": 0, "remaining": 5},
-    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 5, "done": 5, "remaining": 0},
+    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T11:18:16+02:00",
+    "updated_at": "2026-04-26T11:27:29+02:00",
     "stages": {
-      "BOOT-M1": {"title": "One-file bootstrap installers", "scope_task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
-      "BOOT-M2": {"title": "In-system update command", "scope_task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
-      "BOOT-M3": {"title": "Docs and smoke tests", "scope_task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0}
+      "BOOT-M1": {"title": "One-file bootstrap installers", "scope_task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
+      "BOOT-M2": {"title": "In-system update command", "scope_task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
+      "BOOT-M3": {"title": "Docs and smoke tests", "scope_task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0}
     }
   },
   "summary_notes": [
@@ -284,13 +284,14 @@
     "Cross-track references to unified CLI tasks are explicit prerequisites, not dangling dependencies."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T11:18:16+02:00",
+    "checked_at": "2026-04-26T11:27:29+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Task status counters, milestone counters and critical-path counters are internally consistent.",
       "All tasks are covered exactly once by milestone task_ids.",
       "Two dependencies intentionally target external track IDs (todo.unified-cli.json:CLI-T01/CLI-T03).",
-      "Added execution_stage_summary for milestone-level progress visibility."
+      "Added execution_stage_summary for milestone-level progress visibility.",
+      "Completed BOOT-T01 to BOOT-T10 with installer scripts, ananta update command, docs updates, and smoke/unit coverage."
     ]
   },
   "end_summaries": [
@@ -299,15 +300,15 @@
       "title": "Analysis result",
       "items": [
         "Track structure is coherent: 10 tasks, 3 milestones, and clear acceptance criteria per task.",
-        "Current execution state is intentionally initial (all tasks todo) and now explicitly timestamped."
+        "Implementation is complete across installers, update command, docs, and smoke tests."
       ]
     },
     {
       "summary_id": "BOOT-S2",
       "title": "Corrections",
       "items": [
-        "Refreshed tasks_status_summary.updated_at to the current analysis timestamp.",
-        "Documented dependency policy for cross-track references to avoid false inconsistency flags."
+        "Refreshed tasks_status_summary and execution_stage_summary timestamps to completion time.",
+        "Updated all milestone/task statuses to done and aligned counters to 100% completion."
       ]
     },
     {
@@ -323,9 +324,9 @@
       "summary_id": "BOOT-S4",
       "title": "End status",
       "items": [
-        "Current state: 10 tasks (10 todo, 0 in_progress, 0 blocked, 0 done).",
-        "Milestones: 3 total (3 todo, 0 in_progress, 0 blocked, 0 done).",
-        "Critical path: 5 total, 0 done, 5 remaining."
+        "Current state: 10 tasks (0 todo, 0 in_progress, 0 blocked, 10 done).",
+        "Milestones: 3 total (0 todo, 0 in_progress, 0 blocked, 3 done).",
+        "Critical path: 5 total, 5 done, 0 remaining."
       ]
     }
   ]
