@@ -18,10 +18,21 @@ def _restore_auth_response_tokens(original: Any, redacted: Any) -> Any:
     return restored
 
 
-def user_error_guidance(*, code: int, message: str | None = None) -> dict[str, Any]:
+def normalize_status_code(code: Any, *, default: int = 500) -> int:
+    try:
+        normalized = int(code)
+    except (TypeError, ValueError):
+        return default
+    if 100 <= normalized <= 599:
+        return normalized
+    return default
+
+
+def user_error_guidance(*, code: int | str, message: str | None = None) -> dict[str, Any]:
     """Return user-facing recovery help for common API error classes."""
+    code_value = normalize_status_code(code, default=500)
     text = str(message or "").lower()
-    if code in {401, 403}:
+    if code_value in {401, 403}:
         return {
             "summary": "Zugriff nicht moeglich.",
             "next_steps": [
@@ -29,7 +40,7 @@ def user_error_guidance(*, code: int, message: str | None = None) -> dict[str, A
                 "Pruefe, ob dein Benutzer die noetige Rolle oder Freigabe hat.",
             ],
         }
-    if code == 404:
+    if code_value == 404:
         return {
             "summary": "Die angefragte Ressource wurde nicht gefunden.",
             "next_steps": [
@@ -37,7 +48,7 @@ def user_error_guidance(*, code: int, message: str | None = None) -> dict[str, A
                 "Lege das Ziel erneut an, falls es noch nicht existiert.",
             ],
         }
-    if code in {409, 412, 422} or "policy" in text or "governance" in text or "blocked" in text:
+    if code_value in {409, 412, 422} or "policy" in text or "governance" in text or "blocked" in text:
         return {
             "summary": "Die Anfrage wurde durch Validierung oder Governance gestoppt.",
             "next_steps": [
@@ -45,7 +56,7 @@ def user_error_guidance(*, code: int, message: str | None = None) -> dict[str, A
                 "Pruefe Governance-Modus, Review-Pflicht oder fehlende Bereitschaftssignale.",
             ],
         }
-    if code >= 500:
+    if code_value >= 500:
         return {
             "summary": "Der Hub konnte die Anfrage gerade nicht verarbeiten.",
             "next_steps": [
@@ -73,13 +84,14 @@ def _with_error_guidance(data: Any, *, status: str, message: str | None, code: i
     return {"error_help": guidance}
 
 
-def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int = 200) -> Response:
+def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int | str = 200) -> Response:
     """
     Erzeugt eine standardisierte API-Antwort.
     Format: { "status": "success/error/...", "data": ..., "message": ... }
     """
+    normalized_code = normalize_status_code(code, default=500 if status == "error" else 200)
     response_body = {"status": status}
-    response_data = _with_error_guidance(data, status=status, message=message, code=code)
+    response_data = _with_error_guidance(data, status=status, message=message, code=normalized_code)
     if response_data is not None:
         # Automatisches Redacting basierend auf dem aktuellen Kontext
         visibility = VisibilityLevel.USER
@@ -97,7 +109,7 @@ def api_response(data: Any = None, status: str = "success", message: Optional[st
     if message is not None:
         response_body["message"] = message
 
-    return jsonify(response_body), code
+    return jsonify(response_body), normalized_code
 
 
 class AnantaError(Exception):
