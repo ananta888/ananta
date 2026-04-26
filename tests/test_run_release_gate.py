@@ -137,3 +137,62 @@ def test_run_release_gate_stops_when_cli_smoke_fails(monkeypatch) -> None:
 
     assert run_release_gate.main() == 1
     assert commands[2] == ["python3", "-m", "pytest", "-q", "tests/smoke/test_unified_cli_smoke.py"]
+
+
+def test_run_release_gate_runs_tdd_smoke_when_runtime_claimed(monkeypatch) -> None:
+    commands: list[list[str]] = []
+    monkeypatch.setattr(run_release_gate, "_python_executable", lambda: "python3")
+    monkeypatch.setattr(run_release_gate, "_domain_inventory_exists", lambda _path: False)
+    monkeypatch.setattr(
+        run_release_gate,
+        "_evaluate_tdd_smoke_report",
+        lambda _path: (True, "ok", ["artifacts/tdd/red.json", "artifacts/tdd/green.json"]),
+    )
+
+    def fake_run(command, cwd=None, check=False):  # noqa: ANN001
+        commands.append(list(command))
+        return _completed(0)
+
+    monkeypatch.setattr(run_release_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["run_release_gate.py", "--tdd-runtime-claimed", "--skip-e2e"])
+
+    assert run_release_gate.main() == 0
+    assert commands[0] == ["python3", "scripts/release_gate.py"]
+    assert commands[1][0:2] == ["python3", "scripts/run_security_invariant_checks.py"]
+    assert commands[2][0:2] == ["python3", "scripts/run_tdd_blueprint_smoke.py"]
+
+
+def test_run_release_gate_fails_when_green_claimed_without_passing_tdd_evidence(monkeypatch) -> None:
+    monkeypatch.setattr(run_release_gate, "_python_executable", lambda: "python3")
+    monkeypatch.setattr(run_release_gate, "_domain_inventory_exists", lambda _path: False)
+    monkeypatch.setattr(
+        run_release_gate,
+        "_evaluate_tdd_smoke_report",
+        lambda _path: (False, "green_phase_claimed_without_passing_test_evidence", ["artifacts/tdd/red.json"]),
+    )
+
+    def fake_run(command, cwd=None, check=False):  # noqa: ANN001
+        return _completed(0)
+
+    monkeypatch.setattr(run_release_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["run_release_gate.py", "--tdd-runtime-claimed", "--skip-e2e"])
+
+    assert run_release_gate.main() == 1
+
+
+def test_run_release_gate_fails_when_red_skipped_without_degraded_explanation(monkeypatch) -> None:
+    monkeypatch.setattr(run_release_gate, "_python_executable", lambda: "python3")
+    monkeypatch.setattr(run_release_gate, "_domain_inventory_exists", lambda _path: False)
+    monkeypatch.setattr(
+        run_release_gate,
+        "_evaluate_tdd_smoke_report",
+        lambda _path: (False, "red_phase_skipped_without_degraded_explanation", ["artifacts/tdd/green.json"]),
+    )
+
+    def fake_run(command, cwd=None, check=False):  # noqa: ANN001
+        return _completed(0)
+
+    monkeypatch.setattr(run_release_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["run_release_gate.py", "--tdd-runtime-claimed", "--skip-e2e"])
+
+    assert run_release_gate.main() == 1
