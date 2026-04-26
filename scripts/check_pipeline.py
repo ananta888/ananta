@@ -68,7 +68,8 @@ def check_deep_tests():
     print("\n--- Running Deep Checks ---", flush=True)
     # Fixture repositories under tests/**/fixtures/** contain intentionally isolated
     # test files that are not importable from this repository root test run.
-    # Verbose output and faulthandler make CI hangs diagnosable.
+    # The autonomous backend flow is still covered by its own isolated CI job;
+    # excluding it here prevents one E2E teardown from blocking the whole sweep.
     deep_test_command = [
         sys.executable,
         "-m",
@@ -81,6 +82,7 @@ def check_deep_tests():
         "-m",
         "not live_compose",
         "--ignore-glob=tests/**/fixtures/**",
+        "--ignore=tests/test_autonomous_flow_e2e.py",
     ]
     return run_command(deep_test_command)
 
@@ -124,7 +126,7 @@ def main():
             success = False
 
     if args.mode == "deep":
-        # Run all tests except those that require a live compose environment.
+        # Run all non-isolated tests except those that require a live compose environment.
         if not check_deep_tests():
             success = False
 
