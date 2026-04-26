@@ -3,7 +3,15 @@ from __future__ import annotations
 import json
 import logging
 import re
+from warnings import warn
 from typing import Optional
+
+from agent.services.execution_focused_planning import (
+    EXECUTION_FOCUSED_GOAL_HINTS,
+    build_execution_focused_goal_template,
+    match_execution_focused_goal_template,
+)
+from agent.services.planning_template_catalog import get_planning_template_catalog
 
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}
 SUSPICIOUS_TASK_PATTERNS = [
@@ -14,396 +22,26 @@ SUSPICIOUS_TASK_PATTERNS = [
     r"<script\b",
 ]
 
-GOAL_TEMPLATES = {
-    "bug_fix": {
-        "keywords": ["bug", "fix", "fehler", "error", "crash", "broken", "kaputt"],
-        "subtasks": [
-            {
-                "title": "Bug reproduzieren",
-                "description": "Schritte zum Reproduzieren dokumentieren und verifizieren",
-                "priority": "High",
-            },
-            {"title": "Root Cause Analyse", "description": "Ursache des Fehlers identifizieren", "priority": "High"},
-            {"title": "Fix implementieren", "description": "Korrektur implementieren", "priority": "High"},
-            {
-                "title": "Test schreiben",
-                "description": "Unit/Integration Test für den Bug-Fix erstellen",
-                "priority": "Medium",
-            },
-            {"title": "Code Review", "description": "Fix zur Überprüfung einreichen", "priority": "Medium"},
-        ],
-    },
-    "feature": {
-        "keywords": ["feature", "implement", "add", "neu", "new", "create", "erstellen", "erstelle", "baue"],
-        "subtasks": [
-            {
-                "title": "Anforderungen definieren",
-                "description": "Funktionale und nicht-funktionale Anforderungen dokumentieren",
-                "priority": "High",
-            },
-            {"title": "Design/Architektur", "description": "Technisches Design erstellen", "priority": "High"},
-            {"title": "Implementierung", "description": "Feature implementieren", "priority": "High"},
-            {"title": "Tests schreiben", "description": "Unit und Integration Tests erstellen", "priority": "Medium"},
-            {"title": "Dokumentation", "description": "Feature dokumentieren", "priority": "Low"},
-        ],
-    },
-    "refactor": {
-        "keywords": ["refactor", "cleanup", "improve", "optimieren", "verbessern", "clean"],
-        "subtasks": [
-            {
-                "title": "Code-Analyse",
-                "description": "Aktuellen Stand analysieren und Verbesserungspotenzial identifizieren",
-                "priority": "Medium",
-            },
-            {"title": "Refactoring-Plan", "description": "Schritte für das Refactoring planen", "priority": "Medium"},
-            {"title": "Refactoring durchführen", "description": "Code umstrukturieren", "priority": "Medium"},
-            {
-                "title": "Tests verifizieren",
-                "description": "Sicherstellen dass alle Tests noch durchlaufen",
-                "priority": "High",
-            },
-        ],
-    },
-    "test": {
-        "keywords": ["test", "testing", "coverage", "unit test", "integration test"],
-        "subtasks": [
-            {"title": "Test-Strategie", "description": "Test-Strategie und Abdeckung definieren", "priority": "High"},
-            {"title": "Unit Tests", "description": "Unit Tests schreiben", "priority": "High"},
-            {"title": "Integration Tests", "description": "Integration Tests implementieren", "priority": "Medium"},
-            {"title": "Coverage-Report",
-                "description": "Test-Abdeckung analysieren und dokumentieren",
-                "priority": "Low",
-            },
-        ],
-    },
-    "tdd": {
-        "keywords": ["tdd", "test-driven", "test driven", "test-first", "red green", "red-green"],
-        "subtasks": [
-            {
-                "title": "Verhalten und Akzeptanzgrenzen klaeren",
-                "description": "Erwartetes Verhalten, Nicht-Ziele und Akzeptanzkriterien als TestPlanArtifact festhalten.",
-                "priority": "High",
-            },
-            {
-                "title": "Test zuerst schreiben oder anpassen",
-                "description": "Neuen oder angepassten Test fuer das Zielverhalten erstellen, bevor Implementierungslogik geaendert wird.",
-                "priority": "High",
-                "depends_on": ["1"],
-            },
-            {
-                "title": "Red-Phase ausfuehren und Evidenz sichern",
-                "description": "Relevante Tests ausfuehren und erwarteten Fehlstatus als RedTestResultArtifact dokumentieren; wenn Tests nicht laufen, als degraded markieren.",
-                "priority": "High",
-                "depends_on": ["2"],
-            },
-            {
-                "title": "Minimalen Patch planen und umsetzen",
-                "description": "Nur die kleinste notwendige Aenderung umsetzen und als PatchPlanArtifact nachvollziehbar machen.",
-                "priority": "High",
-                "depends_on": ["3"],
-            },
-            {
-                "title": "Green-Phase verifizieren",
-                "description": "Tests erneut ausfuehren und GreenTestResultArtifact mit Pass/Fail-Status dokumentieren.",
-                "priority": "High",
-                "depends_on": ["4"],
-            },
-            {
-                "title": "Optional refactoren mit Sicherheitsnetz",
-                "description": "Codequalitaet gezielt verbessern, ohne Green-Status zu verlieren; RefactorChecklist pflegen.",
-                "priority": "Medium",
-                "depends_on": ["5"],
-            },
-            {
-                "title": "Finale Verifikation und Abschluss",
-                "description": "Abschlussverifikation inklusive Approval-Gate fuer Apply-Pfade dokumentieren.",
-                "priority": "Medium",
-                "depends_on": ["6"],
-            },
-        ],
-    },
-    "repo_analysis": {
-        "keywords": ["repo_analysis", "projekt analysieren", "analyse", "struktur", "risiken"],
-        "subtasks": [
-            {
-                "title": "Projektstruktur scannen",
-                "description": "Die Ordnerstruktur und wichtigsten Dateien des Projekts auflisten.",
-                "priority": "High",
-            },
-            {
-                "title": "Abhaengigkeiten pruefen",
-                "description": "Externe Bibliotheken und deren Versionen auf Aktualitaet und Risiken pruefen.",
-                "priority": "Medium",
-            },
-            {
-                "title": "Code-Qualitaet Stichproben",
-                "description": "Kernkomponenten auf SOLID-Prinzipien und Best Practices untersuchen.",
-                "priority": "Medium",
-            },
-            {
-                "title": "Sicherheits-Audit",
-                "description": "Nach offensichtlichen Sicherheitsluecken oder Fehlkonfigurationen suchen.",
-                "priority": "High",
-            },
-            {
-                "title": "Analyse-Bericht erstellen",
-                "description": "Zusammenfassung der Ergebnisse als strukturiertes Artefakt speichern.",
-                "priority": "Medium",
-            },
-        ],
-    },
-    "sys_diag": {
-        "keywords": ["sys_diag", "systemdiagnose", "diagnose", "fehler", "logs", "docker", "testfehler"],
-        "subtasks": [
-            {
-                "title": "Logs scannen",
-                "description": "App- und System-Logs auf Fehlermeldungen und Warnungen untersuchen.",
-                "priority": "High",
-            },
-            {
-                "title": "Laufzeitstatus pruefen",
-                "description": "Container-Status, Netzwerkverbindungen und Ressourcenverbrauch kontrollieren.",
-                "priority": "High",
-            },
-            {
-                "title": "Build/Test Re-Run",
-                "description": "Build- oder Test-Prozess manuell triggern, um Fehler zu isolieren.",
-                "priority": "Medium",
-            },
-            {
-                "title": "Ursachenanalyse",
-                "description": "Gefundene Probleme korrelieren und moegliche Ursachen identifizieren.",
-                "priority": "High",
-            },
-            {
-                "title": "Diagnose-Bericht",
-                "description": "Strukturierte Zusammenfassung mit Problemsignalen und Handlungsempfehlungen.",
-                "priority": "Medium",
-            },
-        ],
-    },
-    "admin_repair": {
-        "keywords": [
-            "admin_repair",
-            "admin repair",
-            "windows 11 repair",
-            "ubuntu repair",
-            "bounded repair",
-            "diagnosis only",
-        ],
-        "subtasks": [
-            {
-                "title": "Use-case, scope und Modusgrenzen festhalten",
-                "description": "Shared Foundation Scope, Plattformziel (Windows 11/Ubuntu), Nicht-Ziele und bounded execution Grenzen sichtbar machen.",
-                "priority": "High",
-                "artifact": "admin_repair_scope",
-                "review_focus": "kein unkontrollierter autonomer Shell-Flow",
-            },
-            {
-                "title": "Environment Summary und bounded evidence erfassen",
-                "description": "Plattformprofil, Runtime-Basics und erlaubte Evidenzquellen als bounded Evidence Contract zusammenfassen.",
-                "priority": "High",
-                "depends_on": ["1"],
-                "artifact": "environment_evidence_summary",
-                "risk_focus": "sensitive Daten werden nicht ungefiltert gesammelt",
-            },
-            {
-                "title": "Problemklasse und Diagnose-Artefakt ableiten",
-                "description": "Taxonomieklasse bestimmen, wahrscheinliche Ursachen benennen und Diagnose-Artefakt mit confidence/evidence_links erstellen.",
-                "priority": "High",
-                "depends_on": ["2"],
-                "artifact": "diagnosis_artifact",
-                "test_focus": "Diagnosemodell bleibt stabil fuer Contract-Tests",
-            },
-            {
-                "title": "Repair actions mit hook-ready Feldern vorbereiten",
-                "description": "Repair actions mit risk_class, requires_approval, dry_run_supported, verification_required, mutation_candidate und weiteren Hook-Feldern modellieren.",
-                "priority": "High",
-                "depends_on": ["3"],
-                "artifact": "repair_action_contract",
-                "review_focus": "hook-ready statt vollstaendigem KRITIS-Enforcement",
-            },
-            {
-                "title": "Dry-run-first bounded repair plan erzeugen",
-                "description": "Geordnete Schritte mit advisory Klassifikation (allow/confirm-required/blocked) und expliziten verification hints ausgeben.",
-                "priority": "High",
-                "depends_on": ["4"],
-                "artifact": "bounded_repair_plan",
-                "risk_focus": "mutation-capable Schritte bleiben bestaetigungspflichtig",
-            },
-            {
-                "title": "Post-repair verification und Session Trail ausgeben",
-                "description": "Result states (resolved/improved/unchanged/regressed) und audit_hint-basierte Session-Zusammenfassung erzeugen.",
-                "priority": "Medium",
-                "depends_on": ["5"],
-                "artifact": "repair_verification_summary",
-                "test_focus": "dry-run-default und advisory policy bleiben sichtbar",
-            },
-        ],
-    },
-    "incident": {
-        "keywords": ["incident", "notfall", "ausfall", "down", "kritisch"],
-        "subtasks": [
-            {"title": "Systemstatus pruefen", "description": "Laufzeit, Logs und Metriken sofort scannen.", "priority": "High"},
-            {"title": "Eingrenzung", "description": "Betroffene Komponente identifizieren.", "priority": "High"},
-            {"title": "Mitigation", "description": "Sofortmassnahmen zur Stabilisierung einleiten.", "priority": "High"},
-            {"title": "Post-Mortem", "description": "Ursache dokumentieren und dauerhaften Fix planen.", "priority": "Medium"},
-        ]
-    },
-    "architecture_review": {
-        "keywords": ["architecture_review", "architekturreview", "architektur", "design review"],
-        "subtasks": [
-            {"title": "Struktur-Audit", "description": "Modulabhaengigkeiten und Boundaries pruefen.", "priority": "Medium"},
-            {"title": "SOLID Check", "description": "Einhaltung der Engineering-Prinzipien untersuchen.", "priority": "Medium"},
-            {"title": "Design-Dokumentation", "description": "Architekturentscheidungen (ADRs) sichten oder erstellen.", "priority": "Low"},
-            {"title": "Empfehlungsliste", "description": "Konkrete Design-Verbesserungen vorschlagen.", "priority": "Medium"},
-        ]
-    },
-    "code_fix": {
-        "keywords": ["code_fix", "codeproblem", "beheben", "patch"],
-        "subtasks": [
-            {"title": "Analyse & Reproduktion", "description": "Problem im Code lokalisieren und Ursache verstehen.", "priority": "High"},
-            {"title": "Loesungskonzept", "description": "Korrekturvorgehen planen.", "priority": "High"},
-            {"title": "Patch erstellen", "description": "Gezielte Code-Aenderungen (Patches) vorbereiten.", "priority": "High"},
-            {"title": "Verifikation", "description": "Sicherstellen, dass der Fix das Problem loest.", "priority": "Medium"},
-            {"title": "Review-Vorschlag", "description": "Aenderungen als Patch-Vorschlag zur Freigabe einreichen.", "priority": "Low"},
-        ]
-    },
-    "new_software_project": {
-        "keywords": ["new_software_project", "neues softwareprojekt", "neues projekt anlegen", "projektstart"],
-        "subtasks": [
-            {
-                "title": "Projektidee und Grenzen klaeren",
-                "description": "Problem, Zielgruppe, Plattform, bevorzugten Stack und Nicht-Ziele als pruefbaren Projektscope zusammenfassen.",
-                "priority": "High",
-                "artifact": "zielzusammenfassung",
-                "review_focus": "unklare oder leere Eingaben sichtbar machen",
-            },
-            {
-                "title": "Projekt-Blueprint erstellen",
-                "description": "Einen initialen Blueprint mit Scope, Kernrollen, Modulgrenzen, Datenfluesse, Sicherheitsannahmen und Architekturvorschlag erstellen.",
-                "priority": "High",
-                "depends_on": ["1"],
-                "artifact": "projekt_blueprint",
-                "review_focus": "Architektur bleibt hub-worker-kompatibel und vermeidet implizite Vollautomatik",
-            },
-            {
-                "title": "Initiale Artefakte definieren",
-                "description": "Zielzusammenfassung, Architekturvorschlag, initiales Backlog und naechste Schritte als reviewbare Artefakte festlegen.",
-                "priority": "Medium",
-                "depends_on": ["2"],
-                "artifact": "standard_artefakte",
-                "review_focus": "Ergebnisse bleiben fuer Review editierbar und nachvollziehbar",
-            },
-            {
-                "title": "Initiales Task-Backlog erzeugen",
-                "description": "Kleine Initial-Tasks fuer Problemverstaendnis, Projektstruktur, erste Umsetzung, Tests, Review und Dokumentation erzeugen.",
-                "priority": "High",
-                "depends_on": ["2"],
-                "artifact": "initial_backlog",
-                "review_focus": "Tasks sind klein genug fuer kontrollierte Bearbeitung",
-            },
-            {
-                "title": "Governance und sichere Startpfade pruefen",
-                "description": "Review-, Verification-, Schreib- und Runtime-Pfade pruefen und riskante Schritte bestaetigungspflichtig halten.",
-                "priority": "High",
-                "depends_on": ["4"],
-                "test_focus": "Governance-Defaults und Reviewpflicht sichtbar",
-                "review_focus": "keine unkontrollierte Vollautomatik",
-            },
-            {
-                "title": "Erste Umsetzungsscheibe planen",
-                "description": "Den kleinsten nutzbaren Startschritt mit Abnahmekriterien, Testbedarf und naechstem Reviewpunkt festlegen.",
-                "priority": "Medium",
-                "depends_on": ["5"],
-                "test_focus": "Smoke- oder Contract-Test fuer den ersten Flow",
-                "artifact": "naechste_schritte",
-            },
-        ]
-    },
-    "project_evolution": {
-        "keywords": ["project_evolution", "existierendes projekt weiterentwickeln", "weiterentwicklung", "bestehendes projekt"],
-        "subtasks": [
-            {
-                "title": "Ist-Kontext und betroffene Bereiche schaerfen",
-                "description": "Repo-, Artifact- und Task-Wissen auf relevante Dateien, Module, Schnittstellen und angrenzende Aufgaben verdichten.",
-                "priority": "High",
-                "artifact": "ist_analyse",
-                "risk_focus": "falscher oder zu breiter Kontext",
-                "test_focus": "betroffene Tests und fehlende Testsignale identifizieren",
-            },
-            {
-                "title": "Aenderungsziel und Restriktionen abgrenzen",
-                "description": "Zielaenderung, Weiterentwicklungsart, Nicht-Ziele, Kompatibilitaetsregeln und Governance-Grenzen klar festhalten.",
-                "priority": "High",
-                "depends_on": ["1"],
-                "artifact": "aenderungsscope",
-                "risk_focus": "Scope-Creep und brechende API-/UX-Aenderungen",
-            },
-            {
-                "title": "Risiko-, Diff- und Testsicht erstellen",
-                "description": "Moegliche Diffs, Regressionen, betroffene Tests, fehlende Tests und Review-Schwerpunkte fuer die Aenderung benennen.",
-                "priority": "High",
-                "depends_on": ["2"],
-                "artifact": "risiko_test_review_plan",
-                "risk_focus": "Regressionen, Datenverlust, Sicherheits- oder Governance-Verletzungen",
-                "test_focus": "Unit-, Integration-, E2E- oder Smoke-Tests je nach betroffenem Bereich",
-            },
-            {
-                "title": "Aenderung in kleine Schritte zerlegen",
-                "description": "Die Weiterentwicklung in kleine, sequenzierte Tasks mit Ziel, betroffenen Bereichen, Risiken und Pruefhinweisen zerlegen.",
-                "priority": "High",
-                "depends_on": ["3"],
-                "artifact": "aenderungsplan",
-                "risk_focus": "monolithische Umsetzung vermeiden",
-                "test_focus": "pro Schritt mindestens ein Verifikationssignal",
-            },
-            {
-                "title": "Kleinste verifizierbare Aenderung vorbereiten",
-                "description": "Den ersten umsetzbaren Schritt mit Eingrenzung, Akzeptanzkriterien und konkretem Test-/Review-Plan vorbereiten.",
-                "priority": "Medium",
-                "depends_on": ["4"],
-                "artifact": "erste_umsetzungsscheibe",
-                "test_focus": "Regressionstest oder gezielter Smoke-Test vorsehen",
-            },
-            {
-                "title": "Review- und Rollback-Plan festlegen",
-                "description": "Review-Checkliste, notwendige Tests und Rueckfallstrategie fuer riskante Aenderungen dokumentieren.",
-                "priority": "Medium",
-                "depends_on": ["5"],
-                "artifact": "review_rollback_plan",
-                "risk_focus": "fehlende Review-Gates und unklare Ruecknahme",
-                "test_focus": "Tests vor und nach der Aenderung benennen",
-            },
-        ]
-    }
-}
+def _load_goal_templates_from_catalog() -> dict[str, dict]:
+    catalog = get_planning_template_catalog()
+    loaded = catalog.load()
+    templates: dict[str, dict] = {}
+    for template in list(loaded.get("templates") or []):
+        template_id = str(template.get("id") or "").strip()
+        if not template_id:
+            continue
+        templates[template_id] = {
+            "keywords": [str(item).strip() for item in list(template.get("keywords") or []) if str(item).strip()],
+            "subtasks": [dict(item) for item in list(template.get("subtasks") or [])],
+        }
+    return templates
 
-EXECUTION_FOCUSED_GOAL_HINTS = (
-    "python",
-    "javascript",
-    "typescript",
-    "angular",
-    "react",
-    "flask",
-    "fastapi",
-    "django",
-    "helper",
-    "function",
-    "module",
-    "class",
-    "api",
-    "endpoint",
-    "pytest",
-    "unit test",
-    "integration test",
-    "changed files",
-    "validation",
-    "summary",
-    "codebase",
-    "repo",
-    "repository",
-)
+
+# Deprecated compatibility shim for legacy imports. Source of truth is the planning template catalog.
+try:
+    GOAL_TEMPLATES = _load_goal_templates_from_catalog()
+except (OSError, ValueError):
+    GOAL_TEMPLATES = {}
 
 PROMPT_INJECTION_PATTERNS = [
     "ignore previous",
@@ -600,55 +238,17 @@ def parse_followup_analysis(raw_response: str, default_priority: str = "Medium")
     }
 
 
-def build_execution_focused_goal_template(goal: str) -> list[dict]:
-    lower_goal = str(goal or "").lower()
-    subject = "die angeforderte Aenderung"
-    if "fibonacci" in lower_goal:
-        subject = "den Python-Fibonacci-Helper"
-    elif "python" in lower_goal:
-        subject = "die Python-Implementierung"
-    return [
-        {
-            "title": f"{subject} implementieren",
-            "description": f"Implementiere {subject} mit klarer Schnittstelle, sinnvoller Fehlerbehandlung und produktionsnaher Struktur.",
-            "priority": "High",
-        },
-        {
-            "title": "Automatisierte Tests ergaenzen",
-            "description": "Erstelle Unit Tests mit pytest fuer Basisfaelle, typische Eingaben und relevante Randfaelle.",
-            "priority": "High",
-            "depends_on": ["1"],
-        },
-        {
-            "title": "Tests ausfuehren und validieren",
-            "description": "Fuehre die relevanten Tests aus, pruefe das Ergebnis und halte die Validierung knapp fest.",
-            "priority": "Medium",
-            "depends_on": ["2"],
-        },
-        {
-            "title": "Geaenderte Dateien zusammenfassen",
-            "description": "Erstelle eine kurze Zusammenfassung der geaenderten Dateien und der wichtigsten Umsetzungsergebnisse.",
-            "priority": "Low",
-            "depends_on": ["3"],
-        },
-    ]
-
-
 def match_goal_template(goal: str) -> Optional[list[dict]]:
-    if goal in GOAL_TEMPLATES:
-        return GOAL_TEMPLATES[goal]["subtasks"]
-
-    lower_goal = goal.lower()
-    tdd_keywords = ("tdd", "test-driven", "test driven", "test-first", "red green", "red-green")
-    if any(keyword in lower_goal for keyword in tdd_keywords):
-        return GOAL_TEMPLATES["tdd"]["subtasks"]
-    if any(hint in lower_goal for hint in EXECUTION_FOCUSED_GOAL_HINTS):
-        return build_execution_focused_goal_template(goal)
-    for template in GOAL_TEMPLATES.values():
-        for keyword in template["keywords"]:
-            if keyword.lower() in lower_goal:
-                return template["subtasks"]
-    return None
+    warn(
+        "planning_utils.match_goal_template is deprecated. Use PlanningTemplateCatalog/TemplatePlanningStrategy instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    catalog = get_planning_template_catalog()
+    subtasks = catalog.resolve_subtasks(goal)
+    if subtasks:
+        return subtasks
+    return match_execution_focused_goal_template(goal)
 
 
 def try_load_repo_context(goal: str) -> Optional[str]:
