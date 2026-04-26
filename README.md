@@ -58,7 +58,7 @@ Weitere CLI-Einstiege:
 - `docs/cli/commands.md`
 - `docs/golden-path-cli.md`
 
-Wenn du statt CLI-only den Hub/Worker lokal ohne Docker oder den kompletten Full-Stack mit Docker brauchst, nutze die folgenden Pfade.
+Wenn du statt CLI-only den Hub/Worker lokal ohne Docker, das Frontend lokal oder den kompletten Full-Stack mit Docker brauchst, nutze die folgenden Pfade.
 
 ### B) Lokalen Hub und Worker ohne Docker starten
 
@@ -103,7 +103,24 @@ python -m agent.ai_agent
 
 Der Worker registriert sich beim Hub. Der Hub bleibt Owner von Goals, Tasks, Policy, Approval und Audit.
 
-### D) Full-Stack (Docker + UI)
+### D) Lokales Angular-Frontend ohne Docker starten
+
+Falls du das Frontend lokal ohne Docker starten willst:
+
+```bash
+cd frontend-angular
+npm install
+npm start
+```
+
+Das Frontend ist danach unter `http://localhost:4200` erreichbar.
+
+API-Verbindung zum Hub:
+
+- Im lokalen Browser-Modus nutzt das Frontend standardmaessig `http://localhost:5000` als Hub sowie `http://localhost:5001`/`5002` fuer Worker-Defaults.
+- Wenn dein Hub auf einer anderen URL/Port laeuft, passe die Agent-URLs im Frontend (Agent Directory) entsprechend an.
+
+### E) Full-Stack (Docker + UI)
 
 1. Umgebung vorbereiten:
    ```powershell
