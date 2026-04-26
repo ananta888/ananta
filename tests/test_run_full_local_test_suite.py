@@ -30,7 +30,12 @@ def test_run_full_test_suite_default_flow_executes_all_steps(monkeypatch) -> Non
     assert commands[3] == ["bash", "scripts/compose-test-stack.sh", "run-backend-live-llm-test"]
     assert commands[4] == ["bash", "scripts/compose-test-stack.sh", "run-frontend-test"]
     assert commands[5] == ["bash", "scripts/compose-test-stack.sh", "run-frontend-live-llm-test"]
-    assert commands[6] == ["python3", "scripts/run_e2e_dogfood_checks.py", "--out", "artifacts/e2e/dogfood_gate_report.json"]
+    assert commands[6] == [
+        "python3",
+        "scripts/run_e2e_dogfood_checks.py",
+        "--out",
+        "artifacts/e2e/dogfood_gate_report.json",
+    ]
     assert commands[7] == ["bash", "scripts/start-firefox-vnc.sh", "start"]
     assert commands[8][0:2] == ["python3", "scripts/firefox_live_click_extended.py"]
     assert commands[9] == ["bash", "scripts/start-firefox-vnc.sh", "stop"]
