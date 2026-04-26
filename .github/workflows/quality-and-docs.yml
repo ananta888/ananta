@@ -25,8 +25,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
-      - name: Run unified check pipeline (standard mode)
-        run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
+      - name: Run unified check pipeline (deep backend tests)
+        run: python scripts/check_pipeline.py --mode deep --skip-style --skip-types
 
   backend-smoke:
     runs-on: ubuntu-latest
@@ -78,7 +78,12 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend-angular/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - name: Run frontend lint
+        run: npm run lint
+      - name: Run frontend unit tests
+        run: npm run test:unit
+      - name: Build frontend
+        run: npm run build
 
   vscode-extension:
     runs-on: ubuntu-latest
@@ -180,7 +185,7 @@ jobs:
           retention-days: 14
 
   e2e-compose:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
     runs-on: ubuntu-latest
     env:
       POSTGRES_PASSWORD: test-postgres-password
