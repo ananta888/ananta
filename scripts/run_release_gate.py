@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,6 +19,52 @@ def _python_executable() -> str:
 
 def _domain_inventory_exists(path: str) -> bool:
     return (ROOT / path).exists()
+
+
+def _resolve_output_path(path: str) -> Path:
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = ROOT / candidate
+    return candidate
+
+
+def _load_json_report(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _normalize_evidence_refs(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()]
+
+
+def _evaluate_tdd_smoke_report(report_path: str) -> tuple[bool, str, list[str]]:
+    path = _resolve_output_path(report_path)
+    if not path.exists():
+        return False, "tdd_report_missing", []
+    try:
+        report = _load_json_report(path)
+    except (OSError, json.JSONDecodeError):
+        return False, "tdd_report_invalid_json", []
+
+    claims = report.get("claims") or {}
+    phases = report.get("phases") or {}
+    evidence_refs = _normalize_evidence_refs(report.get("evidence_refs"))
+    green_status = str(((phases.get("green") or {}).get("status") or "")).strip().lower()
+    green_claimed = bool(claims.get("green_phase_claimed"))
+    if green_claimed and green_status != "green_passed":
+        return False, "green_phase_claimed_without_passing_test_evidence", evidence_refs
+
+    red_status = str(((phases.get("red") or {}).get("status") or "")).strip().lower()
+    red_claimed = bool(claims.get("red_phase_claimed"))
+    degraded_reason = str(((phases.get("degraded") or {}).get("reason") or "")).strip()
+    red_skipped = (not red_claimed) or red_status in {"", "red_missing", "skipped", "not_run"}
+    if red_skipped and not degraded_reason:
+        return False, "red_phase_skipped_without_degraded_explanation", evidence_refs
+
+    if not evidence_refs:
+        return False, "tdd_evidence_refs_missing", evidence_refs
+    return True, "ok", evidence_refs
 
 
 def main() -> int:
@@ -42,6 +90,13 @@ def main() -> int:
     )
     parser.add_argument("--skip-cli-smoke", action="store_true", help="Skip unified CLI smoke checks.")
     parser.add_argument("--cli-smoke-test", default="tests/smoke/test_unified_cli_smoke.py")
+    parser.add_argument(
+        "--tdd-runtime-claimed",
+        action="store_true",
+        help="Run TDD tiny-repo smoke checks when TDD blueprint runtime is part of release claim.",
+    )
+    parser.add_argument("--skip-tdd-smoke", action="store_true", help="Skip TDD tiny-repo smoke checks.")
+    parser.add_argument("--tdd-out", default="artifacts/tdd/tdd_blueprint_smoke_report.json")
     parser.add_argument("--domain-inventory", default="data/domain_runtime_inventory.json")
     parser.add_argument("--domain-audit-out", default="artifacts/domain/domain_integration_audit_report.json")
     parser.add_argument("--security-invariant-out", default="artifacts/security/security_invariant_gate_report.json")
@@ -107,6 +162,28 @@ def main() -> int:
         cli_smoke_result = subprocess.run(cli_smoke_command, cwd=str(ROOT), check=False)
         if cli_smoke_result.returncode != 0:
             return cli_smoke_result.returncode
+
+    if args.tdd_runtime_claimed and not args.skip_tdd_smoke:
+        tdd_smoke_command = [
+            python_exec,
+            "scripts/run_tdd_blueprint_smoke.py",
+            "--out",
+            args.tdd_out,
+        ]
+        if args.strict:
+            tdd_smoke_command.append("--strict")
+        tdd_smoke_result = subprocess.run(tdd_smoke_command, cwd=str(ROOT), check=False)
+        if tdd_smoke_result.returncode != 0:
+            return tdd_smoke_result.returncode
+        tdd_ok, tdd_reason, tdd_evidence_refs = _evaluate_tdd_smoke_report(args.tdd_out)
+        if tdd_evidence_refs:
+            print("tdd_evidence_refs=" + ", ".join(tdd_evidence_refs))
+        report_path = _resolve_output_path(args.tdd_out)
+        report_label = report_path.relative_to(ROOT) if ROOT in report_path.parents else report_path
+        print(f"tdd_report={report_label}")
+        if not tdd_ok:
+            print(f"tdd_gate_error={tdd_reason}")
+            return 1
 
     if args.skip_e2e:
         return 0
