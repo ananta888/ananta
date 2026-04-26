@@ -140,7 +140,7 @@ def normalize_unified_approval_policy_config(value: dict | None) -> dict:
             "blocked": _normalize_action_classes(mode_cfg.get("blocked"), default["blocked"]),
         }
     return {
-        "enabled": bool(payload.get("enabled", True)),
+        "enabled": bool(payload.get("enabled", False)),
         "enforce_confirm_required": bool(payload.get("enforce_confirm_required", False)),
         "governance_overrides": normalized_overrides,
     }
