@@ -84,8 +84,28 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
             return True, ""
 
     # Spezialfall: Abschluss/Fehler (Großzügiger für Legacy/Tests)
-    if target in {TaskStatus.COMPLETED.value, TaskStatus.FAILED.value, TaskStatus.VERIFICATION_FAILED.value}:
-        if current in {TaskStatus.TODO.value, TaskStatus.CREATED.value, TaskStatus.ASSIGNED.value, TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value, TaskStatus.WAITING_FOR_REVIEW.value, TaskStatus.PROPOSING.value}:
+    if target in {TaskStatus.COMPLETED.value, TaskStatus.VERIFICATION_FAILED.value}:
+        if current in {
+            TaskStatus.TODO.value,
+            TaskStatus.CREATED.value,
+            TaskStatus.ASSIGNED.value,
+            TaskStatus.IN_PROGRESS.value,
+            TaskStatus.DELEGATED.value,
+            TaskStatus.WAITING_FOR_REVIEW.value,
+            TaskStatus.PROPOSING.value,
+        }:
+            return True, ""
+    if target == TaskStatus.FAILED.value:
+        if current in {
+            TaskStatus.TODO.value,
+            TaskStatus.CREATED.value,
+            TaskStatus.ASSIGNED.value,
+            TaskStatus.IN_PROGRESS.value,
+            TaskStatus.DELEGATED.value,
+            TaskStatus.WAITING_FOR_REVIEW.value,
+            TaskStatus.PROPOSING.value,
+            TaskStatus.BLOCKED_BY_DEPENDENCY.value,
+        }:
             return True, ""
 
     # Prüfen, ob eine Action diesen Übergang abdeckt
