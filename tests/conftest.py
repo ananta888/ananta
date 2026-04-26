@@ -153,6 +153,7 @@ def db_session():
 @pytest.fixture(autouse=True)
 def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
+
     def _reset_runtime_state():
         try:
             _settings().shell_path = "sh"
@@ -188,6 +189,16 @@ def cleanup_db_and_runtime():
             from agent.shell import _close_global_shells
 
             _close_global_shells()
+        except Exception:
+            pass
+
+        try:
+            from agent.services.live_terminal_session_service import get_live_terminal_session_service
+
+            live_terminal_service = get_live_terminal_session_service()
+            snapshot = live_terminal_service.snapshot()
+            for item in list(snapshot.get("items") or []):
+                live_terminal_service.close_session(str(item.get("id") or ""))
         except Exception:
             pass
 
@@ -238,10 +249,10 @@ def cleanup_db_and_runtime():
 
         # Best-effort filesystem cleanup for legacy test artifacts
         for rel in (
-            'data_test/users.json',
-            'data_test/refresh_tokens.json',
-            'data_test/llm_model_history.json',
-            'data_test/llm_model_benchmarks.json',
+            "data_test/users.json",
+            "data_test/refresh_tokens.json",
+            "data_test/llm_model_history.json",
+            "data_test/llm_model_benchmarks.json",
         ):
             try:
                 Path(rel).unlink(missing_ok=True)
