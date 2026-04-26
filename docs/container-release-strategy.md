@@ -10,7 +10,8 @@ The workflow:
 
 - builds the backend image from `Dockerfile`
 - builds the frontend image from `frontend-angular/Dockerfile`
-- tags both images with the release tag
+- builds the single-image quickstart artifact from `Dockerfile.quickstart-no-ollama`
+- tags all images with the release tag
 - writes image metadata to `container-release-metadata/`
 - uploads the metadata as `ananta-container-release-metadata`
 
@@ -33,5 +34,6 @@ Reserved official names:
 
 - `ghcr.io/<owner>/ananta-backend`
 - `ghcr.io/<owner>/ananta-frontend`
+- `ghcr.io/<owner>/ananta-quickstart-no-ollama`
 
 Local-only and CI-only tags such as `ananta-backend:release-gate` or `ananta-frontend:<tag>` are not official distribution artifacts.

@@ -55,6 +55,30 @@ Weiterfuehrung: `docs/setup/quickstart.md`, `docs/cli/commands.md`.
 
 5. Im Dashboard ein erstes Ziel eingeben oder die Demo-Vorschau oeffnen.
 
+### B2. Fullstack aus einem Image (ohne Ollama)
+
+Wenn Hub, Worker, Angular, Evolver, DeerFlow und ml-intern aus demselben Image laufen sollen:
+
+```bash
+docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+```
+
+Provider-Varianten:
+
+```bash
+# OpenAI
+DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+
+# LM Studio
+DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+```
+
+Hinweise:
+- Bei `DEFAULT_PROVIDER=openai` muss `OPENAI_API_KEY` gesetzt sein.
+- Ollama ist in diesem Pfad nicht erforderlich.
+- Rollen bleiben logisch getrennt (separate Container), verwenden aber dasselbe Image-Artefakt.
+
 ### C. Welche Compose-Variante passt?
 
 | Ziel | Variante | Empfehlung |
