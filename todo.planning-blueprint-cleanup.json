@@ -1,0 +1,293 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "planning_blueprint_cleanup",
+  "purpose": "Remove the architectural drift where agent/services/planning_utils.py contains hardcoded goal templates that duplicate the real Blueprint/Team/Role/Template mechanism. Keep planning_utils as technical parsing/safety utilities, but move fachliche planning templates into a catalog/blueprint-backed path used by TemplatePlanningStrategy.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "problem_statement": [
+    "agent/services/planning_utils.py currently contains GOAL_TEMPLATES, keyword matching and execution-focused fallback templates.",
+    "TemplatePlanningStrategy uses match_goal_template(...) from planning_utils, so AutoPlanner planning currently prefers this hardcoded mini-template system before HubCopilot/LLM planning.",
+    "The real Blueprint/Team/Role/Template mechanism exists separately in routes/teams.py and services/team_blueprint_service.py, including TeamBlueprintDB, BlueprintRoleDB, BlueprintArtifactDB, RoleDB, TemplateDB and TeamDB.",
+    "This creates two sources of fachliche planning truth: seed/team blueprints and hardcoded planning_utils templates."
+  ],
+  "non_goals": [
+    "Do not remove planning_utils parsing, sanitizing, priority normalization, LLM JSON extraction or prompt-injection checks.",
+    "Do not break existing AutoPlanner API behavior during migration.",
+    "Do not rewrite the entire Team/Blueprint API in this track.",
+    "Do not move orchestration or policy decisions into clients.",
+    "Do not require DB access for every simple unit test; provide deterministic fixture/catalog loading where needed."
+  ],
+  "success_criteria": [
+    "planning_utils.py no longer owns fachliche GOAL_TEMPLATES as the primary template source.",
+    "TemplatePlanningStrategy resolves templates through a dedicated planning template catalog or blueprint-backed adapter.",
+    "Existing core planning modes such as bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project and project_evolution remain covered by tests.",
+    "planning_utils.py remains focused on technical utilities: sanitizing, validation, JSON extraction, subtask normalization and followup parsing.",
+    "Docs explain the relationship between Blueprint/Team/Role/Template definitions and AutoPlanner template planning.",
+    "No duplicate client-side or hardcoded ad-hoc planning system remains as the preferred path."
+  ],
+  "milestones": [
+    {
+      "id": "PBC-M1",
+      "title": "Inventory and target mapping",
+      "task_ids": ["PBC-T01", "PBC-T02"],
+      "status": "todo"
+    },
+    {
+      "id": "PBC-M2",
+      "title": "Catalog extraction and adapter",
+      "task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"],
+      "status": "todo"
+    },
+    {
+      "id": "PBC-M3",
+      "title": "Strategy migration and legacy cleanup",
+      "task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"],
+      "status": "todo"
+    },
+    {
+      "id": "PBC-M4",
+      "title": "Tests, docs and release evidence",
+      "task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PBC-T01",
+      "title": "Hardcoded planning templates inventory add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": [
+        "docs/architecture/planning-template-inventory.md"
+      ],
+      "acceptance_criteria": [
+        "Inventory lists every current GOAL_TEMPLATES entry from agent/services/planning_utils.py.",
+        "Inventory records keywords, subtasks, artifact/risk/test/review metadata and current expected behavior.",
+        "Inventory marks which entries map cleanly to existing standard blueprints and which need a planning-only catalog entry.",
+        "Inventory identifies build_execution_focused_goal_template and EXECUTION_FOCUSED_GOAL_HINTS as separate fallback behavior."
+      ]
+    },
+    {
+      "id": "PBC-T02",
+      "title": "Blueprint mapping decision document add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["PBC-T01"],
+      "expected_files": [
+        "docs/decisions/ADR-planning-templates-use-blueprint-catalog.md"
+      ],
+      "acceptance_criteria": [
+        "ADR states that fachliche planning templates belong to a catalog/blueprint-backed path, not planning_utils.py.",
+        "ADR defines planning_utils.py as technical utility module only.",
+        "ADR explains how Team Blueprints, Role Templates, Blueprint Artifacts and AutoPlanner template planning relate.",
+        "ADR defines temporary compatibility behavior for legacy template names and keywords."
+      ]
+    },
+    {
+      "id": "PBC-T03",
+      "title": "Planning template catalog file add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["PBC-T01", "PBC-T02"],
+      "expected_files": [
+        "config/planning_templates.json",
+        "schemas/planning/planning_template_catalog.v1.json",
+        "tests/test_planning_template_catalog_schema.py"
+      ],
+      "acceptance_criteria": [
+        "Catalog captures current GOAL_TEMPLATES entries in data form, including keywords and subtasks.",
+        "Schema validates template id, keywords, subtasks, priority, depends_on and optional artifact/risk/test/review metadata.",
+        "Catalog includes explicit mappings or references to related standard blueprints where applicable.",
+        "Schema tests validate minimal and full examples."
+      ]
+    },
+    {
+      "id": "PBC-T04",
+      "title": "Planning template catalog service add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["PBC-T03"],
+      "expected_files": [
+        "agent/services/planning_template_catalog.py",
+        "tests/test_planning_template_catalog.py"
+      ],
+      "acceptance_criteria": [
+        "Service loads planning templates from config/planning_templates.json or an injected fixture path for tests.",
+        "Service resolves by exact template id and keyword match.",
+        "Service returns normalized subtasks compatible with PlanningService._build_nodes.",
+        "Unknown templates return None without raising in normal planning flow.",
+        "Tests cover exact id match, keyword match, no match, invalid catalog and deterministic ordering."
+      ]
+    },
+    {
+      "id": "PBC-T05",
+      "title": "Blueprint-backed planning adapter spike add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["PBC-T04"],
+      "expected_files": [
+        "agent/services/blueprint_planning_adapter.py",
+        "tests/test_blueprint_planning_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Adapter can derive starter planning subtasks from TeamBlueprintDB/BlueprintArtifactDB task artifacts when a matching blueprint exists.",
+        "Adapter does not require clients to know blueprint internals.",
+        "Adapter fails closed/degraded when DB is unavailable and does not block catalog fallback.",
+        "Tests use repository/session fixtures or mocks and cover at least one seed blueprint."
+      ]
+    },
+    {
+      "id": "PBC-T06",
+      "title": "TemplatePlanningStrategy use catalog adapter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["PBC-T04"],
+      "expected_files": [
+        "agent/services/planning_strategies.py",
+        "tests/test_planning_strategies.py",
+        "tests/test_auto_planner_templates.py"
+      ],
+      "acceptance_criteria": [
+        "TemplatePlanningStrategy no longer calls planning_utils.match_goal_template directly as the primary path.",
+        "TemplatePlanningStrategy resolves template subtasks through PlanningTemplateCatalog or blueprint-backed adapter.",
+        "Planning order remains Template -> HubCopilot -> LLM unless explicitly changed elsewhere.",
+        "Existing AutoPlanner plan_goal tests still pass for common template goals.",
+        "Result still marks template_used=true and planning_mode=template when catalog/blueprint template resolves."
+      ]
+    },
+    {
+      "id": "PBC-T07",
+      "title": "planning_utils legacy template API deprecate",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["PBC-T06"],
+      "expected_files": [
+        "agent/services/planning_utils.py",
+        "tests/test_planning_utils.py"
+      ],
+      "acceptance_criteria": [
+        "GOAL_TEMPLATES is removed from planning_utils.py or kept only as a temporary imported compatibility fixture with explicit deprecation comment.",
+        "match_goal_template either delegates to PlanningTemplateCatalog or is deprecated and no longer used by TemplatePlanningStrategy.",
+        "planning_utils.py still provides sanitize_input, validate_goal, JSON extraction, subtask normalization and followup parsing.",
+        "Tests cover technical utility functions independently from template catalog content."
+      ]
+    },
+    {
+      "id": "PBC-T08",
+      "title": "Execution-focused fallback move out of planning_utils",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PBC-T06", "PBC-T07"],
+      "expected_files": [
+        "agent/services/execution_focused_planning.py",
+        "tests/test_execution_focused_planning.py"
+      ],
+      "acceptance_criteria": [
+        "EXECUTION_FOCUSED_GOAL_HINTS and build_execution_focused_goal_template move to a dedicated fallback module or catalog entry.",
+        "Fallback behavior remains deterministic for coding/test-heavy goals.",
+        "Fallback is clearly lower priority than exact catalog/blueprint matches.",
+        "Tests cover Python/Fibonacci-style fallback without relying on planning_utils GOAL_TEMPLATES."
+      ]
+    },
+    {
+      "id": "PBC-T09",
+      "title": "AutoPlanner compatibility regression tests add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["PBC-T06", "PBC-T07"],
+      "expected_files": [
+        "tests/test_auto_planner_template_compatibility.py"
+      ],
+      "acceptance_criteria": [
+        "Tests verify old template ids still produce meaningful subtasks: bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project, project_evolution.",
+        "Tests verify keyword matching still works for representative German and English goal text.",
+        "Tests verify no LLM call is made when a catalog/blueprint template resolves.",
+        "Tests verify fallback to HubCopilot/LLM still works when no template matches."
+      ]
+    },
+    {
+      "id": "PBC-T10",
+      "title": "Planning blueprint docs update",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["PBC-T06", "PBC-T09"],
+      "expected_files": [
+        "docs/architecture/planning-blueprint-flow.md",
+        "docs/standard-blueprints.md"
+      ],
+      "acceptance_criteria": [
+        "Docs explain current planning order: catalog/blueprint template, HubCopilot, LLM fallback.",
+        "Docs explain that Team Blueprints create teams/starter artifacts while PlanningTemplateCatalog provides AutoPlanner subtask templates.",
+        "Docs define how future domain blueprints should provide planning templates without hardcoding Python dictionaries.",
+        "Docs mention legacy planning_utils cleanup status."
+      ]
+    },
+    {
+      "id": "PBC-T11",
+      "title": "Release gate planning cleanup check add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["PBC-T09", "PBC-T10"],
+      "expected_files": [
+        "scripts/run_release_gate.py",
+        "tests/test_release_gate_planning_cleanup.py"
+      ],
+      "acceptance_criteria": [
+        "Release gate or smoke check catches reintroduction of large hardcoded GOAL_TEMPLATES in planning_utils.py.",
+        "Check allows technical utility functions in planning_utils.py.",
+        "Check reports actionable failure message pointing to PlanningTemplateCatalog/Blueprint path.",
+        "Test covers a synthetic violation."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "First inventory the existing hardcoded templates and record the architectural decision.",
+    "Extract current template data into a validated planning template catalog.",
+    "Add a catalog service and optional blueprint-backed adapter.",
+    "Migrate TemplatePlanningStrategy away from planning_utils.match_goal_template.",
+    "Deprecate/remove fachliche GOAL_TEMPLATES from planning_utils while keeping technical utilities.",
+    "Add compatibility tests and docs so AutoPlanner behavior remains stable."
+  ],
+  "critical_path_tasks": ["PBC-T01", "PBC-T02", "PBC-T03", "PBC-T04", "PBC-T06", "PBC-T07", "PBC-T09"],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 11,
+    "by_status": {"todo": 11, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 6, "P1": 4, "P2": 1, "P3": 0},
+    "by_risk": {"low": 1, "medium": 5, "high": 4, "critical": 1},
+    "critical_path": {"total": 7, "done": 0, "remaining": 7},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "This cleanup should be done before large new domain blueprint work if possible, because Blender/FreeCAD/KiCad should not add more hardcoded Python planning dictionaries.",
+    "The safest migration keeps current behavior through a catalog first, then progressively wires real blueprint-backed resolution.",
+    "planning_utils.py is still useful, but only for technical utilities, not fachliche template ownership.",
+    "This track directly supports the desired role/template -> team -> blueprint mechanism becoming the single source of planning truth."
+  ]
+}
