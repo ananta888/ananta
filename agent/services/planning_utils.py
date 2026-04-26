@@ -76,6 +76,52 @@ GOAL_TEMPLATES = {
             },
         ],
     },
+    "tdd": {
+        "keywords": ["tdd", "test-driven", "test driven", "test-first", "red green", "red-green"],
+        "subtasks": [
+            {
+                "title": "Verhalten und Akzeptanzgrenzen klaeren",
+                "description": "Erwartetes Verhalten, Nicht-Ziele und Akzeptanzkriterien als TestPlanArtifact festhalten.",
+                "priority": "High",
+            },
+            {
+                "title": "Test zuerst schreiben oder anpassen",
+                "description": "Neuen oder angepassten Test fuer das Zielverhalten erstellen, bevor Implementierungslogik geaendert wird.",
+                "priority": "High",
+                "depends_on": ["1"],
+            },
+            {
+                "title": "Red-Phase ausfuehren und Evidenz sichern",
+                "description": "Relevante Tests ausfuehren und erwarteten Fehlstatus als RedTestResultArtifact dokumentieren; wenn Tests nicht laufen, als degraded markieren.",
+                "priority": "High",
+                "depends_on": ["2"],
+            },
+            {
+                "title": "Minimalen Patch planen und umsetzen",
+                "description": "Nur die kleinste notwendige Aenderung umsetzen und als PatchPlanArtifact nachvollziehbar machen.",
+                "priority": "High",
+                "depends_on": ["3"],
+            },
+            {
+                "title": "Green-Phase verifizieren",
+                "description": "Tests erneut ausfuehren und GreenTestResultArtifact mit Pass/Fail-Status dokumentieren.",
+                "priority": "High",
+                "depends_on": ["4"],
+            },
+            {
+                "title": "Optional refactoren mit Sicherheitsnetz",
+                "description": "Codequalitaet gezielt verbessern, ohne Green-Status zu verlieren; RefactorChecklist pflegen.",
+                "priority": "Medium",
+                "depends_on": ["5"],
+            },
+            {
+                "title": "Finale Verifikation und Abschluss",
+                "description": "Abschlussverifikation inklusive Approval-Gate fuer Apply-Pfade dokumentieren.",
+                "priority": "Medium",
+                "depends_on": ["6"],
+            },
+        ],
+    },
     "repo_analysis": {
         "keywords": ["repo_analysis", "projekt analysieren", "analyse", "struktur", "risiken"],
         "subtasks": [

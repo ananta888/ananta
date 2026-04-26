@@ -26,6 +26,7 @@ def test_seed_blueprints_are_listed(client):
         "Kanban",
         "Research",
         "Code-Repair",
+        "TDD",
         "Security-Review",
         "Release-Prep",
         "Research-Evolution",
@@ -82,6 +83,17 @@ def test_seed_blueprints_are_listed(client):
         "research_metadata",
     ]
 
+    tdd_blueprint = next(blueprint for blueprint in blueprints if blueprint["name"] == "TDD")
+    assert tdd_blueprint["is_seed"] is True
+    assert {role["name"] for role in tdd_blueprint["roles"]} == {
+        "Behavior Analyst",
+        "Test Driver",
+        "Refactor Verifier",
+    }
+    tdd_policy = next((artifact for artifact in tdd_blueprint["artifacts"] if artifact["title"] == "TDD Default Policy"), None)
+    assert tdd_policy is not None
+    assert (tdd_policy.get("payload") or {}).get("patch_apply_requires_approval") is True
+
 
 def test_blueprint_catalog_exposes_standard_product_cards(client):
     admin_token = _login_admin(client)
@@ -103,6 +115,7 @@ def test_blueprint_catalog_exposes_standard_product_cards(client):
         "Kanban",
         "Research",
         "Code-Repair",
+        "TDD",
         "Security-Review",
         "Release-Prep",
         "Scrum-OpenCode",
@@ -122,6 +135,14 @@ def test_blueprint_catalog_exposes_standard_product_cards(client):
     assert isinstance(work_profile_summary["capability_hints"], list)
     assert work_profile_summary["governance_profile"]["label"]
     assert work_profile_summary["governance_profile"]["hint"]
+
+    tdd_item = next(item for item in items if item["name"] == "TDD")
+    assert "TestPlanArtifact" in tdd_item["expected_outputs"]
+    tdd_summary = tdd_item["work_profile_summary"]
+    assert "code_fix" in tdd_summary["recommended_goal_modes"]
+    assert "refactoring" in tdd_summary["playbook_hints"]
+    capability_hints = set(tdd_summary["capability_hints"])
+    assert {"worker.patch.propose", "worker.test.run", "worker.verify.result"}.issubset(capability_hints)
 
 
 def test_blueprint_catalog_compact_read_model_hides_admin_child_details(client):

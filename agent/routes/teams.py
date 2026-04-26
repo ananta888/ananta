@@ -487,6 +487,39 @@ RELEASE_PREP_INITIAL_TASKS = [
     },
 ]
 
+TDD_INITIAL_TASKS = [
+    {
+        "title": "TestPlanArtifact",
+        "description": "Capture expected behavior, constraints, and concrete test intents before implementation.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "RedTestResultArtifact",
+        "description": "Execute the new/updated test first and record expected red-phase failure evidence.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "PatchPlanArtifact",
+        "description": "Prepare minimal implementation patch scope that turns the red test green without broad side effects.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "GreenTestResultArtifact",
+        "description": "Re-run relevant tests and record green-phase pass evidence after minimal implementation.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "RefactorChecklist",
+        "description": "Optionally refactor while preserving green test evidence and explicit verification gates.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
 RESEARCH_EVOLUTION_INITIAL_TASKS = [
     {
         "title": "Standardfall Scope",
@@ -740,6 +773,51 @@ SEED_BLUEPRINTS = {
             )
         ],
     },
+    "TDD": {
+        "description": "Test-Driven Development blueprint for behavior-first changes with explicit Red -> Green -> Refactor evidence.",
+        "base_team_type_name": "TDD",
+        "roles": [
+            {
+                "name": "Behavior Analyst",
+                "description": "Defines behavior statement, boundaries, and acceptance expectations before code changes.",
+                "template_name": "TDD - Behavior Analyst",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {"responsibility": "behavior_definition"},
+            },
+            {
+                "name": "Test Driver",
+                "description": "Owns red/green test execution and evidence tracking for the TDD cycle.",
+                "template_name": "TDD - Test Driver",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {"responsibility": "test_execution"},
+            },
+            {
+                "name": "Refactor Verifier",
+                "description": "Validates minimal patch scope, optional refactor safety, and final verification evidence.",
+                "template_name": "TDD - Refactor Verifier",
+                "sort_order": 30,
+                "is_required": True,
+                "config": {"responsibility": "refactor_and_verification"},
+            },
+        ],
+        "artifacts": _task_artifacts(TDD_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="TDD Default Policy",
+                sort_order=100,
+                policy={
+                    "task_kind": "coding",
+                    "security_level": "balanced",
+                    "verification_required": True,
+                    "review_required": True,
+                    "patch_apply_requires_approval": True,
+                    "red_failure_is_expected": True,
+                },
+            )
+        ],
+    },
     "Security-Review": {
         "description": "Operational security-review blueprint for control validation and remediation guidance.",
         "base_team_type_name": "Security-Review",
@@ -886,6 +964,7 @@ STANDARD_BLUEPRINT_ORDER = [
     "Kanban",
     "Research",
     "Code-Repair",
+    "TDD",
     "Security-Review",
     "Release-Prep",
     "Scrum-OpenCode",
@@ -908,6 +987,10 @@ BLUEPRINT_PRODUCT_HINTS = {
     "code-repair": {
         "intended_use": "Targeted incident diagnosis, patching, and regression control.",
         "when_to_use": "Use when production issues or breakages need quick but verifiable remediation.",
+    },
+    "tdd": {
+        "intended_use": "Behavior-first implementation where tests are introduced before code changes and evidence is tracked through Red -> Green -> Refactor.",
+        "when_to_use": "Use for small features or bugfixes where deterministic test evidence and approval-gated patch apply are required.",
     },
     "security-review": {
         "intended_use": "Security and compliance-focused review with explicit risk governance.",
@@ -986,6 +1069,9 @@ def normalize_team_type_name(team_type_name: str) -> str:
         "security review": "Security-Review",
         "release-prep": "Release-Prep",
         "release prep": "Release-Prep",
+        "tdd": "TDD",
+        "test-driven development": "TDD",
+        "test driven development": "TDD",
         "research-evolution": "Research-Evolution",
         "research evolution": "Research-Evolution",
         "deerflow-evolver": "Research-Evolution",
@@ -1044,6 +1130,23 @@ ROLE_PROFILE_DEFAULTS = {
             "capability_defaults": ["verification", "testing"],
             "risk_profile": "balanced",
             "verification_defaults": {"required": True, "gates": ["quality_gate_pass"]},
+        },
+    },
+    "TDD": {
+        "Behavior Analyst": {
+            "capability_defaults": ["worker.patch.propose", "worker.verify.result"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["behavior_statement_defined"]},
+        },
+        "Test Driver": {
+            "capability_defaults": ["worker.test.run", "worker.verify.result"],
+            "risk_profile": "high",
+            "verification_defaults": {"required": True, "gates": ["red_before_green_evidence"]},
+        },
+        "Refactor Verifier": {
+            "capability_defaults": ["worker.patch.propose", "worker.patch.apply.approval_gated", "worker.verify.result"],
+            "risk_profile": "high",
+            "verification_defaults": {"required": True, "gates": ["approval_before_apply", "regression_checks_pass"]},
         },
     },
     "Security-Review": {
@@ -1285,6 +1388,34 @@ def ensure_default_templates(team_type_name: str):
             ]
         )
 
+    if team_type_name == "TDD":
+        template_specs.extend(
+            [
+                TemplateBootstrapSpec(
+                    "TDD - Behavior Analyst",
+                    "Prompt template for TDD behavior analyst.",
+                    "You are the Behavior Analyst. Define expected behavior, boundaries, and acceptance checks before implementation for {{team_goal}}.",
+                ),
+                TemplateBootstrapSpec(
+                    "TDD - Test Driver",
+                    "Prompt template for TDD test driver.",
+                    "You are the Test Driver. Add/adjust tests first, capture expected red evidence, and confirm green status after minimal patch for {{team_goal}}.",
+                ),
+                TemplateBootstrapSpec(
+                    "TDD - Refactor Verifier",
+                    "Prompt template for TDD refactor verifier.",
+                    "You are the Refactor Verifier. Keep changes minimal, ensure approval gates for apply paths, and verify final quality for {{team_goal}}.",
+                ),
+            ]
+        )
+        role_specs.extend(
+            [
+                RoleLinkSpec("Behavior Analyst", "Defines testable behavior scope before coding.", "TDD - Behavior Analyst"),
+                RoleLinkSpec("Test Driver", "Owns red/green test execution evidence.", "TDD - Test Driver"),
+                RoleLinkSpec("Refactor Verifier", "Validates refactor and verification evidence.", "TDD - Refactor Verifier"),
+            ]
+        )
+
     if team_type_name == "Security-Review":
         template_specs.extend(
             [
@@ -1367,6 +1498,8 @@ def _serialize_blueprint(
 def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
     name = str(blueprint.name or "").strip().lower()
     team_type = str(blueprint.base_team_type_name or "").strip().lower()
+    if name == "tdd" or team_type == "tdd":
+        return ["code_fix", "admin_repair", "project_evolution", "code_review"]
     if "research-evolution" in name or "research-evolution" in team_type:
         return ["project_evolution", "repo_analysis", "doc_summary", "code_review"]
     if "repair" in name:
@@ -1386,6 +1519,8 @@ def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
 
 def _suggest_playbooks_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:
     name = str(blueprint.name or "").strip().lower()
+    if name == "tdd":
+        return ["bugfix", "refactoring", "architecture_review"]
     if "research-evolution" in name:
         return ["architecture_review", "refactoring", "bugfix"]
     if "repair" in name:

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/tdd_test_plan_artifact.v1.json",
+  "title": "Ananta Worker TDD Test Plan Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "behavior_statement",
+    "test_files",
+    "planned_tests",
+    "status"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "tdd_test_plan_artifact.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "behavior_statement": { "type": "string", "minLength": 1 },
+    "test_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "planned_tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_id", "file_path", "expected_behavior"],
+        "properties": {
+          "test_id": { "type": "string", "minLength": 1 },
+          "file_path": { "type": "string", "minLength": 1 },
+          "expected_behavior": { "type": "string", "minLength": 1 },
+          "phase": { "type": "string", "enum": ["red", "green", "refactor", "verify"] }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "status": { "type": "string", "enum": ["planned", "degraded"] },
+    "degraded_reason": { "type": "string" },
+    "verification_artifact_ref": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}
