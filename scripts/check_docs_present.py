@@ -7,7 +7,11 @@ docs = [
     'docs/hub_fallback.md',
     'docs/execution_scope.md',
     'docs/artifacts_and_routing.md',
-    'docs/frontend_goal_ux.md'
+    'docs/frontend_goal_ux.md',
+    'docs/status/active_and_completed_tracks.md',
+    'docs/status/documentation-command-contract.json',
+    'docs/status/documentation-command-usage.md',
+    'docs/status/documentation-drift-decision-matrix.md',
 ]
 missing = [d for d in docs if not os.path.exists(os.path.join(root, d))]
 if missing:

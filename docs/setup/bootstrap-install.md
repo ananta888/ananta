@@ -68,7 +68,7 @@ ananta status
 OpenAI-compatible runtime example:
 
 ```bash
-ananta init --yes --runtime-mode local-dev --llm-backend openai-compatible --base-url http://localhost:1234/v1 --model your-model
+ananta init --yes --runtime-mode local-dev --llm-backend openai-compatible --endpoint-url http://localhost:1234/v1 --model your-model
 ```
 
 The installer never stores API keys for you; configure credentials in your shell/profile.

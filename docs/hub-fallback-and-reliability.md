@@ -38,13 +38,21 @@ Suggested local execution modes:
 
 Fallback executions must remain fully traceable. Persist and expose:
 
-- `execution_mode`: `delegated` | `hub_fallback`
-- `fallback_reason`: `no_worker` | `policy_denied` | `worker_unreachable` | `worker_failed`
+- `execution_mode`: `delegated_worker` | `hub_as_worker_fallback` | `fallback_blocked`
+- `fallback_reason`: `no_remote_worker_selected` | `hub_worker_fallback_disallowed` (plus optional runtime-specific detail reasons)
 - `delegation_attempted`: boolean
 - `worker_candidates`: count
 - linkage via `trace_id`, goal/plan/task identifiers
 
-Optional compatibility aliases for existing traces can include:
+Compatibility aliases for conceptual reporting:
+
+| Runtime value | Conceptual alias |
+| --- | --- |
+| `delegated_worker` | `delegated` |
+| `hub_as_worker_fallback` | `hub_fallback` |
+| `fallback_blocked` | `fallback_blocked` |
+
+Optional compatibility fields for existing traces can include:
 
 - `executed_by`
 - `delegation_decision`

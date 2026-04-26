@@ -95,7 +95,7 @@ def test_main_routes_first_run_to_guidance(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert "Ananta CLI First Run" in out
-    assert "python -m agent.cli_goals --status" in out
+    assert "ananta status" in out
     assert "Success signal:" in out
     assert "ANANTA_BASE_URL" in out
 

@@ -3,11 +3,11 @@
 CLI for goals, diagnostics and artifacts in Ananta.
 
 Usage:
-    python -m agent.cli_goals "Implement user authentication"
-    python -m agent.cli_goals --first-run
-    python -m agent.cli_goals --goal "Add API endpoint" --context "Using Flask" --team dev
-    python -m agent.cli_goals --goals
-    python -m agent.cli_goals --status
+    ananta ask "Implement user authentication"
+    ananta first-run
+    ananta goal --goal "Add API endpoint" --context "Using Flask" --team dev
+    ananta goal --goals
+    ananta status
 """
 
 import argparse
@@ -120,7 +120,7 @@ def _request(
         )
     except requests.RequestException as exc:
         _print_terminal("Error: Hub request failed for {}", path)
-        _print_terminal("Next step: run `python -m agent.cli_goals --first-run` and verify ANANTA_BASE_URL. Details: {}", str(exc))
+        _print_terminal("Next step: run `ananta first-run` and verify ANANTA_BASE_URL. Details: {}", str(exc))
         sys.exit(1)
 
 
@@ -165,8 +165,8 @@ def _next_step_for_status(status_code: int, message: str | None = None) -> str:
     if status_code == 409 or "policy" in text or "governance" in text or "blocked" in text:
         return "review the governance mode or narrow the goal before retrying."
     if status_code >= 500:
-        return "check hub logs, then run `python -m agent.cli_goals --status` after the hub is healthy."
-    return "retry with a narrower goal or run `python -m agent.cli_goals --status` for readiness."
+        return "check hub logs, then run `ananta status` after the hub is healthy."
+    return "retry with a narrower goal or run `ananta status` for readiness."
 
 
 def show_first_run():
@@ -179,16 +179,16 @@ def show_first_run():
     print("   export ANANTA_USER=admin")
     print("   export ANANTA_PASSWORD=<password>")
     print("\n2. Readiness check:")
-    print("   python -m agent.cli_goals --status")
+    print("   ananta status")
     print("\n3. Official first goal:")
-    print('   python -m agent.cli_goals plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"')
+    print('   ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"')
     print("\nSuccess signal:")
     print("   - Goal ID is printed")
     print("   - Status is printed")
     print("   - Tasks created is greater than 0 for a planned goal")
     print("\nAfter success:")
-    print("   python -m agent.cli_goals --tasks --task-status todo")
-    print("   python -m agent.cli_goals --goal-detail <goal_id>")
+    print("   ananta goal --tasks --task-status todo")
+    print("   ananta goal --goal-detail <goal_id>")
     print("\nIf it fails:")
     print("   - login error: check ANANTA_USER/ANANTA_PASSWORD")
     print("   - connection error: start the hub or set ANANTA_BASE_URL")
@@ -232,7 +232,7 @@ def submit_goal(
                 _print_terminal("Reference reason: {}", reference_profile.get("reason_summary"))
         goal_id = goal_payload.get("id")
         if goal_id:
-            _print_terminal("Next step: python -m agent.cli_goals --goal-detail {}", goal_id)
+            _print_terminal("Next step: ananta goal --goal-detail {}", goal_id)
         print("Success signal: Goal ID, status and task count are visible.")
         return created_task_ids
     _print_error(response)
@@ -433,45 +433,45 @@ def main(argv: list[str] | None = None):
         epilog="""
 Examples:
   First run:
-    python -m agent.cli_goals --first-run
-    python -m agent.cli_goals --status
-    python -m agent.cli_goals plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
+    ananta first-run
+    ananta status
+    ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
 
   Golden path (PRD-021): Short human-friendly commands:
-    python -m agent.cli_goals ask "What should I do next?"
-    python -m agent.cli_goals plan "Prepare a release checklist"
-    python -m agent.cli_goals analyze "Find the riskiest frontend areas"
-    python -m agent.cli_goals review "Review the auth changes"
-    python -m agent.cli_goals diagnose "Docker frontend cannot reach hub"
-    python -m agent.cli_goals patch "Fix failing login validation"
-    python -m agent.cli_goals new-project "Build a small release-check tool for maintainers"
-    python -m agent.cli_goals evolve-project "Add a guided project-start mode to the dashboard"
-    python -m agent.cli_goals repair-admin "Service restart loop after update"
+    ananta ask "What should I do next?"
+    ananta plan "Prepare a release checklist"
+    ananta analyze "Find the riskiest frontend areas"
+    ananta review "Review the auth changes"
+    ananta diagnose "Docker frontend cannot reach hub"
+    ananta patch "Fix failing login validation"
+    ananta new-project "Build a small release-check tool for maintainers"
+    ananta evolve-project "Add a guided project-start mode to the dashboard"
+    ananta repair-admin "Service restart loop after update"
 
   Profile/Governance (GOV-051/PRF-080):
-    python -m agent.cli_goals --config-show
-    python -m agent.cli_goals --set-runtime-profile demo --set-governance-mode safe
+    ananta goal --config-show
+    ananta goal --set-runtime-profile demo --set-governance-mode safe
 
   Submit guided mode:
-    python -m agent.cli_goals --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
+    ananta goal --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
 
   List tasks:
-    python -m agent.cli_goals --tasks
+    ananta goal --tasks
 
   List goals:
-    python -m agent.cli_goals --goals
+    ananta goal --goals
 
   Goal detail:
-    python -m agent.cli_goals --goal-detail <goal_id>
+    ananta goal --goal-detail <goal_id>
 
   List guided modes:
-    python -m agent.cli_goals --modes
+    ananta goal --modes
 
   Analyze follow-ups for a task:
-    python -m agent.cli_goals --analyze-task <task_id>
+    ananta goal --analyze-task <task_id>
 
   Check status:
-    python -m agent.cli_goals --status
+    ananta status
 """,
     )
 

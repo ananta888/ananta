@@ -17,7 +17,7 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals analyze "Analysiere dieses Repository und schlage die wichtigsten naechsten Schritte vor"
+ananta analyze "Analysiere dieses Repository und schlage die wichtigsten naechsten Schritte vor"
 ```
 
 API:
@@ -43,7 +43,7 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals patch "Login bricht bei leerem Passwort ab; reproduziere und plane einen kleinen Fix"
+ananta patch "Login bricht bei leerem Passwort ab; reproduziere und plane einen kleinen Fix"
 ```
 
 API:
@@ -69,7 +69,7 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals diagnose "Docker frontend cannot reach hub (connection refused)"
+ananta diagnose "Docker frontend cannot reach hub (connection refused)"
 ```
 
 API:
@@ -95,7 +95,7 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals review "Pruefe die Login-Aenderungen auf Risiken, fehlende Tests und Regressionen"
+ananta review "Pruefe die Login-Aenderungen auf Risiken, fehlende Tests und Regressionen"
 ```
 
 API:
@@ -123,8 +123,8 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals --modes
-python -m agent.cli_goals --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
+ananta goal --modes
+ananta goal --goal "Container restart-loop" --mode docker_compose_repair --mode-data '{"service":"hub"}'
 ```
 
 API:
@@ -152,7 +152,7 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals new-project "Baue ein kleines Tool fuer teaminterne Release-Checks"
+ananta new-project "Baue ein kleines Tool fuer teaminterne Release-Checks"
 ```
 
 API:
@@ -189,7 +189,7 @@ Realpfad UI:
 CLI:
 
 ```bash
-python -m agent.cli_goals evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
 ```
 
 API:

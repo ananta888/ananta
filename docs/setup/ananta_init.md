@@ -72,6 +72,15 @@ Ohne `--yes` fragt der Wizard fehlende Werte interaktiv ab.
 - `--yes`
 - `--force`
 
+## Migrationshinweis fuer URL-Flag
+
+- Der aktuelle Init-Vertrag nutzt `--endpoint-url`.
+- Falls alte interne Notizen/Snippets noch `--base-url` zeigen, bitte auf `--endpoint-url` migrieren.
+
+## Laufzeit-Baseline
+
+- Fuer den lokalen CLI-Pfad gilt aktuell Python `3.10+`.
+
 ## Rueckgabecode
 
 - `0`: erfolgreich

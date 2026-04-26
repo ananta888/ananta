@@ -1,5 +1,9 @@
 # Autonomous Platform Target Model
 
+> Lifecycle status: **canonical target model**.
+> Supporting architecture context: `architektur/README.md`.
+> Historical roadmap snapshot: `docs/architecture_roadmap_v0.7_to_v1.0.md`.
+
 ## Core Principle
 All work items (from users in Angular UI and from agents) enter one central task system.
 Agents do not exchange tasks peer-to-peer outside this control plane.

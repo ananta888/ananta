@@ -39,7 +39,26 @@ Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwend
 
 Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
 
-## Schnellstart in 5 Minuten
+## CLI-first Start ohne Docker (lokal)
+
+Wenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:
+
+```bash
+ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
+ananta first-run
+ananta status
+ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
+```
+
+Weitere CLI-Einstiege:
+
+- `docs/setup/quickstart.md`
+- `docs/cli/commands.md`
+- `docs/golden-path-cli.md`
+
+Wenn du stattdessen die Web-Oberflaeche und den kompletten Hub/Worker-Stack brauchst, nutze den Docker-Quickstart im naechsten Abschnitt.
+
+## Schnellstart Full-Stack in 5 Minuten (Docker + UI)
 
 1. Umgebung vorbereiten:
    ```powershell
@@ -109,7 +128,7 @@ Kernaussage:
 - keine ernsthaften Agentensysteme ohne Verantwortung fuer reale Wirkung
 
 ## Wichtige Einstiegspunkte
-- Erster Start und Betrieb: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
+- Erster Start und Betrieb (Full-Stack): `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
 - Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`, `docs/generic-control-layer.md`
 - Control-Layer Vertiefung: `docs/loop-correction-pattern.md`, `docs/tool-router-target-architecture.md`, `docs/unified-approval-model.md`, `docs/context-manager-target-model.md`, `docs/context-source-prioritization-rules.md`, `docs/safer-agentic-loop-golden-path.md`
 - Specialized Worker Guidance: `docs/ml-intern-fit-assessment.md`, `docs/ml-intern-adapter-boundary.md`, `docs/ml-intern-capability-profile.md`, `docs/ml-intern-backend-spike.md`, `docs/specialized-worker-guidance.md`

@@ -111,7 +111,7 @@ try {
     Write-Host "  Local Ollama:"
     Write-Host "    $venvPython -m agent.cli.main init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default"
     Write-Host "  OpenAI-compatible:"
-    Write-Host "    $venvPython -m agent.cli.main init --yes --runtime-mode local-dev --llm-backend openai-compatible --base-url http://localhost:1234/v1 --model your-model"
+    Write-Host "    $venvPython -m agent.cli.main init --yes --runtime-mode local-dev --llm-backend openai-compatible --endpoint-url http://localhost:1234/v1 --model your-model"
     Write-Host ""
     Write-Host "Note: this installer does not store API keys; configure provider credentials in your shell/profile."
 } finally {

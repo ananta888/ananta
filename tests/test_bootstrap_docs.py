@@ -30,11 +30,19 @@ def test_bootstrap_docs_include_next_steps_and_update_guidance() -> None:
     update_doc = _read("docs/setup/ananta_update.md")
     quickstart_doc = _read("docs/setup/quickstart.md")
     readme = _read("README.md")
+    installer_sh = _read("scripts/install-ananta.sh")
+    installer_ps1 = _read("scripts/install-ananta.ps1")
 
     assert "ananta init" in bootstrap_doc
     assert "ananta doctor" in bootstrap_doc
     assert "ananta status" in bootstrap_doc
     assert "ananta update --help" in bootstrap_doc
+    assert "--endpoint-url" in bootstrap_doc
+    assert "--base-url" not in bootstrap_doc
+    assert "--endpoint-url" in installer_sh
+    assert "--base-url" not in installer_sh
+    assert "--endpoint-url" in installer_ps1
+    assert "--base-url" not in installer_ps1
     assert "rollback" in update_doc.lower()
     assert "docs/setup/bootstrap-install.md" in quickstart_doc
     assert "docs/setup/bootstrap-install.md" in readme

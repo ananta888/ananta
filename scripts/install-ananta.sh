@@ -173,7 +173,7 @@ Runtime examples:
   Local Ollama:
     $VENV_PY -m agent.cli.main init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
   OpenAI-compatible:
-    $VENV_PY -m agent.cli.main init --yes --runtime-mode local-dev --llm-backend openai-compatible --base-url http://localhost:1234/v1 --model your-model
+    $VENV_PY -m agent.cli.main init --yes --runtime-mode local-dev --llm-backend openai-compatible --endpoint-url http://localhost:1234/v1 --model your-model
 
 Note: this installer does not store API keys; configure provider credentials in your shell/profile.
 EOF

@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 
 import pytest
 
@@ -281,6 +282,16 @@ def test_autopilot_blocks_hub_fallback_when_policy_disallows_it(app, monkeypatch
     assert any((entry.get("event_type") == "autopilot_fallback_blocked") for entry in (updated.history or []))
     provenance = dict(updated.verification_status or {}).get("execution_provenance") or {}
     assert provenance.get("execution_mode") == "fallback_blocked"
+
+
+def test_fallback_docs_include_runtime_vocabulary_mapping() -> None:
+    root = Path(__file__).resolve().parents[1]
+    doc_text = (root / "docs" / "hub-fallback-and-reliability.md").read_text(encoding="utf-8")
+    assert "delegated_worker" in doc_text
+    assert "hub_as_worker_fallback" in doc_text
+    assert "fallback_blocked" in doc_text
+    assert "delegated" in doc_text
+    assert "hub_fallback" in doc_text
 
 
 def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monkeypatch):
