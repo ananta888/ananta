@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from flask import current_app
 
+from agent.services.blueprint_planning_adapter import get_blueprint_planning_adapter
+from agent.services.execution_focused_planning import match_execution_focused_goal_template
 from agent.services.hub_llm_service import get_hub_llm_service
+from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_utils import (
     build_planning_prompt,
-    match_goal_template,
     parse_subtasks_from_llm_response,
     try_load_repo_context,
 )
@@ -44,6 +47,8 @@ class PlanningStrategy(Protocol):
 class TemplatePlanningStrategy:
     def __init__(self, enabled: bool) -> None:
         self._enabled = bool(enabled)
+        self._catalog = get_planning_template_catalog()
+        self._blueprint_adapter = get_blueprint_planning_adapter()
 
     def execute(
         self,
@@ -56,24 +61,46 @@ class TemplatePlanningStrategy:
         if not self._enabled:
             return None
 
-        # Bevorzugt Modus-basiertes Template, falls vorhanden
-        template_subtasks = None
+        query_candidates: list[str] = []
         if mode and mode != "generic":
-            template_subtasks = match_goal_template(mode)
+            query_candidates.append(str(mode).strip())
+            template_id_hint = str((mode_data or {}).get("template_id") or "").strip()
+            if template_id_hint:
+                query_candidates.append(template_id_hint)
+        query_candidates.append(str(goal).strip())
+        query_candidates = [candidate for candidate in dict.fromkeys(query_candidates) if candidate]
 
-        if not template_subtasks:
-            template_subtasks = match_goal_template(goal)
+        for candidate in query_candidates:
+            catalog_subtasks = self._catalog.resolve_subtasks(candidate)
+            if catalog_subtasks:
+                return PlanningStrategyResult(
+                    subtasks=catalog_subtasks[: planner.max_subtasks_per_goal],
+                    raw_response=None,
+                    context=context,
+                    template_used=True,
+                    planning_mode="template",
+                )
 
-        if not template_subtasks:
-            return None
+            blueprint_subtasks = self._blueprint_adapter.resolve_subtasks(candidate)
+            if blueprint_subtasks:
+                return PlanningStrategyResult(
+                    subtasks=blueprint_subtasks[: planner.max_subtasks_per_goal],
+                    raw_response=None,
+                    context=context,
+                    template_used=True,
+                    planning_mode="template",
+                )
 
-        return PlanningStrategyResult(
-            subtasks=template_subtasks[: planner.max_subtasks_per_goal],
-            raw_response=None,
-            context=context,
-            template_used=True,
-            planning_mode="template",
-        )
+        execution_focused_subtasks = match_execution_focused_goal_template(goal)
+        if execution_focused_subtasks:
+            return PlanningStrategyResult(
+                subtasks=execution_focused_subtasks[: planner.max_subtasks_per_goal],
+                raw_response=None,
+                context=context,
+                template_used=True,
+                planning_mode="template",
+            )
+        return None
 
 
 class LLMPlanningStrategy:
