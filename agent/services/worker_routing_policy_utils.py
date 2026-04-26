@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 RESEARCH_SPECIALIZATIONS = ("deep_research", "repo_research", "document_research")
 
 
@@ -60,7 +59,13 @@ def derive_required_capabilities(task: dict | None, task_kind: str | None = None
             derived = ["research"]
             if any(
                 token in text
-                for token in ("deep research", "deep-dive", "deep dive", "comprehensive analysis", "comprehensive report")
+                for token in (
+                    "deep research",
+                    "deep-dive",
+                    "deep dive",
+                    "comprehensive analysis",
+                    "comprehensive report",
+                )
             ):
                 derived.append("deep_research")
             if any(token in text for token in ("repository", "repo", "codebase", "source tree", "git history")):

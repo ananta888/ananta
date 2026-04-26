@@ -26,6 +26,35 @@ class TaskLifecycleService:
         derivation_depth: int,
         depends_on: list[str] | None,
     ) -> None:
+        rationale = dict(node.rationale or {})
+        blueprint_provenance = {
+            "blueprint_id": str(rationale.get("blueprint_id") or "").strip(),
+            "blueprint_name": str(rationale.get("blueprint_name") or "").strip(),
+            "blueprint_artifact_id": str(rationale.get("blueprint_artifact_id") or "").strip(),
+            "blueprint_role_name": str(rationale.get("blueprint_role_name") or "").strip(),
+            "template_name": str(rationale.get("template_name") or "").strip(),
+            "template_id": str(rationale.get("template_id") or "").strip(),
+        }
+        blueprint_provenance = {
+            key: value for key, value in blueprint_provenance.items() if value
+        }
+        worker_execution_context = {
+            "kind": "worker_execution_context",
+            "version": "v1",
+            "planning_provenance": {
+                "plan_id": plan_id,
+                "plan_node_id": node.id,
+                "goal_id": goal_id,
+                **blueprint_provenance,
+            },
+            "routing_hints": {
+                "task_kind": rationale.get("task_kind"),
+                "required_capabilities": list(rationale.get("required_capabilities") or []),
+                "retrieval_intent": rationale.get("retrieval_intent"),
+                "required_context_scope": rationale.get("required_context_scope"),
+                "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
+            },
+        }
         get_task_queue_service().ingest_task(
             task_id=task_id,
             status="todo",
@@ -43,12 +72,21 @@ class TaskLifecycleService:
                 "goal_trace_id": goal_trace_id,
                 "plan_id": plan_id,
                 "plan_node_id": node.id,
-                "task_kind": (node.rationale or {}).get("task_kind"),
-                "retrieval_intent": (node.rationale or {}).get("retrieval_intent"),
-                "required_context_scope": (node.rationale or {}).get("required_context_scope"),
-                "preferred_bundle_mode": (node.rationale or {}).get("preferred_bundle_mode"),
-                "required_capabilities": list((node.rationale or {}).get("required_capabilities") or []),
+                "task_kind": rationale.get("task_kind"),
+                "retrieval_intent": rationale.get("retrieval_intent"),
+                "required_context_scope": rationale.get("required_context_scope"),
+                "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
+                "required_capabilities": list(rationale.get("required_capabilities") or []),
                 "verification_spec": dict(node.verification_spec or {}),
+                "worker_execution_context": worker_execution_context,
+                "status_reason_details": {
+                    "materialized_from_plan": True,
+                    "planning_provenance": {
+                        "plan_id": plan_id,
+                        "plan_node_id": node.id,
+                        **blueprint_provenance,
+                    },
+                },
                 "parent_task_id": parent_task_id,
                 "source_task_id": parent_task_id,
                 "derivation_reason": derivation_reason,
