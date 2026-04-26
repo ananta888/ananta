@@ -8,6 +8,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     net-tools \
     iputils-ping \
     traceroute \
