@@ -5,53 +5,53 @@ from typing import List, Optional
 
 
 def run_command(command: List[str], cwd: Optional[str] = None) -> bool:
-    print(f"Executing: {' '.join(command)}")
+    print(f"Executing: {' '.join(command)}", flush=True)
     try:
         result = subprocess.run(command, cwd=cwd, check=False)
         return result.returncode == 0
     except Exception as e:
-        print(f"Error executing command: {e}")
+        print(f"Error executing command: {e}", flush=True)
         return False
 
 
 def check_format():
-    print("\n--- Checking Format (ruff) ---")
+    print("\n--- Checking Format (ruff) ---", flush=True)
     return run_command([sys.executable, "-m", "ruff", "format", "--check", "."])
 
 
 def check_lint():
-    print("\n--- Checking Lint (ruff) ---")
+    print("\n--- Checking Lint (ruff) ---", flush=True)
     return run_command([sys.executable, "-m", "ruff", "check", "."])
 
 
 def check_types():
-    print("\n--- Checking Types (mypy) ---")
+    print("\n--- Checking Types (mypy) ---", flush=True)
     # For now, we only check the agent directory to avoid too many errors initially
     return run_command([sys.executable, "-m", "mypy", "agent"])
 
 
 def check_arch():
-    print("\n--- Checking Architecture Rules (BND-010/BND-011) ---")
+    print("\n--- Checking Architecture Rules (BND-010/BND-011) ---", flush=True)
     return run_command([sys.executable, "scripts/check_imports.py"])
 
 
 def check_cycles():
-    print("\n--- Checking Import Cycles (CLN-020) ---")
+    print("\n--- Checking Import Cycles (CLN-020) ---", flush=True)
     return run_command([sys.executable, "scripts/check_cycles.py"])
 
 
 def check_duplicates():
-    print("\n--- Checking Code Duplicates (CLN-021) ---")
+    print("\n--- Checking Code Duplicates (CLN-021) ---", flush=True)
     return run_command([sys.executable, "scripts/check_duplicates.py"])
 
 
 def check_dead_code():
-    print("\n--- Checking Dead Code (CLN-022) ---")
+    print("\n--- Checking Dead Code (CLN-022) ---", flush=True)
     return run_command([sys.executable, "scripts/check_dead_code.py"])
 
 
 def check_fast_tests():
-    print("\n--- Running Fast Tests (pytest) ---")
+    print("\n--- Running Fast Tests (pytest) ---", flush=True)
     # Running core unit tests, contract tests and smoke tests as fast tests
     fast_test_paths = [
         "tests/test_system_health_standard.py",
@@ -65,14 +65,17 @@ def check_fast_tests():
 
 
 def check_deep_tests():
-    print("\n--- Running Deep Checks ---")
+    print("\n--- Running Deep Checks ---", flush=True)
     # Fixture repositories under tests/**/fixtures/** contain intentionally isolated
     # test files that are not importable from this repository root test run.
+    # Verbose output makes CI hangs diagnosable by showing the last collected/running test.
     deep_test_command = [
         sys.executable,
         "-m",
         "pytest",
         "tests",
+        "-vv",
+        "--durations=25",
         "-m",
         "not live_compose",
         "--ignore-glob=tests/**/fixtures/**",
@@ -124,10 +127,10 @@ def main():
             success = False
 
     if success:
-        print("\n✅ All checks passed!")
+        print("\n✅ All checks passed!", flush=True)
         sys.exit(0)
     else:
-        print("\n❌ Some checks failed.")
+        print("\n❌ Some checks failed.", flush=True)
         sys.exit(1)
 
 
