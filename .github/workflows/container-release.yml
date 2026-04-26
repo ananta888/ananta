@@ -36,12 +36,19 @@ jobs:
         run: docker build -t "ananta-backend:${{ steps.image-tag.outputs.tag }}" .
       - name: Build frontend image
         run: docker build -t "ananta-frontend:${{ steps.image-tag.outputs.tag }}" frontend-angular
+      - name: Build single-image quickstart (no ollama)
+        run: docker build -f Dockerfile.quickstart-no-ollama -t "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" .
       - name: Collect image metadata
         run: |
           mkdir -p container-release-metadata
           docker image inspect "ananta-backend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/backend-image.json
           docker image inspect "ananta-frontend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/frontend-image.json
-          printf '%s\n' "ananta-backend:${{ steps.image-tag.outputs.tag }}" "ananta-frontend:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/image-tags.txt
+          docker image inspect "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" > container-release-metadata/quickstart-no-ollama-image.json
+          printf '%s\n' \
+            "ananta-backend:${{ steps.image-tag.outputs.tag }}" \
+            "ananta-frontend:${{ steps.image-tag.outputs.tag }}" \
+            "ananta-quickstart-no-ollama:${{ steps.image-tag.outputs.tag }}" \
+            > container-release-metadata/image-tags.txt
       - name: Upload image metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

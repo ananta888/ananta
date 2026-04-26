@@ -158,39 +158,42 @@ Offizieller UI-Standardweg: `docs/golden-path-ui.md`.
 
 ### F) Docker-Quickstart ohne Ollama (ein auslieferbares Image)
 
-Dieser Pfad baut **ein einziges auslieferbares Image** (`Dockerfile.quickstart-no-ollama`) und startet Hub, Worker und Angular-Frontend daraus. Standardmaessig ohne Ollama, ohne zusaetzliche DB/Redis-Container (SQLite ist im Image-Setup direkt nutzbar).
+Dieser Pfad baut **ein einziges auslieferbares Image** (`Dockerfile.quickstart-no-ollama`) und startet Hub, Worker und Angular-Frontend daraus.
 
-Start (Hub + Worker + Frontend):
+Build:
+
+```bash
+docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
+```
+
+Basis-Start (Hub + Worker + Frontend):
 
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 ```
 
+Fullstack aus demselben Image (zusaetzlich Evolver, DeerFlow, ml-intern Worker):
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+```
+
 Provider auf **LM Studio**:
 
 ```bash
-DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
 ```
 
 Provider auf **OpenAI API**:
 
 ```bash
-DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
 ```
 
-Optional: Distributed-Overlay:
-
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.distributed.yml up -d --build
-```
-
-Optional: Live-Code-Overlay:
-
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.live-code.yml up -d --build
-```
-
-Hinweis: Die Hub/Worker-Rollen laufen weiterhin in getrennten Containern, aber aus demselben Image.
+Hinweise:
+- Wenn `DEFAULT_PROVIDER=openai` gesetzt ist, muss `OPENAI_API_KEY` gesetzt sein.
+- Die Rollen bleiben aus Architekturgruenden in separaten Containern, laufen aber alle aus demselben Image.
+- Ollama bleibt im no-ollama Hauptpfad deaktiviert.
 
 ## Was Ananta macht
 
@@ -281,6 +284,7 @@ Weitere Beispiele stehen in `api-spec.md`.
 | --- | --- | --- |
 | Schnell ausprobieren oder Demo ansehen | Profil `demo`, Lite-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
 | Alltagliche lokale Nutzung | Profil `local-first` oder `developer-local`, Lite-Stack mit `.env` aus `setup.ps1` | `.\setup.ps1`, dann Lite-Stack starten |
+| Ein Image fuer Fullstack (ohne Ollama) | Single-image Quickstart + Fullstack-Overlay | `docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build` |
 | Frontend/Backend live entwickeln | Profil `developer-local`, Live-Code-Stack | `scripts/compose-test-stack.sh up-live` |
 | Kontrollierte Team-Nutzung | Profil `team-controlled` oder `review-first`, Lite-/Compose-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
 | Lokale LLM-Runtime mit WSL2/Vulkan nutzen | Profil `local-first`, Lite + Ollama-WSL Overlay | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build` |

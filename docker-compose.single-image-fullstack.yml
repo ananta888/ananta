@@ -1,0 +1,111 @@
+services:
+  # Bestehende Basisservices auf rollenbasierten EntryPoint umstellen.
+  ai-agent-hub:
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: hub
+      ROLE: hub
+      PORT: 5000
+      EVOLVER_ENABLED: ${EVOLVER_ENABLED:-1}
+      EVOLVER_BASE_URL: ${EVOLVER_BASE_URL:-http://evolver:8080}
+      EVOLVER_ALLOWED_HOSTS: ${EVOLVER_ALLOWED_HOSTS:-evolver}
+
+  ai-agent-alpha:
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: worker
+      ROLE: worker
+      AGENT_NAME: alpha
+      PORT: 5000
+      HUB_URL: http://ai-agent-hub:5000
+      AGENT_URL: http://ai-agent-alpha:5000
+
+  ai-agent-beta:
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: worker
+      ROLE: worker
+      AGENT_NAME: beta
+      PORT: 5000
+      HUB_URL: http://ai-agent-hub:5000
+      AGENT_URL: http://ai-agent-beta:5000
+
+  angular-frontend:
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: frontend
+      FRONTEND_PORT: ${FRONTEND_PORT:-4200}
+      FRONTEND_POLL_MS: ${FRONTEND_POLL_MS:-2000}
+
+  evolver:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    restart: unless-stopped
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: evolver_bridge
+      PORT: ${EVOLVER_PORT:-8080}
+      EVOLVER_TIMEOUT_MS: ${EVOLVER_TIMEOUT_MS:-120000}
+    ports:
+      - "${EVOLVER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  ai-agent-deerflow:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    restart: unless-stopped
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: deerflow_runner
+      ROLE: worker
+      AGENT_NAME: deerflow
+      AGENT_URL: http://ai-agent-deerflow:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: ${DEERFLOW_DATABASE_URL:-sqlite:////app/data/ananta-deerflow.db}
+      DEERFLOW_WORKING_DIR: ${DEERFLOW_WORKING_DIR:-}
+      DEERFLOW_COMMAND: ${DEERFLOW_COMMAND:-python main.py {prompt}}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+    ports:
+      - "${DEERFLOW_WORKER_PORT:-5003}:5000"
+
+  ai-agent-ml-intern:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    restart: unless-stopped
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: ml_intern_runner
+      ROLE: worker
+      AGENT_NAME: ml-intern
+      AGENT_URL: http://ai-agent-ml-intern:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: ${ML_INTERN_DATABASE_URL:-sqlite:////app/data/ananta-ml-intern.db}
+      ML_INTERN_COMMAND_TEMPLATE: ${ML_INTERN_COMMAND_TEMPLATE:-}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+    ports:
+      - "${ML_INTERN_WORKER_PORT:-5004}:5000"

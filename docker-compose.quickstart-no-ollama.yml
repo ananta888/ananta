@@ -13,6 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_HUB:-agent-only}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
@@ -27,6 +28,7 @@ services:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_ALPHA:-agent-only}
       ROLE: worker
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
@@ -45,6 +47,7 @@ services:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_BETA:-agent-only}
       ROLE: worker
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
@@ -63,7 +66,11 @@ services:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
     working_dir: /app/frontend-angular
-    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --disable-host-check
+    environment:
+      ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_FRONTEND:-role}
+      ANANTA_QUICKSTART_ROLE: frontend
+      FRONTEND_PORT: ${FRONTEND_PORT:-4200}
+      FRONTEND_POLL_MS: ${FRONTEND_POLL_MS:-2000}
     depends_on:
       ai-agent-hub:
         condition: service_healthy

@@ -8,6 +8,8 @@ FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f32
 #    DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 # 3) Provider auf OpenAI:
 #    DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+# 4) Fullstack aus demselben Image (inkl. Evolver/DeerFlow/ml-intern Rollen):
+#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
 
 ARG DEBIAN_SNAPSHOT=20260406T000000Z
 
@@ -60,16 +62,26 @@ RUN pip install --no-cache-dir -r requirements.lock
 COPY frontend-angular/package*.json frontend-angular/
 RUN cd frontend-angular && npm ci --no-audit --no-fund
 
+# Evolver-Bridge-Abhaengigkeiten ebenfalls im selben Image vorinstallieren.
+COPY services/evolver_bridge/package*.json services/evolver_bridge/
+RUN cd services/evolver_bridge && npm install --no-audit --no-fund
+
 # Den Rest des Codes kopieren
 COPY . .
+RUN chmod +x /app/scripts/quickstart-single-image-entrypoint.sh
+
+EXPOSE 5000 5001 4200 8080
 
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     FLASK_DEBUG=0 \
+    ANANTA_QUICKSTART_MODE=role \
+    ANANTA_QUICKSTART_ROLE=hub \
     DEFAULT_PROVIDER=lmstudio \
     DEFAULT_MODEL=auto \
     LMSTUDIO_URL=http://host.docker.internal:1234/v1 \
     OPENAI_URL=https://api.openai.com/v1/chat/completions \
     ANANTA_QUICKSTART_VARIANT=no-ollama
 
+ENTRYPOINT ["/app/scripts/quickstart-single-image-entrypoint.sh"]
 CMD ["sh", "-c", "alembic upgrade head && exec python -m agent.ai_agent"]

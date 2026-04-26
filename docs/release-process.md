@@ -37,16 +37,17 @@ make check-deep
 
 ## Docker Images
 
-Release builds use digest-pinned base images from `Dockerfile` and `frontend-angular/Dockerfile`.
+Release builds use digest-pinned base images from `Dockerfile`, `frontend-angular/Dockerfile` and `Dockerfile.quickstart-no-ollama`.
 
 Build the release candidate images with explicit candidate tags:
 
 ```bash
 docker build -t ananta-backend:v1.0.0-rc .
 docker build -t ananta-frontend:v1.0.0-rc frontend-angular
+docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:v1.0.0-rc .
 ```
 
-The release gate already executes equivalent backend and frontend image builds with `:release-gate` tags.
+The release gate already executes equivalent backend and frontend image builds with `:release-gate` tags. The container-release workflow additionally records metadata for the single-image quickstart artifact.
 
 ## Smoke Test
 
@@ -121,7 +122,7 @@ SBOM and provenance policy are documented in `docs/release-provenance.md`. Depen
 Validation depth is defined in `docs/ci-test-depth-strategy.md`.
 
 - `.github/workflows/nightly-rc-validation.yml` runs scheduled and manual release-adjacent validation.
-- `.github/workflows/container-release.yml` builds backend and frontend images for release tags and uploads image metadata.
+- `.github/workflows/container-release.yml` builds backend, frontend and `ananta-quickstart-no-ollama` images for release tags and uploads image metadata.
 - Container publishing remains gated by `docs/container-release-strategy.md` and the protected `release` GitHub Environment.
 
 GitHub Environment setup is documented in `docs/github-environments.md`.

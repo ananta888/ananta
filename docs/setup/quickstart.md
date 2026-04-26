@@ -123,6 +123,27 @@ ananta init --yes --runtime-mode sandbox --llm-backend ollama --deployment-targe
 ananta init --yes --runtime-mode sandbox --llm-backend ollama --deployment-target podman
 ```
 
+## Optional: Single-Image Fullstack ohne Ollama
+
+Wenn du direkt den Docker-Fullstack aus **einem Image-Artefakt** starten willst (Hub, Worker, Angular, Evolver, DeerFlow, ml-intern):
+
+```bash
+docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+```
+
+Provider-Konfiguration:
+
+```bash
+# OpenAI
+DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+
+# LM Studio
+DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+```
+
+Hinweis: Im no-ollama Pfad bleibt Ollama deaktiviert. Bei `DEFAULT_PROVIDER=openai` muss `OPENAI_API_KEY` gesetzt sein.
+
 Weiterfuehrung:
 
 - `docs/setup/bootstrap-install.md`
