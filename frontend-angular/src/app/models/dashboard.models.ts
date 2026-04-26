@@ -263,6 +263,7 @@ export interface TaskOrchestrationReadModel {
   };
   by_agent?: Record<string, number>;
   by_source?: Record<string, number>;
+  control_layer_observability?: Record<string, unknown>;
   dispatch_queue?: unknown[];
   queue?: Record<string, number>;
   queue_depth?: number;
@@ -303,6 +304,7 @@ export const TASK_ORCHESTRATION_READ_MODEL_CONTRACT_KEYS = [
   'artifact_flow',
   'by_agent',
   'by_source',
+  'control_layer_observability',
   'dispatch_queue',
   'queue',
   'queue_depth',
