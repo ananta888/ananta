@@ -57,13 +57,13 @@ Zusätzlich zu Alembic führt `agent/database.py` beim App-Start eine kleine
 Schema-Kompatibilitätsprüfung aus (`_ensure_schema_compat`).
 
 Aktuell werden dabei bei Bedarf folgende Spalten automatisch nachgezogen:
-- `users.mfa_backup_codes`
-- `tasks.depends_on`
-- `archived_tasks.depends_on`
+- `agents.registration_validated`
+- `agents.validation_errors`
+- `agents.validated_at`
 
 Hinweis zur Migrations-Paritaet:
-- Fuer `tasks.depends_on` und `archived_tasks.depends_on` existiert zusaetzlich die Alembic-Revision `7b3c4d5e6f7a_add_depends_on_columns.py`.
-- Die Startup-Kompatibilitaetsmigration bleibt als Sicherheitsnetz fuer Bestandsumgebungen erhalten.
+- Strukturmigrationen laufen weiterhin ueber Alembic (z. B. `7b3c4d5e6f7a_add_depends_on_columns.py`).
+- Die Startup-Kompatibilitaetsmigration deckt gezielt Legacy-SQLite-Agent-Registerfelder als Sicherheitsnetz ab.
 
 Für neue Deployments mit bestehender DB gilt als Rollout-Hinweis:
 1. Neue Version deployen und App einmal vollständig starten lassen.

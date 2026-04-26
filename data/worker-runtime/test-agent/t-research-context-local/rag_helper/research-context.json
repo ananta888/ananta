@@ -1,9 +1,9 @@
 {
   "artifact_ids": [
-    "8f4278cb-a171-449b-be0f-6195957cdd36"
+    "1f2be9ab-ec5b-4c33-bd4c-a209e331dc28"
   ],
   "knowledge_collection_ids": [
-    "d0ac662d-b031-48a0-8cd4-fb69df42a588"
+    "dd4d3b6a-9475-4a10-ae11-1cc2d2f4815d"
   ],
   "repo_scope_refs": [
     {
@@ -13,7 +13,7 @@
   ],
   "artifacts": [
     {
-      "artifact_id": "8f4278cb-a171-449b-be0f-6195957cdd36",
+      "artifact_id": "1f2be9ab-ec5b-4c33-bd4c-a209e331dc28",
       "filename": "README.md",
       "media_type": "text/markdown",
       "status": "fully-indexed",
@@ -22,7 +22,7 @@
       "document_metadata": {
         "filename": "README.md",
         "media_type": "text/markdown",
-        "storage_path": "/app/data/artifacts/8f4278cb-a171-449b-be0f-6195957cdd36/v0001__README.md",
+        "storage_path": "/app/data/artifacts/1f2be9ab-ec5b-4c33-bd4c-a209e331dc28/v0001__README.md",
         "suffix": ".md",
         "content_family": "structured_text"
       }
@@ -30,11 +30,11 @@
   ],
   "knowledge_collections": [
     {
-      "collection_id": "d0ac662d-b031-48a0-8cd4-fb69df42a588",
+      "collection_id": "dd4d3b6a-9475-4a10-ae11-1cc2d2f4815d",
       "name": "research-docs",
       "description": null,
       "artifact_ids": [
-        "8f4278cb-a171-449b-be0f-6195957cdd36"
+        "1f2be9ab-ec5b-4c33-bd4c-a209e331dc28"
       ],
       "chunks": [
         {
@@ -44,7 +44,7 @@
           "content": "knowledge chunk about retries",
           "score": 2.0,
           "metadata": {
-            "artifact_id": "8f4278cb-a171-449b-be0f-6195957cdd36"
+            "artifact_id": "1f2be9ab-ec5b-4c33-bd4c-a209e331dc28"
           }
         }
       ]
@@ -59,7 +59,7 @@
       "excerpt": "# Ananta\n\nAnanta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.\n\nDer Kern ist bewusst nicht \"ein Chatbot mit Tools\", sondern ein steuerbares System fuer:\n\n- Goal -> Plan -> Task -> Execution -> Verification -> Artifact\n- Hub-kontrollierte Orchestrierung statt Worker-zu-Worker-Automation\n- Docker-basierte Hub- und Worker-Laufzeiten\n- reproduzierbare Releases, CI-Gates und Security-/Governance-Regeln\n\n| Einstieg | Fuer wen | Link |\n| --- | --- | --- |\n| Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |\n| Ein-Kommando-Installation | lokale Nutzer und Reviewer | [Bootstrap Install](docs/setup/bootstrap-install.md) |\n| Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |\n| Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |\n| Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |\n| Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |\n| Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |\n| Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |\n| Passendes Produktprofil waehlen | Demo, Trial, Team oder Security-Kontext | [Produktprofile](docs/product-profiles.md) |\n| Architektur verstehen | technische Reviewer | [Architektur](#architektur) |\n| Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |\n| API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |\n\n## Kern-Use-Cases (offiziell)\n\nAnanta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle, damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.\n\n- Repository verstehen\n- Bugfix planbar und testbar machen\n- Start/Deploy diagnostizieren (Compose/Health/Logs)\n- Change Review (Risiken, Tests, Governance)\n- Gefuehrte Goal-Erstellung fuer Erstnutzer\n- Neues Softwareprojekt anlegen\n- Existierendes Softwareprojekt weiterentwickeln\n- Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver\n\nDetails: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.\n\n## Schnellstart in 5 Minuten\n\n### A) CLI-first ohne Docker (lokal)\n\nWenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:\n\n```bash\nananta init --yes --runtime-mode local-dev --llm-backend ollama --mo..."
     }
   ],
-  "prompt_section": "Artefakt-Kontext:\n- Artifact 8f4278cb-a171-449b-be0f-6195957cdd36 (README.md):\n# Hello\nartifact body\n\nKnowledge-Kontext:\n- Collection research-docs:\n  - README.md: knowledge chunk about retries\n\nRepo-Kontext:\n- Repo-Scope README.md: file\n# Ananta\n\nAnanta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.\n\nDer Kern ist bewusst nicht \"ein Chatbot mit Tools\", sondern ein steuerbares System fuer:\n\n- Goal -> Plan -> Task -> Execution -> Verification -> Artifact\n- Hub-kontrollierte Orchestrierung statt Worker-zu-Worker-Automation\n- Docker-basierte Hub- und Worker-Laufzeiten\n- reproduzierbare Releases, CI-Gates und Security-/Governance-Regeln\n\n| Einstieg | Fuer wen | Link |\n| --- | --- | --- |\n| Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |\n| Ein-Kommando-Installation | lokale Nutzer und Reviewer | [Bootstrap Install](docs/setup/bootstrap-install.md) |\n| Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |\n| Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |\n| Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |\n| Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |\n| Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |\n| Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |\n| Passendes Produktprofil waehlen | Demo, Trial, Team oder Security-Kontext | [Produktprofile](docs/product-profiles.md) |\n| Architektur verstehen | technische Reviewer | [Architektur](#architektur) |\n| Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |\n| API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |\n\n## Kern-Use-Cases (offiziell)\n\nAnanta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle, damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.\n\n- Repository verstehen\n- Bugfix planbar und testbar machen\n- Start/Deploy diagnostizieren (Compose/Health/Logs)\n- Change Review (Risiken, Tests, Governance)\n- Gefuehrte Goal-Erstellung fuer Erstnutzer\n- Neues Softwareprojekt anlegen\n- Existierendes Softwareprojekt weiterentwickeln\n- Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver\n\nDetails: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.\n\n## Schnellstart in 5 Minuten\n\n### A) CLI-first ohne Docker (lokal)\n\nWenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:\n\n```bash\nananta init --yes --runtime-mode local-dev --llm-backend ollama --mo...",
+  "prompt_section": "Artefakt-Kontext:\n- Artifact 1f2be9ab-ec5b-4c33-bd4c-a209e331dc28 (README.md):\n# Hello\nartifact body\n\nKnowledge-Kontext:\n- Collection research-docs:\n  - README.md: knowledge chunk about retries\n\nRepo-Kontext:\n- Repo-Scope README.md: file\n# Ananta\n\nAnanta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.\n\nDer Kern ist bewusst nicht \"ein Chatbot mit Tools\", sondern ein steuerbares System fuer:\n\n- Goal -> Plan -> Task -> Execution -> Verification -> Artifact\n- Hub-kontrollierte Orchestrierung statt Worker-zu-Worker-Automation\n- Docker-basierte Hub- und Worker-Laufzeiten\n- reproduzierbare Releases, CI-Gates und Security-/Governance-Regeln\n\n| Einstieg | Fuer wen | Link |\n| --- | --- | --- |\n| Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |\n| Ein-Kommando-Installation | lokale Nutzer und Reviewer | [Bootstrap Install](docs/setup/bootstrap-install.md) |\n| Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |\n| Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |\n| Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |\n| Offizieller UI-Standardweg | Erstnutzer und Demos | [UI Golden Path](docs/golden-path-ui.md) |\n| Offizieller CLI-Standardweg | lokale Nutzer und Reviewer | [CLI Golden Path](docs/golden-path-cli.md) |\n| Offizieller Release-Standardweg | Maintainer und Betreiber | [Release Golden Path](docs/release-golden-path.md) |\n| Passendes Produktprofil waehlen | Demo, Trial, Team oder Security-Kontext | [Produktprofile](docs/product-profiles.md) |\n| Architektur verstehen | technische Reviewer | [Architektur](#architektur) |\n| Release bewerten | Maintainer und Betreiber | [Release und Governance](#release-und-governance) |\n| API nutzen | Integratoren | [Einfache CLI- und API-Beispiele](#einfache-cli--und-api-beispiele) |\n\n## Kern-Use-Cases (offiziell)\n\nAnanta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwendungsfaelle, damit Einstieg, Demo, Benchmarks und Produktprofile auf derselben Basis stehen.\n\n- Repository verstehen\n- Bugfix planbar und testbar machen\n- Start/Deploy diagnostizieren (Compose/Health/Logs)\n- Change Review (Risiken, Tests, Governance)\n- Gefuehrte Goal-Erstellung fuer Erstnutzer\n- Neues Softwareprojekt anlegen\n- Existierendes Softwareprojekt weiterentwickeln\n- Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver\n\nDetails: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.\n\n## Schnellstart in 5 Minuten\n\n### A) CLI-first ohne Docker (lokal)\n\nWenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:\n\n```bash\nananta init --yes --runtime-mode local-dev --llm-backend ollama --mo...",
   "truncated": false,
   "context_char_count": 3238
 }

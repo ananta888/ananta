@@ -3,6 +3,7 @@ import os
 import time
 
 import portalocker
+from sqlalchemy import text
 from sqlalchemy import event, inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.pool import StaticPool
@@ -208,8 +209,40 @@ def ensure_default_user():
 
 
 def _ensure_schema_compat() -> None:
-    # Schema-Migrationen laufen exklusiv ueber Alembic.
-    # Daten-Backfills werden ueber explizite Wartungskommandos ausgefuehrt.
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "agents" not in set(inspector.get_table_names()):
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("agents")}
+    compatibility_columns = {
+        "name": "TEXT NOT NULL DEFAULT ''",
+        "role": "TEXT NOT NULL DEFAULT 'worker'",
+        "token": "TEXT",
+        "worker_roles": "TEXT NOT NULL DEFAULT '[]'",
+        "capabilities": "TEXT NOT NULL DEFAULT '[]'",
+        "execution_limits": "TEXT NOT NULL DEFAULT '{}'",
+        "registration_validated": "INTEGER NOT NULL DEFAULT 1",
+        "validation_errors": "TEXT NOT NULL DEFAULT '[]'",
+        "validated_at": "REAL",
+        "last_seen": "REAL NOT NULL DEFAULT 0",
+        "status": "TEXT NOT NULL DEFAULT 'online'",
+    }
+
+    missing_columns: list[str] = []
+    with engine.begin() as connection:
+        for column_name, sql_type in compatibility_columns.items():
+            if column_name in existing_columns:
+                continue
+            missing_columns.append(column_name)
+            connection.execute(text(f"ALTER TABLE agents ADD COLUMN {column_name} {sql_type}"))
+    if missing_columns:
+        logging.warning(
+            "DB schema missing agents columns %s; applying compatibility migration.",
+            ", ".join(sorted(missing_columns)),
+        )
     return
 
 
