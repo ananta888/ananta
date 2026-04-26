@@ -23,6 +23,7 @@ def test_compose_smoke_matrix_files_exist_for_release_variants():
         "docker-compose-lite.yml",
         "docker-compose.test.yml",
         "docker-compose.ollama-wsl.yml",
+        "docker-compose.final-tests.yml",
         "docker-compose.distributed.yml",
         "docker-compose.live-code.yml",
     ]
@@ -54,3 +55,15 @@ def test_e2e_compose_backend_services_use_quickstart_single_image_dockerfile():
 def test_e2e_ci_builds_backend_compose_image_from_quickstart_single_image():
     workflow = (ROOT / ".github" / "workflows" / "quality-and-docs.yml").read_text(encoding="utf-8")
     assert "file: Dockerfile.quickstart-no-ollama" in workflow
+
+
+def test_final_compose_file_chains_all_tests_without_extra_profiles():
+    compose = (ROOT / "docker-compose.final-tests.yml").read_text(encoding="utf-8")
+
+    assert "service_completed_successfully" in compose
+    assert "backend-test:" in compose
+    assert "backend-live-llm-test:" in compose
+    assert "frontend-test:" in compose
+    assert "frontend-live-llm-test:" in compose
+    assert "all-tests:" in compose
+    assert "Dockerfile.ollama-wsl-amd" in compose

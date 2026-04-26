@@ -1,0 +1,212 @@
+# One-click Vulkan + full Compose test stack.
+# Ziel: ohne zusätzliche Profile/Flags direkt in IntelliJ startbar.
+#
+# IntelliJ (Docker Compose Run Configuration):
+# - Compose file: docker-compose.final-tests.yml
+# - Command: Up
+# - Optional service filter: all-tests
+#
+# CLI-Äquivalent:
+#   docker compose -f docker-compose.final-tests.yml up --build
+
+services:
+  postgres:
+    extends:
+      file: docker-compose-lite.yml
+      service: postgres
+    ports: []
+
+  redis:
+    extends:
+      file: docker-compose-lite.yml
+      service: redis
+    ports: []
+
+  ollama:
+    extends:
+      file: docker-compose.base.yml
+      service: ollama
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama-wsl-amd
+    image: ollama-wsl-amd:0.20.7-vulkan
+    container_name: ollama
+    devices:
+      - "/dev/dxg:/dev/dxg"
+    environment:
+      LD_LIBRARY_PATH: ${OLLAMA_WSL_LD_LIBRARY_PATH:-/usr/lib/wsl/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64}
+      OLLAMA_VULKAN: "${OLLAMA_VULKAN:-1}"
+      VK_ICD_FILENAMES: ${OLLAMA_WSL_VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/dzn_icd.json}
+    volumes:
+      - ./.ollama:/root/.ollama
+      - /mnt/c/Users/Public/lm-models:/models:ro
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+    ports: []
+
+  autoimport:
+    extends:
+      file: docker-compose.base.yml
+      service: autoimport
+    environment:
+      OLLAMA_AUTOIMPORT_MODE: "${OLLAMA_AUTOIMPORT_MODE:-seed}"
+
+  angular-frontend:
+    extends:
+      file: docker-compose.base.yml
+      service: angular-frontend
+    image: ananta-frontend-compose-test:local
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
+    ports: []
+
+  ai-agent-hub:
+    extends:
+      file: docker-compose.base.yml
+      service: ai-agent-hub
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    ports: []
+    volumes:
+      - ./:/app
+      - ./data/hub:/app/data
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      DEFAULT_PROVIDER: "ollama"
+      DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      OPENCODE_DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      OLLAMA_URL: "http://ollama:11434/api/generate"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
+      AUTH_TEST_ENDPOINTS_ENABLED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+
+  ai-agent-alpha:
+    extends:
+      file: docker-compose.base.yml
+      service: ai-agent-alpha
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    ports: []
+    volumes:
+      - ./:/app
+      - ./data/alpha:/app/data
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      DEFAULT_PROVIDER: "ollama"
+      DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      OPENCODE_DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      OLLAMA_URL: "http://ollama:11434/api/generate"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+
+  ai-agent-beta:
+    extends:
+      file: docker-compose.base.yml
+      service: ai-agent-beta
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    ports: []
+    volumes:
+      - ./:/app
+      - ./data/beta:/app/data
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      DEFAULT_PROVIDER: "ollama"
+      DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      OPENCODE_DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      OLLAMA_URL: "http://ollama:11434/api/generate"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+
+  backend-test:
+    extends:
+      file: docker-compose.test.yml
+      service: backend-test
+
+  backend-live-llm-test:
+    extends:
+      file: docker-compose.test.yml
+      service: backend-live-llm-test
+    depends_on:
+      backend-test:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+
+  frontend-test:
+    extends:
+      file: docker-compose.test.yml
+      service: frontend-test
+    depends_on:
+      backend-live-llm-test:
+        condition: service_completed_successfully
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+
+  frontend-live-llm-test:
+    extends:
+      file: docker-compose.test.yml
+      service: frontend-live-llm-test
+    depends_on:
+      frontend-test:
+        condition: service_completed_successfully
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+
+  all-tests:
+    image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+    command: ["sh", "-c", "echo 'All compose tests passed (backend + live backend + frontend + live frontend).'"]
+    depends_on:
+      frontend-live-llm-test:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+    name: ananta_postgres_data
+  redis_data:
+    name: ananta_redis_data
