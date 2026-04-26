@@ -261,7 +261,17 @@ def set_config():
         if not isinstance(doom_loop_cfg, dict):
             return api_response(status="error", message="invalid_doom_loop_policy", code=400)
         merged_doom_loop_policy = (current_cfg.get("doom_loop_policy", {}) or {}).copy()
-        merged_doom_loop_policy.update(doom_loop_cfg)
+        merged_doom_loop_policy.update({key: value for key, value in doom_loop_cfg.items() if key != "severity_actions"})
+        if isinstance(doom_loop_cfg.get("severity_actions"), dict):
+            existing_severity_actions = (
+                dict(merged_doom_loop_policy.get("severity_actions") or {})
+                if isinstance(merged_doom_loop_policy.get("severity_actions"), dict)
+                else {}
+            )
+            existing_severity_actions.update(doom_loop_cfg.get("severity_actions") or {})
+            merged_doom_loop_policy["severity_actions"] = existing_severity_actions
+        elif "severity_actions" in doom_loop_cfg:
+            merged_doom_loop_policy["severity_actions"] = doom_loop_cfg.get("severity_actions")
         new_cfg = {**new_cfg, "doom_loop_policy": shared.normalize_doom_loop_policy_config(merged_doom_loop_policy)}
     if "unified_approval_policy" in new_cfg:
         approval_cfg = new_cfg.get("unified_approval_policy")
