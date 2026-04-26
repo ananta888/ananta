@@ -6,7 +6,16 @@ from agent import repository
 from agent.services.blueprint_planning_adapter import BlueprintPlanningAdapter
 
 
-def test_blueprint_planning_adapter_resolves_seed_blueprint_subtasks(app) -> None:
+def _ensure_seed_blueprints(client) -> None:
+    login = client.post("/login", json={"username": "admin", "password": "admin"})
+    assert login.status_code == 200
+    token = login.json["data"]["access_token"]
+    response = client.get("/teams/blueprints", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+
+
+def test_blueprint_planning_adapter_resolves_seed_blueprint_subtasks(app, client) -> None:
+    _ensure_seed_blueprints(client)
     adapter = BlueprintPlanningAdapter()
     with app.app_context():
         resolution = adapter.resolve("TDD")
@@ -22,7 +31,8 @@ def test_blueprint_planning_adapter_resolves_seed_blueprint_subtasks(app) -> Non
     assert isinstance(first.get("blueprint_role_hints"), list)
 
 
-def test_blueprint_planning_adapter_resolves_fuzzy_goal_text(app) -> None:
+def test_blueprint_planning_adapter_resolves_fuzzy_goal_text(app, client) -> None:
+    _ensure_seed_blueprints(client)
     adapter = BlueprintPlanningAdapter()
     with app.app_context():
         subtasks = adapter.resolve_subtasks("Bitte TDD blueprint fuer login bugfix ausfuehren")

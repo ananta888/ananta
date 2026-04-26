@@ -33,8 +33,12 @@ class _AdapterStub:
 
 def test_template_planning_strategy_resolves_catalog_first() -> None:
     strategy = TemplatePlanningStrategy(enabled=True)
-    strategy._catalog = _CatalogStub({"code_fix": [{"title": "A", "description": "B", "priority": "High", "depends_on": []}]})
-    strategy._blueprint_adapter = _AdapterStub({"code_fix": [{"title": "X", "description": "Y", "priority": "Low", "depends_on": []}]})
+    strategy._catalog = _CatalogStub(
+        {"code_fix": [{"title": "A", "description": "B", "priority": "High", "depends_on": []}]}
+    )
+    strategy._blueprint_adapter = _AdapterStub(
+        {"code_fix": [{"title": "X", "description": "Y", "priority": "Low", "depends_on": []}]}
+    )
 
     result = strategy.execute(_PlannerStub(), goal="irrelevant", context=None, mode="code_fix")
 
@@ -47,7 +51,13 @@ def test_template_planning_strategy_resolves_catalog_first() -> None:
 def test_template_planning_strategy_uses_blueprint_adapter_when_catalog_has_no_match() -> None:
     strategy = TemplatePlanningStrategy(enabled=True)
     strategy._catalog = _CatalogStub({})
-    strategy._blueprint_adapter = _AdapterStub({"Please use TDD blueprint": [{"title": "BP", "description": "desc", "priority": "Medium", "depends_on": []}]})
+    strategy._blueprint_adapter = _AdapterStub(
+        {
+            "Please use TDD blueprint": [
+                {"title": "BP", "description": "desc", "priority": "Medium", "depends_on": []}
+            ]
+        }
+    )
 
     result = strategy.execute(_PlannerStub(), goal="Please use TDD blueprint", context=None)
 

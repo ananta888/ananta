@@ -54,7 +54,11 @@ class BlueprintPlanningAdapter:
                 for role in list(roles or [])
                 if str(role.name or "").strip()
             ]
-            artifact_refs = [f"blueprint_artifact:{artifact.id}" for artifact in list(artifacts or []) if getattr(artifact, "id", None)]
+            artifact_refs = [
+                f"blueprint_artifact:{artifact.id}"
+                for artifact in list(artifacts or [])
+                if getattr(artifact, "id", None)
+            ]
             return BlueprintPlanningResolution(
                 blueprint_id=str(blueprint.id),
                 blueprint_name=str(blueprint.name),
@@ -108,8 +112,18 @@ class BlueprintPlanningAdapter:
         return None
 
     @staticmethod
-    def _build_subtasks(*, blueprint_id: str, blueprint_name: str, artifacts: list[Any], role_hints: list[Any]) -> list[dict[str, Any]]:  # noqa: ANN401
-        task_artifacts = [artifact for artifact in artifacts if str(getattr(artifact, "kind", "")).strip().lower() == "task"]
+    def _build_subtasks(
+        *,
+        blueprint_id: str,
+        blueprint_name: str,
+        artifacts: list[Any],
+        role_hints: list[Any],
+    ) -> list[dict[str, Any]]:  # noqa: ANN401
+        task_artifacts = [
+            artifact
+            for artifact in artifacts
+            if str(getattr(artifact, "kind", "")).strip().lower() == "task"
+        ]
         subtasks: list[dict[str, Any]] = []
         for index, artifact in enumerate(task_artifacts, start=1):
             payload = dict(getattr(artifact, "payload", {}) or {})
@@ -118,16 +132,31 @@ class BlueprintPlanningAdapter:
             subtask = {
                 "title": str(getattr(artifact, "title", "") or f"{blueprint_name} task {index}").strip()[:200],
                 "description": (
-                    str(getattr(artifact, "description", "") or payload.get("description") or getattr(artifact, "title", ""))
+                    str(
+                        getattr(artifact, "description", "")
+                        or payload.get("description")
+                        or getattr(artifact, "title", "")
+                    )
                     .strip()[:2000]
                 ),
                 "priority": priority,
-                "depends_on": [str(item).strip() for item in list(payload.get("depends_on") or []) if str(item).strip()],
-                "artifact": str(payload.get("artifact") or "").strip() or f"blueprint_artifact:{getattr(artifact, 'id', '')}",
+                "depends_on": [
+                    str(item).strip()
+                    for item in list(payload.get("depends_on") or [])
+                    if str(item).strip()
+                ],
+                "artifact": (
+                    str(payload.get("artifact") or "").strip()
+                    or f"blueprint_artifact:{getattr(artifact, 'id', '')}"
+                ),
                 "blueprint_id": blueprint_id,
                 "blueprint_name": blueprint_name,
                 "blueprint_artifact_id": str(getattr(artifact, "id", "")).strip(),
-                "blueprint_role_hints": [str(role.name) for role in role_hints if str(getattr(role, "name", "")).strip()],
+                "blueprint_role_hints": [
+                    str(role.name)
+                    for role in role_hints
+                    if str(getattr(role, "name", "")).strip()
+                ],
             }
             for metadata_key in ("risk_focus", "test_focus", "review_focus"):
                 value = str(payload.get(metadata_key) or "").strip()

@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 import logging
 import re
-from warnings import warn
 from typing import Optional
+from warnings import warn
 
 from agent.services.execution_focused_planning import (
-    EXECUTION_FOCUSED_GOAL_HINTS,
-    build_execution_focused_goal_template,
+    EXECUTION_FOCUSED_GOAL_HINTS as _EXECUTION_FOCUSED_GOAL_HINTS,
+)
+from agent.services.execution_focused_planning import (
+    build_execution_focused_goal_template as _build_execution_focused_goal_template,
+)
+from agent.services.execution_focused_planning import (
     match_execution_focused_goal_template,
 )
 from agent.services.planning_template_catalog import get_planning_template_catalog
@@ -42,6 +46,10 @@ try:
     GOAL_TEMPLATES = _load_goal_templates_from_catalog()
 except (OSError, ValueError):
     GOAL_TEMPLATES = {}
+
+# Deprecated compatibility exports. Source of truth moved to execution_focused_planning.py.
+EXECUTION_FOCUSED_GOAL_HINTS = _EXECUTION_FOCUSED_GOAL_HINTS
+build_execution_focused_goal_template = _build_execution_focused_goal_template
 
 PROMPT_INJECTION_PATTERNS = [
     "ignore previous",
@@ -186,7 +194,10 @@ def parse_subtasks_from_llm_response(response: str, default_priority: str = "Med
                 continue
             if line.startswith(("-", "*", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
                 desc = line.lstrip("-*1234567890. ").strip()
-                normalized = normalize_subtask({"description": desc, "priority": default_priority}, default_priority=default_priority)
+                normalized = normalize_subtask(
+                    {"description": desc, "priority": default_priority},
+                    default_priority=default_priority,
+                )
                 if normalized:
                     tasks.append(normalized)
         return tasks
@@ -226,7 +237,13 @@ def parse_followup_analysis(raw_response: str, default_priority: str = "Medium")
     followups = parsed.get("followup_tasks")
     normalized_followups = []
     if isinstance(followups, list):
-        normalized_followups = [item for item in (normalize_subtask(entry, default_priority=default_priority) for entry in followups) if item][:5]
+        normalized_followups = [
+            item
+            for item in (
+                normalize_subtask(entry, default_priority=default_priority) for entry in followups
+            )
+            if item
+        ][:5]
     suggestions = parsed.get("suggestions") if isinstance(parsed.get("suggestions"), list) else []
     cleaned_suggestions = [str(item).strip()[:240] for item in suggestions if str(item).strip()][:10]
     return {
@@ -240,15 +257,33 @@ def parse_followup_analysis(raw_response: str, default_priority: str = "Medium")
 
 def match_goal_template(goal: str) -> Optional[list[dict]]:
     warn(
-        "planning_utils.match_goal_template is deprecated. Use PlanningTemplateCatalog/TemplatePlanningStrategy instead.",
+        (
+            "planning_utils.match_goal_template is deprecated. "
+            "Use PlanningTemplateCatalog/TemplatePlanningStrategy instead."
+        ),
         DeprecationWarning,
         stacklevel=2,
     )
     catalog = get_planning_template_catalog()
-    subtasks = catalog.resolve_subtasks(goal)
+    exact_template = catalog.get_template(str(goal or "").strip())
+    if exact_template is not None:
+        return list(exact_template.get("subtasks") or [])
+
+    lower_goal = str(goal or "").lower()
+    tdd_keywords = ("tdd", "test-driven", "test driven", "test-first", "red green", "red-green")
+    if any(keyword in lower_goal for keyword in tdd_keywords):
+        tdd_template = catalog.get_template("tdd")
+        if tdd_template is not None:
+            return list(tdd_template.get("subtasks") or [])
+
+    execution_focused_subtasks = match_execution_focused_goal_template(goal)
+    if execution_focused_subtasks:
+        return execution_focused_subtasks
+
+    subtasks = catalog.resolve_subtasks(goal, exact_id_first=False)
     if subtasks:
         return subtasks
-    return match_execution_focused_goal_template(goal)
+    return None
 
 
 def try_load_repo_context(goal: str) -> Optional[str]:
