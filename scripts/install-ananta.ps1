@@ -14,7 +14,7 @@ function Test-Command {
 function Resolve-PythonCommand {
     if (Test-Command "python") { return "python" }
     if (Test-Command "py") { return "py" }
-    throw "Python is required. Install from https://www.python.org/downloads/"
+    throw "Python is required. Install from https://www.python.org/downloads/ or run: winget install Python.Python.3.12"
 }
 
 function Resolve-VenvPython {
@@ -27,7 +27,7 @@ function Resolve-VenvPython {
 }
 
 if (-not (Test-Command "git")) {
-    throw "git is required. Install from https://git-scm.com/downloads"
+    throw "git is required. Install from https://git-scm.com/downloads or run: winget install Git.Git"
 }
 
 $pythonCmd = Resolve-PythonCommand
