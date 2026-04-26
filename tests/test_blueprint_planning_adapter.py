@@ -29,6 +29,7 @@ def test_blueprint_planning_adapter_resolves_seed_blueprint_subtasks(app, client
     assert first["blueprint_name"] == "TDD"
     assert first["blueprint_artifact_id"]
     assert isinstance(first.get("blueprint_role_hints"), list)
+    assert isinstance(first.get("blueprint_role_template_hints"), list)
 
 
 def test_blueprint_planning_adapter_resolves_fuzzy_goal_text(app, client) -> None:

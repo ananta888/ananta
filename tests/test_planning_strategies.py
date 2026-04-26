@@ -19,8 +19,11 @@ class _CatalogStub:
     def __init__(self, template_by_query: dict[str, list[dict[str, Any]]]) -> None:
         self._template_by_query = template_by_query
 
-    def resolve_subtasks(self, query: str):  # noqa: ANN201
-        return self._template_by_query.get(query)
+    def resolve_template(self, query: str):  # noqa: ANN201
+        subtasks = self._template_by_query.get(query)
+        if subtasks is None:
+            return None
+        return {"id": query, "title": query, "subtasks": subtasks}
 
 
 class _AdapterStub:
@@ -46,6 +49,7 @@ def test_template_planning_strategy_resolves_catalog_first() -> None:
     assert result.template_used is True
     assert result.planning_mode == "template"
     assert result.subtasks[0]["title"] == "A"
+    assert result.subtasks[0]["template_name"] == "code_fix"
 
 
 def test_template_planning_strategy_uses_blueprint_adapter_when_catalog_has_no_match() -> None:

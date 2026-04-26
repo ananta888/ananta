@@ -18,7 +18,11 @@ from agent.services.planning_strategies import (
 from agent.services.planning_utils import sanitize_input, validate_goal
 from agent.services.repository_registry import get_repository_registry
 from agent.services.verification_policy_service import default_verification_spec
-from agent.services.worker_routing_policy_utils import derive_required_capabilities
+from agent.services.worker_routing_policy_utils import (
+    derive_required_capabilities,
+    extract_blueprint_role_defaults,
+    merge_capabilities_with_blueprint_defaults,
+)
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
 
@@ -66,6 +70,85 @@ def _retrieval_hints_for_task_kind(task_kind: str | None) -> dict[str, str]:
         "required_context_scope": "task_and_direct_neighbors",
         "preferred_bundle_mode": "standard",
     }
+
+
+def _sanitize_blueprint_provenance(subtask: dict[str, Any]) -> dict[str, str]:
+    role_hints = list(subtask.get("blueprint_role_template_hints") or [])
+    primary_hint = role_hints[0] if role_hints and isinstance(role_hints[0], dict) else {}
+    blueprint_role_name = (
+        str(subtask.get("blueprint_role_name") or "").strip()
+        or str(primary_hint.get("role_name") or "").strip()
+    )
+    template_name = (
+        str(subtask.get("template_name") or "").strip()
+        or str(primary_hint.get("template_name") or "").strip()
+        or str(primary_hint.get("template_id") or "").strip()
+    )
+    provenance = {
+        "blueprint_id": str(subtask.get("blueprint_id") or "").strip(),
+        "blueprint_name": str(subtask.get("blueprint_name") or "").strip(),
+        "blueprint_artifact_id": str(subtask.get("blueprint_artifact_id") or "").strip(),
+        "blueprint_role_name": blueprint_role_name,
+        "template_name": template_name,
+        "template_id": str(subtask.get("template_id") or "").strip(),
+    }
+    return {key: value for key, value in provenance.items() if value}
+
+
+def _sanitize_role_defaults(subtask: dict[str, Any]) -> dict[str, Any]:
+    explicit_defaults = extract_blueprint_role_defaults(subtask)
+    if explicit_defaults:
+        return explicit_defaults
+
+    role_hints = list(subtask.get("blueprint_role_template_hints") or [])
+    if not role_hints or not isinstance(role_hints[0], dict):
+        return {}
+    hint = dict(role_hints[0])
+    return extract_blueprint_role_defaults(
+        {
+            "blueprint_role_defaults": {
+                "capability_defaults": hint.get("capability_defaults"),
+                "risk_profile": hint.get("risk_profile"),
+                "verification_defaults": hint.get("verification_defaults"),
+            }
+        }
+    )
+
+
+def _merge_verification_defaults(
+    base_verification_spec: dict[str, Any],
+    role_defaults: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(base_verification_spec or {})
+    if not role_defaults:
+        return merged
+
+    merged["blueprint_role_defaults"] = dict(role_defaults)
+    verification_defaults = role_defaults.get("verification_defaults")
+    if not isinstance(verification_defaults, dict):
+        return merged
+
+    if bool(verification_defaults.get("required")):
+        merged["required"] = True
+    if bool(verification_defaults.get("policy")):
+        merged["policy"] = True
+
+    gates: list[str] = []
+    for item in list(verification_defaults.get("gates") or []):
+        gate = str(item).strip()
+        if gate and gate not in gates:
+            gates.append(gate)
+    if gates:
+        existing_gates = [
+            str(item).strip()
+            for item in list(merged.get("required_gates") or [])
+            if str(item).strip()
+        ]
+        for gate in gates:
+            if gate not in existing_gates:
+                existing_gates.append(gate)
+        merged["required_gates"] = existing_gates
+    return merged
 
 
 def get_goal_feature_flags() -> dict[str, bool]:
@@ -249,6 +332,8 @@ class PlanningService:
             node_keys.append(node_key)
             task_kind = _infer_subtask_task_kind(subtask)
             retrieval_hints = _retrieval_hints_for_task_kind(task_kind)
+            blueprint_provenance = _sanitize_blueprint_provenance(subtask)
+            role_defaults = _sanitize_role_defaults(subtask)
             required_capabilities = derive_required_capabilities(
                 {
                     "title": str(subtask.get("title") or ""),
@@ -256,6 +341,10 @@ class PlanningService:
                     "task_kind": task_kind,
                 },
                 task_kind,
+            )
+            required_capabilities = merge_capabilities_with_blueprint_defaults(
+                required_capabilities,
+                {"blueprint_role_defaults": role_defaults},
             )
             raw_depends_on = list(subtask.get("depends_on") or [])
             depends_on: list[str] = []
@@ -292,9 +381,18 @@ class PlanningService:
                         "risk_focus": subtask.get("risk_focus"),
                         "test_focus": subtask.get("test_focus"),
                         "review_focus": subtask.get("review_focus"),
+                        **blueprint_provenance,
+                        **({"blueprint_role_defaults": role_defaults} if role_defaults else {}),
                     },
-                    verification_spec=default_verification_spec(
-                        {"task_kind": task_kind, "title": subtask.get("title"), "description": subtask.get("description")}
+                    verification_spec=_merge_verification_defaults(
+                        default_verification_spec(
+                            {
+                                "task_kind": task_kind,
+                                "title": subtask.get("title"),
+                                "description": subtask.get("description"),
+                            }
+                        ),
+                        role_defaults,
                     ),
                 )
             )
