@@ -1,37 +1,51 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
-  "track": "n8n_integration_worker",
-  "purpose": "Evaluate and integrate n8n as a policy-gated external workflow/integration worker for Ananta. n8n should be used for connector-heavy, webhook-driven and low/medium-risk automation flows while Ananta Hub remains the owner of policy, approval, state, audit, task planning and artifact verification.",
+  "track": "workflow_automation_adapter_layer",
+  "purpose": "Create a generic, optional Workflow Automation Adapter layer for external automation engines such as n8n, Node-RED, Activepieces, Huginn, Windmill, Temporal-style workflow services or simple webhook runners. n8n is only the first/reference provider. Ananta Hub remains owner of policy, approval, state, audit, task planning and artifact verification.",
   "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "design_principles": [
     "Ananta Hub owns policy, approval, audit, task state, artifact contracts and orchestration.",
-    "n8n is an external workflow execution adapter, not an autonomous Ananta planner and not a replacement for native workers.",
-    "All n8n workflow execution must be capability-gated and policy-checked by the Hub before invocation.",
-    "Default mode is dry-run/read-only/sandboxed where possible.",
+    "External workflow engines are optional workflow execution adapters, not autonomous Ananta planners and not replacements for native workers.",
+    "n8n is a provider implementation behind a generic workflow automation interface, not a core dependency.",
+    "All workflow execution must be capability-gated and policy-checked by the Hub before invocation.",
+    "Default mode is disabled unless explicitly configured; first enabled mode should be dry-run/read-only where possible.",
+    "Ananta must start, test and run without n8n or any other workflow engine installed or reachable.",
     "Secrets and credentials must stay behind explicit boundaries and must not be copied into task prompts, logs or artifacts.",
-    "n8n results must return as structured Ananta artifacts/results with provenance, status and redaction.",
-    "No n8n workflow may bypass Ananta approval, release gates or worker/tool policy."
+    "Workflow results must return as structured Ananta artifacts/results with provenance, status and redaction.",
+    "No workflow engine may bypass Ananta approval, release gates or worker/tool policy."
+  ],
+  "supported_provider_candidates": [
+    "n8n as first/reference provider for connector-heavy workflows.",
+    "Node-RED as lightweight event/IoT/webhook workflow provider candidate.",
+    "Activepieces as open-source automation provider candidate.",
+    "Huginn as self-hosted agent/event automation provider candidate.",
+    "Windmill as script/workflow/job runner candidate, higher risk for code execution.",
+    "Simple generic webhook provider for minimal integrations without a full workflow engine.",
+    "Temporal or similar durable workflow services as deferred advanced provider candidate."
   ],
   "non_goals": [
-    "Do not replace Ananta Hub orchestration with n8n workflow logic.",
-    "Do not let n8n decide task priority, approval, security level or autonomous code changes.",
-    "Do not expose unrestricted n8n credentials to Ananta workers or LLM prompts.",
-    "Do not auto-enable write/admin n8n workflows by default.",
-    "Do not require n8n for basic Ananta local-dev usage.",
-    "Do not make n8n a hard dependency of the core OSS golden path."
+    "Do not replace Ananta Hub orchestration with external workflow logic.",
+    "Do not let workflow engines decide task priority, approval, security level or autonomous code changes.",
+    "Do not expose unrestricted external credentials to Ananta workers or LLM prompts.",
+    "Do not auto-enable write/admin workflows by default.",
+    "Do not require n8n or any workflow engine for basic Ananta local-dev usage.",
+    "Do not make any workflow provider a hard dependency of the core OSS golden path.",
+    "Do not implement multiple providers before the generic interface and one mocked/reference provider are stable."
   ],
   "success_criteria": [
-    "Ananta can register n8n as an optional external workflow backend/worker adapter.",
-    "The Hub can list allowed n8n workflows with declared capabilities, risk class, input schema and output artifact schema.",
-    "The Hub can start a policy-approved n8n workflow and correlate the callback/result to an Ananta task/trace.",
-    "n8n execution results are stored as Ananta ResultArtifact/IntegrationRunArtifact-like outputs with provenance.",
+    "Ananta can register optional external workflow backends through a generic provider interface.",
+    "The Hub can list allowed workflows with declared provider, capabilities, risk class, input schema and output artifact schema.",
+    "The Hub can start a policy-approved workflow and correlate the callback/result to an Ananta task/trace.",
+    "n8n is implemented only as one provider behind the generic interface.",
+    "A generic webhook/mock provider exists for tests so no live n8n is required.",
+    "Execution results are stored as provider-neutral IntegrationRunArtifact-like outputs with provenance.",
     "Dry-run/test mode works without real external credentials.",
     "Write/admin workflows require explicit capability and approval.",
     "Secrets are redacted in logs, task history and artifacts.",
-    "Docs clearly distinguish n8n learning/UX patterns from n8n-as-worker integration."
+    "Docs clearly distinguish generic workflow adapter, n8n provider, provider alternatives and core Ananta behavior."
   ],
   "recommended_use_cases": [
     "Slack/Matrix/Telegram/email notifications after task state changes.",
@@ -43,325 +57,63 @@
   ],
   "forbidden_or_deferred_use_cases": [
     "Auto-merge, auto-push or direct production mutation without Ananta approval.",
-    "Unbounded shell execution through n8n.",
+    "Unbounded shell execution through external workflow engines.",
     "Credential discovery or credential exfiltration flows.",
-    "Letting n8n invoke arbitrary Ananta tools without Hub-issued scoped token/capability.",
-    "Using n8n as the source of truth for Ananta task/plan state."
+    "Letting workflow providers invoke arbitrary Ananta tools without Hub-issued scoped token/capability.",
+    "Using workflow providers as the source of truth for Ananta task/plan state."
   ],
   "milestones": [
-    {"id": "N8N-M1", "title": "Architecture and boundaries", "task_ids": ["N8N-T01", "N8N-T02", "N8N-T03"], "status": "todo"},
-    {"id": "N8N-M2", "title": "Workflow registry and capability model", "task_ids": ["N8N-T04", "N8N-T05", "N8N-T06"], "status": "todo"},
-    {"id": "N8N-M3", "title": "Execution adapter and callbacks", "task_ids": ["N8N-T07", "N8N-T08", "N8N-T09", "N8N-T10"], "status": "todo"},
-    {"id": "N8N-M4", "title": "Security, credentials and audit", "task_ids": ["N8N-T11", "N8N-T12", "N8N-T13"], "status": "todo"},
-    {"id": "N8N-M5", "title": "Dogfood workflows, docs and tests", "task_ids": ["N8N-T14", "N8N-T15", "N8N-T16", "N8N-T17"], "status": "todo"}
+    {"id": "WFA-M1", "title": "Generic architecture and boundaries", "task_ids": ["WFA-T01", "WFA-T02", "WFA-T03"], "status": "todo"},
+    {"id": "WFA-M2", "title": "Provider-neutral registry and capability model", "task_ids": ["WFA-T04", "WFA-T05", "WFA-T06"], "status": "todo"},
+    {"id": "WFA-M3", "title": "Execution adapter and callbacks", "task_ids": ["WFA-T07", "WFA-T08", "WFA-T09", "WFA-T10"], "status": "todo"},
+    {"id": "WFA-M4", "title": "Security, credentials and audit", "task_ids": ["WFA-T11", "WFA-T12", "WFA-T13"], "status": "todo"},
+    {"id": "WFA-M5", "title": "n8n reference provider and dogfood", "task_ids": ["WFA-T14", "WFA-T15", "WFA-T16", "WFA-T17"], "status": "todo"}
   ],
   "tasks": [
-    {
-      "id": "N8N-T01",
-      "title": "n8n integration boundary ADR add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [],
-      "expected_files": ["docs/decisions/ADR-n8n-as-policy-gated-integration-worker.md"],
-      "acceptance_criteria": [
-        "ADR defines n8n as optional external workflow/integration worker.",
-        "ADR states that Ananta Hub remains owner of policy, state, approval, audit and artifact verification.",
-        "ADR defines read-only/dry-run-first integration stance.",
-        "ADR lists forbidden uses such as auto-merge, unrestricted shell and credential exfiltration.",
-        "ADR explains relation to MCP/external tool integration boundaries."
-      ]
-    },
-    {
-      "id": "N8N-T02",
-      "title": "n8n UX learnings document add",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["N8N-T01"],
-      "expected_files": ["docs/research/n8n-ux-lessons-for-ananta.md"],
-      "acceptance_criteria": [
-        "Document captures useful n8n patterns: visible execution history, node/connector model, retry paths, trigger model, credential UX and manual approval nodes.",
-        "Document explicitly avoids copying n8n as Ananta's core architecture.",
-        "Document maps learnings to Ananta surfaces: Hub, task board, artifact view, TUI/Web, integration registry."
-      ]
-    },
-    {
-      "id": "N8N-T03",
-      "title": "n8n optional runtime profile add",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["todo.bootstrap-update.json", "N8N-T01"],
-      "expected_files": ["docs/setup/n8n-runtime-profile.md", "agent/cli/init_wizard.py"],
-      "acceptance_criteria": [
-        "n8n is represented as optional integration runtime profile, not required local-dev dependency.",
-        "ananta init can mention or configure n8n endpoint only when user selects external workflow integration.",
-        "Docker/Compose n8n path is optional and documented separately.",
-        "No n8n credential is required for normal Ananta CLI usage."
-      ]
-    },
-    {
-      "id": "N8N-T04",
-      "title": "n8n workflow descriptor schema add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["N8N-T01"],
-      "expected_files": ["schemas/integrations/n8n_workflow_descriptor.v1.json", "tests/test_n8n_workflow_descriptor_schema.py"],
-      "acceptance_criteria": [
-        "Schema describes workflow_id, display_name, description, trigger_url or workflow_ref, input_schema, output_schema, capability, risk_class, default_mode and approval_required.",
-        "Schema distinguishes read, write and admin workflow classes.",
-        "Schema supports dry_run_supported and callback_required flags.",
-        "Schema includes secret_ref names but not secret values.",
-        "Tests validate minimal read-only descriptor and full write workflow descriptor."
-      ]
-    },
-    {
-      "id": "N8N-T05",
-      "title": "n8n workflow registry service add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["N8N-T04"],
-      "expected_files": ["agent/services/n8n_workflow_registry.py", "tests/test_n8n_workflow_registry.py"],
-      "acceptance_criteria": [
-        "Registry loads workflow descriptors from config/integrations/n8n_workflows.json or injected test fixture.",
-        "Unknown workflows are unavailable by default.",
-        "Registry returns capability, risk_class, approval_required, dry_run_supported and input/output schema metadata.",
-        "Registry exposes degraded/disabled state when n8n endpoint is not configured.",
-        "Tests cover valid descriptors, unknown workflow, invalid descriptor and deterministic ordering."
-      ]
-    },
-    {
-      "id": "N8N-T06",
-      "title": "n8n capabilities map to Ananta policy add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["N8N-T05", "todo.security.json"],
-      "expected_files": ["agent/services/n8n_policy_adapter.py", "tests/test_n8n_policy_adapter.py"],
-      "acceptance_criteria": [
-        "Adapter maps workflow descriptor capability/risk/write class to existing Hub policy decision flow.",
-        "Read-only workflows can be allowed by policy without approval only when configured safe.",
-        "Write/admin workflows require explicit capability and approval according to policy.",
-        "Policy adapter cannot weaken existing Hub policy or approval gates.",
-        "Tests cover allow, confirm-required and blocked decisions."
-      ]
-    },
-    {
-      "id": "N8N-T07",
-      "title": "n8n execution request model add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["N8N-T05", "N8N-T06"],
-      "expected_files": ["agent/models.py", "tests/test_n8n_execution_models.py"],
-      "acceptance_criteria": [
-        "Request model includes workflow_id, task_id, goal_id, trace_id, input payload, dry_run and requested_by.",
-        "Model validates input against descriptor schema where feasible.",
-        "Model rejects unknown workflow_id before execution.",
-        "Model carries correlation_id for callback/result matching.",
-        "Tests cover valid request, unknown workflow and invalid payload."
-      ]
-    },
-    {
-      "id": "N8N-T08",
-      "title": "n8n execution adapter add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["N8N-T07"],
-      "expected_files": ["agent/services/n8n_execution_adapter.py", "tests/test_n8n_execution_adapter.py"],
-      "acceptance_criteria": [
-        "Adapter invokes n8n webhook/workflow endpoint only after registry and policy checks pass.",
-        "Adapter supports dry-run mode that does not call real external n8n by default in tests.",
-        "Adapter attaches correlation_id, task_id, goal_id and trace_id to requests.",
-        "Adapter handles timeout, non-2xx response and malformed response as structured degraded result.",
-        "Adapter redacts secrets before logging or returning errors.",
-        "Tests use mocked HTTP client and do not require live n8n."
-      ]
-    },
-    {
-      "id": "N8N-T09",
-      "title": "n8n callback receiver add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["N8N-T08"],
-      "expected_files": ["agent/routes/integrations_n8n.py", "tests/test_n8n_callback_receiver.py"],
-      "acceptance_criteria": [
-        "Callback route accepts n8n result payloads with correlation_id.",
-        "Callback verifies shared secret/signature or scoped token.",
-        "Callback rejects unknown correlation_id and invalid auth.",
-        "Callback stores result as structured integration result/artifact or task history entry according to existing artifact flow.",
-        "Tests cover accepted callback, invalid auth, unknown correlation and redaction."
-      ]
-    },
-    {
-      "id": "N8N-T10",
-      "title": "n8n IntegrationRunArtifact mapping add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["N8N-T08", "N8N-T09"],
-      "expected_files": ["schemas/artifacts/n8n_integration_run_artifact.v1.json", "tests/test_n8n_artifact_mapping.py"],
-      "acceptance_criteria": [
-        "Artifact schema captures workflow_id, workflow_name, correlation_id, input_summary, output_summary, status, timestamps, external_run_ref and provenance.",
-        "Artifact never stores secret values.",
-        "Artifact records dry_run/read/write/admin class and approval reference when applicable.",
-        "Tests validate success, failed and dry-run artifact examples."
-      ]
-    },
-    {
-      "id": "N8N-T11",
-      "title": "n8n credential boundary document add",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["N8N-T01"],
-      "expected_files": ["docs/security/n8n-credential-boundary.md"],
-      "acceptance_criteria": [
-        "Document explains that n8n credentials remain in n8n or configured secret store, not in prompts or task payloads.",
-        "Document defines secret_ref usage and redaction requirements.",
-        "Document lists unsafe patterns that must be blocked.",
-        "Document explains least-privilege scoped webhook/token setup.",
-        "Document covers local-dev vs team/strict deployment differences."
-      ]
-    },
-    {
-      "id": "N8N-T12",
-      "title": "n8n audit event coverage add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["N8N-T08", "N8N-T09"],
-      "expected_files": ["agent/services/n8n_execution_adapter.py", "agent/routes/integrations_n8n.py", "tests/test_n8n_audit_events.py"],
-      "acceptance_criteria": [
-        "Audit logs record workflow requested, policy decision, execution started, callback received, result stored and failure/degraded states.",
-        "Audit records include task_id, goal_id, trace_id, workflow_id and correlation_id.",
-        "Audit records do not include secret values or raw credential-bearing payloads.",
-        "Tests verify audit coverage for success and blocked execution."
-      ]
-    },
-    {
-      "id": "N8N-T13",
-      "title": "n8n outbound token and signature verification add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["N8N-T09", "N8N-T11"],
-      "expected_files": ["agent/services/n8n_auth.py", "tests/test_n8n_auth.py"],
-      "acceptance_criteria": [
-        "Provides helper for generating/verifying scoped n8n callback tokens or HMAC signatures.",
-        "Tokens/signatures are bound to correlation_id or workflow_id where feasible.",
-        "Replay protection is documented or implemented with timestamp/nonce if feasible.",
-        "Tests cover valid signature, invalid signature, expired timestamp and wrong correlation_id."
-      ]
-    },
-    {
-      "id": "N8N-T14",
-      "title": "n8n notification workflow dogfood descriptor add",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["N8N-T05"],
-      "expected_files": ["config/integrations/n8n_workflows.example.json", "docs/integrations/n8n.md"],
-      "acceptance_criteria": [
-        "Example descriptor defines a low-risk notification workflow such as task status digest or artifact-ready notification.",
-        "Example is dry-run/read-only by default.",
-        "Docs explain how to map the descriptor to an actual n8n webhook URL.",
-        "No real credentials are included."
-      ]
-    },
-    {
-      "id": "N8N-T15",
-      "title": "n8n GitHub/Jira comment workflow design add",
-      "status": "deferred",
-      "priority": "P3",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["N8N-T06", "N8N-T10"],
-      "expected_files": ["docs/integrations/n8n-github-jira-workflows.md"],
-      "acceptance_criteria": [
-        "Design explains how approved ReviewArtifacts could be posted to GitHub/Jira through n8n.",
-        "Design keeps outbound posting separate from code mutation and auto-merge.",
-        "Design requires redaction and approval for write workflows.",
-        "Implementation remains deferred until core n8n adapter and PR-review agent are stable."
-      ]
-    },
-    {
-      "id": "N8N-T16",
-      "title": "n8n integration docs add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["N8N-T08", "N8N-T11", "N8N-T14"],
-      "expected_files": ["docs/integrations/n8n.md", "README.md"],
-      "acceptance_criteria": [
-        "Docs explain n8n as optional integration worker.",
-        "Docs show local-dev dry-run setup and optional real n8n endpoint setup.",
-        "Docs show workflow descriptor example and callback flow.",
-        "Docs explain security boundaries and what n8n must not do.",
-        "README only mentions n8n as optional integration, not core dependency."
-      ]
-    },
-    {
-      "id": "N8N-T17",
-      "title": "n8n integration smoke and release-gate checks add",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["N8N-T08", "N8N-T09", "N8N-T10"],
-      "expected_files": ["tests/smoke/test_n8n_integration_smoke.py", "scripts/run_release_gate.py"],
-      "acceptance_criteria": [
-        "Smoke test verifies registry load, policy block/allow path, dry-run execution and callback parsing without live n8n.",
-        "Release gate can include n8n smoke only when n8n integration runtime is claimed.",
-        "Smoke fails if execution adapter can call unknown workflow or bypass policy.",
-        "Smoke fails if secret-looking values appear in result artifacts or audit logs."
-      ]
-    }
+    {"id": "WFA-T01", "title": "Workflow adapter boundary ADR add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": [], "expected_files": ["docs/decisions/ADR-workflow-automation-adapters.md"], "acceptance_criteria": ["ADR defines external workflow engines as optional integration workers.", "ADR states that Ananta Hub remains owner of policy, state, approval, audit and artifact verification.", "ADR defines provider-neutral adapter interface and n8n as reference provider only.", "ADR defines disabled-by-default and read-only/dry-run-first integration stance.", "ADR lists forbidden uses such as auto-merge, unrestricted shell and credential exfiltration.", "ADR explains relation to MCP/external tool integration boundaries."]},
+    {"id": "WFA-T02", "title": "Workflow UX learnings document add", "status": "todo", "priority": "P2", "risk": "low", "blocking": false, "depends_on": ["WFA-T01"], "expected_files": ["docs/research/workflow-automation-ux-lessons.md"], "acceptance_criteria": ["Document captures useful patterns from n8n and alternatives: visible execution history, node/connector model, retry paths, trigger model, credential UX and manual approval nodes.", "Document explicitly avoids copying workflow engines as Ananta's core architecture.", "Document maps learnings to Ananta surfaces: Hub, task board, artifact view, TUI/Web, integration registry."]},
+    {"id": "WFA-T03", "title": "Optional workflow runtime profile add", "status": "todo", "priority": "P2", "risk": "medium", "blocking": false, "depends_on": ["todo.bootstrap-update.json", "WFA-T01"], "expected_files": ["docs/setup/workflow-automation-runtime-profile.md", "agent/cli/init_wizard.py"], "acceptance_criteria": ["Workflow automation is represented as optional integration runtime profile, not required local-dev dependency.", "ananta init can mention or configure workflow provider endpoint only when user selects external workflow integration.", "Docker/Compose n8n path is optional and documented separately.", "No workflow provider credential is required for normal Ananta CLI usage."]},
+    {"id": "WFA-T04", "title": "Provider-neutral workflow descriptor schema add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["WFA-T01"], "expected_files": ["schemas/integrations/workflow_descriptor.v1.json", "tests/test_workflow_descriptor_schema.py"], "acceptance_criteria": ["Schema describes provider, workflow_id, display_name, description, trigger_url or workflow_ref, input_schema, output_schema, capability, risk_class, default_mode and approval_required.", "Schema distinguishes read, write and admin workflow classes.", "Schema supports dry_run_supported and callback_required flags.", "Schema includes secret_ref names but not secret values.", "Tests validate generic webhook descriptor, minimal n8n descriptor and full write workflow descriptor."]},
+    {"id": "WFA-T05", "title": "Workflow registry service add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["WFA-T04"], "expected_files": ["agent/services/workflow_registry.py", "tests/test_workflow_registry.py"], "acceptance_criteria": ["Registry loads workflow descriptors from config/integrations/workflows.json or injected test fixture.", "Unknown workflows are unavailable by default.", "Registry returns provider, capability, risk_class, approval_required, dry_run_supported and input/output schema metadata.", "Registry exposes degraded/disabled state when provider endpoint is not configured.", "Tests cover valid descriptors, unknown workflow, invalid descriptor and deterministic ordering."]},
+    {"id": "WFA-T06", "title": "Workflow capabilities map to Ananta policy add", "status": "todo", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["WFA-T05", "todo.security.json"], "expected_files": ["agent/services/workflow_policy_adapter.py", "tests/test_workflow_policy_adapter.py"], "acceptance_criteria": ["Adapter maps workflow descriptor capability/risk/write class to existing Hub policy decision flow.", "Read-only workflows can be allowed by policy without approval only when configured safe.", "Write/admin workflows require explicit capability and approval according to policy.", "Policy adapter cannot weaken existing Hub policy or approval gates.", "Tests cover allow, confirm-required and blocked decisions."]},
+    {"id": "WFA-T07", "title": "Workflow execution request model add", "status": "todo", "priority": "P1", "risk": "high", "blocking": true, "depends_on": ["WFA-T05", "WFA-T06"], "expected_files": ["agent/models.py", "tests/test_workflow_execution_models.py"], "acceptance_criteria": ["Request model includes provider, workflow_id, task_id, goal_id, trace_id, input payload, dry_run and requested_by.", "Model validates input against descriptor schema where feasible.", "Model rejects unknown provider/workflow_id before execution.", "Model carries correlation_id for callback/result matching.", "Tests cover valid request, unknown workflow and invalid payload."]},
+    {"id": "WFA-T08", "title": "Provider-neutral workflow execution adapter add", "status": "todo", "priority": "P1", "risk": "critical", "blocking": true, "depends_on": ["WFA-T07"], "expected_files": ["agent/services/workflow_execution_adapter.py", "tests/test_workflow_execution_adapter.py"], "acceptance_criteria": ["Adapter dispatches to configured provider implementation only after registry and policy checks pass.", "Adapter supports dry-run mode that does not call real external providers by default in tests.", "Adapter attaches correlation_id, task_id, goal_id and trace_id to requests.", "Adapter handles timeout, non-2xx response and malformed response as structured degraded result.", "Adapter redacts secrets before logging or returning errors.", "Tests use mocked provider clients and do not require live n8n or other workflow engines."]},
+    {"id": "WFA-T09", "title": "Workflow callback receiver add", "status": "todo", "priority": "P1", "risk": "high", "blocking": true, "depends_on": ["WFA-T08"], "expected_files": ["agent/routes/integrations_workflows.py", "tests/test_workflow_callback_receiver.py"], "acceptance_criteria": ["Callback route accepts provider result payloads with correlation_id.", "Callback verifies shared secret/signature or scoped token.", "Callback rejects unknown correlation_id and invalid auth.", "Callback stores result as structured integration result/artifact or task history entry according to existing artifact flow.", "Tests cover accepted callback, invalid auth, unknown correlation and redaction."]},
+    {"id": "WFA-T10", "title": "Provider-neutral IntegrationRunArtifact mapping add", "status": "todo", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["WFA-T08", "WFA-T09"], "expected_files": ["schemas/artifacts/workflow_integration_run_artifact.v1.json", "tests/test_workflow_artifact_mapping.py"], "acceptance_criteria": ["Artifact schema captures provider, workflow_id, workflow_name, correlation_id, input_summary, output_summary, status, timestamps, external_run_ref and provenance.", "Artifact never stores secret values.", "Artifact records dry_run/read/write/admin class and approval reference when applicable.", "Tests validate success, failed and dry-run artifact examples."]},
+    {"id": "WFA-T11", "title": "Workflow credential boundary document add", "status": "todo", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["WFA-T01"], "expected_files": ["docs/security/workflow-credential-boundary.md"], "acceptance_criteria": ["Document explains that provider credentials remain in the provider or configured secret store, not in prompts or task payloads.", "Document defines secret_ref usage and redaction requirements.", "Document lists unsafe patterns that must be blocked.", "Document explains least-privilege scoped webhook/token setup.", "Document covers local-dev vs team/strict deployment differences."]},
+    {"id": "WFA-T12", "title": "Workflow audit event coverage add", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["WFA-T08", "WFA-T09"], "expected_files": ["agent/services/workflow_execution_adapter.py", "agent/routes/integrations_workflows.py", "tests/test_workflow_audit_events.py"], "acceptance_criteria": ["Audit logs record workflow requested, policy decision, execution started, callback received, result stored and failure/degraded states.", "Audit records include task_id, goal_id, trace_id, provider, workflow_id and correlation_id.", "Audit records do not include secret values or raw credential-bearing payloads.", "Tests verify audit coverage for success and blocked execution."]},
+    {"id": "WFA-T13", "title": "Workflow callback token and signature verification add", "status": "todo", "priority": "P1", "risk": "critical", "blocking": true, "depends_on": ["WFA-T09", "WFA-T11"], "expected_files": ["agent/services/workflow_auth.py", "tests/test_workflow_auth.py"], "acceptance_criteria": ["Provides helper for generating/verifying scoped workflow callback tokens or HMAC signatures.", "Tokens/signatures are bound to correlation_id, provider or workflow_id where feasible.", "Replay protection is documented or implemented with timestamp/nonce if feasible.", "Tests cover valid signature, invalid signature, expired timestamp and wrong correlation_id."]},
+    {"id": "WFA-T14", "title": "Generic webhook/mock provider add", "status": "todo", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": ["WFA-T08"], "expected_files": ["agent/services/workflow_providers/generic_webhook.py", "agent/services/workflow_providers/mock_provider.py", "tests/test_workflow_generic_webhook_provider.py"], "acceptance_criteria": ["Generic webhook provider can call a configured URL in dry-run or mocked mode.", "Mock provider supports deterministic tests without network.", "Provider interface is documented in code and tests.", "Unknown provider is blocked by default.", "Tests verify provider dispatch without n8n installed."]},
+    {"id": "WFA-T15", "title": "n8n reference provider add", "status": "deferred", "priority": "P2", "risk": "high", "blocking": false, "depends_on": ["WFA-T14"], "expected_files": ["agent/services/workflow_providers/n8n_provider.py", "tests/test_workflow_n8n_provider.py"], "acceptance_criteria": ["n8n provider implements the generic workflow provider interface.", "n8n-specific endpoint/auth handling remains isolated in n8n_provider.py.", "No core Ananta code imports n8n-specific provider except through provider registry/factory.", "Tests use mocked HTTP client and do not require live n8n."]},
+    {"id": "WFA-T16", "title": "Workflow notification dogfood descriptor add", "status": "todo", "priority": "P2", "risk": "medium", "blocking": false, "depends_on": ["WFA-T05", "WFA-T14"], "expected_files": ["config/integrations/workflows.example.json", "docs/integrations/workflow-automation.md"], "acceptance_criteria": ["Example descriptor defines a low-risk notification workflow such as task status digest or artifact-ready notification.", "Example can run with mock/generic webhook provider before n8n exists.", "Example is dry-run/read-only by default.", "Docs explain how to map the descriptor to an actual n8n or other provider webhook URL.", "No real credentials are included."]},
+    {"id": "WFA-T17", "title": "Workflow integration docs and smoke checks add", "status": "todo", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["WFA-T08", "WFA-T09", "WFA-T10", "WFA-T14"], "expected_files": ["docs/integrations/workflow-automation.md", "README.md", "tests/smoke/test_workflow_integration_smoke.py", "scripts/run_release_gate.py"], "acceptance_criteria": ["Docs explain generic workflow automation adapters as optional integration workers.", "Docs explain n8n as one optional provider, not core dependency.", "Docs mention alternatives and provider interface boundaries.", "Smoke test verifies registry load, policy block/allow path, dry-run execution and callback parsing without live n8n.", "Release gate includes workflow smoke only when workflow automation runtime is claimed.", "Smoke fails if adapter can call unknown workflow/provider or bypass policy.", "README only mentions workflow automation as optional integration, not core dependency."]}
   ],
   "execution_order_summary": [
-    "Start with the ADR and credential boundary so n8n cannot become a second uncontrolled automation plane.",
-    "Add workflow descriptor schema and registry before any execution adapter.",
+    "Start with provider-neutral ADR and credential boundary so workflow engines cannot become a second uncontrolled automation plane.",
+    "Add provider-neutral descriptor schema and registry before any execution adapter.",
     "Wire policy adapter before live invocation.",
-    "Implement dry-run/mocked execution adapter first, then callback receiver and artifact mapping.",
+    "Implement dry-run/mocked provider and generic webhook provider first.",
+    "Only then add n8n as a reference provider behind the generic interface.",
     "Add audit/signature/redaction tests before enabling write workflows.",
     "Dogfood with a low-risk notification workflow before GitHub/Jira write workflows."
   ],
-  "critical_path_tasks": ["N8N-T01", "N8N-T04", "N8N-T05", "N8N-T06", "N8N-T07", "N8N-T08", "N8N-T09", "N8N-T11", "N8N-T13"],
+  "critical_path_tasks": ["WFA-T01", "WFA-T04", "WFA-T05", "WFA-T06", "WFA-T07", "WFA-T08", "WFA-T09", "WFA-T11", "WFA-T13", "WFA-T14"],
   "tasks_status_summary": {
     "updated_at": "2026-04-25T00:00:00+02:00",
     "total": 17,
     "by_status": {"todo": 16, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 1},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 7, "P1": 6, "P2": 3, "P3": 1},
-    "by_risk": {"low": 3, "medium": 4, "high": 6, "critical": 4},
-    "critical_path": {"total": 9, "done": 0, "remaining": 9},
+    "by_priority": {"P0": 6, "P1": 7, "P2": 4, "P3": 0},
+    "by_risk": {"low": 2, "medium": 5, "high": 6, "critical": 4},
+    "critical_path": {"total": 10, "done": 0, "remaining": 10},
     "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "summary_notes": [
-    "n8n is most useful for integrations, notifications, webhooks and external SaaS workflow glue.",
-    "Ananta should learn from n8n's visible execution history and connector UX, but must not copy n8n as its core architecture.",
-    "The first implementation should be dry-run and mock-friendly so tests do not require a live n8n instance.",
+    "This file intentionally keeps the old filename for continuity, but the actual track is now provider-neutral workflow_automation_adapter_layer.",
+    "n8n is most useful for integrations, notifications, webhooks and external SaaS workflow glue, but it should be only one provider.",
+    "Ananta should learn from n8n and alternatives on visible execution history and connector UX, but must not copy them as its core architecture.",
+    "The first implementation should be dry-run and mock-friendly so tests do not require a live workflow engine.",
     "Write/admin workflows must stay explicit, policy-gated and approval-bound.",
-    "This track pairs naturally with MCP/external tool policy work but should remain optional for OSS local-dev."
+    "This track pairs naturally with MCP/external tool policy work but remains optional for OSS local-dev."
   ]
 }
