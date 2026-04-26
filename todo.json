@@ -30,13 +30,13 @@
       "id": "TDD-M1",
       "title": "Blueprint contract and catalog entry",
       "task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TDD-M2",
       "title": "Task and artifact mapping",
       "task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TDD-M3",
@@ -49,7 +49,7 @@
     {
       "id": "TDD-T01",
       "title": "TDD blueprint definition add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": true,
@@ -68,7 +68,7 @@
     {
       "id": "TDD-T02",
       "title": "TDD work profile hints add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": true,
@@ -88,7 +88,7 @@
     {
       "id": "TDD-T03",
       "title": "TDD blueprint example inputs add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -105,7 +105,7 @@
     {
       "id": "TDD-T04",
       "title": "TDD task decomposition rules define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": true,
@@ -124,7 +124,7 @@
     {
       "id": "TDD-T05",
       "title": "TDD artifact types align with existing Artifact system",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": true,
@@ -144,7 +144,7 @@
     {
       "id": "TDD-T06",
       "title": "TDD policy and approval mapping add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": true,
@@ -225,24 +225,24 @@
   ],
   "critical_path_tasks": ["TDD-T01", "TDD-T02", "TDD-T04", "TDD-T05", "TDD-T06", "TDD-T07"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T09:41:22+02:00",
+    "updated_at": "2026-04-26T09:43:37+02:00",
     "total": 9,
-    "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 3, "in_progress": 0, "blocked": 0, "done": 6},
+    "progress_percent_done": 66.67,
     "by_priority": {"P0": 0, "P1": 6, "P2": 3, "P3": 0},
     "by_risk": {"low": 2, "medium": 4, "high": 3, "critical": 0},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6},
-    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 6, "done": 5, "remaining": 1},
+    "milestones": {"total": 3, "todo": 1, "in_progress": 0, "blocked": 0, "done": 2}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T09:41:22+02:00",
+    "updated_at": "2026-04-26T09:43:37+02:00",
     "stages": {
       "TDD-M1": {
         "title": "Blueprint contract and catalog entry",
         "scope_task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -250,8 +250,8 @@
         "title": "Task and artifact mapping",
         "scope_task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -273,13 +273,14 @@
     "Dependency links are now limited to active in-track tasks so archived-track references do not break validation."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T09:41:22+02:00",
+    "checked_at": "2026-04-26T09:43:37+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Removed archived dependency `todo.ananta-worker.json:AW-T28` from TDD-T07 and replaced it with active prerequisite `TDD-T06`.",
       "Added `scope_rules` to explicitly constrain architecture and evidence semantics.",
       "Added `execution_stage_summary` for milestone-level visibility beyond aggregated status counters.",
-      "Added explicit end summaries for analysis, corrections, improvements and final track state."
+      "Added explicit end summaries for analysis, corrections, improvements and final track state.",
+      "Completed TDD-T01 to TDD-T06: seed blueprint/catalog integration, deterministic TDD decomposition template, worker TDD schemas, and policy mapping docs/tests."
     ]
   },
   "end_summaries": [
@@ -312,9 +313,9 @@
       "summary_id": "TDD-S4",
       "title": "End status",
       "items": [
-        "Current state: 9 tasks (9 todo, 0 in_progress, 0 blocked, 0 done).",
-        "Critical path: 6 total, 0 done, 6 remaining.",
-        "Track is now prepared for execution with validated in-track dependencies and explicit end summaries."
+        "Current state: 9 tasks (3 todo, 0 in_progress, 0 blocked, 6 done).",
+        "Critical path: 6 total, 5 done, 1 remaining.",
+        "Milestones M1 and M2 are complete; remaining scope is tiny-repo smoke, user docs and release-gate hook."
       ]
     }
   ]

@@ -639,6 +639,9 @@ def match_goal_template(goal: str) -> Optional[list[dict]]:
         return GOAL_TEMPLATES[goal]["subtasks"]
 
     lower_goal = goal.lower()
+    tdd_keywords = ("tdd", "test-driven", "test driven", "test-first", "red green", "red-green")
+    if any(keyword in lower_goal for keyword in tdd_keywords):
+        return GOAL_TEMPLATES["tdd"]["subtasks"]
     if any(hint in lower_goal for hint in EXECUTION_FOCUSED_GOAL_HINTS):
         return build_execution_focused_goal_template(goal)
     for template in GOAL_TEMPLATES.values():
