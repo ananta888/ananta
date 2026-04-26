@@ -68,7 +68,7 @@ def check_deep_tests():
     print("\n--- Running Deep Checks ---", flush=True)
     # Fixture repositories under tests/**/fixtures/** contain intentionally isolated
     # test files that are not importable from this repository root test run.
-    # Verbose output makes CI hangs diagnosable by showing the last collected/running test.
+    # Verbose output and faulthandler make CI hangs diagnosable.
     deep_test_command = [
         sys.executable,
         "-m",
@@ -76,6 +76,8 @@ def check_deep_tests():
         "tests",
         "-vv",
         "--durations=25",
+        "-o",
+        "faulthandler_timeout=180",
         "-m",
         "not live_compose",
         "--ignore-glob=tests/**/fixtures/**",
