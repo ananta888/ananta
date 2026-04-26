@@ -1,0 +1,38 @@
+name: Backend Isolated Flows
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-isolated-flows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  isolated-flows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Install backend test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Run isolated backend integration and E2E flows
+        run: >
+          pytest -vv --durations=25 -o faulthandler_timeout=180
+          tests/test_autonomous_scrum_e2e.py
+          tests/test_autopilot_integration.py
+          tests/test_deerflow_integration.py
+          tests/test_e2e_auth.py
+          tests/test_hybrid_orchestrator_load.py
+          tests/test_tasks_opencode_e2e.py
+          tests/test_triggers_e2e.py
