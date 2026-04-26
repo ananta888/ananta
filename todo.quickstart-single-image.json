@@ -44,19 +44,19 @@
       "id": "SIF-M2",
       "title": "Fullstack Rollen aus einem Image",
       "task_ids": ["SIF-T03", "SIF-T04", "SIF-T05", "SIF-T06"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SIF-M3",
       "title": "Verifikation und Release-Evidence",
       "task_ids": ["SIF-T07", "SIF-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "SIF-M4",
       "title": "Doku-Hauptpfad",
       "task_ids": ["SIF-T09", "SIF-T10"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -98,7 +98,7 @@
     {
       "id": "SIF-T03",
       "title": "Fullstack-Overlay aus einem Image erweitern (Evolver/DeerFlow/ml-intern)",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -115,7 +115,7 @@
     {
       "id": "SIF-T04",
       "title": "Rollen-Entrypoint fuer Image-Modi bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -132,7 +132,7 @@
     {
       "id": "SIF-T05",
       "title": "Evolver-Rolle im Single-Image lauffaehig machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -150,7 +150,7 @@
     {
       "id": "SIF-T06",
       "title": "DeerFlow/ml-intern als interne Spezial-Worker-Modi vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -170,7 +170,7 @@
     {
       "id": "SIF-T07",
       "title": "Contract- und Compose-Tests fuer Single-Image-Fullstack ergaenzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -187,7 +187,7 @@
     {
       "id": "SIF-T08",
       "title": "Container-Release Evidence um Single-Image erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -205,7 +205,7 @@
     {
       "id": "SIF-T09",
       "title": "README-Hauptpfad auf Fullstack aus einem Image aktualisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -221,7 +221,7 @@
     {
       "id": "SIF-T10",
       "title": "Quickstart-Doku konsistent ziehen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "blocking": false,
@@ -248,13 +248,13 @@
   "tasks_status_summary": {
     "total": 10,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 2,
+      "done": 10,
       "deferred": 0
     },
-    "progress_percent_done": 20.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 7,
       "P1": 3,
@@ -269,8 +269,8 @@
     },
     "critical_path": {
       "total": 5,
-      "done": 0,
-      "remaining": 5
+      "done": 5,
+      "remaining": 0
     }
   },
   "summary_notes": [
