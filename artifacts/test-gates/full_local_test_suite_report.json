@@ -1,0 +1,18 @@
+{
+  "schema": "full_local_test_suite_v1",
+  "ok": false,
+  "wsl_vulkan_enabled": true,
+  "live_click_mode": "single",
+  "reuse_running_stack": false,
+  "keep_stack_running": false,
+  "checks": [
+    {
+      "name": "check-pipeline-deep",
+      "category": "main",
+      "ok": false,
+      "returncode": 1,
+      "command": "/mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/check_pipeline.py --mode deep",
+      "output_tail": "^^^\ntests/e2e/fixtures/tdd_tiny_repo/tests/test_calc.py:3: in <module>\n    from calc import absolute_gap\nE   ModuleNotFoundError: No module named 'calc'\n____ ERROR collecting tests/e2e/fixtures/tiny_patch_repo/tests/test_calc.py ____\nImportError while importing test module '/mnt/c/Users/pst/IdeaProjects/ananta/tests/e2e/fixtures/tiny_patch_repo/tests/test_calc.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/usr/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/e2e/fixtures/tiny_patch_repo/tests/test_calc.py:3: in <module>\n    from calc import add\nE   ModuleNotFoundError: No module named 'calc'\n=============================== warnings summary ===============================\ntests/test_api_contract_tasks.py:69\n  /mnt/c/Users/pst/IdeaProjects/ananta/tests/test_api_contract_tasks.py:69: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html\n    @pytest.mark.integration\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR tests/e2e/fixtures/tdd_tiny_repo/tests/test_calc.py\nERROR tests/e2e/fixtures/tiny_patch_repo/tests/test_calc.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!\n======================== 1 warning, 2 errors in 45.77s =========================\n\n--- Checking Format (ruff) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m ruff format --check .\n\n--- Checking Lint (ruff) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m ruff check .\n\n--- Checking Types (mypy) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m mypy agent\n\n--- Checking Architecture Rules (BND-010/BND-011) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/check_imports.py\n\n--- Checking Import Cycles (CLN-020) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/check_cycles.py\n\n--- Checking Code Duplicates (CLN-021) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/check_duplicates.py\n\n--- Checking Dead Code (CLN-022) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python scripts/check_dead_code.py\n\n--- Running Fast Tests (pytest) ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m pytest tests/test_system_health_standard.py tests/test_task_state_machine_service.py tests/test_utils_extra.py tests/test_result_memory_service.py tests/test_api_contract_tasks.py tests/test_evolution_engine_contract.py\n\n--- Running Deep Checks ---\nExecuting: /mnt/c/Users/pst/IdeaProjects/ananta/.venv/bin/python -m pytest tests -m not live_compose\n\n\u274c Some checks failed.\n\n"
+    }
+  ]
+}
