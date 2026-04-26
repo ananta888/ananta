@@ -24,6 +24,8 @@ describe('DashboardComponent (benchmarks)', () => {
     taskCollectionError: vi.fn(() => null),
     connectTaskCollection: vi.fn(),
     disconnectTaskCollection: vi.fn(),
+    listInstructionProfiles: vi.fn(() => of([])),
+    listInstructionOverlays: vi.fn(() => of([])),
   };
 
   function createFacade(): DashboardFacade {
@@ -93,6 +95,10 @@ describe('DashboardComponent (benchmarks)', () => {
     };
     cmp.showFirstStartWizard = true;
     cmp.showAdvancedDashboard = false;
+    cmp.instructionProfiles = [];
+    cmp.instructionOverlays = [];
+    cmp.selectedInstructionProfileId = '';
+    cmp.selectedInstructionOverlayId = '';
     cmp.firstStartOptions = [
       { id: 'new-software-project', title: 'Neues Projekt anlegen', description: 'Aus einer Idee Blueprint, Backlog und erste pruefbare Tasks erzeugen.' },
       { id: 'research-evolution', title: 'Mit Research starten', description: 'Ein bestehendes Projekt ueber Recherche, Proposal und Review weiterentwickeln.' },
