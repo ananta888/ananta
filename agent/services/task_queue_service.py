@@ -145,16 +145,16 @@ class TaskQueueService:
                 if dep_task is None:
                     dep_statuses.append(("missing", dep_id))
                 else:
-                    dep_statuses.append((str(dep_task.status or "").lower(), dep_id))
-            my_status = str(task.status or "").lower()
+                    dep_statuses.append((normalize_task_status(getattr(dep_task, "status", None), default=""), dep_id))
+            my_status = normalize_task_status(getattr(task, "status", None), default="todo")
             has_failed = any(status == "failed" for status, _ in dep_statuses)
             all_done = bool(dep_statuses) and all(status == "completed" for status, _ in dep_statuses)
-            if my_status == "blocked" and all_done:
+            if my_status in {"blocked", "blocked_by_dependency"} and all_done:
                 update_local_task_status(task.id, "todo")
                 transitions.append(
                     {"task_id": task.id, "event_type": "dependency_unblocked", "depends_on": deps, "reason": "all_dependencies_completed"}
                 )
-            elif my_status == "blocked" and has_failed:
+            elif my_status in {"blocked", "blocked_by_dependency"} and has_failed:
                 failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
                 update_local_task_status(task.id, "failed", error=f"dependency_failed:{','.join(failed_dependency_ids)}")
                 transitions.append(
@@ -167,7 +167,7 @@ class TaskQueueService:
                     }
                 )
             elif my_status in {"todo", "created", "assigned"} and not all_done:
-                update_local_task_status(task.id, "blocked")
+                update_local_task_status(task.id, "blocked_by_dependency")
                 transitions.append(
                     {"task_id": task.id, "event_type": "dependency_blocked", "depends_on": deps, "reason": "waiting_for_dependencies"}
                 )
