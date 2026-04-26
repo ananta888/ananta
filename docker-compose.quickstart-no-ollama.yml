@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ananta}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
+      POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  # Ohne aktiviertes Profil wird Ollama in diesem Quickstart nicht gestartet.
+  ollama:
+    profiles: ["ollama"]
+
+  autoimport:
+    profiles: ["ollama"]
+
+  ai-agent-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    environment:
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-agent-alpha:
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    environment:
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-agent-hub:
+        condition: service_healthy
+
+  ai-agent-beta:
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    environment:
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-agent-hub:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: ananta_postgres_data
+  redis_data:
+    name: ananta_redis_data
