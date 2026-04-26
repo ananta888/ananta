@@ -8,7 +8,7 @@ from agent.security_risk import classify_command_risk, classify_tool_calls_risk,
 
 _ACTION_CLASSES = {"read_only", "mutation", "system_mutation", "install_remove", "admin_mutation"}
 _DEFAULT_POLICY = {
-    "enabled": True,
+    "enabled": False,
     "enforce_confirm_required": False,
     "governance_overrides": {
         "safe": {
@@ -83,7 +83,7 @@ class ApprovalPolicyService:
     ) -> ApprovalDecision:
         cfg = dict(agent_cfg or {})
         policy = self.normalize_policy(cfg.get("unified_approval_policy"))
-        governance_mode = str(resolve_governance_mode(cfg) or "balanced").strip().lower()
+        governance_mode = str((resolve_governance_mode(cfg) or {}).get("effective") or "balanced").strip().lower()
         if governance_mode not in {"safe", "balanced", "strict"}:
             governance_mode = "balanced"
         operation_class = self._classify_operation(command=command, tool_calls=tool_calls, cfg=cfg)
