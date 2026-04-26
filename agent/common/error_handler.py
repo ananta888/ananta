@@ -5,6 +5,7 @@ from agent.common.errors import (
     PermanentError,
     TransientError,
     api_response,
+    normalize_status_code,
 )
 from agent.common.errors import (
     ValidationError as AnantaValidationError,
@@ -19,7 +20,7 @@ def register_error_handler(app: Flask) -> None:
     def handle_exception(e):
         cid = get_correlation_id()
         if isinstance(e, HTTPException):
-            code = getattr(e, "code", 500) or 500
+            code = normalize_status_code(getattr(e, "code", 500) or 500, default=500)
             if code == 404:
                 logger.info(
                     "Erwarteter HTTP-Fehler %s: %s",
@@ -42,7 +43,8 @@ def register_error_handler(app: Flask) -> None:
                     extra_fields={"cid": cid, "http_status": code, "error_type": type(e).__name__},
                 )
         elif isinstance(e, AnantaError):
-            log_method = logger.warning if getattr(e, "status_code", 500) < 500 else logger.error
+            status_code = normalize_status_code(getattr(e, "status_code", 500), default=500)
+            log_method = logger.warning if status_code < 500 else logger.error
             log_method(
                 "%s: %s",
                 e.__class__.__name__,
@@ -50,7 +52,7 @@ def register_error_handler(app: Flask) -> None:
                 extra_fields={
                     "cid": cid,
                     "error_type": e.__class__.__name__,
-                    "status_code": getattr(e, "status_code", 500),
+                    "status_code": status_code,
                     "retryable": bool(getattr(e, "retryable", False)),
                     "details": getattr(e, "details", None) or {},
                     "path": request.path,
@@ -81,6 +83,6 @@ def register_error_handler(app: Flask) -> None:
                 data["details"] = e.details
             return api_response(status="error", message=str(e), data=data, code=getattr(e, "status_code", 503))
 
-        code = getattr(e, "code", 500) if hasattr(e, "code") else 500
+        code = normalize_status_code(getattr(e, "code", 500) if hasattr(e, "code") else 500, default=500)
         msg = str(e) if code != 500 else "Ein interner Fehler ist aufgetreten."
         return api_response(status="error", message=msg, data={"cid": cid}, code=code)
