@@ -39,7 +39,9 @@ Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwend
 
 Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
 
-## CLI-first Start ohne Docker (lokal)
+## Schnellstart in 5 Minuten
+
+### A) CLI-first ohne Docker (lokal)
 
 Wenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:
 
@@ -58,7 +60,7 @@ Weitere CLI-Einstiege:
 
 Wenn du stattdessen die Web-Oberflaeche und den kompletten Hub/Worker-Stack brauchst, nutze den Docker-Quickstart im naechsten Abschnitt.
 
-## Schnellstart Full-Stack in 5 Minuten (Docker + UI)
+### B) Full-Stack (Docker + UI)
 
 1. Umgebung vorbereiten:
    ```powershell
