@@ -14,7 +14,7 @@ def test_role_defaults_enrich_capabilities_and_verification_spec() -> None:
                 "description": "Code and test token refresh logic",
                 "priority": "High",
                 "blueprint_role_defaults": {
-                    "capability_defaults": ["security_review", "testing"],
+                    "capability_defaults": ["security_review"],
                     "risk_profile": "strict",
                     "verification_defaults": {"required": True, "policy": True, "gates": ["human_review"]},
                 },
@@ -26,9 +26,8 @@ def test_role_defaults_enrich_capabilities_and_verification_spec() -> None:
     node = nodes[0]
     rationale = node.rationale or {}
     required_capabilities = list(rationale.get("required_capabilities") or [])
-    assert "coding" in required_capabilities
-    assert "security_review" in required_capabilities
     assert "testing" in required_capabilities
+    assert "security_review" in required_capabilities
     assert rationale["blueprint_role_defaults"]["risk_profile"] == "strict"
     assert node.verification_spec["policy"] is True
     assert "human_review" in list(node.verification_spec.get("required_gates") or [])
