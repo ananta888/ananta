@@ -198,11 +198,11 @@ jobs:
         with:
           node-version: "20.19.5"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-      - name: Build cached backend compose image
+      - name: Build cached backend compose image (single-image quickstart)
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
-          file: Dockerfile.compose-test
+          file: Dockerfile.quickstart-no-ollama
           tags: ananta-backend-compose-test:local
           load: true
           cache-from: type=gha,scope=compose-backend

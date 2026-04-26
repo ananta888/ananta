@@ -27,12 +27,13 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
       - ./:/app
       - ./data/hub:/app/data
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
       OPENCODE_DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
@@ -49,12 +50,13 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
       - ./:/app
       - ./data/alpha:/app/data
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
       OPENCODE_DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
@@ -72,12 +74,13 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
       - ./:/app
       - ./data/beta:/app/data
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
       DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
       OPENCODE_DEFAULT_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
@@ -95,8 +98,9 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
       OLLAMA_URL: "http://ollama:11434/api/generate"
       OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
@@ -119,8 +123,9 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
       RUN_LIVE_LLM_TESTS: "1"
       LIVE_LLM_PROVIDER: "ollama"

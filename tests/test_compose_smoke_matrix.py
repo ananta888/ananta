@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,3 +41,24 @@ def test_frontend_e2e_scripts_expose_compose_and_lite_entrypoints():
     assert '"test:e2e:lite"' in package_json
     assert '"e2e:stack:up:cpu"' in package_json
     assert "ANANTA_USE_WSL_VULKAN=0" in package_json
+
+
+def test_e2e_compose_backend_services_use_quickstart_single_image_dockerfile():
+    for compose_name in ("docker-compose.test.yml", "docker-compose.github-ci.yml"):
+        data = yaml.safe_load((ROOT / compose_name).read_text(encoding="utf-8"))
+        services = data.get("services", {})
+        for service_name in ("ai-agent-hub", "ai-agent-alpha", "ai-agent-beta"):
+            service = services.get(service_name) or {}
+            build = service.get("build") or {}
+            assert build.get("dockerfile") == "Dockerfile.quickstart-no-ollama", (
+                f"{compose_name}:{service_name} must build from Dockerfile.quickstart-no-ollama"
+            )
+            env = service.get("environment") or {}
+            assert env.get("ANANTA_QUICKSTART_MODE") == "agent-only", (
+                f"{compose_name}:{service_name} must force ANANTA_QUICKSTART_MODE=agent-only"
+            )
+
+
+def test_e2e_ci_builds_backend_compose_image_from_quickstart_single_image():
+    workflow = (ROOT / ".github" / "workflows" / "quality-and-docs.yml").read_text(encoding="utf-8")
+    assert "file: Dockerfile.quickstart-no-ollama" in workflow
