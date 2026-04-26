@@ -36,8 +36,8 @@
     {"id": "PBC-M1", "title": "Inventory and target mapping", "task_ids": ["PBC-T01", "PBC-T02"], "status": "done"},
     {"id": "PBC-M2", "title": "Catalog extraction and adapter", "task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "status": "done"},
     {"id": "PBC-M3", "title": "Strategy migration and legacy cleanup", "task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "status": "done"},
-    {"id": "PBC-M4", "title": "Tests, docs and release evidence", "task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "status": "in_progress"},
-    {"id": "PBC-M5", "title": "Seed blueprint data extraction", "task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "status": "todo"},
+    {"id": "PBC-M4", "title": "Tests, docs and release evidence", "task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "status": "done"},
+    {"id": "PBC-M5", "title": "Seed blueprint data extraction", "task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "status": "done"},
     {"id": "PBC-M6", "title": "Blueprint metadata propagation", "task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "status": "todo"}
   ],
   "tasks": [
@@ -50,11 +50,11 @@
     {"id": "PBC-T07", "title": "planning_utils legacy template API deprecate", "status": "done", "priority": "P1", "risk": "medium", "blocking": true, "depends_on": ["PBC-T06"], "expected_files": ["agent/services/planning_utils.py", "tests/test_planning_utils.py"], "acceptance_criteria": ["GOAL_TEMPLATES is removed from planning_utils.py or kept only as a temporary imported compatibility fixture with explicit deprecation comment.", "match_goal_template either delegates to PlanningTemplateCatalog or is deprecated and no longer used by TemplatePlanningStrategy.", "planning_utils.py still provides sanitize_input, validate_goal, JSON extraction, subtask normalization and followup parsing.", "Tests cover technical utility functions independently from template catalog content."]},
     {"id": "PBC-T08", "title": "Execution-focused fallback move out of planning_utils", "status": "done", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["PBC-T06", "PBC-T07"], "expected_files": ["agent/services/execution_focused_planning.py", "tests/test_execution_focused_planning.py"], "acceptance_criteria": ["EXECUTION_FOCUSED_GOAL_HINTS and build_execution_focused_goal_template move to a dedicated fallback module or catalog entry.", "Fallback behavior remains deterministic for coding/test-heavy goals.", "Fallback is clearly lower priority than exact catalog/blueprint matches.", "Tests cover Python/Fibonacci-style fallback without relying on planning_utils GOAL_TEMPLATES."]},
     {"id": "PBC-T09", "title": "AutoPlanner compatibility regression tests add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T06", "PBC-T07"], "expected_files": ["tests/test_auto_planner_template_compatibility.py"], "acceptance_criteria": ["Tests verify old template ids still produce meaningful subtasks: bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project, project_evolution.", "Tests verify keyword matching still works for representative German and English goal text.", "Tests verify no LLM call is made when a catalog/blueprint template resolves.", "Tests verify fallback to HubCopilot/LLM still works when no template matches."]},
-    {"id": "PBC-T10", "title": "Planning blueprint docs update", "status": "todo", "priority": "P1", "risk": "low", "blocking": false, "depends_on": ["PBC-T06", "PBC-T09"], "expected_files": ["docs/architecture/planning-blueprint-flow.md", "docs/standard-blueprints.md"], "acceptance_criteria": ["Docs explain current planning order: catalog/blueprint template, HubCopilot, LLM fallback.", "Docs explain that Team Blueprints create teams/starter artifacts while PlanningTemplateCatalog provides AutoPlanner subtask templates.", "Docs define how future domain blueprints should provide planning templates without hardcoding Python dictionaries.", "Docs mention legacy planning_utils cleanup status."]},
-    {"id": "PBC-T11", "title": "Release gate planning cleanup check add", "status": "todo", "priority": "P2", "risk": "medium", "blocking": false, "depends_on": ["PBC-T09", "PBC-T10", "PBC-T14"], "expected_files": ["scripts/run_release_gate.py", "tests/test_release_gate_planning_cleanup.py"], "acceptance_criteria": ["Release gate or smoke check catches reintroduction of large hardcoded GOAL_TEMPLATES in planning_utils.py.", "Check catches reintroduction of large SEED_BLUEPRINTS or *_INITIAL_TASKS constants in routes/teams.py after seed catalog migration.", "Check allows technical utility functions in planning_utils.py.", "Check reports actionable failure message pointing to PlanningTemplateCatalog/Blueprint catalog path.", "Test covers a synthetic violation."]},
-    {"id": "PBC-T12", "title": "Seed blueprint catalog JSON extract", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/blueprints/standard/blueprints.json", "schemas/blueprints/seed_blueprint_catalog.v1.json", "tests/test_seed_blueprint_catalog_schema.py"], "acceptance_criteria": ["Moves current standard seed definitions from routes/teams.py into data files without behavior loss.", "Catalog includes Scrum, Scrum-OpenCode, Kanban, Research, Code-Repair, Security-Review, Release-Prep and Research-Evolution if currently present.", "Catalog preserves roles, template names, artifact tasks, policy artifacts, sort order and role config.", "Schema validates blueprint name, base_team_type_name, roles, artifacts and template references.", "Tests validate full seed catalog fixture."]},
-    {"id": "PBC-T13", "title": "Seed blueprint loader service add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T12"], "expected_files": ["agent/services/seed_blueprint_catalog.py", "tests/test_seed_blueprint_catalog.py"], "acceptance_criteria": ["Service loads seed blueprints from config/blueprints/standard/blueprints.json or injected fixture path.", "Service normalizes and validates template specs, role specs, blueprint roles and artifacts.", "Service exposes deterministic seed blueprint payloads for reconcile_seed_blueprints_service.", "Service does not import Flask routes.", "Tests cover normal load, missing file, invalid duplicate role/artifact order and deterministic ordering."]},
-    {"id": "PBC-T14", "title": "routes/teams seed constants replace with loader", "status": "todo", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T13"], "expected_files": ["agent/routes/teams.py", "agent/services/seed_blueprint_catalog.py", "tests/test_team_blueprint_seed_reconcile.py"], "acceptance_criteria": ["routes/teams.py no longer owns large SEED_BLUEPRINTS or *_INITIAL_TASKS data blocks as primary source.", "Existing seed reconciliation still creates/updates the same templates, roles, team types, blueprint roles and artifacts.", "Existing public endpoints for blueprint catalog/list/detail continue working.", "Regression test compares old expected seed names and important artifact counts against loader output.", "Route module remains primarily HTTP/API orchestration and delegates seed data loading to service layer."]},
+    {"id": "PBC-T10", "title": "Planning blueprint docs update", "status": "done", "priority": "P1", "risk": "low", "blocking": false, "depends_on": ["PBC-T06", "PBC-T09"], "expected_files": ["docs/architecture/planning-blueprint-flow.md", "docs/standard-blueprints.md"], "acceptance_criteria": ["Docs explain current planning order: catalog/blueprint template, HubCopilot, LLM fallback.", "Docs explain that Team Blueprints create teams/starter artifacts while PlanningTemplateCatalog provides AutoPlanner subtask templates.", "Docs define how future domain blueprints should provide planning templates without hardcoding Python dictionaries.", "Docs mention legacy planning_utils cleanup status."]},
+    {"id": "PBC-T11", "title": "Release gate planning cleanup check add", "status": "done", "priority": "P2", "risk": "medium", "blocking": false, "depends_on": ["PBC-T09", "PBC-T10", "PBC-T14"], "expected_files": ["scripts/run_release_gate.py", "tests/test_release_gate_planning_cleanup.py"], "acceptance_criteria": ["Release gate or smoke check catches reintroduction of large hardcoded GOAL_TEMPLATES in planning_utils.py.", "Check catches reintroduction of large SEED_BLUEPRINTS or *_INITIAL_TASKS constants in routes/teams.py after seed catalog migration.", "Check allows technical utility functions in planning_utils.py.", "Check reports actionable failure message pointing to PlanningTemplateCatalog/Blueprint catalog path.", "Test covers a synthetic violation."]},
+    {"id": "PBC-T12", "title": "Seed blueprint catalog JSON extract", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/blueprints/standard/blueprints.json", "schemas/blueprints/seed_blueprint_catalog.v1.json", "tests/test_seed_blueprint_catalog_schema.py"], "acceptance_criteria": ["Moves current standard seed definitions from routes/teams.py into data files without behavior loss.", "Catalog includes Scrum, Scrum-OpenCode, Kanban, Research, Code-Repair, Security-Review, Release-Prep and Research-Evolution if currently present.", "Catalog preserves roles, template names, artifact tasks, policy artifacts, sort order and role config.", "Schema validates blueprint name, base_team_type_name, roles, artifacts and template references.", "Tests validate full seed catalog fixture."]},
+    {"id": "PBC-T13", "title": "Seed blueprint loader service add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T12"], "expected_files": ["agent/services/seed_blueprint_catalog.py", "tests/test_seed_blueprint_catalog.py"], "acceptance_criteria": ["Service loads seed blueprints from config/blueprints/standard/blueprints.json or injected fixture path.", "Service normalizes and validates template specs, role specs, blueprint roles and artifacts.", "Service exposes deterministic seed blueprint payloads for reconcile_seed_blueprints_service.", "Service does not import Flask routes.", "Tests cover normal load, missing file, invalid duplicate role/artifact order and deterministic ordering."]},
+    {"id": "PBC-T14", "title": "routes/teams seed constants replace with loader", "status": "done", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T13"], "expected_files": ["agent/routes/teams.py", "agent/services/seed_blueprint_catalog.py", "tests/test_team_blueprint_seed_reconcile.py"], "acceptance_criteria": ["routes/teams.py no longer owns large SEED_BLUEPRINTS or *_INITIAL_TASKS data blocks as primary source.", "Existing seed reconciliation still creates/updates the same templates, roles, team types, blueprint roles and artifacts.", "Existing public endpoints for blueprint catalog/list/detail continue working.", "Regression test compares old expected seed names and important artifact counts against loader output.", "Route module remains primarily HTTP/API orchestration and delegates seed data loading to service layer."]},
     {"id": "PBC-T15", "title": "PlanNode blueprint provenance fields add", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T05", "PBC-T06"], "expected_files": ["agent/services/planning_service.py", "agent/db_models.py", "tests/test_planning_blueprint_provenance.py"], "acceptance_criteria": ["PlanNode rationale or explicit fields preserve blueprint_id, blueprint_name, blueprint_artifact_id, blueprint_role_name and template_name when available.", "Migration is backwards compatible for existing PlanNodeDB rows.", "No client owns or fabricates blueprint provenance.", "Tests verify catalog-only and blueprint-backed planning both produce deterministic provenance metadata."]},
     {"id": "PBC-T16", "title": "Materialized Task blueprint metadata carry-over", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T15"], "expected_files": ["agent/services/lifecycle_service.py", "agent/services/planning_service.py", "tests/test_task_blueprint_metadata.py"], "acceptance_criteria": ["Tasks materialized from PlanNodes carry blueprint provenance in worker_execution_context, history, status details or explicit metadata according to existing TaskDB constraints.", "Task metadata includes role/template/capability defaults when available.", "Existing task materialization without blueprint provenance still works.", "Tests verify metadata is visible to worker/context construction without client-side orchestration."]},
     {"id": "PBC-T17", "title": "Role/template defaults influence PlanNode hints", "status": "todo", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["PBC-T15", "PBC-T16"], "expected_files": ["agent/services/planning_service.py", "agent/services/worker_routing_policy_utils.py", "tests/test_blueprint_role_defaults_planning.py"], "acceptance_criteria": ["When blueprint role config provides capability_defaults, risk_profile or verification_defaults, PlanningService merges them into PlanNode rationale/verification_spec where safe.", "Heuristic title/description capability derivation remains fallback only.", "Role/template defaults cannot weaken Hub policy or approval requirements.", "Tests cover capability enrichment, verification default enrichment and policy-non-bypass behavior."]}
@@ -72,23 +72,23 @@
   ],
   "critical_path_tasks": ["PBC-T01", "PBC-T02", "PBC-T03", "PBC-T04", "PBC-T06", "PBC-T07", "PBC-T09", "PBC-T12", "PBC-T13", "PBC-T14"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T10:47:14+02:00",
+    "updated_at": "2026-04-26T10:58:22+02:00",
     "total": 17,
-    "by_status": {"todo": 8, "in_progress": 0, "blocked": 0, "done": 9},
-    "progress_percent_done": 52.94,
+    "by_status": {"todo": 3, "in_progress": 0, "blocked": 0, "done": 14},
+    "progress_percent_done": 82.35,
     "by_priority": {"P0": 9, "P1": 7, "P2": 1, "P3": 0},
     "by_risk": {"low": 1, "medium": 6, "high": 8, "critical": 2},
-    "critical_path": {"total": 10, "done": 7, "remaining": 3},
-    "milestones": {"total": 6, "todo": 2, "in_progress": 1, "blocked": 0, "done": 3}
+    "critical_path": {"total": 10, "done": 10, "remaining": 0},
+    "milestones": {"total": 6, "todo": 1, "in_progress": 0, "blocked": 0, "done": 5}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T10:47:14+02:00",
+    "updated_at": "2026-04-26T10:58:22+02:00",
     "stages": {
       "PBC-M1": {"title": "Inventory and target mapping", "scope_task_ids": ["PBC-T01", "PBC-T02"], "total": 2, "done": 2, "todo": 0, "in_progress": 0, "blocked": 0},
       "PBC-M2": {"title": "Catalog extraction and adapter", "scope_task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
       "PBC-M3": {"title": "Strategy migration and legacy cleanup", "scope_task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
-      "PBC-M4": {"title": "Tests, docs and release evidence", "scope_task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "total": 3, "done": 1, "todo": 2, "in_progress": 0, "blocked": 0},
-      "PBC-M5": {"title": "Seed blueprint data extraction", "scope_task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "PBC-M4": {"title": "Tests, docs and release evidence", "scope_task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
+      "PBC-M5": {"title": "Seed blueprint data extraction", "scope_task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
       "PBC-M6": {"title": "Blueprint metadata propagation", "scope_task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0}
     }
   },
@@ -108,7 +108,7 @@
     "This track directly supports the desired role/template -> team -> blueprint mechanism becoming the single source of planning truth."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T10:47:14+02:00",
+    "checked_at": "2026-04-26T10:58:22+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Dependency validation result: all depends_on references resolve to in-track task IDs.",
@@ -117,7 +117,8 @@
       "Added explicit stage-level execution summary to support milestone-based progress tracking.",
       "Added scope rules to guard architecture, governance and migration boundaries during implementation.",
       "Completed PBC-T01 to PBC-T04 with inventory + ADR + validated planning template catalog + catalog service/tests.",
-      "Completed PBC-T05 to PBC-T09 with blueprint adapter, strategy migration, planning_utils deprecation path, fallback extraction and compatibility coverage."
+      "Completed PBC-T05 to PBC-T09 with blueprint adapter, strategy migration, planning_utils deprecation path, fallback extraction and compatibility coverage.",
+      "Completed PBC-T10 to PBC-T14 with docs refresh, seed blueprint JSON/schema extraction, loader integration in routes, and release-gate cleanup checks."
     ]
   },
   "end_summaries": [
@@ -150,9 +151,9 @@
       "summary_id": "PBC-S4",
       "title": "End status",
       "items": [
-        "Current state: 17 tasks (8 todo, 0 in_progress, 0 blocked, 9 done).",
-        "Critical path: 10 total, 7 done, 3 remaining.",
-        "Milestones M1, M2 and M3 are complete; M4 is in progress with PBC-T10 and PBC-T11 remaining."
+        "Current state: 17 tasks (3 todo, 0 in_progress, 0 blocked, 14 done).",
+        "Critical path: 10 total, 10 done, 0 remaining.",
+        "Milestones M1 to M5 are complete; only M6 (PBC-T15 to PBC-T17) remains."
       ]
     }
   ]
