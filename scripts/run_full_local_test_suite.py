@@ -116,7 +116,9 @@ def run_full_test_suite(
                 firefox_started = True
             if should_continue:
                 if live_click_mode == "dual":
-                    run_required_step("live-click-dual-benchmark", [python_exec, "scripts/run_live_click_dual_benchmark.py"])
+                    run_required_step(
+                        "live-click-dual-benchmark", [python_exec, "scripts/run_live_click_dual_benchmark.py"]
+                    )
                 else:
                     run_required_step(
                         "live-click-extended",
