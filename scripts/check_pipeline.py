@@ -4,6 +4,18 @@ import sys
 from typing import List, Optional
 
 
+ISOLATED_BACKEND_TEST_FILES = [
+    "tests/test_autonomous_flow_e2e.py",
+    "tests/test_autonomous_scrum_e2e.py",
+    "tests/test_autopilot_integration.py",
+    "tests/test_deerflow_integration.py",
+    "tests/test_e2e_auth.py",
+    "tests/test_hybrid_orchestrator_load.py",
+    "tests/test_tasks_opencode_e2e.py",
+    "tests/test_triggers_e2e.py",
+]
+
+
 def run_command(command: List[str], cwd: Optional[str] = None) -> bool:
     print(f"Executing: {' '.join(command)}", flush=True)
     try:
@@ -68,8 +80,8 @@ def check_deep_tests():
     print("\n--- Running Deep Checks ---", flush=True)
     # Fixture repositories under tests/**/fixtures/** contain intentionally isolated
     # test files that are not importable from this repository root test run.
-    # The autonomous backend flow is still covered by its own isolated CI job;
-    # excluding it here prevents one E2E teardown from blocking the whole sweep.
+    # Expensive E2E/integration/RAG-load flows are covered by their own isolated CI job;
+    # excluding them here prevents teardown/background-thread issues from blocking the sweep.
     deep_test_command = [
         sys.executable,
         "-m",
@@ -82,8 +94,9 @@ def check_deep_tests():
         "-m",
         "not live_compose",
         "--ignore-glob=tests/**/fixtures/**",
-        "--ignore=tests/test_autonomous_flow_e2e.py",
     ]
+    for test_file in ISOLATED_BACKEND_TEST_FILES:
+        deep_test_command.append(f"--ignore={test_file}")
     return run_command(deep_test_command)
 
 
