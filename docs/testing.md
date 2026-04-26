@@ -116,6 +116,7 @@ ANANTA_LIVE_CODE_MOUNT=1 scripts/compose-test-stack.sh up-live
 ## Compose-Standard mit Ollama
 
 Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Frontend und `ollama` als lokalem LLM-Service.
+- Fuer E2E-/Live-Klicktests werden die Backend-Services dabei explizit aus `Dockerfile.quickstart-no-ollama` gebaut (einheitliches auslieferbares Image als Testbasis).
 
 Hinweis fuer GitHub Actions:
 - Der normale GitHub-CI-Pfad nutzt kein echtes LLM.

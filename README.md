@@ -481,6 +481,7 @@ Hinweis Ollama unter WSL2/Vulkan:
 - Das optionale Overlay `docker-compose.ollama-wsl.yml` erweitert nur den `ollama`-Service und laesst Hub/Worker unveraendert.
 - Voraussetzung ist WSL2 mit verfuegbarem `/dev/dxg`; das Overlay bindet zusaetzlich `/usr/lib/wsl` read-only in den Container ein.
 - Fuer E2E-/Klicktests ist dieser Weg jetzt Standard ueber `scripts/compose-test-stack.sh` (Overlay standardmaessig aktiv, Opt-out via `ANANTA_USE_WSL_VULKAN=0`).
+- E2E-/Live-Klicktests verwenden dabei fuer Hub/Worker explizit das vereinfachte Auslieferungs-Image aus `Dockerfile.quickstart-no-ollama`.
 - `scripts/compose-test-stack.sh clean` loescht bewusst **nicht** das Volume `ollama_data` (LLM-Modelle bleiben erhalten).
 
 Linting:

@@ -14,8 +14,9 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
@@ -29,8 +30,9 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
@@ -44,8 +46,9 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: .
-      dockerfile: Dockerfile.compose-test
+      dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
