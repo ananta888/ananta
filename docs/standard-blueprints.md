@@ -22,6 +22,23 @@ Der Katalog liefert zusaetzlich pro Blueprint eine kompakte `work_profile_summar
 - `capability_hints`
 - `governance_profile` (`label`, `hint`)
 
+## Planner-Integration (aktuell)
+
+AutoPlanner nutzt folgende Reihenfolge:
+
+1. `PlanningTemplateCatalog` (deterministische Template-Aufloesung)
+2. Blueprint-basierte Template-Aufloesung (Team Blueprint Artifacts/Rollenhinweise)
+3. HubCopilot Planning
+4. LLM Fallback
+
+Wichtig: Team Blueprints und Planning Templates sind getrennte, aber gekoppelte Quellen.
+
+- **Team Blueprints** liefern Team-Setup, Rollen, Policies und Start-Artefakte.
+- **PlanningTemplateCatalog** liefert AutoPlanner-Subtask-Templates.
+- **planning_utils.py** bleibt technische Utility-Schicht (Sanitizing, Validation, JSON/Subtask Parsing) und ist nicht mehr die primaere fachliche Template-Quelle.
+
+Fuer neue Domain-Blueprints gilt: Planungsvorlagen in den Katalog/Blueprint-Daten aufnehmen, nicht als harte Python-Dictionaries in Route-Modulen.
+
 ## Beispiel-Inputs und erwartete Ergebnis-Skizzen
 
 Die folgenden Beispiele sind kurz genug fuer Demo und Erststart. Sie zeigen, was Nutzer vor dem Start eingeben und welche Resultatform danach erwartet wird.

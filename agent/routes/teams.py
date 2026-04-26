@@ -48,6 +48,7 @@ from agent.services.blueprint_bundle_service import (
     validate_bundle_mode_and_parts,
 )
 from agent.services.repository_registry import get_repository_registry
+from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
 from agent.services.team_blueprint_service import (
     RoleLinkSpec,
     TemplateBootstrapSpec,
@@ -309,706 +310,6 @@ def _apply_team_blueprint_bundle_import(plan, bundle) -> tuple | dict:
     return result
 
 
-SCRUM_INITIAL_TASKS = [
-    {
-        "title": "Scrum Backlog",
-        "description": "Initiales Product Backlog für das Team.",
-        "status": "backlog",
-        "priority": "High",
-    },
-    {
-        "title": "Sprint Board Setup",
-        "description": "Visualisierung des aktuellen Sprints.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Burndown Chart",
-        "description": "Tracken des Fortschritts im Sprint.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-    {
-        "title": "Roadmap",
-        "description": "Langfristige Planung und Meilensteine.",
-        "status": "backlog",
-        "priority": "Medium",
-    },
-    {
-        "title": "Setup & Usage Instructions",
-        "description": """### Setup & Usage Instructions
-1. Clone the template repository and create a new repository based on the cloned one.
-2. Customize the template by updating the content of the README file and any other files you see fit.
-3. Add your teammates as collaborators to the repository.
-4. Set up an integration (e.g., with GitHub Actions) to automate the
-creation of a new sprint branch whenever the team is ready to start a new sprint.
-5. Set up your project and workflow in the Bitte interface, such as
-assigning work items to team members or setting up notifications for completed tasks.
-6. Use the template’s sprint board to plan and execute on each sprint.
-7. Use the burndown chart to track progress towards completing user stories and reaching your sprint goals.
-8. Use the roadmap to visualize upcoming milestones and help teams plan their work accordingly.
-9. Use Bitte’s project and team settings to manage your team,
-such as setting up access levels or adding new members to your team.""",
-        "status": "todo",
-        "priority": "High",
-    },
-]
-
-SCRUM_OPENCODE_INITIAL_TASKS = [
-    {
-        "title": "Backlog Intake And Story Slicing",
-        "description": "Shape the current goal into sprint-ready stories with explicit acceptance criteria, dependencies, and handoff notes for worker execution.",
-        "status": "backlog",
-        "priority": "High",
-    },
-    {
-        "title": "Execution Cascade Agreement",
-        "description": "Define when the team should use OpenCode sessions, ShellGPT, or direct terminal commands so every worker follows the same execution contract.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Workspace And Artifact Sync",
-        "description": "Establish how workspace files, artifact outputs, and rag_helper context are read, updated, and returned to the hub after each task.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Vertical Slice Delivery",
-        "description": "Implement one end-to-end increment in OpenCode-first mode, including changed files, verification evidence, and artifact handoff.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Review And Definition Of Done",
-        "description": "Review code, artifacts, and verification results before closing sprint work. Capture residual risks and any follow-up tasks explicitly.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-KANBAN_INITIAL_TASKS = [
-    {
-        "title": "Kanban Board",
-        "description": "Visualisierung des aktuellen Flusses und der WIP-Limits.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Flow Metrics Review",
-        "description": "Durchsatz, Lead Time und Blocker regelmaessig ueberpruefen.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-
-RESEARCH_INITIAL_TASKS = [
-    {
-        "title": "Research Intake",
-        "description": "Capture research objective, constraints, and expected deliverable shape.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Source Collection",
-        "description": "Collect and classify primary sources and repository/context evidence.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Synthesis Report",
-        "description": "Produce a concise, cited research summary with recommendations.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-CODE_REPAIR_INITIAL_TASKS = [
-    {
-        "title": "Incident Triage",
-        "description": "Reproduce issue, identify impact scope, and define repair strategy.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Repair Implementation",
-        "description": "Apply minimal, targeted patch and preserve compatibility.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Regression Validation",
-        "description": "Add/adjust tests and verify bug is fixed without side effects.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-SECURITY_REVIEW_INITIAL_TASKS = [
-    {
-        "title": "Threat Review",
-        "description": "Map attack surface, trust boundaries, and escalation paths.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Control Validation",
-        "description": "Validate least-privilege, policy checks, and audit coverage.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Security Findings Report",
-        "description": "Summarize findings with severity, remediation, and verification plan.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-RELEASE_PREP_INITIAL_TASKS = [
-    {
-        "title": "Release Readiness Checklist",
-        "description": "Validate release scope, blockers, and dependency state.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Verification Sweep",
-        "description": "Run final validation for tests, migrations, and quality gates.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Deployment And Rollback Plan",
-        "description": "Prepare rollout sequence, monitoring, and rollback criteria.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-TDD_INITIAL_TASKS = [
-    {
-        "title": "TestPlanArtifact",
-        "description": "Capture expected behavior, constraints, and concrete test intents before implementation.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "RedTestResultArtifact",
-        "description": "Execute the new/updated test first and record expected red-phase failure evidence.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "PatchPlanArtifact",
-        "description": "Prepare minimal implementation patch scope that turns the red test green without broad side effects.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "GreenTestResultArtifact",
-        "description": "Re-run relevant tests and record green-phase pass evidence after minimal implementation.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "RefactorChecklist",
-        "description": "Optionally refactor while preserving green test evidence and explicit verification gates.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-RESEARCH_EVOLUTION_INITIAL_TASKS = [
-    {
-        "title": "Standardfall Scope",
-        "description": "Define the official demo case: extend an existing project with one small feature, including constraints, affected areas, and expected evidence.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "DeerFlow Research Stage",
-        "description": "Use DeerFlow for research, source comparison, repository context enrichment, and a decision-ready research report artifact.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Evolver Proposal Stage",
-        "description": "Use Evolver only after research to produce reviewable evolution proposals linked to the DeerFlow report and hub-owned task context.",
-        "status": "todo",
-        "priority": "High",
-    },
-    {
-        "title": "Review Gate",
-        "description": "Review research artifacts, proposal risk, validation needs, and next tasks before any controlled apply path is considered.",
-        "status": "todo",
-        "priority": "Medium",
-    },
-]
-
-
-def _task_artifacts(tasks: list[dict]) -> list[dict]:
-    return [
-        {
-            "kind": "task",
-            "title": task["title"],
-            "description": task["description"],
-            "sort_order": index * 10,
-            "payload": {"status": task["status"], "priority": task["priority"]},
-        }
-        for index, task in enumerate(tasks, start=1)
-    ]
-
-
-def _policy_artifact(*, title: str, sort_order: int, policy: dict) -> dict:
-    return {
-        "kind": "policy",
-        "title": title,
-        "description": "Default policy profile for teams instantiated from this blueprint.",
-        "sort_order": sort_order,
-        "payload": policy,
-    }
-
-
-SEED_BLUEPRINTS = {
-    "Scrum": {
-        "description": "Standard Scrum blueprint with canonical Scrum roles and starter artifacts.",
-        "base_team_type_name": "Scrum",
-        "roles": [
-            {
-                "name": "Product Owner",
-                "description": "Owns the backlog and prioritization.",
-                "template_name": "Scrum - Product Owner",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "backlog"},
-            },
-            {
-                "name": "Scrum Master",
-                "description": "Facilitates the Scrum process.",
-                "template_name": "Scrum - Scrum Master",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "facilitation"},
-            },
-            {
-                "name": "Developer",
-                "description": "Builds and delivers backlog items.",
-                "template_name": "Scrum - Developer",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {"responsibility": "delivery"},
-            },
-        ],
-        "artifacts": _task_artifacts(SCRUM_INITIAL_TASKS),
-    },
-    "Scrum-OpenCode": {
-        "description": "Scrum blueprint adapted for OpenCode-centered delivery with explicit execution cascade for OpenCode, ShellGPT, and direct terminal work.",
-        "base_team_type_name": "Scrum",
-        "roles": [
-            {
-                "name": "Product Owner",
-                "description": "Owns backlog readiness, acceptance criteria, and artifact expectations.",
-                "template_name": "OpenCode Scrum - Product Owner",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {
-                    "responsibility": "backlog",
-                    "execution_mode": "planning",
-                    "preferred_backend": "sgpt",
-                    "fallback_backends": ["opencode", "terminal"],
-                },
-            },
-            {
-                "name": "Scrum Master",
-                "description": "Facilitates delivery flow, blocker removal, and explicit handoffs.",
-                "template_name": "OpenCode Scrum - Scrum Master",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {
-                    "responsibility": "facilitation",
-                    "execution_mode": "coordination",
-                    "preferred_backend": "sgpt",
-                    "fallback_backends": ["terminal", "opencode"],
-                },
-            },
-            {
-                "name": "Developer",
-                "description": "Implements, verifies, and returns code/artifact changes through the OpenCode workspace flow.",
-                "template_name": "OpenCode Scrum - Developer",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {
-                    "responsibility": "delivery",
-                    "execution_mode": "implementation",
-                    "preferred_backend": "opencode",
-                    "fallback_backends": ["terminal", "sgpt"],
-                },
-            },
-        ],
-        "artifacts": _task_artifacts(SCRUM_OPENCODE_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="OpenCode Scrum Default Policy",
-                sort_order=100,
-                policy={
-                    "task_kind": "coding",
-                    "security_level": "balanced",
-                    "verification_required": True,
-                    "artifact_flow_expected": True,
-                    "preferred_models": {
-                        "provider": "ollama",
-                        "default": "qwen2.5-coder:7b",
-                        "candidates": ["qwen2.5-coder:7b", "qwen2.5-coder:14b", "deepseek-coder-v2:16b"],
-                    },
-                },
-            )
-        ],
-    },
-    "Kanban": {
-        "description": "Standard Kanban blueprint with flow-oriented roles and starter artifacts.",
-        "base_team_type_name": "Kanban",
-        "roles": [
-            {
-                "name": "Service Delivery Manager",
-                "description": "Oversees service delivery and flow metrics.",
-                "template_name": "Kanban - Service Delivery Manager",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "service_delivery"},
-            },
-            {
-                "name": "Flow Manager",
-                "description": "Optimizes WIP limits and flow.",
-                "template_name": "Kanban - Flow Manager",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "flow_management"},
-            },
-            {
-                "name": "Developer",
-                "description": "Delivers work items and maintains quality.",
-                "template_name": "Kanban - Developer",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {"responsibility": "delivery"},
-            },
-        ],
-        "artifacts": _task_artifacts(KANBAN_INITIAL_TASKS),
-    },
-    "Research": {
-        "description": "Operational research blueprint for evidence collection, synthesis, and reporting.",
-        "base_team_type_name": "Research",
-        "roles": [
-            {
-                "name": "Research Lead",
-                "description": "Owns research scope, synthesis quality, and final recommendations.",
-                "template_name": "Research - Lead",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "scope_and_synthesis"},
-            },
-            {
-                "name": "Source Analyst",
-                "description": "Collects, validates, and classifies sources.",
-                "template_name": "Research - Source Analyst",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "source_validation"},
-            },
-            {
-                "name": "Reviewer",
-                "description": "Checks assumptions, coverage, and evidence quality.",
-                "template_name": "Research - Reviewer",
-                "sort_order": 30,
-                "is_required": False,
-                "config": {"responsibility": "quality_review"},
-            },
-        ],
-        "artifacts": _task_artifacts(RESEARCH_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="Research Default Policy",
-                sort_order=100,
-                policy={"task_kind": "research", "security_level": "balanced", "verification_required": True},
-            )
-        ],
-    },
-    "Code-Repair": {
-        "description": "Operational code-repair blueprint for incident triage, patching, and regression checks.",
-        "base_team_type_name": "Code-Repair",
-        "roles": [
-            {
-                "name": "Repair Lead",
-                "description": "Owns incident diagnosis and repair plan.",
-                "template_name": "Code Repair - Lead",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "triage_and_plan"},
-            },
-            {
-                "name": "Fix Engineer",
-                "description": "Implements targeted fixes with minimal blast radius.",
-                "template_name": "Code Repair - Engineer",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "implementation"},
-            },
-            {
-                "name": "QA Verifier",
-                "description": "Verifies regressions and completion criteria.",
-                "template_name": "Code Repair - QA",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {"responsibility": "verification"},
-            },
-        ],
-        "artifacts": _task_artifacts(CODE_REPAIR_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="Code Repair Default Policy",
-                sort_order=100,
-                policy={"task_kind": "coding", "security_level": "balanced", "verification_required": True},
-            )
-        ],
-    },
-    "TDD": {
-        "description": "Test-Driven Development blueprint for behavior-first changes with explicit Red -> Green -> Refactor evidence.",
-        "base_team_type_name": "TDD",
-        "roles": [
-            {
-                "name": "Behavior Analyst",
-                "description": "Defines behavior statement, boundaries, and acceptance expectations before code changes.",
-                "template_name": "TDD - Behavior Analyst",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "behavior_definition"},
-            },
-            {
-                "name": "Test Driver",
-                "description": "Owns red/green test execution and evidence tracking for the TDD cycle.",
-                "template_name": "TDD - Test Driver",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "test_execution"},
-            },
-            {
-                "name": "Refactor Verifier",
-                "description": "Validates minimal patch scope, optional refactor safety, and final verification evidence.",
-                "template_name": "TDD - Refactor Verifier",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {"responsibility": "refactor_and_verification"},
-            },
-        ],
-        "artifacts": _task_artifacts(TDD_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="TDD Default Policy",
-                sort_order=100,
-                policy={
-                    "task_kind": "coding",
-                    "security_level": "balanced",
-                    "verification_required": True,
-                    "review_required": True,
-                    "patch_apply_requires_approval": True,
-                    "red_failure_is_expected": True,
-                },
-            )
-        ],
-    },
-    "Security-Review": {
-        "description": "Operational security-review blueprint for control validation and remediation guidance.",
-        "base_team_type_name": "Security-Review",
-        "roles": [
-            {
-                "name": "Security Lead",
-                "description": "Owns review scope, severity model, and sign-off.",
-                "template_name": "Security Review - Lead",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "risk_governance"},
-            },
-            {
-                "name": "Security Analyst",
-                "description": "Executes technical review and evidence collection.",
-                "template_name": "Security Review - Analyst",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "technical_review"},
-            },
-            {
-                "name": "Compliance Reviewer",
-                "description": "Checks policy and compliance obligations.",
-                "template_name": "Security Review - Compliance",
-                "sort_order": 30,
-                "is_required": False,
-                "config": {"responsibility": "compliance"},
-            },
-        ],
-        "artifacts": _task_artifacts(SECURITY_REVIEW_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="Security Review Default Policy",
-                sort_order=100,
-                policy={"task_kind": "analysis", "security_level": "strict", "verification_required": True},
-            )
-        ],
-    },
-    "Release-Prep": {
-        "description": "Operational release-preparation blueprint for readiness, verification, and rollout planning.",
-        "base_team_type_name": "Release-Prep",
-        "roles": [
-            {
-                "name": "Release Manager",
-                "description": "Coordinates release scope, schedule, and go/no-go decision.",
-                "template_name": "Release Prep - Manager",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {"responsibility": "release_governance"},
-            },
-            {
-                "name": "Verification Engineer",
-                "description": "Runs release validation and preflight checks.",
-                "template_name": "Release Prep - Verification",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {"responsibility": "verification"},
-            },
-            {
-                "name": "Operations Liaison",
-                "description": "Prepares deployment/rollback operations.",
-                "template_name": "Release Prep - Operations",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {"responsibility": "operations_readiness"},
-            },
-        ],
-        "artifacts": _task_artifacts(RELEASE_PREP_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="Release Prep Default Policy",
-                sort_order=100,
-                policy={"task_kind": "ops", "security_level": "strict", "verification_required": True},
-            )
-        ],
-    },
-    "Research-Evolution": {
-        "description": "Official DeerFlow+Evolver blueprint for extending an existing project with a small feature through research, proposal, review, and next tasks.",
-        "base_team_type_name": "Research-Evolution",
-        "roles": [
-            {
-                "name": "Research Lead",
-                "description": "Owns DeerFlow research scope, source quality, and the decision-ready context report.",
-                "template_name": "Research Evolution - Research Lead",
-                "sort_order": 10,
-                "is_required": True,
-                "config": {
-                    "responsibility": "deerflow_research",
-                    "preferred_backend": "deerflow",
-                    "execution_mode": "research",
-                },
-            },
-            {
-                "name": "Evolution Strategist",
-                "description": "Owns Evolver analysis and reviewable proposal generation from approved research context.",
-                "template_name": "Research Evolution - Evolution Strategist",
-                "sort_order": 20,
-                "is_required": True,
-                "config": {
-                    "responsibility": "evolver_proposal",
-                    "preferred_backend": "evolver",
-                    "execution_mode": "proposal",
-                },
-            },
-            {
-                "name": "Review Gate Owner",
-                "description": "Owns human review gates, validation expectations, risk sign-off, and next task selection.",
-                "template_name": "Research Evolution - Review Gate Owner",
-                "sort_order": 30,
-                "is_required": True,
-                "config": {
-                    "responsibility": "review_gate",
-                    "preferred_backend": "hub",
-                    "execution_mode": "review",
-                },
-            },
-        ],
-        "artifacts": _task_artifacts(RESEARCH_EVOLUTION_INITIAL_TASKS)
-        + [
-            _policy_artifact(
-                title="Research Evolution Default Policy",
-                sort_order=100,
-                policy={
-                    "standard_case": "existing_project_small_feature_extension",
-                    "deerflow_role": "research_sources_report_context",
-                    "evolver_role": "analysis_proposal_validation_prepare_only",
-                    "task_kind": "research_evolution",
-                    "security_level": "strict",
-                    "verification_required": True,
-                    "review_required": True,
-                    "apply_allowed": False,
-                    "handoff_contract": {
-                        "from_deerflow": ["summary", "sources", "report_markdown", "research_metadata"],
-                        "to_evolver": ["approved_research_artifact", "task_context", "constraints"],
-                    },
-                },
-            )
-        ],
-    },
-}
-
-STANDARD_BLUEPRINT_ORDER = [
-    "Scrum",
-    "Kanban",
-    "Research",
-    "Code-Repair",
-    "TDD",
-    "Security-Review",
-    "Release-Prep",
-    "Scrum-OpenCode",
-    "Research-Evolution",
-]
-
-BLUEPRINT_PRODUCT_HINTS = {
-    "scrum": {
-        "intended_use": "Cross-functional delivery with iterative planning and review.",
-        "when_to_use": "Use when product priorities and sprint-level coordination should stay explicit.",
-    },
-    "kanban": {
-        "intended_use": "Flow-oriented delivery with continuous prioritization.",
-        "when_to_use": "Use when incoming work is continuous and WIP control matters more than sprint cadence.",
-    },
-    "research": {
-        "intended_use": "Evidence-focused analysis and source-backed recommendations.",
-        "when_to_use": "Use before implementation when decisions require structured research and confidence levels.",
-    },
-    "code-repair": {
-        "intended_use": "Targeted incident diagnosis, patching, and regression control.",
-        "when_to_use": "Use when production issues or breakages need quick but verifiable remediation.",
-    },
-    "tdd": {
-        "intended_use": "Behavior-first implementation where tests are introduced before code changes and evidence is tracked through Red -> Green -> Refactor.",
-        "when_to_use": "Use for small features or bugfixes where deterministic test evidence and approval-gated patch apply are required.",
-    },
-    "security-review": {
-        "intended_use": "Security and compliance-focused review with explicit risk governance.",
-        "when_to_use": "Use before release or for high-risk changes where control validation is mandatory.",
-    },
-    "release-prep": {
-        "intended_use": "Release readiness, preflight verification, and rollout planning.",
-        "when_to_use": "Use when a planned release needs coordinated go/no-go checks and rollback readiness.",
-    },
-    "scrum-opencode": {
-        "intended_use": "Scrum delivery with explicit OpenCode/SGPT/terminal execution cascade.",
-        "when_to_use": "Use for implementation-heavy work that benefits from stateful coding sessions and strict handoffs.",
-    },
-    "research-evolution": {
-        "intended_use": "DeerFlow research followed by Evolver proposal and controlled review gates.",
-        "when_to_use": "Use for extending an existing project with research-backed, reviewable evolution proposals.",
-    },
-}
 
 SCRUM_SOLID_TEMPLATE_APPENDIX = """
 
@@ -1203,6 +504,37 @@ ROLE_PROFILE_DEFAULTS = {
 }
 
 
+def _load_seed_blueprints() -> dict[str, dict]:
+    catalog = get_seed_blueprint_catalog()
+    seed_blueprints = catalog.as_seed_blueprint_map()
+    if seed_blueprints:
+        return seed_blueprints
+    raise RuntimeError(f"seed_blueprint_catalog_unavailable: {catalog.load_error or 'unknown_error'}")
+
+
+def _scrum_initial_tasks_from_catalog() -> list[dict]:
+    scrum = dict(_load_seed_blueprints().get("Scrum") or {})
+    artifacts = list(scrum.get("artifacts") or [])
+    tasks: list[dict] = []
+    for artifact in artifacts:
+        if str((artifact or {}).get("kind") or "").strip().lower() != "task":
+            continue
+        payload = dict((artifact or {}).get("payload") or {})
+        title = str((artifact or {}).get("title") or "").strip()
+        description = str((artifact or {}).get("description") or "").strip()
+        if not title or not description:
+            continue
+        tasks.append(
+            {
+                "title": title,
+                "description": description,
+                "status": str(payload.get("status") or "todo").strip() or "todo",
+                "priority": str(payload.get("priority") or "Medium").strip() or "Medium",
+            }
+        )
+    return tasks
+
+
 def _with_role_profile_defaults(base_team_type_name: str, role_name: str, config: dict | None) -> dict:
     merged = dict(config or {})
     defaults = dict((ROLE_PROFILE_DEFAULTS.get(base_team_type_name) or {}).get(role_name) or {})
@@ -1217,7 +549,7 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
 
     from agent.db_models import TaskDB
 
-    for task_data in SCRUM_INITIAL_TASKS:
+    for task_data in _scrum_initial_tasks_from_catalog():
         new_task = TaskDB(
             id=str(uuid.uuid4()),
             title=f"{team_name}: {task_data['title']}",
@@ -1600,6 +932,58 @@ def _build_blueprint_work_profile(
     }
 
 
+STANDARD_BLUEPRINT_ORDER = [
+    "Scrum",
+    "Kanban",
+    "Research",
+    "Code-Repair",
+    "TDD",
+    "Security-Review",
+    "Release-Prep",
+    "Scrum-OpenCode",
+    "Research-Evolution",
+]
+
+BLUEPRINT_PRODUCT_HINTS = {
+    "scrum": {
+        "intended_use": "Iterative delivery with explicit sprint roles and backlog ownership.",
+        "when_to_use": "Use for feature-driven work with clear increments and sprint cadence.",
+    },
+    "kanban": {
+        "intended_use": "Continuous flow delivery with WIP-aware operational prioritization.",
+        "when_to_use": "Use for mixed incoming work where throughput and flow metrics matter.",
+    },
+    "research": {
+        "intended_use": "Evidence-driven research and synthesis with source validation.",
+        "when_to_use": "Use when outcome quality depends on source coverage and defensible synthesis.",
+    },
+    "code-repair": {
+        "intended_use": "Incident triage, targeted patching, and regression containment.",
+        "when_to_use": "Use for bugfix and repair work with minimal blast radius requirements.",
+    },
+    "tdd": {
+        "intended_use": "Behavior-first implementation with explicit red/green/refactor evidence.",
+        "when_to_use": "Use when test-first change control and verification traceability are required.",
+    },
+    "security-review": {
+        "intended_use": "Security and compliance review with risk-focused controls validation.",
+        "when_to_use": "Use before risky releases or for trust-boundary and policy-sensitive changes.",
+    },
+    "release-prep": {
+        "intended_use": "Release-readiness orchestration with verification and rollback gates.",
+        "when_to_use": "Use for pre-release coordination, go/no-go framing, and rollout safety checks.",
+    },
+    "scrum-opencode": {
+        "intended_use": "Scrum delivery with explicit OpenCode/SGPT/terminal execution cascade.",
+        "when_to_use": "Use for OpenCode-first teams needing deterministic tool/handoff expectations.",
+    },
+    "research-evolution": {
+        "intended_use": "DeerFlow research followed by Evolver proposal with mandatory review gate.",
+        "when_to_use": "Use for proposal-heavy evolution where research traceability is mandatory.",
+    },
+}
+
+
 def _catalog_hint_for_blueprint(blueprint_name: str) -> dict[str, str]:
     normalized_name = str(blueprint_name or "").strip().lower()
     return BLUEPRINT_PRODUCT_HINTS.get(
@@ -1824,8 +1208,9 @@ def _persist_blueprint_children(
 
 
 def ensure_seed_blueprints() -> None:
+    seed_blueprints = _load_seed_blueprints()
     reconcile_reports = reconcile_seed_blueprints_service(
-        SEED_BLUEPRINTS,
+        seed_blueprints,
         normalize_team_type_name=normalize_team_type_name,
         with_role_profile_defaults=_with_role_profile_defaults,
         ensure_default_templates_callback=ensure_default_templates,
