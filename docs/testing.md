@@ -141,6 +141,13 @@ Start:
 scripts/compose-test-stack.sh up
 ```
 
+One-Click Compose (Vulkan + alle Compose-Tests ohne Vorab-Deep-Checks):
+```bash
+docker compose -f docker-compose.final-tests.yml up --build
+```
+- Laeuft die Kette automatisch in dieser Reihenfolge: `backend-test` -> `backend-live-llm-test` -> `frontend-test` -> `frontend-live-llm-test`.
+- Fuer IntelliJ: `docker-compose.final-tests.yml` als einzige Compose-Datei in der Run Configuration auswaehlen und `Up` starten.
+
 Ein-Kommando-Volltest (inkl. WSL2/Vulkan-Ollama, Dogfood, Live-Click und Deep-Checks):
 ```bash
 python3 scripts/run_full_local_test_suite.py
