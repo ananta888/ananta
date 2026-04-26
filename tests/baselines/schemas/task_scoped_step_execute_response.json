@@ -138,6 +138,18 @@
           "default": null,
           "title": "Artifact Version Id"
         },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
         "extracted_document_id": {
           "anyOf": [
             {
@@ -178,6 +190,19 @@
           "default": null,
           "title": "Media Type"
         },
+        "provenance_summary": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provenance Summary"
+        },
         "task_id": {
           "anyOf": [
             {
@@ -189,6 +214,42 @@
           ],
           "default": null,
           "title": "Task Id"
+        },
+        "trace_bundle_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trace Bundle Ref"
+        },
+        "worker_job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Job Id"
+        },
+        "workspace_relative_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspace Relative Path"
         }
       },
       "required": [

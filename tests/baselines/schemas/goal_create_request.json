@@ -44,8 +44,52 @@
       "type": "object"
     },
     "goal": {
-      "title": "Goal",
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Goal"
+    },
+    "instruction_overlay_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instruction Overlay Id"
+    },
+    "instruction_owner_username": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instruction Owner Username"
+    },
+    "instruction_profile_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instruction Profile Id"
     },
     "mode": {
       "anyOf": [
@@ -123,9 +167,6 @@
       "type": "object"
     }
   },
-  "required": [
-    "goal"
-  ],
   "title": "GoalCreateRequest",
   "type": "object"
 }
