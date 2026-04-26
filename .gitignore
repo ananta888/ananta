@@ -128,3 +128,4 @@ __pycache__/
 /frontend-angular/.nvmrc
 /frontend-angular/.node-version
 /client_surfaces/vscode_extension/node_modules/
+/.rag/
