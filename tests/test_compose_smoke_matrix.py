@@ -67,6 +67,7 @@ def test_final_compose_file_chains_all_tests_without_extra_profiles():
     assert "frontend-live-llm-test:" in compose
     assert "all-tests:" in compose
     assert "Dockerfile.ollama-wsl-amd" in compose
+    assert "Dockerfile.compose-test" in compose
 
 
 def test_openai_final_compose_file_requires_openai_key_and_chains_all_tests():
@@ -79,3 +80,4 @@ def test_openai_final_compose_file_requires_openai_key_and_chains_all_tests():
     assert "frontend-test:" in compose
     assert "frontend-live-llm-test:" in compose
     assert "all-tests:" in compose
+    assert "Dockerfile.compose-test" in compose

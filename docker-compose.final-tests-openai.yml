@@ -115,10 +115,10 @@ services:
         condition: service_healthy
 
   backend-test:
-    image: ananta-backend-compose-test:local
+    image: ananta-backend-compose-test-gate:local
     build:
       context: .
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
@@ -136,13 +136,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: pytest -q
+    command: python -m pytest -q
 
   backend-live-llm-test:
-    image: ananta-backend-compose-test:local
+    image: ananta-backend-compose-test-gate:local
     build:
       context: .
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
@@ -162,7 +162,7 @@ services:
     depends_on:
       backend-test:
         condition: service_completed_successfully
-    command: pytest -q tests/test_goal_live_lmstudio.py
+    command: python -m pytest -q tests/test_goal_live_lmstudio.py
 
   frontend-test:
     image: ananta-frontend-compose-test:local
