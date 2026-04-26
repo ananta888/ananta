@@ -252,9 +252,14 @@
     "Document safe install, update, rollback and local-dev without Docker.",
     "Add smoke tests that validate scripts and command dispatch without network-dependent installs."
   ],
+  "dependency_policy": {
+    "depends_on_allows": ["same_track_task_id", "external_track_reference"],
+    "external_reference_format_examples": ["todo.unified-cli.json:CLI-T01", "todo.unified-cli.json:CLI-T03"],
+    "note": "Cross-track dependencies are intentional and must be resolved by owning tracks before milestone completion."
+  },
   "critical_path_tasks": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T05", "BOOT-T08"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:00:00+02:00",
+    "updated_at": "2026-04-26T11:18:16+02:00",
     "total": 10,
     "by_status": {"todo": 10, "in_progress": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
@@ -263,10 +268,65 @@
     "critical_path": {"total": 5, "done": 0, "remaining": 5},
     "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
   },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-26T11:18:16+02:00",
+    "stages": {
+      "BOOT-M1": {"title": "One-file bootstrap installers", "scope_task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"], "total": 4, "done": 0, "todo": 4, "in_progress": 0, "blocked": 0},
+      "BOOT-M2": {"title": "In-system update command", "scope_task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "BOOT-M3": {"title": "Docs and smoke tests", "scope_task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0}
+    }
+  },
   "summary_notes": [
     "This track is about install/update UX, not Ananta runtime architecture.",
     "The installers should make `ananta` available quickly, then hand off to `ananta init` for runtime configuration.",
     "Windows needs a PowerShell installer; Ubuntu/Linux and macOS can share a Bash installer with platform detection.",
-    "`ananta update` should be safe, visible and reversible enough for local OSS users."
+    "`ananta update` should be safe, visible and reversible enough for local OSS users.",
+    "Cross-track references to unified CLI tasks are explicit prerequisites, not dangling dependencies."
+  ],
+  "analysis_checks": {
+    "checked_at": "2026-04-26T11:18:16+02:00",
+    "internal_consistency": "corrected_and_extended",
+    "notes": [
+      "Task status counters, milestone counters and critical-path counters are internally consistent.",
+      "All tasks are covered exactly once by milestone task_ids.",
+      "Two dependencies intentionally target external track IDs (todo.unified-cli.json:CLI-T01/CLI-T03).",
+      "Added execution_stage_summary for milestone-level progress visibility."
+    ]
+  },
+  "end_summaries": [
+    {
+      "summary_id": "BOOT-S1",
+      "title": "Analysis result",
+      "items": [
+        "Track structure is coherent: 10 tasks, 3 milestones, and clear acceptance criteria per task.",
+        "Current execution state is intentionally initial (all tasks todo) and now explicitly timestamped."
+      ]
+    },
+    {
+      "summary_id": "BOOT-S2",
+      "title": "Corrections",
+      "items": [
+        "Refreshed tasks_status_summary.updated_at to the current analysis timestamp.",
+        "Documented dependency policy for cross-track references to avoid false inconsistency flags."
+      ]
+    },
+    {
+      "summary_id": "BOOT-S3",
+      "title": "Improvements and extensions",
+      "items": [
+        "Added execution_stage_summary with per-milestone total/done/todo/in_progress/blocked counters.",
+        "Extended summary_notes with explicit clarification for external prerequisite dependencies.",
+        "Added analysis_checks for repeatable quality review and consistency evidence."
+      ]
+    },
+    {
+      "summary_id": "BOOT-S4",
+      "title": "End status",
+      "items": [
+        "Current state: 10 tasks (10 todo, 0 in_progress, 0 blocked, 0 done).",
+        "Milestones: 3 total (3 todo, 0 in_progress, 0 blocked, 0 done).",
+        "Critical path: 5 total, 0 done, 5 remaining."
+      ]
+    }
   ]
 }
