@@ -47,6 +47,7 @@ services:
     extends:
       file: docker-compose.base.yml
       service: autoimport
+    depends_on: {}
     environment:
       OLLAMA_AUTOIMPORT_MODE: "${OLLAMA_AUTOIMPORT_MODE:-seed}"
 

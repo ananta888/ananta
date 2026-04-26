@@ -13,7 +13,25 @@ OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwe
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
 OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-32768}"
 OLLAMA_AUTOIMPORT_MODE="${OLLAMA_AUTOIMPORT_MODE:-full}"
+OLLAMA_READY_TIMEOUT_SEC="${OLLAMA_READY_TIMEOUT_SEC:-180}"
 INITIAL_SCAN_PID=""
+
+wait_for_ollama() {
+  timeout_sec="$OLLAMA_READY_TIMEOUT_SEC"
+  start_ts="$(date +%s)"
+  while true; do
+    if OLLAMA_HOST="$OLLAMA_BASE_URL" ollama list >/dev/null 2>&1; then
+      return 0
+    fi
+    now_ts="$(date +%s)"
+    elapsed="$((now_ts - start_ts))"
+    if [ "$elapsed" -ge "$timeout_sec" ]; then
+      echo "ollama-unavailable: timeout after ${timeout_sec}s at ${OLLAMA_BASE_URL}" >&2
+      return 1
+    fi
+    sleep 2
+  done
+}
 
 write_modelfile() {
   target="$1"
@@ -322,6 +340,7 @@ autoimport_mode_is_seed_only() {
 }
 
 main() {
+  wait_for_ollama
   echo "seed import..."
   import_seed_models
   ensure_configured_aliases
