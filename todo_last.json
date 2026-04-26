@@ -1,270 +1,263 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "unified_ananta_cli",
-  "purpose": "Provide a consistent user-facing CLI entrypoint so normal users can start every common workflow with `ananta ...` instead of mixing `ananta init` with `python -m agent.cli_goals ...`. Existing python module invocations may remain as internal/dev fallback but must not be the documented golden path.",
+  "track": "tdd_blueprint",
+  "purpose": "Add a focused Test-Driven Development blueprint to the Ananta standard blueprint catalog without creating a new orchestration path. The blueprint should reuse Hub planning, Task/Artifact flow, Policy/Approval, native worker patch/test execution and Release-Gate verification.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "scope_rules": [
-    "Keep this track focused on unified user-facing CLI entrypoints and command UX.",
-    "Reuse existing goal/runtime modules instead of duplicating orchestration or policy logic.",
-    "Use explicit file:id dependency references only for active todo track files.",
-    "Do not couple CLI command wiring to Docker-only runtime assumptions."
+    "Keep this track focused on blueprint/data/contracts/tests; do not introduce a parallel orchestration runtime.",
+    "Reuse existing Hub planning, approval and artifact flows instead of adding TDD-specific orchestration code paths.",
+    "Use in-track task dependencies only for active work and avoid archived cross-track dependency references.",
+    "Represent red-phase failures as explicit expected evidence; do not hide failures as green success states."
   ],
   "non_goals": [
-    "Do not rewrite the full CLI implementation if existing modules can be wrapped.",
-    "Do not duplicate orchestration, policy or approval logic in the CLI.",
-    "Do not remove existing `python -m agent.cli_goals` developer entrypoints until compatibility is intentionally deprecated.",
-    "Do not make Docker a required dependency for the CLI entrypoint."
+    "Do not add client-side TDD orchestration.",
+    "Do not let the TDD blueprint bypass worker policy, approval, artifacts or trace metadata.",
+    "Do not create a second planner or worker path for TDD.",
+    "Do not claim support for every language/test framework without smoke evidence."
   ],
   "success_criteria": [
-    "A single `ananta` command is available after installation or editable install.",
-    "Common workflows are documented as `ananta init`, `ananta status`, `ananta ask`, `ananta plan`, `ananta analyze`, `ananta review`, `ananta diagnose`, `ananta patch`, `ananta repair-admin`, `ananta new-project`, `ananta evolve-project`, `ananta tui`, `ananta doctor` and optionally `ananta web`.",
-    "Existing module-based commands remain usable for developers.",
-    "README/Quickstart uses only `ananta ...` commands for normal users.",
-    "CLI smoke tests prove the user-facing command dispatches to existing behavior without client-side orchestration."
+    "TDD appears as a standard blueprint in the blueprint catalog.",
+    "Blueprint expresses Red -> Green -> Refactor -> Verify as normal Ananta tasks/artifacts.",
+    "Generated tasks require the test to fail before implementation when feasible.",
+    "Worker/Release-Gate evidence proves at least one tiny repo TDD flow.",
+    "CLI/TUI/Web can display the same blueprint output without duplicating orchestration."
   ],
   "milestones": [
     {
-      "id": "CLI-M1",
-      "title": "Unified command entrypoint",
-      "task_ids": ["CLI-T01", "CLI-T02", "CLI-T03"],
+      "id": "TDD-M1",
+      "title": "Blueprint contract and catalog entry",
+      "task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
       "status": "done"
     },
     {
-      "id": "CLI-M2",
-      "title": "Command aliases and compatibility",
-      "task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
+      "id": "TDD-M2",
+      "title": "Task and artifact mapping",
+      "task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
       "status": "done"
     },
     {
-      "id": "CLI-M3",
-      "title": "Docs and smoke tests",
-      "task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
-      "status": "done"
+      "id": "TDD-M3",
+      "title": "Tests, smoke and docs",
+      "task_ids": ["TDD-T07", "TDD-T08", "TDD-T09"],
+      "status": "todo"
     }
   ],
   "tasks": [
     {
-      "id": "CLI-T01",
-      "title": "Console script entrypoint add",
+      "id": "TDD-T01",
+      "title": "TDD blueprint definition add",
       "status": "done",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "medium",
       "blocking": true,
       "depends_on": [],
       "expected_files": [
-        "pyproject.toml",
-        "agent/cli/main.py",
-        "tests/test_unified_cli_entrypoint.py"
+        "docs/standard-blueprints.md",
+        "tests/test_team_blueprints.py"
       ],
       "acceptance_criteria": [
-        "Project exposes `ananta = agent.cli.main:main` or equivalent console script.",
-        "`ananta --help` works after editable install.",
-        "Entrypoint performs command dispatch only and does not duplicate Hub orchestration.",
-        "Tests verify the console script target can be imported."
+        "Standard blueprint catalog includes TDD or Test-Driven Development.",
+        "Intended use describes behavior-first code changes where tests are written before implementation.",
+        "Safety/review stance is verification required and approval-gated for patch apply.",
+        "Default outputs include TestPlanArtifact, RedTestResultArtifact, PatchPlanArtifact, GreenTestResultArtifact and RefactorChecklist."
       ]
     },
     {
-      "id": "CLI-T02",
-      "title": "Top-level command structure define",
+      "id": "TDD-T02",
+      "title": "TDD work profile hints add",
       "status": "done",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "medium",
       "blocking": true,
-      "depends_on": ["CLI-T01"],
+      "depends_on": ["TDD-T01"],
       "expected_files": [
-        "agent/cli/main.py",
-        "tests/test_unified_cli_commands.py"
+        "agent/routes/teams.py",
+        "agent/services/team_blueprint_service.py",
+        "tests/test_team_blueprints.py"
       ],
       "acceptance_criteria": [
-        "Defines stable user-facing subcommands: init, first-run, status, ask, plan, analyze, review, diagnose, patch, repair-admin, new-project, evolve-project, tui, doctor.",
-        "Optional web command is included only if a stable backend/UI launcher exists or degrades with a useful message.",
-        "Unknown commands show concise help and exit non-zero.",
-        "All commands support `--help`."
+        "Blueprint exposes recommended goal modes for coding, repair and refactor tasks.",
+        "Blueprint exposes playbook hints for Red -> Green -> Refactor -> Verify.",
+        "Blueprint exposes capability hints for worker.patch.propose, worker.test.run, worker.verify.result and approval-gated apply.",
+        "Blueprint does not require a special client implementation."
       ]
     },
     {
-      "id": "CLI-T03",
-      "title": "Init command wire to runtime wizard",
+      "id": "TDD-T03",
+      "title": "TDD blueprint example inputs add",
       "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["CLI-T01", "CLI-T02"],
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["TDD-T01"],
       "expected_files": [
-        "agent/cli/main.py",
-        "agent/cli/init_wizard.py",
-        "tests/test_ananta_init_command.py"
+        "docs/standard-blueprints.md"
       ],
       "acceptance_criteria": [
-        "`ananta init` dispatches to the runtime profile wizard.",
-        "`ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default` is accepted or clearly rejected with actionable validation.",
-        "Init writes reviewable profile/config files and does not require Docker in local-dev mode.",
-        "Tests cover non-interactive --yes mode."
+        "Docs include at least one tiny feature example and one bugfix example.",
+        "Expected result sketch shows red test, minimal implementation, green verification and optional refactor.",
+        "Docs clearly state that TDD support depends on available project test runner and worker permissions."
       ]
     },
     {
-      "id": "CLI-T04",
-      "title": "Goal command aliases wire to cli_goals",
+      "id": "TDD-T04",
+      "title": "TDD task decomposition rules define",
       "status": "done",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["CLI-T02"],
+      "depends_on": ["TDD-T01"],
       "expected_files": [
-        "agent/cli/main.py",
-        "agent/cli/goal_aliases.py",
-        "tests/test_goal_command_aliases.py"
+        "docs/blueprints/tdd-task-decomposition.md",
+        "tests/test_auto_planner_tdd_blueprint.py"
       ],
       "acceptance_criteria": [
-        "`ananta ask <text>` maps to existing ask/goal behavior.",
-        "`ananta plan <text>`, `ananta analyze <text>`, `ananta review <text>`, `ananta diagnose <text>`, `ananta patch <text>`, `ananta repair-admin <text>`, `ananta new-project <text>` and `ananta evolve-project <text>` map to existing cli_goals behavior or return a clear not-yet-supported message.",
-        "Mappings preserve existing request payload semantics.",
-        "No alias performs direct worker/tool execution locally; it routes through existing Hub/goal paths."
+        "Defines task sequence: clarify behavior, add/adjust test, run test expecting failure, implement minimal patch, run tests expecting success, optional refactor, final verification.",
+        "Red test failure is represented as expected evidence rather than task failure when in red phase.",
+        "If project cannot run tests, blueprint degrades honestly to TestPlanArtifact and implementation is blocked or marked degraded.",
+        "Tests use deterministic planner/model fixtures."
       ]
     },
     {
-      "id": "CLI-T05",
-      "title": "Status first-run doctor commands wire",
+      "id": "TDD-T05",
+      "title": "TDD artifact types align with existing Artifact system",
       "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": true,
-      "depends_on": ["CLI-T02"],
+      "depends_on": ["TDD-T04"],
       "expected_files": [
-        "agent/cli/main.py",
-        "agent/cli/doctor.py",
-        "tests/test_status_doctor_commands.py"
+        "schemas/artifacts/tdd_test_plan_artifact.v1.json",
+        "schemas/artifacts/tdd_cycle_artifact.v1.json",
+        "tests/test_tdd_artifact_schemas.py"
       ],
       "acceptance_criteria": [
-        "`ananta first-run` runs or delegates the first-run flow.",
-        "`ananta status` shows concise Hub/Worker/LLM/RAG state or a degraded explanation.",
-        "`ananta doctor` performs local setup checks and prints actionable next steps.",
-        "Commands are safe to run repeatedly."
+        "Schemas capture behavior statement, test files, red result, patch refs, green result, refactor notes and verification refs.",
+        "Schemas reference existing PatchArtifact/TestResultArtifact/VerificationArtifact instead of duplicating them.",
+        "Artifact status distinguishes red_expected, red_missing, green_passed, green_failed, refactor_skipped and degraded.",
+        "Schema tests validate minimal and full TDD cycle examples."
       ]
     },
     {
-      "id": "CLI-T06",
-      "title": "TUI and optional Web launch commands wire",
+      "id": "TDD-T06",
+      "title": "TDD policy and approval mapping add",
       "status": "done",
       "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["CLI-T02"],
-      "expected_files": [
-        "agent/cli/main.py",
-        "tests/test_tui_web_launch_commands.py"
-      ],
-      "acceptance_criteria": [
-        "`ananta tui` launches or delegates to the existing TUI entrypoint.",
-        "`ananta web` launches, opens, or prints the configured Web UI URL if supported.",
-        "If TUI/Web dependencies are missing, command exits with a helpful degraded message.",
-        "No TUI/Web command owns orchestration logic."
-      ]
-    },
-    {
-      "id": "CLI-T07",
-      "title": "Module invocation compatibility keep",
-      "status": "done",
-      "priority": "P1",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["CLI-T04"],
-      "expected_files": [
-        "tests/test_cli_backward_compatibility.py",
-        "docs/cli/developer_entrypoints.md"
-      ],
-      "acceptance_criteria": [
-        "Existing `python -m agent.cli_goals ...` developer commands still work or have documented compatibility shims.",
-        "Developer docs clearly mark module invocations as internal/dev fallback.",
-        "Normal user docs prefer `ananta ...` only.",
-        "Tests cover at least one old command path and one new command path."
-      ]
-    },
-    {
-      "id": "CLI-T08",
-      "title": "Quickstart and README command examples update",
-      "status": "done",
-      "priority": "P0",
-      "risk": "low",
+      "risk": "high",
       "blocking": true,
-      "depends_on": ["CLI-T03", "CLI-T04", "CLI-T05"],
+      "depends_on": ["TDD-T05"],
       "expected_files": [
-        "README.md",
-        "docs/setup/quickstart.md",
-        "docs/cli/commands.md"
+        "docs/blueprints/tdd-policy.md",
+        "tests/test_tdd_policy_mapping.py"
       ],
       "acceptance_criteria": [
-        "Quickstart uses `ananta init`, `ananta status`, `ananta ask`, `ananta plan`, `ananta analyze`, `ananta tui` style commands.",
-        "No normal-user quickstart command starts with `python -m agent.cli_goals`.",
-        "Docs explain local-dev default and optional Docker/Podman modes consistently.",
-        "Examples are short and copy-pasteable."
+        "Test creation/modification is treated as write activity and follows normal patch approval rules.",
+        "Patch apply remains approval-gated when policy requires it.",
+        "Running tests uses worker.test.run capabilities and command policy.",
+        "Blueprint cannot relax Hub policy or execute commands directly."
       ]
     },
     {
-      "id": "CLI-T09",
-      "title": "Unified CLI smoke and release gate hook add",
+      "id": "TDD-T07",
+      "title": "Tiny repo TDD smoke test add",
       "status": "done",
       "priority": "P1",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["TDD-T04", "TDD-T05", "TDD-T06"],
+      "expected_files": [
+        "tests/e2e/blueprints/test_tdd_tiny_repo_flow.py",
+        "tests/e2e/fixtures/tdd_tiny_repo/"
+      ],
+      "acceptance_criteria": [
+        "Smoke flow creates a TDD blueprint instance for a tiny repo feature.",
+        "Flow records red test evidence before implementation patch evidence.",
+        "Flow records green test evidence after implementation.",
+        "Smoke uses mocked model/provider output by default.",
+        "No direct main-tree mutation happens before approved apply."
+      ]
+    },
+    {
+      "id": "TDD-T08",
+      "title": "TDD docs add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["TDD-T07"],
+      "expected_files": [
+        "docs/blueprints/tdd.md"
+      ],
+      "acceptance_criteria": [
+        "Docs explain how users start a TDD goal.",
+        "Docs explain red/green/refactor evidence and what happens when tests cannot run.",
+        "Docs include CLI/TUI/Web visibility expectations without client-specific orchestration.",
+        "Docs state limitations honestly."
+      ]
+    },
+    {
+      "id": "TDD-T09",
+      "title": "TDD release gate hook add",
+      "status": "done",
+      "priority": "P2",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["CLI-T01", "CLI-T02", "CLI-T08"],
+      "depends_on": ["TDD-T07"],
       "expected_files": [
-        "tests/smoke/test_unified_cli_smoke.py",
         "scripts/run_release_gate.py"
       ],
       "acceptance_criteria": [
-        "Smoke test verifies `ananta --help`, `ananta init --help`, `ananta status --help`, `ananta ask --help` and `ananta tui --help`.",
-        "Release gate includes unified CLI smoke when CLI runtime is claimed.",
-        "Smoke does not require a live cloud LLM provider.",
-        "Failure output tells users which command or packaging entrypoint is broken."
+        "Release gate can include the TDD tiny repo smoke when TDD blueprint runtime is claimed.",
+        "Gate fails if green phase is claimed without passing test evidence.",
+        "Gate fails if red phase is skipped without degraded explanation.",
+        "Gate reports TDD evidence artifact paths."
       ]
     }
   ],
   "execution_order_summary": [
-    "Add console script and command dispatcher first.",
-    "Wire init, goal aliases and status/doctor commands to existing modules instead of rewriting behavior.",
-    "Keep old python -m entrypoints as developer fallback.",
-    "Update Quickstart so normal users only see `ananta ...` commands.",
-    "Add smoke tests and release-gate coverage."
+    "Add blueprint catalog entry first.",
+    "Define task decomposition and artifact mapping next.",
+    "Add policy mapping to ensure TDD cannot bypass Hub rules.",
+    "Add tiny repo smoke and docs after policy/artifact mapping is in place."
   ],
-  "critical_path_tasks": ["CLI-T01", "CLI-T02", "CLI-T03", "CLI-T04", "CLI-T05", "CLI-T08"],
+  "critical_path_tasks": ["TDD-T01", "TDD-T02", "TDD-T04", "TDD-T05", "TDD-T06", "TDD-T07"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T00:48:00+02:00",
+    "updated_at": "2026-04-26T10:12:56+02:00",
     "total": 9,
     "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
     "progress_percent_done": 100.0,
-    "by_priority": {"P0": 5, "P1": 4, "P2": 0, "P3": 0},
-    "by_risk": {"low": 2, "medium": 6, "high": 1, "critical": 0},
+    "by_priority": {"P0": 0, "P1": 6, "P2": 3, "P3": 0},
+    "by_risk": {"low": 2, "medium": 4, "high": 3, "critical": 0},
     "critical_path": {"total": 6, "done": 6, "remaining": 0},
     "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T00:48:00+02:00",
+    "updated_at": "2026-04-26T10:12:56+02:00",
     "stages": {
-      "CLI-M1": {
-        "title": "Unified command entrypoint",
-        "scope_task_ids": ["CLI-T01", "CLI-T02", "CLI-T03"],
+      "TDD-M1": {
+        "title": "Blueprint contract and catalog entry",
+        "scope_task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
         "total": 3,
         "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "CLI-M2": {
-        "title": "Command aliases and compatibility",
-        "scope_task_ids": ["CLI-T04", "CLI-T05", "CLI-T06"],
+      "TDD-M2": {
+        "title": "Task and artifact mapping",
+        "scope_task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
         "total": 3,
         "done": 3,
         "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
-      "CLI-M3": {
-        "title": "Docs and smoke tests",
-        "scope_task_ids": ["CLI-T07", "CLI-T08", "CLI-T09"],
+      "TDD-M3": {
+        "title": "Tests, smoke and docs",
+        "scope_task_ids": ["TDD-T07", "TDD-T08", "TDD-T09"],
         "total": 3,
         "done": 3,
         "todo": 0,
@@ -274,56 +267,56 @@
     }
   },
   "summary_notes": [
-    "This track is primarily a UX/DX wrapper track. It should not create another orchestration layer.",
-    "The user-facing golden path should start with `ananta init` and continue with `ananta ...` commands everywhere.",
-    "Module-based python commands can remain available for developers, tests and backwards compatibility.",
-    "This track reuses the existing runtime wizard and goal CLI modules as backend behavior sources."
+    "This is intentionally small: TDD is mainly a blueprint/playbook plus artifact/test evidence, not a new agent architecture.",
+    "The runtime-heavy parts depend on the native worker patch/test flow.",
+    "TDD should become a strong dogfooding pattern for Ananta itself once the native worker is stable.",
+    "Dependency links are now limited to active in-track tasks so archived-track references do not break validation."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T00:48:00+02:00",
+    "checked_at": "2026-04-26T10:12:56+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "Stale dependency reference `todo.platform-gaps.json:PG-T01` was replaced with in-track dependency `CLI-T02`.",
-      "Scope rules were added to keep this track focused on unified CLI UX without orchestration duplication.",
-      "Execution stage rollup data was added for milestone-level progress visibility.",
-      "End summaries were added to provide explicit analysis, corrections and extension status.",
-      "CLI-T01 to CLI-T05 were implemented and validated by CLI-focused pytest coverage.",
-      "CLI-T06 to CLI-T09 completed TUI/Web wiring, compatibility docs, quickstart refresh, and release-gate smoke integration."
+      "Removed archived dependency `todo.ananta-worker.json:AW-T28` from TDD-T07 and replaced it with active prerequisite `TDD-T06`.",
+      "Added `scope_rules` to explicitly constrain architecture and evidence semantics.",
+      "Added `execution_stage_summary` for milestone-level visibility beyond aggregated status counters.",
+      "Added explicit end summaries for analysis, corrections, improvements and final track state.",
+      "Completed TDD-T01 to TDD-T06: seed blueprint/catalog integration, deterministic TDD decomposition template, worker TDD schemas, and policy mapping docs/tests.",
+      "Completed TDD-T07 to TDD-T09: tiny-repo smoke with red/patch/green evidence order, user-facing TDD guide, and release-gate TDD runtime hook."
     ]
   },
   "end_summaries": [
     {
-      "summary_id": "CLI-S1",
-      "title": "Analyseergebnis",
+      "summary_id": "TDD-S1",
+      "title": "Analysis result",
       "items": [
-        "Die Track-Struktur war schema-valide und konsistent, enthielt aber einen veralteten Cross-Track-Dependency-Verweis.",
-        "Milestone-Rollups lagen nur in `tasks_status_summary` vor, nicht als eigene Stage-Sicht."
+        "Track structure was valid and readable but lacked explicit scope guardrails and stage-level rollup output.",
+        "One dependency pointed to an archived track file and caused cross-track dependency validation to fail."
       ]
     },
     {
-      "summary_id": "CLI-S2",
-      "title": "Korrekturen",
+      "summary_id": "TDD-S2",
+      "title": "Corrections",
       "items": [
-        "Abhaengigkeit von CLI-T03 wurde auf aktive In-Track-Tasks umgestellt (`CLI-T01`, `CLI-T02`).",
-        "Veraltete Referenz in `summary_notes` auf nicht vorhandene `todo.platform-gaps.json` wurde entfernt."
+        "TDD-T07 dependency was corrected from archived `todo.ananta-worker.json:AW-T28` to active `TDD-T06`.",
+        "Execution sequence wording was aligned with in-track readiness (`policy/artifact mapping`) instead of external track assumptions."
       ]
     },
     {
-      "summary_id": "CLI-S3",
-      "title": "Verbesserungen und Erweiterungen",
+      "summary_id": "TDD-S3",
+      "title": "Improvements and extensions",
       "items": [
-        "`scope_rules` wurden zur klaren Begrenzung von Track-Intention und Architekturgrenzen ergaenzt.",
-        "`execution_stage_summary` wurde fuer milestonebasierte Fortschrittsdarstellung ergaenzt.",
-        "`analysis_checks` dokumentiert die vorgenommenen Konsistenz- und Strukturverbesserungen."
+        "Added `scope_rules` to protect hub-worker architecture boundaries and evidence semantics.",
+        "Added `execution_stage_summary` to show milestone progress in a dedicated structure.",
+        "Added `analysis_checks` to document consistency and extension outcomes."
       ]
     },
     {
-      "summary_id": "CLI-S4",
-      "title": "Status am Ende",
+      "summary_id": "TDD-S4",
+      "title": "End status",
       "items": [
-        "Aktueller Stand: 9 Aufgaben (0 todo, 0 in_progress, 0 blocked, 9 done).",
-        "Kritischer Pfad: 6 total, 6 done, 0 remaining.",
-        "Alle drei Milestones sind abgeschlossen; Unified CLI Track ist vollständig umgesetzt."
+        "Current state: 9 tasks (0 todo, 0 in_progress, 0 blocked, 9 done).",
+        "Critical path: 6 total, 6 done, 0 remaining.",
+        "Milestones M1, M2 and M3 are complete; TDD blueprint track is fully closed."
       ]
     }
   ]

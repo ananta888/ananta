@@ -1,322 +1,156 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
-  "track": "tdd_blueprint",
-  "purpose": "Add a focused Test-Driven Development blueprint to the Ananta standard blueprint catalog without creating a new orchestration path. The blueprint should reuse Hub planning, Task/Artifact flow, Policy/Approval, native worker patch/test execution and Release-Gate verification.",
+  "track": "planning_blueprint_cleanup",
+  "purpose": "Remove architectural drift around planning and blueprints. planning_utils.py must remain a technical helper module only. Fachliche planning templates, seed blueprints and role/template metadata should move into catalog/blueprint-backed sources that are used by TemplatePlanningStrategy and propagated into PlanNodes/Tasks.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "scope_rules": [
-    "Keep this track focused on blueprint/data/contracts/tests; do not introduce a parallel orchestration runtime.",
-    "Reuse existing Hub planning, approval and artifact flows instead of adding TDD-specific orchestration code paths.",
-    "Use in-track task dependencies only for active work and avoid archived cross-track dependency references.",
-    "Represent red-phase failures as explicit expected evidence; do not hide failures as green success states."
+  "problem_statement": [
+    "agent/services/planning_utils.py currently contains GOAL_TEMPLATES, keyword matching and execution-focused fallback templates.",
+    "TemplatePlanningStrategy uses match_goal_template(...) from planning_utils, so AutoPlanner planning currently prefers this hardcoded mini-template system before HubCopilot/LLM planning.",
+    "The real Blueprint/Team/Role/Template mechanism exists separately in routes/teams.py and services/team_blueprint_service.py, including TeamBlueprintDB, BlueprintRoleDB, BlueprintArtifactDB, RoleDB, TemplateDB and TeamDB.",
+    "routes/teams.py still owns large Python seed data blocks for standard blueprints, starter tasks and role/template definitions.",
+    "PlanningService currently derives task kind, retrieval hints and capabilities mostly from task title/description instead of consistently carrying blueprint role/template metadata into PlanNodes and Tasks.",
+    "This creates multiple sources of fachliche planning truth: seed/team blueprints, hardcoded planning_utils templates and heuristic PlanNode metadata."
   ],
   "non_goals": [
-    "Do not add client-side TDD orchestration.",
-    "Do not let the TDD blueprint bypass worker policy, approval, artifacts or trace metadata.",
-    "Do not create a second planner or worker path for TDD.",
-    "Do not claim support for every language/test framework without smoke evidence."
+    "Do not remove planning_utils parsing, sanitizing, priority normalization, LLM JSON extraction or prompt-injection checks.",
+    "Do not break existing AutoPlanner API behavior during migration.",
+    "Do not rewrite the entire Team/Blueprint API in this track.",
+    "Do not move orchestration or policy decisions into clients.",
+    "Do not require DB access for every simple unit test; provide deterministic fixture/catalog loading where needed.",
+    "Do not remove existing seed blueprints before exported JSON fixtures and reconciliation tests prove equivalent behavior."
   ],
   "success_criteria": [
-    "TDD appears as a standard blueprint in the blueprint catalog.",
-    "Blueprint expresses Red -> Green -> Refactor -> Verify as normal Ananta tasks/artifacts.",
-    "Generated tasks require the test to fail before implementation when feasible.",
-    "Worker/Release-Gate evidence proves at least one tiny repo TDD flow.",
-    "CLI/TUI/Web can display the same blueprint output without duplicating orchestration."
+    "planning_utils.py no longer owns fachliche GOAL_TEMPLATES as the primary template source.",
+    "TemplatePlanningStrategy resolves templates through a dedicated planning template catalog or blueprint-backed adapter.",
+    "Existing core planning modes such as bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project and project_evolution remain covered by tests.",
+    "Seed blueprints and starter artifacts are loaded from JSON/YAML data files instead of large Python constants in routes/teams.py.",
+    "PlanNodes and materialized Tasks preserve useful blueprint provenance and role/template metadata where available.",
+    "planning_utils.py remains focused on technical utilities: sanitizing, validation, JSON extraction, subtask normalization and followup parsing.",
+    "Docs explain the relationship between Blueprint/Team/Role/Template definitions, AutoPlanner template planning, PlanNodes and Tasks.",
+    "No duplicate client-side or hardcoded ad-hoc planning system remains as the preferred path."
   ],
   "milestones": [
-    {
-      "id": "TDD-M1",
-      "title": "Blueprint contract and catalog entry",
-      "task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
-      "status": "done"
-    },
-    {
-      "id": "TDD-M2",
-      "title": "Task and artifact mapping",
-      "task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
-      "status": "done"
-    },
-    {
-      "id": "TDD-M3",
-      "title": "Tests, smoke and docs",
-      "task_ids": ["TDD-T07", "TDD-T08", "TDD-T09"],
-      "status": "todo"
-    }
+    {"id": "PBC-M1", "title": "Inventory and target mapping", "task_ids": ["PBC-T01", "PBC-T02"], "status": "todo"},
+    {"id": "PBC-M2", "title": "Catalog extraction and adapter", "task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "status": "todo"},
+    {"id": "PBC-M3", "title": "Strategy migration and legacy cleanup", "task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "status": "todo"},
+    {"id": "PBC-M4", "title": "Tests, docs and release evidence", "task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "status": "todo"},
+    {"id": "PBC-M5", "title": "Seed blueprint data extraction", "task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "status": "todo"},
+    {"id": "PBC-M6", "title": "Blueprint metadata propagation", "task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "status": "todo"}
   ],
   "tasks": [
-    {
-      "id": "TDD-T01",
-      "title": "TDD blueprint definition add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": [],
-      "expected_files": [
-        "docs/standard-blueprints.md",
-        "tests/test_team_blueprints.py"
-      ],
-      "acceptance_criteria": [
-        "Standard blueprint catalog includes TDD or Test-Driven Development.",
-        "Intended use describes behavior-first code changes where tests are written before implementation.",
-        "Safety/review stance is verification required and approval-gated for patch apply.",
-        "Default outputs include TestPlanArtifact, RedTestResultArtifact, PatchPlanArtifact, GreenTestResultArtifact and RefactorChecklist."
-      ]
-    },
-    {
-      "id": "TDD-T02",
-      "title": "TDD work profile hints add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["TDD-T01"],
-      "expected_files": [
-        "agent/routes/teams.py",
-        "agent/services/team_blueprint_service.py",
-        "tests/test_team_blueprints.py"
-      ],
-      "acceptance_criteria": [
-        "Blueprint exposes recommended goal modes for coding, repair and refactor tasks.",
-        "Blueprint exposes playbook hints for Red -> Green -> Refactor -> Verify.",
-        "Blueprint exposes capability hints for worker.patch.propose, worker.test.run, worker.verify.result and approval-gated apply.",
-        "Blueprint does not require a special client implementation."
-      ]
-    },
-    {
-      "id": "TDD-T03",
-      "title": "TDD blueprint example inputs add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["TDD-T01"],
-      "expected_files": [
-        "docs/standard-blueprints.md"
-      ],
-      "acceptance_criteria": [
-        "Docs include at least one tiny feature example and one bugfix example.",
-        "Expected result sketch shows red test, minimal implementation, green verification and optional refactor.",
-        "Docs clearly state that TDD support depends on available project test runner and worker permissions."
-      ]
-    },
-    {
-      "id": "TDD-T04",
-      "title": "TDD task decomposition rules define",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["TDD-T01"],
-      "expected_files": [
-        "docs/blueprints/tdd-task-decomposition.md",
-        "tests/test_auto_planner_tdd_blueprint.py"
-      ],
-      "acceptance_criteria": [
-        "Defines task sequence: clarify behavior, add/adjust test, run test expecting failure, implement minimal patch, run tests expecting success, optional refactor, final verification.",
-        "Red test failure is represented as expected evidence rather than task failure when in red phase.",
-        "If project cannot run tests, blueprint degrades honestly to TestPlanArtifact and implementation is blocked or marked degraded.",
-        "Tests use deterministic planner/model fixtures."
-      ]
-    },
-    {
-      "id": "TDD-T05",
-      "title": "TDD artifact types align with existing Artifact system",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["TDD-T04"],
-      "expected_files": [
-        "schemas/artifacts/tdd_test_plan_artifact.v1.json",
-        "schemas/artifacts/tdd_cycle_artifact.v1.json",
-        "tests/test_tdd_artifact_schemas.py"
-      ],
-      "acceptance_criteria": [
-        "Schemas capture behavior statement, test files, red result, patch refs, green result, refactor notes and verification refs.",
-        "Schemas reference existing PatchArtifact/TestResultArtifact/VerificationArtifact instead of duplicating them.",
-        "Artifact status distinguishes red_expected, red_missing, green_passed, green_failed, refactor_skipped and degraded.",
-        "Schema tests validate minimal and full TDD cycle examples."
-      ]
-    },
-    {
-      "id": "TDD-T06",
-      "title": "TDD policy and approval mapping add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["TDD-T05"],
-      "expected_files": [
-        "docs/blueprints/tdd-policy.md",
-        "tests/test_tdd_policy_mapping.py"
-      ],
-      "acceptance_criteria": [
-        "Test creation/modification is treated as write activity and follows normal patch approval rules.",
-        "Patch apply remains approval-gated when policy requires it.",
-        "Running tests uses worker.test.run capabilities and command policy.",
-        "Blueprint cannot relax Hub policy or execute commands directly."
-      ]
-    },
-    {
-      "id": "TDD-T07",
-      "title": "Tiny repo TDD smoke test add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["TDD-T04", "TDD-T05", "TDD-T06"],
-      "expected_files": [
-        "tests/e2e/blueprints/test_tdd_tiny_repo_flow.py",
-        "tests/e2e/fixtures/tdd_tiny_repo/"
-      ],
-      "acceptance_criteria": [
-        "Smoke flow creates a TDD blueprint instance for a tiny repo feature.",
-        "Flow records red test evidence before implementation patch evidence.",
-        "Flow records green test evidence after implementation.",
-        "Smoke uses mocked model/provider output by default.",
-        "No direct main-tree mutation happens before approved apply."
-      ]
-    },
-    {
-      "id": "TDD-T08",
-      "title": "TDD docs add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["TDD-T07"],
-      "expected_files": [
-        "docs/blueprints/tdd.md"
-      ],
-      "acceptance_criteria": [
-        "Docs explain how users start a TDD goal.",
-        "Docs explain red/green/refactor evidence and what happens when tests cannot run.",
-        "Docs include CLI/TUI/Web visibility expectations without client-specific orchestration.",
-        "Docs state limitations honestly."
-      ]
-    },
-    {
-      "id": "TDD-T09",
-      "title": "TDD release gate hook add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["TDD-T07"],
-      "expected_files": [
-        "scripts/run_release_gate.py"
-      ],
-      "acceptance_criteria": [
-        "Release gate can include the TDD tiny repo smoke when TDD blueprint runtime is claimed.",
-        "Gate fails if green phase is claimed without passing test evidence.",
-        "Gate fails if red phase is skipped without degraded explanation.",
-        "Gate reports TDD evidence artifact paths."
-      ]
-    }
+    {"id": "PBC-T01", "title": "Hardcoded planning templates inventory add", "status": "todo", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": [], "expected_files": ["docs/architecture/planning-template-inventory.md"], "acceptance_criteria": ["Inventory lists every current GOAL_TEMPLATES entry from agent/services/planning_utils.py.", "Inventory records keywords, subtasks, artifact/risk/test/review metadata and current expected behavior.", "Inventory marks which entries map cleanly to existing standard blueprints and which need a planning-only catalog entry.", "Inventory identifies build_execution_focused_goal_template and EXECUTION_FOCUSED_GOAL_HINTS as separate fallback behavior."]},
+    {"id": "PBC-T02", "title": "Blueprint mapping decision document add", "status": "todo", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": ["PBC-T01"], "expected_files": ["docs/decisions/ADR-planning-templates-use-blueprint-catalog.md"], "acceptance_criteria": ["ADR states that fachliche planning templates belong to a catalog/blueprint-backed path, not planning_utils.py.", "ADR defines planning_utils.py as technical utility module only.", "ADR explains how Team Blueprints, Role Templates, Blueprint Artifacts and AutoPlanner template planning relate.", "ADR defines temporary compatibility behavior for legacy template names and keywords."]},
+    {"id": "PBC-T03", "title": "Planning template catalog file add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/planning_templates.json", "schemas/planning/planning_template_catalog.v1.json", "tests/test_planning_template_catalog_schema.py"], "acceptance_criteria": ["Catalog captures current GOAL_TEMPLATES entries in data form, including keywords and subtasks.", "Schema validates template id, keywords, subtasks, priority, depends_on and optional artifact/risk/test/review metadata.", "Catalog includes explicit mappings or references to related standard blueprints where applicable.", "Schema tests validate minimal and full examples."]},
+    {"id": "PBC-T04", "title": "Planning template catalog service add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T03"], "expected_files": ["agent/services/planning_template_catalog.py", "tests/test_planning_template_catalog.py"], "acceptance_criteria": ["Service loads planning templates from config/planning_templates.json or an injected fixture path for tests.", "Service resolves by exact template id and keyword match.", "Service returns normalized subtasks compatible with PlanningService._build_nodes.", "Unknown templates return None without raising in normal planning flow.", "Tests cover exact id match, keyword match, no match, invalid catalog and deterministic ordering."]},
+    {"id": "PBC-T05", "title": "Blueprint-backed planning adapter add", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T04"], "expected_files": ["agent/services/blueprint_planning_adapter.py", "tests/test_blueprint_planning_adapter.py"], "acceptance_criteria": ["Adapter can derive starter planning subtasks from TeamBlueprintDB/BlueprintArtifactDB task artifacts when a matching blueprint exists.", "Adapter can return blueprint_id, blueprint_name, artifact refs and role/template hints as provenance metadata.", "Adapter does not require clients to know blueprint internals.", "Adapter fails closed/degraded when DB is unavailable and does not block catalog fallback.", "Tests use repository/session fixtures or mocks and cover at least one seed blueprint."]},
+    {"id": "PBC-T06", "title": "TemplatePlanningStrategy use catalog adapter", "status": "todo", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T04"], "expected_files": ["agent/services/planning_strategies.py", "tests/test_planning_strategies.py", "tests/test_auto_planner_templates.py"], "acceptance_criteria": ["TemplatePlanningStrategy no longer calls planning_utils.match_goal_template directly as the primary path.", "TemplatePlanningStrategy resolves template subtasks through PlanningTemplateCatalog or blueprint-backed adapter.", "Planning order remains Template -> HubCopilot -> LLM unless explicitly changed elsewhere.", "Existing AutoPlanner plan_goal tests still pass for common template goals.", "Result still marks template_used=true and planning_mode=template when catalog/blueprint template resolves."]},
+    {"id": "PBC-T07", "title": "planning_utils legacy template API deprecate", "status": "todo", "priority": "P1", "risk": "medium", "blocking": true, "depends_on": ["PBC-T06"], "expected_files": ["agent/services/planning_utils.py", "tests/test_planning_utils.py"], "acceptance_criteria": ["GOAL_TEMPLATES is removed from planning_utils.py or kept only as a temporary imported compatibility fixture with explicit deprecation comment.", "match_goal_template either delegates to PlanningTemplateCatalog or is deprecated and no longer used by TemplatePlanningStrategy.", "planning_utils.py still provides sanitize_input, validate_goal, JSON extraction, subtask normalization and followup parsing.", "Tests cover technical utility functions independently from template catalog content."]},
+    {"id": "PBC-T08", "title": "Execution-focused fallback move out of planning_utils", "status": "todo", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["PBC-T06", "PBC-T07"], "expected_files": ["agent/services/execution_focused_planning.py", "tests/test_execution_focused_planning.py"], "acceptance_criteria": ["EXECUTION_FOCUSED_GOAL_HINTS and build_execution_focused_goal_template move to a dedicated fallback module or catalog entry.", "Fallback behavior remains deterministic for coding/test-heavy goals.", "Fallback is clearly lower priority than exact catalog/blueprint matches.", "Tests cover Python/Fibonacci-style fallback without relying on planning_utils GOAL_TEMPLATES."]},
+    {"id": "PBC-T09", "title": "AutoPlanner compatibility regression tests add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T06", "PBC-T07"], "expected_files": ["tests/test_auto_planner_template_compatibility.py"], "acceptance_criteria": ["Tests verify old template ids still produce meaningful subtasks: bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project, project_evolution.", "Tests verify keyword matching still works for representative German and English goal text.", "Tests verify no LLM call is made when a catalog/blueprint template resolves.", "Tests verify fallback to HubCopilot/LLM still works when no template matches."]},
+    {"id": "PBC-T10", "title": "Planning blueprint docs update", "status": "todo", "priority": "P1", "risk": "low", "blocking": false, "depends_on": ["PBC-T06", "PBC-T09"], "expected_files": ["docs/architecture/planning-blueprint-flow.md", "docs/standard-blueprints.md"], "acceptance_criteria": ["Docs explain current planning order: catalog/blueprint template, HubCopilot, LLM fallback.", "Docs explain that Team Blueprints create teams/starter artifacts while PlanningTemplateCatalog provides AutoPlanner subtask templates.", "Docs define how future domain blueprints should provide planning templates without hardcoding Python dictionaries.", "Docs mention legacy planning_utils cleanup status."]},
+    {"id": "PBC-T11", "title": "Release gate planning cleanup check add", "status": "todo", "priority": "P2", "risk": "medium", "blocking": false, "depends_on": ["PBC-T09", "PBC-T10", "PBC-T14"], "expected_files": ["scripts/run_release_gate.py", "tests/test_release_gate_planning_cleanup.py"], "acceptance_criteria": ["Release gate or smoke check catches reintroduction of large hardcoded GOAL_TEMPLATES in planning_utils.py.", "Check catches reintroduction of large SEED_BLUEPRINTS or *_INITIAL_TASKS constants in routes/teams.py after seed catalog migration.", "Check allows technical utility functions in planning_utils.py.", "Check reports actionable failure message pointing to PlanningTemplateCatalog/Blueprint catalog path.", "Test covers a synthetic violation."]},
+    {"id": "PBC-T12", "title": "Seed blueprint catalog JSON extract", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/blueprints/standard/blueprints.json", "schemas/blueprints/seed_blueprint_catalog.v1.json", "tests/test_seed_blueprint_catalog_schema.py"], "acceptance_criteria": ["Moves current standard seed definitions from routes/teams.py into data files without behavior loss.", "Catalog includes Scrum, Scrum-OpenCode, Kanban, Research, Code-Repair, Security-Review, Release-Prep and Research-Evolution if currently present.", "Catalog preserves roles, template names, artifact tasks, policy artifacts, sort order and role config.", "Schema validates blueprint name, base_team_type_name, roles, artifacts and template references.", "Tests validate full seed catalog fixture."]},
+    {"id": "PBC-T13", "title": "Seed blueprint loader service add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T12"], "expected_files": ["agent/services/seed_blueprint_catalog.py", "tests/test_seed_blueprint_catalog.py"], "acceptance_criteria": ["Service loads seed blueprints from config/blueprints/standard/blueprints.json or injected fixture path.", "Service normalizes and validates template specs, role specs, blueprint roles and artifacts.", "Service exposes deterministic seed blueprint payloads for reconcile_seed_blueprints_service.", "Service does not import Flask routes.", "Tests cover normal load, missing file, invalid duplicate role/artifact order and deterministic ordering."]},
+    {"id": "PBC-T14", "title": "routes/teams seed constants replace with loader", "status": "todo", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T13"], "expected_files": ["agent/routes/teams.py", "agent/services/seed_blueprint_catalog.py", "tests/test_team_blueprint_seed_reconcile.py"], "acceptance_criteria": ["routes/teams.py no longer owns large SEED_BLUEPRINTS or *_INITIAL_TASKS data blocks as primary source.", "Existing seed reconciliation still creates/updates the same templates, roles, team types, blueprint roles and artifacts.", "Existing public endpoints for blueprint catalog/list/detail continue working.", "Regression test compares old expected seed names and important artifact counts against loader output.", "Route module remains primarily HTTP/API orchestration and delegates seed data loading to service layer."]},
+    {"id": "PBC-T15", "title": "PlanNode blueprint provenance fields add", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T05", "PBC-T06"], "expected_files": ["agent/services/planning_service.py", "agent/db_models.py", "tests/test_planning_blueprint_provenance.py"], "acceptance_criteria": ["PlanNode rationale or explicit fields preserve blueprint_id, blueprint_name, blueprint_artifact_id, blueprint_role_name and template_name when available.", "Migration is backwards compatible for existing PlanNodeDB rows.", "No client owns or fabricates blueprint provenance.", "Tests verify catalog-only and blueprint-backed planning both produce deterministic provenance metadata."]},
+    {"id": "PBC-T16", "title": "Materialized Task blueprint metadata carry-over", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T15"], "expected_files": ["agent/services/lifecycle_service.py", "agent/services/planning_service.py", "tests/test_task_blueprint_metadata.py"], "acceptance_criteria": ["Tasks materialized from PlanNodes carry blueprint provenance in worker_execution_context, history, status details or explicit metadata according to existing TaskDB constraints.", "Task metadata includes role/template/capability defaults when available.", "Existing task materialization without blueprint provenance still works.", "Tests verify metadata is visible to worker/context construction without client-side orchestration."]},
+    {"id": "PBC-T17", "title": "Role/template defaults influence PlanNode hints", "status": "todo", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["PBC-T15", "PBC-T16"], "expected_files": ["agent/services/planning_service.py", "agent/services/worker_routing_policy_utils.py", "tests/test_blueprint_role_defaults_planning.py"], "acceptance_criteria": ["When blueprint role config provides capability_defaults, risk_profile or verification_defaults, PlanningService merges them into PlanNode rationale/verification_spec where safe.", "Heuristic title/description capability derivation remains fallback only.", "Role/template defaults cannot weaken Hub policy or approval requirements.", "Tests cover capability enrichment, verification default enrichment and policy-non-bypass behavior."]}
   ],
   "execution_order_summary": [
-    "Add blueprint catalog entry first.",
-    "Define task decomposition and artifact mapping next.",
-    "Add policy mapping to ensure TDD cannot bypass Hub rules.",
-    "Add tiny repo smoke and docs after policy/artifact mapping is in place."
+    "First inventory the existing hardcoded templates and record the architectural decision.",
+    "Extract current planning template data into a validated planning template catalog.",
+    "Extract seed blueprint data from routes/teams.py into a validated seed blueprint catalog.",
+    "Add catalog services and optional blueprint-backed planning adapter.",
+    "Migrate TemplatePlanningStrategy away from planning_utils.match_goal_template.",
+    "Replace routes/teams.py seed constants with loader-backed reconciliation.",
+    "Propagate blueprint role/template provenance into PlanNodes and materialized Tasks.",
+    "Deprecate/remove fachliche GOAL_TEMPLATES from planning_utils while keeping technical utilities.",
+    "Add compatibility tests, docs and release-gate checks so behavior remains stable."
   ],
-  "critical_path_tasks": ["TDD-T01", "TDD-T02", "TDD-T04", "TDD-T05", "TDD-T06", "TDD-T07"],
+  "critical_path_tasks": ["PBC-T01", "PBC-T02", "PBC-T03", "PBC-T04", "PBC-T06", "PBC-T07", "PBC-T09", "PBC-T12", "PBC-T13", "PBC-T14"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T10:12:56+02:00",
-    "total": 9,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 9},
-    "progress_percent_done": 100.0,
-    "by_priority": {"P0": 0, "P1": 6, "P2": 3, "P3": 0},
-    "by_risk": {"low": 2, "medium": 4, "high": 3, "critical": 0},
-    "critical_path": {"total": 6, "done": 6, "remaining": 0},
-    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
+    "updated_at": "2026-04-26T10:21:13+02:00",
+    "total": 17,
+    "by_status": {"todo": 17, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 9, "P1": 7, "P2": 1, "P3": 0},
+    "by_risk": {"low": 1, "medium": 6, "high": 8, "critical": 2},
+    "critical_path": {"total": 10, "done": 0, "remaining": 10},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T10:12:56+02:00",
+    "updated_at": "2026-04-26T10:21:13+02:00",
     "stages": {
-      "TDD-M1": {
-        "title": "Blueprint contract and catalog entry",
-        "scope_task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TDD-M2": {
-        "title": "Task and artifact mapping",
-        "scope_task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TDD-M3": {
-        "title": "Tests, smoke and docs",
-        "scope_task_ids": ["TDD-T07", "TDD-T08", "TDD-T09"],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      }
+      "PBC-M1": {"title": "Inventory and target mapping", "scope_task_ids": ["PBC-T01", "PBC-T02"], "total": 2, "done": 0, "todo": 2, "in_progress": 0, "blocked": 0},
+      "PBC-M2": {"title": "Catalog extraction and adapter", "scope_task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "PBC-M3": {"title": "Strategy migration and legacy cleanup", "scope_task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "PBC-M4": {"title": "Tests, docs and release evidence", "scope_task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "PBC-M5": {"title": "Seed blueprint data extraction", "scope_task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "PBC-M6": {"title": "Blueprint metadata propagation", "scope_task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0}
     }
   },
+  "scope_rules": [
+    "Hub remains control plane for orchestration and policy decisions; worker-only execution model stays intact.",
+    "No worker-to-worker orchestration is introduced while moving planning templates into catalogs/adapters.",
+    "Catalog/blueprint-backed planning must not weaken approval gates, command policy or review requirements.",
+    "Migration is additive and backward-compatible first; no big-bang replacement of planner behavior.",
+    "Blueprint provenance metadata is generated in backend services, never fabricated in client surfaces."
+  ],
   "summary_notes": [
-    "This is intentionally small: TDD is mainly a blueprint/playbook plus artifact/test evidence, not a new agent architecture.",
-    "The runtime-heavy parts depend on the native worker patch/test flow.",
-    "TDD should become a strong dogfooding pattern for Ananta itself once the native worker is stable.",
-    "Dependency links are now limited to active in-track tasks so archived-track references do not break validation."
+    "This cleanup should be done before large new domain blueprint work if possible, because Blender/FreeCAD/KiCad should not add more hardcoded Python planning dictionaries.",
+    "The safest migration keeps current behavior through catalogs first, then progressively wires real blueprint-backed resolution.",
+    "planning_utils.py is still useful, but only for technical utilities, not fachliche template ownership.",
+    "routes/teams.py should stop being the source of large seed blueprint data and should delegate to a seed catalog service.",
+    "Blueprint metadata should travel into PlanNodes/Tasks so worker routing, RAG and verification can use role/template intent without client-side orchestration.",
+    "This track directly supports the desired role/template -> team -> blueprint mechanism becoming the single source of planning truth."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T10:12:56+02:00",
+    "checked_at": "2026-04-26T10:21:13+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
-      "Removed archived dependency `todo.ananta-worker.json:AW-T28` from TDD-T07 and replaced it with active prerequisite `TDD-T06`.",
-      "Added `scope_rules` to explicitly constrain architecture and evidence semantics.",
-      "Added `execution_stage_summary` for milestone-level visibility beyond aggregated status counters.",
-      "Added explicit end summaries for analysis, corrections, improvements and final track state.",
-      "Completed TDD-T01 to TDD-T06: seed blueprint/catalog integration, deterministic TDD decomposition template, worker TDD schemas, and policy mapping docs/tests.",
-      "Completed TDD-T07 to TDD-T09: tiny-repo smoke with red/patch/green evidence order, user-facing TDD guide, and release-gate TDD runtime hook."
+      "Dependency validation result: all depends_on references resolve to in-track task IDs.",
+      "Milestone coverage validation result: all tasks are covered exactly once across milestone task_ids.",
+      "Updated stale summary timestamps and kept counters aligned with task status distribution.",
+      "Added explicit stage-level execution summary to support milestone-based progress tracking.",
+      "Added scope rules to guard architecture, governance and migration boundaries during implementation."
     ]
   },
   "end_summaries": [
     {
-      "summary_id": "TDD-S1",
+      "summary_id": "PBC-S1",
       "title": "Analysis result",
       "items": [
-        "Track structure was valid and readable but lacked explicit scope guardrails and stage-level rollup output.",
-        "One dependency pointed to an archived track file and caused cross-track dependency validation to fail."
+        "Task graph is structurally valid: no dangling dependencies and no uncovered milestone tasks.",
+        "Track already had clear purpose/success criteria, but lacked stage-level progress structure and final summaries."
       ]
     },
     {
-      "summary_id": "TDD-S2",
+      "summary_id": "PBC-S2",
       "title": "Corrections",
       "items": [
-        "TDD-T07 dependency was corrected from archived `todo.ananta-worker.json:AW-T28` to active `TDD-T06`.",
-        "Execution sequence wording was aligned with in-track readiness (`policy/artifact mapping`) instead of external track assumptions."
+        "tasks_status_summary.updated_at was refreshed to the current analysis timestamp.",
+        "Consistency checkpoints were documented explicitly in analysis_checks."
       ]
     },
     {
-      "summary_id": "TDD-S3",
+      "summary_id": "PBC-S3",
       "title": "Improvements and extensions",
       "items": [
-        "Added `scope_rules` to protect hub-worker architecture boundaries and evidence semantics.",
-        "Added `execution_stage_summary` to show milestone progress in a dedicated structure.",
-        "Added `analysis_checks` to document consistency and extension outcomes."
+        "Added execution_stage_summary with per-milestone total/done/todo/in_progress/blocked counters.",
+        "Added scope_rules to make architecture and policy guardrails explicit for this cleanup track.",
+        "Added structured end_summaries for compact reporting at the end of the file."
       ]
     },
     {
-      "summary_id": "TDD-S4",
+      "summary_id": "PBC-S4",
       "title": "End status",
       "items": [
-        "Current state: 9 tasks (0 todo, 0 in_progress, 0 blocked, 9 done).",
-        "Critical path: 6 total, 6 done, 0 remaining.",
-        "Milestones M1, M2 and M3 are complete; TDD blueprint track is fully closed."
+        "Current state: 17 tasks (17 todo, 0 in_progress, 0 blocked, 0 done).",
+        "Critical path: 10 total, 0 done, 10 remaining.",
+        "All six milestones are prepared and currently in todo state; implementation can start with PBC-M1."
       ]
     }
   ]
