@@ -1,13 +1,12 @@
 # Active and Completed Todo Tracks
 
-This document is a compact inventory to avoid duplicate track creation. Detailed scope stays in each track file.
+This document is a compact inventory to avoid duplicate track creation. Detailed scope stays in each active track file. Completed or removed tracks are listed separately as historical references.
 
 ## Active OSS tracks (working set)
 
 | File | Track | Scope role |
 | --- | --- | --- |
 | `todo.json` | `core_boundary_plugin_architecture` | Core-boundary/provider-plugin architecture and integration hygiene |
-| `todo.doc.json` | `documentation_code_reconciliation` | Documentation vs code contract reconciliation and drift guardrails |
 | `todo.blender.json` | `blender_control_surface_and_runtime` | Blender integration backlog |
 | `todo.freecad.json` | `freecad_integration` | FreeCAD integration backlog |
 | `todo.kicad.json` | `kicad_integration` | KiCad integration backlog |
@@ -23,6 +22,7 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | State | Evidence pointer |
 | --- | --- | --- |
+| `todo.doc.json` | Completed and removed | Documentation reconciliation completed before removal; evidence remains in `docs/status/documentation-command-contract.json`, `docs/status/documentation-command-usage.md`, `docs/status/documentation-drift-decision-matrix.md`, `docs/status/architecture-source-map.md`, and `docs/status/architecture-drift-report.md` |
 | `todo_last.json` | Completed historical track snapshot | `todo_last.json` shows all tasks in `done` state |
 
 ## Removed / inactive legacy references
@@ -34,4 +34,4 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 ## Usage rule
 
-Use this inventory only for orientation. Planning and execution decisions must still come from the detailed task definitions inside each track file.
+Use this inventory only for orientation. Planning and execution decisions must still come from the detailed task definitions inside each active track file.
