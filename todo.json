@@ -6,6 +6,12 @@
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
+  "scope_rules": [
+    "Keep this track focused on blueprint/data/contracts/tests; do not introduce a parallel orchestration runtime.",
+    "Reuse existing Hub planning, approval and artifact flows instead of adding TDD-specific orchestration code paths.",
+    "Use in-track task dependencies only for active work and avoid archived cross-track dependency references.",
+    "Represent red-phase failures as explicit expected evidence; do not hide failures as green success states."
+  ],
   "non_goals": [
     "Do not add client-side TDD orchestration.",
     "Do not let the TDD blueprint bypass worker policy, approval, artifacts or trace metadata.",
@@ -161,7 +167,7 @@
       "priority": "P1",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["TDD-T04", "TDD-T05", "todo.ananta-worker.json:AW-T28"],
+      "depends_on": ["TDD-T04", "TDD-T05", "TDD-T06"],
       "expected_files": [
         "tests/e2e/blueprints/test_tdd_tiny_repo_flow.py",
         "tests/e2e/fixtures/tdd_tiny_repo/"
@@ -215,11 +221,11 @@
     "Add blueprint catalog entry first.",
     "Define task decomposition and artifact mapping next.",
     "Add policy mapping to ensure TDD cannot bypass Hub rules.",
-    "Add tiny repo smoke and docs after native worker patch/test flow exists."
+    "Add tiny repo smoke and docs after policy/artifact mapping is in place."
   ],
   "critical_path_tasks": ["TDD-T01", "TDD-T02", "TDD-T04", "TDD-T05", "TDD-T06", "TDD-T07"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-25T00:00:00+02:00",
+    "updated_at": "2026-04-26T09:41:22+02:00",
     "total": 9,
     "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
@@ -228,9 +234,88 @@
     "critical_path": {"total": 6, "done": 0, "remaining": 6},
     "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
   },
+  "execution_stage_summary": {
+    "updated_at": "2026-04-26T09:41:22+02:00",
+    "stages": {
+      "TDD-M1": {
+        "title": "Blueprint contract and catalog entry",
+        "scope_task_ids": ["TDD-T01", "TDD-T02", "TDD-T03"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TDD-M2": {
+        "title": "Task and artifact mapping",
+        "scope_task_ids": ["TDD-T04", "TDD-T05", "TDD-T06"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TDD-M3": {
+        "title": "Tests, smoke and docs",
+        "scope_task_ids": ["TDD-T07", "TDD-T08", "TDD-T09"],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
   "summary_notes": [
     "This is intentionally small: TDD is mainly a blueprint/playbook plus artifact/test evidence, not a new agent architecture.",
     "The runtime-heavy parts depend on the native worker patch/test flow.",
-    "TDD should become a strong dogfooding pattern for Ananta itself once the native worker is stable."
+    "TDD should become a strong dogfooding pattern for Ananta itself once the native worker is stable.",
+    "Dependency links are now limited to active in-track tasks so archived-track references do not break validation."
+  ],
+  "analysis_checks": {
+    "checked_at": "2026-04-26T09:41:22+02:00",
+    "internal_consistency": "corrected_and_extended",
+    "notes": [
+      "Removed archived dependency `todo.ananta-worker.json:AW-T28` from TDD-T07 and replaced it with active prerequisite `TDD-T06`.",
+      "Added `scope_rules` to explicitly constrain architecture and evidence semantics.",
+      "Added `execution_stage_summary` for milestone-level visibility beyond aggregated status counters.",
+      "Added explicit end summaries for analysis, corrections, improvements and final track state."
+    ]
+  },
+  "end_summaries": [
+    {
+      "summary_id": "TDD-S1",
+      "title": "Analysis result",
+      "items": [
+        "Track structure was valid and readable but lacked explicit scope guardrails and stage-level rollup output.",
+        "One dependency pointed to an archived track file and caused cross-track dependency validation to fail."
+      ]
+    },
+    {
+      "summary_id": "TDD-S2",
+      "title": "Corrections",
+      "items": [
+        "TDD-T07 dependency was corrected from archived `todo.ananta-worker.json:AW-T28` to active `TDD-T06`.",
+        "Execution sequence wording was aligned with in-track readiness (`policy/artifact mapping`) instead of external track assumptions."
+      ]
+    },
+    {
+      "summary_id": "TDD-S3",
+      "title": "Improvements and extensions",
+      "items": [
+        "Added `scope_rules` to protect hub-worker architecture boundaries and evidence semantics.",
+        "Added `execution_stage_summary` to show milestone progress in a dedicated structure.",
+        "Added `analysis_checks` to document consistency and extension outcomes."
+      ]
+    },
+    {
+      "summary_id": "TDD-S4",
+      "title": "End status",
+      "items": [
+        "Current state: 9 tasks (9 todo, 0 in_progress, 0 blocked, 0 done).",
+        "Critical path: 6 total, 0 done, 6 remaining.",
+        "Track is now prepared for execution with validated in-track dependencies and explicit end summaries."
+      ]
+    }
   ]
 }
