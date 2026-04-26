@@ -36,8 +36,7 @@
           }
         ],
         "@angular-eslint/prefer-inject": "warn",
-        "@angular-eslint/no-output-native": "warn",
-        "@angular-eslint/template/prefer-control-flow": "warn"
+        "@angular-eslint/no-output-native": "warn"
       }
     },
     {
