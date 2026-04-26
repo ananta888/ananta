@@ -4,6 +4,21 @@
       "title": "Query",
       "type": "string"
     },
+    "source_types": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Types"
+    },
     "top_k": {
       "default": 5,
       "title": "Top K",

@@ -630,6 +630,11 @@
           "default": false,
           "title": "Has Context Text",
           "type": "boolean"
+        },
+        "instruction_layers": {
+          "additionalProperties": true,
+          "title": "Instruction Layers",
+          "type": "object"
         }
       },
       "title": "TaskWorkerContextSummaryContract",

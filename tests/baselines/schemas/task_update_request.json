@@ -75,6 +75,42 @@
       "default": null,
       "title": "Goal Trace Id"
     },
+    "instruction_overlay_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instruction Overlay Id"
+    },
+    "instruction_owner_username": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instruction Owner Username"
+    },
+    "instruction_profile_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instruction Profile Id"
+    },
     "parent_task_id": {
       "anyOf": [
         {
@@ -224,6 +260,19 @@
       ],
       "default": null,
       "title": "Title"
+    },
+    "worker_execution_context": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worker Execution Context"
     }
   },
   "title": "TaskUpdateRequest",
