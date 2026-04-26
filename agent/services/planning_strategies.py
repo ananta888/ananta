@@ -71,8 +71,9 @@ class TemplatePlanningStrategy:
         query_candidates = [candidate for candidate in dict.fromkeys(query_candidates) if candidate]
 
         for candidate in query_candidates:
-            catalog_subtasks = self._catalog.resolve_subtasks(candidate)
-            if catalog_subtasks:
+            catalog_template = self._catalog.resolve_template(candidate)
+            if catalog_template:
+                catalog_subtasks = self._catalog_subtasks_with_metadata(catalog_template)
                 return PlanningStrategyResult(
                     subtasks=catalog_subtasks[: planner.max_subtasks_per_goal],
                     raw_response=None,
@@ -101,6 +102,22 @@ class TemplatePlanningStrategy:
                 planning_mode="template",
             )
         return None
+
+    @staticmethod
+    def _catalog_subtasks_with_metadata(template: dict[str, Any]) -> list[dict[str, Any]]:
+        template_id = str(template.get("id") or "").strip()
+        template_name = str(template.get("title") or template_id).strip() or template_id
+        subtasks: list[dict[str, Any]] = []
+        for item in list(template.get("subtasks") or []):
+            if not isinstance(item, dict):
+                continue
+            annotated = dict(item)
+            if template_id:
+                annotated.setdefault("template_id", template_id)
+            if template_name:
+                annotated.setdefault("template_name", template_name)
+            subtasks.append(annotated)
+        return subtasks
 
 
 class LLMPlanningStrategy:

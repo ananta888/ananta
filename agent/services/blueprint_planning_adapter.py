@@ -36,16 +36,15 @@ class BlueprintPlanningAdapter:
 
             artifacts = repos.blueprint_artifact_repo.get_by_blueprint(blueprint.id)
             roles = repos.blueprint_role_repo.get_by_blueprint(blueprint.id)
-            subtasks = self._build_subtasks(
-                blueprint_id=str(blueprint.id),
-                blueprint_name=str(blueprint.name),
-                artifacts=list(artifacts or []),
+            template_name_by_id = self._resolve_template_names(
+                template_repo=repos.template_repo,
                 role_hints=list(roles or []),
             )
             role_template_hints = [
                 {
                     "role_name": str(role.name or "").strip(),
                     "template_id": str(role.template_id or "").strip(),
+                    "template_name": template_name_by_id.get(str(role.template_id or "").strip()),
                     "is_required": bool(role.is_required),
                     "capability_defaults": dict(role.config or {}).get("capability_defaults"),
                     "risk_profile": dict(role.config or {}).get("risk_profile"),
@@ -54,6 +53,12 @@ class BlueprintPlanningAdapter:
                 for role in list(roles or [])
                 if str(role.name or "").strip()
             ]
+            subtasks = self._build_subtasks(
+                blueprint_id=str(blueprint.id),
+                blueprint_name=str(blueprint.name),
+                artifacts=list(artifacts or []),
+                role_template_hints=role_template_hints,
+            )
             artifact_refs = [
                 f"blueprint_artifact:{artifact.id}"
                 for artifact in list(artifacts or [])
@@ -117,7 +122,7 @@ class BlueprintPlanningAdapter:
         blueprint_id: str,
         blueprint_name: str,
         artifacts: list[Any],
-        role_hints: list[Any],
+        role_template_hints: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:  # noqa: ANN401
         task_artifacts = [
             artifact
@@ -153,17 +158,42 @@ class BlueprintPlanningAdapter:
                 "blueprint_name": blueprint_name,
                 "blueprint_artifact_id": str(getattr(artifact, "id", "")).strip(),
                 "blueprint_role_hints": [
-                    str(role.name)
-                    for role in role_hints
-                    if str(getattr(role, "name", "")).strip()
+                    str(hint.get("role_name") or "").strip()
+                    for hint in role_template_hints
+                    if str(hint.get("role_name") or "").strip()
                 ],
+                "blueprint_role_template_hints": [dict(hint) for hint in role_template_hints],
             }
+            primary_hint = role_template_hints[0] if role_template_hints else {}
+            primary_role_name = str(primary_hint.get("role_name") or "").strip()
+            if primary_role_name:
+                subtask["blueprint_role_name"] = primary_role_name
+            primary_template_name = str(primary_hint.get("template_name") or "").strip()
+            if primary_template_name:
+                subtask["template_name"] = primary_template_name
             for metadata_key in ("risk_focus", "test_focus", "review_focus"):
                 value = str(payload.get(metadata_key) or "").strip()
                 if value:
                     subtask[metadata_key] = value
             subtasks.append(subtask)
         return subtasks
+
+    @staticmethod
+    def _resolve_template_names(*, template_repo: Any, role_hints: list[Any]) -> dict[str, str]:
+        template_ids = {
+            str(getattr(role, "template_id", "") or "").strip()
+            for role in role_hints
+            if str(getattr(role, "template_id", "") or "").strip()
+        }
+        resolved: dict[str, str] = {}
+        for template_id in template_ids:
+            template = template_repo.get_by_id(template_id)
+            if template is None:
+                continue
+            template_name = str(getattr(template, "name", "") or "").strip()
+            if template_name:
+                resolved[template_id] = template_name
+        return resolved
 
 
 blueprint_planning_adapter = BlueprintPlanningAdapter()
