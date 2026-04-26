@@ -10,7 +10,6 @@ from agent.repository import agent_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 
-
 LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
 LIVE_LLM_MODEL_ENV = "LIVE_LLM_MODEL"
