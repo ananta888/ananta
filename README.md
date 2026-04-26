@@ -58,9 +58,52 @@ Weitere CLI-Einstiege:
 - `docs/cli/commands.md`
 - `docs/golden-path-cli.md`
 
-Wenn du stattdessen die Web-Oberflaeche und den kompletten Hub/Worker-Stack brauchst, nutze den Docker-Quickstart im naechsten Abschnitt.
+Wenn du statt CLI-only den Hub/Worker lokal ohne Docker oder den kompletten Full-Stack mit Docker brauchst, nutze die folgenden Pfade.
 
-### B) Full-Stack (Docker + UI)
+### B) Lokalen Hub und Worker ohne Docker starten
+
+Dieser Pfad startet sowohl den Hub als auch Worker ohne Docker.
+
+Terminal 1: (Hub starten)
+
+```bash
+export ROLE=hub
+export PORT=5000
+export HUB_URL=http://localhost:5000
+export HUB_CAN_BE_WORKER=true
+export INITIAL_ADMIN_USER=admin
+export INITIAL_ADMIN_PASSWORD=ananta-local-dev-admin
+python -m agent.ai_agent
+```
+
+Terminal 2: (CLI nutzen)
+
+```bash
+export ANANTA_BASE_URL=http://localhost:5000
+export ANANTA_USER=admin
+export ANANTA_PASSWORD=ananta-local-dev-admin
+ananta status
+ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
+```
+
+### C) Optional separaten lokalen Worker starten
+
+Wenn du Hub und Worker getrennt testen willst, starte zusaetzlich einen zweiten Agent-Prozess.
+
+Terminal 3:
+
+```bash
+export ROLE=worker
+export AGENT_NAME=local-worker
+export PORT=5001
+export HUB_URL=http://localhost:5000
+export AGENT_URL=http://localhost:5001
+python -m agent.ai_agent
+```
+
+Der Worker registriert sich beim Hub. Der Hub bleibt Owner von Goals, Tasks, Policy, Approval und Audit.
+
+### D) Full-Stack (Docker + UI)
 
 1. Umgebung vorbereiten:
    ```powershell
