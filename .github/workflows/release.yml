@@ -40,7 +40,7 @@ jobs:
       - name: Run release gate
         run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
       - name: Upload release verification reports
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-release-verification-reports
           path: |
@@ -52,7 +52,7 @@ jobs:
       - name: Prepare release assets
         run: bash scripts/prepare_release_assets.sh
       - name: Upload release asset bundle
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-github-release-assets
           path: release-assets/
