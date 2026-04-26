@@ -146,14 +146,50 @@ services:
         condition: service_started
 
   backend-test:
-    extends:
-      file: docker-compose.test.yml
-      service: backend-test
+    image: ananta-backend-compose-test-gate:local
+    build:
+      context: .
+      dockerfile: Dockerfile.compose-test
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: "/app"
+      OLLAMA_URL: "http://ollama:11434/api/generate"
+      OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      LIVE_LLM_PROVIDER: "ollama"
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+    command: python -m pytest -q
 
   backend-live-llm-test:
-    extends:
-      file: docker-compose.test.yml
-      service: backend-live-llm-test
+    image: ananta-backend-compose-test-gate:local
+    build:
+      context: .
+      dockerfile: Dockerfile.compose-test
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: "/app"
+      RUN_LIVE_LLM_TESTS: "1"
+      LIVE_LLM_PROVIDER: "ollama"
+      LIVE_LLM_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+      LIVE_LLM_TIMEOUT_SEC: "${LIVE_LLM_TIMEOUT_SEC:-60}"
+      LIVE_LLM_RETRY_ATTEMPTS: "${LIVE_LLM_RETRY_ATTEMPTS:-1}"
+      LIVE_LLM_RETRY_BACKOFF_SEC: "${LIVE_LLM_RETRY_BACKOFF_SEC:-0.5}"
+      OLLAMA_URL: "http://ollama:11434/api/generate"
+      E2E_OLLAMA_URL: "http://ollama:11434/api/generate"
+      OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+    volumes:
+      - .:/app
+    working_dir: /app
     depends_on:
       backend-test:
         condition: service_completed_successfully
@@ -161,6 +197,7 @@ services:
         condition: service_healthy
       autoimport:
         condition: service_started
+    command: python -m pytest -q tests/test_goal_live_lmstudio.py
 
   frontend-test:
     extends:
