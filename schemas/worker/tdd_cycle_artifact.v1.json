@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/tdd_cycle_artifact.v1.json",
+  "title": "Ananta Worker TDD Cycle Artifact v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "behavior_statement",
+    "test_files",
+    "cycle_status",
+    "red_result",
+    "patch_refs",
+    "green_result",
+    "refactor_notes",
+    "verification_refs"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "tdd_cycle_artifact.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "behavior_statement": { "type": "string", "minLength": 1 },
+    "test_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "cycle_status": {
+      "type": "string",
+      "enum": ["red_expected", "red_missing", "green_passed", "green_failed", "refactor_skipped", "degraded"]
+    },
+    "red_result": {
+      "type": "object",
+      "required": ["status", "test_result_artifact_ref"],
+      "properties": {
+        "status": { "type": "string", "enum": ["red_expected", "red_missing", "degraded"] },
+        "test_result_artifact_ref": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "patch_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "References to existing patch_artifact.v1 entries."
+    },
+    "green_result": {
+      "type": "object",
+      "required": ["status", "test_result_artifact_ref"],
+      "properties": {
+        "status": { "type": "string", "enum": ["green_passed", "green_failed", "degraded"] },
+        "test_result_artifact_ref": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "refactor_notes": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["refactor_completed", "refactor_skipped", "degraded"] },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "verification_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "References to existing verification_artifact.v1 entries."
+    }
+  },
+  "additionalProperties": false
+}
