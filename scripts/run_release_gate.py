@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+PLANNING_UTILS_PATH = ROOT / "agent" / "services" / "planning_utils.py"
+TEAMS_ROUTE_PATH = ROOT / "agent" / "routes" / "teams.py"
+HARDCODED_TEMPLATE_LITERAL_PATTERN = re.compile(r"(?m)^GOAL_TEMPLATES\s*=\s*\{")
+SEED_BLUEPRINT_LITERAL_PATTERN = re.compile(r"(?m)^SEED_BLUEPRINTS\s*=\s*\{")
+INITIAL_TASKS_LITERAL_PATTERN = re.compile(r"(?m)^[A-Z0-9_]+_INITIAL_TASKS\s*=\s*\[")
 
 
 def _python_executable() -> str:
@@ -36,6 +42,38 @@ def _normalize_evidence_refs(raw: Any) -> list[str]:
     if not isinstance(raw, list):
         return []
     return [str(item).strip() for item in raw if str(item).strip()]
+
+
+def _planning_cleanup_violations(*, planning_utils_text: str, teams_text: str) -> list[str]:
+    violations: list[str] = []
+    if HARDCODED_TEMPLATE_LITERAL_PATTERN.search(planning_utils_text):
+        violations.append("hardcoded_goal_templates_literal_in_planning_utils")
+    if SEED_BLUEPRINT_LITERAL_PATTERN.search(teams_text):
+        violations.append("seed_blueprints_literal_in_routes_teams")
+    if INITIAL_TASKS_LITERAL_PATTERN.search(teams_text):
+        violations.append("initial_tasks_literal_in_routes_teams")
+    return violations
+
+
+def _check_planning_cleanup(root: Path = ROOT) -> tuple[bool, str]:
+    try:
+        planning_utils_text = (root / PLANNING_UTILS_PATH.relative_to(ROOT)).read_text(encoding="utf-8")
+        teams_text = (root / TEAMS_ROUTE_PATH.relative_to(ROOT)).read_text(encoding="utf-8")
+    except OSError as exc:
+        return False, f"planning_cleanup_check_file_read_error:{exc}"
+
+    violations = _planning_cleanup_violations(
+        planning_utils_text=planning_utils_text,
+        teams_text=teams_text,
+    )
+    if violations:
+        return (
+            False,
+            "planning_cleanup_violation:"
+            + ",".join(violations)
+            + " (expected catalog path: PlanningTemplateCatalog and SeedBlueprintCatalog)",
+        )
+    return True, "ok"
 
 
 def _evaluate_tdd_smoke_report(report_path: str) -> tuple[bool, str, list[str]]:
@@ -113,6 +151,11 @@ def main() -> int:
     release_gate_result = subprocess.run(release_gate_command, cwd=str(ROOT), check=False)
     if release_gate_result.returncode != 0:
         return release_gate_result.returncode
+
+    planning_cleanup_ok, planning_cleanup_reason = _check_planning_cleanup()
+    if not planning_cleanup_ok:
+        print(f"planning_cleanup_error={planning_cleanup_reason}")
+        return 1
 
     if not args.skip_security_invariants:
         security_command = [
