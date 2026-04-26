@@ -1,42 +1,14 @@
 services:
-  postgres:
-    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ananta}
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
-      POSTGRES_DB: ${POSTGRES_DB:-ananta}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-
-  redis:
-    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-
-  # Ohne aktiviertes Profil wird Ollama in diesem Quickstart nicht gestartet.
+  # Ollama bleibt in diesem Quickstart optional und wird nur mit --profile ollama gestartet.
   ollama:
     profiles: ["ollama"]
 
   autoimport:
     profiles: ["ollama"]
 
+  # Ein auslieferbares Image fuer Hub, Worker und Frontend.
   ai-agent-hub:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
@@ -44,42 +16,54 @@ services:
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REDIS_URL: ${REDIS_URL:-}
+      DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
 
   ai-agent-alpha:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ROLE: worker
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REDIS_URL: ${REDIS_URL:-}
+      DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
     depends_on:
-      postgres:
-        condition: service_healthy
       ai-agent-hub:
         condition: service_healthy
 
   ai-agent-beta:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: .
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
+      ROLE: worker
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REDIS_URL: ${REDIS_URL:-}
+      DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}
     depends_on:
-      postgres:
-        condition: service_healthy
       ai-agent-hub:
         condition: service_healthy
 
-volumes:
-  postgres_data:
-    name: ananta_postgres_data
-  redis_data:
-    name: ananta_redis_data
+  angular-frontend:
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    working_dir: /app/frontend-angular
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --disable-host-check
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy

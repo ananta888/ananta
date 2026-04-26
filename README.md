@@ -156,38 +156,41 @@ Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und
 
 Offizieller UI-Standardweg: `docs/golden-path-ui.md`.
 
-### F) Docker-Quickstart ohne Ollama (alternatives Dockerfile)
+### F) Docker-Quickstart ohne Ollama (ein auslieferbares Image)
 
-Wenn du Docker nutzen willst, aber den Stack standardmaessig **ohne Ollama** starten willst, nutze:
+Dieser Pfad baut **ein einziges auslieferbares Image** (`Dockerfile.quickstart-no-ollama`) und startet Hub, Worker und Angular-Frontend daraus. Standardmaessig ohne Ollama, ohne zusaetzliche DB/Redis-Container (SQLite ist im Image-Setup direkt nutzbar).
 
-- `Dockerfile.quickstart-no-ollama`
-- `docker-compose.quickstart-no-ollama.yml`
-
-Lite (Hub + Worker + Frontend):
+Start (Hub + Worker + Frontend):
 
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 ```
 
-Full-Stack mit Evolver-Profil:
+Provider auf **LM Studio**:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.quickstart-no-ollama.yml --profile evolution up -d --build
+DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 ```
 
-Distributed:
+Provider auf **OpenAI API**:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 ```
 
-Live-Code:
+Optional: Distributed-Overlay:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.distributed.yml up -d --build
+```
+
+Optional: Live-Code-Overlay:
 
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.live-code.yml up -d --build
 ```
 
-Hinweis: Falls du spaeter doch Ollama im selben Setup aktivieren willst, fuege `--profile ollama` hinzu.
+Hinweis: Die Hub/Worker-Rollen laufen weiterhin in getrennten Containern, aber aus demselben Image.
 
 ## Was Ananta macht
 

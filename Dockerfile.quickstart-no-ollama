@@ -1,14 +1,13 @@
+FROM node:20.19.5-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3 AS node_runtime
 FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47
 
-# Quickstart (ohne Ollama) mit diesem Dockerfile:
-# 1) Lite (Hub + Worker + Frontend):
+# Quickstart (ein auslieferbares Image ohne Ollama):
+# 1) Hub + Worker + Frontend aus genau diesem einen Image starten:
 #    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
-# 2) Full-Stack mit Evolver-Profil:
-#    docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.quickstart-no-ollama.yml --profile evolution up -d --build
-# 3) Distributed:
-#    docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
-# 4) Live-Code:
-#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.live-code.yml up -d --build
+# 2) Provider auf LM Studio:
+#    DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+# 3) Provider auf OpenAI:
+#    DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 
 ARG DEBIAN_SNAPSHOT=20260406T000000Z
 
@@ -38,9 +37,13 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     net-tools \
     iputils-ping \
     traceroute \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
+
+# Node 20.19.5 aus dem offiziellen Frontend-Runtime-Image uebernehmen.
+COPY --from=node_runtime /usr/local/bin/ /usr/local/bin/
+COPY --from=node_runtime /usr/local/lib/node_modules/ /usr/local/lib/node_modules/
+RUN node --version | grep -F "v20.19.5" \
+    && npm --version >/dev/null
 
 # Install OpenCode CLI once in the image so opencode backend is available after restarts.
 RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
@@ -53,6 +56,10 @@ WORKDIR /app
 COPY requirements.lock .
 RUN pip install --no-cache-dir -r requirements.lock
 
+# Frontend-Abhaengigkeiten im selben Image vorinstallieren.
+COPY frontend-angular/package*.json frontend-angular/
+RUN cd frontend-angular && npm ci --no-audit --no-fund
+
 # Den Rest des Codes kopieren
 COPY . .
 
@@ -62,6 +69,7 @@ ENV PYTHONPATH=/app \
     DEFAULT_PROVIDER=lmstudio \
     DEFAULT_MODEL=auto \
     LMSTUDIO_URL=http://host.docker.internal:1234/v1 \
+    OPENAI_URL=https://api.openai.com/v1/chat/completions \
     ANANTA_QUICKSTART_VARIANT=no-ollama
 
 CMD ["sh", "-c", "alembic upgrade head && exec python -m agent.ai_agent"]
