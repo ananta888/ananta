@@ -54,7 +54,12 @@ def test_template_resolution_avoids_llm_call_when_template_matches(app, monkeypa
     planner.configure(auto_start_autopilot=False)
 
     with app.app_context():
-        result = planner.plan_goal("Fix critical bug in auth flow", create_tasks=False, use_template=True, use_repo_context=False)
+        result = planner.plan_goal(
+            "Fix critical bug in auth flow",
+            create_tasks=False,
+            use_template=True,
+            use_repo_context=False,
+        )
 
     assert result.get("error") is None
     assert result.get("template_used") is True
@@ -73,7 +78,12 @@ def test_fallback_to_llm_still_works_when_no_template_matches(app, monkeypatch) 
     planner.configure(auto_start_autopilot=False)
 
     with app.app_context():
-        result = planner.plan_goal("zzzz unmatched planner request", create_tasks=False, use_template=True, use_repo_context=False)
+        result = planner.plan_goal(
+            "zzzz unmatched planner request",
+            create_tasks=False,
+            use_template=True,
+            use_repo_context=False,
+        )
 
     assert result.get("error") is None
     assert result.get("template_used") is False

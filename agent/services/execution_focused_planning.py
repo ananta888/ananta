@@ -47,19 +47,28 @@ def build_execution_focused_goal_template(goal: str) -> list[dict[str, Any]]:
         },
         {
             "title": "Automatisierte Tests ergaenzen",
-            "description": "Erstelle Unit Tests mit pytest fuer Basisfaelle, typische Eingaben und relevante Randfaelle.",
+            "description": (
+                "Erstelle Unit Tests mit pytest fuer Basisfaelle, "
+                "typische Eingaben und relevante Randfaelle."
+            ),
             "priority": "High",
             "depends_on": ["1"],
         },
         {
             "title": "Tests ausfuehren und validieren",
-            "description": "Fuehre die relevanten Tests aus, pruefe das Ergebnis und halte die Validierung knapp fest.",
+            "description": (
+                "Fuehre die relevanten Tests aus, pruefe das Ergebnis "
+                "und halte die Validierung knapp fest."
+            ),
             "priority": "Medium",
             "depends_on": ["2"],
         },
         {
             "title": "Geaenderte Dateien zusammenfassen",
-            "description": "Erstelle eine kurze Zusammenfassung der geaenderten Dateien und der wichtigsten Umsetzungsergebnisse.",
+            "description": (
+                "Erstelle eine kurze Zusammenfassung der geaenderten Dateien "
+                "und der wichtigsten Umsetzungsergebnisse."
+            ),
             "priority": "Low",
             "depends_on": ["3"],
         },

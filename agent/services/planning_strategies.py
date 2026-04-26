@@ -159,7 +159,12 @@ class LLMPlanningStrategy:
                 resolved_context = repo_context
 
         if mode != "generic" and mode_data:
-            resolved_context = f"{(resolved_context or '').strip()}\n\nSTEUERUNGSDATEN (Modus: {mode}):\n{json.dumps(mode_data, indent=2)}".strip()
+            mode_context = (
+                f"{(resolved_context or '').strip()}\n\n"
+                f"STEUERUNGSDATEN (Modus: {mode}):\n"
+                f"{json.dumps(mode_data, indent=2)}"
+            )
+            resolved_context = mode_context.strip()
 
         prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
@@ -205,7 +210,11 @@ class HubCopilotPlanningStrategy:
     ) -> PlanningStrategyResult | None:
         hub_llm = get_hub_llm_service()
         copilot_config = hub_llm.resolve_copilot_config()
-        if not copilot_config.get("enabled") or not copilot_config.get("supports_planning") or not copilot_config.get("active"):
+        if (
+            not copilot_config.get("enabled")
+            or not copilot_config.get("supports_planning")
+            or not copilot_config.get("active")
+        ):
             return None
 
         resolved_context = context
@@ -215,7 +224,12 @@ class HubCopilotPlanningStrategy:
                 resolved_context = repo_context
 
         if mode != "generic" and mode_data:
-            resolved_context = f"{(resolved_context or '').strip()}\n\nSTEUERUNGSDATEN (Modus: {mode}):\n{json.dumps(mode_data, indent=2)}".strip()
+            mode_context = (
+                f"{(resolved_context or '').strip()}\n\n"
+                f"STEUERUNGSDATEN (Modus: {mode}):\n"
+                f"{json.dumps(mode_data, indent=2)}"
+            )
+            resolved_context = mode_context.strip()
 
         prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         response = hub_llm.plan_with_copilot(prompt=prompt, timeout=getattr(planner, "llm_timeout", None))
