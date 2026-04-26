@@ -2,7 +2,7 @@
   "version": 1,
   "owner": "ananta",
   "track": "documentation_code_reconciliation",
-  "purpose": "Rebuild the documentation todo from executable source reality (CLI, scripts, task orchestration, tests) and resolve drift without blindly deleting docs. Every mismatch must explicitly decide whether docs change, code changes, or both.",
+  "purpose": "Rebuild the documentation todo from executable source reality (CLI, scripts, task orchestration, tests) and resolve drift without blindly deleting docs. Apply a conservative strategy: fix user-impacting mismatches immediately, default to docs-first for terminology drift, and only change code when there is clear runtime/user value.",
   "goal": "A maintainable, code-backed documentation baseline where command examples, architecture claims and fallback semantics are consistent, test-guarded, and explicitly lifecycle-labeled (active vs historical).",
   "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
@@ -24,6 +24,12 @@
     "Fallback provenance vocabulary in docs (`delegated|hub_fallback`) differs from runtime/test values (`delegated_worker|hub_as_worker_fallback|fallback_blocked`).",
     "Python minimum version guidance differs between docs (3.11+) and runtime checks/tooling (3.10+)."
   ],
+  "decision_policy": {
+    "rule_1_user_impact_first": "If command examples or next-step guidance are wrong for users, prioritize code+docs correction immediately (compatibility-friendly where needed).",
+    "rule_2_terminology_docs_first": "If drift is mainly naming/vocabulary, align canonical docs first and document aliases before touching runtime payload fields.",
+    "rule_3_stable_behavior_docs_follow": "If behavior is stable and test-backed, docs should follow that behavior unless there is strong product reason to change code.",
+    "rule_4_code_change_threshold": "Code refactors are only accepted when they improve runtime correctness, user UX, reliability, or prevent repeated drift."
+  },
   "non_goals": [
     "Do not delete architecture/docs content without replacement pointers and lifecycle labels.",
     "Do not rewrite product strategy docs that are not tied to executable behavior or operator workflows.",
@@ -32,7 +38,8 @@
   ],
   "success_criteria": [
     "All user-path command examples in README/setup/CLI docs are executable against current CLI contracts.",
-    "Every identified doc-code mismatch has an explicit decision: update_docs, update_code, or update_both with rationale.",
+    "Every identified doc-code mismatch has an explicit decision with rationale and strategy tag: docs_first, code_first, or update_both.",
+    "Terminology-only mismatches are resolved docs-first with explicit compatibility notes where runtime still emits legacy values.",
     "Architecture and fallback docs use the same vocabulary as emitted runtime metadata, or compatibility aliases are documented and tested.",
     "Historical docs are clearly labeled and linked to canonical replacements instead of silently drifting.",
     "Documentation drift checks run in tests/release gate to prevent regression."
@@ -143,21 +150,19 @@
     },
     {
       "id": "DOC-T05",
-      "title": "Backward-compatible init URL flag policy implement",
+      "title": "Init URL flag compatibility policy (docs-first, code optional)",
       "status": "todo",
-      "priority": "P1",
+      "priority": "P2",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["DOC-T03"],
+      "depends_on": ["DOC-T03", "DOC-T04"],
       "expected_files": [
-        "agent/cli/init_wizard.py",
-        "tests/test_init_wizard.py",
         "docs/setup/ananta_init.md"
       ],
       "acceptance_criteria": [
-        "Policy for `--base-url` compatibility is explicit: either supported as alias with deprecation guidance or clearly rejected with actionable migration message.",
-        "Behavior is covered by tests.",
-        "Docs reflect the chosen compatibility policy."
+        "Primary contract is documented as `--endpoint-url`.",
+        "Compatibility alias `--base-url` is only implemented if migration pain is proven; otherwise docs provide explicit migration note.",
+        "If alias is implemented, then `agent/cli/init_wizard.py` and `tests/test_init_wizard.py` are updated in the same change."
       ]
     },
     {
@@ -203,7 +208,7 @@
     },
     {
       "id": "DOC-T08",
-      "title": "Python minimum version contract align",
+      "title": "Python minimum version drift resolve (docs-first)",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
@@ -211,32 +216,30 @@
       "depends_on": ["DOC-T03"],
       "expected_files": [
         "docs/INSTALL_TEST_BETRIEB.md",
-        "agent/cli/doctor.py",
-        "pyproject.toml"
+        "docs/setup/ananta_init.md"
       ],
       "acceptance_criteria": [
-        "Single minimum Python version is agreed and consistently represented across packaging, doctor output and docs.",
-        "If different minimums are intentional by runtime mode, docs explain the split explicitly."
+        "Docs are first aligned to the currently enforced/tested runtime baseline.",
+        "If a stricter baseline is desired, a separate follow-up code task is created with explicit migration impact (doctor + packaging + CI).",
+        "No silent baseline raise is performed inside documentation-only cleanup."
       ]
     },
     {
       "id": "DOC-T09",
-      "title": "Hub fallback provenance vocabulary reconcile",
+      "title": "Hub fallback vocabulary reconcile (docs-first with alias mapping)",
       "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
       "depends_on": ["DOC-T03"],
       "expected_files": [
         "docs/hub-fallback-and-reliability.md",
-        "agent/routes/tasks/autopilot_tick_engine.py",
-        "agent/services/task_execution_tracking_service.py",
         "tests/test_tasks_autopilot.py"
       ],
       "acceptance_criteria": [
-        "Canonical docs and runtime metadata use the same `execution_mode` and `fallback_reason` semantics.",
-        "If legacy values remain for compatibility, aliases are explicitly documented and tested.",
-        "Blocked fallback state semantics are documented consistently with runtime behavior."
+        "Canonical docs reflect current runtime values (`delegated_worker`, `hub_as_worker_fallback`, `fallback_blocked`) plus compatibility alias mapping to conceptual labels.",
+        "Tests include explicit vocabulary mapping expectations so wording drift is visible.",
+        "Runtime field renaming is deferred unless there is clear interoperability/user-value justification."
       ]
     },
     {
@@ -330,22 +333,19 @@
     },
     {
       "id": "DOC-T15",
-      "title": "CLI help dependency coupling assessment and fix",
+      "title": "CLI help dependency coupling assessment (fix only with proven value)",
       "status": "todo",
-      "priority": "P1",
-      "risk": "high",
+      "priority": "P2",
+      "risk": "medium",
       "blocking": false,
       "depends_on": ["DOC-T03"],
       "expected_files": [
-        "agent/cli/main.py",
-        "agent/cli/init_wizard.py",
-        "tests/test_unified_cli_entrypoint.py",
         "docs/cli/commands.md"
       ],
       "acceptance_criteria": [
         "Decision is explicit whether `ananta --help` should run without full backend dependency install.",
-        "If yes, imports are refactored to lazy-load command modules and tests cover minimal-help startup.",
-        "If no, docs/install flow states dependency precondition unambiguously."
+        "If no clear user/runtime value is shown, keep code unchanged and document dependency precondition clearly.",
+        "If value is proven, then `agent/cli/main.py`, related tests, and import strategy are updated together."
       ]
     },
     {
@@ -406,8 +406,8 @@
   "execution_order_summary": [
     "Build executable command and docs usage inventories from code/test reality first.",
     "Create an explicit decision matrix before changing docs or code for each mismatch.",
-    "Fix bootstrap/CLI contract drift and onboarding contradictions next.",
-    "Reconcile fallback/architecture semantics between docs and runtime metadata.",
+    "Fix user-impacting command drift first (`--endpoint-url`, user next-step commands, onboarding contradictions).",
+    "Resolve terminology drift docs-first with alias mappings before runtime field renames.",
     "Add automated tests and release-gate hooks so drift does not reappear."
   ],
   "critical_path_tasks": [
@@ -417,7 +417,7 @@
     "DOC-T04",
     "DOC-T06",
     "DOC-T07",
-    "DOC-T09",
+    "DOC-T08",
     "DOC-T12",
     "DOC-T13"
   ],
@@ -433,16 +433,16 @@
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 9,
-      "P1": 8,
-      "P2": 1,
+      "P0": 8,
+      "P1": 7,
+      "P2": 3,
       "P3": 0
     },
     "by_risk": {
       "low": 1,
-      "medium": 7,
+      "medium": 8,
       "high": 9,
-      "critical": 1
+      "critical": 0
     },
     "critical_path": {
       "total": 9,
@@ -460,6 +460,7 @@
   "summary_notes": [
     "This todo intentionally prioritizes evidence-based reconciliation from code and tests over broad doc rewrites.",
     "Deletion is not the default action for stale docs; lifecycle labeling plus canonical pointers comes first.",
-    "Where architecture text and code differ, this track requires an explicit choose-and-justify decision instead of silently editing whichever is easier."
+    "Where architecture text and code differ, this track requires an explicit choose-and-justify decision instead of silently editing whichever is easier.",
+    "Default execution policy: user-impacting mismatches first, terminology drift docs-first, runtime code changes only with clear payoff."
   ]
 }
