@@ -19,6 +19,18 @@ REQUIRED_DOCS = [
 ]
 
 TRACK_ROW_PATTERN = re.compile(r"\|\s*`(todo[^`]+\.json)`\s*\|\s*`([^`]+)`\s*\|")
+SECTION_PATTERN = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _section(content: str, heading: str) -> str:
+    matches = list(SECTION_PATTERN.finditer(content))
+    for index, match in enumerate(matches):
+        if match.group(1).strip() != heading:
+            continue
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(content)
+        return content[start:end]
+    raise AssertionError(f"Section not found: {heading}")
 
 
 def test_docs_exist() -> None:
@@ -28,8 +40,9 @@ def test_docs_exist() -> None:
 
 def test_active_track_inventory_points_to_existing_track_files() -> None:
     inventory = (ROOT / "docs" / "status" / "active_and_completed_tracks.md").read_text(encoding="utf-8")
-    matches = TRACK_ROW_PATTERN.findall(inventory)
-    assert matches, "No todo track rows found in active_and_completed_tracks.md"
+    active_section = _section(inventory, "Active OSS tracks (working set)")
+    matches = TRACK_ROW_PATTERN.findall(active_section)
+    assert matches, "No active todo track rows found in active_and_completed_tracks.md"
 
     for file_name, expected_track in matches:
         payload = json.loads((ROOT / file_name).read_text(encoding="utf-8"))
@@ -38,7 +51,12 @@ def test_active_track_inventory_points_to_existing_track_files() -> None:
         )
 
 
-def test_active_track_inventory_includes_documentation_track() -> None:
+def test_completed_documentation_track_is_archived_not_active() -> None:
     inventory = (ROOT / "docs" / "status" / "active_and_completed_tracks.md").read_text(encoding="utf-8")
-    assert "| `todo.doc.json` | `documentation_code_reconciliation` |" in inventory
-    assert "| `todo.json` | `core_boundary_plugin_architecture` |" in inventory
+    active_section = _section(inventory, "Active OSS tracks (working set)")
+    completed_section = _section(inventory, "Completed / archived references")
+
+    assert "| `todo.doc.json` |" not in active_section
+    assert "| `todo.doc.json` | Completed and removed |" in completed_section
+    assert not (ROOT / "todo.doc.json").exists()
+    assert "| `todo.json` | `core_boundary_plugin_architecture` |" in active_section
