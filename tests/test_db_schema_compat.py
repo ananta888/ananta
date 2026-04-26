@@ -87,3 +87,65 @@ def test_ensure_schema_compat_does_not_backfill_legacy_task_status_aliases(monke
 def test_maintenance_script_for_status_backfill_exists():
     script = Path("devtools/backfill_task_statuses.py")
     assert script.exists()
+
+
+def test_ensure_schema_compat_backfills_legacy_agents_registration_columns(monkeypatch):
+    import os
+    import tempfile
+
+    import agent.database as db
+
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    temp_engine = create_engine(f"sqlite:///{db_path}")
+    with temp_engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE agents (
+                    url TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    token TEXT,
+                    worker_roles TEXT NOT NULL DEFAULT '[]',
+                    capabilities TEXT NOT NULL DEFAULT '[]',
+                    execution_limits TEXT NOT NULL DEFAULT '{}',
+                    last_seen REAL NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'online'
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO agents (url, name, role, token, last_seen, status) "
+                "VALUES ('http://worker-a:5000', 'worker-a', 'worker', 'tok', 1.0, 'online')"
+            )
+        )
+
+    monkeypatch.setattr(db, "engine", temp_engine)
+    db._ensure_schema_compat()
+
+    insp = inspect(temp_engine)
+    columns = {c["name"] for c in insp.get_columns("agents")}
+    assert "registration_validated" in columns
+    assert "validation_errors" in columns
+    assert "validated_at" in columns
+
+    with temp_engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT registration_validated, validation_errors, validated_at "
+                "FROM agents WHERE url = 'http://worker-a:5000'"
+            )
+        ).fetchone()
+    assert row is not None
+    assert int(row[0]) == 1
+    assert str(row[1] or "") == "[]"
+    assert row[2] is None
+
+    temp_engine.dispose()
+    try:
+        os.remove(db_path)
+    except PermissionError:
+        pass

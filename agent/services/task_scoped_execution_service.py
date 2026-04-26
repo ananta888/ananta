@@ -2240,6 +2240,9 @@ class TaskScopedExecutionService:
             )
             if context_preview:
                 prompt_sections.append(f"Kurzvorschau Hub-Kontext: {context_preview}")
+        research_prompt_section = str((research_context or {}).get("prompt_section") or "").strip()
+        if research_prompt_section:
+            prompt_sections.append("Selektierter Research-Kontext:\n" + research_prompt_section)
         if allowed_tools:
             prompt_sections.append(
                 "Tool-Scope fuer diesen Task (nur diese Tools verwenden): "
