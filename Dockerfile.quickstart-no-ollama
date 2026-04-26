@@ -2,13 +2,13 @@ FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f32
 
 # Quickstart (ohne Ollama) mit diesem Dockerfile:
 # 1) Lite (Hub + Worker + Frontend):
-#    docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 # 2) Full-Stack mit Evolver-Profil:
 #    docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.quickstart-no-ollama.yml --profile evolution up -d --build
 # 3) Distributed:
 #    docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
 # 4) Live-Code:
-#    docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.live-code.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.live-code.yml up -d --build
 
 ARG DEBIAN_SNAPSHOT=20260406T000000Z
 
