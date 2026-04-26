@@ -44,12 +44,17 @@ services:
     ports: []
 
   autoimport:
-    extends:
-      file: docker-compose.base.yml
-      service: autoimport
-    depends_on: {}
+    image: ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
+    container_name: ollama-autoimport
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]
+    volumes:
+      - /mnt/c/Users/Public/lm-models:/models:ro
+      - ./autoimport-state:/state
+      - ./scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
     environment:
       OLLAMA_AUTOIMPORT_MODE: "${OLLAMA_AUTOIMPORT_MODE:-seed}"
+      OLLAMA_BASE_URL: "http://ollama:11434"
 
   angular-frontend:
     extends:
@@ -169,7 +174,7 @@ services:
         condition: service_healthy
       autoimport:
         condition: service_started
-    command: python -m pytest -q
+    command: python -m pytest -q --ignore-glob=tests/**/fixtures/**
 
   backend-live-llm-test:
     image: ananta-backend-compose-test-gate:local
