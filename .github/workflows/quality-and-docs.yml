@@ -98,7 +98,7 @@ jobs:
       - run: npm run test:smoke
       - run: npm run compile
       - run: npm run package
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-vscode-extension-vsix
           path: client_surfaces/vscode_extension/dist/ananta-vscode-extension.vsix
@@ -127,7 +127,7 @@ jobs:
       - name: Validate distributed compose config
         run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config > ci-artifacts/compose/compose-distributed.yml
       - name: Upload compose config artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-compose-configs
           path: ci-artifacts/compose/*.yml
@@ -160,7 +160,7 @@ jobs:
         run: python scripts/audit_domain_integrations.py --out ci-artifacts/domain-runtime/domain-integration-audit-report.json
       - name: Upload domain integration audit artifact
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-domain-integration-audit
           path: ci-artifacts/domain-runtime/domain-integration-audit-report.json
@@ -170,7 +170,7 @@ jobs:
         run: exit 1
       - name: Run release reproducibility gate
         run: python scripts/release_gate.py --strict --compose-config --report release-verification-report.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-release-verification-report
           path: |
@@ -239,7 +239,7 @@ jobs:
         working-directory: frontend-angular
       - name: Upload E2E artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-e2e-compose-results
           path: |
@@ -293,7 +293,7 @@ jobs:
             out="architektur/rendered/$(basename "${f%.mmd}.png")"
             mmdc -p architektur/puppeteer-config.json -i "$f" -o "$out" -b transparent
           done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ananta-architecture-diagrams
           path: architektur/rendered/*.png
