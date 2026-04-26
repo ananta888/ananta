@@ -1,161 +1,272 @@
 {
-  "version": 2,
+  "version": 1,
   "owner": "ananta",
-  "track": "planning_blueprint_cleanup",
-  "purpose": "Remove architectural drift around planning and blueprints. planning_utils.py must remain a technical helper module only. Fachliche planning templates, seed blueprints and role/template metadata should move into catalog/blueprint-backed sources that are used by TemplatePlanningStrategy and propagated into PlanNodes/Tasks.",
+  "track": "bootstrap_installers_and_in_system_update",
+  "purpose": "Provide simple one-file bootstrap installers for Windows 11, Ubuntu/Linux and macOS plus an in-system `ananta update` command. The goal is easy OSS onboarding without requiring users to manually understand venv, editable installs or Docker before they can run `ananta`.",
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
-  "problem_statement": [
-    "agent/services/planning_utils.py currently contains GOAL_TEMPLATES, keyword matching and execution-focused fallback templates.",
-    "TemplatePlanningStrategy uses match_goal_template(...) from planning_utils, so AutoPlanner planning currently prefers this hardcoded mini-template system before HubCopilot/LLM planning.",
-    "The real Blueprint/Team/Role/Template mechanism exists separately in routes/teams.py and services/team_blueprint_service.py, including TeamBlueprintDB, BlueprintRoleDB, BlueprintArtifactDB, RoleDB, TemplateDB and TeamDB.",
-    "routes/teams.py still owns large Python seed data blocks for standard blueprints, starter tasks and role/template definitions.",
-    "PlanningService currently derives task kind, retrieval hints and capabilities mostly from task title/description instead of consistently carrying blueprint role/template metadata into PlanNodes and Tasks.",
-    "This creates multiple sources of fachliche planning truth: seed/team blueprints, hardcoded planning_utils templates and heuristic PlanNode metadata."
-  ],
   "non_goals": [
-    "Do not remove planning_utils parsing, sanitizing, priority normalization, LLM JSON extraction or prompt-injection checks.",
-    "Do not break existing AutoPlanner API behavior during migration.",
-    "Do not rewrite the entire Team/Blueprint API in this track.",
-    "Do not move orchestration or policy decisions into clients.",
-    "Do not require DB access for every simple unit test; provide deterministic fixture/catalog loading where needed.",
-    "Do not remove existing seed blueprints before exported JSON fixtures and reconciliation tests prove equivalent behavior."
+    "Do not silently install Docker, Podman, Ollama or paid/cloud providers.",
+    "Do not overwrite user config, secrets or local repository changes without explicit confirmation.",
+    "Do not make bootstrap scripts a second runtime configuration system; they should delegate to `ananta init` and runtime profiles.",
+    "Do not require global Python package installation when a local venv is sufficient.",
+    "Do not execute arbitrary remote code beyond the explicitly downloaded installer script without showing what is happening."
   ],
   "success_criteria": [
-    "planning_utils.py no longer owns fachliche GOAL_TEMPLATES as the primary template source.",
-    "TemplatePlanningStrategy resolves templates through a dedicated planning template catalog or blueprint-backed adapter.",
-    "Existing core planning modes such as bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project and project_evolution remain covered by tests.",
-    "Seed blueprints and starter artifacts are loaded from JSON/YAML data files instead of large Python constants in routes/teams.py.",
-    "PlanNodes and materialized Tasks preserve useful blueprint provenance and role/template metadata where available.",
-    "planning_utils.py remains focused on technical utilities: sanitizing, validation, JSON extraction, subtask normalization and followup parsing.",
-    "Docs explain the relationship between Blueprint/Team/Role/Template definitions, AutoPlanner template planning, PlanNodes and Tasks.",
-    "No duplicate client-side or hardcoded ad-hoc planning system remains as the preferred path."
+    "Windows users can download one PowerShell script and get a working `ananta` command.",
+    "Ubuntu/Linux and macOS users can download one Bash script and get a working `ananta` command.",
+    "Installers are idempotent: rerunning updates or repairs an existing install instead of corrupting it.",
+    "`ananta update` updates the checked-out project, refreshes dependencies and runs a smoke check.",
+    "Local-dev remains the default and does not require Docker.",
+    "Docs show safe download-and-run and safer download-inspect-run variants."
   ],
   "milestones": [
-    {"id": "PBC-M1", "title": "Inventory and target mapping", "task_ids": ["PBC-T01", "PBC-T02"], "status": "done"},
-    {"id": "PBC-M2", "title": "Catalog extraction and adapter", "task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "status": "done"},
-    {"id": "PBC-M3", "title": "Strategy migration and legacy cleanup", "task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "status": "done"},
-    {"id": "PBC-M4", "title": "Tests, docs and release evidence", "task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "status": "done"},
-    {"id": "PBC-M5", "title": "Seed blueprint data extraction", "task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "status": "done"},
-    {"id": "PBC-M6", "title": "Blueprint metadata propagation", "task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "status": "done"}
+    {
+      "id": "BOOT-M1",
+      "title": "One-file bootstrap installers",
+      "task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"],
+      "status": "todo"
+    },
+    {
+      "id": "BOOT-M2",
+      "title": "In-system update command",
+      "task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"],
+      "status": "todo"
+    },
+    {
+      "id": "BOOT-M3",
+      "title": "Docs and smoke tests",
+      "task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"],
+      "status": "todo"
+    }
   ],
   "tasks": [
-    {"id": "PBC-T01", "title": "Hardcoded planning templates inventory add", "status": "done", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": [], "expected_files": ["docs/architecture/planning-template-inventory.md"], "acceptance_criteria": ["Inventory lists every current GOAL_TEMPLATES entry from agent/services/planning_utils.py.", "Inventory records keywords, subtasks, artifact/risk/test/review metadata and current expected behavior.", "Inventory marks which entries map cleanly to existing standard blueprints and which need a planning-only catalog entry.", "Inventory identifies build_execution_focused_goal_template and EXECUTION_FOCUSED_GOAL_HINTS as separate fallback behavior."]},
-    {"id": "PBC-T02", "title": "Blueprint mapping decision document add", "status": "done", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": ["PBC-T01"], "expected_files": ["docs/decisions/ADR-planning-templates-use-blueprint-catalog.md"], "acceptance_criteria": ["ADR states that fachliche planning templates belong to a catalog/blueprint-backed path, not planning_utils.py.", "ADR defines planning_utils.py as technical utility module only.", "ADR explains how Team Blueprints, Role Templates, Blueprint Artifacts and AutoPlanner template planning relate.", "ADR defines temporary compatibility behavior for legacy template names and keywords."]},
-    {"id": "PBC-T03", "title": "Planning template catalog file add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/planning_templates.json", "schemas/planning/planning_template_catalog.v1.json", "tests/test_planning_template_catalog_schema.py"], "acceptance_criteria": ["Catalog captures current GOAL_TEMPLATES entries in data form, including keywords and subtasks.", "Schema validates template id, keywords, subtasks, priority, depends_on and optional artifact/risk/test/review metadata.", "Catalog includes explicit mappings or references to related standard blueprints where applicable.", "Schema tests validate minimal and full examples."]},
-    {"id": "PBC-T04", "title": "Planning template catalog service add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T03"], "expected_files": ["agent/services/planning_template_catalog.py", "tests/test_planning_template_catalog.py"], "acceptance_criteria": ["Service loads planning templates from config/planning_templates.json or an injected fixture path for tests.", "Service resolves by exact template id and keyword match.", "Service returns normalized subtasks compatible with PlanningService._build_nodes.", "Unknown templates return None without raising in normal planning flow.", "Tests cover exact id match, keyword match, no match, invalid catalog and deterministic ordering."]},
-    {"id": "PBC-T05", "title": "Blueprint-backed planning adapter add", "status": "done", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T04"], "expected_files": ["agent/services/blueprint_planning_adapter.py", "tests/test_blueprint_planning_adapter.py"], "acceptance_criteria": ["Adapter can derive starter planning subtasks from TeamBlueprintDB/BlueprintArtifactDB task artifacts when a matching blueprint exists.", "Adapter can return blueprint_id, blueprint_name, artifact refs and role/template hints as provenance metadata.", "Adapter does not require clients to know blueprint internals.", "Adapter fails closed/degraded when DB is unavailable and does not block catalog fallback.", "Tests use repository/session fixtures or mocks and cover at least one seed blueprint."]},
-    {"id": "PBC-T06", "title": "TemplatePlanningStrategy use catalog adapter", "status": "done", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T04"], "expected_files": ["agent/services/planning_strategies.py", "tests/test_planning_strategies.py", "tests/test_auto_planner_templates.py"], "acceptance_criteria": ["TemplatePlanningStrategy no longer calls planning_utils.match_goal_template directly as the primary path.", "TemplatePlanningStrategy resolves template subtasks through PlanningTemplateCatalog or blueprint-backed adapter.", "Planning order remains Template -> HubCopilot -> LLM unless explicitly changed elsewhere.", "Existing AutoPlanner plan_goal tests still pass for common template goals.", "Result still marks template_used=true and planning_mode=template when catalog/blueprint template resolves."]},
-    {"id": "PBC-T07", "title": "planning_utils legacy template API deprecate", "status": "done", "priority": "P1", "risk": "medium", "blocking": true, "depends_on": ["PBC-T06"], "expected_files": ["agent/services/planning_utils.py", "tests/test_planning_utils.py"], "acceptance_criteria": ["GOAL_TEMPLATES is removed from planning_utils.py or kept only as a temporary imported compatibility fixture with explicit deprecation comment.", "match_goal_template either delegates to PlanningTemplateCatalog or is deprecated and no longer used by TemplatePlanningStrategy.", "planning_utils.py still provides sanitize_input, validate_goal, JSON extraction, subtask normalization and followup parsing.", "Tests cover technical utility functions independently from template catalog content."]},
-    {"id": "PBC-T08", "title": "Execution-focused fallback move out of planning_utils", "status": "done", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["PBC-T06", "PBC-T07"], "expected_files": ["agent/services/execution_focused_planning.py", "tests/test_execution_focused_planning.py"], "acceptance_criteria": ["EXECUTION_FOCUSED_GOAL_HINTS and build_execution_focused_goal_template move to a dedicated fallback module or catalog entry.", "Fallback behavior remains deterministic for coding/test-heavy goals.", "Fallback is clearly lower priority than exact catalog/blueprint matches.", "Tests cover Python/Fibonacci-style fallback without relying on planning_utils GOAL_TEMPLATES."]},
-    {"id": "PBC-T09", "title": "AutoPlanner compatibility regression tests add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T06", "PBC-T07"], "expected_files": ["tests/test_auto_planner_template_compatibility.py"], "acceptance_criteria": ["Tests verify old template ids still produce meaningful subtasks: bug_fix, feature, refactor, test, repo_analysis, sys_diag, code_fix, new_software_project, project_evolution.", "Tests verify keyword matching still works for representative German and English goal text.", "Tests verify no LLM call is made when a catalog/blueprint template resolves.", "Tests verify fallback to HubCopilot/LLM still works when no template matches."]},
-    {"id": "PBC-T10", "title": "Planning blueprint docs update", "status": "done", "priority": "P1", "risk": "low", "blocking": false, "depends_on": ["PBC-T06", "PBC-T09"], "expected_files": ["docs/architecture/planning-blueprint-flow.md", "docs/standard-blueprints.md"], "acceptance_criteria": ["Docs explain current planning order: catalog/blueprint template, HubCopilot, LLM fallback.", "Docs explain that Team Blueprints create teams/starter artifacts while PlanningTemplateCatalog provides AutoPlanner subtask templates.", "Docs define how future domain blueprints should provide planning templates without hardcoding Python dictionaries.", "Docs mention legacy planning_utils cleanup status."]},
-    {"id": "PBC-T11", "title": "Release gate planning cleanup check add", "status": "done", "priority": "P2", "risk": "medium", "blocking": false, "depends_on": ["PBC-T09", "PBC-T10", "PBC-T14"], "expected_files": ["scripts/run_release_gate.py", "tests/test_release_gate_planning_cleanup.py"], "acceptance_criteria": ["Release gate or smoke check catches reintroduction of large hardcoded GOAL_TEMPLATES in planning_utils.py.", "Check catches reintroduction of large SEED_BLUEPRINTS or *_INITIAL_TASKS constants in routes/teams.py after seed catalog migration.", "Check allows technical utility functions in planning_utils.py.", "Check reports actionable failure message pointing to PlanningTemplateCatalog/Blueprint catalog path.", "Test covers a synthetic violation."]},
-    {"id": "PBC-T12", "title": "Seed blueprint catalog JSON extract", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/blueprints/standard/blueprints.json", "schemas/blueprints/seed_blueprint_catalog.v1.json", "tests/test_seed_blueprint_catalog_schema.py"], "acceptance_criteria": ["Moves current standard seed definitions from routes/teams.py into data files without behavior loss.", "Catalog includes Scrum, Scrum-OpenCode, Kanban, Research, Code-Repair, Security-Review, Release-Prep and Research-Evolution if currently present.", "Catalog preserves roles, template names, artifact tasks, policy artifacts, sort order and role config.", "Schema validates blueprint name, base_team_type_name, roles, artifacts and template references.", "Tests validate full seed catalog fixture."]},
-    {"id": "PBC-T13", "title": "Seed blueprint loader service add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T12"], "expected_files": ["agent/services/seed_blueprint_catalog.py", "tests/test_seed_blueprint_catalog.py"], "acceptance_criteria": ["Service loads seed blueprints from config/blueprints/standard/blueprints.json or injected fixture path.", "Service normalizes and validates template specs, role specs, blueprint roles and artifacts.", "Service exposes deterministic seed blueprint payloads for reconcile_seed_blueprints_service.", "Service does not import Flask routes.", "Tests cover normal load, missing file, invalid duplicate role/artifact order and deterministic ordering."]},
-    {"id": "PBC-T14", "title": "routes/teams seed constants replace with loader", "status": "done", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T13"], "expected_files": ["agent/routes/teams.py", "agent/services/seed_blueprint_catalog.py", "tests/test_team_blueprint_seed_reconcile.py"], "acceptance_criteria": ["routes/teams.py no longer owns large SEED_BLUEPRINTS or *_INITIAL_TASKS data blocks as primary source.", "Existing seed reconciliation still creates/updates the same templates, roles, team types, blueprint roles and artifacts.", "Existing public endpoints for blueprint catalog/list/detail continue working.", "Regression test compares old expected seed names and important artifact counts against loader output.", "Route module remains primarily HTTP/API orchestration and delegates seed data loading to service layer."]},
-    {"id": "PBC-T15", "title": "PlanNode blueprint provenance fields add", "status": "done", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T05", "PBC-T06"], "expected_files": ["agent/services/planning_service.py", "agent/db_models.py", "tests/test_planning_blueprint_provenance.py"], "acceptance_criteria": ["PlanNode rationale or explicit fields preserve blueprint_id, blueprint_name, blueprint_artifact_id, blueprint_role_name and template_name when available.", "Migration is backwards compatible for existing PlanNodeDB rows.", "No client owns or fabricates blueprint provenance.", "Tests verify catalog-only and blueprint-backed planning both produce deterministic provenance metadata."]},
-    {"id": "PBC-T16", "title": "Materialized Task blueprint metadata carry-over", "status": "done", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T15"], "expected_files": ["agent/services/lifecycle_service.py", "agent/services/planning_service.py", "tests/test_task_blueprint_metadata.py"], "acceptance_criteria": ["Tasks materialized from PlanNodes carry blueprint provenance in worker_execution_context, history, status details or explicit metadata according to existing TaskDB constraints.", "Task metadata includes role/template/capability defaults when available.", "Existing task materialization without blueprint provenance still works.", "Tests verify metadata is visible to worker/context construction without client-side orchestration."]},
-    {"id": "PBC-T17", "title": "Role/template defaults influence PlanNode hints", "status": "done", "priority": "P1", "risk": "medium", "blocking": false, "depends_on": ["PBC-T15", "PBC-T16"], "expected_files": ["agent/services/planning_service.py", "agent/services/worker_routing_policy_utils.py", "tests/test_blueprint_role_defaults_planning.py"], "acceptance_criteria": ["When blueprint role config provides capability_defaults, risk_profile or verification_defaults, PlanningService merges them into PlanNode rationale/verification_spec where safe.", "Heuristic title/description capability derivation remains fallback only.", "Role/template defaults cannot weaken Hub policy or approval requirements.", "Tests cover capability enrichment, verification default enrichment and policy-non-bypass behavior."]}
+    {
+      "id": "BOOT-T01",
+      "title": "Windows PowerShell bootstrap installer add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": [
+        "scripts/install-ananta.ps1",
+        "tests/test_bootstrap_docs.py"
+      ],
+      "acceptance_criteria": [
+        "Script supports Windows 11 PowerShell.",
+        "Script checks for Python and Git and prints actionable install hints if missing.",
+        "Script clones or updates the Ananta repository into a user-visible install directory.",
+        "Script creates or reuses a local .venv and runs `pip install -e .`.",
+        "Script verifies `ananta --help` and prints next commands.",
+        "Script does not require Docker and does not install Docker automatically."
+      ]
+    },
+    {
+      "id": "BOOT-T02",
+      "title": "Linux and macOS Bash bootstrap installer add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": [
+        "scripts/install-ananta.sh",
+        "tests/test_bootstrap_docs.py"
+      ],
+      "acceptance_criteria": [
+        "Script supports Ubuntu/Debian-style Linux and macOS/Darwin.",
+        "Script detects OS via uname and prints platform-specific hints for missing Python/Git.",
+        "Script clones or updates the Ananta repository into a user-visible install directory.",
+        "Script creates or reuses a local .venv and runs `pip install -e .`.",
+        "Script verifies `ananta --help` and prints next commands.",
+        "Script does not require Docker/Podman and does not install them automatically."
+      ]
+    },
+    {
+      "id": "BOOT-T03",
+      "title": "Installer options and idempotency add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["BOOT-T01", "BOOT-T02"],
+      "expected_files": [
+        "scripts/install-ananta.ps1",
+        "scripts/install-ananta.sh"
+      ],
+      "acceptance_criteria": [
+        "Installers support install directory override.",
+        "Installers support branch/tag override with safe defaults to main.",
+        "Installers detect existing clone and update it safely.",
+        "Installers refuse or warn on dirty working tree unless explicit force/update flag is used.",
+        "Installers can be rerun without duplicating venvs or breaking existing config."
+      ]
+    },
+    {
+      "id": "BOOT-T04",
+      "title": "Post-install init handoff add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["BOOT-T03", "todo.unified-cli.json:CLI-T03"],
+      "expected_files": [
+        "scripts/install-ananta.ps1",
+        "scripts/install-ananta.sh",
+        "docs/setup/bootstrap-install.md"
+      ],
+      "acceptance_criteria": [
+        "Installers offer or print `ananta init` as the next step.",
+        "Installers show examples for local-dev Ollama and OpenAI-compatible setup.",
+        "Installers do not store API keys themselves.",
+        "Installers clearly distinguish install from runtime initialization."
+      ]
+    },
+    {
+      "id": "BOOT-T05",
+      "title": "ananta update command add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["todo.unified-cli.json:CLI-T01"],
+      "expected_files": [
+        "agent/cli/update.py",
+        "agent/cli/main.py",
+        "tests/test_ananta_update_command.py"
+      ],
+      "acceptance_criteria": [
+        "`ananta update` exists and supports `--help`.",
+        "Command detects the Ananta install directory and current git branch/commit.",
+        "Command refuses to update dirty working trees unless an explicit flag is used.",
+        "Command fetches/pulls the configured branch/tag safely.",
+        "Command refreshes Python dependencies in the active or detected venv.",
+        "Command runs `ananta --help` or equivalent smoke check after update."
+      ]
+    },
+    {
+      "id": "BOOT-T06",
+      "title": "Update rollback and checkpoint guidance add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["BOOT-T05"],
+      "expected_files": [
+        "agent/cli/update.py",
+        "docs/setup/ananta_update.md",
+        "tests/test_ananta_update_command.py"
+      ],
+      "acceptance_criteria": [
+        "Update records previous commit before changing refs.",
+        "Update prints rollback command or provides `--rollback-to <sha>` if feasible.",
+        "Update never deletes config, runtime profiles, secrets or user data.",
+        "Tests cover clean update, dirty tree refusal and smoke failure reporting."
+      ]
+    },
+    {
+      "id": "BOOT-T07",
+      "title": "Installer update path unify",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["BOOT-T03", "BOOT-T05"],
+      "expected_files": [
+        "scripts/install-ananta.ps1",
+        "scripts/install-ananta.sh",
+        "docs/setup/bootstrap-install.md"
+      ],
+      "acceptance_criteria": [
+        "Rerunning the installer on an existing install either delegates to `ananta update` or follows the same safe update rules.",
+        "Installer and `ananta update` agree on install path, branch/tag and venv behavior.",
+        "Both paths produce similar success/failure messages.",
+        "Docs explain when to rerun installer versus use `ananta update`."
+      ]
+    },
+    {
+      "id": "BOOT-T08",
+      "title": "Bootstrap install docs add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "blocking": true,
+      "depends_on": ["BOOT-T01", "BOOT-T02", "BOOT-T04"],
+      "expected_files": [
+        "docs/setup/bootstrap-install.md",
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "Docs show Windows 11 one-command install and safer download-inspect-run variant.",
+        "Docs show Ubuntu/Linux one-command install and safer download-inspect-run variant.",
+        "Docs show macOS one-command install and safer download-inspect-run variant.",
+        "Docs state that local-dev does not require Docker.",
+        "Docs include next steps: `ananta init`, `ananta doctor`, `ananta status`."
+      ]
+    },
+    {
+      "id": "BOOT-T09",
+      "title": "Bootstrap smoke tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["BOOT-T01", "BOOT-T02", "BOOT-T05"],
+      "expected_files": [
+        "tests/smoke/test_bootstrap_installers.py",
+        "tests/test_ananta_update_command.py"
+      ],
+      "acceptance_criteria": [
+        "Smoke validates installer scripts are present, executable where applicable and contain expected safety checks.",
+        "Smoke validates docs reference real script paths.",
+        "Update command tests do not require network access by default and use mocked git/subprocess calls.",
+        "Release gate can include bootstrap smoke without actually installing from the network."
+      ]
+    },
+    {
+      "id": "BOOT-T10",
+      "title": "Quickstart simplify around bootstrap installers",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["BOOT-T08"],
+      "expected_files": [
+        "README.md",
+        "docs/setup/quickstart.md"
+      ],
+      "acceptance_criteria": [
+        "Quickstart offers bootstrap installer path before manual venv instructions.",
+        "Manual venv/pip install remains documented for developers.",
+        "Docker Compose quickstart is clearly marked as UI/full-stack path, not required for CLI install.",
+        "Examples remain short and copy-pasteable."
+      ]
+    }
   ],
   "execution_order_summary": [
-    "First inventory the existing hardcoded templates and record the architectural decision.",
-    "Extract current planning template data into a validated planning template catalog.",
-    "Extract seed blueprint data from routes/teams.py into a validated seed blueprint catalog.",
-    "Add catalog services and optional blueprint-backed planning adapter.",
-    "Migrate TemplatePlanningStrategy away from planning_utils.match_goal_template.",
-    "Replace routes/teams.py seed constants with loader-backed reconciliation.",
-    "Propagate blueprint role/template provenance into PlanNodes and materialized Tasks.",
-    "Deprecate/remove fachliche GOAL_TEMPLATES from planning_utils while keeping technical utilities.",
-    "Add compatibility tests, docs and release-gate checks so behavior remains stable."
+    "Build one-file installers first: PowerShell for Windows, Bash for Linux/macOS.",
+    "Add idempotency and safe existing-install handling before promoting the installer in README.",
+    "Add `ananta update` as the normal in-system update path.",
+    "Document safe install, update, rollback and local-dev without Docker.",
+    "Add smoke tests that validate scripts and command dispatch without network-dependent installs."
   ],
-  "critical_path_tasks": ["PBC-T01", "PBC-T02", "PBC-T03", "PBC-T04", "PBC-T06", "PBC-T07", "PBC-T09", "PBC-T12", "PBC-T13", "PBC-T14"],
+  "critical_path_tasks": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T05", "BOOT-T08"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T11:14:55+02:00",
-    "total": 17,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 17},
-    "progress_percent_done": 100.0,
-    "by_priority": {"P0": 9, "P1": 7, "P2": 1, "P3": 0},
-    "by_risk": {"low": 1, "medium": 6, "high": 8, "critical": 2},
-    "critical_path": {"total": 10, "done": 10, "remaining": 0},
-    "milestones": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
+    "updated_at": "2026-04-25T00:00:00+02:00",
+    "total": 10,
+    "by_status": {"todo": 10, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 6, "P1": 4, "P2": 0, "P3": 0},
+    "by_risk": {"low": 2, "medium": 4, "high": 4, "critical": 0},
+    "critical_path": {"total": 5, "done": 0, "remaining": 5},
+    "milestones": {"total": 3, "todo": 3, "in_progress": 0, "blocked": 0, "done": 0}
   },
-  "execution_stage_summary": {
-    "updated_at": "2026-04-26T11:14:55+02:00",
-    "stages": {
-      "PBC-M1": {"title": "Inventory and target mapping", "scope_task_ids": ["PBC-T01", "PBC-T02"], "total": 2, "done": 2, "todo": 0, "in_progress": 0, "blocked": 0},
-      "PBC-M2": {"title": "Catalog extraction and adapter", "scope_task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
-      "PBC-M3": {"title": "Strategy migration and legacy cleanup", "scope_task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
-      "PBC-M4": {"title": "Tests, docs and release evidence", "scope_task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
-      "PBC-M5": {"title": "Seed blueprint data extraction", "scope_task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
-      "PBC-M6": {"title": "Blueprint metadata propagation", "scope_task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0}
-    }
-  },
-  "scope_rules": [
-    "Hub remains control plane for orchestration and policy decisions; worker-only execution model stays intact.",
-    "No worker-to-worker orchestration is introduced while moving planning templates into catalogs/adapters.",
-    "Catalog/blueprint-backed planning must not weaken approval gates, command policy or review requirements.",
-    "Migration is additive and backward-compatible first; no big-bang replacement of planner behavior.",
-    "Blueprint provenance metadata is generated in backend services, never fabricated in client surfaces."
-  ],
   "summary_notes": [
-    "This cleanup should be done before large new domain blueprint work if possible, because Blender/FreeCAD/KiCad should not add more hardcoded Python planning dictionaries.",
-    "The safest migration keeps current behavior through catalogs first, then progressively wires real blueprint-backed resolution.",
-    "planning_utils.py is still useful, but only for technical utilities, not fachliche template ownership.",
-    "routes/teams.py should stop being the source of large seed blueprint data and should delegate to a seed catalog service.",
-    "Blueprint metadata should travel into PlanNodes/Tasks so worker routing, RAG and verification can use role/template intent without client-side orchestration.",
-    "This track directly supports the desired role/template -> team -> blueprint mechanism becoming the single source of planning truth."
-  ],
-  "analysis_checks": {
-    "checked_at": "2026-04-26T11:14:55+02:00",
-    "internal_consistency": "corrected_and_extended",
-    "notes": [
-      "Dependency validation result: all depends_on references resolve to in-track task IDs.",
-      "Milestone coverage validation result: all tasks are covered exactly once across milestone task_ids.",
-      "Updated stale summary timestamps and kept counters aligned with task status distribution.",
-      "Added explicit stage-level execution summary to support milestone-based progress tracking.",
-      "Added scope rules to guard architecture, governance and migration boundaries during implementation.",
-      "Completed PBC-T01 to PBC-T04 with inventory + ADR + validated planning template catalog + catalog service/tests.",
-      "Completed PBC-T05 to PBC-T09 with blueprint adapter, strategy migration, planning_utils deprecation path, fallback extraction and compatibility coverage.",
-      "Completed PBC-T10 to PBC-T14 with docs refresh, seed blueprint JSON/schema extraction, loader integration in routes, and release-gate cleanup checks.",
-      "Completed PBC-T15 to PBC-T17 with deterministic PlanNode provenance, task metadata carry-over, and blueprint role default enrichment."
-    ]
-  },
-  "end_summaries": [
-    {
-      "summary_id": "PBC-S1",
-      "title": "Analysis result",
-      "items": [
-        "Task graph is structurally valid: no dangling dependencies and no uncovered milestone tasks.",
-        "Track already had clear purpose/success criteria, but lacked stage-level progress structure and final summaries."
-      ]
-    },
-    {
-      "summary_id": "PBC-S2",
-      "title": "Corrections",
-      "items": [
-        "tasks_status_summary.updated_at was refreshed to the current analysis timestamp.",
-        "Consistency checkpoints were documented explicitly in analysis_checks."
-      ]
-    },
-    {
-      "summary_id": "PBC-S3",
-      "title": "Improvements and extensions",
-      "items": [
-        "Added execution_stage_summary with per-milestone total/done/todo/in_progress/blocked counters.",
-        "Added scope_rules to make architecture and policy guardrails explicit for this cleanup track.",
-        "Added structured end_summaries for compact reporting at the end of the file."
-      ]
-    },
-    {
-      "summary_id": "PBC-S4",
-      "title": "End status",
-      "items": [
-        "Current state: 17 tasks (0 todo, 0 in_progress, 0 blocked, 17 done).",
-        "Critical path: 10 total, 10 done, 0 remaining.",
-        "Milestones M1 to M6 are complete."
-      ]
-    }
+    "This track is about install/update UX, not Ananta runtime architecture.",
+    "The installers should make `ananta` available quickly, then hand off to `ananta init` for runtime configuration.",
+    "Windows needs a PowerShell installer; Ubuntu/Linux and macOS can share a Bash installer with platform detection.",
+    "`ananta update` should be safe, visible and reversible enough for local OSS users."
   ]
 }
