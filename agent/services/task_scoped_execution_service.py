@@ -2235,6 +2235,9 @@ class TaskScopedExecutionService:
                 f"{str(opencode_context_files.get('hub_context_path') or '.ananta/hub-context.md')}. "
                 "Nutze diesen Kontext als verbindliche Grundlage."
             )
+            prompt_sections.append(
+                "Selektierter Research-Kontext ist im Hub-Kontext enthalten und wird aus derselben Datei geladen."
+            )
             if context_preview:
                 prompt_sections.append(f"Kurzvorschau Hub-Kontext: {context_preview}")
         if allowed_tools:
