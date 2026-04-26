@@ -29,7 +29,62 @@ ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-d
 
 `local-dev` ist der Standard fuer lokale Nutzung ohne Docker-Zwang.
 
-## 2) Readiness pruefen
+## 2) Startpfad waehlen
+
+### A) Nur CLI konfigurieren
+
+Dieser Pfad erzeugt nur das lokale Profil. Er startet keinen Hub und keine Worker.
+
+```bash
+ananta first-run
+```
+
+Nutze diesen Pfad, wenn ein Hub bereits laeuft oder du `ANANTA_BASE_URL` auf einen vorhandenen Hub setzt.
+
+### B) Lokalen Hub direkt ohne Docker starten
+
+Terminal 1:
+
+```bash
+export ROLE=hub
+export PORT=5000
+export HUB_URL=http://localhost:5000
+export HUB_CAN_BE_WORKER=true
+export INITIAL_ADMIN_USER=admin
+export INITIAL_ADMIN_PASSWORD=ananta-local-dev-admin
+python -m agent.ai_agent
+```
+
+Damit startet der Hub lokal auf Port `5000`. Mit `HUB_CAN_BE_WORKER=true` kann der Hub fuer den ersten lokalen Quickstart auch einfache Worker-Aufgaben selbst uebernehmen.
+
+Terminal 2:
+
+```bash
+export ANANTA_BASE_URL=http://localhost:5000
+export ANANTA_USER=admin
+export ANANTA_PASSWORD=ananta-local-dev-admin
+ananta status
+ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
+```
+
+### C) Optional separaten lokalen Worker starten
+
+Wenn du Hub und Worker getrennt testen willst, starte zusaetzlich einen zweiten Agent-Prozess.
+
+Terminal 3:
+
+```bash
+export ROLE=worker
+export AGENT_NAME=local-worker
+export PORT=5001
+export HUB_URL=http://localhost:5000
+export AGENT_URL=http://localhost:5001
+python -m agent.ai_agent
+```
+
+Der Worker registriert sich beim Hub. Der Hub bleibt Owner von Goals, Tasks, Policy, Approval und Audit.
+
+## 3) Readiness pruefen
 
 ```bash
 ananta first-run
@@ -37,7 +92,7 @@ ananta status
 ananta doctor
 ```
 
-## 3) Erstes Goal starten
+## 4) Erstes Goal starten
 
 ```bash
 ananta ask "Was sollte ich als naechstes pruefen?"
@@ -45,14 +100,14 @@ ananta plan "Bereite den Release-Abschluss vor"
 ananta analyze "Analysiere dieses Repository"
 ```
 
-## 4) Optional: Produkt-Shortcuts
+## 5) Optional: Produkt-Shortcuts
 
 ```bash
 ananta new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
 ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
 ```
 
-## 5) Optional: Runtime-Oberflaechen
+## 6) Optional: Runtime-Oberflaechen
 
 ```bash
 ananta tui --help
