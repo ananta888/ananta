@@ -24,6 +24,7 @@ def test_compose_smoke_matrix_files_exist_for_release_variants():
         "docker-compose.test.yml",
         "docker-compose.ollama-wsl.yml",
         "docker-compose.final-tests.yml",
+        "docker-compose.final-tests-openai.yml",
         "docker-compose.distributed.yml",
         "docker-compose.live-code.yml",
     ]
@@ -67,3 +68,15 @@ def test_final_compose_file_chains_all_tests_without_extra_profiles():
     assert "frontend-live-llm-test:" in compose
     assert "all-tests:" in compose
     assert "Dockerfile.ollama-wsl-amd" in compose
+
+
+def test_openai_final_compose_file_requires_openai_key_and_chains_all_tests():
+    compose = (ROOT / "docker-compose.final-tests-openai.yml").read_text(encoding="utf-8")
+
+    assert "OPENAI_API_KEY" in compose
+    assert 'DEFAULT_PROVIDER: "openai"' in compose
+    assert "backend-test:" in compose
+    assert "backend-live-llm-test:" in compose
+    assert "frontend-test:" in compose
+    assert "frontend-live-llm-test:" in compose
+    assert "all-tests:" in compose

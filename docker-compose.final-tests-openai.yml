@@ -1,0 +1,256 @@
+# One-click OpenAI + full Compose test stack.
+# Ziel: ohne zusätzliche Profile/Flags direkt in IntelliJ startbar.
+#
+# Voraussetzung in .env:
+#   OPENAI_API_KEY=<dein-key>
+# Optional:
+#   OPENAI_URL=https://api.openai.com/v1/chat/completions
+#   TEST_OPENAI_MODEL=gpt-4o-mini
+#
+# IntelliJ (Docker Compose Run Configuration):
+# - Compose file: docker-compose.final-tests-openai.yml
+# - Command: Up
+# - Optional service filter: all-tests
+#
+# CLI-Äquivalent:
+#   docker compose -f docker-compose.final-tests-openai.yml up --build
+
+services:
+  postgres:
+    extends:
+      file: docker-compose-lite.yml
+      service: postgres
+    ports: []
+
+  redis:
+    extends:
+      file: docker-compose-lite.yml
+      service: redis
+    ports: []
+
+  angular-frontend:
+    extends:
+      file: docker-compose.base.yml
+      service: angular-frontend
+    image: ananta-frontend-compose-test:local
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
+    ports: []
+
+  ai-agent-hub:
+    extends:
+      file: docker-compose.base.yml
+      service: ai-agent-hub
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    ports: []
+    volumes:
+      - ./:/app
+      - ./data/hub:/app/data
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      DEFAULT_PROVIDER: "openai"
+      DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENCODE_DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
+      AUTH_TEST_ENDPOINTS_ENABLED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-agent-alpha:
+    extends:
+      file: docker-compose.base.yml
+      service: ai-agent-alpha
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    ports: []
+    volumes:
+      - ./:/app
+      - ./data/alpha:/app/data
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      DEFAULT_PROVIDER: "openai"
+      DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENCODE_DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  ai-agent-beta:
+    extends:
+      file: docker-compose.base.yml
+      service: ai-agent-beta
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    ports: []
+    volumes:
+      - ./:/app
+      - ./data/beta:/app/data
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      DEFAULT_PROVIDER: "openai"
+      DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENCODE_DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
+      ANANTA_OPENCODE_EXECUTION_MODE: "backend"
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  backend-test:
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: "/app"
+      DEFAULT_PROVIDER: "openai"
+      DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      LIVE_LLM_PROVIDER: "openai"
+      LIVE_LLM_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: pytest -q
+
+  backend-live-llm-test:
+    image: ananta-backend-compose-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart-no-ollama
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: "/app"
+      RUN_LIVE_LLM_TESTS: "1"
+      LIVE_LLM_PROVIDER: "openai"
+      LIVE_LLM_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      LIVE_LLM_TIMEOUT_SEC: "${LIVE_LLM_TIMEOUT_SEC:-60}"
+      LIVE_LLM_RETRY_ATTEMPTS: "${LIVE_LLM_RETRY_ATTEMPTS:-1}"
+      LIVE_LLM_RETRY_BACKOFF_SEC: "${LIVE_LLM_RETRY_BACKOFF_SEC:-0.5}"
+      DEFAULT_PROVIDER: "openai"
+      DEFAULT_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      backend-test:
+        condition: service_completed_successfully
+    command: pytest -q tests/test_goal_live_lmstudio.py
+
+  frontend-test:
+    image: ananta-frontend-compose-test:local
+    environment:
+      CI: "true"
+      ANANTA_E2E_USE_EXISTING: "1"
+      E2E_REUSE_SERVER: "1"
+      E2E_REPORTER_MODE: "compact"
+      E2E_FRONTEND_URL: "http://angular-frontend:4200"
+      E2E_HUB_URL: "http://ai-agent-hub:5000"
+      E2E_ALPHA_URL: "http://ai-agent-alpha:5000"
+      E2E_BETA_URL: "http://ai-agent-beta:5000"
+      E2E_ADMIN_USER: "${INITIAL_ADMIN_USER:-admin}"
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      E2E_HUB_AGENT_TOKEN: "${AGENT_TOKEN_HUB}"
+      E2E_ALPHA_AGENT_TOKEN: "${AGENT_TOKEN_ALPHA}"
+      E2E_BETA_AGENT_TOKEN: "${AGENT_TOKEN_BETA}"
+      E2E_DETERMINISTIC_SCRUM_SEED: "1"
+      E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+    working_dir: /app
+    depends_on:
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+      backend-live-llm-test:
+        condition: service_completed_successfully
+    command: npm run test:e2e:compose
+
+  frontend-live-llm-test:
+    image: ananta-frontend-compose-test:local
+    environment:
+      CI: "true"
+      ANANTA_E2E_USE_EXISTING: "1"
+      E2E_REUSE_SERVER: "1"
+      E2E_REPORTER_MODE: "compact"
+      E2E_FRONTEND_URL: "http://angular-frontend:4200"
+      E2E_HUB_URL: "http://ai-agent-hub:5000"
+      E2E_ALPHA_URL: "http://ai-agent-alpha:5000"
+      E2E_BETA_URL: "http://ai-agent-beta:5000"
+      E2E_ADMIN_USER: "${INITIAL_ADMIN_USER:-admin}"
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      E2E_HUB_AGENT_TOKEN: "${AGENT_TOKEN_HUB}"
+      E2E_ALPHA_AGENT_TOKEN: "${AGENT_TOKEN_ALPHA}"
+      E2E_BETA_AGENT_TOKEN: "${AGENT_TOKEN_BETA}"
+      E2E_DETERMINISTIC_SCRUM_SEED: "1"
+      E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
+      RUN_LIVE_LLM_TESTS: "1"
+      LIVE_LLM_PROVIDER: "openai"
+      E2E_LIVE_LLM_PROVIDER: "openai"
+      LIVE_LLM_MODEL: "${TEST_OPENAI_MODEL:-gpt-4o-mini}"
+      OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
+      E2E_LIVE_LLM_TIMEOUT_MS: "${E2E_LIVE_LLM_TIMEOUT_MS:-180000}"
+      E2E_LLM_API_TIMEOUT_MS: "${E2E_LLM_API_TIMEOUT_MS:-300000}"
+    depends_on:
+      frontend-test:
+        condition: service_completed_successfully
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run test:e2e:live:compose
+
+  all-tests:
+    image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+    command: ["sh", "-c", "echo 'All compose tests passed (OpenAI mode: backend + live backend + frontend + live frontend).'"]
+    depends_on:
+      frontend-live-llm-test:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+    name: ananta_postgres_data
+  redis_data:
+    name: ananta_redis_data
