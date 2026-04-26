@@ -8,7 +8,7 @@ Diese Seite definiert die offiziell priorisierten Kern-Use-Cases fuer Ananta. Si
 - Benchmarking-Aufgaben
 - Produktprofile (z.B. Demo vs. Team-Controlled)
 
-Die Use-Cases sind bewusst klein und klar geschnitten, damit Ananta nicht "alles gleichzeitig" sein muss. UC6 und UC7 erweitern diese Basis um die zwei primaeren Softwarepfade: ein neues Projekt starten und ein bestehendes Projekt kontrolliert weiterentwickeln.
+Die Use-Cases sind bewusst klein und klar geschnitten, damit Ananta nicht "alles gleichzeitig" sein muss. UC6 und UC7 erweitern diese Basis um die zwei primaeren Softwarepfade: ein neues Projekt starten und ein bestehendes Projekt kontrolliert weiterentwickeln. Testgetriebene Bugfixes und kleine Features laufen als expliziter TDD-Blueprint-Pfad innerhalb dieser Kern-Use-Cases, statt als separater Sonderfall daneben.
 
 Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
@@ -33,6 +33,10 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 **Einstieg:** Web UI Dashboard -> "Planen" (Goal: Bug beschreiben) oder Preset "Bugfix planen".
 
 **Guter Input:** `Login bricht bei leerem Passwort ab; reproduziere den Fehler und plane einen kleinen Fix.`
+
+**Passender Blueprint:** `TDD` fuer kleine Features, Bugfixes und Regressionen mit Red -> Green -> Refactor Nachweisfluss.
+
+**TDD-Pfad:** Fehler zuerst als fehlgeschlagenen Test fixieren, dann minimalen Patch planen, Green-Test nachweisen und optional Refactor pruefen.
 
 **Erwartetes Ergebnis:** Reproduktionspfad, Ursache, Fix-Vorschlag, Regressionstest-Plan.
 
@@ -90,6 +94,8 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 
 **Guter Input:** Projektidee, Zielgruppe, Plattform, bevorzugter Stack, Sicherheitsniveau, Ausfuehrungstiefe und klare Nicht-Ziele.
 
+**Passender Blueprint:** `TDD` fuer erste kleine Features, wenn der Startpfad direkt mit verifizierbarem Verhalten und Regression-Schutz beginnen soll.
+
 **Erwartetes Ergebnis:** ein parametrisiertes Goal mit Scope, Architekturvorschlag, initialem Backlog, sichtbaren Review-Schritten und naechsten umsetzbaren Tasks.
 
 **Naechster Schritt:** erzeugtes Goal pruefen, Blueprint und Initial-Tasks reviewen, danach kleine Startaufgaben priorisieren.
@@ -103,6 +109,10 @@ Reproduzierbare Demo-Flows: `docs/demo-flows.md`.
 **Einstieg:** Dashboard -> Guided Goal Wizard -> "Existierendes Projekt weiterentwickeln", Quick-Goal-Preset "Projekt weiterentwickeln" oder CLI-Shortcut `evolve-project`.
 
 **Guter Input:** gewuenschte Zielaenderung, betroffene Bereiche, Restriktionen, Risikoniveau und Art der Weiterentwicklung.
+
+**Passender Blueprint:** `TDD` fuer kleine Features, Bugfixes und Regressionen mit Red -> Green -> Refactor Nachweisfluss.
+
+**TDD-Pfad:** Verhalten zuerst als Test beschreiben, erwartetes Rot dokumentieren, minimalen Patch planen, Green-Test nachweisen und Refactor nur mit erhaltener Testabdeckung durchfuehren.
 
 **Erwartetes Ergebnis:** ein strukturierter Aenderungsplan mit Ist-Kontext, Risiken, betroffenen Tests, Review-Punkten und kleinen Folge-Tasks.
 
