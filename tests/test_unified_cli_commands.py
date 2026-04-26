@@ -11,6 +11,7 @@ from agent.cli import main as cli_main
         ("init", ["--yes"], ("init", ["--yes"])),
         ("status", [], ("goals", ["--status"])),
         ("first-run", [], ("goals", ["--first-run"])),
+        ("update", [], ("update", [])),
         ("ask", ["hello"], ("alias", ["ask", "hello"])),
         ("plan", ["hello"], ("alias", ["plan", "hello"])),
         ("analyze", ["hello"], ("alias", ["analyze", "hello"])),
@@ -36,6 +37,7 @@ def test_commands_dispatch_to_expected_handlers(monkeypatch, command, args, expe
         lambda alias, argv: calls.append(("alias", [alias, *list(argv)])) or 0,
     )
     monkeypatch.setattr(cli_main, "_run_doctor", lambda argv: calls.append(("doctor", list(argv))) or 0)
+    monkeypatch.setattr(cli_main, "_run_update", lambda argv: calls.append(("update", list(argv))) or 0)
     monkeypatch.setattr(cli_main, "_run_tui", lambda argv: calls.append(("tui", list(argv))) or 0)
     monkeypatch.setattr(cli_main, "_run_web", lambda argv: calls.append(("web", list(argv))) or 0)
 
@@ -51,6 +53,7 @@ def test_commands_dispatch_to_expected_handlers(monkeypatch, command, args, expe
         "init",
         "status",
         "first-run",
+        "update",
         "ask",
         "plan",
         "analyze",
@@ -70,6 +73,7 @@ def test_commands_accept_help(monkeypatch, command) -> None:
     monkeypatch.setattr(cli_main, "run_cli_goals", lambda _argv: 0)
     monkeypatch.setattr(cli_main, "run_goal_alias", lambda _alias, _argv: 0)
     monkeypatch.setattr(cli_main, "_run_doctor", lambda _argv: 0)
+    monkeypatch.setattr(cli_main, "_run_update", lambda _argv: 0)
     monkeypatch.setattr(cli_main, "_run_tui", lambda _argv: 0)
     monkeypatch.setattr(cli_main, "_run_web", lambda _argv: 0)
 

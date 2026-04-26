@@ -7,11 +7,13 @@ from collections.abc import Sequence
 from agent.cli import init_wizard
 from agent.cli.doctor import main as doctor_main
 from agent.cli.goal_aliases import GOAL_ALIAS_COMMANDS, run_cli_goals, run_goal_alias
+from agent.cli.update import main as update_main
 
 CORE_COMMANDS = (
     "init",
     "first-run",
     "status",
+    "update",
     *GOAL_ALIAS_COMMANDS,
     "tui",
     "doctor",
@@ -28,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default\n"
             "  ananta status\n"
+            "  ananta update --help\n"
             "  ananta ask \"What should I do next?\"\n"
             "  ananta review \"Review auth changes\""
         ),
@@ -38,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help=(
             "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
-            "patch, repair-admin, new-project, evolve-project, tui, doctor, web"
+            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web"
         ),
     )
     parser.add_argument("args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
@@ -67,6 +70,10 @@ def _run_init(argv: Sequence[str]) -> int:
 
 def _run_doctor(argv: Sequence[str]) -> int:
     return _invoke(doctor_main, argv)
+
+
+def _run_update(argv: Sequence[str]) -> int:
+    return _invoke(update_main, argv)
 
 
 def _run_tui(argv: Sequence[str]) -> int:
@@ -130,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_cli_goals(["--status", *rest])
     if command == "first-run":
         return run_cli_goals(["--first-run", *rest])
+    if command == "update":
+        return _run_update(rest)
     if command in GOAL_ALIAS_COMMANDS:
         return run_goal_alias(command, rest)
     if command == "doctor":

@@ -42,6 +42,15 @@ def test_unified_cli_status_help_smoke(capsys) -> None:
     assert "CLI for Ananta Goals" in out
 
 
+def test_unified_cli_update_help_smoke(capsys) -> None:
+    command = ["update", "--help"]
+    rc = _run(command)
+
+    out = capsys.readouterr().out
+    assert rc == 0, "CLI smoke failed for command: ananta update --help"
+    assert "ananta update" in out
+
+
 def test_unified_cli_ask_help_smoke(capsys) -> None:
     command = ["ask", "--help"]
     rc = _run(command)

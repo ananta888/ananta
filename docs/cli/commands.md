@@ -17,6 +17,7 @@ ananta patch "Plane einen kleinen Fix fuer die Validierung"
 ananta repair-admin "Service restart loop nach Paketupdate"
 ananta new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
 ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+ananta update --help
 ananta tui --help
 ananta doctor
 ananta web
@@ -26,9 +27,12 @@ ananta web
 
 - `ananta tui` delegiert auf die vorhandene TUI-Laufzeit.
 - `ananta web` gibt die Web-URL aus (Default `http://localhost:4200`, optional ueber `ANANTA_WEB_URL` oder `--url`).
+- `ananta update` aktualisiert eine bestehende Installation sicher und zeigt Rollback-Hinweise an.
 
 ## Weitere Setup-Dokumente
 
+- `docs/setup/bootstrap-install.md`
+- `docs/setup/ananta_update.md`
 - `docs/setup/quickstart.md`
 - `docs/setup/ananta_init.md`
 - `docs/golden-path-cli.md`

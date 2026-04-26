@@ -2,6 +2,23 @@
 
 Dieser Quickstart nutzt den einheitlichen Nutzerpfad ueber `ananta ...`.
 
+## 0) Optional: Bootstrap installer (recommended for first install)
+
+If `ananta` is not installed yet, use the one-file bootstrap installer first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ananta888/ananta/main/scripts/install-ananta.sh -o install-ananta.sh
+bash install-ananta.sh
+```
+
+Windows 11 PowerShell:
+
+```powershell
+iwr https://raw.githubusercontent.com/ananta888/ananta/main/scripts/install-ananta.ps1 -OutFile install-ananta.ps1; .\install-ananta.ps1
+```
+
+Details and safer inspect-run variants: `docs/setup/bootstrap-install.md`
+
 ## 1) Runtime-Profil erzeugen
 
 ```bash
@@ -51,6 +68,8 @@ ananta init --yes --runtime-mode sandbox --llm-backend ollama --deployment-targe
 
 Weiterfuehrung:
 
+- `docs/setup/bootstrap-install.md`
 - `docs/setup/ananta_init.md`
+- `docs/setup/ananta_update.md`
 - `docs/setup/deployment_targets.md`
 - `docs/cli/commands.md`

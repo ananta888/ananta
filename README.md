@@ -12,6 +12,7 @@ Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares Syst
 | Einstieg | Fuer wen | Link |
 | --- | --- | --- |
 | Direkt ausprobieren | lokale Nutzer und Reviewer | [Schnellstart](#schnellstart-in-5-minuten) |
+| Ein-Kommando-Installation | lokale Nutzer und Reviewer | [Bootstrap Install](docs/setup/bootstrap-install.md) |
 | Wofuer Ananta offiziell steht | Produkt-/Projekt-Orientierung | [Kern-Use-Cases](docs/use-cases.md) |
 | Blueprint/Template/Team einfach verstehen | Erstnutzer und Demos | [Blueprint Product Model](docs/blueprint-product-model.md) |
 | Standard-Blueprints mit Beispielen | Erstnutzer und Demos | [Standard Blueprints](docs/standard-blueprints.md) |
@@ -115,6 +116,7 @@ Kernaussage:
 - Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
 - Frontend Entwicklung: `frontend-angular/README.md`
 - CLI fuer Goals, Diagnose und Artefakte: `ananta --help`
+- Bootstrap installer + update: `docs/setup/bootstrap-install.md`, `docs/setup/ananta_update.md`
 - Runtime-Setup-Wizard: `ananta init --help`
 - CLI Quickstart: `docs/setup/quickstart.md`
 - CLI Befehlsuebersicht (Nutzerpfad): `docs/cli/commands.md`
@@ -137,6 +139,7 @@ ananta patch "Plane einen kleinen Fix fuer die Validierung"
 ananta repair-admin "Service restart loop nach Paketupdate"
 ananta new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
 ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
+ananta update --help
 ananta tui --help
 ananta doctor
 ananta web
