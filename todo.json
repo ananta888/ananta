@@ -33,18 +33,18 @@
     "No duplicate client-side or hardcoded ad-hoc planning system remains as the preferred path."
   ],
   "milestones": [
-    {"id": "PBC-M1", "title": "Inventory and target mapping", "task_ids": ["PBC-T01", "PBC-T02"], "status": "todo"},
-    {"id": "PBC-M2", "title": "Catalog extraction and adapter", "task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "status": "todo"},
+    {"id": "PBC-M1", "title": "Inventory and target mapping", "task_ids": ["PBC-T01", "PBC-T02"], "status": "done"},
+    {"id": "PBC-M2", "title": "Catalog extraction and adapter", "task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "status": "in_progress"},
     {"id": "PBC-M3", "title": "Strategy migration and legacy cleanup", "task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "status": "todo"},
     {"id": "PBC-M4", "title": "Tests, docs and release evidence", "task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "status": "todo"},
     {"id": "PBC-M5", "title": "Seed blueprint data extraction", "task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "status": "todo"},
     {"id": "PBC-M6", "title": "Blueprint metadata propagation", "task_ids": ["PBC-T15", "PBC-T16", "PBC-T17"], "status": "todo"}
   ],
   "tasks": [
-    {"id": "PBC-T01", "title": "Hardcoded planning templates inventory add", "status": "todo", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": [], "expected_files": ["docs/architecture/planning-template-inventory.md"], "acceptance_criteria": ["Inventory lists every current GOAL_TEMPLATES entry from agent/services/planning_utils.py.", "Inventory records keywords, subtasks, artifact/risk/test/review metadata and current expected behavior.", "Inventory marks which entries map cleanly to existing standard blueprints and which need a planning-only catalog entry.", "Inventory identifies build_execution_focused_goal_template and EXECUTION_FOCUSED_GOAL_HINTS as separate fallback behavior."]},
-    {"id": "PBC-T02", "title": "Blueprint mapping decision document add", "status": "todo", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": ["PBC-T01"], "expected_files": ["docs/decisions/ADR-planning-templates-use-blueprint-catalog.md"], "acceptance_criteria": ["ADR states that fachliche planning templates belong to a catalog/blueprint-backed path, not planning_utils.py.", "ADR defines planning_utils.py as technical utility module only.", "ADR explains how Team Blueprints, Role Templates, Blueprint Artifacts and AutoPlanner template planning relate.", "ADR defines temporary compatibility behavior for legacy template names and keywords."]},
-    {"id": "PBC-T03", "title": "Planning template catalog file add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/planning_templates.json", "schemas/planning/planning_template_catalog.v1.json", "tests/test_planning_template_catalog_schema.py"], "acceptance_criteria": ["Catalog captures current GOAL_TEMPLATES entries in data form, including keywords and subtasks.", "Schema validates template id, keywords, subtasks, priority, depends_on and optional artifact/risk/test/review metadata.", "Catalog includes explicit mappings or references to related standard blueprints where applicable.", "Schema tests validate minimal and full examples."]},
-    {"id": "PBC-T04", "title": "Planning template catalog service add", "status": "todo", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T03"], "expected_files": ["agent/services/planning_template_catalog.py", "tests/test_planning_template_catalog.py"], "acceptance_criteria": ["Service loads planning templates from config/planning_templates.json or an injected fixture path for tests.", "Service resolves by exact template id and keyword match.", "Service returns normalized subtasks compatible with PlanningService._build_nodes.", "Unknown templates return None without raising in normal planning flow.", "Tests cover exact id match, keyword match, no match, invalid catalog and deterministic ordering."]},
+    {"id": "PBC-T01", "title": "Hardcoded planning templates inventory add", "status": "done", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": [], "expected_files": ["docs/architecture/planning-template-inventory.md"], "acceptance_criteria": ["Inventory lists every current GOAL_TEMPLATES entry from agent/services/planning_utils.py.", "Inventory records keywords, subtasks, artifact/risk/test/review metadata and current expected behavior.", "Inventory marks which entries map cleanly to existing standard blueprints and which need a planning-only catalog entry.", "Inventory identifies build_execution_focused_goal_template and EXECUTION_FOCUSED_GOAL_HINTS as separate fallback behavior."]},
+    {"id": "PBC-T02", "title": "Blueprint mapping decision document add", "status": "done", "priority": "P0", "risk": "medium", "blocking": true, "depends_on": ["PBC-T01"], "expected_files": ["docs/decisions/ADR-planning-templates-use-blueprint-catalog.md"], "acceptance_criteria": ["ADR states that fachliche planning templates belong to a catalog/blueprint-backed path, not planning_utils.py.", "ADR defines planning_utils.py as technical utility module only.", "ADR explains how Team Blueprints, Role Templates, Blueprint Artifacts and AutoPlanner template planning relate.", "ADR defines temporary compatibility behavior for legacy template names and keywords."]},
+    {"id": "PBC-T03", "title": "Planning template catalog file add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T01", "PBC-T02"], "expected_files": ["config/planning_templates.json", "schemas/planning/planning_template_catalog.v1.json", "tests/test_planning_template_catalog_schema.py"], "acceptance_criteria": ["Catalog captures current GOAL_TEMPLATES entries in data form, including keywords and subtasks.", "Schema validates template id, keywords, subtasks, priority, depends_on and optional artifact/risk/test/review metadata.", "Catalog includes explicit mappings or references to related standard blueprints where applicable.", "Schema tests validate minimal and full examples."]},
+    {"id": "PBC-T04", "title": "Planning template catalog service add", "status": "done", "priority": "P0", "risk": "high", "blocking": true, "depends_on": ["PBC-T03"], "expected_files": ["agent/services/planning_template_catalog.py", "tests/test_planning_template_catalog.py"], "acceptance_criteria": ["Service loads planning templates from config/planning_templates.json or an injected fixture path for tests.", "Service resolves by exact template id and keyword match.", "Service returns normalized subtasks compatible with PlanningService._build_nodes.", "Unknown templates return None without raising in normal planning flow.", "Tests cover exact id match, keyword match, no match, invalid catalog and deterministic ordering."]},
     {"id": "PBC-T05", "title": "Blueprint-backed planning adapter add", "status": "todo", "priority": "P1", "risk": "high", "blocking": false, "depends_on": ["PBC-T04"], "expected_files": ["agent/services/blueprint_planning_adapter.py", "tests/test_blueprint_planning_adapter.py"], "acceptance_criteria": ["Adapter can derive starter planning subtasks from TeamBlueprintDB/BlueprintArtifactDB task artifacts when a matching blueprint exists.", "Adapter can return blueprint_id, blueprint_name, artifact refs and role/template hints as provenance metadata.", "Adapter does not require clients to know blueprint internals.", "Adapter fails closed/degraded when DB is unavailable and does not block catalog fallback.", "Tests use repository/session fixtures or mocks and cover at least one seed blueprint."]},
     {"id": "PBC-T06", "title": "TemplatePlanningStrategy use catalog adapter", "status": "todo", "priority": "P0", "risk": "critical", "blocking": true, "depends_on": ["PBC-T04"], "expected_files": ["agent/services/planning_strategies.py", "tests/test_planning_strategies.py", "tests/test_auto_planner_templates.py"], "acceptance_criteria": ["TemplatePlanningStrategy no longer calls planning_utils.match_goal_template directly as the primary path.", "TemplatePlanningStrategy resolves template subtasks through PlanningTemplateCatalog or blueprint-backed adapter.", "Planning order remains Template -> HubCopilot -> LLM unless explicitly changed elsewhere.", "Existing AutoPlanner plan_goal tests still pass for common template goals.", "Result still marks template_used=true and planning_mode=template when catalog/blueprint template resolves."]},
     {"id": "PBC-T07", "title": "planning_utils legacy template API deprecate", "status": "todo", "priority": "P1", "risk": "medium", "blocking": true, "depends_on": ["PBC-T06"], "expected_files": ["agent/services/planning_utils.py", "tests/test_planning_utils.py"], "acceptance_criteria": ["GOAL_TEMPLATES is removed from planning_utils.py or kept only as a temporary imported compatibility fixture with explicit deprecation comment.", "match_goal_template either delegates to PlanningTemplateCatalog or is deprecated and no longer used by TemplatePlanningStrategy.", "planning_utils.py still provides sanitize_input, validate_goal, JSON extraction, subtask normalization and followup parsing.", "Tests cover technical utility functions independently from template catalog content."]},
@@ -72,20 +72,20 @@
   ],
   "critical_path_tasks": ["PBC-T01", "PBC-T02", "PBC-T03", "PBC-T04", "PBC-T06", "PBC-T07", "PBC-T09", "PBC-T12", "PBC-T13", "PBC-T14"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T10:21:13+02:00",
+    "updated_at": "2026-04-26T10:23:29+02:00",
     "total": 17,
-    "by_status": {"todo": 17, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 13, "in_progress": 0, "blocked": 0, "done": 4},
+    "progress_percent_done": 23.53,
     "by_priority": {"P0": 9, "P1": 7, "P2": 1, "P3": 0},
     "by_risk": {"low": 1, "medium": 6, "high": 8, "critical": 2},
-    "critical_path": {"total": 10, "done": 0, "remaining": 10},
-    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 10, "done": 4, "remaining": 6},
+    "milestones": {"total": 6, "todo": 4, "in_progress": 1, "blocked": 0, "done": 1}
   },
   "execution_stage_summary": {
-    "updated_at": "2026-04-26T10:21:13+02:00",
+    "updated_at": "2026-04-26T10:23:29+02:00",
     "stages": {
-      "PBC-M1": {"title": "Inventory and target mapping", "scope_task_ids": ["PBC-T01", "PBC-T02"], "total": 2, "done": 0, "todo": 2, "in_progress": 0, "blocked": 0},
-      "PBC-M2": {"title": "Catalog extraction and adapter", "scope_task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
+      "PBC-M1": {"title": "Inventory and target mapping", "scope_task_ids": ["PBC-T01", "PBC-T02"], "total": 2, "done": 2, "todo": 0, "in_progress": 0, "blocked": 0},
+      "PBC-M2": {"title": "Catalog extraction and adapter", "scope_task_ids": ["PBC-T03", "PBC-T04", "PBC-T05"], "total": 3, "done": 2, "todo": 1, "in_progress": 0, "blocked": 0},
       "PBC-M3": {"title": "Strategy migration and legacy cleanup", "scope_task_ids": ["PBC-T06", "PBC-T07", "PBC-T08"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
       "PBC-M4": {"title": "Tests, docs and release evidence", "scope_task_ids": ["PBC-T09", "PBC-T10", "PBC-T11"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
       "PBC-M5": {"title": "Seed blueprint data extraction", "scope_task_ids": ["PBC-T12", "PBC-T13", "PBC-T14"], "total": 3, "done": 0, "todo": 3, "in_progress": 0, "blocked": 0},
@@ -108,14 +108,15 @@
     "This track directly supports the desired role/template -> team -> blueprint mechanism becoming the single source of planning truth."
   ],
   "analysis_checks": {
-    "checked_at": "2026-04-26T10:21:13+02:00",
+    "checked_at": "2026-04-26T10:23:29+02:00",
     "internal_consistency": "corrected_and_extended",
     "notes": [
       "Dependency validation result: all depends_on references resolve to in-track task IDs.",
       "Milestone coverage validation result: all tasks are covered exactly once across milestone task_ids.",
       "Updated stale summary timestamps and kept counters aligned with task status distribution.",
       "Added explicit stage-level execution summary to support milestone-based progress tracking.",
-      "Added scope rules to guard architecture, governance and migration boundaries during implementation."
+      "Added scope rules to guard architecture, governance and migration boundaries during implementation.",
+      "Completed PBC-T01 to PBC-T04 with inventory + ADR + validated planning template catalog + catalog service/tests."
     ]
   },
   "end_summaries": [
@@ -148,9 +149,9 @@
       "summary_id": "PBC-S4",
       "title": "End status",
       "items": [
-        "Current state: 17 tasks (17 todo, 0 in_progress, 0 blocked, 0 done).",
-        "Critical path: 10 total, 0 done, 10 remaining.",
-        "All six milestones are prepared and currently in todo state; implementation can start with PBC-M1."
+        "Current state: 17 tasks (13 todo, 0 in_progress, 0 blocked, 4 done).",
+        "Critical path: 10 total, 4 done, 6 remaining.",
+        "Milestone M1 is complete; M2 is now in progress with PBC-T05 remaining."
       ]
     }
   ]
