@@ -156,6 +156,39 @@ Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und
 
 Offizieller UI-Standardweg: `docs/golden-path-ui.md`.
 
+### F) Docker-Quickstart ohne Ollama (alternatives Dockerfile)
+
+Wenn du Docker nutzen willst, aber den Stack standardmaessig **ohne Ollama** starten willst, nutze:
+
+- `Dockerfile.quickstart-no-ollama`
+- `docker-compose.quickstart-no-ollama.yml`
+
+Lite (Hub + Worker + Frontend):
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+```
+
+Full-Stack mit Evolver-Profil:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.quickstart-no-ollama.yml --profile evolution up -d --build
+```
+
+Distributed:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+```
+
+Live-Code:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.live-code.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+```
+
+Hinweis: Falls du spaeter doch Ollama im selben Setup aktivieren willst, fuege `--profile ollama` hinzu.
+
 ## Was Ananta macht
 
 Ananta folgt einem Goal -> Plan -> Task -> Execution -> Verification -> Artifact Ablauf. Fuer den Einstieg reicht ein Ziel; Teams, Policies, Benchmarks und Expertenoptionen koennen spaeter genutzt werden.
