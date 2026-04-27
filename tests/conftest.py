@@ -209,6 +209,13 @@ def cleanup_db_and_runtime():
         except Exception:
             pass
 
+        try:
+            from agent.services.evolution import get_evolution_provider_registry
+
+            get_evolution_provider_registry().clear()
+        except Exception:
+            pass
+
         runtime = _db_runtime()
         inspector = runtime["inspect"](runtime["engine"])
         session_cls = runtime["Session"]
