@@ -1,0 +1,72 @@
+name: Real Worker Runtime Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      require_opencode:
+        description: "Install and require real OpenCode CLI execution"
+        required: false
+        default: "true"
+  schedule:
+    - cron: "37 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-worker-runtime-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  real-worker-runtime-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: sqlite:///ci-artifacts/real-worker-runtime-evidence/preindex.db
+      CONTROLLER_URL: http://mock-controller
+      AGENT_NAME: evidence-preindex
+      INITIAL_ADMIN_USER: admin
+      INITIAL_ADMIN_PASSWORD: admin
+      OPENCODE_DISABLE_AUTOUPDATE: "1"
+      OPENCODE_DISABLE_PRUNE: "1"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: github.event_name == 'schedule' || inputs.require_opencode == 'true'
+        with:
+          node-version: "20.19.5"
+      - name: Install backend and rag-helper deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Install OpenCode CLI
+        if: github.event_name == 'schedule' || inputs.require_opencode == 'true'
+        run: |
+          npm install -g opencode-ai
+          opencode --version
+          opencode --help | head -80
+      - name: Run real worker runtime evidence flow
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.require_opencode }}" = "true" ]; then
+            EXTRA_ARGS="--require-opencode"
+          fi
+          python scripts/run_real_worker_runtime_evidence.py --out ci-artifacts/real-worker-runtime-evidence $EXTRA_ARGS
+      - name: Print evidence summary
+        if: always()
+        run: |
+          if [ -f ci-artifacts/real-worker-runtime-evidence/evidence-summary.json ]; then
+            cat ci-artifacts/real-worker-runtime-evidence/evidence-summary.json
+          fi
+      - name: Upload real worker runtime evidence artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-real-worker-runtime-evidence
+          path: ci-artifacts/real-worker-runtime-evidence/**
+          if-no-files-found: error
+          retention-days: 14
