@@ -1,0 +1,91 @@
+name: E2E Compose
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-compose-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e-compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      POSTGRES_PASSWORD: test-postgres-password
+      INITIAL_ADMIN_PASSWORD: test-admin-password
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      AGENT_TOKEN_HUB: hub-token
+      AGENT_TOKEN_ALPHA: alpha-token
+      AGENT_TOKEN_BETA: beta-token
+      AGENT_TOKEN_GAMMA: gamma-token
+      AGENT_TOKEN_DELTA: delta-token
+      GRAFANA_PASSWORD: test-grafana-password
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.5"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Build cached backend compose image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: Dockerfile.quickstart-no-ollama
+          tags: ananta-backend-compose-test:local
+          load: true
+          cache-from: type=gha,scope=compose-backend
+          cache-to: type=gha,scope=compose-backend,mode=max
+      - name: Build cached frontend compose image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: frontend-angular
+          file: frontend-angular/Dockerfile
+          tags: ananta-frontend-compose-test:local
+          load: true
+          cache-from: type=gha,scope=compose-frontend
+          cache-to: type=gha,scope=compose-frontend,mode=max
+      - name: Start compose stack
+        run: >
+          docker compose
+          -f docker-compose.base.yml
+          -f docker-compose-lite.yml
+          -f docker-compose.github-ci.yml
+          up -d --no-build
+          postgres redis ai-agent-hub ai-agent-alpha ai-agent-beta angular-frontend
+      - name: Run E2E against compose
+        id: e2e
+        continue-on-error: true
+        run: >
+          docker compose
+          -f docker-compose.base.yml
+          -f docker-compose-lite.yml
+          -f docker-compose.github-ci.yml
+          run --rm frontend-test
+      - name: Build failure summary
+        if: always()
+        working-directory: frontend-angular
+        run: node scripts/e2e-failure-summary.js
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-e2e-compose-results
+          path: frontend-angular/test-results/**
+          retention-days: 7
+      - name: Stop compose stack
+        if: always()
+        run: >
+          docker compose
+          -f docker-compose.base.yml
+          -f docker-compose-lite.yml
+          -f docker-compose.github-ci.yml
+          down -v --remove-orphans
+      - name: Fail workflow on E2E failure
+        if: steps.e2e.outcome == 'failure'
+        run: exit 1
