@@ -27,6 +27,7 @@ const baseUrl = resolveFrontendBaseUrl(configuredBaseUrl);
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
+const retainEvidenceArtifacts = process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
 const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || (isLiveLlmRun ? '90000' : '120000'));
 const testTimeoutMs = Number(process.env.E2E_TEST_TIMEOUT_MS || (isLiveLlmRun ? '120000' : '60000'));
 const expectTimeoutMs = Number(process.env.E2E_EXPECT_TIMEOUT_MS || '15000');
@@ -59,9 +60,9 @@ export default defineConfig({
     baseURL: baseUrl,
     actionTimeout: actionTimeoutMs,
     navigationTimeout: navigationTimeoutMs,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
+    trace: retainEvidenceArtifacts ? 'on' : 'on-first-retry',
+    screenshot: retainEvidenceArtifacts ? 'on' : 'only-on-failure',
+    video: retainEvidenceArtifacts ? 'on' : 'retain-on-failure'
   },
   webServer: reuseExistingServer
     ? undefined
