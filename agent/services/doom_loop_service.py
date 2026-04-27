@@ -11,6 +11,12 @@ _DEFAULT_SEVERITY_ACTIONS = {
     "critical": "pause",
 }
 _OUTCOME_LADDER = ["warn", "inject_correction", "require_review", "pause", "abort"]
+_CLASSIFICATION_PRIORITY = {
+    "oscillating_retry_pattern": 4,
+    "repeated_tool_call": 3,
+    "repeated_failure": 2,
+    "no_progress": 1,
+}
 
 
 @dataclass(frozen=True)
@@ -195,7 +201,7 @@ class DoomLoopService:
                 policy=normalized_policy,
             )
 
-        triggered.sort(key=lambda item: item[1], reverse=True)
+        triggered.sort(key=lambda item: (item[1], _CLASSIFICATION_PRIORITY.get(item[0], 0)), reverse=True)
         classification, ratio, primary_reason = triggered[0]
         severity = self._severity_from_ratio(ratio)
         action = normalized_policy["severity_actions"].get(severity, _DEFAULT_SEVERITY_ACTIONS["medium"])
