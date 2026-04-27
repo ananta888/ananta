@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       run_opencode:
-        description: "Run live OpenCode checks when opencode is available on PATH"
+        description: "Install and run live OpenCode checks"
         required: false
         default: "false"
       run_os_repair:
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   live-reference-flows:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       LIVE_LLM_PROVIDER: "openai"
       LIVE_LLM_MODEL: ${{ vars.LIVE_LLM_MODEL || 'gpt-4o-mini' }}
@@ -37,11 +37,17 @@ jobs:
       RUN_LIVE_LLM_TESTS: "1"
       RUN_LIVE_REFERENCE_FLOW_TESTS: "1"
       RUN_LIVE_OPENCODE_TESTS: ${{ inputs.run_opencode == 'true' && '1' || '0' }}
+      OPENCODE_DISABLE_AUTOUPDATE: "1"
+      OPENCODE_DISABLE_PRUNE: "1"
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11.15"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: env.RUN_LIVE_OPENCODE_TESTS == '1'
+        with:
+          node-version: "20.19.5"
       - name: Skip when OpenAI secret is unavailable
         if: env.OPENAI_API_KEY == ''
         run: |
@@ -60,6 +66,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
+      - name: Install OpenCode CLI
+        if: env.OPENAI_API_KEY != '' && env.RUN_LIVE_OPENCODE_TESTS == '1'
+        run: |
+          npm install -g opencode-ai
+          opencode --version
+          opencode --help | head -80
       - name: Run live Java/Keycloak reference tests
         if: env.OPENAI_API_KEY != '' && (github.event_name == 'schedule' || inputs.run_java_reference == 'true')
         run: >
