@@ -2,6 +2,8 @@ name: Daemon Worker Runtime Evidence
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "53 5 * * 1"
 
 permissions:
   contents: read
@@ -13,6 +15,7 @@ jobs:
     env:
       EVIDENCE_TOKEN: evidence-agent-token-with-sufficient-length-1234567890
       HUB_URL: http://127.0.0.1:5862
+      OUT_DIR_FOR_PY: ci-artifacts/daemon-worker-runtime-evidence
       OPENCODE_DISABLE_AUTOUPDATE: "1"
       OPENCODE_DISABLE_PRUNE: "1"
     steps:
@@ -30,22 +33,14 @@ jobs:
           pip install -r requirements-dev.lock
           npm install -g opencode-ai
           opencode --version
-      - name: Start local evidence hub
+      - name: Run polling daemon worker runtime evidence
+        run: bash scripts/run_daemon_worker_runtime_evidence.sh ci-artifacts/daemon-worker-runtime-evidence
+      - name: Print evidence summary
+        if: always()
         run: |
-          mkdir -p ci-artifacts/daemon-worker-runtime-evidence/hub-data
-          DATABASE_URL=sqlite:///ci-artifacts/daemon-worker-runtime-evidence/hub-data/hub.db \
-          python scripts/evidence_hub_server.py \
-            --host 127.0.0.1 \
-            --port 5862 \
-            --data-dir ci-artifacts/daemon-worker-runtime-evidence/hub-data \
-            --token "$EVIDENCE_TOKEN" \
-            > ci-artifacts/daemon-worker-runtime-evidence/hub.log 2>&1 &
-          echo $! > ci-artifacts/daemon-worker-runtime-evidence/hub.pid
-      - name: Run daemon worker runtime evidence setup and workers
-        run: |
-          python scripts/run_real_worker_runtime_evidence.py \
-            --out ci-artifacts/daemon-worker-runtime-evidence \
-            --require-opencode
+          if [ -f ci-artifacts/daemon-worker-runtime-evidence/evidence-summary.json ]; then
+            cat ci-artifacts/daemon-worker-runtime-evidence/evidence-summary.json
+          fi
       - name: Upload daemon worker runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
