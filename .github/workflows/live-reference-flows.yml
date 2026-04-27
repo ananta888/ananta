@@ -1,0 +1,100 @@
+name: Live Reference Flows
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_opencode:
+        description: "Run live OpenCode checks when opencode is available on PATH"
+        required: false
+        default: "false"
+      run_os_repair:
+        description: "Run live OS repair LLM planning checks"
+        required: false
+        default: "true"
+      run_java_reference:
+        description: "Run live Java/Keycloak reference LLM checks"
+        required: false
+        default: "true"
+  schedule:
+    - cron: "41 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-reference-flows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-reference-flows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LIVE_LLM_PROVIDER: "openai"
+      LIVE_LLM_MODEL: ${{ vars.LIVE_LLM_MODEL || 'gpt-4o-mini' }}
+      LIVE_LLM_TIMEOUT_SEC: "45"
+      OPENAI_API_KEY: ${{ secrets.OPENAIANANTA }}
+      RUN_LIVE_LLM_TESTS: "1"
+      RUN_LIVE_REFERENCE_FLOW_TESTS: "1"
+      RUN_LIVE_OPENCODE_TESTS: ${{ inputs.run_opencode == 'true' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Skip when OpenAI secret is unavailable
+        if: env.OPENAI_API_KEY == ''
+        run: |
+          mkdir -p ci-artifacts/live-reference-flows
+          cat > ci-artifacts/live-reference-flows/summary.json <<'JSON'
+          {
+            "status": "skipped",
+            "reason": "OPENAIANANTA secret is not available",
+            "provider": "openai"
+          }
+          JSON
+          echo "OPENAIANANTA is not available; skipping live reference flow tests."
+      - name: Install backend deps
+        if: env.OPENAI_API_KEY != ''
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Run live Java/Keycloak reference tests
+        if: env.OPENAI_API_KEY != '' && (github.event_name == 'schedule' || inputs.run_java_reference == 'true')
+        run: >
+          pytest -q -rs
+          tests/test_reference_java_llm_flow.py::test_live_openai_worker_llm_can_use_mini_java_reference_context
+          tests/test_reference_java_live_worker_and_opencode.py::test_live_ananta_worker_task_proposal_uses_real_llm_with_keycloak_java_reference
+      - name: Run live OS repair LLM tests
+        if: env.OPENAI_API_KEY != '' && (github.event_name == 'schedule' || inputs.run_os_repair == 'true')
+        run: >
+          pytest -q -rs
+          tests/test_os_repair_flows.py::test_live_openai_os_repair_plan_for_ubuntu_and_windows_is_safe
+      - name: Run live OpenCode path tests
+        if: env.OPENAI_API_KEY != '' && env.RUN_LIVE_OPENCODE_TESTS == '1'
+        run: >
+          pytest -q -rs
+          tests/test_reference_java_live_worker_and_opencode.py::test_live_opencode_binary_and_adapter_plan_for_keycloak_java_reference
+          tests/test_reference_java_live_worker_and_opencode.py::test_live_task_scoped_opencode_route_uses_real_opencode_detection
+      - name: Write live reference summary
+        if: always()
+        run: |
+          mkdir -p ci-artifacts/live-reference-flows
+          cat > ci-artifacts/live-reference-flows/summary.json <<JSON
+          {
+            "status": "completed_or_skipped_by_steps",
+            "workflow": "Live Reference Flows",
+            "run_opencode": "${{ inputs.run_opencode }}",
+            "run_os_repair": "${{ inputs.run_os_repair }}",
+            "run_java_reference": "${{ inputs.run_java_reference }}"
+          }
+          JSON
+      - name: Upload live reference diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-live-reference-flows-diagnostics
+          path: ci-artifacts/live-reference-flows/**
+          if-no-files-found: ignore
+          retention-days: 7
