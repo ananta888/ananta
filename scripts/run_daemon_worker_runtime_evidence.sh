@@ -4,7 +4,7 @@ set -euo pipefail
 OUT_DIR="${1:-ci-artifacts/daemon-worker-runtime-evidence}"
 TOKEN="${EVIDENCE_TOKEN:-evidence-agent-token-with-sufficient-length-1234567890}"
 HUB_URL="${HUB_URL:-http://127.0.0.1:5862}"
-mkdir -p "${OUT_DIR}" "${OUT_DIR}/orchestration" "${OUT_DIR}/daemon-workers"
+mkdir -p "${OUT_DIR}" "${OUT_DIR}/orchestration" "${OUT_DIR}/daemon-workers" "${OUT_DIR}/daemon-workers/ananta_native" "${OUT_DIR}/daemon-workers/opencode"
 
 cleanup() {
   if [[ -f "${OUT_DIR}/daemon-workers/ananta_native.pid" ]]; then
@@ -100,6 +100,8 @@ for i in $(seq 1 30); do
     exit 1
   fi
 done
+
+mkdir -p "${OUT_DIR}/daemon-workers/ananta_native" "${OUT_DIR}/daemon-workers/opencode"
 
 python scripts/evidence_worker_daemon.py \
   --hub-url "${HUB_URL}" \
