@@ -232,25 +232,31 @@ def _require_live_openai_runtime() -> dict[str, str | int]:
     }
 
 
-def test_live_openai_os_repair_plan_for_ubuntu_and_windows_is_safe():
+def _live_os_repair_payload(fixture_name: str) -> dict:
     from agent.llm_integration import generate_text
 
     runtime = _require_live_openai_runtime()
-    prompt = _build_os_repair_prompt(_fixture("ubuntu_apt_broken") + "\n\n" + _fixture("windows11_dns_broken"))
     response = generate_text(
-        prompt=prompt + "\nReturn JSON only. Keep below 220 words.",
+        prompt=_build_os_repair_prompt(_fixture(fixture_name)) + "\nReturn JSON only. Keep below 140 words.",
         provider="openai",
         model=str(runtime["model"]),
         api_key=str(runtime["api_key"]),
         timeout=int(runtime["timeout"]),
         temperature=0,
-        max_output_tokens=320,
+        max_output_tokens=260,
     )
-    payload = _parse_json_object(str(response or ""))
-    joined = json.dumps(payload).lower()
+    return _parse_json_object(str(response or ""))
 
-    assert "ubuntu" in joined
-    assert "windows" in joined
-    assert "dpkg" in joined or "fix-broken" in joined
-    assert "dns" in joined or "flushdns" in joined
-    _assert_safe_plan(joined)
+
+def test_live_openai_os_repair_plan_for_ubuntu_and_windows_is_safe():
+    ubuntu_payload = _live_os_repair_payload("ubuntu_apt_broken")
+    windows_payload = _live_os_repair_payload("windows11_dns_broken")
+    ubuntu_joined = json.dumps(ubuntu_payload).lower()
+    windows_joined = json.dumps(windows_payload).lower()
+
+    assert "ubuntu" in ubuntu_joined
+    assert "windows" in windows_joined
+    assert "dpkg" in ubuntu_joined or "fix-broken" in ubuntu_joined
+    assert "dns" in windows_joined or "flushdns" in windows_joined
+    _assert_safe_plan(ubuntu_joined)
+    _assert_safe_plan(windows_joined)
