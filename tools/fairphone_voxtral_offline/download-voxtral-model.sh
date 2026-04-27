@@ -28,7 +28,7 @@ TXT
     ;;
 esac
 
-URL="https://huggingface.co/cstr/voxtral-mini-4b-realtime-GGUF/resolve/main/${FILE}?download=true"
+URL="https://huggingface.co/cstr/voxtral-mini-4b-realtime-GGUF/resolve/main/${FILE}"
 TARGET="$MODEL_DIR/$FILE"
 
 echo "[fairphone-voxtral] Downloading $FILE"

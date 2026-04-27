@@ -3,6 +3,8 @@ import { Routes } from '@angular/router';
 import { routeDataFor } from '../../models/route-metadata';
 
 export const systemRoutes: Routes = [
+  { path: 'voxtral-offline', data: routeDataFor('voxtral-offline'), loadComponent: () => import('../../components/voxtral-offline.component').then(m => m.VoxtralOfflineComponent) },
+  { path: 'python-runtime', data: routeDataFor('python-runtime'), loadComponent: () => import('../../components/python-runtime.component').then(m => m.PythonRuntimeComponent) },
   { path: 'instruction-layers', data: routeDataFor('instruction-layers'), loadComponent: () => import('../../components/instruction-layers-workbench.component').then(m => m.InstructionLayersWorkbenchComponent) },
   { path: 'settings', data: routeDataFor('settings'), loadComponent: () => import('../../components/settings.component').then(m => m.SettingsComponent) },
   { path: 'audit-log', data: routeDataFor('audit-log'), loadComponent: () => import('../../components/audit-log.component').then(m => m.AuditLogComponent) },
