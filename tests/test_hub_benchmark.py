@@ -21,7 +21,7 @@ class TestHubBenchmarkCore:
         result = load_hub_benchmark_config(temp_data_dir)
         assert isinstance(result, dict)
         assert result.get("enabled") == DEFAULT_HUB_BENCH_CONFIG["enabled"]
-        assert result.get("default_models", {}).get("ollama", [None])[0] == "ananta-default"
+        assert result.get("default_models", {}).get("ollama", [None])[0] == DEFAULT_HUB_BENCH_CONFIG["default_models"]["ollama"][0]
         assert "scoring" in result
         assert "retention" in result
 
@@ -39,7 +39,7 @@ class TestHubBenchmarkCore:
         assert "scoring" in result
 
     def test_load_custom_config_deep_merges_nested_defaults(self, temp_data_dir):
-        from agent.hub_benchmark import load_hub_benchmark_config
+        from agent.hub_benchmark import DEFAULT_HUB_BENCH_CONFIG, load_hub_benchmark_config
 
         config_path = os.path.join(temp_data_dir, "hub_benchmark_config.json")
         with open(config_path, "w", encoding="utf-8") as f:
@@ -49,7 +49,7 @@ class TestHubBenchmarkCore:
         assert result["scoring"]["weights"]["success_rate"] == 0.9
         assert result["scoring"]["weights"]["quality_rate"] == 0.35
         assert result["scoring"]["thresholds"]["min_samples"] == 2
-        assert result["hub_config"]["fixed_model"]["model"] == "ananta-default"
+        assert result["hub_config"]["fixed_model"]["model"] == DEFAULT_HUB_BENCH_CONFIG["hub_config"]["fixed_model"]["model"]
 
     def test_load_invalid_config_raises_visible_error(self, temp_data_dir):
         from agent.hub_benchmark import HubBenchmarkDataError, load_hub_benchmark_config
