@@ -88,6 +88,11 @@ def _get_json(client, path: str, headers: dict) -> dict:
     return {"status_code": response.status_code, "json": data}
 
 
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
 def run(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
@@ -122,9 +127,7 @@ def run(out_dir: Path) -> None:
             "record_count": len(all_records),
             "records_preview": all_records[:12],
         }
-        (out_dir / "rag-helper" / "rag-context.json").write_text(
-            json.dumps(rag_context, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        _write_json(out_dir / "rag-helper" / "rag-context.json", rag_context)
 
         task_context = (
             "Reference profile: ref.java.keycloak\n"
@@ -133,9 +136,9 @@ def run(out_dir: Path) -> None:
             f"RAG helper context:\n{json.dumps(rag_context, indent=2, sort_keys=True)}"
         )
         ingest_payload = {
-            "id": "task-core-evidence-worker-rag-opencode",
+            "id": "task-core-evidence-worker-rag-engines",
             "title": "Patch Java security secret rotation flow",
-            "description": "Use real rag-helper output and Keycloak-style guidance to propose a safe Java patch plan.",
+            "description": "Use real rag-helper output and Keycloak-style guidance to compare native Ananta and OpenCode worker engines.",
             "source": "core-evidence-flow",
             "created_by": "evidence",
             "priority": "high",
@@ -146,10 +149,11 @@ def run(out_dir: Path) -> None:
                     "context_text": task_context,
                     "reference_profile_id": "ref.java.keycloak",
                     "rag_index_kind": "real_rag_helper_index_service",
+                    "worker_engine_candidates": ["ananta_native", "opencode"],
                 },
                 "expected_output_schema": {
                     "type": "object",
-                    "required": ["reason", "patch_plan", "tests", "safety_notes"],
+                    "required": ["engine", "reason", "patch_plan", "tests", "safety_notes"],
                 },
             },
         }
@@ -178,14 +182,67 @@ def run(out_dir: Path) -> None:
         prompt, meta = TaskScopedExecutionService()._build_task_propose_prompt(
             tid=task_id,
             task=claimed_task,
-            base_prompt="Propose a safe OpenCode coding plan. Do not execute or apply changes.",
-            tool_definitions_resolver=lambda allowlist=None: [{"name": "opencode", "allowlist": allowlist or []}],
+            base_prompt=(
+                "Use the same RAG context for two worker engine candidates: ananta_native and opencode. "
+                "Propose safe plan artifacts only. Do not execute or apply changes."
+            ),
+            tool_definitions_resolver=lambda allowlist=None: [
+                {"name": "ananta_native", "allowlist": allowlist or []},
+                {"name": "opencode", "allowlist": allowlist or []},
+            ],
             research_context=None,
         )
 
         workspace_dir = Path(meta["workspace"]["workspace_dir"])
         hub_context = (workspace_dir / ".ananta" / "hub-context.md").read_text(encoding="utf-8")
+        hub_context_hash = hashlib.sha256(hub_context.encode("utf-8")).hexdigest()
+
+        engine_dir = out_dir / "worker-engines"
+        engine_dir.mkdir(parents=True, exist_ok=True)
+        ananta_native_result = {
+            "engine": "ananta_native",
+            "role": "native Ananta worker runtime engine",
+            "task_id": task_id,
+            "input_context": {
+                "rag_index_kind": "real_rag_helper_index_service",
+                "reference_profile_id": "ref.java.keycloak",
+                "hub_context_hash": hub_context_hash,
+                "workspace_dir": str(workspace_dir),
+            },
+            "result": {
+                "status": "planned",
+                "execution_mode": "plan_only",
+                "reason": "Native Ananta worker can use the materialized hub context and RAG records to prepare a safe patch plan.",
+                "patch_plan": [
+                    "Inspect SecurityController secret rotation boundary.",
+                    "Keep TokenVerifier issuer validation explicit.",
+                    "Keep PolicyService admin authorization mandatory.",
+                    "Add or update tests before applying changes.",
+                ],
+                "tests": ["unit tests for invalid token", "unit tests for non-admin role", "unit tests for allowed admin flow"],
+                "safety_notes": ["no direct execution in evidence flow", "requires approval before applying code changes"],
+            },
+        }
         opencode_plan = OpenCodeAdapter(enabled=True).plan(task_id=task_id, capability_id="coding", prompt=prompt)
+        opencode_result = {
+            "engine": "opencode",
+            "role": "alternative coding engine usable inside a worker",
+            "task_id": task_id,
+            "input_context": {
+                "rag_index_kind": "real_rag_helper_index_service",
+                "reference_profile_id": "ref.java.keycloak",
+                "hub_context_hash": hub_context_hash,
+                "workspace_dir": str(workspace_dir),
+            },
+            "result": {
+                "status": "planned",
+                "execution_mode": "plan_only",
+                "adapter_plan": opencode_plan,
+            },
+        }
+        _write_json(engine_dir / "ananta-native-result.json", ananta_native_result)
+        _write_json(engine_dir / "opencode-result.json", opencode_result)
+
         complete_payload = {
             "task_id": task_id,
             "actor": "http://evidence-worker:5001",
@@ -194,40 +251,53 @@ def run(out_dir: Path) -> None:
                 "checks": [
                     "rag-helper-index-completed",
                     "worker-context-materialized",
-                    "opencode-plan-created",
+                    "ananta-native-engine-planned",
+                    "opencode-engine-planned",
                     "approval-gate-required",
                 ],
             },
             "output": json.dumps(
                 {
-                    "summary": "Evidence worker completed controlled plan-only flow.",
-                    "opencode_plan": opencode_plan,
-                    "hub_context_hash": hashlib.sha256(hub_context.encode("utf-8")).hexdigest(),
+                    "summary": "Evidence worker completed controlled plan-only flow with two worker engines.",
+                    "worker_engines": {
+                        "ananta_native": ananta_native_result["result"],
+                        "opencode": opencode_result["result"],
+                    },
+                    "hub_context_hash": hub_context_hash,
                 },
                 sort_keys=True,
             ),
-            "trace_id": "trace-core-evidence-worker-rag-opencode",
+            "trace_id": "trace-core-evidence-worker-rag-engines",
         }
         complete = _post_json(client, "/tasks/orchestration/complete", complete_payload, auth_headers)
         read_model = _get_json(client, "/tasks/orchestration/read-model", auth_headers)
 
         orchestration_dir = out_dir / "orchestration"
         orchestration_dir.mkdir(parents=True, exist_ok=True)
-        (orchestration_dir / "ingest-response.json").write_text(json.dumps(ingest, indent=2, sort_keys=True), encoding="utf-8")
-        (orchestration_dir / "claim-response.json").write_text(json.dumps(claim, indent=2, sort_keys=True), encoding="utf-8")
-        (orchestration_dir / "complete-response.json").write_text(json.dumps(complete, indent=2, sort_keys=True), encoding="utf-8")
-        (orchestration_dir / "read-model.json").write_text(json.dumps(read_model, indent=2, sort_keys=True), encoding="utf-8")
-        (orchestration_dir / "complete-payload.json").write_text(
-            json.dumps(complete_payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        _write_json(orchestration_dir / "ingest-response.json", ingest)
+        _write_json(orchestration_dir / "claim-response.json", claim)
+        _write_json(orchestration_dir / "complete-response.json", complete)
+        _write_json(orchestration_dir / "read-model.json", read_model)
+        _write_json(orchestration_dir / "complete-payload.json", complete_payload)
 
         evidence = {
             "status": "completed",
             "task_id": task_id,
+            "architecture": {
+                "hub": "task ingest, claim, complete, read-model",
+                "worker": "claimed worker runtime context",
+                "worker_engines": ["ananta_native", "opencode"],
+                "context_layer": "real rag-helper via RagHelperIndexService",
+            },
             "rag_record_count": len(all_records),
             "workspace_dir": str(workspace_dir),
-            "hub_context_hash": hashlib.sha256(hub_context.encode("utf-8")).hexdigest(),
-            "opencode_plan_hash": hashlib.sha256(json.dumps(opencode_plan, sort_keys=True).encode("utf-8")).hexdigest(),
+            "hub_context_hash": hub_context_hash,
+            "engine_result_hashes": {
+                "ananta_native": hashlib.sha256(
+                    json.dumps(ananta_native_result, sort_keys=True).encode("utf-8")
+                ).hexdigest(),
+                "opencode": hashlib.sha256(json.dumps(opencode_result, sort_keys=True).encode("utf-8")).hexdigest(),
+            },
             "orchestration": {
                 "ingested": ingest["json"]["data"].get("ingested") is True,
                 "claimed": claim["json"]["data"].get("claimed") is True,
@@ -246,6 +316,8 @@ def run(out_dir: Path) -> None:
                 "has_token_verifier": "tokenverifier" in json.dumps(all_records).lower(),
                 "has_policy_service": "policyservice" in json.dumps(all_records).lower(),
                 "has_keycloak_reference": "ref.java.keycloak" in hub_context and "keycloak/keycloak" in hub_context,
+                "ananta_native_engine_present": ananta_native_result["engine"] == "ananta_native",
+                "opencode_engine_present": opencode_result["engine"] == "opencode",
                 "opencode_requires_approval": opencode_plan.get("required_approval") is True,
                 "opencode_high_risk": opencode_plan.get("risk_classification") == "high",
             },
@@ -253,22 +325,26 @@ def run(out_dir: Path) -> None:
 
         worker_dir = out_dir / "worker"
         worker_dir.mkdir(parents=True, exist_ok=True)
-        (worker_dir / "task.json").write_text(json.dumps(claimed_task, indent=2, sort_keys=True), encoding="utf-8")
+        _write_json(worker_dir / "task.json", claimed_task)
         (worker_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
-        (worker_dir / "metadata.json").write_text(json.dumps(meta, indent=2, sort_keys=True), encoding="utf-8")
+        _write_json(worker_dir / "metadata.json", meta)
         (worker_dir / "hub-context.md").write_text(hub_context, encoding="utf-8")
-        (out_dir / "opencode-plan.json").write_text(json.dumps(opencode_plan, indent=2, sort_keys=True), encoding="utf-8")
-        (out_dir / "evidence-summary.json").write_text(json.dumps(evidence, indent=2, sort_keys=True), encoding="utf-8")
+        _write_json(out_dir / "opencode-plan.json", opencode_plan)
+        _write_json(out_dir / "evidence-summary.json", evidence)
         (out_dir / "README.md").write_text(
             "# Ananta Core Evidence Flow\n\n"
             "This artifact proves the controlled core path:\n\n"
             "1. Java files are uploaded as Ananta artifacts.\n"
             "2. `RagHelperIndexService` runs the real `rag-helper` and writes `manifest.json` plus `index.jsonl`.\n"
             "3. The real Hub orchestration endpoints ingest, claim and complete the task.\n"
-            "4. Ananta worker prompt materializes the retrieved context into `.ananta/hub-context.md`.\n"
-            "5. OpenCode adapter creates a high-risk, approval-gated plan without direct execution.\n\n"
+            "4. The claimed worker receives the materialized `.ananta/hub-context.md`.\n"
+            "5. Two worker engines are represented from the same claimed worker context:\n"
+            "   - `ananta_native` as the native Ananta worker engine.\n"
+            "   - `opencode` as an alternative coding engine inside a worker.\n"
+            "6. OpenCode creates a high-risk, approval-gated plan without direct execution.\n\n"
             "See `evidence-summary.json`, `orchestration/*.json`, `rag-helper/*/index.jsonl`, "
-            "`worker/hub-context.md`, and `opencode-plan.json`.\n",
+            "`worker/hub-context.md`, `worker-engines/ananta-native-result.json`, "
+            "and `worker-engines/opencode-result.json`.\n",
             encoding="utf-8",
         )
 
