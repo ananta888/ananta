@@ -11,10 +11,11 @@ Usage: bash test-flow.sh <model.gguf> [audio.wav]
 
 Runs the reproducible Fairphone Voxtral offline smoke-test flow:
   1. check environment
-  2. validate model path
-  3. validate audio file
-  4. detect compatible runner
-  5. run transcription wrapper
+  2. ensure sample directory exists
+  3. validate model path
+  4. validate audio file
+  5. detect compatible runner
+  6. run transcription wrapper
 
 Default audio path:
   ./samples/test.wav
@@ -32,11 +33,22 @@ fi
 
 cd "$SCRIPT_DIR"
 
+echo
 echo "[fairphone-voxtral] Step 1/5: environment"
 bash ./check-env.sh
 
 echo
-echo "[fairphone-voxtral] Step 2/5: model"
+echo "[fairphone-voxtral] Step 2/5: sample directory"
+SAMPLE_DIR="$(dirname "$AUDIO")"
+if [[ ! -d "$SAMPLE_DIR" ]]; then
+  mkdir -p "$SAMPLE_DIR"
+  echo "[ok] created sample directory: $SAMPLE_DIR"
+else
+  echo "[ok] sample directory exists: $SAMPLE_DIR"
+fi
+
+echo
+echo "[fairphone-voxtral] Step 3/5: model"
 if [[ ! -f "$MODEL" ]]; then
   echo "Model file not found: $MODEL" >&2
   exit 2
@@ -44,14 +56,17 @@ fi
 echo "[ok] model: $MODEL"
 
 echo
-echo "[fairphone-voxtral] Step 3/5: audio"
+echo "[fairphone-voxtral] Step 4/6: audio"
 bash ./validate-audio.sh "$AUDIO"
 
 echo
-echo "[fairphone-voxtral] Step 4/5: runner"
-RESOLVED_RUNNER="$(bash ./detect-runner.sh)"
+echo "[fairphone-voxtral] Step 5/6: runner"
+if ! RESOLVED_RUNNER="$(bash ./detect-runner.sh)"; then
+  echo "[error] No compatible runner found (exit code 3)" >&2
+  exit 3
+fi
 echo "[ok] runner: $RESOLVED_RUNNER"
 
 echo
-echo "[fairphone-voxtral] Step 5/5: transcription"
+echo "[fairphone-voxtral] Step 6/6: transcription"
 VOXTRAL_RUNNER="$RESOLVED_RUNNER" bash ./transcribe-test.sh "$MODEL" "$AUDIO"

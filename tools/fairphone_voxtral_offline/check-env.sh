@@ -28,6 +28,7 @@ check_cmd clang
 check_cmd make
 check_cmd python
 check_cmd ffmpeg
+check_cmd ffprobe
 check_cmd termux-microphone-record
 check_cmd termux-setup-storage
 

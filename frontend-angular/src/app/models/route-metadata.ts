@@ -31,6 +31,8 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   graph: { label: 'Graph', area: 'Operate', navGroup: 'Betrieb', navOrder: 70, expertOnly: true },
   'auto-planner': { label: 'Auto-Planner', area: 'Automate', navGroup: 'Automatisierung', navOrder: 10, expertOnly: true },
   webhooks: { label: 'Webhooks', area: 'Automate', navGroup: 'Automatisierung', navOrder: 20, expertOnly: true },
+  'voxtral-offline': { label: 'Voxtral Offline', area: 'Operate', navGroup: 'Arbeiten', navOrder: 45, simpleNav: true },
+  'python-runtime': { label: 'Python Runtime', area: 'System', navGroup: 'Konfiguration', navOrder: 45, expertOnly: true },
   templates: { label: 'Vorlagen', area: 'Configure', navGroup: 'Arbeiten', navOrder: 40, simpleNav: true },
   'instruction-layers': { label: 'Instruction Layers', area: 'Configure', navGroup: 'Konfiguration', navOrder: 35, expertOnly: true },
   teams: { label: 'Teams', area: 'Configure', navGroup: 'Konfiguration', navOrder: 20, expertOnly: true },

@@ -82,7 +82,11 @@ fi
 # Termux:API may return immediately after starting the Android MediaRecorder.
 # Wait for the requested duration plus a small finalization buffer, then stop any active recorder.
 sleep "$((SECONDS_TO_RECORD + 2))"
-termux-microphone-record -q >>"$LOG_FILE" 2>&1 || true
+
+# Stop the recorder with timeout protection
+if ! timeout 5 termux-microphone-record -q >>"$LOG_FILE" 2>&1; then
+  echo "[warn] termux-microphone-record -q did not respond within 5 seconds (this may be normal)" >>"$LOG_FILE"
+fi
 sleep 1
 
 if [[ ! -s "$RAW_FILE" ]]; then

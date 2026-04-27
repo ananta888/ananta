@@ -37,10 +37,10 @@ if ! command -v ffprobe >/dev/null 2>&1; then
   exit 0
 fi
 
-DURATION="$(ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "$AUDIO" || true)"
-CODEC="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nk=1:nw=1 "$AUDIO" || true)"
-SAMPLE_RATE="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=nk=1:nw=1 "$AUDIO" || true)"
-CHANNELS="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=nk=1:nw=1 "$AUDIO" || true)"
+DURATION="$(ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "$AUDIO" 2>/dev/null || true)"
+CODEC="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nk=1:nw=1 "$AUDIO" 2>/dev/null || true)"
+SAMPLE_RATE="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=nk=1:nw=1 "$AUDIO" 2>/dev/null || true)"
+CHANNELS="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=nk=1:nw=1 "$AUDIO" 2>/dev/null || true)"
 
 if [[ -z "$DURATION" || -z "$CODEC" ]]; then
   echo "Audio metadata could not be read: $AUDIO" >&2

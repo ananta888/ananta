@@ -88,3 +88,39 @@ Für den Play Store ist das empfohlene Artefakt ein `AAB`.
 
 ### Hinweis zum aktuellen Projektstatus
 Falls `npm run android:prepare` beim Angular-Build fehlschlägt, liegt es derzeit an bestehenden TypeScript-Fehlern im Frontend-Code. Capacitor selbst ist korrekt integriert; nach Behebung der TS-Fehler läuft der Android-Workflow direkt weiter.
+
+## Voxtral Offline in der App
+
+In der nativen Android-App gibt es die Route `/voxtral-offline` mit:
+- Modell-Presets (Q4_K/Q5_K/Q8_0) direkt auswaehlbar
+- Mikrofon-Permission anfragen
+- WAV-Aufnahme (16 kHz mono) im App-Storage starten/stoppen
+- Modell direkt in App-Storage herunterladen
+- Runner-Binary direkt in App-Storage herunterladen (wird ausfuehrbar gesetzt)
+- Lokale Modelle/Runner auflisten und auswaehlen
+- Setup-Pruefung (Speicher, Modell vorhanden, Runner ausfuehrbar)
+- Lokale Offline-Transkription durch Runner-Aufruf via nativer Android-Bridge
+- Live-Modus (Chunk-basiert): fortlaufende Teiltranskripte im UI
+
+Hinweis: Fuer produktive Play-Store-Auslieferung ist als naechster Schritt eine feste NDK/JNI-Integration empfehlenswert. Der aktuelle Stand nutzt einen lokalen Runner-Binary-Pfad innerhalb der App.
+
+## Optional: Embedded Python Runtime (Hub/Worker)
+
+Die App enthaelt ein optionales Python-Runtime-Skeleton (Chaquopy) fuer lokalen Hub/Worker-Betrieb:
+- Android Plugin: `PythonRuntime` (Start/Stop/Status/Health)
+- Python Entry-Points: `android/app/src/main/python/ananta_runtime.py`
+- UI-Seite: Route `/python-runtime`
+
+Standardmaessig ist die Python-Runtime **deaktiviert** und beeinflusst den bestehenden Build nicht.
+
+Aktivieren in `frontend-angular/android/gradle.properties`:
+```properties
+anantaEnablePythonRuntime=true
+anantaPythonVersion=3.11
+```
+
+Danach wie gewohnt:
+```bash
+cd frontend-angular
+npm run android:prepare
+```
