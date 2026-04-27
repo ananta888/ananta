@@ -11,6 +11,7 @@ import { BreadcrumbComponent } from './components/breadcrumb.component';
 import { MobileRuntimeService } from './services/mobile-runtime.service';
 import { SystemFacade } from './features/system/system.facade';
 import { AppShellStateService } from './services/app-shell-state.service';
+import { PythonRuntimeService } from './services/python-runtime.service';
 
 @Component({
   selector: 'app-root',
@@ -151,11 +152,13 @@ export class AppComponent implements OnInit, OnDestroy {
   mobile = inject(MobileRuntimeService);
   private system = inject(SystemFacade);
   shell = inject(AppShellStateService);
+  private pythonRuntime = inject(PythonRuntimeService);
 
   private authSub?: Subscription;
 
   ngOnInit() {
     this.shell.init();
+    void this.bootstrapEmbeddedRuntime();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {
         this.startEventStream();
@@ -197,5 +200,34 @@ export class AppComponent implements OnInit, OnDestroy {
     const hub = this.system.resolveHubAgent();
     if (!hub) return;
     this.system.ensureSystemEvents(hub.url);
+  }
+
+  private async bootstrapEmbeddedRuntime(): Promise<void> {
+    if (!this.mobile.isNative) return;
+    this.ensureLocalMobileAgentDirectory();
+    try {
+      await this.pythonRuntime.ensureEmbeddedControlPlane();
+    } catch (error) {
+      // Keep startup resilient. Users can still manage runtime manually via /python-runtime.
+      console.error('Embedded runtime startup failed', error);
+    }
+  }
+
+  private ensureLocalMobileAgentDirectory(): void {
+    const current = this.dir.list();
+    const hub = current.find((a) => a.role === 'hub') ?? current.find((a) => a.name === 'hub');
+    const worker = current.find((a) => a.role === 'worker') ?? current.find((a) => a.name === 'worker');
+
+    if (!hub) {
+      this.dir.upsert({ name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: '' });
+    } else if ((hub.url || '').trim() !== 'http://127.0.0.1:5000') {
+      this.dir.upsert({ ...hub, role: 'hub', url: 'http://127.0.0.1:5000' });
+    }
+
+    if (!worker) {
+      this.dir.upsert({ name: 'worker', role: 'worker', url: 'http://127.0.0.1:5001', token: '' });
+    } else if ((worker.url || '').trim() !== 'http://127.0.0.1:5001') {
+      this.dir.upsert({ ...worker, role: 'worker', url: 'http://127.0.0.1:5001' });
+    }
   }
 }

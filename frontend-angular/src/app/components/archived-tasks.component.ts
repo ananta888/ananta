@@ -107,7 +107,7 @@ export class ArchivedTasksComponent {
   }
 
   private refreshHub() {
-    this.hub = this.dir.list().find((a) => a.role === 'hub') || { name: 'hub', url: 'http://localhost:5000', role: 'hub' };
+    this.hub = this.dir.list().find((a) => a.role === 'hub') || { name: 'hub', url: 'http://127.0.0.1:5000', role: 'hub' };
   }
 
   reload() {

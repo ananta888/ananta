@@ -104,16 +104,16 @@ In der nativen Android-App gibt es die Route `/voxtral-offline` mit:
 
 Hinweis: Fuer produktive Play-Store-Auslieferung ist als naechster Schritt eine feste NDK/JNI-Integration empfehlenswert. Der aktuelle Stand nutzt einen lokalen Runner-Binary-Pfad innerhalb der App.
 
-## Optional: Embedded Python Runtime (Hub/Worker)
+## Embedded Python Runtime (Hub/Worker)
 
-Die App enthaelt ein optionales Python-Runtime-Skeleton (Chaquopy) fuer lokalen Hub/Worker-Betrieb:
+Die App enthaelt eine Python-Runtime (Chaquopy) fuer lokalen Hub/Worker-Betrieb:
 - Android Plugin: `PythonRuntime` (Start/Stop/Status/Health)
 - Python Entry-Points: `android/app/src/main/python/ananta_runtime.py`
 - UI-Seite: Route `/python-runtime`
 
-Standardmaessig ist die Python-Runtime **deaktiviert** und beeinflusst den bestehenden Build nicht.
+Standardmaessig ist die Python-Runtime fuer Android-Builds aktiviert.
 
-Aktivieren in `frontend-angular/android/gradle.properties`:
+Steuerung in `frontend-angular/android/gradle.properties`:
 ```properties
 anantaEnablePythonRuntime=true
 anantaPythonVersion=3.11

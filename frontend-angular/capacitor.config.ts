@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appName: 'Ananta Control',
   webDir: 'dist/ananta-angular/browser',
   server: {
-    androidScheme: 'https'
+    // Keep Android WebView on http so local hub endpoints (http://127.0.0.1:5000)
+    // are not blocked as mixed content.
+    androidScheme: 'http'
   }
 };
 

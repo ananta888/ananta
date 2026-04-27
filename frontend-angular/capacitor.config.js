@@ -3,7 +3,7 @@ const config = {
     appName: 'Ananta Control',
     webDir: 'dist/ananta-angular/browser',
     server: {
-        androidScheme: 'https'
+        androidScheme: 'http'
     }
 };
 export default config;
