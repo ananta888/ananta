@@ -16,6 +16,7 @@ export class AgentDirectoryService {
 
   constructor() {
     this.load();
+    this.normalizeLoopbackUrls();
     this.applyRuntimeDefaults();
     if (this.agents.length === 0) {
       this.agents = this.defaultAgentsForCurrentHost();
@@ -25,6 +26,7 @@ export class AgentDirectoryService {
 
   list(): AgentEntry[] {
     this.load();
+    this.normalizeLoopbackUrls();
     return [...this.agents];
   }
   get(name: string): AgentEntry | undefined { return this.agents.find(a => a.name === name); }
@@ -80,9 +82,9 @@ export class AgentDirectoryService {
     }
     // sensible defaults for host/browser usage
     return [
-      { name: 'hub', url: 'http://localhost:5000', token: '', role: 'hub' },
-      { name: 'alpha', url: 'http://localhost:5001', token: '', role: 'worker' },
-      { name: 'beta', url: 'http://localhost:5002', token: '', role: 'worker' }
+      { name: 'hub', url: 'http://127.0.0.1:5000', token: '', role: 'hub' },
+      { name: 'alpha', url: 'http://127.0.0.1:5001', token: '', role: 'worker' },
+      { name: 'beta', url: 'http://127.0.0.1:5002', token: '', role: 'worker' }
     ];
   }
 
@@ -107,6 +109,24 @@ export class AgentDirectoryService {
       return a;
     });
 
+    if (changed) this.save();
+  }
+
+  private normalizeLoopbackUrls() {
+    if (this.agents.length === 0) return;
+    let changed = false;
+    this.agents = this.agents.map((agent) => {
+      const raw = String(agent.url || '').trim();
+      if (!raw) return agent;
+      const normalized = raw
+        .replace(/^http:\/\/localhost(?::|\/|$)/i, 'http://127.0.0.1$1')
+        .replace(/^https:\/\/localhost(?::|\/|$)/i, 'https://127.0.0.1$1');
+      if (normalized !== raw) {
+        changed = true;
+        return { ...agent, url: normalized };
+      }
+      return agent;
+    });
     if (changed) this.save();
   }
 }

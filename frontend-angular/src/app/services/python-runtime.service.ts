@@ -53,4 +53,24 @@ export class PythonRuntimeService {
   async runHealthCheck(): Promise<{ ok: boolean; message: string }> {
     return PythonRuntime.runHealthCheck();
   }
+
+  async ensureEmbeddedControlPlane(): Promise<PythonRuntimeStatus> {
+    if (!this.isNative) return this.getRuntimeStatus();
+    let status = await this.getRuntimeStatus();
+    if (!status.pythonAvailable) return status;
+
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      if (!status.hubRunning) await this.startHub();
+      if (!status.workerRunning) await this.startWorker();
+      await this.sleep(250 * attempt);
+      status = await this.getRuntimeStatus();
+      if (status.hubRunning && status.workerRunning) return status;
+    }
+
+    throw new Error(status.lastError || 'Embedded control plane did not reach running state.');
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 }

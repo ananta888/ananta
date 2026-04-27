@@ -1,5 +1,7 @@
 package com.ananta.mobile.python;
 
+import android.content.Context;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -127,6 +129,7 @@ public class PythonRuntimePlugin extends Plugin {
             throw new IllegalStateException("Embedded Python is disabled. Enable anantaEnablePythonRuntime=true.");
         }
 
+        ensurePythonStarted();
         Class<?> pythonClass = Class.forName("com.chaquo.python.Python");
         Method getInstance = pythonClass.getMethod("getInstance");
         Object python = getInstance.invoke(null);
@@ -137,5 +140,22 @@ public class PythonRuntimePlugin extends Plugin {
         Method callAttr = pyObjectClass.getMethod("callAttr", String.class, Object[].class);
         Object value = callAttr.invoke(module, functionName, new Object[]{});
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private void ensurePythonStarted() throws Exception {
+        Class<?> pythonClass = Class.forName("com.chaquo.python.Python");
+        Method isStarted = pythonClass.getMethod("isStarted");
+        boolean started = (boolean) isStarted.invoke(null);
+        if (started) return;
+
+        Context context = getContext();
+        if (context == null) {
+            throw new IllegalStateException("Android context unavailable for Python startup.");
+        }
+
+        Class<?> androidPlatformClass = Class.forName("com.chaquo.python.android.AndroidPlatform");
+        Object androidPlatform = androidPlatformClass.getConstructor(Context.class).newInstance(context);
+        Method start = pythonClass.getMethod("start", androidPlatformClass);
+        start.invoke(null, androidPlatform);
     }
 }
