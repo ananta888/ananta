@@ -1,0 +1,46 @@
+name: OpenCode Full E2E Evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  opencode-full-e2e-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EVIDENCE_TOKEN: evidence-agent-token-with-sufficient-length-1234567890
+      HUB_URL: http://127.0.0.1:5863
+      OUT_DIR_FOR_PY: ci-artifacts/opencode-full-e2e-evidence
+      OPENAI_API_KEY: ${{ secrets.OPENAIANANTA }}
+      OPENCODE_MODEL: openai/gpt-4o-mini
+      OPENCODE_DISABLE_AUTOUPDATE: "1"
+      OPENCODE_DISABLE_PRUNE: "1"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.5"
+      - name: Install dependencies
+        run: |
+          test -n "$OPENAI_API_KEY"
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+          npm install -g opencode-ai
+          opencode --version
+      - name: Run evidence script
+        run: bash scripts/run_opencode_full_e2e_evidence.sh ci-artifacts/opencode-full-e2e-evidence
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-opencode-full-e2e-evidence
+          path: ci-artifacts/opencode-full-e2e-evidence/**
+          if-no-files-found: warn
+          retention-days: 14
