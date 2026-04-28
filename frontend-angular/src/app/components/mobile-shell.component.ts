@@ -29,9 +29,11 @@ import { MobileProotService } from '../services/mobile-proot.service';
             </label>
             <button type="button" class="secondary" (click)="runCheckCommand()" [disabled]="running">proot-distro pruefen</button>
             <button type="button" class="secondary" (click)="listInstalledDistros()" [disabled]="running">Installierte Distros</button>
-            <button type="button" class="secondary" (click)="installSelectedDistro()" [disabled]="running">Distro installieren</button>
+            <button type="button" class="secondary" (click)="installRuntime()" [disabled]="running || prootBusy">Runtime installieren</button>
+            <button type="button" class="secondary" (click)="installSelectedDistro()" [disabled]="running || prootBusy">Distro installieren</button>
             <button type="button" class="secondary" (click)="setWorkerStartInDistroCommand()" [disabled]="running">Worker in Distro (Vorlage)</button>
           </div>
+          <div class="muted">{{ prootStatus }}</div>
           <div class="row gap-sm wrap">
             <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
             <button type="button" class="secondary" (click)="startProotSession()" [disabled]="shellBusy || shellRunning">Distro-Session starten</button>
@@ -133,6 +135,8 @@ export class MobileShellComponent implements OnDestroy {
   shellMeta = '';
   readonly distroOptions = this.proot.distroOptions;
   selectedDistro = this.proot.getSelectedDistro();
+  prootBusy = false;
+  prootStatus = '';
   private pollHandle?: ReturnType<typeof setInterval>;
 
   get isAndroidNative(): boolean {
@@ -262,11 +266,7 @@ export class MobileShellComponent implements OnDestroy {
   }
 
   setWorkerStartCommand(): void {
-    this.command = [
-      'cd /data/data/com.termux/files/home/ananta',
-      'ROLE=worker AGENT_NAME=android-worker PORT=5001 HUB_URL=http://127.0.0.1:5000 AGENT_URL=http://127.0.0.1:5001',
-      'python -m agent.ai_agent',
-    ].join(' && ');
+    this.command = this.proot.buildWorkerStartCommand();
   }
 
   setWorkerStartInDistroCommand(): void {
@@ -290,9 +290,42 @@ export class MobileShellComponent implements OnDestroy {
   }
 
   installSelectedDistro(): void {
+    if (this.prootBusy) return;
+    this.prootBusy = true;
     this.proot.setSelectedDistro(this.selectedDistro);
-    this.command = this.proot.buildInstallCommand(this.selectedDistro);
-    this.runCommand().catch(() => undefined);
+    this.prootStatus = `Installiere Distro ${this.selectedDistro}...`;
+    this.python.installProotDistro(this.selectedDistro).then(
+      (result) => {
+        this.prootStatus = `Distro installiert: ${result.distro}`;
+        this.command = this.proot.buildListInstalledCommand();
+        this.runCommand().catch(() => undefined);
+      },
+      (error: any) => {
+        this.prootStatus = `Distro-Install fehlgeschlagen: ${error?.message || String(error)}`;
+      }
+    ).finally(() => {
+      this.prootBusy = false;
+    });
+  }
+
+  installRuntime(): void {
+    if (this.prootBusy) return;
+    this.prootBusy = true;
+    this.prootStatus = 'Installiere proot runtime...';
+    this.python.installProotRuntime().then(
+      () => this.python.getProotRuntimeStatus()
+    ).then(
+      (status) => {
+        this.prootStatus = status.prootExecutable
+          ? `Runtime installiert: ${status.prootPath}`
+          : 'Runtime installiert, aber nicht ausfuehrbar.';
+      },
+      (error: any) => {
+        this.prootStatus = `Runtime-Install fehlgeschlagen: ${error?.message || String(error)}`;
+      }
+    ).finally(() => {
+      this.prootBusy = false;
+    });
   }
 
   clearOutput(): void {
