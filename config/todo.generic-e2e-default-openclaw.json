@@ -1,0 +1,477 @@
+{
+  "project": "ananta",
+  "version": "0.1",
+  "goal": "E2E-Test-Worker als austauschbaren Worker für Ananta integrieren",
+  "principles": [
+    "Worker darf Tests ausführen, aber keinen Produktivcode ändern",
+    "OpenClaw ist nur ein mögliches Backend, nicht fest verdrahtet",
+    "Jeder Task ist klein genug für Copilot/Codex CLI",
+    "Alle Worker-Aktionen müssen geloggt und reproduzierbar sein",
+    "Default-Deny bei Permissions"
+  ],
+  "workers": {
+    "workflow_test_worker": {
+      "purpose": "E2E-/Workflow-Tests ausführen",
+      "allowed_actions": [
+        "start_test_environment",
+        "open_browser",
+        "execute_steps",
+        "capture_screenshot",
+        "collect_logs",
+        "write_test_report"
+      ],
+      "forbidden_actions": [
+        "modify_application_code",
+        "commit_changes",
+        "access_secrets_without_scope",
+        "change_permissions"
+      ],
+      "possible_backends": [
+        "openclaw",
+        "playwright",
+        "selenium",
+        "browser_agent"
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "e2e-001",
+      "title": "Worker-Konzept dokumentieren",
+      "type": "docs",
+      "priority": "high",
+      "description": "Dokumentiere Zweck, Grenzen und Verantwortlichkeit des workflow_test_worker.",
+      "acceptance_criteria": [
+        "Worker darf keine Codeänderungen machen",
+        "OpenClaw wird als austauschbares Backend beschrieben",
+        "Security-Grenzen sind explizit erwähnt"
+      ]
+    },
+    {
+      "id": "e2e-002",
+      "title": "Worker-Konfiguration definieren",
+      "type": "config",
+      "priority": "high",
+      "description": "Erweitere config.json um workflow_test_worker.",
+      "output": "config/workers/workflow_test_worker.json",
+      "acceptance_criteria": [
+        "backend ist konfigurierbar",
+        "timeouts sind konfigurierbar",
+        "allowed_actions sind konfigurierbar",
+        "forbidden_actions sind konfigurierbar"
+      ]
+    },
+    {
+      "id": "e2e-003",
+      "title": "Worker-Permissions modellieren",
+      "type": "security",
+      "priority": "high",
+      "description": "Lege ein Permission-Modell für Test-Worker an.",
+      "permissions": [
+        "browser.open",
+        "browser.click",
+        "browser.type",
+        "browser.screenshot",
+        "logs.read",
+        "test.report.write"
+      ],
+      "acceptance_criteria": [
+        "Default-Deny ist aktiv",
+        "jede Aktion wird gegen Permissions geprüft",
+        "verbotene Aktionen werden sauber abgelehnt"
+      ]
+    },
+    {
+      "id": "e2e-004",
+      "title": "Worker-Interface erstellen",
+      "type": "code",
+      "priority": "high",
+      "description": "Erstelle ein generisches Interface für E2E-Backends.",
+      "suggested_files": [
+        "ananta/workers/e2e/base.py"
+      ],
+      "interface_methods": [
+        "setup()",
+        "run_step(step)",
+        "capture_screenshot(name)",
+        "collect_logs()",
+        "teardown()"
+      ],
+      "acceptance_criteria": [
+        "OpenClaw-spezifischer Code ist nicht im Interface",
+        "Backend kann später ersetzt werden",
+        "Fehler werden strukturiert zurückgegeben"
+      ]
+    },
+    {
+      "id": "e2e-005",
+      "title": "Test-Step-Schema definieren",
+      "type": "schema",
+      "priority": "high",
+      "description": "Definiere JSON-Schema für einzelne E2E-Testschritte.",
+      "example": {
+        "action": "click",
+        "target": "#login-button",
+        "timeout_ms": 5000,
+        "expected": "navigation_to_dashboard"
+      },
+      "acceptance_criteria": [
+        "click/type/wait/assert/screenshot werden unterstützt",
+        "Timeout pro Step möglich",
+        "Expected Result ist optional aber möglich"
+      ]
+    },
+    {
+      "id": "e2e-006",
+      "title": "Test-Case-Schema definieren",
+      "type": "schema",
+      "priority": "high",
+      "description": "Definiere Schema für vollständige E2E-Testcases.",
+      "example": {
+        "id": "login-admin",
+        "title": "Admin Login",
+        "preconditions": [],
+        "steps": [],
+        "expected_result": "dashboard visible"
+      },
+      "acceptance_criteria": [
+        "Testcase enthält id, title, preconditions, steps, expected_result",
+        "Testcase ist unabhängig ausführbar",
+        "Testcase kann vom Worker validiert werden"
+      ]
+    },
+    {
+      "id": "e2e-007",
+      "title": "Testplan-Datei anlegen",
+      "type": "config",
+      "priority": "medium",
+      "description": "Lege initiale testplan.json für Workflow-Tests an.",
+      "output": "tests/e2e/testplan.json",
+      "acceptance_criteria": [
+        "mindestens ein Smoke-Test vorhanden",
+        "mindestens ein Login-Test vorbereitet",
+        "Struktur ist kompatibel mit Test-Case-Schema"
+      ]
+    },
+    {
+      "id": "e2e-008",
+      "title": "OpenClaw-Adapter stubben",
+      "type": "code",
+      "priority": "medium",
+      "description": "Erstelle einen OpenClawBackend-Adapter als Stub.",
+      "suggested_files": [
+        "ananta/workers/e2e/backends/openclaw_backend.py"
+      ],
+      "acceptance_criteria": [
+        "Adapter implementiert E2E-Interface",
+        "noch keine harte OpenClaw-Abhängigkeit nötig",
+        "nicht implementierte Methoden liefern klare Fehlermeldung"
+      ]
+    },
+    {
+      "id": "e2e-009",
+      "title": "Playwright-Adapter als Fallback erstellen",
+      "type": "code",
+      "priority": "medium",
+      "description": "Erstelle PlaywrightBackend als stabilen lokalen Fallback.",
+      "suggested_files": [
+        "ananta/workers/e2e/backends/playwright_backend.py"
+      ],
+      "acceptance_criteria": [
+        "Browser kann gestartet werden",
+        "click/type/wait/assert werden unterstützt",
+        "Screenshots werden gespeichert"
+      ]
+    },
+    {
+      "id": "e2e-010",
+      "title": "Worker-Runner implementieren",
+      "type": "code",
+      "priority": "high",
+      "description": "Implementiere Runner, der Testplan lädt und Testcases ausführt.",
+      "suggested_files": [
+        "ananta/workers/e2e/runner.py"
+      ],
+      "acceptance_criteria": [
+        "Testplan wird geladen",
+        "Schema wird validiert",
+        "Tests laufen sequenziell",
+        "Fehler brechen nur aktuellen Testcase ab"
+      ]
+    },
+    {
+      "id": "e2e-011",
+      "title": "Timeout-Schutz einbauen",
+      "type": "security",
+      "priority": "high",
+      "description": "Baue globale und step-basierte Timeouts ein.",
+      "acceptance_criteria": [
+        "global_timeout_ms vorhanden",
+        "step_timeout_ms vorhanden",
+        "Timeout erzeugt strukturierten Fehlerbericht"
+      ]
+    },
+    {
+      "id": "e2e-012",
+      "title": "Artifact-Verzeichnis strukturieren",
+      "type": "filesystem",
+      "priority": "medium",
+      "description": "Lege Struktur für Test-Artefakte an.",
+      "output_structure": {
+        "artifacts/e2e/<run_id>/screenshots": [],
+        "artifacts/e2e/<run_id>/logs": [],
+        "artifacts/e2e/<run_id>/reports": []
+      },
+      "acceptance_criteria": [
+        "jede Ausführung bekommt run_id",
+        "Screenshots werden eindeutig benannt",
+        "Logs werden pro Testcase getrennt"
+      ]
+    },
+    {
+      "id": "e2e-013",
+      "title": "Testreport erzeugen",
+      "type": "code",
+      "priority": "high",
+      "description": "Erzeuge maschinenlesbaren JSON-Report nach jedem Lauf.",
+      "output": "artifacts/e2e/<run_id>/reports/report.json",
+      "acceptance_criteria": [
+        "Status pro Testcase vorhanden",
+        "Fehler pro Step vorhanden",
+        "Screenshots und Logs sind referenziert",
+        "Dauer pro Testcase vorhanden"
+      ]
+    },
+    {
+      "id": "e2e-014",
+      "title": "Human-readable Report erzeugen",
+      "type": "code",
+      "priority": "medium",
+      "description": "Erzeuge zusätzlich Markdown-Report.",
+      "output": "artifacts/e2e/<run_id>/reports/report.md",
+      "acceptance_criteria": [
+        "Summary enthält passed/failed/skipped",
+        "Fehler sind lesbar erklärt",
+        "Screenshots sind verlinkt"
+      ]
+    },
+    {
+      "id": "e2e-015",
+      "title": "Diagnose-Worker vorbereiten",
+      "type": "architecture",
+      "priority": "medium",
+      "description": "Definiere Schnittstelle für späteren diagnose_worker.",
+      "acceptance_criteria": [
+        "diagnose_worker bekommt report.json",
+        "diagnose_worker bekommt relevante Logs",
+        "diagnose_worker darf nur Vorschläge/Todos erzeugen"
+      ]
+    },
+    {
+      "id": "e2e-016",
+      "title": "Fix-Worker bewusst abgrenzen",
+      "type": "security",
+      "priority": "high",
+      "description": "Dokumentiere, dass workflow_test_worker keine Fixes macht.",
+      "acceptance_criteria": [
+        "Fixes laufen über separaten fix_worker",
+        "Test-Worker erzeugt nur Reports",
+        "keine Schreibrechte auf Produktivcode"
+      ]
+    },
+    {
+      "id": "e2e-017",
+      "title": "CLI-Befehl hinzufügen",
+      "type": "code",
+      "priority": "medium",
+      "description": "Füge CLI-Befehl zum Starten der E2E-Tests hinzu.",
+      "example_command": "ananta worker run workflow_test_worker --testplan tests/e2e/testplan.json",
+      "acceptance_criteria": [
+        "Worker kann per CLI gestartet werden",
+        "Backend kann per Argument überschrieben werden",
+        "Run-ID wird ausgegeben"
+      ]
+    },
+    {
+      "id": "e2e-018",
+      "title": "Docker-Testumgebung anbinden",
+      "type": "infra",
+      "priority": "medium",
+      "description": "Prüfe, ob Testumgebung per Docker Compose gestartet werden kann.",
+      "acceptance_criteria": [
+        "start_test_environment optional möglich",
+        "healthcheck wird abgewartet",
+        "bei Fehler wird sauber abgebrochen"
+      ]
+    },
+    {
+      "id": "e2e-019",
+      "title": "Smoke-Test erstellen",
+      "type": "test",
+      "priority": "high",
+      "description": "Erstelle einfachen Smoke-Test für erreichbare Weboberfläche.",
+      "acceptance_criteria": [
+        "App-URL wird geöffnet",
+        "HTTP/UI erreichbar",
+        "Screenshot wird erzeugt",
+        "Report zeigt pass/fail"
+      ]
+    },
+    {
+      "id": "e2e-020",
+      "title": "Login-Test erstellen",
+      "type": "test",
+      "priority": "high",
+      "description": "Erstelle Login-Workflow-Test mit Testuser.",
+      "acceptance_criteria": [
+        "Credentials kommen aus Test-Secrets",
+        "Login wird ausgeführt",
+        "Dashboard oder Zielseite wird geprüft",
+        "kein Secret landet im Report"
+      ]
+    },
+    {
+      "id": "e2e-021",
+      "title": "Secret-Handling absichern",
+      "type": "security",
+      "priority": "high",
+      "description": "Verhindere Ausgabe von Secrets in Logs, Reports und Screenshots soweit möglich.",
+      "acceptance_criteria": [
+        "Secrets werden maskiert",
+        "Reports enthalten keine Passwörter",
+        "Debug-Logs maskieren bekannte Secret-Werte"
+      ]
+    },
+    {
+      "id": "e2e-022",
+      "title": "Worker-Logs strukturieren",
+      "type": "logging",
+      "priority": "medium",
+      "description": "Nutze strukturierte Logs für Worker-Ausführung.",
+      "acceptance_criteria": [
+        "run_id in jedem Logeintrag",
+        "testcase_id in jedem Test-Log",
+        "step_id bei Step-Logs",
+        "Fehler enthalten error_code"
+      ]
+    },
+    {
+      "id": "e2e-023",
+      "title": "Error-Codes definieren",
+      "type": "schema",
+      "priority": "medium",
+      "description": "Definiere feste Error-Codes für E2E-Ausführung.",
+      "error_codes": [
+        "E2E_BACKEND_NOT_AVAILABLE",
+        "E2E_STEP_TIMEOUT",
+        "E2E_ASSERTION_FAILED",
+        "E2E_PERMISSION_DENIED",
+        "E2E_SECRET_LEAK_BLOCKED",
+        "E2E_ENVIRONMENT_UNHEALTHY"
+      ],
+      "acceptance_criteria": [
+        "alle Fehler nutzen Error-Codes",
+        "Reports sind maschinenlesbar",
+        "Diagnose-Worker kann Error-Codes auswerten"
+      ]
+    },
+    {
+      "id": "e2e-024",
+      "title": "Minimalen Integrationstest für Runner schreiben",
+      "type": "test",
+      "priority": "medium",
+      "description": "Teste Runner mit FakeBackend.",
+      "acceptance_criteria": [
+        "FakeBackend führt Steps ohne echten Browser aus",
+        "Report wird erzeugt",
+        "Fehlerfall wird getestet"
+      ]
+    },
+    {
+      "id": "e2e-025",
+      "title": "FakeBackend erstellen",
+      "type": "code",
+      "priority": "medium",
+      "description": "Erstelle FakeBackend für Unit-/Integrationstests.",
+      "suggested_files": [
+        "ananta/workers/e2e/backends/fake_backend.py"
+      ],
+      "acceptance_criteria": [
+        "FakeBackend implementiert E2E-Interface",
+        "kann Erfolg simulieren",
+        "kann Fehler simulieren",
+        "braucht keine externen Abhängigkeiten"
+      ]
+    },
+    {
+      "id": "e2e-026",
+      "title": "Dashboard-Anbindung vorbereiten",
+      "type": "ui",
+      "priority": "low",
+      "description": "Bereite Anzeige von E2E-Läufen im Controller-Dashboard vor.",
+      "acceptance_criteria": [
+        "letzte Runs können gelistet werden",
+        "Report-Link ist sichtbar",
+        "Status passed/failed/skipped sichtbar"
+      ]
+    },
+    {
+      "id": "e2e-027",
+      "title": "Worker-State im Controller speichern",
+      "type": "controller",
+      "priority": "medium",
+      "description": "Speichere aktuellen Zustand des workflow_test_worker.",
+      "states": [
+        "idle",
+        "starting",
+        "running",
+        "failed",
+        "finished",
+        "cancelled"
+      ],
+      "acceptance_criteria": [
+        "Status ist per API abrufbar",
+        "laufender Test kann identifiziert werden",
+        "Abbruch ist vorbereitet"
+      ]
+    },
+    {
+      "id": "e2e-028",
+      "title": "Abbruchmechanismus einbauen",
+      "type": "controller",
+      "priority": "medium",
+      "description": "Erlaube kontrolliertes Stoppen eines laufenden Test-Workers.",
+      "acceptance_criteria": [
+        "Cancel-Signal wird erkannt",
+        "Backend wird sauber beendet",
+        "Report markiert Lauf als cancelled"
+      ]
+    },
+    {
+      "id": "e2e-029",
+      "title": "Security-Review durchführen",
+      "type": "review",
+      "priority": "high",
+      "description": "Prüfe Worker gegen Privilege-Eskalation und ungewollte Schreibrechte.",
+      "acceptance_criteria": [
+        "keine Produktivcode-Schreibrechte",
+        "keine Shell-Ausführung ohne explizite Permission",
+        "Secrets werden nicht geloggt",
+        "Backend bleibt austauschbar"
+      ]
+    },
+    {
+      "id": "e2e-030",
+      "title": "README für E2E-Worker schreiben",
+      "type": "docs",
+      "priority": "medium",
+      "description": "Schreibe kurze Anleitung zur Nutzung des workflow_test_worker.",
+      "acceptance_criteria": [
+        "Konfiguration erklärt",
+        "CLI-Beispiel enthalten",
+        "Testplan-Beispiel enthalten",
+        "Security-Grenzen erklärt"
+      ]
+    }
+  ]
+}
