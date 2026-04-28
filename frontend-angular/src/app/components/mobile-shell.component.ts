@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 
 import { PythonRuntimeService, ShellCommandResult } from '../services/python-runtime.service';
+import { MobileProotService } from '../services/mobile-proot.service';
 
 @Component({
   standalone: true,
@@ -18,8 +19,22 @@ import { PythonRuntimeService, ShellCommandResult } from '../services/python-run
       } @else {
         <div class="card card-light grid gap-sm mt-sm">
           <div class="row gap-sm wrap">
+            <label>
+              Distro
+              <select [(ngModel)]="selectedDistro" (ngModelChange)="onDistroChange($event)" [disabled]="shellBusy || running">
+                @for (distro of distroOptions; track distro) {
+                  <option [value]="distro">{{ distro }}</option>
+                }
+              </select>
+            </label>
+            <button type="button" class="secondary" (click)="runCheckCommand()" [disabled]="running">proot-distro pruefen</button>
+            <button type="button" class="secondary" (click)="listInstalledDistros()" [disabled]="running">Installierte Distros</button>
+            <button type="button" class="secondary" (click)="installSelectedDistro()" [disabled]="running">Distro installieren</button>
+            <button type="button" class="secondary" (click)="setWorkerStartInDistroCommand()" [disabled]="running">Worker in Distro (Vorlage)</button>
+          </div>
+          <div class="row gap-sm wrap">
             <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
-            <button type="button" class="secondary" (click)="startProotSession()" [disabled]="shellBusy || shellRunning">proot-distro starten</button>
+            <button type="button" class="secondary" (click)="startProotSession()" [disabled]="shellBusy || shellRunning">Distro-Session starten</button>
             <button type="button" class="secondary" (click)="closeInteractiveShell()" [disabled]="shellBusy || !shellSessionId">Session beenden</button>
             <button type="button" class="secondary" (click)="clearShellOutput()" [disabled]="shellBusy">Terminal leeren</button>
           </div>
@@ -103,6 +118,7 @@ import { PythonRuntimeService, ShellCommandResult } from '../services/python-run
 })
 export class MobileShellComponent implements OnDestroy {
   private python = inject(PythonRuntimeService);
+  private proot = inject(MobileProotService);
 
   command = 'pwd && ls -la';
   timeoutSeconds = 20;
@@ -115,6 +131,8 @@ export class MobileShellComponent implements OnDestroy {
   shellBusy = false;
   shellOutput = '';
   shellMeta = '';
+  readonly distroOptions = this.proot.distroOptions;
+  selectedDistro = this.proot.getSelectedDistro();
   private pollHandle?: ReturnType<typeof setInterval>;
 
   get isAndroidNative(): boolean {
@@ -164,10 +182,11 @@ export class MobileShellComponent implements OnDestroy {
     if (!this.isAndroidNative || this.shellBusy || this.shellRunning) return;
     this.shellBusy = true;
     try {
-      const started = await this.python.openShellSession({ shell: 'sh', initialCommand: this.prootBootstrapCommand() });
+      this.proot.setSelectedDistro(this.selectedDistro);
+      const started = await this.python.openShellSession({ shell: 'sh', initialCommand: this.proot.buildLoginCommand(this.selectedDistro) });
       this.shellSessionId = started.sessionId;
       this.shellRunning = started.running;
-      this.shellMeta = 'proot-distro Startversuch ausgefuehrt.';
+      this.shellMeta = `Distro-Session gestartet (${this.selectedDistro}).`;
       this.startPolling();
       await this.pullShellOutput();
     } catch (error: any) {
@@ -250,6 +269,32 @@ export class MobileShellComponent implements OnDestroy {
     ].join(' && ');
   }
 
+  setWorkerStartInDistroCommand(): void {
+    this.proot.setSelectedDistro(this.selectedDistro);
+    this.command = this.proot.buildWorkerStartInDistroCommand(this.selectedDistro);
+  }
+
+  onDistroChange(next: string): void {
+    this.selectedDistro = String(next || 'ubuntu').trim().toLowerCase();
+    this.proot.setSelectedDistro(this.selectedDistro);
+  }
+
+  runCheckCommand(): void {
+    this.command = this.proot.buildCheckCommand();
+    this.runCommand().catch(() => undefined);
+  }
+
+  listInstalledDistros(): void {
+    this.command = this.proot.buildListInstalledCommand();
+    this.runCommand().catch(() => undefined);
+  }
+
+  installSelectedDistro(): void {
+    this.proot.setSelectedDistro(this.selectedDistro);
+    this.command = this.proot.buildInstallCommand(this.selectedDistro);
+    this.runCommand().catch(() => undefined);
+  }
+
   clearOutput(): void {
     this.output = '';
     this.lastMeta = '';
@@ -271,19 +316,6 @@ export class MobileShellComponent implements OnDestroy {
     if (!this.pollHandle) return;
     clearInterval(this.pollHandle);
     this.pollHandle = undefined;
-  }
-
-  private prootBootstrapCommand(): string {
-    return [
-      'if command -v proot-distro >/dev/null 2>&1; then',
-      '  proot-distro login ubuntu;',
-      'elif [ -x /data/data/com.termux/files/usr/bin/proot-distro ]; then',
-      '  export PATH=/data/data/com.termux/files/usr/bin:$PATH;',
-      '  /data/data/com.termux/files/usr/bin/proot-distro login ubuntu;',
-      'else',
-      '  echo "proot-distro nicht gefunden. Installiere/verwende es im gleichen Sandbox-Umfeld wie die App.";',
-      'fi',
-    ].join(' ');
   }
 
   private normalizedTimeout(): number {
