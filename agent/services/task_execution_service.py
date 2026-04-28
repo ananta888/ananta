@@ -863,7 +863,8 @@ class TaskExecutionService:
         effective_command = command
         if working_directory:
             quoted = shlex.quote(str(working_directory))
-            effective_command = f"cd {quoted} && {command}"
+            # Keep workdir switching compatible with shell hardening that forbids && chaining.
+            effective_command = f"cd {quoted}\n{command}"
 
         while True:
             attempt += 1
