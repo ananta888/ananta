@@ -238,7 +238,8 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
           });
         }
         if (evt.type === 'error') {
-          const marker = '\r\n[connection error]\r\n';
+          const detail = String(evt.data?.message || evt.data?.details || '').trim();
+          const marker = detail ? `\r\n[connection error: ${detail}]\r\n` : '\r\n[connection error]\r\n';
           this.zone.runOutsideAngular(() => {
             this.terminal?.writeln(marker);
           });

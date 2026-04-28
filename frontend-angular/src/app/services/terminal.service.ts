@@ -18,6 +18,11 @@ export interface TerminalEvent {
   data?: any;
 }
 
+interface TerminalConnectAttemptResult {
+  connected: boolean;
+  errorMessage?: string;
+}
+
 @Injectable()
 export class TerminalService {
   private static readonly CONNECT_TIMEOUT_MS = 900;
@@ -51,20 +56,24 @@ export class TerminalService {
       return true;
     });
 
+    let lastErrorMessage = '';
     for (const token of candidates) {
       if (attemptId !== this.connectAttemptId) return;
       const wsUrl = this.toWsUrl(options.baseUrl, options.mode, token, options.forwardParam);
-      const connected = await this.tryConnectOnce(wsUrl, attemptId);
-      if (connected) {
+      const result = await this.tryConnectOnce(wsUrl, attemptId);
+      if (result.connected) {
         if (token) this.lastSuccessfulTokenByEndpoint.set(endpointKey, token);
         else this.lastSuccessfulTokenByEndpoint.delete(endpointKey);
         return;
+      }
+      if (result.errorMessage) {
+        lastErrorMessage = result.errorMessage;
       }
     }
 
     if (attemptId !== this.connectAttemptId) return;
     this.stateSubject.next('error');
-    this.eventsSubject.next({ type: 'error' });
+    this.eventsSubject.next({ type: 'error', data: { message: lastErrorMessage || 'connection_failed' } });
   }
 
   sendInput(input: string): void {
@@ -142,38 +151,41 @@ export class TerminalService {
     }
   }
 
-  private async tryConnectOnce(wsUrl: string, attemptId: number): Promise<boolean> {
-    return await new Promise<boolean>((resolve) => {
+  private async tryConnectOnce(wsUrl: string, attemptId: number): Promise<TerminalConnectAttemptResult> {
+    return await new Promise<TerminalConnectAttemptResult>((resolve) => {
       const ws = new WebSocket(wsUrl);
       let settled = false;
       let ready = false;
+      let preReadyErrorMessage = '';
 
-      const finish = (ok: boolean) => {
+      const finish = (ok: boolean, errorMessage?: string) => {
         if (settled) return;
         settled = true;
-        resolve(ok);
+        resolve({ connected: ok, errorMessage: errorMessage || preReadyErrorMessage || undefined });
       };
 
       ws.onopen = () => {
         if (attemptId !== this.connectAttemptId) {
           ws.close();
-          finish(false);
+          finish(false, 'superseded_attempt');
           return;
         }
       };
 
       ws.onerror = () => {
         if (!ready) {
+          preReadyErrorMessage = preReadyErrorMessage || 'websocket_error';
           try { ws.close(); } catch {}
           finish(false);
           return;
         }
         this.stateSubject.next('error');
-        this.eventsSubject.next({ type: 'error' });
+        this.eventsSubject.next({ type: 'error', data: { message: 'websocket_error' } });
       };
 
       ws.onclose = () => {
         if (!ready) {
+          preReadyErrorMessage = preReadyErrorMessage || 'closed_before_ready';
           finish(false);
           return;
         }
@@ -207,6 +219,8 @@ export class TerminalService {
             return;
           }
           if (msgType === 'error') {
+            const detailMessage = String(msgData?.message || msgData?.details || 'terminal_error').trim();
+            preReadyErrorMessage = detailMessage || 'terminal_error';
             try { ws.close(); } catch {}
             finish(false);
             return;
@@ -223,6 +237,7 @@ export class TerminalService {
 
       setTimeout(() => {
         if (!ready) {
+          preReadyErrorMessage = preReadyErrorMessage || 'connect_timeout';
           try { ws.close(); } catch {}
           finish(false);
         }
