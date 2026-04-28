@@ -62,8 +62,14 @@ Use your venv Python (or `ananta` if on PATH):
 ```bash
 ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
 ananta doctor
-ananta status
+ananta first-run
+# requires running hub + matching credentials
+ANANTA_BASE_URL=http://localhost:5000 ANANTA_USER=admin ANANTA_PASSWORD=<password> ananta status
 ```
+
+If you started a local hub via `docs/setup/quickstart.md` with
+`INITIAL_ADMIN_PASSWORD=ananta-local-dev-admin`, use that same value as
+`ANANTA_PASSWORD`.
 
 OpenAI-compatible runtime example:
 

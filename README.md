@@ -45,9 +45,12 @@ Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-fl
 
 Wenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:
 
+- Voraussetzung: Der Befehl `ananta` ist installiert. Falls nicht, zuerst `docs/setup/bootstrap-install.md` nutzen.
+
 ```bash
 ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
 ananta first-run
+# status/plan benoetigen einen laufenden Hub + passende ANANTA_* Zugangsdaten
 ananta status
 ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
 ```
