@@ -56,11 +56,31 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         }
       </div>
       @if (auth.user$ | async; as user) {
+        @if (!isAndroidNative) {
+          <nav
+            id="primary-navigation"
+            class="row app-nav"
+            [class.nav-open]="shell.mobileNavOpen()"
+            aria-label="Hauptnavigation">
+            @for (group of navGroups(user.role); track group.label) {
+              <span class="nav-group-label">{{ group.label }}</span>
+              @for (item of group.items; track item.path) {
+                <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
+                @if (shell.mode() === 'advanced' && item.expertOnly) {
+                  <span class="nav-expert-label">Experte</span>
+                }
+              }
+            }
+          </nav>
+        }
+      }
+    </header>
+    @if (auth.user$ | async; as user) {
+      @if (isAndroidNative) {
         <nav
           id="primary-navigation"
-          class="row app-nav"
-          [class.nav-open]="shell.mobileNavOpen()"
-          [class.app-nav-drawer]="isAndroidNative"
+          class="android-fullscreen-menu"
+          [class.open]="shell.mobileNavOpen()"
           aria-label="Hauptnavigation">
           @for (group of navGroups(user.role); track group.label) {
             <span class="nav-group-label">{{ group.label }}</span>
@@ -72,11 +92,22 @@ import { PythonRuntimeService } from './services/python-runtime.service';
             }
           }
         </nav>
-        @if (isAndroidNative && shell.mobileNavOpen()) {
+        @if (shell.mobileNavOpen()) {
           <div class="mobile-nav-backdrop open" (click)="closeMobileNav()" aria-hidden="true"></div>
         }
       }
-    </header>
+    }
+    @if (isAndroidNative && (auth.user$ | async)) {
+      <button
+        type="button"
+        class="android-edge-toggle"
+        (click)="shell.toggleMobileNav()"
+        [attr.aria-expanded]="shell.mobileNavOpen()"
+        aria-controls="primary-navigation"
+        [attr.aria-label]="shell.mobileNavOpen() ? 'Menue schliessen' : 'Menue oeffnen'">
+        {{ shell.mobileNavOpen() ? '×' : '☰' }}
+      </button>
+    }
     @if (auth.user$ | async) {
       <app-breadcrumb />
     }
@@ -134,29 +165,54 @@ import { PythonRuntimeService } from './services/python-runtime.service';
     .app-nav {
       gap: 10px;
     }
-    .app-nav.app-nav-drawer {
+    .android-fullscreen-menu {
       display: flex;
       position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: min(84vw, 320px);
+      inset: 0;
       transform: translateX(-108%);
       transition: transform 180ms ease;
-      z-index: 1200;
+      z-index: 20020;
       background: var(--card-bg);
-      border-right: 1px solid var(--border);
-      padding: 64px 12px 18px;
+      padding: 64px 14px 18px;
       overflow-y: auto;
       flex-direction: column;
       align-items: stretch;
-      gap: 4px;
+      gap: 8px;
+      pointer-events: none;
     }
-    .app-nav.app-nav-drawer.nav-open {
+    .android-fullscreen-menu.open {
       transform: translateX(0);
+      pointer-events: auto;
+    }
+    .android-fullscreen-menu a {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--card-bg);
     }
     .mobile-nav-backdrop {
       display: none;
+    }
+    .android-edge-toggle {
+      position: fixed;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 20030;
+      min-width: 28px;
+      height: 52px;
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      border: 1px solid var(--border);
+      border-left: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0 8px;
     }
     .nav-group-label {
       font-size: 11px;
@@ -202,11 +258,16 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         display: block;
         position: fixed;
         inset: 0;
-        z-index: 1100;
+        z-index: 20010;
         background: rgba(2, 6, 23, 0.35);
       }
       main {
         padding-bottom: 84px;
+      }
+    }
+    @media (min-width: 901px) {
+      .android-edge-toggle {
+        display: none;
       }
     }
   `]
@@ -320,7 +381,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.touchStartY = touch.clientY;
     const navOpen = this.shell.mobileNavOpen();
     this.trackingOpenSwipe = !navOpen && touch.clientX <= this.swipeEdgeWidthPx;
-    this.trackingCloseSwipe = navOpen && touch.clientX <= Math.min(window.innerWidth * 0.9, 340);
+    this.trackingCloseSwipe = navOpen;
   }
 
   @HostListener('document:touchmove', ['$event'])
