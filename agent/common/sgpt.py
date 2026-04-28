@@ -1239,7 +1239,7 @@ def run_llm_cli_command(
     prompt: str,
     options: list | None = None,
     timeout: int = 60,
-    backend: str = "sgpt",
+    backend: str = "ananta-worker",
     model: str | None = None,
     temperature: float | None = None,
     routing_policy: dict | None = None,
@@ -1251,7 +1251,7 @@ def run_llm_cli_command(
     Führt den konfigurierten CLI-Backend-Aufruf aus.
     Rückgabe: (returncode, stdout, stderr, backend_used)
     """
-    requested = (backend or "sgpt").strip().lower()
+    requested = (backend or "ananta-worker").strip().lower()
     candidates = _choose_candidates(requested=requested, prompt=prompt, routing_policy=routing_policy)
 
     last_error = ""

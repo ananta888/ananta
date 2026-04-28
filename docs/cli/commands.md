@@ -29,6 +29,13 @@ ananta web
 Hinweis: `ananta status` sowie Goal-Befehle brauchen einen laufenden Hub und
 passende `ANANTA_BASE_URL`/`ANANTA_USER`/`ANANTA_PASSWORD` Werte.
 
+Execution-Backend umschalten:
+
+```bash
+export SGPT_EXECUTION_BACKEND=ananta-worker   # Standard
+export SGPT_EXECUTION_BACKEND=opencode        # Alternative
+```
+
 ## Hinweise zu `tui` und `web`
 
 - `ananta tui` delegiert auf die vorhandene TUI-Laufzeit.
