@@ -1,6 +1,6 @@
 import unittest
 print('Attempting to import User model from specified path')
-from worker.models import User  # Adjusting import path based on observed directory structure
+from agent.db_models import User  # Adjusting import path to the correct model location
 
 class TestUserManagement(unittest.TestCase):
 
