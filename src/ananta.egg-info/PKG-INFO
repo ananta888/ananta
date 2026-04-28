@@ -31,11 +31,19 @@ Requires-Dist: redis
 Requires-Dist: hvac
 Requires-Dist: tree-sitter
 Requires-Dist: tree-sitter-languages
+Requires-Dist: lxml
+Requires-Dist: PyYAML
+Requires-Dist: tree_sitter_java
+Requires-Dist: tree_sitter_c_sharp
 Requires-Dist: llama-index
 Requires-Dist: mistralai
 Requires-Dist: gitpython
 Requires-Dist: flask-sock
 Requires-Dist: simple-websocket
+Requires-Dist: pypdf
+Requires-Dist: python-docx
+Requires-Dist: openpyxl
+Requires-Dist: python-pptx
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"

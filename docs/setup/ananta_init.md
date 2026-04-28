@@ -26,7 +26,7 @@ Das erzeugt standardmaessig:
 ananta init --yes \
   --runtime-mode sandbox \
   --llm-backend openai-compatible \
-  --endpoint-url http://127.0.0.1:1234 \
+  --endpoint-url http://127.0.0.1:1234/v1 \
   --model qwen2.5-coder:7b \
   --apply-config
 ```

@@ -40,6 +40,9 @@ ananta first-run
 ```
 
 Nutze diesen Pfad, wenn ein Hub bereits laeuft oder du `ANANTA_BASE_URL` auf einen vorhandenen Hub setzt.
+`ananta status` und Goal-Befehle brauchen immer einen laufenden Hub und passende
+`ANANTA_USER`/`ANANTA_PASSWORD` Werte. Ohne gesetzte Variablen nutzt die CLI
+`admin/admin` als Login-Default.
 
 ### B) Lokalen Hub direkt ohne Docker starten
 
