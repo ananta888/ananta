@@ -23,39 +23,36 @@ export class MobileProotService {
 
   buildCheckCommand(): string {
     return [
-      'echo "== proot-distro check =="',
+      'echo "== ananta proot runtime check =="',
       this.prootResolverSnippet(),
-      'if [ -n "$PROOT_DISTRO_BIN" ]; then "$PROOT_DISTRO_BIN" --version || true; else echo "proot-distro fehlt"; fi',
+      'if [ -x "$ANANTA_PROOT_BIN" ]; then "$ANANTA_PROOT_BIN" --version || true; else echo "proot runtime fehlt"; fi',
+      this.rootfsResolverSnippet(),
+      'if [ -d "$ANANTA_ROOTFS" ]; then echo "rootfs vorhanden: $ANANTA_ROOTFS"; else echo "rootfs fehlt fuer distro: $ANANTA_DISTRO"; fi',
     ].join(' && ');
   }
 
   buildListInstalledCommand(): string {
     return [
-      this.prootResolverSnippet(),
-      'if [ -n "$PROOT_DISTRO_BIN" ]; then "$PROOT_DISTRO_BIN" list; else echo "proot-distro fehlt"; fi',
+      this.runtimeRootResolverSnippet(),
+      'if [ -d "$ANANTA_PROOT_RUNTIME/distros" ]; then ls -1 "$ANANTA_PROOT_RUNTIME/distros"; else echo "keine distros installiert"; fi',
     ].join(' && ');
   }
 
   buildInstallCommand(distro: string): string {
     const selected = this.normalizeDistro(distro);
-    return [
-      this.prootResolverSnippet(),
-      'if [ -n "$PROOT_DISTRO_BIN" ]; then',
-      `  "$PROOT_DISTRO_BIN" install ${selected};`,
-      'else',
-      '  echo "proot-distro fehlt im App-Kontext."; exit 1;',
-      'fi',
-    ].join(' ');
+    return `echo "Installiere ${selected} ueber nativen Installer-Button (nicht mehr ueber proot-distro shell)."`;
   }
 
   buildLoginCommand(distro: string): string {
-    const selected = this.normalizeDistro(distro);
+    this.setSelectedDistro(distro);
     return [
       this.prootResolverSnippet(),
-      'if [ -n "$PROOT_DISTRO_BIN" ]; then',
-      `  "$PROOT_DISTRO_BIN" login ${selected};`,
+      this.rootfsResolverSnippet(),
+      'if [ -x "$ANANTA_PROOT_BIN" ] && [ -d "$ANANTA_ROOTFS" ]; then',
+      '  export HOME=/root TERM=${TERM:-xterm-256color} PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;',
+      '  "$ANANTA_PROOT_BIN" -0 -r "$ANANTA_ROOTFS" -b /dev -b /proc -b /sys -w /root /bin/sh -l;',
       'else',
-      '  echo "proot-distro fehlt im App-Kontext."; exit 1;',
+      '  echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren.";',
       'fi',
     ].join(' ');
   }
@@ -65,10 +62,11 @@ export class MobileProotService {
     const workerStart = this.workerStartSnippet();
     return [
       this.prootResolverSnippet(),
-      'if [ -n "$PROOT_DISTRO_BIN" ]; then',
-      `  "$PROOT_DISTRO_BIN" login ${selected} --shared-tmp -- /bin/sh -lc '${workerStart}';`,
+      this.rootfsResolverSnippet(selected),
+      'if [ -x "$ANANTA_PROOT_BIN" ] && [ -d "$ANANTA_ROOTFS" ]; then',
+      `  "$ANANTA_PROOT_BIN" -0 -r "$ANANTA_ROOTFS" -b /dev -b /proc -b /sys -w /root /bin/sh -lc '${workerStart}';`,
       'else',
-      '  echo "proot-distro fehlt im App-Kontext."; exit 1;',
+      '  echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren."; exit 1;',
       'fi',
     ].join(' ');
   }
@@ -83,7 +81,29 @@ export class MobileProotService {
   }
 
   private prootResolverSnippet(): string {
-    return 'PROOT_DISTRO_BIN="$(command -v proot-distro || true)"; if [ -z "$PROOT_DISTRO_BIN" ] && [ -x /data/data/com.termux/files/usr/bin/proot-distro ]; then PROOT_DISTRO_BIN=/data/data/com.termux/files/usr/bin/proot-distro; fi';
+    return [
+      this.runtimeRootResolverSnippet(),
+      'ANANTA_PROOT_BIN="$ANANTA_PROOT_RUNTIME/bin/proot"',
+      'if [ ! -x "$ANANTA_PROOT_BIN" ]; then ANANTA_PROOT_BIN=""; fi',
+    ].join(' && ');
+  }
+
+  private runtimeRootResolverSnippet(): string {
+    return [
+      'ANANTA_PROOT_RUNTIME=""',
+      'for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do',
+      '  if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi',
+      'done',
+      'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi',
+    ].join(' && ');
+  }
+
+  private rootfsResolverSnippet(selectedDistro?: string): string {
+    const distro = this.normalizeDistro(selectedDistro || this.getSelectedDistro());
+    return [
+      `ANANTA_DISTRO="${distro}"`,
+      'ANANTA_ROOTFS="$ANANTA_PROOT_RUNTIME/distros/$ANANTA_DISTRO/rootfs"',
+    ].join(' && ');
   }
 
   private workerStartSnippet(): string {

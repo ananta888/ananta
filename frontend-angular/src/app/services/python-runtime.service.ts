@@ -26,6 +26,14 @@ export interface ShellSessionReadResult {
   exitCode?: number;
 }
 
+export interface ProotRuntimeStatus {
+  runtimeRoot: string;
+  prootPath: string;
+  prootExists: boolean;
+  prootExecutable: boolean;
+  distros: Array<{ name: string; rootfsPath: string }>;
+}
+
 interface PythonRuntimePlugin {
   getRuntimeStatus(): Promise<PythonRuntimeStatus>;
   startHub(): Promise<{ hubRunning: boolean }>;
@@ -38,6 +46,9 @@ interface PythonRuntimePlugin {
   writeShellSession(options: { sessionId: string; input: string }): Promise<{ ok: boolean; running: boolean }>;
   readShellSession(options: { sessionId: string; maxChars?: number }): Promise<ShellSessionReadResult>;
   closeShellSession(options: { sessionId: string }): Promise<{ closed: boolean }>;
+  getProotRuntimeStatus(): Promise<ProotRuntimeStatus>;
+  installProotRuntime(options?: { prootUrl?: string }): Promise<{ runtimeRoot: string; prootPath: string }>;
+  installProotDistro(options: { distro: string }): Promise<{ distro: string; rootfsPath: string }>;
 }
 
 const PythonRuntime = registerPlugin<PythonRuntimePlugin>('PythonRuntime');
@@ -120,6 +131,30 @@ export class PythonRuntimeService {
     const id = String(sessionId || '').trim();
     if (!id) throw new Error('sessionId fehlt.');
     return PythonRuntime.closeShellSession({ sessionId: id });
+  }
+
+  async getProotRuntimeStatus(): Promise<ProotRuntimeStatus> {
+    if (!this.isNative) {
+      throw new Error('Proot runtime ist nur in der nativen App verfuegbar.');
+    }
+    return PythonRuntime.getProotRuntimeStatus();
+  }
+
+  async installProotRuntime(prootUrl?: string): Promise<{ runtimeRoot: string; prootPath: string }> {
+    if (!this.isNative) {
+      throw new Error('Proot runtime ist nur in der nativen App verfuegbar.');
+    }
+    const url = String(prootUrl || '').trim();
+    return PythonRuntime.installProotRuntime(url ? { prootUrl: url } : {});
+  }
+
+  async installProotDistro(distro: string): Promise<{ distro: string; rootfsPath: string }> {
+    if (!this.isNative) {
+      throw new Error('Proot runtime ist nur in der nativen App verfuegbar.');
+    }
+    const normalized = String(distro || '').trim().toLowerCase();
+    if (!normalized) throw new Error('Distro ist erforderlich.');
+    return PythonRuntime.installProotDistro({ distro: normalized });
   }
 
   async ensureEmbeddedControlPlane(): Promise<PythonRuntimeStatus> {
