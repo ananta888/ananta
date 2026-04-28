@@ -47,8 +47,11 @@ import { MobileProotService } from '../services/mobile-proot.service';
             </div>
           }
           <div class="muted">
-            Runtime: {{ runtimeReady ? 'ok' : 'fehlt' }} | {{ selectedDistro }}: {{ selectedDistroInstalled ? 'installiert' : 'nicht installiert' }}
+            Runtime: {{ runtimeReady ? 'ok' : (runtimeInstalled ? 'installiert, aber nicht startbar' : 'fehlt') }} | {{ selectedDistro }}: {{ selectedDistroInstalled ? 'installiert' : 'nicht installiert' }}
           </div>
+          @if (runtimeProbeMessage && !runtimeReady) {
+            <div class="muted">{{ runtimeProbeMessage }}</div>
+          }
           <div class="muted">Installierte Distros: {{ installedDistros.length ? installedDistros.join(', ') : '-' }}</div>
           <div class="row gap-sm wrap">
             <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
@@ -154,7 +157,9 @@ export class MobileShellComponent implements OnDestroy, OnInit {
   prootBusy = false;
   prootStatus = '';
   installedDistros: string[] = [];
+  runtimeInstalled = false;
   runtimeReady = false;
+  runtimeProbeMessage = '';
   installProgressActive = false;
   installProgressPercent = -1;
   installProgressLabel = '';
@@ -321,14 +326,17 @@ export class MobileShellComponent implements OnDestroy, OnInit {
     this.prootStatus = 'Pruefe Setup...';
     this.refreshProotRuntimeStatus().then(() => {
       this.output = [
-        `Runtime: ${this.runtimeReady ? 'OK' : 'fehlt'}`,
+        `Runtime: ${this.runtimeReady ? 'OK' : (this.runtimeInstalled ? 'installiert, aber nicht startbar' : 'fehlt')}`,
+        ...(this.runtimeProbeMessage && !this.runtimeReady ? [`Runtime-Hinweis: ${this.runtimeProbeMessage}`] : []),
         `Distro ${this.selectedDistro}: ${this.selectedDistroInstalled ? 'installiert' : 'nicht installiert'}`,
         `Alle Distros: ${this.installedDistros.length ? this.installedDistros.join(', ') : '-'}`,
       ].join('\n');
       this.lastMeta = 'Setup-Pruefung';
-      this.prootStatus = this.runtimeReady
-        ? 'Setup geprueft.'
-        : 'Runtime fehlt. Bitte Schritt 1 ausfuehren.';
+      this.prootStatus = this.runtimeReady ? 'Setup geprueft.' : (
+        this.runtimeInstalled
+          ? 'Runtime vorhanden, aber nicht startbar.'
+          : 'Runtime fehlt. Bitte Schritt 1 ausfuehren.'
+      );
     }).catch((error: any) => {
       this.output = error?.message || String(error);
       this.lastMeta = 'Fehler';
@@ -380,7 +388,7 @@ export class MobileShellComponent implements OnDestroy, OnInit {
       (status) => {
         this.prootStatus = status.prootExecutable
           ? `Runtime installiert: ${status.prootPath}`
-          : 'Runtime installiert, aber nicht ausfuehrbar.';
+          : `Runtime installiert, aber nicht ausfuehrbar.${status.prootProbeMessage ? ` (${status.prootProbeMessage})` : ''}`;
         this.refreshProotRuntimeStatus().catch(() => undefined);
       },
       (error: any) => {
@@ -394,15 +402,23 @@ export class MobileShellComponent implements OnDestroy, OnInit {
 
   private async refreshProotRuntimeStatus(): Promise<void> {
     const status = await this.python.getProotRuntimeStatus();
+    this.runtimeInstalled = status.prootExists === true;
     this.runtimeReady = status.prootExecutable === true;
+    this.runtimeProbeMessage = String(status.prootProbeMessage || '').trim();
     this.installedDistros = (status.distros || [])
       .map((item) => String(item?.name || '').trim())
       .filter(Boolean)
       .sort();
     if (!this.prootStatus) {
-      this.prootStatus = status.prootExecutable
-        ? `Runtime bereit: ${status.prootPath}`
-        : 'Runtime noch nicht installiert.';
+      if (status.prootExecutable) {
+        this.prootStatus = `Runtime bereit: ${status.prootPath}`;
+      } else if (status.prootExists) {
+        this.prootStatus = this.runtimeProbeMessage
+          ? `Runtime installiert, aber nicht startbar: ${this.runtimeProbeMessage}`
+          : 'Runtime installiert, aber nicht startbar.';
+      } else {
+        this.prootStatus = 'Runtime noch nicht installiert.';
+      }
     }
   }
 

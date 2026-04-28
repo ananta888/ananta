@@ -681,7 +681,9 @@ export class AgentPanelComponent {
       () => this.pythonRuntime.getProotRuntimeStatus()
     ).then(
       (status) => {
-        this.workerShellMeta = status.prootExecutable ? 'Runtime installiert.' : 'Runtime installiert, aber nicht ausfuehrbar.';
+        this.workerShellMeta = status.prootExecutable
+          ? 'Runtime installiert.'
+          : `Runtime installiert, aber nicht ausfuehrbar.${status.prootProbeMessage ? ` (${status.prootProbeMessage})` : ''}`;
         this.workerInstalledDistros = (status.distros || []).map((item) => item.name).filter(Boolean).sort();
         this.setWorkerShellStatusCommand();
       },
