@@ -787,7 +787,7 @@ public class PythonRuntimePlugin extends Plugin {
             String linkName = readTarString(header, 157, 100);
 
             File outFile = secureTarTarget(targetDir, entryName);
-            if (type == '5') {
+            if (isDirectoryEntry(type, entryName)) {
                 if (!outFile.exists() && !outFile.mkdirs()) {
                     throw new IOException("Could not create directory: " + outFile.getAbsolutePath());
                 }
@@ -795,6 +795,11 @@ public class PythonRuntimePlugin extends Plugin {
                 ensureParent(outFile);
                 createSymlink(outFile, linkName);
             } else if (type == 0 || type == '0') {
+                if (outFile.isDirectory()) {
+                    skipFully(input, size);
+                    skipFully(input, (512 - (size % 512)) % 512);
+                    continue;
+                }
                 ensureParent(outFile);
                 try (FileOutputStream output = new FileOutputStream(outFile, false)) {
                     copyFixedBytes(input, output, size);
@@ -805,6 +810,12 @@ public class PythonRuntimePlugin extends Plugin {
             }
             skipFully(input, (512 - (size % 512)) % 512);
         }
+    }
+
+    private boolean isDirectoryEntry(char type, String entryName) {
+        if (type == '5') return true;
+        String name = String.valueOf(entryName == null ? "" : entryName).trim();
+        return !name.isEmpty() && name.endsWith("/");
     }
 
     private File secureTarTarget(File targetDir, String entryName) throws IOException {
