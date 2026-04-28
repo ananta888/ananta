@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Observable, finalize, filter, take } from 'rxjs';
+import { Observable, finalize, filter, take, firstValueFrom } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -223,12 +223,23 @@ import { MobileProotService } from '../services/mobile-proot.service';
         <label>Forward Param (optional)
           <input [(ngModel)]="terminalForwardParam" placeholder="z. B. cli-... fuer taskgebundene Live-Terminals" />
         </label>
-        <app-terminal
-          [baseUrl]="agent.url"
-          [token]="getRequestToken()"
-          [mode]="terminalMode"
-          [forwardParam]="terminalForwardParam || undefined"
-        ></app-terminal>
+        @if (terminalEmbeddedMode) {
+          <div class="muted">Interner Live-Modus aktiv (embedded shell bridge).</div>
+        }
+        @if (terminalAvailable) {
+          <app-terminal
+            [baseUrl]="agent.url"
+            [token]="getRequestToken()"
+            [mode]="terminalMode"
+            [forwardParam]="terminalForwardParam || undefined"
+            [embeddedShellMode]="terminalEmbeddedMode"
+          ></app-terminal>
+        } @else {
+          <div class="card card-light">
+            <strong>Live-Terminal nicht verfuegbar</strong>
+            <p class="muted">{{ terminalUnavailableReason }}</p>
+          </div>
+        }
 
         @if (isAndroidNative && agent.role !== 'hub') {
           <div class="card card-light grid mt-10">
@@ -300,6 +311,9 @@ export class AgentPanelComponent {
   terminalMode: TerminalMode = 'interactive';
   terminalForwardParam = '';
   private terminalForwardParamAutoResolved = false;
+  terminalAvailable = true;
+  terminalEmbeddedMode = false;
+  terminalUnavailableReason = '';
   workerShellCommand = '';
   workerShellOutput = '';
   workerShellMeta = '';
@@ -326,6 +340,7 @@ export class AgentPanelComponent {
     this.loadLogs();
     this.ensureConfigLoaded();
     this.ensureTerminalForwardParamLoaded();
+    this.refreshTerminalAvailability().catch(() => undefined);
     if (this.isAndroidNative && this.agent?.role !== 'hub') {
       this.setWorkerShellStatusCommand();
       this.refreshWorkerRuntimeStatus().catch(() => undefined);
@@ -340,6 +355,7 @@ export class AgentPanelComponent {
     this.activeTab = t;
     if (t === 'terminal') {
       this.ensureTerminalForwardParamLoaded();
+      this.refreshTerminalAvailability().catch(() => undefined);
     }
   }
 
@@ -599,6 +615,41 @@ export class AgentPanelComponent {
       if (Number.isFinite(value) && value > 0) return value;
     }
     return 0;
+  }
+
+  private async refreshTerminalAvailability(): Promise<void> {
+    if (!this.agent) return;
+    this.terminalAvailable = true;
+    this.terminalEmbeddedMode = false;
+    this.terminalUnavailableReason = '';
+    try {
+      const token = this.getRequestToken();
+      const health = await firstValueFrom(this.api.health(this.agent.url, token));
+      if (this.isEmbeddedRuntimeHealth(health)) {
+        this.terminalEmbeddedMode = true;
+        return;
+      }
+    } catch {
+      // Worker endpoint may be offline in embedded inprocess mode. Fall back to hub probe.
+    }
+
+    if (!this.isAndroidNative) return;
+    const hub = this.dir.get('hub');
+    if (!hub?.url) return;
+    try {
+      const hubToken = this.userAuth.token || hub.token;
+      const hubHealth = await firstValueFrom(this.api.health(hub.url, hubToken));
+      if (this.isEmbeddedRuntimeHealth(hubHealth)) {
+        this.terminalEmbeddedMode = true;
+      }
+    } catch {
+      this.terminalAvailable = false;
+      this.terminalUnavailableReason = 'Agent-/Hub-Gesundheitscheck fehlgeschlagen. Bitte Runtime/Worker pruefen.';
+    }
+  }
+
+  private isEmbeddedRuntimeHealth(health: any): boolean {
+    return Boolean(health && typeof health === 'object' && health.embedded === true);
   }
 
   setWorkerShellStatusCommand(): void {
