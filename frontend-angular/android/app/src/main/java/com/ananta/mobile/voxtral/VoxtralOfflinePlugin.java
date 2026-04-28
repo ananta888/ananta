@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
 @CapacitorPlugin(
@@ -232,8 +233,11 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Runner file not found: " + runnerPath);
             return;
         }
-        if (!runnerFile.canExecute() && !runnerFile.setExecutable(true)) {
-            call.reject("Runner is not executable: " + runnerPath);
+        File executableRunnerFile;
+        try {
+            executableRunnerFile = prepareRunnerForExecution(runnerFile);
+        } catch (Exception error) {
+            call.reject("Runner preparation failed: " + error.getMessage());
             return;
         }
 
@@ -242,7 +246,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         ioExecutor.execute(() -> {
             try {
-                List<String> command = buildRunnerCommand(runnerFile, modelFile, audioFile);
+                List<String> command = buildRunnerCommand(executableRunnerFile, modelFile, audioFile);
                 ProcessBuilder pb = new ProcessBuilder(command);
                 pb.redirectErrorStream(true);
                 Process process = pb.start();
@@ -333,8 +337,11 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Runner file not found: " + runnerPath);
             return;
         }
-        if (!runnerFile.canExecute() && !runnerFile.setExecutable(true)) {
-            call.reject("Runner is not executable: " + runnerPath);
+        File executableRunnerFile;
+        try {
+            executableRunnerFile = prepareRunnerForExecution(runnerFile);
+        } catch (Exception error) {
+            call.reject("Runner preparation failed: " + error.getMessage());
             return;
         }
 
@@ -351,7 +358,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         lastModelPath = modelPath;
         lastRunnerPath = runnerPath;
 
-        liveThread = new Thread(() -> runLiveLoop(liveDir, modelFile, runnerFile, sampleRate, chunkSeconds), "voxtral-live-loop");
+        liveThread = new Thread(() -> runLiveLoop(liveDir, modelFile, executableRunnerFile, sampleRate, chunkSeconds), "voxtral-live-loop");
         liveThread.start();
 
         JSObject result = new JSObject();
@@ -432,7 +439,15 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         if (runnerPath != null && !runnerPath.isBlank()) {
             File runner = new File(runnerPath);
-            boolean executable = runner.exists() && (runner.canExecute() || runner.setExecutable(true));
+            boolean executable = false;
+            if (runner.exists()) {
+                try {
+                    File preparedRunner = prepareRunnerForExecution(runner);
+                    executable = canSpawnRunner(preparedRunner);
+                } catch (Exception ignored) {
+                    executable = false;
+                }
+            }
             result.put("runnerExists", runner.exists());
             result.put("runnerExecutable", executable);
         } else {
@@ -910,6 +925,70 @@ public class VoxtralOfflinePlugin extends Plugin {
             hex.append(part);
         }
         return hex.toString();
+    }
+
+    private File prepareRunnerForExecution(File sourceRunner) throws IOException {
+        if (!sourceRunner.exists()) {
+            throw new IOException("Runner file not found: " + sourceRunner.getAbsolutePath());
+        }
+
+        File execDir = ensureExecDir();
+        if (execDir == null) {
+            throw new IOException("Could not create executable runner directory.");
+        }
+
+        File stagedRunner = new File(execDir, sourceRunner.getName());
+        boolean needsCopy = !stagedRunner.exists()
+                || stagedRunner.length() != sourceRunner.length()
+                || stagedRunner.lastModified() < sourceRunner.lastModified();
+        if (needsCopy) {
+            copyFile(sourceRunner, stagedRunner);
+            stagedRunner.setLastModified(sourceRunner.lastModified());
+        }
+
+        stagedRunner.setReadable(true, false);
+        stagedRunner.setWritable(true, true);
+        stagedRunner.setExecutable(true, false);
+        if (!stagedRunner.canExecute()) {
+            throw new IOException("Runner is not executable after staging: " + stagedRunner.getAbsolutePath());
+        }
+        return stagedRunner;
+    }
+
+    private File ensureExecDir() {
+        File dir = new File(getContext().getCodeCacheDir(), "voxtral/exec");
+        if (dir.exists()) return dir;
+        if (dir.mkdirs()) return dir;
+        return null;
+    }
+
+    private void copyFile(File source, File target) throws IOException {
+        try (FileInputStream input = new FileInputStream(source);
+             FileOutputStream output = new FileOutputStream(target, false)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            output.flush();
+        }
+    }
+
+    private boolean canSpawnRunner(File runnerFile) {
+        Process process = null;
+        try {
+            process = new ProcessBuilder(runnerFile.getAbsolutePath())
+                    .redirectErrorStream(true)
+                    .start();
+            process.waitFor(1, TimeUnit.SECONDS);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroy();
+            }
+        }
     }
 
     private String inferFileNameFromUrl(String rawUrl) {
