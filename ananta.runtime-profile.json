@@ -1,0 +1,51 @@
+{
+  "schema": "ananta.runtime-profile.v1",
+  "version": "1",
+  "created_at": "2026-04-28T08:10:44.408141+00:00",
+  "runtime_mode": "local-dev",
+  "runtime_mode_source": "cli.argument",
+  "hardware_profile": "cpu-only",
+  "runtime_profile": "local-dev",
+  "governance_mode": "safe",
+  "platform_mode": "local-dev",
+  "runtime_recommendation": {
+    "environment": "cpu-only",
+    "provider": "ollama",
+    "model": "qwen2.5-coder:7b",
+    "limits": {
+      "context_window_tokens": 32000,
+      "max_input_tokens": 8000,
+      "max_output_tokens": 1024,
+      "rag_budget_tokens": 12000,
+      "patch_size_lines": 120,
+      "window_profile": "standard_32k"
+    },
+    "execution_mix": {
+      "local_weight": 1.0,
+      "remote_weight": 0.0
+    },
+    "requires_explicit_provider_config": false,
+    "notes": [
+      "CPU-only profile keeps output and patch sizes conservative.",
+      "No paid/cloud provider is selected automatically."
+    ]
+  },
+  "llm_backend": {
+    "kind": "lmstudio",
+    "endpoint_url": "http://127.0.0.1:1234/v1",
+    "model": "glm-4-9b-0414",
+    "api_key_env": null
+  },
+  "container_runtime": {
+    "required": false,
+    "recommendation": "none"
+  },
+  "config_patch": {
+    "runtime_profile": "local-dev",
+    "governance_mode": "safe",
+    "platform_mode": "local-dev",
+    "default_provider": "lmstudio",
+    "default_model": "glm-4-9b-0414",
+    "lmstudio_url": "http://127.0.0.1:1234/v1"
+  }
+}
