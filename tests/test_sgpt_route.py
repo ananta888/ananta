@@ -159,6 +159,21 @@ def test_sgpt_execute_invalid_backend(client, admin_auth_header):
     assert response.json["status"] == "error"
 
 
+def test_sgpt_execute_accepts_ananta_worker_alias(client, admin_auth_header):
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "ok", "", "ananta-worker")
+        response = client.post(
+            "/api/sgpt/execute",
+            json={"prompt": "list files", "backend": "ananta_worker"},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    assert response.json["data"]["backend"] == "ananta-worker"
+    assert response.json["data"]["routing"]["effective_backend"] == "ananta-worker"
+    assert mock_run.call_args.kwargs["backend"] == "ananta-worker"
+
+
 def test_sgpt_execute_ml_intern_backend_when_enabled(client, admin_auth_header):
     cfg_res = client.post(
         "/config",
@@ -384,8 +399,8 @@ def test_sgpt_context_endpoint_success(client, admin_auth_header):
 
 
 def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
-    fake_rag_service = MagicMock()
-    fake_rag_service.build_execution_context.return_value = (
+    fake_context_manager = MagicMock()
+    fake_context_manager.build_cli_execution_context.return_value = (
         {
             "query": "where timeout bug",
             "strategy": {"repository_map": 3, "semantic_search": 1, "agentic_search": 1},
@@ -399,7 +414,7 @@ def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
     )
 
     with (
-        patch("agent.routes.sgpt.get_rag_service", return_value=fake_rag_service),
+        patch("agent.routes.sgpt.get_context_manager_service", return_value=fake_context_manager),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -424,8 +439,8 @@ def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
     assert response.json["status"] == "success"
     assert response.json["data"]["context"]["policy_version"] == "v1"
     assert response.json["data"]["context"]["chunk_count"] == 1
-    fake_rag_service.build_execution_context.assert_called_once()
-    kwargs = fake_rag_service.build_execution_context.call_args.kwargs
+    fake_context_manager.build_cli_execution_context.assert_called_once()
+    kwargs = fake_context_manager.build_cli_execution_context.call_args.kwargs
     assert kwargs["task_kind"] == response.json["data"]["routing"]["task_kind"]
     assert kwargs["retrieval_intent"] == "localize bug"
     assert kwargs["source_types"] == ["repo", "artifact"]
@@ -472,6 +487,24 @@ def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app,
     assert data["routing"]["task_kind"] == "doc"
     assert data["routing"]["effective_backend"] == "opencode"
     assert data["routing"]["reason"] == "default_policy:opencode"
+
+
+def test_sgpt_execute_auto_routing_defaults_to_ananta_worker(client, app, admin_auth_header):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "sgpt_routing": {
+            "policy_version": "v2",
+            "task_kind_backend": {},
+        },
+    }
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "ok", "", "ananta-worker")
+        response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["routing"]["effective_backend"] == "ananta-worker"
+    assert data["routing"]["reason"] == "default_policy:ananta-worker"
 
 
 def test_sgpt_source_preview_success(client, tmp_path, admin_auth_header):
