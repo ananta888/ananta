@@ -1,0 +1,2 @@
+[console_scripts]
+ananta = agent.cli.main:main

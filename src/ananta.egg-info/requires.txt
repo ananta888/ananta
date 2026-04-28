@@ -24,11 +24,19 @@ redis
 hvac
 tree-sitter
 tree-sitter-languages
+lxml
+PyYAML
+tree_sitter_java
+tree_sitter_c_sharp
 llama-index
 mistralai
 gitpython
 flask-sock
 simple-websocket
+pypdf
+python-docx
+openpyxl
+python-pptx
 
 [dev]
 pytest
