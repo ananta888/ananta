@@ -462,10 +462,10 @@ def capability_matrix():
                 "supports_model_selection": bool(info.get("supports_model_selection")),
                 "risk_level": "high" if backend in {"codex", "aider", "opencode", "mistral_code"} else "medium",
                 "task_fit": {
-                    "coding": backend in {"codex", "aider", "opencode", "mistral_code"},
-                    "analysis": backend in {"sgpt", "codex", "opencode"},
-                    "doc": backend in {"sgpt", "codex", "opencode"},
-                    "ops": backend in {"opencode", "sgpt", "codex"},
+                    "coding": backend in {"ananta-worker", "sgpt", "codex", "aider", "opencode", "mistral_code"},
+                    "analysis": backend in {"ananta-worker", "sgpt", "codex", "opencode"},
+                    "doc": backend in {"ananta-worker", "sgpt", "codex", "opencode"},
+                    "ops": backend in {"ananta-worker", "opencode", "sgpt", "codex"},
                 },
                 "allowed_flags": info.get("supported_options", []),
             }
@@ -481,9 +481,9 @@ def create_cli_session():
     if not policy["enabled"]:
         return api_response(status="error", message="cli_sessions_disabled", code=403)
     data = request.get_json(silent=True) or {}
-    backend = str(data.get("backend") or settings.sgpt_execution_backend or "opencode").strip().lower()
+    backend = str(data.get("backend") or settings.sgpt_execution_backend or "ananta-worker").strip().lower()
     if backend == "auto":
-        backend = "opencode"
+        backend = "ananta-worker"
     if backend not in SUPPORTED_CLI_BACKENDS:
         return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=400)
     if backend not in set(policy["stateful_backends"]):

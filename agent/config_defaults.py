@@ -292,12 +292,12 @@ def build_default_agent_config() -> dict:
         },
         "sgpt_routing": {
             "policy_version": "v2",
-            "default_backend": "opencode",
+            "default_backend": "ananta-worker",
             "task_kind_backend": {
-                "coding": "opencode",
-                "analysis": "opencode",
-                "doc": "opencode",
-                "ops": "opencode",
+                "coding": "ananta-worker",
+                "analysis": "ananta-worker",
+                "doc": "ananta-worker",
+                "ops": "ananta-worker",
                 "research": "deerflow",
             },
             "research_capability_backend": {},
