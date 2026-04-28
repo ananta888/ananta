@@ -19,110 +19,149 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
   selector: 'app-ai-assistant',
   imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent],
   template: `
-    <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
-      <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
-        <span>AI Assistant</span>
-        <div class="controls">
-          <button (click)="toggleMinimize(); $event.stopPropagation()" class="control-btn">
-            {{ minimized ? '^' : 'v' }}
-          </button>
+    @if (hidden) {
+      <button
+        type="button"
+        class="assistant-launcher"
+        data-testid="assistant-dock-launcher"
+        (click)="showDock()">
+        AI Assistant
+      </button>
+    } @else {
+      <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
+        <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
+          <span>AI Assistant</span>
+          <div class="controls">
+            <button
+              type="button"
+              (click)="toggleMinimize(); $event.stopPropagation()"
+              class="control-btn"
+              [attr.aria-label]="minimized ? 'Assistant oeffnen' : 'Assistant minimieren'">
+              {{ minimized ? '^' : 'v' }}
+            </button>
+            <button
+              type="button"
+              (click)="hideDock(); $event.stopPropagation()"
+              class="control-btn"
+              aria-label="Assistant ausblenden">
+              x
+            </button>
+          </div>
         </div>
+      
+        @if (!minimized) {
+          <div class="content">
+            <app-ai-assistant-message-list
+              [chatHistory]="chatHistory"
+              [busy]="busy"
+              (previewSource)="previewSource($event)"
+              (copySourcePath)="copySourcePath($event)"
+              (executeSgpt)="executeSgpt($event)"
+              (confirmAction)="confirmAction($event)"
+              (cancelAction)="cancelAction($event)">
+            </app-ai-assistant-message-list>
+            <app-ai-assistant-controls
+              [busy]="busy"
+              [chatInput]="chatInput"
+              [useHybridContext]="useHybridContext"
+              [cliBackend]="cliBackend"
+              [availableCliBackends]="availableCliBackends"
+              [selectedCliRuntime]="selectedCliRuntime()"
+              [lastFailedRequest]="lastFailedRequest"
+              [runtimeContext]="runtimeContext"
+              [quickActions]="quickActions()"
+              (chatInputChange)="chatInput = $event"
+              (useHybridContextChange)="useHybridContext = $event"
+              (send)="sendChat()"
+              (retryLast)="retryLastFailed()"
+              (refreshContext)="refreshRuntimeContext()"
+              (quickAction)="runQuickAction($event)"
+              (cliBackendChange)="setCliBackend($event)">
+            </app-ai-assistant-controls>
+          </div>
+        }
       </div>
-    
-      @if (!minimized) {
-        <div class="content">
-          <app-ai-assistant-message-list
-            [chatHistory]="chatHistory"
-            [busy]="busy"
-            (previewSource)="previewSource($event)"
-            (copySourcePath)="copySourcePath($event)"
-            (executeSgpt)="executeSgpt($event)"
-            (confirmAction)="confirmAction($event)"
-            (cancelAction)="cancelAction($event)">
-          </app-ai-assistant-message-list>
-          <app-ai-assistant-controls
-            [busy]="busy"
-            [chatInput]="chatInput"
-            [useHybridContext]="useHybridContext"
-            [cliBackend]="cliBackend"
-            [availableCliBackends]="availableCliBackends"
-            [selectedCliRuntime]="selectedCliRuntime()"
-            [lastFailedRequest]="lastFailedRequest"
-            [runtimeContext]="runtimeContext"
-            [quickActions]="quickActions()"
-            (chatInputChange)="chatInput = $event"
-            (useHybridContextChange)="useHybridContext = $event"
-            (send)="sendChat()"
-            (retryLast)="retryLastFailed()"
-            (refreshContext)="refreshRuntimeContext()"
-            (quickAction)="runQuickAction($event)"
-            (cliBackendChange)="setCliBackend($event)">
-          </app-ai-assistant-controls>
-        </div>
-      }
-    </div>
-    
+    }
+
     <style>
+      .assistant-launcher {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 1000;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 14px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
       .ai-assistant-container {
-      position: fixed;
-      bottom: 0;
-      right: 20px;
-      width: 380px;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px 8px 0 0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      transition: height 0.3s ease;
-      color: var(--fg);
-    }
-    .ai-assistant-container.minimized {
-    height: 40px;
-    }
-    .header {
-    background: var(--accent);
-    color: white;
-    padding: 8px 15px;
-    border-radius: 8px 8px 0 0;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: bold;
-    }
-    .content {
-    height: 450px;
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-    }
-    .control-btn {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    font-size: 12px;
-    }
-    @media (max-width: 900px) {
-      .ai-assistant-container {
-        right: 0;
-        left: 0;
+        position: fixed;
         bottom: 0;
-        width: auto;
+        right: 20px;
+        width: 380px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px 8px 0 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        transition: height 0.2s ease;
+        color: var(--fg);
       }
-      .ai-assistant-container:not(.minimized) {
-        height: 100dvh;
-        border-radius: 0;
+      .ai-assistant-container.minimized {
+        height: 40px;
       }
-      .ai-assistant-container:not(.minimized) .header {
-        border-radius: 0;
+      .header {
+        background: var(--accent);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: bold;
       }
       .content {
-        height: calc(100dvh - 56px);
+        height: 450px;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
       }
-    }
+      .control-btn {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      @media (max-width: 900px) {
+        .assistant-launcher {
+          right: 12px;
+          bottom: 12px;
+          z-index: 1090;
+        }
+        .ai-assistant-container {
+          right: 0;
+          left: 0;
+          bottom: 0;
+          width: auto;
+          border-radius: 10px 10px 0 0;
+        }
+        .ai-assistant-container:not(.minimized) {
+          height: min(72dvh, 620px);
+        }
+        .ai-assistant-container:not(.minimized) .header {
+          border-radius: 10px 10px 0 0;
+        }
+        .content {
+          height: calc(min(72dvh, 620px) - 56px);
+        }
+      }
     </style>
     `
 })
@@ -150,6 +189,7 @@ export class AiAssistantComponent implements OnInit {
   private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
   private readonly historyStorageKey = 'ananta.ai-assistant.history.v1';
   private readonly dockStateStorageKey = 'ananta.ai-assistant.minimized.v1';
+  private readonly dockHiddenStorageKey = 'ananta.ai-assistant.hidden.v1';
   runtimeContext: AssistantRuntimeContext = {
     route: '/',
     agents: [],
@@ -180,6 +220,20 @@ export class AiAssistantComponent implements OnInit {
 
   toggleMinimize() {
     this.minimized = !this.minimized;
+    this.persistDockState();
+  }
+
+  hidden = false;
+
+  hideDock() {
+    this.hidden = true;
+    this.persistDockVisibility();
+  }
+
+  showDock() {
+    this.hidden = false;
+    this.minimized = false;
+    this.persistDockVisibility();
     this.persistDockState();
   }
 
@@ -631,6 +685,11 @@ export class AiAssistantComponent implements OnInit {
 
   private restoreDockState() {
     this.minimized = this.storage.restoreBoolean(this.dockStateStorageKey, true);
+    this.hidden = this.storage.restoreBoolean(this.dockHiddenStorageKey, false);
+  }
+
+  private persistDockVisibility() {
+    this.storage.persistBoolean(this.dockHiddenStorageKey, this.hidden);
   }
 
   private clearPendingPlan() {
