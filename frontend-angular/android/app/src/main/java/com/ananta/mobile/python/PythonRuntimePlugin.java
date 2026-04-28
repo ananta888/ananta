@@ -323,8 +323,15 @@ public class PythonRuntimePlugin extends Plugin {
 
                 result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
                 result.put("prootPath", prootWrapper.getAbsolutePath());
-                result.put("prootExists", prootWrapper.exists() && prootBinary.exists());
-                result.put("prootExecutable", prootWrapper.canExecute() && prootBinary.canExecute());
+                boolean prootExists = prootWrapper.exists() && prootBinary.exists();
+                result.put("prootExists", prootExists);
+                if (prootExists) {
+                    prootWrapper.setReadable(true, false);
+                    prootBinary.setReadable(true, false);
+                    prootWrapper.setExecutable(true, false);
+                    prootBinary.setExecutable(true, false);
+                }
+                result.put("prootExecutable", prootExists && canRunProotWrapper(prootWrapper));
                 result.put("distros", distros);
                 call.resolve(result);
             } catch (Exception error) {
@@ -585,6 +592,27 @@ public class PythonRuntimePlugin extends Plugin {
         }
         if (!wrapper.setExecutable(true, false)) {
             throw new IOException("Could not mark proot wrapper executable.");
+        }
+    }
+
+    private boolean canRunProotWrapper(File wrapper) {
+        Process process = null;
+        try {
+            process = new ProcessBuilder("/system/bin/sh", wrapper.getAbsolutePath(), "--version")
+                .redirectErrorStream(true)
+                .start();
+            boolean finished = process.waitFor(8, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
         }
     }
 
