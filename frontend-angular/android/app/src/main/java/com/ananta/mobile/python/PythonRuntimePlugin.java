@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +50,7 @@ public class PythonRuntimePlugin extends Plugin {
     private static final String PROOT_WRAPPER_FILE = "proot";
     private static final String PROOT_RS_RELEASE_URL = "https://github.com/proot-me/proot-rs/releases/download/v0.1.0/proot-rs-v0.1.0-aarch64-linux-android.tar.gz";
     private static final String PROOT_DISTRO_RELEASE_API = "https://api.github.com/repos/termux/proot-distro/releases/latest";
+    private static final String PROOT_DISTRO_PLUGIN_BASE = "https://raw.githubusercontent.com/termux/proot-distro/master/distro-plugins/";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Map<String, ShellSession> shellSessions = new ConcurrentHashMap<>();
@@ -384,7 +386,8 @@ public class PythonRuntimePlugin extends Plugin {
             try {
                 notifyProotProgress("distro", "preparing", "Distro-Installation gestartet.", -1, -1, distro);
                 ensureProotInstalled();
-                String assetUrl = resolveDistroAssetUrl(distro);
+                DistroDownloadMeta downloadMeta = resolveDistroDownloadMeta(distro);
+                String assetUrl = downloadMeta.url;
                 if (assetUrl == null || assetUrl.isBlank()) {
                     throw new IOException("No aarch64 archive found for distro: " + distro);
                 }
@@ -397,6 +400,12 @@ public class PythonRuntimePlugin extends Plugin {
                 File archive = new File(tmpDir, distro + "-rootfs.tar.xz");
                 downloadToFile(assetUrl, archive, "distro", distro);
                 notifyProotProgress("distro", "extracting", "Distro wird entpackt.", -1, -1, distro);
+                if (downloadMeta.sha256 != null && !downloadMeta.sha256.isBlank()) {
+                    String actualSha = computeSha256(archive);
+                    if (!actualSha.equalsIgnoreCase(downloadMeta.sha256)) {
+                        throw new IOException("SHA256 mismatch for distro archive.");
+                    }
+                }
                 clearDirectory(rootfsDir);
                 extractTarXzToDirectory(archive, rootfsDir);
 
@@ -641,7 +650,56 @@ public class PythonRuntimePlugin extends Plugin {
         notifyListeners("prootInstallProgress", event);
     }
 
-    private String resolveDistroAssetUrl(String distro) throws IOException {
+    private DistroDownloadMeta resolveDistroDownloadMeta(String distro) throws IOException {
+        DistroDownloadMeta fromPlugin = resolveDistroFromPluginScript(distro);
+        if (fromPlugin != null && fromPlugin.url != null && !fromPlugin.url.isBlank()) {
+            return fromPlugin;
+        }
+        String fromRelease = resolveDistroAssetUrlFromRelease(distro);
+        if (fromRelease == null || fromRelease.isBlank()) {
+            return new DistroDownloadMeta(null, null);
+        }
+        return new DistroDownloadMeta(fromRelease, null);
+    }
+
+    private DistroDownloadMeta resolveDistroFromPluginScript(String distro) throws IOException {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(PROOT_DISTRO_PLUGIN_BASE + distro + ".sh");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
+            connection.setRequestProperty("User-Agent", "ananta-mobile");
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) {
+                return null;
+            }
+            String body = readProcessOutput(connection.getInputStream(), 200_000);
+            String urlMarker = "TARBALL_URL['aarch64']=\"";
+            int urlStart = body.indexOf(urlMarker);
+            if (urlStart < 0) return null;
+            int urlValueStart = urlStart + urlMarker.length();
+            int urlValueEnd = body.indexOf('"', urlValueStart);
+            if (urlValueEnd <= urlValueStart) return null;
+            String archiveUrl = body.substring(urlValueStart, urlValueEnd).trim();
+
+            String shaMarker = "TARBALL_SHA256['aarch64']=\"";
+            int shaStart = body.indexOf(shaMarker);
+            String sha = null;
+            if (shaStart >= 0) {
+                int shaValueStart = shaStart + shaMarker.length();
+                int shaValueEnd = body.indexOf('"', shaValueStart);
+                if (shaValueEnd > shaValueStart) {
+                    sha = body.substring(shaValueStart, shaValueEnd).trim();
+                }
+            }
+            return new DistroDownloadMeta(archiveUrl, sha);
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private String resolveDistroAssetUrlFromRelease(String distro) throws IOException {
         HttpURLConnection connection = null;
         try {
             URL url = new URL(PROOT_DISTRO_RELEASE_API);
@@ -892,6 +950,25 @@ public class PythonRuntimePlugin extends Plugin {
         }
     }
 
+    private String computeSha256(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (FileInputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        byte[] hash = digest.digest();
+        StringBuilder hex = new StringBuilder(hash.length * 2);
+        for (byte value : hash) {
+            String part = Integer.toHexString(0xff & value);
+            if (part.length() == 1) hex.append('0');
+            hex.append(part);
+        }
+        return hex.toString();
+    }
+
     private String readProcessOutput(InputStream stream, int maxChars) throws IOException {
         StringBuilder out = new StringBuilder();
         boolean truncated = false;
@@ -924,6 +1001,16 @@ public class PythonRuntimePlugin extends Plugin {
             this.output = output;
             this.exitCode = exitCode;
             this.timedOut = timedOut;
+        }
+    }
+
+    private static final class DistroDownloadMeta {
+        final String url;
+        final String sha256;
+
+        DistroDownloadMeta(String url, String sha256) {
+            this.url = url;
+            this.sha256 = sha256;
         }
     }
 
