@@ -217,6 +217,8 @@ class TaskScopedExecutionService:
         request_data,
         *,
         forwarder: Callable,
+        cli_runner: Callable | None = None,
+        tool_definitions_resolver: Callable | None = None,
     ) -> TaskScopedRouteResponse:
         task = self._require_task(tid)
         forwarded = self._forward_task_request_if_remote(
@@ -265,6 +267,7 @@ class TaskScopedExecutionService:
         command = request_data.command
         tool_calls = request_data.tool_calls
         reason = "Direkte Ausführung"
+        used_last_proposal = False
 
         if not command and not tool_calls:
             proposal = task.get("last_proposal")
@@ -282,6 +285,7 @@ class TaskScopedExecutionService:
             command = proposal.get("command")
             tool_calls = proposal.get("tool_calls")
             reason = proposal.get("reason", "Vorschlag ausgeführt")
+            used_last_proposal = True
 
         if task_kind == "domain_action":
             return self._execute_domain_action(
@@ -322,6 +326,28 @@ class TaskScopedExecutionService:
             pipeline=pipeline,
             exec_started_at=exec_started_at,
         )
+        execution_repair_meta: dict | None = None
+        if used_last_proposal and cli_runner and self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type):
+            repaired_execution = self._attempt_repaired_execute_after_meta_block(
+                tid=tid,
+                task=task,
+                task_kind=task_kind,
+                command=command,
+                execution_output=execution_run.output,
+                execution_policy=execution_policy,
+                agent_cfg=agent_cfg,
+                cli_runner=cli_runner,
+                tool_definitions_resolver=tool_definitions_resolver,
+                pipeline=pipeline,
+                workspace_dir=str(workspace_ctx.workspace_dir),
+                exec_started_at=exec_started_at,
+            )
+            if repaired_execution:
+                command = repaired_execution["command"]
+                tool_calls = repaired_execution["tool_calls"]
+                reason = repaired_execution["reason"]
+                execution_run = repaired_execution["execution_run"]
+                execution_repair_meta = repaired_execution["repair_meta"]
         after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
         changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
         workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
@@ -380,6 +406,7 @@ class TaskScopedExecutionService:
                 "loop_signals": execution_run.loop_signals,
                 "loop_detection": execution_run.loop_detection,
                 "approval_decision": execution_run.approval_decision,
+                "execution_repair": execution_repair_meta,
             },
         )
 
@@ -1770,6 +1797,20 @@ class TaskScopedExecutionService:
         return "timeout" in output_marker or "timed out" in output_marker
 
     @staticmethod
+    def _is_shell_meta_blocked_failure(output: str | None, failure_type: str | None) -> bool:
+        if str(failure_type or "").strip().lower() != "command_runtime_error":
+            return False
+        text = str(output or "")
+        markers = (
+            "Befehlskettung (&&/||)",
+            "Semikolons (;)",
+            "Input/Output-Redirection",
+            "Background-Execution (&)",
+            "Unsupported shell operators in command",
+        )
+        return any(marker in text for marker in markers)
+
+    @staticmethod
     def _build_repair_prompt(*, prompt: str, bad_output: str, validation_error: str) -> str:
         preview = str(bad_output or "").strip()
         if len(preview) > 2000:
@@ -1785,6 +1826,115 @@ class TaskScopedExecutionService:
             f"Original-Prompt:\n{prompt}\n\n"
             f"Fehlerhafter Output (Ausschnitt):\n{preview}\n"
         )
+
+    def _attempt_repaired_execute_after_meta_block(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        task_kind: str,
+        command: str | None,
+        execution_output: str | None,
+        execution_policy,
+        agent_cfg: dict,
+        cli_runner: Callable,
+        tool_definitions_resolver: Callable | None,
+        pipeline: dict,
+        workspace_dir: str,
+        exec_started_at: float | None,
+    ) -> dict | None:
+        proposal_meta = dict(task.get("last_proposal") or {})
+        research_context = proposal_meta.get("research_context") if isinstance(proposal_meta.get("research_context"), dict) else None
+        prompt, _ = self._build_task_propose_prompt(
+            tid=tid,
+            task=task,
+            base_prompt=str(task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"),
+            tool_definitions_resolver=tool_definitions_resolver or (lambda *_args, **_kwargs: []),
+            research_context=research_context,
+        )
+        timeout = self._resolve_task_propose_timeout(agent_cfg, task_kind)
+        routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
+        primary_backend = str(
+            proposal_meta.get("backend")
+            or ((proposal_meta.get("routing") or {}).get("execution_backend"))
+            or ((proposal_meta.get("routing") or {}).get("effective_backend"))
+            or "opencode"
+        ).strip().lower()
+        primary_model = self._resolve_requested_model(
+            agent_cfg=agent_cfg,
+            requested_model=str(proposal_meta.get("model") or "").strip() or None,
+        )
+        bad_output = json.dumps(
+            {
+                "blocked_command": command,
+                "execution_error": execution_output,
+                "raw_proposal_preview": str(proposal_meta.get("raw") or "")[:1200],
+            },
+            ensure_ascii=False,
+        )
+        repaired = self._repair_task_proposal(
+            cli_runner=cli_runner,
+            prompt=prompt,
+            bad_output=bad_output,
+            validation_error="shell_meta_character_blocked",
+            timeout=timeout,
+            task_kind=task_kind,
+            policy_version=routing_policy_version,
+            cfg=agent_cfg,
+            primary_backend=primary_backend,
+            primary_model=primary_model,
+            primary_temperature=self._normalize_temperature(((proposal_meta.get("routing") or {}).get("inference_temperature"))),
+            research_context=research_context,
+            session=self._prepare_task_cli_session(
+                tid=tid,
+                task=task,
+                backend=primary_backend,
+                model=primary_model,
+                agent_cfg=agent_cfg,
+            ),
+            workdir=workspace_dir,
+        )
+        if not repaired:
+            return None
+        repaired_command, repaired_tool_calls = self._extract_structured_action_fields(str(repaired.get("raw") or ""))
+        if not repaired_command and not repaired_tool_calls:
+            return None
+        if repaired_command and repaired_command.strip() == str(command or "").strip() and not repaired_tool_calls:
+            return None
+        append_stage(
+            pipeline,
+            name="proposal_repair",
+            status="ok",
+            metadata={
+                "reason": "shell_meta_character_blocked",
+                "repair_backend": repaired.get("backend_used"),
+                "repair_model": repaired.get("model"),
+            },
+        )
+        repaired_run = get_core_services().task_execution_service.execute_local_step(
+            tid=tid,
+            task=task,
+            command=repaired_command,
+            tool_calls=repaired_tool_calls,
+            execution_policy=execution_policy,
+            guard_cfg=agent_cfg,
+            working_directory=workspace_dir,
+            pipeline=pipeline,
+            exec_started_at=exec_started_at,
+        )
+        return {
+            "reason": _extract_reason(str(repaired.get("raw") or "")) or "Repaired proposal after shell policy block.",
+            "command": repaired_command,
+            "tool_calls": repaired_tool_calls,
+            "execution_run": repaired_run,
+            "repair_meta": {
+                "attempted": True,
+                "trigger": "shell_meta_character_blocked",
+                "repair_backend": repaired.get("backend_used"),
+                "repair_model": repaired.get("model"),
+                "output_source": repaired.get("output_source"),
+            },
+        }
 
     def _build_research_result(
         self,

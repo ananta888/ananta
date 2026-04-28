@@ -123,5 +123,7 @@ def task_execute(tid):
         tid,
         data,
         forwarder=_forward_to_worker,
+        cli_runner=run_llm_cli_command,
+        tool_definitions_resolver=tool_registry.get_tool_definitions,
     )
     return _respond(outcome)
