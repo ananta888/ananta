@@ -31,6 +31,7 @@ export interface ProotRuntimeStatus {
   prootPath: string;
   prootExists: boolean;
   prootExecutable: boolean;
+  prootProbeMessage?: string;
   distros: Array<{ name: string; rootfsPath: string }>;
 }
 

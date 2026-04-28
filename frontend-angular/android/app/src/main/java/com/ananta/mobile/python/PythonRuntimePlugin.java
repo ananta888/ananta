@@ -325,13 +325,16 @@ public class PythonRuntimePlugin extends Plugin {
                 result.put("prootPath", prootWrapper.getAbsolutePath());
                 boolean prootExists = prootWrapper.exists() && prootBinary.exists();
                 result.put("prootExists", prootExists);
+                ProotProbeResult probe = new ProotProbeResult(false, "Runtime nicht installiert.");
                 if (prootExists) {
                     prootWrapper.setReadable(true, false);
                     prootBinary.setReadable(true, false);
                     prootWrapper.setExecutable(true, false);
                     prootBinary.setExecutable(true, false);
+                    probe = probeProotWrapper(prootWrapper);
                 }
-                result.put("prootExecutable", prootExists && canRunProotWrapper(prootWrapper));
+                result.put("prootExecutable", prootExists && probe.runnable);
+                result.put("prootProbeMessage", probe.message);
                 result.put("distros", distros);
                 call.resolve(result);
             } catch (Exception error) {
@@ -595,7 +598,7 @@ public class PythonRuntimePlugin extends Plugin {
         }
     }
 
-    private boolean canRunProotWrapper(File wrapper) {
+    private ProotProbeResult probeProotWrapper(File wrapper) {
         Process process = null;
         try {
             process = new ProcessBuilder("/system/bin/sh", wrapper.getAbsolutePath(), "--version")
@@ -604,11 +607,19 @@ public class PythonRuntimePlugin extends Plugin {
             boolean finished = process.waitFor(8, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                return false;
+                return new ProotProbeResult(false, "Runtime-Check Timeout.");
             }
-            return process.exitValue() == 0;
-        } catch (Exception ignored) {
-            return false;
+            String output = readProcessOutput(process.getInputStream(), 4000);
+            int exitCode = process.exitValue();
+            if (exitCode == 0) {
+                return new ProotProbeResult(true, output.isBlank() ? "Runtime startbar." : output);
+            }
+            String details = output.isBlank() ? "Exit " + exitCode : output;
+            return new ProotProbeResult(false, "Runtime nicht startbar: " + details);
+        } catch (Exception error) {
+            String message = String.valueOf(error.getMessage() == null ? "" : error.getMessage()).trim();
+            if (message.isEmpty()) message = error.getClass().getSimpleName();
+            return new ProotProbeResult(false, "Runtime-Check fehlgeschlagen: " + message);
         } finally {
             if (process != null) {
                 process.destroy();
@@ -1069,6 +1080,16 @@ public class PythonRuntimePlugin extends Plugin {
         DistroDownloadMeta(String url, String sha256) {
             this.url = url;
             this.sha256 = sha256;
+        }
+    }
+
+    private static final class ProotProbeResult {
+        final boolean runnable;
+        final String message;
+
+        ProotProbeResult(boolean runnable, String message) {
+            this.runnable = runnable;
+            this.message = String.valueOf(message == null ? "" : message).trim();
         }
     }
 
