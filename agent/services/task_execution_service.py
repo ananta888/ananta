@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import re
 import shlex
 import time
 from dataclasses import dataclass
@@ -845,7 +846,86 @@ class TaskExecutionService:
             return None
         return ResearchContextSummaryContract.model_validate(research_context)
 
-    def _execute_shell_command_with_policy(
+    @staticmethod
+    def _repair_command_transcription_noise(command: str) -> str:
+        # Repair common streamed-output artifacts like "mode> ls.py" -> "models.py".
+        repaired = str(command or "")
+        join_fragment_pattern = re.compile(r"(?<=[A-Za-z0-9_./-])>\s+(?=[A-Za-z0-9_./-])")
+        while True:
+            next_value, count = join_fragment_pattern.subn("", repaired)
+            repaired = next_value
+            if count <= 0:
+                break
+        return repaired.strip()
+
+    @staticmethod
+    def _split_and_chained_commands(command: str) -> tuple[list[str], list[str]]:
+        text = str(command or "")
+        if not text.strip():
+            return [], []
+
+        buffer: list[str] = []
+        segments: list[str] = []
+        unsupported_ops: list[str] = []
+        seen_unsupported: set[str] = set()
+        in_single = False
+        in_double = False
+        escaped = False
+        saw_and_chain = False
+
+        index = 0
+        while index < len(text):
+            char = text[index]
+            if escaped:
+                buffer.append(char)
+                escaped = False
+                index += 1
+                continue
+            if char == "\\" and not in_single:
+                buffer.append(char)
+                escaped = True
+                index += 1
+                continue
+            if char == "'" and not in_double:
+                in_single = not in_single
+                buffer.append(char)
+                index += 1
+                continue
+            if char == '"' and not in_single:
+                in_double = not in_double
+                buffer.append(char)
+                index += 1
+                continue
+
+            if not in_single and not in_double:
+                if text.startswith("&&", index):
+                    segment = "".join(buffer).strip()
+                    if segment:
+                        segments.append(segment)
+                    buffer = []
+                    saw_and_chain = True
+                    index += 2
+                    continue
+                if text.startswith("||", index):
+                    if "||" not in seen_unsupported:
+                        unsupported_ops.append("||")
+                        seen_unsupported.add("||")
+                elif char == ";":
+                    if ";" not in seen_unsupported:
+                        unsupported_ops.append(";")
+                        seen_unsupported.add(";")
+            buffer.append(char)
+            index += 1
+
+        tail = "".join(buffer).strip()
+        if tail:
+            segments.append(tail)
+
+        if saw_and_chain and segments and not unsupported_ops:
+            return segments, []
+        return [text.strip()], unsupported_ops
+
+    def _execute_single_shell_command_with_policy(
         self,
         *,
         tid: str | None,
@@ -863,7 +943,6 @@ class TaskExecutionService:
         effective_command = command
         if working_directory:
             quoted = shlex.quote(str(working_directory))
-            # Keep workdir switching compatible with shell hardening that forbids && chaining.
             effective_command = f"cd {quoted}\n{command}"
 
         while True:
@@ -904,6 +983,66 @@ class TaskExecutionService:
             )
             if delay > 0:
                 time.sleep(delay)
+
+    def _execute_shell_command_with_policy(
+        self,
+        *,
+        tid: str | None,
+        command: str,
+        execution_policy: TaskExecutionPolicyContract,
+        working_directory: str | None = None,
+    ) -> tuple[str, int | None, int, str, list[dict]]:
+        repaired_command = self._repair_command_transcription_noise(command)
+        command_segments, unsupported_ops = self._split_and_chained_commands(repaired_command)
+        if unsupported_ops:
+            message = (
+                "Error: Unsupported shell operators in command: "
+                + ", ".join(unsupported_ops)
+                + ". Request a single command without chaining/redirection."
+            )
+            return message, -1, 0, "command_runtime_error", []
+
+        aggregate_outputs: list[str] = []
+        aggregate_retries = 0
+        aggregate_history: list[dict] = []
+        if repaired_command != str(command or "").strip():
+            aggregate_history.append(
+                {
+                    "attempt": 0,
+                    "normalization": "transcription_noise_repaired",
+                }
+            )
+        if len(command_segments) > 1:
+            aggregate_history.append(
+                {
+                    "attempt": 0,
+                    "normalization": "split_and_chain_command",
+                    "segment_count": len(command_segments),
+                }
+            )
+
+        for index, segment in enumerate(command_segments):
+            output, exit_code, retries_used, failure_type, retry_history = self._execute_single_shell_command_with_policy(
+                tid=tid,
+                command=segment,
+                execution_policy=execution_policy,
+                working_directory=working_directory,
+            )
+            aggregate_retries += retries_used
+            if output:
+                aggregate_outputs.append(output)
+            for entry in list(retry_history or []):
+                aggregate_history.append(
+                    {
+                        **entry,
+                        "segment_index": index + 1,
+                        "segment_command": segment,
+                    }
+                )
+            if exit_code != 0:
+                return "\n---\n".join(aggregate_outputs), exit_code, aggregate_retries, failure_type, aggregate_history
+
+        return "\n---\n".join(aggregate_outputs), 0, aggregate_retries, "success", aggregate_history
 
 
 task_execution_service = TaskExecutionService()
