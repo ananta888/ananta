@@ -12,6 +12,7 @@ import { TerminalComponent } from './terminal.component';
 import { TerminalMode } from '../services/terminal.service';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { PythonRuntimeService } from '../services/python-runtime.service';
+import { MobileProotService } from '../services/mobile-proot.service';
 
 @Component({
   standalone: true,
@@ -233,6 +234,13 @@ import { PythonRuntimeService } from '../services/python-runtime.service';
           <div class="card card-light grid mt-10">
             <h4>Android Worker Shell</h4>
             <p class="muted">Fallback-Terminal direkt in der App (lokale Shell-Ausfuehrung).</p>
+            <label>Distro
+              <select [(ngModel)]="selectedDistro" (ngModelChange)="onDistroChange($event)">
+                @for (distro of distroOptions; track distro) {
+                  <option [value]="distro">{{ distro }}</option>
+                }
+              </select>
+            </label>
             <label>Shell-Befehl
               <input [(ngModel)]="workerShellCommand" placeholder="z. B. cd /data/data/com.termux/files/home/ananta && python -m agent.ai_agent" />
             </label>
@@ -240,6 +248,8 @@ import { PythonRuntimeService } from '../services/python-runtime.service';
               <button (click)="runWorkerShellCommand()" [disabled]="workerShellBusy">Ausfuehren</button>
               <button class="button-outline" (click)="setWorkerShellStatusCommand()" [disabled]="workerShellBusy">Status-Befehl</button>
               <button class="button-outline" (click)="setWorkerShellStartCommand()" [disabled]="workerShellBusy">Start-Befehl</button>
+              <button class="button-outline" (click)="setWorkerShellInstallDistroCommand()" [disabled]="workerShellBusy">Distro installieren</button>
+              <button class="button-outline" (click)="setWorkerShellLoginDistroCommand()" [disabled]="workerShellBusy">Distro Login</button>
             </div>
             <div class="muted">{{ workerShellMeta || '-' }}</div>
             <pre class="pre-scroll">{{ workerShellOutput || 'Noch keine Ausgabe.' }}</pre>
@@ -257,6 +267,7 @@ export class AgentPanelComponent {
   private ns = inject(NotificationService);
   private taskFacade = inject(TaskManagementFacade);
   private pythonRuntime = inject(PythonRuntimeService);
+  private proot = inject(MobileProotService);
 
   agent?: AgentEntry;
   activeTab = 'interact';
@@ -290,6 +301,8 @@ export class AgentPanelComponent {
   workerShellOutput = '';
   workerShellMeta = '';
   workerShellBusy = false;
+  readonly distroOptions = this.proot.distroOptions;
+  selectedDistro = this.proot.getSelectedDistro();
 
   constructor() {
     const name = this.route.snapshot.paramMap.get('name')!;
@@ -585,7 +598,8 @@ export class AgentPanelComponent {
 
   setWorkerShellStatusCommand(): void {
     this.workerShellCommand = [
-      'cd /data/data/com.termux/files/home/ananta',
+      this.proot.buildCheckCommand(),
+      this.proot.buildListInstalledCommand(),
       'echo "== worker process =="',
       'ps -ef | grep "python -m agent.ai_agent" | grep -v grep || true',
       'echo "== worker health =="',
@@ -594,10 +608,23 @@ export class AgentPanelComponent {
   }
 
   setWorkerShellStartCommand(): void {
-    this.workerShellCommand = [
-      'cd /data/data/com.termux/files/home/ananta',
-      'ROLE=worker AGENT_NAME=android-worker PORT=5001 HUB_URL=http://127.0.0.1:5000 AGENT_URL=http://127.0.0.1:5001 python -m agent.ai_agent',
-    ].join(' && ');
+    this.proot.setSelectedDistro(this.selectedDistro);
+    this.workerShellCommand = this.proot.buildWorkerStartInDistroCommand(this.selectedDistro);
+  }
+
+  setWorkerShellInstallDistroCommand(): void {
+    this.proot.setSelectedDistro(this.selectedDistro);
+    this.workerShellCommand = this.proot.buildInstallCommand(this.selectedDistro);
+  }
+
+  setWorkerShellLoginDistroCommand(): void {
+    this.proot.setSelectedDistro(this.selectedDistro);
+    this.workerShellCommand = this.proot.buildLoginCommand(this.selectedDistro);
+  }
+
+  onDistroChange(next: string): void {
+    this.selectedDistro = String(next || 'ubuntu').trim().toLowerCase();
+    this.proot.setSelectedDistro(this.selectedDistro);
   }
 
   runWorkerShellCommand(): void {
