@@ -33,6 +33,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   webhooks: { label: 'Webhooks', area: 'Automate', navGroup: 'Automatisierung', navOrder: 20, expertOnly: true },
   'voxtral-offline': { label: 'Voxtral Offline', area: 'Operate', navGroup: 'Arbeiten', navOrder: 45, simpleNav: true },
   'python-runtime': { label: 'Python Runtime', area: 'System', navGroup: 'Konfiguration', navOrder: 45, expertOnly: true },
+  'mobile-shell': { label: 'Mobile Shell', area: 'System', navGroup: 'Konfiguration', navOrder: 46, expertOnly: true },
   templates: { label: 'Vorlagen', area: 'Configure', navGroup: 'Arbeiten', navOrder: 40, simpleNav: true },
   'instruction-layers': { label: 'Instruction Layers', area: 'Configure', navGroup: 'Konfiguration', navOrder: 35, expertOnly: true },
   teams: { label: 'Teams', area: 'Configure', navGroup: 'Konfiguration', navOrder: 20, expertOnly: true },

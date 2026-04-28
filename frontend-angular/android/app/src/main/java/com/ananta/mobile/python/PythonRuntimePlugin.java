@@ -8,12 +8,22 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(name = "PythonRuntime")
 public class PythonRuntimePlugin extends Plugin {
+    private static final int DEFAULT_SHELL_TIMEOUT_SECONDS = 20;
+    private static final int MAX_SHELL_TIMEOUT_SECONDS = 600;
+    private static final int MAX_SHELL_OUTPUT_CHARS = 120_000;
+
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile boolean hubRunning;
     private volatile boolean workerRunning;
@@ -109,6 +119,35 @@ public class PythonRuntimePlugin extends Plugin {
         });
     }
 
+    @PluginMethod
+    public void runShellCommand(PluginCall call) {
+        String command = String.valueOf(call.getString("command", "")).trim();
+        if (command.isEmpty()) {
+            call.reject("command is required");
+            return;
+        }
+
+        int timeoutSeconds = call.getInt("timeoutSeconds", DEFAULT_SHELL_TIMEOUT_SECONDS);
+        if (timeoutSeconds < 1 || timeoutSeconds > MAX_SHELL_TIMEOUT_SECONDS) {
+            call.reject("timeoutSeconds must be between 1 and " + MAX_SHELL_TIMEOUT_SECONDS);
+            return;
+        }
+
+        worker.execute(() -> {
+            try {
+                ShellExecutionResult exec = executeShellCommand(command, timeoutSeconds);
+                JSObject result = new JSObject();
+                result.put("output", exec.output);
+                result.put("exitCode", exec.exitCode);
+                result.put("timedOut", exec.timedOut);
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                call.reject("Shell execution failed: " + error.getMessage());
+            }
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         worker.shutdownNow();
@@ -169,5 +208,63 @@ public class PythonRuntimePlugin extends Plugin {
             throw new NoSuchMethodException("Python.start(...) compatible with AndroidPlatform not found.");
         }
         startMethod.invoke(null, androidPlatform);
+    }
+
+    private ShellExecutionResult executeShellCommand(String command, int timeoutSeconds) throws Exception {
+        Process process = new ProcessBuilder("sh", "-lc", command)
+            .redirectErrorStream(true)
+            .start();
+
+        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+        if (!finished) {
+            process.destroy();
+            if (!process.waitFor(1, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                process.waitFor(1, TimeUnit.SECONDS);
+            }
+        }
+
+        String output = readProcessOutput(process.getInputStream(), MAX_SHELL_OUTPUT_CHARS);
+        if (!finished) {
+            output = (output + "\n[ananta-mobile-shell] Timeout after " + timeoutSeconds + "s").trim();
+            return new ShellExecutionResult(output, -1, true);
+        }
+
+        return new ShellExecutionResult(output, process.exitValue(), false);
+    }
+
+    private String readProcessOutput(InputStream stream, int maxChars) throws IOException {
+        StringBuilder out = new StringBuilder();
+        boolean truncated = false;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            char[] buffer = new char[4096];
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                int remaining = maxChars - out.length();
+                if (remaining > 0) {
+                    int toAppend = Math.min(remaining, read);
+                    out.append(buffer, 0, toAppend);
+                }
+                if (out.length() >= maxChars) {
+                    truncated = true;
+                }
+            }
+        }
+        if (truncated) {
+            out.append("\n[ananta-mobile-shell] Output truncated");
+        }
+        return out.toString().trim();
+    }
+
+    private static final class ShellExecutionResult {
+        final String output;
+        final int exitCode;
+        final boolean timedOut;
+
+        ShellExecutionResult(String output, int exitCode, boolean timedOut) {
+            this.output = output;
+            this.exitCode = exitCode;
+            this.timedOut = timedOut;
+        }
     }
 }
