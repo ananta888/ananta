@@ -155,7 +155,19 @@ public class PythonRuntimePlugin extends Plugin {
 
         Class<?> androidPlatformClass = Class.forName("com.chaquo.python.android.AndroidPlatform");
         Object androidPlatform = androidPlatformClass.getConstructor(Context.class).newInstance(context);
-        Method start = pythonClass.getMethod("start", androidPlatformClass);
-        start.invoke(null, androidPlatform);
+
+        Method startMethod = null;
+        for (Method candidate : pythonClass.getMethods()) {
+            if (!"start".equals(candidate.getName()) || candidate.getParameterCount() != 1) continue;
+            Class<?> parameterType = candidate.getParameterTypes()[0];
+            if (parameterType.isAssignableFrom(androidPlatformClass)) {
+                startMethod = candidate;
+                break;
+            }
+        }
+        if (startMethod == null) {
+            throw new NoSuchMethodException("Python.start(...) compatible with AndroidPlatform not found.");
+        }
+        startMethod.invoke(null, androidPlatform);
     }
 }

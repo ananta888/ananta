@@ -118,9 +118,18 @@ export class AgentDirectoryService {
     this.agents = this.agents.map((agent) => {
       const raw = String(agent.url || '').trim();
       if (!raw) return agent;
-      const normalized = raw
-        .replace(/^http:\/\/localhost(?::|\/|$)/i, 'http://127.0.0.1$1')
-        .replace(/^https:\/\/localhost(?::|\/|$)/i, 'https://127.0.0.1$1');
+      let normalized = raw;
+      try {
+        const parsed = new URL(raw);
+        if (parsed.hostname.toLowerCase() === 'localhost') {
+          parsed.hostname = '127.0.0.1';
+          normalized = parsed.toString().replace(/\/$/, '');
+        }
+      } catch {
+        normalized = raw.replace(/^https?:\/\/localhost\b/i, (prefix) =>
+          prefix.toLowerCase().startsWith('https://') ? 'https://127.0.0.1' : 'http://127.0.0.1'
+        );
+      }
       if (normalized !== raw) {
         changed = true;
         return { ...agent, url: normalized };
