@@ -72,6 +72,59 @@ def test_task_specific_endpoints_old_path_fail(client, admin_auth_header):
     assert response.status_code == 404
 
 
+def test_task_execute_auto_repairs_meta_blocked_command(client, app, admin_auth_header):
+    tid = "T-AUTO-REPAIR"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="Create a tiny workspace scaffold.",
+            last_proposal={
+                "reason": "Initial proposal",
+                "command": "echo start || echo fallback",
+                "backend": "opencode",
+                "model": "gpt-4o-mini",
+                "routing": {"effective_backend": "opencode", "task_kind": "implementation"},
+            },
+        )
+        assert _get_local_task_status(tid) is not None
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
+        with patch(
+            "agent.services.task_scoped_execution_service.TaskScopedExecutionService._build_task_propose_prompt",
+            return_value=("repair prompt", {}),
+        ):
+            with patch(
+                "agent.services.task_scoped_execution_service.TaskScopedExecutionService._prepare_task_cli_session",
+                return_value=None,
+            ):
+                with patch("agent.shell.PersistentShell.execute") as mock_exec:
+                    mock_cli.return_value = (0, '{"reason":"repair","command":"echo repaired"}', "", "opencode")
+                    mock_exec.return_value = ("repaired", 0)
+                    response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    assert response.json["data"]["status"] == "completed"
+    assert response.json["data"]["exit_code"] == 0
+    assert response.json["data"]["output"] == "repaired"
+    assert mock_cli.call_count == 1
+    assert mock_exec.call_count == 1
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        assert task is not None
+        history = task.get("history") or []
+        execution_events = [entry for entry in history if entry.get("event_type") == "execution_result"]
+        assert execution_events
+        repair_meta = execution_events[-1].get("execution_repair") or {}
+        assert repair_meta.get("attempted") is True
+        assert repair_meta.get("trigger") == "shell_meta_character_blocked"
+
+
 def test_task_unassign(client, app, admin_auth_header):
     """Verifiziert den Unassign-Endpunkt."""
     tid = "T-UNASSIGN"
