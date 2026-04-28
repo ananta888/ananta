@@ -233,6 +233,7 @@ import { MobileProotService } from '../services/mobile-proot.service';
             [mode]="terminalMode"
             [forwardParam]="terminalForwardParam || undefined"
             [embeddedShellMode]="terminalEmbeddedMode"
+            [embeddedInitialCommand]="embeddedTerminalInitialCommand"
           ></app-terminal>
         } @else {
           <div class="card card-light">
@@ -370,6 +371,11 @@ export class AgentPanelComponent implements OnDestroy {
 
   get isAndroidNative(): boolean {
     return this.pythonRuntime.isNative && Capacitor.getPlatform() === 'android';
+  }
+
+  get embeddedTerminalInitialCommand(): string | undefined {
+    if (!this.terminalEmbeddedMode || !this.isAndroidNative || this.agent?.role === 'hub') return undefined;
+    return this.proot.buildLoginCommand(this.selectedDistro);
   }
 
   setTab(t: string) {

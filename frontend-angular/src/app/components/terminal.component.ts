@@ -155,6 +155,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() mode: TerminalMode = 'interactive';
   @Input() forwardParam?: string;
   @Input() embeddedShellMode = false;
+  @Input() embeddedInitialCommand?: string;
 
   @ViewChild('terminalHost', { static: true }) terminalHost?: ElementRef<HTMLDivElement>;
 
@@ -269,7 +270,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.initialized) return;
-    if (changes['baseUrl'] || changes['token'] || changes['mode'] || changes['forwardParam'] || changes['embeddedShellMode']) {
+    if (changes['baseUrl'] || changes['token'] || changes['mode'] || changes['forwardParam'] || changes['embeddedShellMode'] || changes['embeddedInitialCommand']) {
       this.reconnect();
     }
   }
@@ -570,7 +571,11 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
       if (this.embeddedSessionId) {
         await this.pythonRuntime.closeShellSession(this.embeddedSessionId).catch(() => undefined);
       }
-      const started = await this.pythonRuntime.openShellSession({ shell: 'sh' });
+      const initialCommand = String(this.embeddedInitialCommand || '').trim();
+      const started = await this.pythonRuntime.openShellSession({
+        shell: 'sh',
+        ...(initialCommand ? { initialCommand } : {}),
+      });
       this.embeddedSessionId = started.sessionId;
       this.status = 'connected';
       this.writeTerminalMarker('\r\n[connected: embedded-interactive]\r\n');
