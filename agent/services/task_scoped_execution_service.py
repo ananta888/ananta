@@ -118,6 +118,163 @@ class TaskScopedExecutionService:
         return max(60, general_timeout, kind_timeout, proposal_timeout)
 
     @staticmethod
+    def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
+        try:
+            parsed = int(value) if value is not None else default
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    @classmethod
+    def _resolve_interactive_context_profile(cls, agent_cfg: dict | None, *, retry: bool = False) -> dict:
+        cfg = dict(agent_cfg or {})
+        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+        profile_cfg = runtime_cfg.get("interactive_context_profile") if isinstance(runtime_cfg.get("interactive_context_profile"), dict) else {}
+
+        task_brief_chars = cls._bounded_int(
+            profile_cfg.get("task_brief_chars_retry" if retry else "task_brief_chars"),
+            default=520 if retry else 900,
+            minimum=180,
+            maximum=4000,
+        )
+        hub_context_chars = cls._bounded_int(
+            profile_cfg.get("hub_context_chars_retry" if retry else "hub_context_chars"),
+            default=1200 if retry else 2600,
+            minimum=256,
+            maximum=12000,
+        )
+        research_prompt_chars = cls._bounded_int(
+            profile_cfg.get("research_prompt_chars_retry" if retry else "research_prompt_chars"),
+            default=700 if retry else 1800,
+            minimum=200,
+            maximum=8000,
+        )
+        artifact_ids_limit = cls._bounded_int(
+            profile_cfg.get("artifact_ids_limit_retry" if retry else "artifact_ids_limit"),
+            default=3 if retry else 6,
+            minimum=1,
+            maximum=20,
+        )
+        knowledge_ids_limit = cls._bounded_int(
+            profile_cfg.get("knowledge_ids_limit_retry" if retry else "knowledge_ids_limit"),
+            default=2 if retry else 4,
+            minimum=1,
+            maximum=20,
+        )
+        repo_refs_limit = cls._bounded_int(
+            profile_cfg.get("repo_refs_limit_retry" if retry else "repo_refs_limit"),
+            default=3 if retry else 6,
+            minimum=1,
+            maximum=30,
+        )
+        return {
+            "compact": True,
+            "retry": bool(retry),
+            "task_brief_char_limit": task_brief_chars,
+            "hub_context_char_limit": hub_context_chars,
+            "research_prompt_char_limit": research_prompt_chars,
+            "artifact_ids_limit": artifact_ids_limit,
+            "knowledge_collection_ids_limit": knowledge_ids_limit,
+            "repo_scope_refs_limit": repo_refs_limit,
+        }
+
+    @classmethod
+    def _compact_research_context(
+        cls,
+        research_context: dict | None,
+        *,
+        profile: dict | None,
+    ) -> dict | None:
+        if not isinstance(research_context, dict):
+            return research_context
+        cfg = dict(profile or {})
+        artifact_limit = cls._bounded_int(cfg.get("artifact_ids_limit"), default=6, minimum=1, maximum=20)
+        knowledge_limit = cls._bounded_int(cfg.get("knowledge_collection_ids_limit"), default=4, minimum=1, maximum=20)
+        repo_ref_limit = cls._bounded_int(cfg.get("repo_scope_refs_limit"), default=6, minimum=1, maximum=30)
+        prompt_limit = cls._bounded_int(cfg.get("research_prompt_char_limit"), default=1800, minimum=200, maximum=12000)
+        prompt_section = str((research_context or {}).get("prompt_section") or "").strip()
+        if len(prompt_section) > prompt_limit:
+            prompt_section = prompt_section[: max(1, prompt_limit - 14)].rstrip() + "\n\n[gekürzt]"
+        return {
+            **dict(research_context or {}),
+            "artifact_ids": list((research_context or {}).get("artifact_ids") or [])[:artifact_limit],
+            "knowledge_collection_ids": list((research_context or {}).get("knowledge_collection_ids") or [])[:knowledge_limit],
+            "repo_scope_refs": list((research_context or {}).get("repo_scope_refs") or [])[:repo_ref_limit],
+            "prompt_section": prompt_section or None,
+            "context_char_count": min(
+                int((research_context or {}).get("context_char_count") or len(prompt_section)),
+                len(prompt_section) if prompt_section else int((research_context or {}).get("context_char_count") or 0),
+            ),
+        }
+
+    @staticmethod
+    def _interactive_timeout_like_failure(*, rc: int, output: str, stderr: str) -> bool:
+        text = f"{output or ''}\n{stderr or ''}".strip()
+        if rc != 0 and not text:
+            return True
+        marker = text.lower()
+        return "timeout" in marker or "timed out" in marker or "read timed out" in marker
+
+    @classmethod
+    def _resolve_interactive_propose_timeout(cls, agent_cfg: dict | None, *, fallback: int) -> int:
+        cfg = dict(agent_cfg or {})
+        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+        configured = cls._bounded_int(
+            runtime_cfg.get("interactive_propose_timeout_seconds"),
+            default=420,
+            minimum=120,
+            maximum=1800,
+        )
+        return max(int(fallback or 60), configured)
+
+    @classmethod
+    def _resolve_interactive_retry_timeout(cls, agent_cfg: dict | None, *, fallback: int) -> int:
+        cfg = dict(agent_cfg or {})
+        runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
+        configured = cls._bounded_int(
+            runtime_cfg.get("interactive_retry_timeout_seconds"),
+            default=max(int(fallback or 60), 480),
+            minimum=120,
+            maximum=1800,
+        )
+        return max(int(fallback or 60), configured)
+
+    @staticmethod
+    def _build_flow_metrics_payload(
+        *,
+        run_id: str | None,
+        phase: str,
+        propose_ok: bool | None,
+        execute_ok: bool | None,
+        artifact_created: bool | None,
+    ) -> dict:
+        return {
+            "run_id": str(run_id or "").strip() or None,
+            "phase": str(phase or "").strip() or None,
+            "propose_ok": None if propose_ok is None else bool(propose_ok),
+            "execute_ok": None if execute_ok is None else bool(execute_ok),
+            "artifact_created": None if artifact_created is None else bool(artifact_created),
+        }
+
+    @staticmethod
+    def _update_task_flow_metrics(
+        *,
+        tid: str,
+        task: dict,
+        flow_metrics: dict,
+    ) -> None:
+        current_task = get_local_task_status(tid) or dict(task or {})
+        verification_status = dict(current_task.get("verification_status") or {})
+        merged = dict(verification_status.get("task_flow_metrics") or {})
+        merged.update({**dict(flow_metrics or {}), "updated_at": time.time()})
+        verification_status["task_flow_metrics"] = merged
+        update_local_task_status(
+            tid,
+            str(current_task.get("status") or task.get("status") or "assigned"),
+            verification_status=verification_status,
+        )
+
+    @staticmethod
     def _invoke_cli_runner(cli_runner: Callable, **cli_kwargs):
         try:
             return cli_runner(**cli_kwargs)
@@ -348,6 +505,7 @@ class TaskScopedExecutionService:
                 execution_repair_meta = repaired_execution["repair_meta"]
         after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
         changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
+        meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
         workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
             task_id=tid,
             task=task,
@@ -399,12 +557,20 @@ class TaskScopedExecutionService:
             artifact_refs=workspace_artifact_refs or None,
             extra_history={
                 "workspace_changed_files": changed_files,
+                "workspace_meaningful_changed_files": meaningful_changed_files,
                 "workspace_dir": str(workspace_ctx.workspace_dir),
                 "workspace_artifact_count": len(workspace_artifact_refs),
                 "loop_signals": execution_run.loop_signals,
                 "loop_detection": execution_run.loop_detection,
                 "approval_decision": execution_run.approval_decision,
                 "execution_repair": execution_repair_meta,
+                "flow_metrics": self._build_flow_metrics_payload(
+                    run_id=str((((task.get("last_proposal") or {}).get("trace") or {}).get("trace_id") or "")),
+                    phase="execute",
+                    propose_ok=True,
+                    execute_ok=execution_run.status == "completed",
+                    artifact_created=bool(meaningful_changed_files),
+                ),
             },
         )
 
@@ -751,6 +917,13 @@ class TaskScopedExecutionService:
                 "comparison_count": len(results),
                 "pipeline": None,
                 "trace": trace,
+                "flow_metrics": self._build_flow_metrics_payload(
+                    run_id=str(trace.get("trace_id") or ""),
+                    phase="propose",
+                    propose_ok=True,
+                    execute_ok=None,
+                    artifact_created=None,
+                ),
             },
         )
         return TaskScopedRouteResponse(data=response_payload)
@@ -787,6 +960,16 @@ class TaskScopedExecutionService:
             agent_cfg=cfg,
         )
         interactive_terminal_session = effective_backend == "opencode" and self._is_interactive_terminal_session(session_payload)
+        interactive_context_profile = (
+            self._resolve_interactive_context_profile(cfg, retry=False) if interactive_terminal_session else None
+        )
+        effective_research_context = (
+            self._compact_research_context(research_context, profile=interactive_context_profile)
+            if interactive_terminal_session
+            else research_context
+        )
+        if interactive_terminal_session:
+            timeout = self._resolve_interactive_propose_timeout(cfg, fallback=timeout)
         prompt_for_cli, worker_context_meta = self._build_task_propose_prompt(
             tid=tid,
             task=task,
@@ -794,8 +977,9 @@ class TaskScopedExecutionService:
             tool_definitions_resolver=(lambda *_args, **_kwargs: [])
             if interactive_terminal_session
             else tool_definitions_resolver,
-            research_context=research_context,
+            research_context=effective_research_context,
             interactive_terminal=interactive_terminal_session,
+            context_profile=interactive_context_profile,
         )
         pipeline = new_pipeline_trace(
             pipeline="task_propose",
@@ -843,16 +1027,21 @@ class TaskScopedExecutionService:
         }
         if requested_temperature is not None:
             cli_kwargs["temperature"] = requested_temperature
-        if research_context:
-            cli_kwargs["research_context"] = research_context
+        if effective_research_context:
+            cli_kwargs["research_context"] = effective_research_context
         rc, cli_out, cli_err, backend_used = self._invoke_cli_runner(cli_runner, **cli_kwargs)
         latency_ms = int((time.time() - started_at) * 1000)
         raw_res, output_source = self._coalesce_cli_output(cli_out, cli_err)
         repair_meta = {"attempted": False, "backend": None, "model": None}
+        interactive_retry_meta = {"attempted": False, "timeout": None, "latency_ms": None}
         append_stage(
             pipeline,
             name="execute",
-            status="ok" if rc == 0 or bool(raw_res) else "error",
+            status=(
+                "ok"
+                if (rc == 0 if interactive_terminal_session else (rc == 0 or bool(raw_res)))
+                else "error"
+            ),
             metadata={
                 "backend_used": backend_used,
                 "returncode": rc,
@@ -861,6 +1050,67 @@ class TaskScopedExecutionService:
             },
             started_at=started_at,
         )
+        if interactive_terminal_session and backend_used == "opencode":
+            timeout_like_failure = self._interactive_timeout_like_failure(rc=rc, output=raw_res, stderr=cli_err)
+            if timeout_like_failure:
+                retry_profile = self._resolve_interactive_context_profile(cfg, retry=True)
+                retry_research_context = self._compact_research_context(research_context, profile=retry_profile)
+                retry_prompt, retry_worker_meta = self._build_task_propose_prompt(
+                    tid=tid,
+                    task=task,
+                    base_prompt=base_prompt,
+                    tool_definitions_resolver=(lambda *_args, **_kwargs: []),
+                    research_context=retry_research_context,
+                    interactive_terminal=True,
+                    context_profile=retry_profile,
+                )
+                if requested_temperature is not None:
+                    retry_prompt = (
+                        f"{retry_prompt}\n\n"
+                        f"[Sampling-Hinweis]\n"
+                        f"Ziel-Temperatur fuer diese Antwort: {requested_temperature:.2f}\n"
+                        "Arbeite im sichtbaren OpenCode-Terminal direkt im Workspace."
+                    )
+                retry_timeout = self._resolve_interactive_retry_timeout(cfg, fallback=timeout)
+                retry_kwargs = {
+                    **cli_kwargs,
+                    "prompt": retry_prompt,
+                    "timeout": retry_timeout,
+                }
+                if retry_research_context:
+                    retry_kwargs["research_context"] = retry_research_context
+                started_retry = time.time()
+                retry_rc, retry_out, retry_err, retry_backend = self._invoke_cli_runner(cli_runner, **retry_kwargs)
+                retry_latency_ms = int((time.time() - started_retry) * 1000)
+                retry_raw, retry_source = self._coalesce_cli_output(retry_out, retry_err)
+                interactive_retry_meta = {
+                    "attempted": True,
+                    "timeout": retry_timeout,
+                    "latency_ms": retry_latency_ms,
+                }
+                append_stage(
+                    pipeline,
+                    name="interactive_retry",
+                    status="ok" if retry_rc == 0 else "error",
+                    metadata={
+                        "backend_used": retry_backend,
+                        "returncode": retry_rc,
+                        "latency_ms": retry_latency_ms,
+                        "output_source": retry_source,
+                        "timeout": retry_timeout,
+                    },
+                    started_at=started_retry,
+                )
+                rc = retry_rc
+                cli_err = retry_err
+                cli_out = retry_out
+                raw_res = retry_raw
+                output_source = retry_source
+                backend_used = retry_backend
+                latency_ms += retry_latency_ms
+                prompt_for_cli = retry_prompt
+                worker_context_meta = retry_worker_meta
+                effective_research_context = retry_research_context
         if not interactive_terminal_session and rc != 0 and not raw_res.strip():
             repaired = self._repair_task_proposal(
                 cli_runner=cli_runner,
@@ -874,7 +1124,7 @@ class TaskScopedExecutionService:
                 primary_backend=backend_used,
                 primary_model=proposal_model,
                 primary_temperature=requested_temperature,
-                research_context=research_context,
+                research_context=effective_research_context,
                 session=session_payload,
                 workdir=str(workspace_context.workspace_dir),
             )
@@ -909,7 +1159,7 @@ class TaskScopedExecutionService:
                 primary_backend=backend_used,
                 primary_model=proposal_model,
                 primary_temperature=requested_temperature,
-                research_context=research_context,
+                research_context=effective_research_context,
                 session=session_payload,
                 workdir=str(workspace_context.workspace_dir),
             )
@@ -964,6 +1214,28 @@ class TaskScopedExecutionService:
                         else {}
                     )
                 routing["live_terminal"] = live_terminal_meta
+        if interactive_terminal_session and backend_used == "opencode":
+            timeout_like_failure = self._interactive_timeout_like_failure(rc=rc, output=raw_res, stderr=cli_err)
+            if rc != 0 or timeout_like_failure:
+                flow_metrics = self._build_flow_metrics_payload(
+                    run_id=str(session_payload.get("id") or "") if isinstance(session_payload, dict) else None,
+                    phase="propose",
+                    propose_ok=False,
+                    execute_ok=None,
+                    artifact_created=None,
+                )
+                self._update_task_flow_metrics(tid=tid, task=task, flow_metrics=flow_metrics)
+                return TaskScopedRouteResponse(
+                    status="error",
+                    message="llm_cli_failed",
+                    data={
+                        "details": cli_err or raw_res or f"backend '{backend_used}' failed with exit code {rc}",
+                        "backend": backend_used,
+                        "flow_metrics": flow_metrics,
+                        "retry": interactive_retry_meta,
+                    },
+                    code=502,
+                )
         if is_research_backend(backend_used):
             research_res = self._build_research_result(
                 raw_res,
@@ -973,7 +1245,7 @@ class TaskScopedExecutionService:
                 cli_err,
                 latency_ms,
                 output_source=output_source,
-                research_context=research_context,
+                research_context=effective_research_context,
             )
             trace = build_trace_record(
                 task_id=tid,
@@ -1006,7 +1278,7 @@ class TaskScopedExecutionService:
                 ),
                 pipeline=pipeline_payload,
                 research_artifact=research_res.get("research_artifact"),
-                research_context=research_context,
+                research_context=effective_research_context,
                 history_event={
                     "event_type": "proposal_result",
                     "reason": research_res.get("reason"),
@@ -1018,6 +1290,13 @@ class TaskScopedExecutionService:
                     "source_count": len((research_res.get("research_artifact") or {}).get("sources") or []),
                     "pipeline": pipeline_payload,
                     "trace": trace,
+                    "flow_metrics": self._build_flow_metrics_payload(
+                        run_id=str(trace.get("trace_id") or ""),
+                        phase="propose",
+                        propose_ok=True,
+                        execute_ok=None,
+                        artifact_created=None,
+                    ),
                 },
             )
             if session_payload:
@@ -1058,9 +1337,9 @@ class TaskScopedExecutionService:
                 "latency_ms": latency_ms,
                 "stderr_preview": (cli_err or "")[:240],
                 "output_source": output_source,
-                "repair_attempted": False,
-                "repair_backend": None,
-                "repair_model": None,
+                "repair_attempted": bool(interactive_retry_meta.get("attempted")),
+                "repair_backend": backend_used if interactive_retry_meta.get("attempted") else None,
+                "repair_model": proposal_model if interactive_retry_meta.get("attempted") else None,
             }
             response_payload = get_core_services().task_execution_service.persist_task_proposal_result(
                 tid=tid,
@@ -1093,6 +1372,13 @@ class TaskScopedExecutionService:
                     "interactive_terminal": True,
                     "pipeline": pipeline_payload,
                     "trace": trace,
+                    "flow_metrics": self._build_flow_metrics_payload(
+                        run_id=str(trace.get("trace_id") or ""),
+                        phase="propose",
+                        propose_ok=True,
+                        execute_ok=None,
+                        artifact_created=None,
+                    ),
                 },
             )
             if session_payload:
@@ -1134,7 +1420,7 @@ class TaskScopedExecutionService:
                 primary_backend=backend_used,
                 primary_model=proposal_model,
                 primary_temperature=requested_temperature,
-                research_context=research_context,
+                research_context=effective_research_context,
                 session=session_payload,
                 workdir=str(workspace_context.workspace_dir),
             )
@@ -1206,6 +1492,13 @@ class TaskScopedExecutionService:
                 "returncode": rc,
                 "pipeline": pipeline_payload,
                 "trace": trace,
+                "flow_metrics": self._build_flow_metrics_payload(
+                    run_id=str(trace.get("trace_id") or ""),
+                    phase="propose",
+                    propose_ok=True,
+                    execute_ok=None,
+                    artifact_created=None,
+                ),
             },
         )
         if session_payload:
@@ -1236,6 +1529,7 @@ class TaskScopedExecutionService:
         changed_files = get_worker_workspace_service().detect_changed_files_against_interactive_baseline(
             workspace_dir=workspace_ctx.workspace_dir
         )
+        meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
         workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
             task_id=tid,
             task=task,
@@ -1279,6 +1573,7 @@ class TaskScopedExecutionService:
             metadata={
                 "interactive_terminal_finalize": True,
                 "changed_file_count": len(changed_files),
+                "meaningful_changed_file_count": len(meaningful_changed_files),
                 "workspace_artifact_count": len(artifact_refs),
             },
         )
@@ -1294,6 +1589,7 @@ class TaskScopedExecutionService:
             status="ok" if exit_code == 0 else "error",
             metadata={
                 "changed_file_count": len(changed_files),
+                "meaningful_changed_file_count": len(meaningful_changed_files),
                 "workspace_artifact_count": len(artifact_refs),
                 "exit_code": exit_code,
             },
@@ -1318,9 +1614,17 @@ class TaskScopedExecutionService:
             artifact_refs=artifact_refs or None,
             extra_history={
                 "workspace_changed_files": changed_files,
+                "workspace_meaningful_changed_files": meaningful_changed_files,
                 "workspace_dir": str(workspace_ctx.workspace_dir),
                 "workspace_artifact_count": len(artifact_refs),
                 "interactive_terminal_finalize": True,
+                "flow_metrics": self._build_flow_metrics_payload(
+                    run_id=str(((proposal_meta.get("trace") or {}).get("trace_id") or "")),
+                    phase="execute",
+                    propose_ok=True,
+                    execute_ok=status == "completed",
+                    artifact_created=bool(meaningful_changed_files),
+                ),
             },
         )
         get_worker_workspace_service().refresh_interactive_terminal_baseline(workspace_dir=workspace_ctx.workspace_dir)
@@ -1407,6 +1711,13 @@ class TaskScopedExecutionService:
                 "source_count": len(research_artifact.get("sources") or []),
                 "verification": verification,
                 "verification_record_id": getattr(verification_record, "id", None),
+                "flow_metrics": self._build_flow_metrics_payload(
+                    run_id=str(((proposal.get("trace") or {}).get("trace_id") or "")),
+                    phase="execute",
+                    propose_ok=True,
+                    execute_ok=True,
+                    artifact_created=bool(artifact_ref),
+                ),
             },
         )
         return TaskScopedRouteResponse(data=response_payload)
@@ -2326,10 +2637,30 @@ class TaskScopedExecutionService:
         tool_definitions_resolver: Callable,
         research_context: dict | None = None,
         interactive_terminal: bool = False,
+        context_profile: dict | None = None,
     ) -> tuple[str, dict]:
         execution_context = self._get_worker_execution_context(task, tid=tid, base_prompt=base_prompt)
         context_payload = dict(execution_context.get("context") or {})
         context_text = str(context_payload.get("context_text") or "").strip()
+        context_profile_payload = dict(context_profile or {})
+        compact_profile = bool(context_profile_payload.get("compact"))
+        task_brief_char_limit = (
+            self._bounded_int(context_profile_payload.get("task_brief_char_limit"), default=900, minimum=180, maximum=4000)
+            if compact_profile
+            else None
+        )
+        hub_context_char_limit = (
+            self._bounded_int(context_profile_payload.get("hub_context_char_limit"), default=2600, minimum=256, maximum=12000)
+            if compact_profile
+            else None
+        )
+        research_prompt_char_limit = (
+            self._bounded_int(context_profile_payload.get("research_prompt_char_limit"), default=1800, minimum=200, maximum=12000)
+            if compact_profile
+            else None
+        )
+        if hub_context_char_limit and len(context_text) > hub_context_char_limit:
+            context_text = context_text[: max(1, hub_context_char_limit - 14)].rstrip() + "\n\n[gekürzt]"
         workspace_payload = dict(execution_context.get("workspace") or {})
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
@@ -2360,6 +2691,9 @@ class TaskScopedExecutionService:
             tool_definitions=tool_definitions,
             research_context=research_context,
             include_response_contract=not interactive_terminal,
+            task_brief_char_limit=task_brief_char_limit,
+            context_text_char_limit=hub_context_char_limit,
+            research_prompt_char_limit=research_prompt_char_limit,
         )
         prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
         read_paths = [
@@ -2376,7 +2710,6 @@ class TaskScopedExecutionService:
                 "statt lange Inhalte zu wiederholen:\n" + "\n".join(f"- {item}" for item in read_paths)
             )
         if context_text:
-            context_preview = " ".join(str(context_text).split()).strip().lower()[:240]
             prompt_sections.append(
                 "Selektierter Hub-Kontext ist ausgelagert in "
                 f"{str(opencode_context_files.get('hub_context_path') or '.ananta/hub-context.md')}. "
@@ -2385,22 +2718,30 @@ class TaskScopedExecutionService:
             prompt_sections.append(
                 "Selektierter Research-Kontext ist im Hub-Kontext enthalten und wird aus derselben Datei geladen."
             )
-            if context_preview:
+            context_preview = " ".join(str(context_text).split()).strip().lower()[:240]
+            if context_preview and not compact_profile:
                 prompt_sections.append(f"Kurzvorschau Hub-Kontext: {context_preview}")
         research_prompt_section = str((research_context or {}).get("prompt_section") or "").strip()
         if research_prompt_section:
-            prompt_sections.append("Selektierter Research-Kontext:\n" + research_prompt_section)
+            prompt_sections.append(
+                "Selektierter Research-Kontext ist ausgelagert in "
+                f"{str(opencode_context_files.get('research_context_prompt_path') or 'rag_helper/research-context.md')}."
+            )
+            if not compact_profile:
+                research_preview = " ".join(research_prompt_section.split()).strip().lower()[:320]
+                if research_preview:
+                    prompt_sections.append(f"Kurzvorschau Research-Kontext: {research_preview}")
         if allowed_tools:
             prompt_sections.append(
                 "Tool-Scope fuer diesen Task (nur diese Tools verwenden): "
                 + ", ".join(str(item) for item in allowed_tools)
             )
-        if expected_output_schema:
+        if expected_output_schema and not compact_profile:
             prompt_sections.append(
                 "Erwartetes Output-Schema (Kurzfassung): "
                 + json.dumps(expected_output_schema, ensure_ascii=False)[:400]
             )
-        if stack_diagnostics:
+        if stack_diagnostics and not compact_profile:
             prompt_sections.append(get_instruction_layer_service().render_diagnostics_brief(stack_diagnostics))
         prompt_sections.append(
             "Arbeitsverzeichnis fuer Datei-/Shell-Aktionen:\n"
@@ -2410,6 +2751,10 @@ class TaskScopedExecutionService:
             "Nutze ausschliesslich diesen Workspace fuer neue oder geaenderte Dateien."
         )
         if interactive_terminal:
+            if compact_profile:
+                prompt_sections.append(
+                    "Kompaktmodus aktiv: nutze die Workspace-Dateien als Quelle der Wahrheit und vermeide Kontext-Wiederholung."
+                )
             prompt_sections.append(
                 "Arbeite direkt im Workspace mit normalem OpenCode-CLI. "
                 "Fuehre die gewuenschten Datei- und Verzeichnis-Aenderungen im Workspace aus. "

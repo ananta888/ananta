@@ -795,13 +795,35 @@ class TaskExecutionTrackingService:
         history_event: dict | None = None,
     ) -> dict:
         history = list((task or {}).get("history") or [])
+        verification_status = dict((task or {}).get("verification_status") or {})
+        flow_metrics = {}
+        if isinstance(proposal.get("flow_metrics"), dict):
+            flow_metrics = dict(proposal.get("flow_metrics") or {})
+        if isinstance(history_event, dict) and isinstance(history_event.get("flow_metrics"), dict):
+            flow_metrics = {**flow_metrics, **dict(history_event.get("flow_metrics") or {})}
+        if flow_metrics:
+            merged_metrics = dict(verification_status.get("task_flow_metrics") or {})
+            merged_metrics.update(flow_metrics)
+            merged_metrics["updated_at"] = time.time()
+            verification_status["task_flow_metrics"] = merged_metrics
         if history_event:
             event = dict(history_event)
             event.setdefault("timestamp", time.time())
             history.append(event)
-            update_local_task_status(tid, "proposing", last_proposal=proposal, history=history)
+            update_local_task_status(
+                tid,
+                "proposing",
+                last_proposal=proposal,
+                history=history,
+                verification_status=verification_status,
+            )
             return proposal
-        update_local_task_status(tid, "proposing", last_proposal=proposal)
+        update_local_task_status(
+            tid,
+            "proposing",
+            last_proposal=proposal,
+            verification_status=verification_status,
+        )
         return proposal
 
     def persist_research_artifact(self, *, tid: str, task: dict | None, research_artifact: dict | None) -> dict | None:
@@ -1034,6 +1056,12 @@ class TaskExecutionTrackingService:
                 "enforced": bool(approval_decision.get("enforced")),
                 "updated_at": time.time(),
             }
+        flow_metrics = dict((extra_history or {}).get("flow_metrics") or {})
+        if flow_metrics:
+            merged_metrics = dict(verification_status.get("task_flow_metrics") or {})
+            merged_metrics.update(flow_metrics)
+            merged_metrics["updated_at"] = time.time()
+            verification_status["task_flow_metrics"] = merged_metrics
         verification_status["execution_routing"] = {
             "inference_provider": cost_summary.get("inference_provider"),
             "inference_model": cost_summary.get("inference_model"),

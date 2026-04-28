@@ -36,6 +36,17 @@ class WorkerWorkspaceService:
 
     _IGNORED_WORKSPACE_SEGMENTS = {".ananta", "artifacts", "__pycache__"}
     _DIFF_MAX_FILE_BYTES = 512 * 1024
+    _NON_ARTIFACT_PATHS = {
+        "AGENTS.md",
+        "manifest.json",
+        ".ananta/context-index.md",
+        ".ananta/task-brief.md",
+        ".ananta/response-contract.md",
+        ".ananta/system-prompt.md",
+        ".ananta/hub-context.md",
+        "rag_helper/research-context.md",
+        "rag_helper/research-context.json",
+    }
 
     @staticmethod
     def _write_text(path: Path, content: str) -> None:
@@ -110,6 +121,15 @@ class WorkerWorkspaceService:
             text = payload.decode("utf-8", errors="replace")
         return text.splitlines(keepends=True), None
 
+    @staticmethod
+    def _truncate_text(value: str | None, *, limit: int | None) -> str:
+        text = str(value or "")
+        if not limit or limit <= 0:
+            return text
+        if len(text) <= limit:
+            return text
+        return text[: max(1, limit - 14)].rstrip() + "\n\n[gekürzt]"
+
     def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         workspace_cfg = dict(execution_context.get("workspace") or {})
@@ -162,6 +182,9 @@ class WorkerWorkspaceService:
         tool_definitions: list[dict] | None,
         research_context: dict | None,
         include_response_contract: bool = True,
+        task_brief_char_limit: int | None = None,
+        context_text_char_limit: int | None = None,
+        research_prompt_char_limit: int | None = None,
     ) -> dict:
         workspace_dir = workspace_context.workspace_dir
         bundle_dir = workspace_dir / ".ananta"
@@ -210,18 +233,38 @@ class WorkerWorkspaceService:
         _record(agents_dst, key="agents_path")
 
         task_brief = bundle_dir / "task-brief.md"
+        brief_assignment = self._truncate_text(str(base_prompt or "").strip(), limit=task_brief_char_limit).strip()
         task_lines = [
             "# Task Brief",
             "",
             f"- Task ID: {str(task.get('id') or '').strip() or 'unknown'}",
             f"- Title: {str(task.get('title') or '').strip() or 'unknown'}",
+            f"- Execution mode: {'structured-json-proposal' if include_response_contract else 'interactive-workspace-execution'}",
             "",
-            "## Current assignment",
-            str(base_prompt or "").strip() or "No task prompt available.",
+            "## Current assignment (source of truth)",
+            brief_assignment or "No task prompt available.",
         ]
         description = str(task.get("description") or "").strip()
         if description and description != str(base_prompt or "").strip():
-            task_lines.extend(["", "## Task description", description])
+            task_lines.extend(
+                [
+                    "",
+                    "## Task metadata description (secondary context)",
+                    self._truncate_text(description, limit=task_brief_char_limit).strip(),
+                ]
+            )
+        task_lines.extend(
+            [
+                "",
+                "## Working directives",
+                "- Prioritize the current assignment above metadata if they differ.",
+                "- Apply changes directly in this workspace and keep edits auditable.",
+            ]
+        )
+        if include_response_contract:
+            task_lines.append("- Return exactly one JSON object according to `.ananta/response-contract.md`.")
+        else:
+            task_lines.append("- No JSON response is required; workspace diffs are collected automatically after the run.")
         self._write_text(task_brief, "\n".join(task_lines).strip() + "\n")
         _record(task_brief, key="task_brief_path")
 
@@ -261,7 +304,10 @@ class WorkerWorkspaceService:
 
         if context_text:
             hub_context_path = bundle_dir / "hub-context.md"
-            self._write_text(hub_context_path, str(context_text).strip() + "\n")
+            self._write_text(
+                hub_context_path,
+                self._truncate_text(str(context_text).strip(), limit=context_text_char_limit).strip() + "\n",
+            )
             _record(hub_context_path, key="hub_context_path")
 
         if expected_output_schema:
@@ -281,7 +327,10 @@ class WorkerWorkspaceService:
             prompt_section = str((research_context or {}).get("prompt_section") or "").strip()
             if prompt_section:
                 research_md_path = workspace_context.rag_helper_dir / "research-context.md"
-                self._write_text(research_md_path, prompt_section + "\n")
+                self._write_text(
+                    research_md_path,
+                    self._truncate_text(prompt_section, limit=research_prompt_char_limit).strip() + "\n",
+                )
                 _record(research_md_path, key="research_context_prompt_path")
 
         context_index = bundle_dir / "context-index.md"
@@ -391,6 +440,22 @@ class WorkerWorkspaceService:
         before = self._snapshot_tree(baseline_dir, tracked_only=False)
         after = self.snapshot_directory(workspace_dir)
         return self.detect_changed_files(before, after)
+
+    @classmethod
+    def filter_meaningful_changed_files(cls, changed_rel_paths: list[str] | None) -> list[str]:
+        meaningful: list[str] = []
+        for rel in list(changed_rel_paths or []):
+            normalized = str(rel or "").strip().replace("\\", "/")
+            if not normalized:
+                continue
+            if normalized in cls._NON_ARTIFACT_PATHS:
+                continue
+            if normalized.startswith(".ananta/"):
+                continue
+            if normalized.startswith("rag_helper/"):
+                continue
+            meaningful.append(normalized)
+        return meaningful
 
     def create_workspace_diff_artifact(
         self,

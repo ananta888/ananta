@@ -1405,3 +1405,145 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
         assert cli_session_meta.get("agent_url") == "http://worker-interactive:5000"
         assert (verification.get("opencode_live_terminal") or {}).get("agent_url") == "http://worker-interactive:5000"
         assert (verification.get("opencode_live_terminal") or {}).get("terminal_session_id") == "cli-interactive-1"
+
+
+def test_task_propose_interactive_terminal_retries_timeout_with_compact_context_and_returns_error(client, app, admin_auth_header):
+    tid = "T-INTERACTIVE-RETRY-TIMEOUT"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["sgpt_routing"] = {
+            "policy_version": "v2",
+            "default_backend": "opencode",
+            "task_kind_backend": {"ops": "opencode"},
+        }
+        cfg["cli_session_mode"] = {"enabled": False, "stateful_backends": ["opencode"]}
+        cfg["opencode_runtime"] = {
+            "tool_mode": "full",
+            "execution_mode": "interactive_terminal",
+            "interactive_propose_timeout_seconds": 420,
+            "interactive_retry_timeout_seconds": 540,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(
+            tid,
+            "assigned",
+            description="Run interactive flow with compact retry",
+            worker_execution_context={
+                "context": {"context_text": "C" * 9000},
+            },
+        )
+        assert _get_local_task_status(tid) is not None
+
+    calls: list[dict] = []
+
+    def _fake_cli(
+        prompt,
+        options=None,
+        timeout=None,
+        backend=None,
+        model=None,
+        routing_policy=None,
+        research_context=None,
+        session=None,
+        workdir=None,
+        **kwargs,
+    ):
+        calls.append(
+            {
+                "prompt": prompt,
+                "timeout": timeout,
+                "research_context": dict(research_context or {}),
+            }
+        )
+        return 1, "", "Read timed out", "opencode"
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={
+                "prompt": "restart now",
+                "research_context": {
+                    "artifact_ids": [f"artifact-{idx}" for idx in range(1, 11)],
+                    "knowledge_collection_ids": [f"kc-{idx}" for idx in range(1, 8)],
+                    "repo_scope_refs": [{"path": f"src/file_{idx}.py"} for idx in range(1, 10)],
+                    "prompt_section": "R" * 4500,
+                },
+            },
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 502
+    assert response.json["message"] == "llm_cli_failed"
+    assert len(calls) == 2
+    assert int(calls[0]["timeout"]) >= 420
+    assert int(calls[1]["timeout"]) >= 540
+    assert len((calls[1]["research_context"] or {}).get("artifact_ids") or []) < len(
+        (calls[0]["research_context"] or {}).get("artifact_ids") or []
+    )
+    assert len(str((calls[1]["research_context"] or {}).get("prompt_section") or "")) < len(
+        str((calls[0]["research_context"] or {}).get("prompt_section") or "")
+    )
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
+        assert metrics.get("propose_ok") is False
+        assert metrics.get("execute_ok") is None
+        assert metrics.get("artifact_created") is None
+
+
+def test_task_execute_interactive_finalize_persists_flow_metrics(client, app, admin_auth_header, tmp_path):
+    tid = "T-INTERACTIVE-METRICS"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+        from agent.services.worker_workspace_service import get_worker_workspace_service
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["worker_runtime"] = {"workspace_root": str(tmp_path)}
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="Finalize interactive workspace changes",
+            last_proposal={
+                "backend": "opencode",
+                "routing": {"task_kind": "ops", "reason": "interactive"},
+                "trace": {"trace_id": "trace-interactive-metrics", "policy_version": "v1"},
+                "cli_result": {"returncode": 0, "latency_ms": 55},
+            },
+            worker_execution_context={
+                "workspace": {
+                    "task_id": tid,
+                    "scope_key": "scope-interactive-metrics",
+                    "worker_job_id": "job-interactive-metrics",
+                }
+            },
+        )
+        task = _get_local_task_status(tid)
+        workspace = get_worker_workspace_service().resolve_workspace_context(task=task)
+        (workspace.workspace_dir / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
+        get_worker_workspace_service().refresh_interactive_terminal_baseline(workspace_dir=workspace.workspace_dir)
+        (workspace.workspace_dir / "src").mkdir(parents=True, exist_ok=True)
+        (workspace.workspace_dir / "src" / "app.py").write_text("print('ok')\n", encoding="utf-8")
+
+    response = client.post(
+        f"/tasks/{tid}/step/execute",
+        json={"command": "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"},
+        headers=admin_auth_header,
+    )
+    assert response.status_code == 200
+    assert response.json["data"]["status"] == "completed"
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
+        assert metrics.get("run_id") == "trace-interactive-metrics"
+        assert metrics.get("propose_ok") is True
+        assert metrics.get("execute_ok") is True
+        assert metrics.get("artifact_created") is True
