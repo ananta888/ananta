@@ -7,7 +7,10 @@
         "baseURL": "http://192.168.56.1:1234/v1"
       },
       "models": {
-        "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {}
+        "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {},
+        "glm-4-9b-0414": {},
+        "qwen2.5-coder-14b-instruct": {},
+        "qwen2.5-coder-7b-instruct": {}
       }
     }
   }
