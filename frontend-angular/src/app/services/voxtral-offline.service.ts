@@ -18,6 +18,12 @@ export interface VoxtralLocalAsset {
   executable?: boolean;
 }
 
+export interface VoxtralRunnerDownloadPreset {
+  label: string;
+  url: string;
+  fileName?: string;
+}
+
 interface VoxtralOfflinePlugin {
   getStatus(): Promise<VoxtralStatus>;
   requestMicrophonePermission(): Promise<{ state: string }>;
@@ -42,6 +48,7 @@ const VoxtralOffline = registerPlugin<VoxtralOfflinePlugin>('VoxtralOffline');
 @Injectable({ providedIn: 'root' })
 export class VoxtralOfflineService {
   readonly isNative = Capacitor.isNativePlatform();
+  private readonly githubLlamaReleasesApi = 'https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=8';
 
   async getStatus(): Promise<VoxtralStatus> {
     if (!this.isNative) {
@@ -142,5 +149,38 @@ export class VoxtralOfflineService {
   async clearLastAudio(): Promise<void> {
     if (!this.isNative) return;
     await VoxtralOffline.clearLastAudio();
+  }
+
+  async resolveLatestAndroidRunnerPreset(): Promise<VoxtralRunnerDownloadPreset> {
+    const response = await fetch(this.githubLlamaReleasesApi, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Runner-Preset konnte nicht geladen werden (HTTP ${response.status}).`);
+    }
+    const releases = await response.json();
+    if (!Array.isArray(releases)) {
+      throw new Error('Ungueltige Antwort fuer Runner-Preset.');
+    }
+
+    for (const release of releases) {
+      const assets = Array.isArray(release?.assets) ? release.assets : [];
+      const match = assets.find((asset: any) => {
+        const name = String(asset?.name || '').toLowerCase();
+        return /llama-.*-bin-android-arm64\.tar\.gz$/.test(name);
+      });
+      if (match?.browser_download_url) {
+        const fileName = String(match?.name || '').trim() || undefined;
+        const tag = String(release?.tag_name || '').trim();
+        return {
+          label: tag ? `llama.cpp ${tag} (android-arm64)` : 'llama.cpp (android-arm64)',
+          url: String(match.browser_download_url),
+          fileName,
+        };
+      }
+    }
+    throw new Error('Kein Android-Runner-Archiv in den letzten llama.cpp-Releases gefunden.');
   }
 }

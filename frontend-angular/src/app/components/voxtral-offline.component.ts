@@ -79,6 +79,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
         <div class="row gap-sm mt-md wrap">
           <button class="secondary" type="button" (click)="requestMic()">Mikrofon erlauben</button>
           <button class="secondary" type="button" (click)="applyPresetModel()" [disabled]="busy">Preset uebernehmen</button>
+          <button class="secondary" type="button" (click)="applyLatestRunnerPreset()" [disabled]="busy">Runner-Preset (auto)</button>
           <button class="secondary" type="button" (click)="applyLocalSelection()" [disabled]="busy">Auswahl uebernehmen</button>
           <button class="secondary" type="button" (click)="refreshLocalAssets()" [disabled]="busy">Lokale Dateien neu laden</button>
           <button class="primary" type="button" (click)="startRecording()" [disabled]="busy || recording">Aufnahme starten</button>
@@ -101,6 +102,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           <div><strong>Runner:</strong> {{ runnerPath || '-' }}</div>
           <div><strong>Download Modell:</strong> {{ modelDownloadProgress }}</div>
           <div><strong>Download Runner:</strong> {{ runnerDownloadProgress }}</div>
+          <div class="muted"><small>Runner-Tipp: Mit "Runner-Preset (auto)" wird das aktuelle llama.cpp Android-Archiv gesetzt; beim Download wird ein passender Runner automatisch extrahiert.</small></div>
           <div><strong>Setup:</strong> {{ setupStatus || '-' }}</div>
         </div>
 
@@ -232,6 +234,15 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.modelPath = this.modelPath || '';
     this.toast.info(`Preset gewaehlt: ${preset.label}`);
     this.persistSelections();
+  }
+
+  async applyLatestRunnerPreset(): Promise<void> {
+    await this.run(async () => {
+      const preset = await this.voxtral.resolveLatestAndroidRunnerPreset();
+      this.runnerUrl = preset.url;
+      this.persistSelections();
+      this.toast.info(`Runner-Preset gesetzt: ${preset.label}`);
+    });
   }
 
   applyLocalSelection(): void {
