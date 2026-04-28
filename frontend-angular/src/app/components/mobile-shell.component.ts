@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 
-import { PythonRuntimeService, ShellCommandResult } from '../services/python-runtime.service';
+import { PythonRuntimeService, ShellCommandResult, ProotInstallProgressEvent } from '../services/python-runtime.service';
 import { MobileProotService } from '../services/mobile-proot.service';
 
 @Component({
@@ -17,6 +17,10 @@ import { MobileProotService } from '../services/mobile-proot.service';
       @if (!isAndroidNative) {
         <div class="card card-light">Nur in der nativen Android-App verfuegbar.</div>
       } @else {
+        <div class="card card-light mt-sm">
+          <strong>Gefuehrter Setup</strong>
+          <div class="muted">1) Runtime installieren -> 2) Distro installieren -> 3) Distro starten</div>
+        </div>
         <div class="card card-light grid gap-sm mt-sm">
           <div class="row gap-sm wrap">
             <label>
@@ -27,13 +31,24 @@ import { MobileProotService } from '../services/mobile-proot.service';
                 }
               </select>
             </label>
-            <button type="button" class="secondary" (click)="runCheckCommand()" [disabled]="running">proot-distro pruefen</button>
-            <button type="button" class="secondary" (click)="listInstalledDistros()" [disabled]="running">Installierte Distros</button>
-            <button type="button" class="secondary" (click)="installRuntime()" [disabled]="running || prootBusy">Runtime installieren</button>
-            <button type="button" class="secondary" (click)="installSelectedDistro()" [disabled]="running || prootBusy">Distro installieren</button>
-            <button type="button" class="secondary" (click)="setWorkerStartInDistroCommand()" [disabled]="running">Worker in Distro (Vorlage)</button>
+            <button type="button" class="secondary" (click)="installRuntime()" [disabled]="running || prootBusy">1) Runtime installieren</button>
+            <button type="button" class="secondary" (click)="installSelectedDistro()" [disabled]="running || prootBusy || !runtimeReady">2) Distro installieren</button>
+            <button type="button" class="secondary" (click)="listInstalledDistros()" [disabled]="running || prootBusy">Installierte Distros</button>
+            <button type="button" class="secondary" (click)="runCheckCommand()" [disabled]="running || prootBusy">Setup pruefen</button>
+            <button type="button" class="secondary" (click)="setWorkerStartInDistroCommand()" [disabled]="running || !selectedDistroInstalled">Worker in Distro (Vorlage)</button>
           </div>
           <div class="muted">{{ prootStatus }}</div>
+          @if (installProgressActive) {
+            <div class="grid gap-sm">
+              <div class="muted">{{ installProgressLabel }}</div>
+              @if (installProgressPercent >= 0) {
+                <progress [value]="installProgressPercent" max="100"></progress>
+              }
+            </div>
+          }
+          <div class="muted">
+            Runtime: {{ runtimeReady ? 'ok' : 'fehlt' }} | {{ selectedDistro }}: {{ selectedDistroInstalled ? 'installiert' : 'nicht installiert' }}
+          </div>
           <div class="muted">Installierte Distros: {{ installedDistros.length ? installedDistros.join(', ') : '-' }}</div>
           <div class="row gap-sm wrap">
             <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
@@ -139,19 +154,34 @@ export class MobileShellComponent implements OnDestroy, OnInit {
   prootBusy = false;
   prootStatus = '';
   installedDistros: string[] = [];
+  runtimeReady = false;
+  installProgressActive = false;
+  installProgressPercent = -1;
+  installProgressLabel = '';
+  private removeProotProgressListener?: () => Promise<void>;
   private pollHandle?: ReturnType<typeof setInterval>;
 
   get isAndroidNative(): boolean {
     return this.python.isNative && Capacitor.getPlatform() === 'android';
   }
 
+  get selectedDistroInstalled(): boolean {
+    return this.installedDistros.includes(this.selectedDistro);
+  }
+
   ngOnInit(): void {
     if (!this.isAndroidNative) return;
+    this.python.onProotInstallProgress((event) => this.onProotProgress(event)).then((remove) => {
+      this.removeProotProgressListener = remove;
+    }).catch(() => undefined);
     this.refreshProotRuntimeStatus().catch(() => undefined);
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+    if (this.removeProotProgressListener) {
+      this.removeProotProgressListener().catch(() => undefined);
+    }
     if (this.shellSessionId) {
       this.python.closeShellSession(this.shellSessionId).catch(() => undefined);
     }
@@ -284,11 +314,26 @@ export class MobileShellComponent implements OnDestroy, OnInit {
   onDistroChange(next: string): void {
     this.selectedDistro = String(next || 'ubuntu').trim().toLowerCase();
     this.proot.setSelectedDistro(this.selectedDistro);
+    this.refreshProotRuntimeStatus().catch(() => undefined);
   }
 
   runCheckCommand(): void {
-    this.command = this.proot.buildCheckCommand();
-    this.runCommand().catch(() => undefined);
+    this.prootStatus = 'Pruefe Setup...';
+    this.refreshProotRuntimeStatus().then(() => {
+      this.output = [
+        `Runtime: ${this.runtimeReady ? 'OK' : 'fehlt'}`,
+        `Distro ${this.selectedDistro}: ${this.selectedDistroInstalled ? 'installiert' : 'nicht installiert'}`,
+        `Alle Distros: ${this.installedDistros.length ? this.installedDistros.join(', ') : '-'}`,
+      ].join('\n');
+      this.lastMeta = 'Setup-Pruefung';
+      this.prootStatus = this.runtimeReady
+        ? 'Setup geprueft.'
+        : 'Runtime fehlt. Bitte Schritt 1 ausfuehren.';
+    }).catch((error: any) => {
+      this.output = error?.message || String(error);
+      this.lastMeta = 'Fehler';
+      this.prootStatus = 'Setup-Pruefung fehlgeschlagen.';
+    });
   }
 
   listInstalledDistros(): void {
@@ -321,6 +366,7 @@ export class MobileShellComponent implements OnDestroy, OnInit {
       }
     ).finally(() => {
       this.prootBusy = false;
+      this.installProgressActive = false;
     });
   }
 
@@ -342,11 +388,13 @@ export class MobileShellComponent implements OnDestroy, OnInit {
       }
     ).finally(() => {
       this.prootBusy = false;
+      this.installProgressActive = false;
     });
   }
 
   private async refreshProotRuntimeStatus(): Promise<void> {
     const status = await this.python.getProotRuntimeStatus();
+    this.runtimeReady = status.prootExecutable === true;
     this.installedDistros = (status.distros || [])
       .map((item) => String(item?.name || '').trim())
       .filter(Boolean)
@@ -355,6 +403,27 @@ export class MobileShellComponent implements OnDestroy, OnInit {
       this.prootStatus = status.prootExecutable
         ? `Runtime bereit: ${status.prootPath}`
         : 'Runtime noch nicht installiert.';
+    }
+  }
+
+  private onProotProgress(event: ProotInstallProgressEvent): void {
+    this.installProgressActive = true;
+    const progress = Number(event?.progress);
+    this.installProgressPercent = Number.isFinite(progress) && progress >= 0
+      ? Math.max(0, Math.min(100, Math.round(progress * 100)))
+      : -1;
+    this.installProgressLabel = String(event?.message || event?.stage || 'Installiere...');
+    const operation = String(event?.operation || '').trim();
+    const distro = String(event?.distro || '').trim();
+    const prefix = operation === 'distro'
+      ? `Distro${distro ? ` (${distro})` : ''}`
+      : operation === 'runtime'
+        ? 'Runtime'
+        : 'Setup';
+    this.prootStatus = `${prefix}: ${this.installProgressLabel}`;
+    if (event?.stage === 'done' || event?.stage === 'error') {
+      if (event.stage === 'error') this.installProgressPercent = -1;
+      this.refreshProotRuntimeStatus().catch(() => undefined);
     }
   }
 
