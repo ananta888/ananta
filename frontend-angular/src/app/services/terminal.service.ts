@@ -25,7 +25,7 @@ interface TerminalConnectAttemptResult {
 
 @Injectable()
 export class TerminalService {
-  private static readonly CONNECT_TIMEOUT_MS = 900;
+  private static readonly CONNECT_TIMEOUT_MS = 6000;
 
   private dir = inject(AgentDirectoryService);
   private userAuth = inject(UserAuthService);
@@ -174,18 +174,23 @@ export class TerminalService {
 
       ws.onerror = () => {
         if (!ready) {
-          preReadyErrorMessage = preReadyErrorMessage || 'websocket_error';
+          // Browsers don't expose error details on WebSocket error events.
+          // Wait for onclose to capture code/reason for a better diagnostic.
           try { ws.close(); } catch {}
-          finish(false);
           return;
         }
         this.stateSubject.next('error');
         this.eventsSubject.next({ type: 'error', data: { message: 'websocket_error' } });
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event: CloseEvent) => {
         if (!ready) {
-          preReadyErrorMessage = preReadyErrorMessage || 'closed_before_ready';
+          const code = Number(event?.code ?? 0);
+          const reason = String(event?.reason || '').trim();
+          const closeLabel = reason
+            ? `closed_before_ready(code=${code},reason=${reason})`
+            : `closed_before_ready(code=${code})`;
+          preReadyErrorMessage = preReadyErrorMessage || closeLabel;
           finish(false);
           return;
         }
