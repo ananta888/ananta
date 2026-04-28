@@ -223,17 +223,21 @@ import { MobileProotService } from '../services/mobile-proot.service';
         <label>Forward Param (optional)
           <input [(ngModel)]="terminalForwardParam" placeholder="z. B. cli-... fuer taskgebundene Live-Terminals" />
         </label>
-        @if (terminalWsSupported) {
+        @if (terminalEmbeddedMode) {
+          <div class="muted">Interner Live-Modus aktiv (embedded shell bridge).</div>
+        }
+        @if (terminalAvailable) {
           <app-terminal
             [baseUrl]="agent.url"
             [token]="getRequestToken()"
             [mode]="terminalMode"
             [forwardParam]="terminalForwardParam || undefined"
+            [embeddedShellMode]="terminalEmbeddedMode"
           ></app-terminal>
         } @else {
           <div class="card card-light">
             <strong>Live-Terminal nicht verfuegbar</strong>
-            <p class="muted">{{ terminalWsReason }}</p>
+            <p class="muted">{{ terminalUnavailableReason }}</p>
           </div>
         }
 
@@ -307,8 +311,9 @@ export class AgentPanelComponent {
   terminalMode: TerminalMode = 'interactive';
   terminalForwardParam = '';
   private terminalForwardParamAutoResolved = false;
-  terminalWsSupported = true;
-  terminalWsReason = '';
+  terminalAvailable = true;
+  terminalEmbeddedMode = false;
+  terminalUnavailableReason = '';
   workerShellCommand = '';
   workerShellOutput = '';
   workerShellMeta = '';
@@ -614,14 +619,14 @@ export class AgentPanelComponent {
 
   private async refreshTerminalAvailability(): Promise<void> {
     if (!this.agent) return;
-    this.terminalWsSupported = true;
-    this.terminalWsReason = '';
+    this.terminalAvailable = true;
+    this.terminalEmbeddedMode = false;
+    this.terminalUnavailableReason = '';
     try {
       const token = this.getRequestToken();
       const health = await firstValueFrom(this.api.health(this.agent.url, token));
       if (this.isEmbeddedRuntimeHealth(health)) {
-        this.terminalWsSupported = false;
-        this.terminalWsReason = this.buildEmbeddedTerminalReason(health);
+        this.terminalEmbeddedMode = true;
         return;
       }
     } catch {
@@ -635,24 +640,16 @@ export class AgentPanelComponent {
       const hubToken = this.userAuth.token || hub.token;
       const hubHealth = await firstValueFrom(this.api.health(hub.url, hubToken));
       if (this.isEmbeddedRuntimeHealth(hubHealth)) {
-        this.terminalWsSupported = false;
-        this.terminalWsReason = this.buildEmbeddedTerminalReason(hubHealth);
+        this.terminalEmbeddedMode = true;
       }
     } catch {
-      // Keep terminal visible when we cannot determine runtime mode.
+      this.terminalAvailable = false;
+      this.terminalUnavailableReason = 'Agent-/Hub-Gesundheitscheck fehlgeschlagen. Bitte Runtime/Worker pruefen.';
     }
   }
 
   private isEmbeddedRuntimeHealth(health: any): boolean {
     return Boolean(health && typeof health === 'object' && health.embedded === true);
-  }
-
-  private buildEmbeddedTerminalReason(health: any): string {
-    const workerMode = String(health?.worker_mode || '').trim().toLowerCase();
-    const modeHint = workerMode
-      ? ` Aktueller Worker-Modus: ${workerMode}.`
-      : '';
-    return `Diese interne Android-Embedded-Runtime stellt keinen /ws/terminal Endpoint bereit.${modeHint} Nutze Android Worker Shell oder starte einen dedizierten Worker (python -m agent.ai_agent) auf Port 5001 fuer Live-Terminal per WebSocket.`;
   }
 
   setWorkerShellStatusCommand(): void {
