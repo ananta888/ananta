@@ -89,13 +89,7 @@ export class MobileProotService {
   }
 
   private runtimeRootResolverSnippet(): string {
-    return [
-      'ANANTA_PROOT_RUNTIME=""',
-      'for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do',
-      '  if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi',
-      'done',
-      'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi',
-    ].join(' && ');
+    return 'ANANTA_PROOT_RUNTIME=""; for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi';
   }
 
   private rootfsResolverSnippet(selectedDistro?: string): string {
@@ -109,14 +103,8 @@ export class MobileProotService {
   private workerStartSnippet(): string {
     return [
       'ANANTA_ROOT=""',
-      'for d in /data/data/com.termux/files/home/ananta /data/user/0/com.ananta.mobile/files/ananta /data/data/com.ananta.mobile/files/ananta; do',
-      '  if [ -d "$d/agent" ]; then ANANTA_ROOT="$d"; break; fi',
-      'done',
-      'if [ -z "$ANANTA_ROOT" ]; then',
-      '  for d in /data/user/0/com.ananta.mobile/files /data/data/com.ananta.mobile/files /data/data/com.termux/files/home; do',
-      '    if [ -d "$d" ]; then ANANTA_ROOT="$d"; break; fi',
-      '  done',
-      'fi',
+      'for d in /data/data/com.termux/files/home/ananta /data/user/0/com.ananta.mobile/files/ananta /data/data/com.ananta.mobile/files/ananta; do if [ -d "$d/agent" ]; then ANANTA_ROOT="$d"; break; fi; done',
+      'if [ -z "$ANANTA_ROOT" ]; then for d in /data/user/0/com.ananta.mobile/files /data/data/com.ananta.mobile/files /data/data/com.termux/files/home; do if [ -d "$d" ]; then ANANTA_ROOT="$d"; break; fi; done; fi',
       'if [ -z "$ANANTA_ROOT" ]; then echo "Ananta workspace nicht gefunden"; exit 1; fi',
       'cd "$ANANTA_ROOT"',
       'ROLE=worker AGENT_NAME=android-worker PORT=5001 HUB_URL=http://127.0.0.1:5000 AGENT_URL=http://127.0.0.1:5001 python -m agent.ai_agent',
