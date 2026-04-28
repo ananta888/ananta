@@ -354,6 +354,28 @@ public class PythonRuntimePlugin extends Plugin {
 
                 File runtimeRoot = runtimeRootDir();
                 File binDir = ensureDir(runtimeRoot, "bin");
+                File existingWrapper = new File(binDir, PROOT_WRAPPER_FILE);
+                File existingBinary = new File(binDir, PROOT_BIN_FILE);
+                if (existingWrapper.exists() && existingBinary.exists()) {
+                    existingWrapper.setReadable(true, false);
+                    existingBinary.setReadable(true, false);
+                    existingWrapper.setExecutable(true, false);
+                    existingBinary.setExecutable(true, false);
+                    ProotProbeResult probe = probeProotWrapper(existingWrapper);
+                    JSObject result = new JSObject();
+                    result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
+                    result.put("prootPath", existingWrapper.getAbsolutePath());
+                    result.put("alreadyInstalled", true);
+                    result.put("runnable", probe.runnable);
+                    result.put("probeMessage", probe.message);
+                    String doneMessage = probe.runnable
+                        ? "Runtime bereits installiert."
+                        : "Runtime bereits installiert, aber nicht startbar.";
+                    notifyProotProgress("runtime", "done", doneMessage, -1, -1, null);
+                    call.resolve(result);
+                    return;
+                }
+
                 File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File downloadTarget = new File(tmpDir, "proot-rs.tar.gz");
                 downloadToFile(url, downloadTarget, "runtime");
