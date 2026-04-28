@@ -247,12 +247,14 @@ import { MobileProotService } from '../services/mobile-proot.service';
             <div class="row">
               <button (click)="runWorkerShellCommand()" [disabled]="workerShellBusy">Ausfuehren</button>
               <button class="button-outline" (click)="setWorkerShellStatusCommand()" [disabled]="workerShellBusy">Status-Befehl</button>
+              <button class="button-outline" (click)="showInstalledDistros()" [disabled]="workerShellBusy">Installierte Distros</button>
               <button class="button-outline" (click)="setWorkerShellStartCommand()" [disabled]="workerShellBusy">Start-Befehl</button>
               <button class="button-outline" (click)="installWorkerRuntime()" [disabled]="workerShellBusy">Runtime installieren</button>
               <button class="button-outline" (click)="installWorkerDistro()" [disabled]="workerShellBusy">Distro installieren</button>
               <button class="button-outline" (click)="setWorkerShellLoginDistroCommand()" [disabled]="workerShellBusy">Distro Login</button>
             </div>
             <div class="muted">{{ workerShellMeta || '-' }}</div>
+            <div class="muted">Installierte Distros: {{ workerInstalledDistros.length ? workerInstalledDistros.join(', ') : '-' }}</div>
             <pre class="pre-scroll">{{ workerShellOutput || 'Noch keine Ausgabe.' }}</pre>
           </div>
         }
@@ -302,6 +304,7 @@ export class AgentPanelComponent {
   workerShellOutput = '';
   workerShellMeta = '';
   workerShellBusy = false;
+  workerInstalledDistros: string[] = [];
   readonly distroOptions = this.proot.distroOptions;
   selectedDistro = this.proot.getSelectedDistro();
 
@@ -325,6 +328,7 @@ export class AgentPanelComponent {
     this.ensureTerminalForwardParamLoaded();
     if (this.isAndroidNative && this.agent?.role !== 'hub') {
       this.setWorkerShellStatusCommand();
+      this.refreshWorkerRuntimeStatus().catch(() => undefined);
     }
   }
 
@@ -627,6 +631,7 @@ export class AgentPanelComponent {
     ).then(
       (status) => {
         this.workerShellMeta = status.prootExecutable ? 'Runtime installiert.' : 'Runtime installiert, aber nicht ausfuehrbar.';
+        this.workerInstalledDistros = (status.distros || []).map((item) => item.name).filter(Boolean).sort();
         this.setWorkerShellStatusCommand();
       },
       (error: any) => {
@@ -644,8 +649,10 @@ export class AgentPanelComponent {
     this.proot.setSelectedDistro(this.selectedDistro);
     this.workerShellMeta = `Installiere Distro ${this.selectedDistro}...`;
     this.pythonRuntime.installProotDistro(this.selectedDistro).then(
-      (result) => {
+      async (result) => {
         this.workerShellMeta = `Distro installiert: ${result.distro}`;
+        this.workerShellOutput = `Distro installiert: ${result.distro}\nRootfs: ${result.rootfsPath}`;
+        await this.refreshWorkerRuntimeStatus();
         this.setWorkerShellStatusCommand();
       },
       (error: any) => {
@@ -660,6 +667,23 @@ export class AgentPanelComponent {
   onDistroChange(next: string): void {
     this.selectedDistro = String(next || 'ubuntu').trim().toLowerCase();
     this.proot.setSelectedDistro(this.selectedDistro);
+  }
+
+  showInstalledDistros(): void {
+    if (!this.isAndroidNative || this.workerShellBusy) return;
+    this.workerShellBusy = true;
+    this.workerShellMeta = 'Lese installierte Distros...';
+    this.refreshWorkerRuntimeStatus().then(() => {
+      this.workerShellOutput = this.workerInstalledDistros.length
+        ? this.workerInstalledDistros.map((name) => `- ${name}`).join('\n')
+        : 'Keine Distros installiert.';
+      this.workerShellMeta = 'Installierte Distros';
+    }).catch((error: any) => {
+      this.workerShellOutput = error?.message || String(error);
+      this.workerShellMeta = 'Fehler';
+    }).finally(() => {
+      this.workerShellBusy = false;
+    });
   }
 
   runWorkerShellCommand(): void {
@@ -684,5 +708,13 @@ export class AgentPanelComponent {
     ).finally(() => {
       this.workerShellBusy = false;
     });
+  }
+
+  private async refreshWorkerRuntimeStatus(): Promise<void> {
+    const status = await this.pythonRuntime.getProotRuntimeStatus();
+    this.workerInstalledDistros = (status.distros || [])
+      .map((item) => String(item?.name || '').trim())
+      .filter(Boolean)
+      .sort();
   }
 }
