@@ -24,13 +24,27 @@ import { PythonRuntimeService } from './services/python-runtime.service';
     <app-toast />
     <header class="app-header">
       <div class="row app-header-top">
-        <h1>Ananta - Agent Control</h1>
+        <div class="row app-header-title">
+          @if (isAndroidNative && (auth.user$ | async)) {
+            <button
+              class="secondary android-drawer-toggle"
+              (click)="shell.toggleMobileNav()"
+              [attr.aria-expanded]="shell.mobileNavOpen()"
+              aria-controls="primary-navigation"
+              aria-label="Menue oeffnen">
+              ☰
+            </button>
+          }
+          <h1>Ananta - Agent Control</h1>
+        </div>
         @if (auth.user$ | async; as user) {
           <div class="row app-header-user">
             <span class="muted" style="font-size: 14px;">{{ user.sub }} ({{ user.role }})</span>
-            <button class="secondary mobile-nav-toggle" (click)="shell.toggleMobileNav()" [attr.aria-expanded]="shell.mobileNavOpen()" aria-controls="primary-navigation" aria-label="Navigation umschalten">
-              {{ shell.mobileNavOpen() ? 'Menue schliessen' : 'Menue' }}
-            </button>
+            @if (!isAndroidNative) {
+              <button class="secondary mobile-nav-toggle" (click)="shell.toggleMobileNav()" [attr.aria-expanded]="shell.mobileNavOpen()" aria-controls="primary-navigation" aria-label="Navigation umschalten">
+                {{ shell.mobileNavOpen() ? 'Menue schliessen' : 'Menue' }}
+              </button>
+            }
             <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Darstellung umschalten">
               {{ shell.darkMode() ? 'Hell' : 'Dunkel' }}
             </button>
@@ -98,6 +112,18 @@ import { PythonRuntimeService } from './services/python-runtime.service';
       align-items: center;
       width: 100%;
     }
+    .app-header-title {
+      align-items: center;
+      gap: 8px;
+    }
+    .android-drawer-toggle {
+      min-width: 30px;
+      height: 30px;
+      padding: 0;
+      line-height: 1;
+      border-radius: 6px;
+      font-size: 14px;
+    }
     .app-header-user {
       gap: 12px;
       align-items: center;
@@ -107,6 +133,27 @@ import { PythonRuntimeService } from './services/python-runtime.service';
     }
     .app-nav {
       gap: 10px;
+    }
+    .app-nav.app-nav-drawer {
+      display: flex;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: min(84vw, 320px);
+      transform: translateX(-108%);
+      transition: transform 180ms ease;
+      z-index: 1200;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border);
+      padding: 64px 12px 18px;
+      overflow-y: auto;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+    .app-nav.app-nav-drawer.nav-open {
+      transform: translateX(0);
     }
     .mobile-nav-backdrop {
       display: none;
@@ -144,24 +191,6 @@ import { PythonRuntimeService } from './services/python-runtime.service';
       }
       .app-nav.nav-open {
         display: flex;
-      }
-      .app-nav.app-nav-drawer {
-        display: flex;
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: min(84vw, 320px);
-        transform: translateX(-108%);
-        transition: transform 180ms ease;
-        z-index: 1200;
-        background: var(--card-bg);
-        border-right: 1px solid var(--border);
-        padding: 64px 12px 18px;
-        overflow-y: auto;
-      }
-      .app-nav.app-nav-drawer.nav-open {
-        transform: translateX(0);
       }
       .app-nav a {
         border: 1px solid var(--border);
