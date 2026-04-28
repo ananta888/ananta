@@ -262,11 +262,7 @@ export class MobileShellComponent implements OnDestroy {
   }
 
   setWorkerStartCommand(): void {
-    this.command = [
-      'cd /data/data/com.termux/files/home/ananta',
-      'ROLE=worker AGENT_NAME=android-worker PORT=5001 HUB_URL=http://127.0.0.1:5000 AGENT_URL=http://127.0.0.1:5001',
-      'python -m agent.ai_agent',
-    ].join(' && ');
+    this.command = this.proot.buildWorkerStartCommand();
   }
 
   setWorkerStartInDistroCommand(): void {
