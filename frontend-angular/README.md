@@ -97,6 +97,8 @@ In der nativen Android-App gibt es die Route `/voxtral-offline` mit:
 - WAV-Aufnahme (16 kHz mono) im App-Storage starten/stoppen
 - Modell direkt in App-Storage herunterladen
 - Runner-Binary direkt in App-Storage herunterladen (wird ausfuehrbar gesetzt)
+- Runner-Preset (auto): setzt die aktuelle `llama.cpp` Android-ARM64 Release-URL
+- Runner-Archive (`.tar.gz`) werden beim Download automatisch entpackt und ein passender Runner extrahiert
 - Lokale Modelle/Runner auflisten und auswaehlen
 - Setup-Pruefung (Speicher, Modell vorhanden, Runner ausfuehrbar)
 - Lokale Offline-Transkription durch Runner-Aufruf via nativer Android-Bridge

@@ -30,9 +30,11 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.GZIPInputStream;
 
 @CapacitorPlugin(
         name = "VoxtralOffline",
@@ -41,6 +43,14 @@ import java.util.concurrent.Executors;
         }
 )
 public class VoxtralOfflinePlugin extends Plugin {
+    private static final List<String> RUNNER_CANDIDATE_NAMES = Arrays.asList(
+            "voxtral4b-main",
+            "voxtral-stream-cli",
+            "voxtral-cli",
+            "llama-voxtral-cli",
+            "llama-cli"
+    );
+
     private final Object recordingLock = new Object();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
@@ -661,29 +671,39 @@ public class VoxtralOfflinePlugin extends Plugin {
                     return;
                 }
 
-                String sha256 = computeSha256(outFile);
+                File effectiveFile = outFile;
+                if (executable && isTarGzArchive(outFile)) {
+                    File extracted = extractRunnerFromTarGz(outFile, targetDir);
+                    if (extracted == null || !extracted.exists()) {
+                        call.reject("No runner binary found in archive: " + outFile.getName());
+                        return;
+                    }
+                    effectiveFile = extracted;
+                }
+
+                String sha256 = computeSha256(effectiveFile);
                 if (expectedSha256 != null && !expectedSha256.isBlank()) {
                     String normalizedExpected = expectedSha256.trim().toLowerCase();
                     if (!normalizedExpected.equals(sha256)) {
-                        outFile.delete();
-                        call.reject("SHA256 mismatch for " + outFile.getName());
+                        effectiveFile.delete();
+                        call.reject("SHA256 mismatch for " + effectiveFile.getName());
                         return;
                     }
                 }
 
-                if (executable && !outFile.canExecute()) {
-                    outFile.setExecutable(true);
+                if (executable && !effectiveFile.canExecute()) {
+                    effectiveFile.setExecutable(true);
                 }
 
                 if ("modelPath".equals(outputField)) {
-                    lastModelPath = outFile.getAbsolutePath();
+                    lastModelPath = effectiveFile.getAbsolutePath();
                 } else if ("runnerPath".equals(outputField)) {
-                    lastRunnerPath = outFile.getAbsolutePath();
+                    lastRunnerPath = effectiveFile.getAbsolutePath();
                 }
 
                 JSObject result = new JSObject();
-                result.put(outputField, outFile.getAbsolutePath());
-                result.put("bytes", outFile.length());
+                result.put(outputField, effectiveFile.getAbsolutePath());
+                result.put("bytes", effectiveFile.length());
                 result.put("sha256", sha256);
                 call.resolve(result);
             } catch (Exception error) {
@@ -692,6 +712,126 @@ public class VoxtralOfflinePlugin extends Plugin {
                 if (connection != null) connection.disconnect();
             }
         });
+    }
+
+    private boolean isTarGzArchive(File file) {
+        String name = file.getName().toLowerCase();
+        return name.endsWith(".tar.gz") || name.endsWith(".tgz");
+    }
+
+    private File extractRunnerFromTarGz(File archive, File targetDir) throws IOException {
+        try (InputStream fis = new FileInputStream(archive);
+             InputStream gis = new GZIPInputStream(fis);
+             BufferedInputStream input = new BufferedInputStream(gis)) {
+            byte[] header = new byte[512];
+            while (readFully(input, header, 0, header.length)) {
+                if (isZeroBlock(header)) break;
+
+                String entryName = readTarString(header, 0, 100);
+                long size = parseTarOctal(header, 124, 12);
+                char type = (char) (header[156] & 0xff);
+                String baseName = baseName(entryName);
+                boolean isRegularFile = type == 0 || type == '0';
+                boolean candidate = isRegularFile && size > 0 && isRunnerCandidate(baseName);
+
+                File extractedFile = null;
+                OutputStreamHolder holder = null;
+                if (candidate) {
+                    extractedFile = new File(targetDir, baseName);
+                    holder = new OutputStreamHolder(new FileOutputStream(extractedFile));
+                }
+
+                long remaining = size;
+                byte[] buffer = new byte[8192];
+                while (remaining > 0) {
+                    int read = input.read(buffer, 0, (int) Math.min(buffer.length, remaining));
+                    if (read == -1) throw new IOException("Unexpected EOF while reading tar entry.");
+                    if (holder != null) holder.output.write(buffer, 0, read);
+                    remaining -= read;
+                }
+                if (holder != null) {
+                    holder.output.close();
+                    if (!extractedFile.canExecute()) extractedFile.setExecutable(true);
+                    return extractedFile;
+                }
+
+                long padding = (512 - (size % 512)) % 512;
+                skipFully(input, padding);
+            }
+        }
+        return null;
+    }
+
+    private boolean readFully(InputStream input, byte[] buffer, int offset, int len) throws IOException {
+        int total = 0;
+        while (total < len) {
+            int read = input.read(buffer, offset + total, len - total);
+            if (read == -1) {
+                return total != 0 && total == len;
+            }
+            total += read;
+        }
+        return true;
+    }
+
+    private boolean isZeroBlock(byte[] block) {
+        for (byte b : block) {
+            if (b != 0) return false;
+        }
+        return true;
+    }
+
+    private String readTarString(byte[] buffer, int offset, int len) {
+        int end = offset;
+        while (end < offset + len && buffer[end] != 0) end += 1;
+        return new String(buffer, offset, end - offset, StandardCharsets.UTF_8).trim();
+    }
+
+    private long parseTarOctal(byte[] buffer, int offset, int len) {
+        String raw = readTarString(buffer, offset, len);
+        if (raw.isEmpty()) return 0;
+        try {
+            return Long.parseLong(raw.trim(), 8);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private String baseName(String path) {
+        if (path == null || path.isBlank()) return "";
+        String normalized = path.replace('\\', '/');
+        int idx = normalized.lastIndexOf('/');
+        if (idx < 0) return normalized;
+        return normalized.substring(idx + 1);
+    }
+
+    private boolean isRunnerCandidate(String baseName) {
+        if (baseName == null || baseName.isBlank()) return false;
+        String name = baseName.toLowerCase();
+        if (RUNNER_CANDIDATE_NAMES.contains(name)) return true;
+        return name.contains("voxtral") || name.equals("llama-cli");
+    }
+
+    private void skipFully(InputStream input, long bytes) throws IOException {
+        long remaining = bytes;
+        while (remaining > 0) {
+            long skipped = input.skip(remaining);
+            if (skipped <= 0) {
+                if (input.read() == -1) {
+                    throw new IOException("Unexpected EOF while skipping tar padding.");
+                }
+                skipped = 1;
+            }
+            remaining -= skipped;
+        }
+    }
+
+    private static final class OutputStreamHolder {
+        final FileOutputStream output;
+
+        OutputStreamHolder(FileOutputStream output) {
+            this.output = output;
+        }
     }
 
     private List<String> buildRunnerCommand(File runnerFile, File modelFile, File audioFile) {
