@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin, PluginListenerHandle } from '@capacitor/core';
 
 export interface PythonRuntimeStatus {
   pythonAvailable: boolean;
@@ -34,6 +34,16 @@ export interface ProotRuntimeStatus {
   distros: Array<{ name: string; rootfsPath: string }>;
 }
 
+export interface ProotInstallProgressEvent {
+  operation: 'runtime' | 'distro' | string;
+  stage: 'preparing' | 'downloading' | 'extracting' | 'done' | 'error' | string;
+  message: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  progress: number;
+  distro?: string;
+}
+
 interface PythonRuntimePlugin {
   getRuntimeStatus(): Promise<PythonRuntimeStatus>;
   startHub(): Promise<{ hubRunning: boolean }>;
@@ -49,6 +59,10 @@ interface PythonRuntimePlugin {
   getProotRuntimeStatus(): Promise<ProotRuntimeStatus>;
   installProotRuntime(options?: { prootUrl?: string }): Promise<{ runtimeRoot: string; prootPath: string }>;
   installProotDistro(options: { distro: string }): Promise<{ distro: string; rootfsPath: string }>;
+  addListener(
+    eventName: 'prootInstallProgress',
+    listenerFunc: (event: ProotInstallProgressEvent) => void
+  ): Promise<PluginListenerHandle>;
 }
 
 const PythonRuntime = registerPlugin<PythonRuntimePlugin>('PythonRuntime');
@@ -155,6 +169,16 @@ export class PythonRuntimeService {
     const normalized = String(distro || '').trim().toLowerCase();
     if (!normalized) throw new Error('Distro ist erforderlich.');
     return PythonRuntime.installProotDistro({ distro: normalized });
+  }
+
+  async onProotInstallProgress(
+    listener: (event: ProotInstallProgressEvent) => void
+  ): Promise<() => Promise<void>> {
+    if (!this.isNative) return async () => undefined;
+    const handle = await PythonRuntime.addListener('prootInstallProgress', listener);
+    return async () => {
+      await handle.remove();
+    };
   }
 
   async ensureEmbeddedControlPlane(): Promise<PythonRuntimeStatus> {
