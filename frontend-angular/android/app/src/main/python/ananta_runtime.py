@@ -40,6 +40,9 @@ _ALLOW_ANY_PASSWORD = os.environ.get("ANANTA_EMBEDDED_ACCEPT_ANY_PASSWORD", "1")
     "false",
     "no",
 }
+_WORKER_MODE = os.environ.get("ANANTA_EMBEDDED_WORKER_MODE", "inprocess").strip().lower() or "inprocess"
+_INPROCESS_WORKER_ENABLED = _WORKER_MODE in {"inprocess", "single-port", "single_port", "shared"}
+_INPROCESS_WORKER_RUNNING = False
 
 
 @dataclass
@@ -52,6 +55,26 @@ class _ServerRuntime:
 
 
 _RUNTIMES: dict[str, _ServerRuntime | None] = {"hub": None, "worker": None}
+
+
+def _is_runtime_alive(name: str) -> bool:
+    runtime = _RUNTIMES.get(name)
+    if runtime is None:
+        return False
+    alive = runtime.thread.is_alive()
+    if not alive:
+        _RUNTIMES[name] = None
+    return alive
+
+
+def _worker_running_locked() -> bool:
+    if _INPROCESS_WORKER_ENABLED:
+        return _INPROCESS_WORKER_RUNNING and _is_runtime_alive("hub")
+    return _is_runtime_alive("worker")
+
+
+def _worker_url() -> str:
+    return "http://127.0.0.1:5000" if _INPROCESS_WORKER_ENABLED else "http://127.0.0.1:5001"
 
 
 def _b64url(data: bytes) -> str:
@@ -143,14 +166,18 @@ def _build_handler(role: str):
             path = parsed.path
 
             if path == "/health" and method == "GET":
+                with _LOCK:
+                    hub_running = _is_runtime_alive("hub")
+                    worker_running = _worker_running_locked()
                 self._write_json(
                     200,
                     _envelope(
                         {
                             "status": "ok",
                             "role": role,
-                            "hub_running": _RUNTIMES["hub"] is not None,
-                            "worker_running": _RUNTIMES["worker"] is not None,
+                            "hub_running": hub_running,
+                            "worker_running": worker_running,
+                            "worker_mode": "inprocess" if _INPROCESS_WORKER_ENABLED else "dedicated-port",
                             "embedded": True,
                         }
                     ),
@@ -213,13 +240,15 @@ def _build_handler(role: str):
                 return
 
             if role == "hub" and path == "/api/system/agents" and method == "GET":
+                with _LOCK:
+                    worker_status = "online" if _worker_running_locked() else "offline"
                 agents = [
                     {"name": "hub", "url": "http://127.0.0.1:5000", "role": "hub", "status": "online"},
                     {
                         "name": "worker",
-                        "url": "http://127.0.0.1:5001",
+                        "url": _worker_url(),
                         "role": "worker",
-                        "status": "online" if _RUNTIMES["worker"] is not None else "offline",
+                        "status": worker_status,
                     },
                 ]
                 self._write_json(200, _envelope(agents))
@@ -306,7 +335,7 @@ def _build_handler(role: str):
 
 def _start_server(name: str, host: str, port: int) -> str:
     with _LOCK:
-        if _RUNTIMES[name] is not None:
+        if _is_runtime_alive(name):
             return f"{name}_already_running"
 
         handler = _build_handler(name)
@@ -341,15 +370,33 @@ def stop_hub() -> str:
 
 
 def start_worker() -> str:
+    global _INPROCESS_WORKER_RUNNING
+    if _INPROCESS_WORKER_ENABLED:
+        with _LOCK:
+            if not _is_runtime_alive("hub"):
+                _start_server(name="hub", host="127.0.0.1", port=5000)
+            _INPROCESS_WORKER_RUNNING = True
+        return "worker_started:inprocess@127.0.0.1:5000"
     return _start_server(name="worker", host="127.0.0.1", port=5001)
 
 
 def stop_worker() -> str:
+    global _INPROCESS_WORKER_RUNNING
+    if _INPROCESS_WORKER_ENABLED:
+        with _LOCK:
+            _INPROCESS_WORKER_RUNNING = False
+        return "worker_stopped:inprocess"
     return _stop_server(name="worker")
 
 
 def health_check() -> str:
     with _LOCK:
-        hub_ok = _RUNTIMES["hub"] is not None
-        worker_ok = _RUNTIMES["worker"] is not None
-    return f"embedded_runtime_ok hub={hub_ok} worker={worker_ok} hub_url=http://127.0.0.1:5000 worker_url=http://127.0.0.1:5001"
+        hub_ok = _is_runtime_alive("hub")
+        worker_ok = _worker_running_locked()
+        worker_mode = "inprocess" if _INPROCESS_WORKER_ENABLED else "dedicated-port"
+    return (
+        "embedded_runtime_ok "
+        f"hub={hub_ok} worker={worker_ok} "
+        "hub_url=http://127.0.0.1:5000 "
+        f"worker_url={_worker_url()} worker_mode={worker_mode}"
+    )

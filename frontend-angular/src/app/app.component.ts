@@ -1,5 +1,6 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy, inject } from '@angular/core';
 import { RouterLink, RouterOutlet, Router } from '@angular/router';
+import { Capacitor } from '@capacitor/core';
 import { NotificationsComponent } from './components/notifications.component';
 import { ToastComponent } from './components/toast.component';
 import { AgentDirectoryService } from './services/agent-directory.service';
@@ -41,7 +42,12 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         }
       </div>
       @if (auth.user$ | async; as user) {
-        <nav id="primary-navigation" class="row app-nav" [class.nav-open]="shell.mobileNavOpen()" aria-label="Hauptnavigation">
+        <nav
+          id="primary-navigation"
+          class="row app-nav"
+          [class.nav-open]="shell.mobileNavOpen()"
+          [class.app-nav-drawer]="isAndroidNative"
+          aria-label="Hauptnavigation">
           @for (group of navGroups(user.role); track group.label) {
             <span class="nav-group-label">{{ group.label }}</span>
             @for (item of group.items; track item.path) {
@@ -52,6 +58,9 @@ import { PythonRuntimeService } from './services/python-runtime.service';
             }
           }
         </nav>
+        @if (isAndroidNative && shell.mobileNavOpen()) {
+          <div class="mobile-nav-backdrop open" (click)="closeMobileNav()" aria-hidden="true"></div>
+        }
       }
     </header>
     @if (auth.user$ | async) {
@@ -99,6 +108,9 @@ import { PythonRuntimeService } from './services/python-runtime.service';
     .app-nav {
       gap: 10px;
     }
+    .mobile-nav-backdrop {
+      display: none;
+    }
     .nav-group-label {
       font-size: 11px;
       opacity: 0.8;
@@ -133,11 +145,36 @@ import { PythonRuntimeService } from './services/python-runtime.service';
       .app-nav.nav-open {
         display: flex;
       }
+      .app-nav.app-nav-drawer {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(84vw, 320px);
+        transform: translateX(-108%);
+        transition: transform 180ms ease;
+        z-index: 1200;
+        background: var(--card-bg);
+        border-right: 1px solid var(--border);
+        padding: 64px 12px 18px;
+        overflow-y: auto;
+      }
+      .app-nav.app-nav-drawer.nav-open {
+        transform: translateX(0);
+      }
       .app-nav a {
         border: 1px solid var(--border);
         border-radius: 6px;
         padding: 8px 10px;
         background: var(--card-bg);
+      }
+      .mobile-nav-backdrop.open {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1100;
+        background: rgba(2, 6, 23, 0.35);
       }
       main {
         padding-bottom: 84px;
@@ -155,6 +192,17 @@ export class AppComponent implements OnInit, OnDestroy {
   private pythonRuntime = inject(PythonRuntimeService);
 
   private authSub?: Subscription;
+  private touchStartX = 0;
+  private touchStartY = 0;
+  private trackingOpenSwipe = false;
+  private trackingCloseSwipe = false;
+  private readonly swipeEdgeWidthPx = 28;
+  private readonly swipeTriggerPx = 72;
+  private readonly verticalTolerancePx = 44;
+
+  get isAndroidNative(): boolean {
+    return this.mobile.isNative && Capacitor.getPlatform() === 'android';
+  }
 
   ngOnInit() {
     this.shell.init();
@@ -217,6 +265,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const current = this.dir.list();
     const hub = current.find((a) => a.role === 'hub') ?? current.find((a) => a.name === 'hub');
     const worker = current.find((a) => a.role === 'worker') ?? current.find((a) => a.name === 'worker');
+    const workerUrl = 'http://127.0.0.1:5001';
 
     if (!hub) {
       this.dir.upsert({ name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: '' });
@@ -225,9 +274,66 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (!worker) {
-      this.dir.upsert({ name: 'worker', role: 'worker', url: 'http://127.0.0.1:5001', token: '' });
-    } else if ((worker.url || '').trim() !== 'http://127.0.0.1:5001') {
-      this.dir.upsert({ ...worker, role: 'worker', url: 'http://127.0.0.1:5001' });
+      this.dir.upsert({ name: 'worker', role: 'worker', url: workerUrl, token: '' });
+    } else if ((worker.url || '').trim() !== workerUrl) {
+      this.dir.upsert({ ...worker, role: 'worker', url: workerUrl });
     }
+  }
+
+  @HostListener('document:touchstart', ['$event'])
+  onGlobalTouchStart(event: TouchEvent): void {
+    if (!this.shouldHandleMobileDrawerSwipe() || event.touches.length !== 1) {
+      this.resetSwipeTracking();
+      return;
+    }
+    const touch = event.touches[0];
+    this.touchStartX = touch.clientX;
+    this.touchStartY = touch.clientY;
+    const navOpen = this.shell.mobileNavOpen();
+    this.trackingOpenSwipe = !navOpen && touch.clientX <= this.swipeEdgeWidthPx;
+    this.trackingCloseSwipe = navOpen && touch.clientX <= Math.min(window.innerWidth * 0.9, 340);
+  }
+
+  @HostListener('document:touchmove', ['$event'])
+  onGlobalTouchMove(event: TouchEvent): void {
+    if (!this.shouldHandleMobileDrawerSwipe() || event.touches.length !== 1) return;
+    if (!this.trackingOpenSwipe && !this.trackingCloseSwipe) return;
+
+    const touch = event.touches[0];
+    const dx = touch.clientX - this.touchStartX;
+    const dy = Math.abs(touch.clientY - this.touchStartY);
+    if (dy > this.verticalTolerancePx) {
+      this.resetSwipeTracking();
+      return;
+    }
+
+    if (this.trackingOpenSwipe && dx >= this.swipeTriggerPx) {
+      this.shell.openMobileNav();
+      this.resetSwipeTracking();
+      return;
+    }
+    if (this.trackingCloseSwipe && dx <= -this.swipeTriggerPx) {
+      this.shell.closeMobileNav();
+      this.resetSwipeTracking();
+    }
+  }
+
+  @HostListener('document:touchend')
+  onGlobalTouchEnd(): void {
+    this.resetSwipeTracking();
+  }
+
+  @HostListener('document:touchcancel')
+  onGlobalTouchCancel(): void {
+    this.resetSwipeTracking();
+  }
+
+  private shouldHandleMobileDrawerSwipe(): boolean {
+    return this.isAndroidNative && this.auth.isLoggedIn() && window.innerWidth <= 900;
+  }
+
+  private resetSwipeTracking(): void {
+    this.trackingOpenSwipe = false;
+    this.trackingCloseSwipe = false;
   }
 }

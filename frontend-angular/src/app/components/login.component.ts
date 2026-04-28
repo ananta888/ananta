@@ -289,8 +289,10 @@ export class LoginComponent {
     this.debugBusy = true;
     try {
       const hub = this.resolveHubForLogin();
+      const worker = this.dir.list().find((a) => a.role === 'worker') ?? this.dir.get('worker');
       const runtime = await this.pythonRuntime.getRuntimeStatus();
       let endpointSummary = 'Hub endpoint nicht gesetzt';
+      let workerEndpointSummary = 'Worker endpoint nicht gesetzt';
       if (hub?.url) {
         try {
           const health = await firstValueFrom(this.http.get<any>(`${hub.url}/health`).pipe(timeout(3000)));
@@ -299,15 +301,25 @@ export class LoginComponent {
           endpointSummary = `FEHLER ${hub.url}/health -> ${error?.message || String(error)}`;
         }
       }
+      if (worker?.url) {
+        try {
+          const health = await firstValueFrom(this.http.get<any>(`${worker.url}/health`).pipe(timeout(3000)));
+          workerEndpointSummary = `OK ${worker.url}/health -> ${JSON.stringify(health).slice(0, 180)}`;
+        } catch (error: any) {
+          workerEndpointSummary = `FEHLER ${worker.url}/health -> ${error?.message || String(error)}`;
+        }
+      }
       this.debugText = [
         `Zeit: ${new Date().toLocaleString()}`,
         `Platform: ${Capacitor.getPlatform()} native=${this.pythonRuntime.isNative}`,
         `Hub URL: ${hub?.url || '-'}`,
+        `Worker URL: ${worker?.url || '-'}`,
         `Python verfügbar: ${runtime.pythonAvailable}`,
-        `Hub running: ${runtime.hubRunning}`,
-        `Worker running: ${runtime.workerRunning}`,
+        `Embedded Hub running: ${runtime.hubRunning}`,
+        `Embedded Worker running: ${runtime.workerRunning}`,
         `Last error: ${runtime.lastError || '-'}`,
-        `Endpoint: ${endpointSummary}`,
+        `Hub Endpoint: ${endpointSummary}`,
+        `Worker Endpoint: ${workerEndpointSummary}`,
       ].join('\n');
     } finally {
       this.debugBusy = false;

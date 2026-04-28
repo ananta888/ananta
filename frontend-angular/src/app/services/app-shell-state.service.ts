@@ -33,6 +33,10 @@ export class AppShellStateService {
     this.mobileNavOpen.update(open => !open);
   }
 
+  openMobileNav(): void {
+    this.mobileNavOpen.set(true);
+  }
+
   closeMobileNav(): void {
     this.mobileNavOpen.set(false);
   }
