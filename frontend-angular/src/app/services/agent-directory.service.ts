@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
 import { encrypt, decrypt } from '../utils/crypto';
 
 export interface AgentEntry {
@@ -73,6 +74,12 @@ export class AgentDirectoryService {
   }
 
   private defaultAgentsForCurrentHost(): AgentEntry[] {
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      return [
+        { name: 'hub', url: 'http://127.0.0.1:5000', token: '', role: 'hub' },
+        { name: 'worker', url: 'http://127.0.0.1:5001', token: '', role: 'worker' }
+      ];
+    }
     if (this.isComposeInternalFrontendHost()) {
       return [
         { name: 'hub', url: 'http://ai-agent-hub:5000', token: '', role: 'hub' },

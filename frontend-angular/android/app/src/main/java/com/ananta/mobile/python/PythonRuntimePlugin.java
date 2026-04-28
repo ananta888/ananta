@@ -9,13 +9,18 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(name = "PythonRuntime")
@@ -23,8 +28,10 @@ public class PythonRuntimePlugin extends Plugin {
     private static final int DEFAULT_SHELL_TIMEOUT_SECONDS = 20;
     private static final int MAX_SHELL_TIMEOUT_SECONDS = 600;
     private static final int MAX_SHELL_OUTPUT_CHARS = 120_000;
+    private static final int MAX_SESSION_OUTPUT_CHARS = 200_000;
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final Map<String, ShellSession> shellSessions = new ConcurrentHashMap<>();
     private volatile boolean hubRunning;
     private volatile boolean workerRunning;
     private volatile String lastError;
@@ -148,8 +155,133 @@ public class PythonRuntimePlugin extends Plugin {
         });
     }
 
+    @PluginMethod
+    public void openShellSession(PluginCall call) {
+        String cwd = String.valueOf(call.getString("cwd", "")).trim();
+        String initialCommand = String.valueOf(call.getString("initialCommand", "")).trim();
+        String shell = String.valueOf(call.getString("shell", "sh")).trim();
+        if (shell.isEmpty()) shell = "sh";
+
+        final String selectedShell = shell;
+        final String selectedCwd = cwd;
+        final String selectedInitialCommand = initialCommand;
+        worker.execute(() -> {
+            try {
+                ProcessBuilder builder = new ProcessBuilder(selectedShell);
+                if (!selectedCwd.isEmpty()) {
+                    builder.directory(new java.io.File(selectedCwd));
+                }
+                Process process = builder.redirectErrorStream(true).start();
+                ShellSession session = new ShellSession(process);
+                String sessionId = UUID.randomUUID().toString();
+                shellSessions.put(sessionId, session);
+                session.startReaderThread();
+                if (!selectedInitialCommand.isEmpty()) {
+                    session.write(selectedInitialCommand + "\n");
+                }
+
+                JSObject result = new JSObject();
+                result.put("sessionId", sessionId);
+                result.put("running", session.isRunning());
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                call.reject("Shell session start failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void writeShellSession(PluginCall call) {
+        String sessionId = String.valueOf(call.getString("sessionId", "")).trim();
+        String input = String.valueOf(call.getString("input", ""));
+        if (sessionId.isEmpty()) {
+            call.reject("sessionId is required");
+            return;
+        }
+        ShellSession session = shellSessions.get(sessionId);
+        if (session == null) {
+            call.reject("Shell session not found");
+            return;
+        }
+        worker.execute(() -> {
+            try {
+                session.write(input);
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("running", session.isRunning());
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                call.reject("Shell write failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void readShellSession(PluginCall call) {
+        String sessionId = String.valueOf(call.getString("sessionId", "")).trim();
+        int maxChars = call.getInt("maxChars", 8000);
+        if (sessionId.isEmpty()) {
+            call.reject("sessionId is required");
+            return;
+        }
+        if (maxChars < 256) maxChars = 256;
+        if (maxChars > 32000) maxChars = 32000;
+        ShellSession session = shellSessions.get(sessionId);
+        if (session == null) {
+            call.reject("Shell session not found");
+            return;
+        }
+
+        final int maxCharsFinal = maxChars;
+        worker.execute(() -> {
+            try {
+                ShellSessionRead read = session.readDelta(maxCharsFinal);
+                JSObject result = new JSObject();
+                result.put("output", read.output);
+                result.put("hasMore", read.hasMore);
+                result.put("running", session.isRunning());
+                if (!session.isRunning()) {
+                    result.put("exitCode", session.exitCode());
+                }
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                call.reject("Shell read failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void closeShellSession(PluginCall call) {
+        String sessionId = String.valueOf(call.getString("sessionId", "")).trim();
+        if (sessionId.isEmpty()) {
+            call.reject("sessionId is required");
+            return;
+        }
+        ShellSession session = shellSessions.remove(sessionId);
+        if (session == null) {
+            JSObject result = new JSObject();
+            result.put("closed", true);
+            call.resolve(result);
+            return;
+        }
+
+        worker.execute(() -> {
+            session.close();
+            JSObject result = new JSObject();
+            result.put("closed", true);
+            call.resolve(result);
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
+        for (ShellSession session : shellSessions.values()) {
+            session.close();
+        }
+        shellSessions.clear();
         worker.shutdownNow();
         super.handleOnDestroy();
     }
@@ -265,6 +397,96 @@ public class PythonRuntimePlugin extends Plugin {
             this.output = output;
             this.exitCode = exitCode;
             this.timedOut = timedOut;
+        }
+    }
+
+    private static final class ShellSessionRead {
+        final String output;
+        final boolean hasMore;
+
+        ShellSessionRead(String output, boolean hasMore) {
+            this.output = output;
+            this.hasMore = hasMore;
+        }
+    }
+
+    private static final class ShellSession {
+        private final Process process;
+        private final BufferedWriter stdin;
+        private final StringBuilder output = new StringBuilder();
+        private final Object outputLock = new Object();
+        private volatile int readOffset = 0;
+
+        ShellSession(Process process) {
+            this.process = process;
+            this.stdin = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
+        }
+
+        void startReaderThread() {
+            Thread reader = new Thread(() -> {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    char[] buffer = new char[2048];
+                    int read;
+                    while ((read = br.read(buffer)) != -1) {
+                        appendOutput(new String(buffer, 0, read));
+                    }
+                } catch (IOException ignored) {
+                    // stream closed by process termination
+                }
+            }, "ananta-shell-session-reader");
+            reader.setDaemon(true);
+            reader.start();
+        }
+
+        void write(String input) throws IOException {
+            stdin.write(input);
+            stdin.flush();
+        }
+
+        ShellSessionRead readDelta(int maxChars) {
+            synchronized (outputLock) {
+                if (readOffset >= output.length()) {
+                    return new ShellSessionRead("", false);
+                }
+                int available = output.length() - readOffset;
+                int toRead = Math.min(available, maxChars);
+                String chunk = output.substring(readOffset, readOffset + toRead);
+                readOffset += toRead;
+                boolean hasMore = readOffset < output.length();
+                return new ShellSessionRead(chunk, hasMore);
+            }
+        }
+
+        boolean isRunning() {
+            return process.isAlive();
+        }
+
+        int exitCode() {
+            return process.isAlive() ? -1 : process.exitValue();
+        }
+
+        void close() {
+            try {
+                stdin.write("exit\n");
+                stdin.flush();
+            } catch (IOException ignored) {
+            }
+            process.destroy();
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+
+        private void appendOutput(String text) {
+            if (text == null || text.isEmpty()) return;
+            synchronized (outputLock) {
+                output.append(text);
+                int overflow = output.length() - MAX_SESSION_OUTPUT_CHARS;
+                if (overflow > 0) {
+                    output.delete(0, overflow);
+                    readOffset = Math.max(0, readOffset - overflow);
+                }
+            }
         }
     }
 }

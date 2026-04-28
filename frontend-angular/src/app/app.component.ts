@@ -353,8 +353,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private ensureLocalMobileAgentDirectory(): void {
     const current = this.dir.list();
-    const hub = current.find((a) => a.role === 'hub') ?? current.find((a) => a.name === 'hub');
-    const worker = current.find((a) => a.role === 'worker') ?? current.find((a) => a.name === 'worker');
+    const hub = current.find((a) => a.name === 'hub') ?? current.find((a) => a.role === 'hub');
+    const worker = current.find((a) => a.name === 'worker');
+    const legacyAlphaWorker = current.find((a) => a.name === 'alpha' && (a.url || '').trim() === 'http://127.0.0.1:5001');
     const workerUrl = 'http://127.0.0.1:5001';
 
     if (!hub) {
@@ -364,9 +365,17 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (!worker) {
-      this.dir.upsert({ name: 'worker', role: 'worker', url: workerUrl, token: '' });
+      if (legacyAlphaWorker) {
+        this.dir.upsert({ ...legacyAlphaWorker, name: 'worker', role: 'worker', url: workerUrl });
+        this.dir.remove('alpha');
+      } else {
+        this.dir.upsert({ name: 'worker', role: 'worker', url: workerUrl, token: '' });
+      }
     } else if ((worker.url || '').trim() !== workerUrl) {
       this.dir.upsert({ ...worker, role: 'worker', url: workerUrl });
+      if (legacyAlphaWorker) this.dir.remove('alpha');
+    } else if (legacyAlphaWorker) {
+      this.dir.remove('alpha');
     }
   }
 

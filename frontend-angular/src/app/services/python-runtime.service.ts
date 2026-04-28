@@ -14,6 +14,18 @@ export interface ShellCommandResult {
   timedOut: boolean;
 }
 
+export interface ShellSessionOpenResult {
+  sessionId: string;
+  running: boolean;
+}
+
+export interface ShellSessionReadResult {
+  output: string;
+  hasMore: boolean;
+  running: boolean;
+  exitCode?: number;
+}
+
 interface PythonRuntimePlugin {
   getRuntimeStatus(): Promise<PythonRuntimeStatus>;
   startHub(): Promise<{ hubRunning: boolean }>;
@@ -22,6 +34,10 @@ interface PythonRuntimePlugin {
   stopWorker(): Promise<{ workerRunning: boolean }>;
   runHealthCheck(): Promise<{ ok: boolean; message: string }>;
   runShellCommand(options: { command: string; timeoutSeconds?: number }): Promise<ShellCommandResult>;
+  openShellSession(options?: { cwd?: string; initialCommand?: string; shell?: string }): Promise<ShellSessionOpenResult>;
+  writeShellSession(options: { sessionId: string; input: string }): Promise<{ ok: boolean; running: boolean }>;
+  readShellSession(options: { sessionId: string; maxChars?: number }): Promise<ShellSessionReadResult>;
+  closeShellSession(options: { sessionId: string }): Promise<{ closed: boolean }>;
 }
 
 const PythonRuntime = registerPlugin<PythonRuntimePlugin>('PythonRuntime');
@@ -70,6 +86,40 @@ export class PythonRuntimeService {
       throw new Error('Bitte einen Befehl eingeben.');
     }
     return PythonRuntime.runShellCommand({ command: normalizedCommand, timeoutSeconds });
+  }
+
+  async openShellSession(options?: { cwd?: string; initialCommand?: string; shell?: string }): Promise<ShellSessionOpenResult> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    return PythonRuntime.openShellSession(options ?? {});
+  }
+
+  async writeShellSession(sessionId: string, input: string): Promise<{ ok: boolean; running: boolean }> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    const id = String(sessionId || '').trim();
+    if (!id) throw new Error('sessionId fehlt.');
+    return PythonRuntime.writeShellSession({ sessionId: id, input: String(input || '') });
+  }
+
+  async readShellSession(sessionId: string, maxChars = 8000): Promise<ShellSessionReadResult> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    const id = String(sessionId || '').trim();
+    if (!id) throw new Error('sessionId fehlt.');
+    return PythonRuntime.readShellSession({ sessionId: id, maxChars });
+  }
+
+  async closeShellSession(sessionId: string): Promise<{ closed: boolean }> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    const id = String(sessionId || '').trim();
+    if (!id) throw new Error('sessionId fehlt.');
+    return PythonRuntime.closeShellSession({ sessionId: id });
   }
 
   async ensureEmbeddedControlPlane(): Promise<PythonRuntimeStatus> {
