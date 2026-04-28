@@ -2276,6 +2276,11 @@ class TaskScopedExecutionService:
                 f"{str(opencode_context_files.get('response_contract_path') or '.ananta/response-contract.md')} "
                 "und setze mindestens eines von 'command' oder 'tool_calls'."
             )
+            prompt_sections.append(
+                "Priorisiere `tool_calls` fuer Datei-/Verzeichnis- und Code-Aenderungen. "
+                "Falls ein Shell-Befehl erforderlich ist, liefere genau einen einzelnen `command` "
+                "ohne `&&`, `||`, `;`, `>`, `<` oder `|`."
+            )
         return "\n\n".join(section for section in prompt_sections if section), {
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
             "allowed_tools": allowed_tools,
