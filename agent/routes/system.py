@@ -385,7 +385,7 @@ def register_agent():
     reachable, validation_error = _services().agent_registry_service.validate_agent_endpoint(
         url=str(normalized.get("url") or ""),
         http_client=http_client,
-        timeout=min(settings.http_timeout, 5.0),
+        timeout=min(settings.http_timeout, 30.0),
     )
     if not reachable:
         return api_response(status="error", message=validation_error or "agent_validation_failed", code=400)
