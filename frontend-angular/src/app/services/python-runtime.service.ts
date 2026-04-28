@@ -61,13 +61,12 @@ export class PythonRuntimeService {
 
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       if (!status.hubRunning) await this.startHub();
-      if (!status.workerRunning) await this.startWorker();
       await this.sleep(250 * attempt);
       status = await this.getRuntimeStatus();
-      if (status.hubRunning && status.workerRunning) return status;
+      if (status.hubRunning) return status;
     }
 
-    throw new Error(status.lastError || 'Embedded control plane did not reach running state.');
+    throw new Error(status.lastError || 'Embedded hub did not reach running state.');
   }
 
   private sleep(ms: number): Promise<void> {
