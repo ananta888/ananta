@@ -32,9 +32,10 @@ from agent.research_backend import (
 
 sgpt_lock = threading.Lock()
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
+SUPPORTED_CLI_BACKENDS = {"sgpt", "ananta-worker", "codex", "opencode", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
 CLI_BACKEND_INSTALL_HINTS = {
     "sgpt": "python -m pip install shell-gpt",
+    "ananta-worker": "python -m pip install shell-gpt",
     "codex": "npm i -g @openai/codex",
     "opencode": "npm i -g opencode-ai",
     "aider": "python -m pip install aider-chat",
@@ -44,6 +45,7 @@ CLI_BACKEND_INSTALL_HINTS = {
 }
 CLI_BACKEND_VERIFY_COMMANDS = {
     "sgpt": "python -m sgpt --help",
+    "ananta-worker": "python -m sgpt --help",
     "codex": "codex --help",
     "opencode": "opencode --help",
     "aider": "aider --help",
@@ -54,6 +56,13 @@ CLI_BACKEND_VERIFY_COMMANDS = {
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
         "display_name": "ShellGPT",
+        "supports_model": True,
+        "supported_flags": ["--shell", "--md", "--no-interaction", "--cache", "--no-cache"],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
+    "ananta-worker": {
+        "display_name": "Ananta Worker (internal)",
         "supports_model": True,
         "supported_flags": ["--shell", "--md", "--no-interaction", "--cache", "--no-cache"],
         "supports_temperature": False,
@@ -122,6 +131,8 @@ _BACKEND_RUNTIME: dict[str, dict] = {
 def _resolve_backend_binary(backend: str) -> str | None:
     if is_research_backend(backend):
         return resolve_research_backend_config(provider_override=backend).get("binary_path")
+    if backend in {"sgpt", "ananta-worker"}:
+        return sys.executable if sys.executable else None
     if backend == "codex":
         return shutil.which(settings.codex_path or "codex")
     if backend == "opencode":
@@ -130,13 +141,14 @@ def _resolve_backend_binary(backend: str) -> str | None:
         return shutil.which(settings.aider_path or "aider")
     if backend == "mistral_code":
         return shutil.which(settings.mistral_code_path or "mistral-code")
-    # sgpt is a python module; we treat python executable as available indicator.
-    return sys.executable if sys.executable else None
+    return None
 
 
 def _configured_backend_command(backend: str) -> str:
     if is_research_backend(backend):
         return str(resolve_research_backend_config(provider_override=backend).get("command") or "")
+    if backend in {"sgpt", "ananta-worker"}:
+        return f"{sys.executable} -m sgpt" if sys.executable else "python -m sgpt"
     if backend == "codex":
         return settings.codex_path or "codex"
     if backend == "opencode":
@@ -145,7 +157,7 @@ def _configured_backend_command(backend: str) -> str:
         return settings.aider_path or "aider"
     if backend == "mistral_code":
         return settings.mistral_code_path or "mistral-code"
-    return f"{sys.executable} -m sgpt" if sys.executable else "python -m sgpt"
+    return ""
 
 
 def _classify_runtime_target(url: str | None) -> str | None:
@@ -394,7 +406,7 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["codex", "aider", "opencode", "mistral_code", "sgpt", "deerflow", "ananta_research"]
+    code_pref = ["ananta-worker", "sgpt", "codex", "aider", "opencode", "mistral_code", "deerflow", "ananta_research"]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:
@@ -422,9 +434,9 @@ def _choose_candidates(
     policy = routing_policy or {}
     allowed = [b for b in (policy.get("allowed_backends") or []) if b in SUPPORTED_CLI_BACKENDS]
     if requested == "auto":
-        preferred = (settings.sgpt_execution_backend or "sgpt").strip().lower()
+        preferred = (settings.sgpt_execution_backend or "ananta-worker").strip().lower()
         if preferred == "auto" or preferred not in SUPPORTED_CLI_BACKENDS:
-            preferred = "sgpt"
+            preferred = "ananta-worker"
         candidates = [preferred]
         for name in sorted(SUPPORTED_CLI_BACKENDS):
             if name not in candidates:
@@ -1247,6 +1259,8 @@ def run_llm_cli_command(
     for name in candidates:
         started = time.time()
         if name == "sgpt":
+            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
+        elif name == "ananta-worker":
             rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
         elif name == "codex":
             rc, out, err = run_codex_command(prompt=prompt, model=model, timeout=timeout)
