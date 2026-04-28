@@ -338,12 +338,14 @@ public class PythonRuntimePlugin extends Plugin {
             try {
                 String url = String.valueOf(call.getString("prootUrl", PROOT_RS_RELEASE_URL)).trim();
                 if (url.isEmpty()) url = PROOT_RS_RELEASE_URL;
+                notifyProotProgress("runtime", "preparing", "Runtime-Installation gestartet.", -1, -1, null);
 
                 File runtimeRoot = runtimeRootDir();
                 File binDir = ensureDir(runtimeRoot, "bin");
                 File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File downloadTarget = new File(tmpDir, "proot-rs.tar.gz");
-                downloadToFile(url, downloadTarget);
+                downloadToFile(url, downloadTarget, "runtime");
+                notifyProotProgress("runtime", "extracting", "Runtime wird entpackt.", -1, -1, null);
 
                 File extractedBinary = extractFirstExecutableFromTarGz(downloadTarget, tmpDir, "proot-rs");
                 if (extractedBinary == null || !extractedBinary.exists()) {
@@ -360,9 +362,11 @@ public class PythonRuntimePlugin extends Plugin {
                 JSObject result = new JSObject();
                 result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
                 result.put("prootPath", new File(binDir, PROOT_WRAPPER_FILE).getAbsolutePath());
+                notifyProotProgress("runtime", "done", "Runtime installiert.", -1, -1, null);
                 call.resolve(result);
             } catch (Exception error) {
                 lastError = error.getMessage();
+                notifyProotProgress("runtime", "error", error.getMessage(), -1, -1, null);
                 call.reject("Proot runtime installation failed: " + error.getMessage());
             }
         });
@@ -378,6 +382,7 @@ public class PythonRuntimePlugin extends Plugin {
 
         worker.execute(() -> {
             try {
+                notifyProotProgress("distro", "preparing", "Distro-Installation gestartet.", -1, -1, distro);
                 ensureProotInstalled();
                 String assetUrl = resolveDistroAssetUrl(distro);
                 if (assetUrl == null || assetUrl.isBlank()) {
@@ -390,16 +395,19 @@ public class PythonRuntimePlugin extends Plugin {
                 File rootfsDir = ensureDir(distroDir, "rootfs");
                 File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File archive = new File(tmpDir, distro + "-rootfs.tar.xz");
-                downloadToFile(assetUrl, archive);
+                downloadToFile(assetUrl, archive, "distro", distro);
+                notifyProotProgress("distro", "extracting", "Distro wird entpackt.", -1, -1, distro);
                 clearDirectory(rootfsDir);
                 extractTarXzToDirectory(archive, rootfsDir);
 
                 JSObject result = new JSObject();
                 result.put("distro", distro);
                 result.put("rootfsPath", rootfsDir.getAbsolutePath());
+                notifyProotProgress("distro", "done", "Distro installiert.", -1, -1, distro);
                 call.resolve(result);
             } catch (Exception error) {
                 lastError = error.getMessage();
+                notifyProotProgress("distro", "error", error.getMessage(), -1, -1, distro);
                 call.reject("Distro installation failed: " + error.getMessage());
             }
         });
@@ -571,7 +579,11 @@ public class PythonRuntimePlugin extends Plugin {
         }
     }
 
-    private void downloadToFile(String rawUrl, File targetFile) throws IOException {
+    private void downloadToFile(String rawUrl, File targetFile, String operation) throws IOException {
+        downloadToFile(rawUrl, targetFile, operation, null);
+    }
+
+    private void downloadToFile(String rawUrl, File targetFile, String operation, String distro) throws IOException {
         HttpURLConnection connection = null;
         try {
             URL url = new URL(rawUrl);
@@ -584,14 +596,24 @@ public class PythonRuntimePlugin extends Plugin {
             if (status < 200 || status >= 300) {
                 throw new IOException("Download failed with HTTP " + status + " from " + rawUrl);
             }
+            long totalBytes = connection.getContentLengthLong();
+            notifyProotProgress(operation, "downloading", "Download gestartet.", 0, totalBytes, distro);
             try (InputStream input = new BufferedInputStream(connection.getInputStream());
                  FileOutputStream output = new FileOutputStream(targetFile, false)) {
                 byte[] buffer = new byte[8192];
                 int read;
+                long downloaded = 0L;
+                long nextReport = 256 * 1024;
                 while ((read = input.read(buffer)) != -1) {
                     output.write(buffer, 0, read);
+                    downloaded += read;
+                    if (downloaded >= nextReport) {
+                        notifyProotProgress(operation, "downloading", "Download laeuft...", downloaded, totalBytes, distro);
+                        nextReport = downloaded + (256 * 1024);
+                    }
                 }
                 output.flush();
+                notifyProotProgress(operation, "downloading", "Download abgeschlossen.", downloaded, totalBytes, distro);
             }
             if (!targetFile.exists() || targetFile.length() == 0) {
                 throw new IOException("Downloaded file is empty: " + targetFile.getAbsolutePath());
@@ -599,6 +621,24 @@ public class PythonRuntimePlugin extends Plugin {
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    private void notifyProotProgress(String operation, String stage, String message, long downloaded, long total, String distro) {
+        JSObject event = new JSObject();
+        event.put("operation", operation);
+        event.put("stage", stage);
+        event.put("message", message);
+        event.put("downloadedBytes", downloaded);
+        event.put("totalBytes", total);
+        if (total > 0 && downloaded >= 0) {
+            event.put("progress", Math.min(1.0, (double) downloaded / (double) total));
+        } else {
+            event.put("progress", -1);
+        }
+        if (distro != null && !distro.isBlank()) {
+            event.put("distro", distro);
+        }
+        notifyListeners("prootInstallProgress", event);
     }
 
     private String resolveDistroAssetUrl(String distro) throws IOException {
