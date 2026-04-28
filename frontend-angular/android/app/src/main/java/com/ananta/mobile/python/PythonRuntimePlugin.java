@@ -786,15 +786,24 @@ public class PythonRuntimePlugin extends Plugin {
             char type = (char) (header[156] & 0xff);
             String linkName = readTarString(header, 157, 100);
 
-            File outFile = secureTarTarget(targetDir, entryName);
+            // Skip root marker entries and metadata-only tar records (pax/gnu extensions).
+            if (isRootMarkerEntry(entryName) || isMetadataOnlyEntry(type)) {
+                skipFully(input, size);
+                skipFully(input, (512 - (size % 512)) % 512);
+                continue;
+            }
+
             if (isDirectoryEntry(type, entryName)) {
+                File outFile = secureTarTarget(targetDir, entryName);
                 if (!outFile.exists() && !outFile.mkdirs()) {
                     throw new IOException("Could not create directory: " + outFile.getAbsolutePath());
                 }
             } else if (type == '2') {
+                File outFile = secureTarTarget(targetDir, entryName);
                 ensureParent(outFile);
                 createSymlink(outFile, linkName);
             } else if (type == 0 || type == '0') {
+                File outFile = secureTarTarget(targetDir, entryName);
                 if (outFile.isDirectory()) {
                     skipFully(input, size);
                     skipFully(input, (512 - (size % 512)) % 512);
@@ -810,6 +819,16 @@ public class PythonRuntimePlugin extends Plugin {
             }
             skipFully(input, (512 - (size % 512)) % 512);
         }
+    }
+
+    private boolean isMetadataOnlyEntry(char type) {
+        return type == 'x' || type == 'g' || type == 'L' || type == 'K';
+    }
+
+    private boolean isRootMarkerEntry(String entryName) {
+        String normalized = String.valueOf(entryName == null ? "" : entryName).replace('\\', '/').trim();
+        while (normalized.startsWith("/")) normalized = normalized.substring(1);
+        return normalized.isEmpty() || ".".equals(normalized) || "./".equals(normalized);
     }
 
     private boolean isDirectoryEntry(char type, String entryName) {
