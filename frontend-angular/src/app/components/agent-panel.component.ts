@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -11,7 +11,7 @@ import { UserAuthService } from '../services/user-auth.service';
 import { TerminalComponent } from './terminal.component';
 import { TerminalMode } from '../services/terminal.service';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
-import { PythonRuntimeService } from '../services/python-runtime.service';
+import { ProotInstallProgressEvent, PythonRuntimeService } from '../services/python-runtime.service';
 import { MobileProotService } from '../services/mobile-proot.service';
 
 @Component({
@@ -264,6 +264,14 @@ import { MobileProotService } from '../services/mobile-proot.service';
               <button class="button-outline" (click)="installWorkerDistro()" [disabled]="workerShellBusy">Distro installieren</button>
               <button class="button-outline" (click)="setWorkerShellLoginDistroCommand()" [disabled]="workerShellBusy">Distro Login</button>
             </div>
+            @if (workerInstallProgressActive) {
+              <div class="grid gap-sm">
+                <div class="muted">{{ workerInstallProgressLabel }}</div>
+                @if (workerInstallProgressPercent >= 0) {
+                  <progress [value]="workerInstallProgressPercent" max="100"></progress>
+                }
+              </div>
+            }
             <div class="muted">{{ workerShellMeta || '-' }}</div>
             <div class="muted">Installierte Distros: {{ workerInstalledDistros.length ? workerInstalledDistros.join(', ') : '-' }}</div>
             <pre class="pre-scroll">{{ workerShellOutput || 'Noch keine Ausgabe.' }}</pre>
@@ -273,7 +281,7 @@ import { MobileProotService } from '../services/mobile-proot.service';
     }
     `
 })
-export class AgentPanelComponent {
+export class AgentPanelComponent implements OnDestroy {
   private route = inject(ActivatedRoute);
   private dir = inject(AgentDirectoryService);
   private api = inject(AgentApiService);
@@ -319,6 +327,10 @@ export class AgentPanelComponent {
   workerShellMeta = '';
   workerShellBusy = false;
   workerInstalledDistros: string[] = [];
+  workerInstallProgressActive = false;
+  workerInstallProgressPercent = -1;
+  workerInstallProgressLabel = '';
+  private removeWorkerProotProgressListener?: () => Promise<void>;
   readonly distroOptions = this.proot.distroOptions;
   selectedDistro = this.proot.getSelectedDistro();
 
@@ -342,8 +354,17 @@ export class AgentPanelComponent {
     this.ensureTerminalForwardParamLoaded();
     this.refreshTerminalAvailability().catch(() => undefined);
     if (this.isAndroidNative && this.agent?.role !== 'hub') {
+      this.pythonRuntime.onProotInstallProgress((event) => this.onWorkerProotProgress(event)).then((remove) => {
+        this.removeWorkerProotProgressListener = remove;
+      }).catch(() => undefined);
       this.setWorkerShellStatusCommand();
       this.refreshWorkerRuntimeStatus().catch(() => undefined);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.removeWorkerProotProgressListener) {
+      this.removeWorkerProotProgressListener().catch(() => undefined);
     }
   }
 
@@ -676,6 +697,9 @@ export class AgentPanelComponent {
   installWorkerRuntime(): void {
     if (!this.isAndroidNative || this.workerShellBusy) return;
     this.workerShellBusy = true;
+    this.workerInstallProgressActive = true;
+    this.workerInstallProgressPercent = -1;
+    this.workerInstallProgressLabel = 'Runtime wird vorbereitet...';
     this.workerShellMeta = 'Installiere Runtime...';
     this.pythonRuntime.installProotRuntime().then(
       () => this.pythonRuntime.getProotRuntimeStatus()
@@ -699,6 +723,9 @@ export class AgentPanelComponent {
   installWorkerDistro(): void {
     if (!this.isAndroidNative || this.workerShellBusy) return;
     this.workerShellBusy = true;
+    this.workerInstallProgressActive = true;
+    this.workerInstallProgressPercent = -1;
+    this.workerInstallProgressLabel = `Distro ${this.selectedDistro} wird vorbereitet...`;
     this.proot.setSelectedDistro(this.selectedDistro);
     this.workerShellMeta = `Installiere Distro ${this.selectedDistro}...`;
     this.pythonRuntime.installProotDistro(this.selectedDistro).then(
@@ -769,5 +796,27 @@ export class AgentPanelComponent {
       .map((item) => String(item?.name || '').trim())
       .filter(Boolean)
       .sort();
+  }
+
+  private onWorkerProotProgress(event: ProotInstallProgressEvent): void {
+    this.workerInstallProgressActive = true;
+    const progress = Number(event?.progress);
+    this.workerInstallProgressPercent = Number.isFinite(progress) && progress >= 0
+      ? Math.max(0, Math.min(100, Math.round(progress * 100)))
+      : -1;
+    this.workerInstallProgressLabel = String(event?.message || event?.stage || 'Installiere...');
+    const operation = String(event?.operation || '').trim();
+    const distro = String(event?.distro || '').trim();
+    const prefix = operation === 'distro'
+      ? `Distro${distro ? ` (${distro})` : ''}`
+      : operation === 'runtime'
+        ? 'Runtime'
+        : 'Setup';
+    this.workerShellMeta = `${prefix}: ${this.workerInstallProgressLabel}`;
+    if (event?.stage === 'done' || event?.stage === 'error') {
+      if (event.stage === 'error') this.workerInstallProgressPercent = -1;
+      this.refreshWorkerRuntimeStatus().catch(() => undefined);
+      this.workerInstallProgressActive = false;
+    }
   }
 }
