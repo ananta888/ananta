@@ -55,6 +55,18 @@ ananta status
 ananta plan "Analysiere dieses Repository und schlage die naechsten Schritte vor"
 ```
 
+Ausfuehrungs-Backend fuer Worker/CLI (leicht umschaltbar):
+
+```bash
+# Standard: interne Ananta-Worker-Ausfuehrung (empfohlen)
+python -m pip install shell-gpt
+export SGPT_EXECUTION_BACKEND=ananta-worker
+
+# Alternative: OpenCode
+npm i -g opencode-ai
+export SGPT_EXECUTION_BACKEND=opencode
+```
+
 Weitere CLI-Einstiege:
 
 - `docs/setup/quickstart.md`

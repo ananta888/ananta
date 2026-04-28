@@ -59,6 +59,7 @@ def get_rate_limit_service():
 
 
 ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
+BACKEND_ALIASES = {"ananta_worker": "ananta-worker", "shellgpt": "sgpt"}
 
 SOURCE_ALLOWED_EXTENSIONS = {
     ".py",
@@ -85,6 +86,13 @@ def _allowed_backends() -> set[str]:
     if bool(spike_cfg.get("enabled", False)):
         allowed.add("ml_intern")
     return allowed
+
+
+def _normalize_backend_name(value: str | None, *, default: str = "ananta-worker") -> str:
+    backend = str(value or "").strip().lower()
+    if not backend:
+        backend = default
+    return BACKEND_ALIASES.get(backend, backend)
 
 
 def _cli_session_policy() -> dict:
@@ -209,7 +217,7 @@ def execute_sgpt():
     prompt = data.get("prompt")
     options = data.get("options", [])
     use_hybrid_context = bool(data.get("use_hybrid_context", False))
-    backend = str(data.get("backend") or settings.sgpt_execution_backend or "opencode").strip().lower()
+    backend = _normalize_backend_name(data.get("backend") or settings.sgpt_execution_backend, default="ananta-worker")
     model = data.get("model")
     task_kind = normalize_task_kind(data.get("task_kind"), prompt or "")
     retrieval_intent = str(data.get("retrieval_intent") or "").strip() or None
@@ -242,7 +250,7 @@ def execute_sgpt():
             requested_backend=backend,
             supported_backends=SUPPORTED_CLI_BACKENDS,
             agent_cfg=agent_cfg,
-            fallback_backend="opencode",
+            fallback_backend="ananta-worker",
         )
     if effective_backend == "ml_intern":
         safe_options = []
@@ -256,7 +264,7 @@ def execute_sgpt():
                 message=f"Unsupported options for backend '{effective_backend}': {rejected}",
                 code=400,
             )
-        if effective_backend == "sgpt" and "--no-interaction" not in safe_options:
+        if effective_backend in {"sgpt", "ananta-worker"} and "--no-interaction" not in safe_options:
             safe_options.append("--no-interaction")
 
     try:
@@ -421,7 +429,7 @@ def list_cli_backends():
     capabilities = registry_payload.get("capabilities") or {}
     runtime = registry_payload.get("runtime") or {}
     preflight = registry_payload.get("preflight") or {}
-    configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
+    configured_backend = _normalize_backend_name(settings.sgpt_execution_backend, default="ananta-worker")
     codex_runtime = resolve_codex_runtime_config()
     default_provider = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "").strip().lower() or None
     data = {
@@ -481,7 +489,7 @@ def create_cli_session():
     if not policy["enabled"]:
         return api_response(status="error", message="cli_sessions_disabled", code=403)
     data = request.get_json(silent=True) or {}
-    backend = str(data.get("backend") or settings.sgpt_execution_backend or "ananta-worker").strip().lower()
+    backend = _normalize_backend_name(data.get("backend") or settings.sgpt_execution_backend, default="ananta-worker")
     if backend == "auto":
         backend = "ananta-worker"
     if backend not in SUPPORTED_CLI_BACKENDS:
@@ -550,7 +558,7 @@ def run_cli_session_turn(session_id: str):
     prompt = str(data.get("prompt") or "").strip()
     if not prompt:
         return api_response(status="error", message="Missing prompt", code=400)
-    backend = str(session.get("backend") or "").strip().lower() or "opencode"
+    backend = _normalize_backend_name(session.get("backend"), default="ananta-worker")
     options = data.get("options", [])
     if not isinstance(options, list) or not all(isinstance(opt, str) for opt in options):
         return api_response(status="error", message="options must contain only strings", code=400)
@@ -561,7 +569,7 @@ def run_cli_session_turn(session_id: str):
             message=f"Unsupported options for backend '{backend}': {rejected}",
             code=400,
         )
-    if backend == "sgpt" and "--no-interaction" not in safe_options:
+    if backend in {"sgpt", "ananta-worker"} and "--no-interaction" not in safe_options:
         safe_options.append("--no-interaction")
     policy = _cli_session_policy()
     effective_prompt = prompt

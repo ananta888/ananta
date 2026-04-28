@@ -10,6 +10,8 @@ Der Wizard unterstuetzt:
 - Lokalen Start ohne Docker-Zwang im Modus `local-dev`
 - Optionale Deployment-Profile fuer `docker-compose` oder `podman`
 
+Wichtig: Dieses `--llm-backend` steuert den Inferenz-Provider. Das lokale CLI-Ausfuehrungsbackend (z. B. `ananta-worker` oder `opencode`) wird separat ueber `SGPT_EXECUTION_BACKEND` gesteuert.
+
 ## Schnellstart
 
 ```bash

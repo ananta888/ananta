@@ -29,6 +29,20 @@ ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-d
 
 `local-dev` ist der Standard fuer lokale Nutzung ohne Docker-Zwang.
 
+## 1b) Execution-Backend waehlen (ananta-worker vs. opencode)
+
+```bash
+# Standard: interne Ananta-Worker-Ausfuehrung
+python -m pip install shell-gpt
+export SGPT_EXECUTION_BACKEND=ananta-worker
+
+# Alternative: OpenCode
+npm i -g opencode-ai
+export SGPT_EXECUTION_BACKEND=opencode
+```
+
+Hinweis: `--llm-backend` aus `ananta init` waehlt den Inferenz-Provider (z. B. LM Studio/Ollama). `SGPT_EXECUTION_BACKEND` waehlt das lokale CLI-Ausfuehrungsbackend.
+
 ## 2) Startpfad waehlen
 
 ### A) Nur CLI konfigurieren
