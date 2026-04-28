@@ -503,6 +503,8 @@ def run_sgpt_command(
             else:
                 base_url = lmstudio_url
             env["OPENAI_API_BASE"] = base_url
+            # Newer OpenAI clients (used by shell-gpt) honor OPENAI_BASE_URL.
+            env["OPENAI_BASE_URL"] = base_url
 
         if not env.get("OPENAI_API_KEY"):
             env["OPENAI_API_KEY"] = "sk-no-key-needed"
