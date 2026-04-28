@@ -122,6 +122,91 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
     assert resolved["is_local"] is False
 
 
+def test_run_sgpt_command_prefers_runtime_openai_provider_config(app):
+    from agent.common.sgpt import run_sgpt_command
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "openai",
+            "sgpt_default_model": "gpt-4o-mini",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "openai": "https://api.openai.com/v1/chat/completions",
+            "lmstudio": "http://127.0.0.1:1234/v1",
+        }
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.subprocess.run") as mock_run,
+            patch.dict("agent.common.sgpt.os.environ", {}, clear=True),
+        ):
+            mock_settings.sgpt_default_model = "ananta-default"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = "sk-cloud"
+
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_result.stdout = "ok"
+            mock_result.stderr = ""
+            mock_run.return_value = mock_result
+
+            rc, out, err = run_sgpt_command("say hi")
+
+    assert rc == 0
+    assert out == "ok"
+    assert err == ""
+    args = mock_run.call_args[0][0]
+    assert "--model" in args
+    assert args[args.index("--model") + 1] == "gpt-4o-mini"
+    env = mock_run.call_args[1]["env"]
+    assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
+    assert env["OPENAI_API_BASE"] == "https://api.openai.com/v1"
+    assert env["OPENAI_API_KEY"] == "sk-cloud"
+
+
+def test_run_sgpt_command_uses_lmstudio_runtime_base_url(app):
+    from agent.common.sgpt import run_sgpt_command
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "sgpt_default_model": "nvidia/nemotron-3-nano-4b",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://192.168.1.10:1234/v1/chat/completions",
+        }
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.subprocess.run") as mock_run,
+            patch.dict("agent.common.sgpt.os.environ", {}, clear=True),
+        ):
+            mock_settings.sgpt_default_model = "ananta-default"
+            mock_settings.default_provider = "openai"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_result.stdout = "ok"
+            mock_result.stderr = ""
+            mock_run.return_value = mock_result
+
+            rc, out, err = run_sgpt_command("say hi")
+
+    assert rc == 0
+    assert out == "ok"
+    assert err == ""
+    args = mock_run.call_args[0][0]
+    assert "--model" in args
+    assert args[args.index("--model") + 1] == "nvidia/nemotron-3-nano-4b"
+    env = mock_run.call_args[1]["env"]
+    assert env["OPENAI_BASE_URL"] == "http://192.168.1.10:1234/v1"
+    assert env["OPENAI_API_BASE"] == "http://192.168.1.10:1234/v1"
+    assert env["OPENAI_API_KEY"] == "sk-no-key-needed"
+
+
 def test_resolve_opencode_runtime_config_builds_ollama_openai_compatible_provider(app):
     from agent.common.sgpt import resolve_opencode_runtime_config
 
