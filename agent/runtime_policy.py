@@ -32,7 +32,7 @@ def runtime_routing_config(agent_cfg: dict | None) -> dict[str, Any]:
     cfg = (agent_cfg or {}).get("sgpt_routing", {}) or {}
     return {
         "policy_version": str(cfg.get("policy_version") or "v3"),
-        "default_backend": str(cfg.get("default_backend") or "opencode").strip().lower(),
+        "default_backend": str(cfg.get("default_backend") or "ananta-worker").strip().lower(),
         "task_kind_backend": cfg.get("task_kind_backend") or {},
     }
 
@@ -42,7 +42,7 @@ def resolve_cli_backend(
     requested_backend: str,
     supported_backends: set[str],
     agent_cfg: dict | None,
-    fallback_backend: str = "opencode",
+    fallback_backend: str = "ananta-worker",
     required_capabilities: list[str] | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     backend = str(requested_backend or "auto").strip().lower()
