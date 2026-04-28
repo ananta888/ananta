@@ -6826,7 +6826,83 @@
           ]
         }
       }
+    },
+    "opencode:gpt-4o-mini": {
+      "provider": "opencode",
+      "model": "gpt-4o-mini",
+      "overall": {
+        "total": 2,
+        "success": 2,
+        "failed": 0,
+        "quality_pass": 2,
+        "quality_fail": 0,
+        "latency_ms_total": 96,
+        "tokens_total": 20,
+        "cost_units_total": 0.0,
+        "last_seen": 1777399568,
+        "samples": [
+          {
+            "ts": 1777399510,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 49,
+            "tokens_total": 10,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1777399568,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 47,
+            "tokens_total": 10,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          }
+        ]
+      },
+      "task_kinds": {
+        "analysis": {
+          "total": 2,
+          "success": 2,
+          "failed": 0,
+          "quality_pass": 2,
+          "quality_fail": 0,
+          "latency_ms_total": 96,
+          "tokens_total": 20,
+          "cost_units_total": 0.0,
+          "last_seen": 1777399568,
+          "samples": [
+            {
+              "ts": 1777399510,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 49,
+              "tokens_total": 10,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1777399568,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 47,
+              "tokens_total": 10,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1777228467
+  "updated_at": 1777399568
 }
