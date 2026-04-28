@@ -10,6 +10,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -167,10 +168,10 @@ public class PythonRuntimePlugin extends Plugin {
         final String selectedInitialCommand = initialCommand;
         worker.execute(() -> {
             try {
+                File workingDir = resolveShellWorkingDirectory(selectedCwd);
                 ProcessBuilder builder = new ProcessBuilder(selectedShell);
-                if (!selectedCwd.isEmpty()) {
-                    builder.directory(new java.io.File(selectedCwd));
-                }
+                builder.directory(workingDir);
+                applyShellEnvironment(builder, workingDir);
                 Process process = builder.redirectErrorStream(true).start();
                 ShellSession session = new ShellSession(process);
                 String sessionId = UUID.randomUUID().toString();
@@ -343,7 +344,11 @@ public class PythonRuntimePlugin extends Plugin {
     }
 
     private ShellExecutionResult executeShellCommand(String command, int timeoutSeconds) throws Exception {
-        Process process = new ProcessBuilder("sh", "-lc", command)
+        File workingDir = resolveShellWorkingDirectory("");
+        ProcessBuilder builder = new ProcessBuilder("sh", "-lc", command);
+        builder.directory(workingDir);
+        applyShellEnvironment(builder, workingDir);
+        Process process = builder
             .redirectErrorStream(true)
             .start();
 
@@ -363,6 +368,39 @@ public class PythonRuntimePlugin extends Plugin {
         }
 
         return new ShellExecutionResult(output, process.exitValue(), false);
+    }
+
+    private File resolveShellWorkingDirectory(String requestedCwd) {
+        String cwd = String.valueOf(requestedCwd == null ? "" : requestedCwd).trim();
+        if (!cwd.isEmpty()) {
+            File requested = new File(cwd);
+            if (requested.isDirectory() && requested.canRead()) {
+                return requested;
+            }
+        }
+
+        Context context = getContext();
+        if (context != null) {
+            File filesDir = context.getFilesDir();
+            if (filesDir != null && filesDir.isDirectory() && filesDir.canRead()) {
+                return filesDir;
+            }
+        }
+
+        File termuxHome = new File("/data/data/com.termux/files/home");
+        if (termuxHome.isDirectory() && termuxHome.canRead()) {
+            return termuxHome;
+        }
+
+        return new File("/");
+    }
+
+    private void applyShellEnvironment(ProcessBuilder builder, File workingDir) {
+        Map<String, String> env = builder.environment();
+        String path = workingDir.getAbsolutePath();
+        env.put("HOME", path);
+        env.put("PWD", path);
+        env.putIfAbsent("TERM", "xterm-256color");
     }
 
     private String readProcessOutput(InputStream stream, int maxChars) throws IOException {
