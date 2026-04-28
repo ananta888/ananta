@@ -289,7 +289,7 @@ export class LoginComponent {
     this.debugBusy = true;
     try {
       const hub = this.resolveHubForLogin();
-      const worker = this.dir.list().find((a) => a.role === 'worker') ?? this.dir.get('worker');
+      const worker = this.dir.get('worker') ?? this.dir.list().find((a) => a.role === 'worker');
       const runtime = await this.pythonRuntime.getRuntimeStatus();
       let endpointSummary = 'Hub endpoint nicht gesetzt';
       let workerEndpointSummary = 'Worker endpoint nicht gesetzt';

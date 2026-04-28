@@ -3,6 +3,7 @@ import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, finalize, filter, take } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -10,6 +11,7 @@ import { UserAuthService } from '../services/user-auth.service';
 import { TerminalComponent } from './terminal.component';
 import { TerminalMode } from '../services/terminal.service';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
+import { PythonRuntimeService } from '../services/python-runtime.service';
 
 @Component({
   standalone: true,
@@ -226,6 +228,23 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
           [mode]="terminalMode"
           [forwardParam]="terminalForwardParam || undefined"
         ></app-terminal>
+
+        @if (isAndroidNative && agent.role !== 'hub') {
+          <div class="card card-light grid mt-10">
+            <h4>Android Worker Shell</h4>
+            <p class="muted">Fallback-Terminal direkt in der App (lokale Shell-Ausfuehrung).</p>
+            <label>Shell-Befehl
+              <input [(ngModel)]="workerShellCommand" placeholder="z. B. cd /data/data/com.termux/files/home/ananta && python -m agent.ai_agent" />
+            </label>
+            <div class="row">
+              <button (click)="runWorkerShellCommand()" [disabled]="workerShellBusy">Ausfuehren</button>
+              <button class="button-outline" (click)="setWorkerShellStatusCommand()" [disabled]="workerShellBusy">Status-Befehl</button>
+              <button class="button-outline" (click)="setWorkerShellStartCommand()" [disabled]="workerShellBusy">Start-Befehl</button>
+            </div>
+            <div class="muted">{{ workerShellMeta || '-' }}</div>
+            <pre class="pre-scroll">{{ workerShellOutput || 'Noch keine Ausgabe.' }}</pre>
+          </div>
+        }
       </div>
     }
     `
@@ -237,6 +256,7 @@ export class AgentPanelComponent {
   private userAuth = inject(UserAuthService);
   private ns = inject(NotificationService);
   private taskFacade = inject(TaskManagementFacade);
+  private pythonRuntime = inject(PythonRuntimeService);
 
   agent?: AgentEntry;
   activeTab = 'interact';
@@ -266,6 +286,10 @@ export class AgentPanelComponent {
   terminalMode: TerminalMode = 'interactive';
   terminalForwardParam = '';
   private terminalForwardParamAutoResolved = false;
+  workerShellCommand = '';
+  workerShellOutput = '';
+  workerShellMeta = '';
+  workerShellBusy = false;
 
   constructor() {
     const name = this.route.snapshot.paramMap.get('name')!;
@@ -285,6 +309,13 @@ export class AgentPanelComponent {
     this.loadLogs();
     this.ensureConfigLoaded();
     this.ensureTerminalForwardParamLoaded();
+    if (this.isAndroidNative && this.agent?.role !== 'hub') {
+      this.setWorkerShellStatusCommand();
+    }
+  }
+
+  get isAndroidNative(): boolean {
+    return this.pythonRuntime.isNative && Capacitor.getPlatform() === 'android';
   }
 
   setTab(t: string) {
@@ -550,5 +581,46 @@ export class AgentPanelComponent {
       if (Number.isFinite(value) && value > 0) return value;
     }
     return 0;
+  }
+
+  setWorkerShellStatusCommand(): void {
+    this.workerShellCommand = [
+      'cd /data/data/com.termux/files/home/ananta',
+      'echo "== worker process =="',
+      'ps -ef | grep "python -m agent.ai_agent" | grep -v grep || true',
+      'echo "== worker health =="',
+      'curl -sf http://127.0.0.1:5001/health || true',
+    ].join(' && ');
+  }
+
+  setWorkerShellStartCommand(): void {
+    this.workerShellCommand = [
+      'cd /data/data/com.termux/files/home/ananta',
+      'ROLE=worker AGENT_NAME=android-worker PORT=5001 HUB_URL=http://127.0.0.1:5000 AGENT_URL=http://127.0.0.1:5001 python -m agent.ai_agent',
+    ].join(' && ');
+  }
+
+  runWorkerShellCommand(): void {
+    if (!this.isAndroidNative || this.workerShellBusy) return;
+    const command = (this.workerShellCommand || '').trim();
+    if (!command) {
+      this.ns.error('Bitte zuerst einen Shell-Befehl eingeben.');
+      return;
+    }
+    this.workerShellBusy = true;
+    this.workerShellMeta = 'Laeuft...';
+    this.pythonRuntime.runShellCommand(command, 120).then(
+      (result) => {
+        this.workerShellOutput = result.output || '';
+        this.workerShellMeta = `Exit-Code: ${result.exitCode}${result.timedOut ? ' | Timeout' : ''}`;
+      },
+      (error: any) => {
+        const message = error?.message || String(error);
+        this.workerShellOutput = message;
+        this.workerShellMeta = 'Fehler';
+      }
+    ).finally(() => {
+      this.workerShellBusy = false;
+    });
   }
 }

@@ -40,6 +40,7 @@ import { SystemFacade } from '../features/system/system.facade';
               [title]="resolvedStatus(a) || 'unbekannt'"></div>
               <strong>{{a.name}}</strong>
               <span class="muted">({{a.role || 'worker'}})</span>
+              <span class="muted">{{ agentScopeLabel(a) }}</span>
             </div>
             <div>
               <a [href]="a.url + '/apidocs'" target="_blank" style="margin-right: 12px; font-size: 12px;">Swagger</a>
@@ -112,7 +113,9 @@ export class AgentsListComponent implements OnInit, OnDestroy {
 
   refresh() { 
     this.hub = this.system.resolveHubAgent();
-    this.agents = this.system.listConfiguredAgents().map(a => ({ ...a, _terminalMode: 'interactive' })) as any;
+    this.agents = this.system.listConfiguredAgents()
+      .map(a => ({ ...a, _terminalMode: 'interactive' }))
+      .sort((a, b) => this.agentSortKey(a).localeCompare(this.agentSortKey(b))) as any;
     this.system.reloadAgentStatuses();
   }
 
@@ -146,6 +149,20 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   openTerminal(a: any) {
     const mode = a?._terminalMode || 'interactive';
     this.router.navigate(['/panel', a.name], { queryParams: { tab: 'terminal', mode } });
+  }
+
+  agentScopeLabel(agent: AgentEntry): string {
+    const url = String(agent.url || '').trim().toLowerCase();
+    if (!url) return '(unbekannt)';
+    const isLocal = url.includes('127.0.0.1') || url.includes('localhost');
+    return isLocal ? '(intern)' : '(remote)';
+  }
+
+  private agentSortKey(agent: AgentEntry): string {
+    const name = String(agent.name || '').trim().toLowerCase();
+    if (name === 'hub') return '0-hub';
+    if (name === 'worker') return '1-worker';
+    return `2-${name}`;
   }
   ping(a: any) {
     this.system.health(a.url).subscribe({ 
