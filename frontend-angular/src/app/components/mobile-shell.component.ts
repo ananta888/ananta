@@ -1,4 +1,4 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 
@@ -34,6 +34,7 @@ import { MobileProotService } from '../services/mobile-proot.service';
             <button type="button" class="secondary" (click)="setWorkerStartInDistroCommand()" [disabled]="running">Worker in Distro (Vorlage)</button>
           </div>
           <div class="muted">{{ prootStatus }}</div>
+          <div class="muted">Installierte Distros: {{ installedDistros.length ? installedDistros.join(', ') : '-' }}</div>
           <div class="row gap-sm wrap">
             <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
             <button type="button" class="secondary" (click)="startProotSession()" [disabled]="shellBusy || shellRunning">Distro-Session starten</button>
@@ -118,7 +119,7 @@ import { MobileProotService } from '../services/mobile-proot.service';
     }
   `],
 })
-export class MobileShellComponent implements OnDestroy {
+export class MobileShellComponent implements OnDestroy, OnInit {
   private python = inject(PythonRuntimeService);
   private proot = inject(MobileProotService);
 
@@ -137,10 +138,16 @@ export class MobileShellComponent implements OnDestroy {
   selectedDistro = this.proot.getSelectedDistro();
   prootBusy = false;
   prootStatus = '';
+  installedDistros: string[] = [];
   private pollHandle?: ReturnType<typeof setInterval>;
 
   get isAndroidNative(): boolean {
     return this.python.isNative && Capacitor.getPlatform() === 'android';
+  }
+
+  ngOnInit(): void {
+    if (!this.isAndroidNative) return;
+    this.refreshProotRuntimeStatus().catch(() => undefined);
   }
 
   ngOnDestroy(): void {
@@ -285,8 +292,16 @@ export class MobileShellComponent implements OnDestroy {
   }
 
   listInstalledDistros(): void {
-    this.command = this.proot.buildListInstalledCommand();
-    this.runCommand().catch(() => undefined);
+    this.prootStatus = 'Lese installierte Distros...';
+    this.refreshProotRuntimeStatus().then(() => {
+      this.output = this.installedDistros.length
+        ? this.installedDistros.map((name) => `- ${name}`).join('\n')
+        : 'Keine Distros installiert.';
+      this.lastMeta = 'Installierte Distros';
+    }).catch((error: any) => {
+      this.output = error?.message || String(error);
+      this.lastMeta = 'Fehler';
+    });
   }
 
   installSelectedDistro(): void {
@@ -297,8 +312,9 @@ export class MobileShellComponent implements OnDestroy {
     this.python.installProotDistro(this.selectedDistro).then(
       (result) => {
         this.prootStatus = `Distro installiert: ${result.distro}`;
-        this.command = this.proot.buildListInstalledCommand();
-        this.runCommand().catch(() => undefined);
+        this.refreshProotRuntimeStatus().catch(() => undefined);
+        this.output = `Distro installiert: ${result.distro}\nRootfs: ${result.rootfsPath}`;
+        this.lastMeta = 'Distro installiert';
       },
       (error: any) => {
         this.prootStatus = `Distro-Install fehlgeschlagen: ${error?.message || String(error)}`;
@@ -319,6 +335,7 @@ export class MobileShellComponent implements OnDestroy {
         this.prootStatus = status.prootExecutable
           ? `Runtime installiert: ${status.prootPath}`
           : 'Runtime installiert, aber nicht ausfuehrbar.';
+        this.refreshProotRuntimeStatus().catch(() => undefined);
       },
       (error: any) => {
         this.prootStatus = `Runtime-Install fehlgeschlagen: ${error?.message || String(error)}`;
@@ -326,6 +343,19 @@ export class MobileShellComponent implements OnDestroy {
     ).finally(() => {
       this.prootBusy = false;
     });
+  }
+
+  private async refreshProotRuntimeStatus(): Promise<void> {
+    const status = await this.python.getProotRuntimeStatus();
+    this.installedDistros = (status.distros || [])
+      .map((item) => String(item?.name || '').trim())
+      .filter(Boolean)
+      .sort();
+    if (!this.prootStatus) {
+      this.prootStatus = status.prootExecutable
+        ? `Runtime bereit: ${status.prootPath}`
+        : 'Runtime noch nicht installiert.';
+    }
   }
 
   clearOutput(): void {
