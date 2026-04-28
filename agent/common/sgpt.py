@@ -488,26 +488,50 @@ def run_sgpt_command(
     if "--no-interaction" not in options:
         options.append("--no-interaction")
 
-    # Modell aus Settings nutzen, falls nicht explizit angegeben
-    selected_model = model or settings.sgpt_default_model
-    args = ["--model", selected_model] + options + [prompt]
+    agent_cfg = _get_agent_config()
+    selected_model = (
+        str(
+            model
+            or agent_cfg.get("sgpt_default_model")
+            or agent_cfg.get("default_model")
+            or agent_cfg.get("model")
+            or settings.sgpt_default_model
+            or ""
+        ).strip()
+        or None
+    )
+    args = (["--model", selected_model] if selected_model else []) + options + [prompt]
 
     with sgpt_lock:
         env = os.environ.copy()
 
-        # LMStudio Integration
-        lmstudio_url = settings.lmstudio_url
-        if lmstudio_url:
-            if "/v1" in lmstudio_url:
-                base_url = lmstudio_url.split("/v1")[0] + "/v1"
-            else:
-                base_url = lmstudio_url
+        runtime_provider = _get_runtime_default_provider()
+        provider_urls = _get_runtime_provider_urls()
+
+        base_url = None
+        if runtime_provider == "lmstudio":
+            base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
+        elif runtime_provider == "openai":
+            base_url = _normalize_openai_base_url(provider_urls.get("openai") or settings.openai_url)
+
+        if base_url:
             env["OPENAI_API_BASE"] = base_url
             # Newer OpenAI clients (used by shell-gpt) honor OPENAI_BASE_URL.
             env["OPENAI_BASE_URL"] = base_url
+        else:
+            env.pop("OPENAI_API_BASE", None)
+            env.pop("OPENAI_BASE_URL", None)
 
         if not env.get("OPENAI_API_KEY"):
-            env["OPENAI_API_KEY"] = "sk-no-key-needed"
+            configured_api_key = (
+                _resolve_profile_api_key(str(agent_cfg.get("openai_api_key_profile") or "").strip())
+                or str(settings.openai_api_key or "").strip()
+                or None
+            )
+            if configured_api_key:
+                env["OPENAI_API_KEY"] = configured_api_key
+            elif runtime_provider in {"lmstudio", "ollama"} or _is_probably_local_base_url(base_url):
+                env["OPENAI_API_KEY"] = "sk-no-key-needed"
 
         try:
             logging.info(f"Zentraler SGPT-Aufruf: {args}")
