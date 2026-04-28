@@ -48,6 +48,7 @@ public class PythonRuntimePlugin extends Plugin {
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
     private static final String PROOT_BIN_FILE = "proot-rs";
     private static final String PROOT_WRAPPER_FILE = "proot";
+    private static final String PROOT_EMBEDDED_LIB_FILE = "libprootrs.so";
     private static final String PROOT_RS_RELEASE_URL = "https://github.com/proot-me/proot-rs/releases/download/v0.1.0/proot-rs-v0.1.0-aarch64-linux-android.tar.gz";
     private static final String PROOT_DISTRO_RELEASE_API = "https://api.github.com/repos/termux/proot-distro/releases/latest";
     private static final String PROOT_DISTRO_PLUGIN_BASE = "https://raw.githubusercontent.com/termux/proot-distro/master/distro-plugins/";
@@ -305,7 +306,9 @@ public class PythonRuntimePlugin extends Plugin {
                 JSObject result = new JSObject();
                 File runtimeRoot = runtimeRootDir();
                 File prootWrapper = new File(runtimeRoot, "bin/" + PROOT_WRAPPER_FILE);
-                File prootBinary = new File(runtimeRoot, "bin/" + PROOT_BIN_FILE);
+                File runtimeProotBinary = new File(runtimeRoot, "bin/" + PROOT_BIN_FILE);
+                File embeddedProotBinary = embeddedNativeProotBinary();
+                File selectedProotBinary = resolveProotBinaryCandidate(runtimeProotBinary, embeddedProotBinary);
                 File distroRoot = new File(runtimeRoot, "distros");
                 JSArray distros = new JSArray();
                 File[] entries = distroRoot.listFiles();
@@ -323,14 +326,17 @@ public class PythonRuntimePlugin extends Plugin {
 
                 result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
                 result.put("prootPath", prootWrapper.getAbsolutePath());
-                boolean prootExists = prootWrapper.exists() && prootBinary.exists();
+                result.put("prootBinaryPath", selectedProotBinary != null ? selectedProotBinary.getAbsolutePath() : "");
+                result.put("prootBinarySource", isEmbeddedBinary(selectedProotBinary, embeddedProotBinary) ? "embedded-native-lib" : "runtime-files");
+                boolean prootExists = prootWrapper.exists() && selectedProotBinary != null && selectedProotBinary.exists();
                 result.put("prootExists", prootExists);
                 ProotProbeResult probe = new ProotProbeResult(false, "Runtime nicht installiert.");
                 if (prootExists) {
                     prootWrapper.setReadable(true, false);
-                    prootBinary.setReadable(true, false);
+                    selectedProotBinary.setReadable(true, false);
                     prootWrapper.setExecutable(true, false);
-                    prootBinary.setExecutable(true, false);
+                    selectedProotBinary.setExecutable(true, false);
+                    createProotWrapper(new File(runtimeRoot, "bin"), selectedProotBinary);
                     probe = probeProotWrapper(prootWrapper);
                 }
                 result.put("prootExecutable", prootExists && probe.runnable);
@@ -354,6 +360,26 @@ public class PythonRuntimePlugin extends Plugin {
 
                 File runtimeRoot = runtimeRootDir();
                 File binDir = ensureDir(runtimeRoot, "bin");
+                File embeddedProotBinary = embeddedNativeProotBinary();
+                if (isUsableBinary(embeddedProotBinary)) {
+                    createProotWrapper(binDir, embeddedProotBinary);
+                    ProotProbeResult probe = probeProotWrapper(new File(binDir, PROOT_WRAPPER_FILE));
+                    JSObject result = new JSObject();
+                    result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
+                    result.put("prootPath", new File(binDir, PROOT_WRAPPER_FILE).getAbsolutePath());
+                    result.put("prootBinaryPath", embeddedProotBinary.getAbsolutePath());
+                    result.put("prootBinarySource", "embedded-native-lib");
+                    result.put("alreadyInstalled", true);
+                    result.put("runnable", probe.runnable);
+                    result.put("probeMessage", probe.message);
+                    String doneMessage = probe.runnable
+                        ? "Runtime bereit (APK-native binary)."
+                        : "Runtime vorhanden (APK-native binary), aber nicht startbar.";
+                    notifyProotProgress("runtime", "done", doneMessage, -1, -1, null);
+                    call.resolve(result);
+                    return;
+                }
+
                 File existingWrapper = new File(binDir, PROOT_WRAPPER_FILE);
                 File existingBinary = new File(binDir, PROOT_BIN_FILE);
                 if (existingWrapper.exists() && existingBinary.exists()) {
@@ -602,10 +628,14 @@ public class PythonRuntimePlugin extends Plugin {
     private void ensureProotInstalled() throws IOException {
         File binDir = new File(runtimeRootDir(), "bin");
         File wrapper = new File(binDir, PROOT_WRAPPER_FILE);
-        File binary = new File(binDir, PROOT_BIN_FILE);
-        if (!wrapper.exists() || !wrapper.canExecute() || !binary.exists() || !binary.canExecute()) {
+        File runtimeBinary = new File(binDir, PROOT_BIN_FILE);
+        File selectedBinary = resolveProotBinaryCandidate(runtimeBinary, embeddedNativeProotBinary());
+        if (!wrapper.exists() || !wrapper.canExecute() || selectedBinary == null || !selectedBinary.exists()) {
             throw new IOException("Proot runtime is not installed. Install runtime first.");
         }
+        selectedBinary.setReadable(true, false);
+        selectedBinary.setExecutable(true, false);
+        createProotWrapper(binDir, selectedBinary);
     }
 
     private void createProotWrapper(File binDir, File targetBinary) throws IOException {
@@ -617,6 +647,34 @@ public class PythonRuntimePlugin extends Plugin {
         }
         if (!wrapper.setExecutable(true, false)) {
             throw new IOException("Could not mark proot wrapper executable.");
+        }
+    }
+
+    private File embeddedNativeProotBinary() {
+        Context context = getContext();
+        if (context == null || context.getApplicationInfo() == null) return null;
+        String nativeDir = String.valueOf(context.getApplicationInfo().nativeLibraryDir == null ? "" : context.getApplicationInfo().nativeLibraryDir).trim();
+        if (nativeDir.isEmpty()) return null;
+        File candidate = new File(nativeDir, PROOT_EMBEDDED_LIB_FILE);
+        return candidate.exists() ? candidate : null;
+    }
+
+    private File resolveProotBinaryCandidate(File runtimeBinary, File embeddedBinary) {
+        if (isUsableBinary(embeddedBinary)) return embeddedBinary;
+        if (isUsableBinary(runtimeBinary)) return runtimeBinary;
+        return null;
+    }
+
+    private boolean isUsableBinary(File file) {
+        return file != null && file.exists() && file.isFile();
+    }
+
+    private boolean isEmbeddedBinary(File selected, File embedded) {
+        if (selected == null || embedded == null) return false;
+        try {
+            return selected.getCanonicalPath().equals(embedded.getCanonicalPath());
+        } catch (IOException ignored) {
+            return selected.getAbsolutePath().equals(embedded.getAbsolutePath());
         }
     }
 
