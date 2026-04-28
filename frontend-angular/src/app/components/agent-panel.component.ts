@@ -248,7 +248,8 @@ import { MobileProotService } from '../services/mobile-proot.service';
               <button (click)="runWorkerShellCommand()" [disabled]="workerShellBusy">Ausfuehren</button>
               <button class="button-outline" (click)="setWorkerShellStatusCommand()" [disabled]="workerShellBusy">Status-Befehl</button>
               <button class="button-outline" (click)="setWorkerShellStartCommand()" [disabled]="workerShellBusy">Start-Befehl</button>
-              <button class="button-outline" (click)="setWorkerShellInstallDistroCommand()" [disabled]="workerShellBusy">Distro installieren</button>
+              <button class="button-outline" (click)="installWorkerRuntime()" [disabled]="workerShellBusy">Runtime installieren</button>
+              <button class="button-outline" (click)="installWorkerDistro()" [disabled]="workerShellBusy">Distro installieren</button>
               <button class="button-outline" (click)="setWorkerShellLoginDistroCommand()" [disabled]="workerShellBusy">Distro Login</button>
             </div>
             <div class="muted">{{ workerShellMeta || '-' }}</div>
@@ -612,14 +613,48 @@ export class AgentPanelComponent {
     this.workerShellCommand = this.proot.buildWorkerStartInDistroCommand(this.selectedDistro);
   }
 
-  setWorkerShellInstallDistroCommand(): void {
-    this.proot.setSelectedDistro(this.selectedDistro);
-    this.workerShellCommand = this.proot.buildInstallCommand(this.selectedDistro);
-  }
-
   setWorkerShellLoginDistroCommand(): void {
     this.proot.setSelectedDistro(this.selectedDistro);
     this.workerShellCommand = this.proot.buildLoginCommand(this.selectedDistro);
+  }
+
+  installWorkerRuntime(): void {
+    if (!this.isAndroidNative || this.workerShellBusy) return;
+    this.workerShellBusy = true;
+    this.workerShellMeta = 'Installiere Runtime...';
+    this.pythonRuntime.installProotRuntime().then(
+      () => this.pythonRuntime.getProotRuntimeStatus()
+    ).then(
+      (status) => {
+        this.workerShellMeta = status.prootExecutable ? 'Runtime installiert.' : 'Runtime installiert, aber nicht ausfuehrbar.';
+        this.setWorkerShellStatusCommand();
+      },
+      (error: any) => {
+        this.workerShellMeta = 'Runtime-Install fehlgeschlagen';
+        this.workerShellOutput = error?.message || String(error);
+      }
+    ).finally(() => {
+      this.workerShellBusy = false;
+    });
+  }
+
+  installWorkerDistro(): void {
+    if (!this.isAndroidNative || this.workerShellBusy) return;
+    this.workerShellBusy = true;
+    this.proot.setSelectedDistro(this.selectedDistro);
+    this.workerShellMeta = `Installiere Distro ${this.selectedDistro}...`;
+    this.pythonRuntime.installProotDistro(this.selectedDistro).then(
+      (result) => {
+        this.workerShellMeta = `Distro installiert: ${result.distro}`;
+        this.setWorkerShellStatusCommand();
+      },
+      (error: any) => {
+        this.workerShellMeta = 'Distro-Install fehlgeschlagen';
+        this.workerShellOutput = error?.message || String(error);
+      }
+    ).finally(() => {
+      this.workerShellBusy = false;
+    });
   }
 
   onDistroChange(next: string): void {
