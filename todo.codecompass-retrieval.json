@@ -1,0 +1,493 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "codecompass_hybrid_retrieval",
+  "purpose": "Complete the missing hard retrieval layer around CodeCompass/rag-helper so Ananta can use structured CodeCompass outputs through lexical FTS/BM25, structured vector search, graph expansion and relation-aware context assembly before delegating work to opencode, ananta-worker or other execution backends.",
+  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "current_state": {
+    "already_present": [
+      "Hybrid context execution path via sgpt /execute with use_hybrid_context=true.",
+      "ContextManagerService builds grounded prompts before execution backends run.",
+      "RagService facade delegates retrieval and context bundle assembly.",
+      "RetrievalService already fuses repository_map, semantic_search, agentic_search, knowledge_index and result_memory chunks.",
+      "KnowledgeIndexRetrievalService reads CodeCompass index.jsonl, details.jsonl and relations.jsonl.",
+      "KnowledgeIndexRetrievalService has custom lexical scoring with symbol, path, relation, summary, content and focus weights.",
+      "SemanticSearchEngine builds a LlamaIndex VectorStoreIndex over configured data roots.",
+      "AgenticSearchEngine provides rg-based live lexical search."
+    ],
+    "missing_or_incomplete": [
+      "No persistent FTS/BM25 index over CodeCompass records found.",
+      "No dedicated structured vector store over embedding.jsonl records found.",
+      "No graph traversal over graph_nodes.jsonl and graph_edges.jsonl found.",
+      "relations.jsonl is scored as records but not yet used as executable graph expansion edges.",
+      "No explicit retrieval benchmark comparing current lexical scoring, FTS/BM25, vectors and graph expansion found."
+    ]
+  },
+  "non_goals": [
+    "Do not replace the existing ContextManagerService/RagService/RetrievalService chain.",
+    "Do not force OpenCode or ananta-worker to do retrieval themselves.",
+    "Do not make external vector DBs mandatory for local-dev startup.",
+    "Do not remove the current custom lexical KnowledgeIndexRetrievalService scoring until the new engines are benchmarked.",
+    "Do not expose raw secrets or large unredacted code blobs in context bundles."
+  ],
+  "success_criteria": [
+    "CodeCompass outputs can be indexed into a persistent lexical FTS/BM25 store.",
+    "embedding.jsonl can be indexed as structured vector records with id, kind, file, role labels and provenance metadata preserved.",
+    "graph_nodes.jsonl and graph_edges.jsonl can be loaded and traversed for 1-hop and bounded 2-hop context expansion.",
+    "relations.jsonl can drive targeted expansions such as parent type, child method, calls_probable_target, injects_dependency, JPA relations and transactional boundaries.",
+    "RetrievalService can fuse lexical, vector, graph, relation and existing engines with traceable scores.",
+    "Context bundles include why-this-context, source provenance and expansion trace.",
+    "Execution backends receive compact grounded prompts; retrieval stays hub/context-layer owned.",
+    "Benchmarks prove whether each new engine improves bugfix, refactor, architecture and config retrieval tasks."
+  ],
+  "milestones": [
+    {
+      "id": "CHR-M1",
+      "title": "Inventory and contracts",
+      "task_ids": ["CHR-T01", "CHR-T02", "CHR-T03"],
+      "status": "todo"
+    },
+    {
+      "id": "CHR-M2",
+      "title": "Persistent FTS/BM25 retrieval",
+      "task_ids": ["CHR-T04", "CHR-T05", "CHR-T06"],
+      "status": "todo"
+    },
+    {
+      "id": "CHR-M3",
+      "title": "Structured vector retrieval over embedding.jsonl",
+      "task_ids": ["CHR-T07", "CHR-T08", "CHR-T09"],
+      "status": "todo"
+    },
+    {
+      "id": "CHR-M4",
+      "title": "Graph and relation expansion",
+      "task_ids": ["CHR-T10", "CHR-T11", "CHR-T12", "CHR-T13"],
+      "status": "todo"
+    },
+    {
+      "id": "CHR-M5",
+      "title": "Fusion, context bundles and benchmarks",
+      "task_ids": ["CHR-T14", "CHR-T15", "CHR-T16", "CHR-T17", "CHR-T18"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CHR-T01",
+      "title": "Document current retrieval flow",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [],
+      "expected_files": [
+        "docs/architecture/codecompass-hybrid-retrieval-current-state.md"
+      ],
+      "acceptance_criteria": [
+        "Document the current path: sgpt route -> ContextManagerService -> RagService -> RetrievalService -> ContextBundleService -> backend.",
+        "List current engines: repository_map, semantic_search, agentic_search, knowledge_index, result_memory.",
+        "Describe exactly what KnowledgeIndexRetrievalService reads today: index.jsonl, details.jsonl, relations.jsonl.",
+        "State clearly that current knowledge_index search is lexical/scored but not a persistent FTS/BM25 index.",
+        "State clearly that graph_nodes.jsonl and graph_edges.jsonl are not yet used for traversal."
+      ]
+    },
+    {
+      "id": "CHR-T02",
+      "title": "Add retrieval engine contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CHR-T01"],
+      "expected_files": [
+        "agent/services/retrieval_engine_contract.py",
+        "tests/test_retrieval_engine_contract.py"
+      ],
+      "acceptance_criteria": [
+        "Define provider-neutral RetrievalEngine interface with search(query, top_k, task_kind, retrieval_intent, source_scopes).",
+        "Return existing ContextChunk-compatible payloads with engine, source, content, score and metadata.",
+        "Contract supports preflight/status diagnostics.",
+        "No engine-specific dependencies are required to import the contract.",
+        "Tests verify a mock engine can be registered and queried."
+      ]
+    },
+    {
+      "id": "CHR-T03",
+      "title": "Add CodeCompass output discovery helper",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": ["CHR-T01"],
+      "expected_files": [
+        "agent/services/codecompass_output_reader.py",
+        "tests/test_codecompass_output_reader.py"
+      ],
+      "acceptance_criteria": [
+        "Helper discovers available CodeCompass output files per completed KnowledgeIndex.",
+        "Helper recognizes index.jsonl, details.jsonl, relations.jsonl, embedding.jsonl, context.jsonl, graph_nodes.jsonl and graph_edges.jsonl.",
+        "Helper tolerates missing optional files without failing retrieval.",
+        "Helper yields parsed JSONL records with source metadata: knowledge_index_id, artifact_id, source_scope, output_dir, record_file.",
+        "Tests cover complete output, partial output and malformed JSONL lines."
+      ]
+    },
+    {
+      "id": "CHR-T04",
+      "title": "Implement SQLite FTS5 store for CodeCompass records",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CHR-T02", "CHR-T03"],
+      "expected_files": [
+        "agent/services/codecompass_fts_store.py",
+        "tests/test_codecompass_fts_store.py"
+      ],
+      "acceptance_criteria": [
+        "Create or open a SQLite database under the knowledge index output or configured retrieval cache directory.",
+        "Create FTS5 table for record_id, kind, file, name, symbol_text, path_text, summary_text, content_text, relation_text, focus_text and source metadata.",
+        "Index CodeCompass records from index.jsonl, details.jsonl, context.jsonl and optionally relations.jsonl.",
+        "Use stable cache invalidation based on knowledge_index_id, output_dir, manifest hash or output file mtimes.",
+        "Do not block core startup when SQLite FTS5 is unavailable; report degraded preflight instead.",
+        "Tests verify insert, rebuild, query and cache invalidation."
+      ]
+    },
+    {
+      "id": "CHR-T05",
+      "title": "Add BM25/FTS retrieval engine",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CHR-T04"],
+      "expected_files": [
+        "agent/services/codecompass_fts_retrieval_engine.py",
+        "tests/test_codecompass_fts_retrieval_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Engine queries SQLite FTS5 with bm25 ranking where available.",
+        "Engine returns ContextChunk objects with engine='codecompass_fts'.",
+        "Metadata includes record_id, record_kind, record_file, file, knowledge_index_id, artifact_id, source_scope and lexical_score_breakdown.",
+        "Engine boosts exact symbol/path matches for Java class/method/config/XML names.",
+        "Engine is bounded by top_k and content length limits.",
+        "Tests compare exact class/method query results against expected ranked records."
+      ]
+    },
+    {
+      "id": "CHR-T06",
+      "title": "Wire FTS engine into RetrievalService fusion",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["CHR-T05"],
+      "expected_files": [
+        "agent/services/retrieval_service.py",
+        "tests/test_retrieval_service_codecompass_fts_fusion.py"
+      ],
+      "acceptance_criteria": [
+        "RetrievalService can include codecompass_fts as a retrieval engine when enabled.",
+        "Task profiles weight codecompass_fts strongly for bugfix, refactor, config and exact-symbol queries.",
+        "Existing knowledge_index lexical scoring remains available as fallback during rollout.",
+        "Fusion metadata reports engine contribution counts and codecompass_fts selected chunks.",
+        "Tests verify FTS chunks can reach final context bundle."
+      ]
+    },
+    {
+      "id": "CHR-T07",
+      "title": "Implement structured embedding.jsonl loader",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": ["CHR-T03"],
+      "expected_files": [
+        "agent/services/codecompass_embedding_records.py",
+        "tests/test_codecompass_embedding_records.py"
+      ],
+      "acceptance_criteria": [
+        "Loader reads embedding.jsonl records and extracts id, kind, file, embedding_text, summary, role_labels, importance_score and generated_code metadata.",
+        "Loader skips records with empty embedding_text.",
+        "Loader preserves provenance back to knowledge_index_id and output_dir.",
+        "Loader supports compact deterministic document text for vector indexing.",
+        "Tests cover normal records, missing fields and malformed lines."
+      ]
+    },
+    {
+      "id": "CHR-T08",
+      "title": "Add structured vector store for CodeCompass embeddings",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CHR-T07"],
+      "expected_files": [
+        "agent/services/codecompass_vector_store.py",
+        "tests/test_codecompass_vector_store.py"
+      ],
+      "acceptance_criteria": [
+        "Build a persistent vector index from embedding.jsonl records rather than treating JSONL as plain text.",
+        "Preserve record metadata for retrieval and graph expansion: id, kind, file, parent_id if available, role_labels, importance_score, knowledge_index_id.",
+        "Support local-dev backend with LlamaIndex default vector store or another dependency already acceptable to the project.",
+        "Support optional provider configuration for future Ollama/LM Studio/OpenAI-compatible embedding backends without making them mandatory.",
+        "Detect stale vector indexes by output manifest/hash/mtime and rebuild safely.",
+        "Tests use a fake embedding/vector implementation where external models are not available."
+      ]
+    },
+    {
+      "id": "CHR-T09",
+      "title": "Add CodeCompass vector retrieval engine",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["CHR-T08"],
+      "expected_files": [
+        "agent/services/codecompass_vector_retrieval_engine.py",
+        "tests/test_codecompass_vector_retrieval_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Engine searches structured CodeCompass vector store and returns ContextChunk objects with engine='codecompass_vector'.",
+        "Metadata includes vector score, record_id, record_kind, role_labels, file and provenance.",
+        "Task profiles boost vector results for fuzzy semantic questions and architecture analysis.",
+        "Engine can be disabled independently if embedding backend is unavailable.",
+        "Tests verify vector result metadata is preserved into ContextChunk."
+      ]
+    },
+    {
+      "id": "CHR-T10",
+      "title": "Implement CodeCompass graph store loader",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CHR-T03"],
+      "expected_files": [
+        "agent/services/codecompass_graph_store.py",
+        "tests/test_codecompass_graph_store.py"
+      ],
+      "acceptance_criteria": [
+        "Load graph_nodes.jsonl and graph_edges.jsonl when present.",
+        "Also load parent_id relationships from index/details records as fallback edges.",
+        "Expose lookup by node id, file, kind and record id.",
+        "Expose outgoing_edges(node_id, edge_types), incoming_edges(node_id, edge_types), neighbors(node_id, depth, edge_types).",
+        "Bound traversal by max depth, max nodes and allowed edge types.",
+        "Tests cover parent_child, relation edges, missing graph files and cycle protection."
+      ]
+    },
+    {
+      "id": "CHR-T11",
+      "title": "Implement relation edge normalizer from relations.jsonl",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CHR-T03", "CHR-T10"],
+      "expected_files": [
+        "agent/services/codecompass_relation_edges.py",
+        "tests/test_codecompass_relation_edges.py"
+      ],
+      "acceptance_criteria": [
+        "Normalize relations.jsonl records into graph edges with source, target, type, confidence, heuristic and provenance.",
+        "Support relation keys used by CodeCompass: from, to, type, relation, target_resolved, confidence, heuristic where present.",
+        "Map important CodeCompass relation types: calls_probable_target, injects_dependency, field_type_uses, extends, implements, jpa relations, transactional_boundary, declares_bean, child_of_type, child_of_file.",
+        "Handle unresolved target_resolved values without crashing.",
+        "Tests cover resolved and unresolved relations."
+      ]
+    },
+    {
+      "id": "CHR-T12",
+      "title": "Add graph expansion retrieval engine",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["CHR-T10", "CHR-T11"],
+      "expected_files": [
+        "agent/services/codecompass_graph_expansion_engine.py",
+        "tests/test_codecompass_graph_expansion_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Engine accepts seed chunks from FTS/vector/knowledge_index and expands by graph neighbors.",
+        "Support expansion profiles: bugfix_local, refactor_navigation, architecture_review, config_integration.",
+        "For method seeds include parent type, child details, calls_probable_target and directly used types within limits.",
+        "For type seeds include file parent, important methods, injected dependencies, extends/implements and framework role relations.",
+        "For JPA/Spring seeds include entity/repository/bean/transactional relations when present.",
+        "Return expansion chunks with engine='codecompass_graph' and metadata.expanded_from.",
+        "Tests verify bounded 1-hop and 2-hop expansion."
+      ]
+    },
+    {
+      "id": "CHR-T13",
+      "title": "Add relation-aware context explanations",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["CHR-T12"],
+      "expected_files": [
+        "agent/services/codecompass_context_explainer.py",
+        "tests/test_codecompass_context_explainer.py"
+      ],
+      "acceptance_criteria": [
+        "Generate compact why-this-context explanations for graph-expanded chunks.",
+        "Examples: selected because method calls probable target, selected because class injects dependency, selected because entity relation points here.",
+        "Explanations are included in chunk metadata and final bundle explainability.",
+        "Do not leak huge raw relation payloads into prompts.",
+        "Tests verify explanation text for core relation types."
+      ]
+    },
+    {
+      "id": "CHR-T14",
+      "title": "Extend RetrievalService fusion for CodeCompass engines",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": ["CHR-T06", "CHR-T09", "CHR-T12"],
+      "expected_files": [
+        "agent/services/retrieval_service.py",
+        "tests/test_retrieval_service_codecompass_hybrid_fusion.py"
+      ],
+      "acceptance_criteria": [
+        "Fusion supports codecompass_fts, codecompass_vector and codecompass_graph engines.",
+        "Graph expansion runs after initial seed retrieval and before final rerank/diversity cut.",
+        "Task profile weights are explicit for bugfix, refactor, architecture and config tasks.",
+        "Deduplication handles same record returned by FTS, vector and graph engines.",
+        "Selection trace includes original score, fusion score, engine weights, expansion source and final rank.",
+        "Tests verify a seed result can be expanded and survive final context selection."
+      ]
+    },
+    {
+      "id": "CHR-T15",
+      "title": "Update ContextBundleService for graph/FTS/vector provenance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["CHR-T14"],
+      "expected_files": [
+        "agent/services/context_bundle_service.py",
+        "tests/test_context_bundle_codecompass_provenance.py"
+      ],
+      "acceptance_criteria": [
+        "Context bundles preserve engine, source_type, record_id, relation_path and expanded_from metadata.",
+        "Context text groups related graph-expanded chunks near their seed where possible.",
+        "Token budgeting prevents graph expansion from flooding the prompt.",
+        "Bundle explainability reports FTS/vector/graph contribution counts.",
+        "Tests verify provenance is visible in bundle metadata but prompt text remains compact."
+      ]
+    },
+    {
+      "id": "CHR-T16",
+      "title": "Add retrieval engine configuration flags",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["CHR-T14"],
+      "expected_files": [
+        "agent/config.py",
+        ".env.example",
+        "tests/test_retrieval_engine_config_flags.py"
+      ],
+      "acceptance_criteria": [
+        "Add flags to enable/disable codecompass_fts, codecompass_vector and codecompass_graph independently.",
+        "Default local-dev behavior must remain safe and not require external vector DB/model services.",
+        "Expose preflight diagnostics for each engine.",
+        "Tests verify disabled engines do not run and enabled-but-unavailable engines degrade cleanly."
+      ]
+    },
+    {
+      "id": "CHR-T17",
+      "title": "Add retrieval benchmark suite",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["CHR-T14", "CHR-T15"],
+      "expected_files": [
+        "tests/retrieval/fixtures/codecompass_sample/",
+        "tests/test_codecompass_retrieval_benchmark.py",
+        "docs/benchmarks/codecompass-retrieval-benchmark.md"
+      ],
+      "acceptance_criteria": [
+        "Create small fixture with Java classes, methods, Spring/JPA relations, XML/XSD/config and expected retrieval targets.",
+        "Benchmark compares current knowledge_index scoring, FTS, vector and graph-expanded hybrid modes.",
+        "Measure hit@k, engine contribution, token estimate and explanation coverage.",
+        "Include scenarios: bugfix, refactor, architecture overview, config integration and fuzzy semantic search.",
+        "Tests are deterministic and do not require external LLM or external embedding provider."
+      ]
+    },
+    {
+      "id": "CHR-T18",
+      "title": "Document operational rollout and migration path",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "depends_on": ["CHR-T16", "CHR-T17"],
+      "expected_files": [
+        "docs/operations/codecompass-hybrid-retrieval-rollout.md"
+      ],
+      "acceptance_criteria": [
+        "Document rollout stages: current lexical scoring, FTS on, vector on, graph expansion on, full hybrid.",
+        "Document how to rebuild CodeCompass indexes and retrieval caches.",
+        "Document fallback behavior when vector or graph engines are unavailable.",
+        "Document recommended profiles for large Java/Spring/XML/XSD projects.",
+        "Document how opencode/ananta-worker receive grounded context and why retrieval stays outside execution backends."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "First document the current retrieval flow so the existing layer is not rebuilt accidentally.",
+    "Add shared engine contracts and a CodeCompass output reader.",
+    "Implement persistent FTS/BM25 over CodeCompass records and wire it as an engine.",
+    "Implement structured vector indexing over embedding.jsonl records rather than generic JSONL text ingestion.",
+    "Load graph_nodes/graph_edges and normalize relations.jsonl into traversable edges.",
+    "Add graph expansion after initial FTS/vector/knowledge_index seed retrieval.",
+    "Fuse all engines in RetrievalService with traceable scores and provenance.",
+    "Update context bundles and benchmarks before enabling broadly."
+  ],
+  "critical_path_tasks": [
+    "CHR-T01",
+    "CHR-T02",
+    "CHR-T03",
+    "CHR-T04",
+    "CHR-T05",
+    "CHR-T07",
+    "CHR-T08",
+    "CHR-T10",
+    "CHR-T11",
+    "CHR-T12",
+    "CHR-T14"
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-29T00:00:00+02:00",
+    "total": 18,
+    "by_status": {
+      "todo": 18,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0,
+      "deferred": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 9,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 8,
+      "high": 8,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "The existing Ananta context layer is real and should be extended, not replaced.",
+    "The current KnowledgeIndexRetrievalService is already FTS-like through custom lexical scoring, but adding SQLite FTS5/BM25 would make it faster, persistent and more standard.",
+    "The current LlamaIndex semantic engine is real, but it is not yet a structured CodeCompass embedding.jsonl vector index with preserved record metadata.",
+    "The largest missing value is graph expansion: use CodeCompass relations/nodes/edges to expand from a seed method/type/config record to its relevant neighborhood.",
+    "OpenCode and ananta-worker should remain execution backends. Retrieval and context construction should stay in the hub-owned context layer."
+  ]
+}
