@@ -1211,7 +1211,7 @@ class TaskScopedExecutionService:
         if session_payload:
             turn = get_cli_session_service().append_turn(
                 session_id=session_payload["id"],
-                prompt=prompt,
+                prompt=prompt_for_cli,
                 output=raw_res,
                 model=proposal_model,
                 trace_id=str(trace.get("trace_id") or ""),
