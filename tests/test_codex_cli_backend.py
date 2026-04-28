@@ -235,6 +235,33 @@ def test_resolve_opencode_runtime_config_builds_ollama_openai_compatible_provide
     assert provider_cfg["provider"]["ollama"]["options"]["baseURL"] == "http://127.0.0.1:11434/v1"
 
 
+def test_resolve_opencode_runtime_config_prefixes_hosted_openai_model(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "openai",
+            "default_model": "gpt-4o-mini",
+            "opencode_default_model": "gpt-4o-mini",
+            "opencode_runtime": {"tool_mode": "full", "execution_mode": "live_terminal", "target_provider": None},
+        }
+        app.config["PROVIDER_URLS"] = {"openai": "https://api.openai.com/v1/chat/completions"}
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "openai"
+            mock_settings.default_model = "gpt-4o-mini"
+            mock_settings.opencode_default_model = "gpt-4o-mini"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.http_timeout = 30
+
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["target_provider"] == "openai"
+    assert resolved["target_model"] == "gpt-4o-mini"
+    assert resolved["model"] == "openai/gpt-4o-mini"
+    assert resolved["base_url"] is None
+    assert resolved["provider_config"] is None
+
+
 def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
     from agent.common.sgpt import run_opencode_command
 

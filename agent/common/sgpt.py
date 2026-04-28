@@ -1045,6 +1045,9 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
             provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
             provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
+    elif target_provider and target_model and target_provider in built_in_providers:
+        # Hosted providers (e.g. OpenAI) require provider/model notation for opencode.
+        cli_model = f"{target_provider}/{target_model}"
 
     diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider in {"ollama", "lmstudio"} or local_target) else []
     return {
