@@ -10,6 +10,12 @@ if (enablePythonRuntime) {
 android {
     namespace "com.ananta.mobile"
     compileSdk rootProject.ext.compileSdkVersion
+    packagingOptions {
+        jniLibs {
+            // Ensure native libs are unpacked to nativeLibraryDir so proot can be executed directly.
+            useLegacyPackaging true
+        }
+    }
     defaultConfig {
         applicationId "com.ananta.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
