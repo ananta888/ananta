@@ -8,6 +8,12 @@ export interface PythonRuntimeStatus {
   lastError?: string;
 }
 
+export interface ShellCommandResult {
+  output: string;
+  exitCode: number;
+  timedOut: boolean;
+}
+
 interface PythonRuntimePlugin {
   getRuntimeStatus(): Promise<PythonRuntimeStatus>;
   startHub(): Promise<{ hubRunning: boolean }>;
@@ -15,6 +21,7 @@ interface PythonRuntimePlugin {
   startWorker(): Promise<{ workerRunning: boolean }>;
   stopWorker(): Promise<{ workerRunning: boolean }>;
   runHealthCheck(): Promise<{ ok: boolean; message: string }>;
+  runShellCommand(options: { command: string; timeoutSeconds?: number }): Promise<ShellCommandResult>;
 }
 
 const PythonRuntime = registerPlugin<PythonRuntimePlugin>('PythonRuntime');
@@ -52,6 +59,17 @@ export class PythonRuntimeService {
 
   async runHealthCheck(): Promise<{ ok: boolean; message: string }> {
     return PythonRuntime.runHealthCheck();
+  }
+
+  async runShellCommand(command: string, timeoutSeconds = 20): Promise<ShellCommandResult> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    const normalizedCommand = String(command || '').trim();
+    if (!normalizedCommand) {
+      throw new Error('Bitte einen Befehl eingeben.');
+    }
+    return PythonRuntime.runShellCommand({ command: normalizedCommand, timeoutSeconds });
   }
 
   async ensureEmbeddedControlPlane(): Promise<PythonRuntimeStatus> {
