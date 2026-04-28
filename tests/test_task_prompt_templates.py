@@ -85,3 +85,50 @@ def test_task_prompt_materializes_workspace_context_files_and_keeps_prompt_short
     assert (workspace_dir / "AGENTS.md").exists()
     assert (workspace_dir / ".ananta" / "hub-context.md").read_text(encoding="utf-8").strip() == "VERY LONG HUB CONTEXT"
     assert (workspace_dir / "rag_helper" / "research-context.md").read_text(encoding="utf-8").strip() == "VERY LONG RESEARCH CONTEXT"
+
+
+def test_task_prompt_compact_profile_truncates_workspace_context_files(app, tmp_path):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **dict(app.config.get("AGENT_CONFIG") or {}),
+            "worker_runtime": {"workspace_root": str(tmp_path)},
+        }
+        task = {
+            "id": "task-compact-prompt",
+            "title": "Use compact profile",
+            "description": "D" * 3200,
+            "worker_execution_context": {
+                "context": {"context_text": "C" * 6400},
+            },
+        }
+        prompt, meta = TaskScopedExecutionService()._build_task_propose_prompt(
+            tid="task-compact-prompt",
+            task=task,
+            base_prompt="B" * 3000,
+            tool_definitions_resolver=lambda allowlist=None: [{"name": "bash", "allowlist": allowlist or []}],
+            research_context={
+                "artifact_ids": ["artifact-1", "artifact-2", "artifact-3"],
+                "knowledge_collection_ids": ["collection-1", "collection-2"],
+                "repo_scope_refs": [{"path": "src/main.py"}],
+                "prompt_section": "R" * 5000,
+                "truncated": True,
+                "context_char_count": 5000,
+            },
+            interactive_terminal=True,
+            context_profile={
+                "compact": True,
+                "task_brief_char_limit": 500,
+                "hub_context_char_limit": 900,
+                "research_prompt_char_limit": 700,
+            },
+        )
+
+    workspace_dir = Path((meta.get("workspace") or {}).get("workspace_dir") or "")
+    task_brief = (workspace_dir / ".ananta" / "task-brief.md").read_text(encoding="utf-8")
+    hub_context = (workspace_dir / ".ananta" / "hub-context.md").read_text(encoding="utf-8")
+    research_context = (workspace_dir / "rag_helper" / "research-context.md").read_text(encoding="utf-8")
+
+    assert "[gekürzt]" in task_brief
+    assert "[gekürzt]" in hub_context
+    assert "[gekürzt]" in research_context
+    assert "R" * 1200 not in prompt
