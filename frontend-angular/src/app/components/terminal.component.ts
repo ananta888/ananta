@@ -19,6 +19,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { TerminalMode, TerminalService } from '../services/terminal.service';
 import { HubSystemApiClient } from '../services/hub-system-api.client';
 import { NotificationService } from '../services/notification.service';
+import { PythonRuntimeService } from '../services/python-runtime.service';
 
 const TERMINAL_LOW_LATENCY_STORAGE_KEY = 'ananta.terminal.low-latency';
 const TERMINAL_OUTPUT_MIRROR_ENABLED = false;
@@ -145,6 +146,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private terminalService = inject(TerminalService);
   private systemApi = inject(HubSystemApiClient);
   private notifications = inject(NotificationService);
+  private pythonRuntime = inject(PythonRuntimeService);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
 
@@ -152,6 +154,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() token?: string;
   @Input() mode: TerminalMode = 'interactive';
   @Input() forwardParam?: string;
+  @Input() embeddedShellMode = false;
 
   @ViewChild('terminalHost', { static: true }) terminalHost?: ElementRef<HTMLDivElement>;
 
@@ -168,6 +171,8 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private resizeDebounceHandle?: number;
   private lastSentCols = 0;
   private lastSentRows = 0;
+  private embeddedSessionId = '';
+  private embeddedPollHandle?: ReturnType<typeof setInterval>;
 
   status = 'idle';
   quickCommand = '';
@@ -200,56 +205,58 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.terminal?.onData((data) => {
         if (this.mode !== 'interactive') return;
-        this.terminalService.sendInput(data);
+        this.sendInputToBackend(data);
       });
     });
 
-    this.subs.push(
-      this.terminalService.state$.subscribe((state) => {
-        if (this.status === state) return;
-        this.zone.run(() => {
-          this.status = state;
-          this.cdr.markForCheck();
-        });
-      })
-    );
-
-    this.zone.runOutsideAngular(() => {
+    if (!this.embeddedShellMode) {
       this.subs.push(
-        this.terminalService.output$.subscribe((chunk) => {
-          this.bufferOutput(chunk);
+        this.terminalService.state$.subscribe((state) => {
+          if (this.status === state) return;
+          this.zone.run(() => {
+            this.status = state;
+            this.cdr.markForCheck();
+          });
         })
       );
-    });
 
-    this.subs.push(
-      this.terminalService.events$.subscribe((evt) => {
-        if (evt.type === 'ready') {
-          const modeLabel = evt.data?.read_only ? 'read-only' : 'interactive';
-          const marker = `\r\n[connected: ${modeLabel}]\r\n`;
-          this.zone.runOutsideAngular(() => {
-            this.terminal?.writeln(marker);
-          });
-          this.appendMirroredOutput(marker);
-          this.zone.run(() => {
-            this.fitToContainer(true);
-            this.focusTerminal();
-            this.cdr.markForCheck();
-          });
-        }
-        if (evt.type === 'error') {
-          const detail = String(evt.data?.message || evt.data?.details || '').trim();
-          const marker = detail ? `\r\n[connection error: ${detail}]\r\n` : '\r\n[connection error]\r\n';
-          this.zone.runOutsideAngular(() => {
-            this.terminal?.writeln(marker);
-          });
-          this.appendMirroredOutput(marker);
-          this.zone.run(() => {
-            this.cdr.markForCheck();
-          });
-        }
-      })
-    );
+      this.zone.runOutsideAngular(() => {
+        this.subs.push(
+          this.terminalService.output$.subscribe((chunk) => {
+            this.bufferOutput(chunk);
+          })
+        );
+      });
+
+      this.subs.push(
+        this.terminalService.events$.subscribe((evt) => {
+          if (evt.type === 'ready') {
+            const modeLabel = evt.data?.read_only ? 'read-only' : 'interactive';
+            const marker = `\r\n[connected: ${modeLabel}]\r\n`;
+            this.zone.runOutsideAngular(() => {
+              this.terminal?.writeln(marker);
+            });
+            this.appendMirroredOutput(marker);
+            this.zone.run(() => {
+              this.fitToContainer(true);
+              this.focusTerminal();
+              this.cdr.markForCheck();
+            });
+          }
+          if (evt.type === 'error') {
+            const detail = String(evt.data?.message || evt.data?.details || '').trim();
+            const marker = detail ? `\r\n[connection error: ${detail}]\r\n` : '\r\n[connection error]\r\n';
+            this.zone.runOutsideAngular(() => {
+              this.terminal?.writeln(marker);
+            });
+            this.appendMirroredOutput(marker);
+            this.zone.run(() => {
+              this.cdr.markForCheck();
+            });
+          }
+        })
+      );
+    }
 
     this.initialized = true;
     this.reconnect();
@@ -262,12 +269,16 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.initialized) return;
-    if (changes['baseUrl'] || changes['token'] || changes['mode'] || changes['forwardParam']) {
+    if (changes['baseUrl'] || changes['token'] || changes['mode'] || changes['forwardParam'] || changes['embeddedShellMode']) {
       this.reconnect();
     }
   }
 
   reconnect(): void {
+    if (this.embeddedShellMode) {
+      this.reconnectEmbeddedShell();
+      return;
+    }
     if (!this.baseUrl) return;
     const connectKey = `${this.baseUrl}|${this.mode}|${this.token || ''}|${this.forwardParam || ''}`;
     if (connectKey === this.lastConnectKey && (this.status === 'connecting' || this.status === 'connected')) {
@@ -292,6 +303,11 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   restartVisibleTerminal(): void {
+    if (this.embeddedShellMode) {
+      this.reconnectEmbeddedShell();
+      this.notifications.info('Embedded-Terminal neu verbunden.');
+      return;
+    }
     if (!this.baseUrl) return;
     if (!this.forwardParam) {
       this.reconnect();
@@ -316,6 +332,18 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   restartWorker(): void {
+    if (this.embeddedShellMode) {
+      this.workerRestartBusy = true;
+      this.pythonRuntime.startWorker().then(() => {
+        this.notifications.info('Embedded-Worker gestartet.');
+      }).catch((error: any) => {
+        this.notifications.error(error?.message || 'Embedded-Worker-Neustart nicht moeglich.');
+      }).finally(() => {
+        this.workerRestartBusy = false;
+        this.cdr.markForCheck();
+      });
+      return;
+    }
     if (!this.baseUrl) return;
     if (!confirm('Worker wirklich neu starten? Das trennt aktive Sitzungen kurzzeitig und ist nur als Eskalationsstufe gedacht.')) return;
     this.workerRestartBusy = true;
@@ -351,7 +379,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   sendSpecialInput(sequence: string): void {
     if (this.mode !== 'interactive' || !sequence) return;
     this.focusTerminal();
-    this.terminalService.sendInput(sequence);
+    this.sendInputToBackend(sequence);
   }
 
   sendEnterKey(): void {
@@ -365,14 +393,14 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     })) {
       return;
     }
-    this.terminalService.sendInput('\r');
+    this.sendInputToBackend('\r');
   }
 
   sendQuickCommand(): void {
     if (this.mode !== 'interactive') return;
     const command = this.quickCommand.trim();
     if (!command) return;
-    this.terminalService.sendInput(`${command}\n`);
+    this.sendInputToBackend(`${command}\n`);
     this.quickCommand = '';
   }
 
@@ -388,6 +416,11 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.resizeDebounceHandle = undefined;
     }
     this.terminalService.disconnect();
+    this.stopEmbeddedPolling();
+    if (this.embeddedSessionId) {
+      this.pythonRuntime.closeShellSession(this.embeddedSessionId).catch(() => undefined);
+      this.embeddedSessionId = '';
+    }
     this.subs.forEach((sub) => sub.unsubscribe());
     this.terminal?.dispose();
   }
@@ -420,6 +453,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (cols === this.lastSentCols && rows === this.lastSentRows) return;
     this.lastSentCols = cols;
     this.lastSentRows = rows;
+    if (this.embeddedShellMode) return;
     this.terminalService.sendResize(cols, rows);
   }
 
@@ -505,5 +539,109 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     Object.defineProperty(keyup, 'which', { configurable: true, get: () => spec.keyCode ?? 0 });
     textarea.dispatchEvent(keyup);
     return true;
+  }
+
+  private sendInputToBackend(input: string): void {
+    if (!input) return;
+    if (this.embeddedShellMode) {
+      this.sendEmbeddedInput(input);
+      return;
+    }
+    this.terminalService.sendInput(input);
+  }
+
+  private reconnectEmbeddedShell(): void {
+    if (!this.pythonRuntime.isNative) {
+      this.status = 'error';
+      this.writeTerminalMarker('\r\n[embedded terminal unavailable]\r\n');
+      return;
+    }
+    this.terminal?.reset();
+    this.resetMirroredOutput();
+    this.quickCommand = '';
+    this.stopEmbeddedPolling();
+    this.status = 'connecting';
+    this.cdr.markForCheck();
+    this.openEmbeddedShellSession();
+  }
+
+  private async openEmbeddedShellSession(): Promise<void> {
+    try {
+      if (this.embeddedSessionId) {
+        await this.pythonRuntime.closeShellSession(this.embeddedSessionId).catch(() => undefined);
+      }
+      const started = await this.pythonRuntime.openShellSession({ shell: 'sh' });
+      this.embeddedSessionId = started.sessionId;
+      this.status = 'connected';
+      this.writeTerminalMarker('\r\n[connected: embedded-interactive]\r\n');
+      this.startEmbeddedPolling();
+      this.fitToContainer(true);
+      this.focusTerminal();
+      this.cdr.markForCheck();
+      await this.pullEmbeddedOutput();
+    } catch (error: any) {
+      this.status = 'error';
+      const message = String(error?.message || 'embedded_shell_open_failed').trim();
+      this.writeTerminalMarker(`\r\n[connection error: ${message}]\r\n`);
+      this.cdr.markForCheck();
+    }
+  }
+
+  private sendEmbeddedInput(input: string): void {
+    const sessionId = this.embeddedSessionId;
+    if (!sessionId) return;
+    this.pythonRuntime.writeShellSession(sessionId, input).then(() => {
+      return this.pullEmbeddedOutput();
+    }).catch((error: any) => {
+      const message = String(error?.message || 'embedded_shell_write_failed').trim();
+      this.status = 'error';
+      this.writeTerminalMarker(`\r\n[input error: ${message}]\r\n`);
+      this.cdr.markForCheck();
+    });
+  }
+
+  private startEmbeddedPolling(): void {
+    this.stopEmbeddedPolling();
+    const intervalMs = this.lowLatencyMode ? 180 : 420;
+    this.embeddedPollHandle = setInterval(() => {
+      this.pullEmbeddedOutput().catch(() => undefined);
+    }, intervalMs);
+  }
+
+  private stopEmbeddedPolling(): void {
+    if (!this.embeddedPollHandle) return;
+    clearInterval(this.embeddedPollHandle);
+    this.embeddedPollHandle = undefined;
+  }
+
+  private async pullEmbeddedOutput(): Promise<void> {
+    const sessionId = this.embeddedSessionId;
+    if (!sessionId) return;
+    try {
+      while (true) {
+        const chunk = await this.pythonRuntime.readShellSession(sessionId, 12000);
+        if (chunk.output) this.bufferOutput(chunk.output);
+        if (!chunk.running) {
+          this.status = 'disconnected';
+          this.stopEmbeddedPolling();
+          this.cdr.markForCheck();
+        }
+        if (!chunk.hasMore) break;
+      }
+    } catch (error: any) {
+      const message = String(error?.message || 'embedded_shell_read_failed').trim();
+      this.status = 'error';
+      this.stopEmbeddedPolling();
+      this.writeTerminalMarker(`\r\n[connection error: ${message}]\r\n`);
+      this.cdr.markForCheck();
+    }
+  }
+
+  private writeTerminalMarker(marker: string): void {
+    if (!marker) return;
+    this.zone.runOutsideAngular(() => {
+      this.terminal?.writeln(marker);
+    });
+    this.appendMirroredOutput(marker);
   }
 }
