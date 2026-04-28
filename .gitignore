@@ -130,3 +130,4 @@ __pycache__/
 /client_surfaces/vscode_extension/node_modules/
 /.rag/
 /data/
+/.ananta/
