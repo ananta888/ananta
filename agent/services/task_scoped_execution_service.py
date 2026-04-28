@@ -178,15 +178,14 @@ class TaskScopedExecutionService:
         if handler_response is not None:
             return handler_response
 
-        prompt, worker_context_meta = self._build_task_propose_prompt(
-            tid=tid,
-            task=task,
-            base_prompt=base_prompt,
-            tool_definitions_resolver=tool_definitions_resolver,
-            research_context=research_context_summary,
-        )
-
         if request_data.providers:
+            prompt, worker_context_meta = self._build_task_propose_prompt(
+                tid=tid,
+                task=task,
+                base_prompt=base_prompt,
+                tool_definitions_resolver=tool_definitions_resolver,
+                research_context=research_context_summary,
+            )
             return self._propose_task_with_comparisons(
                 tid=tid,
                 task=task,
@@ -203,12 +202,11 @@ class TaskScopedExecutionService:
             tid=tid,
             task=task,
             request_data=request_data,
-            prompt=prompt,
             base_prompt=base_prompt,
-            worker_context_meta=worker_context_meta,
             research_context=research_context_summary,
             cli_runner=cli_runner,
             cfg=cfg,
+            tool_definitions_resolver=tool_definitions_resolver,
         )
 
     def execute_task_step(
@@ -763,12 +761,11 @@ class TaskScopedExecutionService:
         tid: str,
         task: dict,
         request_data,
-        prompt: str,
         base_prompt: str,
-        worker_context_meta: dict,
         research_context: dict | None,
         cli_runner: Callable,
         cfg: dict,
+        tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
         task_kind = normalize_task_kind(None, base_prompt)
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
@@ -782,6 +779,24 @@ class TaskScopedExecutionService:
         timeout = self._resolve_task_propose_timeout(cfg, task_kind)
         proposal_model = self._resolve_requested_model(agent_cfg=cfg, requested_model=request_data.model)
         policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
+        session_payload = self._prepare_task_cli_session(
+            tid=tid,
+            task=task,
+            backend=effective_backend,
+            model=proposal_model,
+            agent_cfg=cfg,
+        )
+        interactive_terminal_session = effective_backend == "opencode" and self._is_interactive_terminal_session(session_payload)
+        prompt_for_cli, worker_context_meta = self._build_task_propose_prompt(
+            tid=tid,
+            task=task,
+            base_prompt=base_prompt,
+            tool_definitions_resolver=(lambda *_args, **_kwargs: [])
+            if interactive_terminal_session
+            else tool_definitions_resolver,
+            research_context=research_context,
+            interactive_terminal=interactive_terminal_session,
+        )
         pipeline = new_pipeline_trace(
             pipeline="task_propose",
             task_kind=task_kind,
@@ -794,24 +809,6 @@ class TaskScopedExecutionService:
             status="ok",
             metadata={"effective_backend": effective_backend, "reason": routing_reason},
         )
-        session_payload = self._prepare_task_cli_session(
-            tid=tid,
-            task=task,
-            backend=effective_backend,
-            model=proposal_model,
-            agent_cfg=cfg,
-        )
-        interactive_terminal_session = effective_backend == "opencode" and self._is_interactive_terminal_session(session_payload)
-        prompt_for_cli = prompt
-        if interactive_terminal_session:
-            prompt_for_cli, worker_context_meta = self._build_task_propose_prompt(
-                tid=tid,
-                task=task,
-                base_prompt=base_prompt,
-                tool_definitions_resolver=lambda *_args, **_kwargs: [],
-                research_context=research_context,
-                interactive_terminal=True,
-            )
         requested_temperature = self._normalize_temperature(getattr(request_data, "temperature", None))
         if requested_temperature is not None:
             prompt_for_cli = (
@@ -1026,7 +1023,7 @@ class TaskScopedExecutionService:
             if session_payload:
                 turn = get_cli_session_service().append_turn(
                     session_id=session_payload["id"],
-                    prompt=prompt,
+                    prompt=prompt_for_cli,
                     output=raw_res,
                     model=proposal_model,
                     trace_id=str(trace.get("trace_id") or ""),
@@ -1223,7 +1220,7 @@ class TaskScopedExecutionService:
             if isinstance(turn, dict):
                 response_payload.setdefault("routing", {})
                 response_payload["routing"]["session_turn_id"] = turn.get("id")
-        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
+        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt_for_cli, task_id=tid)
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
         return TaskScopedRouteResponse(data=response_payload)
 
