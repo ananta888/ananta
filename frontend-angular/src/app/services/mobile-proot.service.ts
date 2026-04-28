@@ -48,14 +48,8 @@ export class MobileProotService {
     return [
       this.prootResolverSnippet(),
       this.rootfsResolverSnippet(),
-      'if [ -f "$ANANTA_PROOT_WRAPPER" ] && [ -f "$ANANTA_PROOT_BIN" ] && [ -d "$ANANTA_ROOTFS" ]; then',
-      '  chmod 755 "$ANANTA_PROOT_WRAPPER" "$ANANTA_PROOT_BIN" 2>/dev/null || true;',
-      '  export HOME=/root TERM=${TERM:-xterm-256color} PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;',
-      '  /system/bin/sh "$ANANTA_PROOT_WRAPPER" -0 -r "$ANANTA_ROOTFS" -b /dev -b /proc -b /sys -w /root /bin/sh -l;',
-      'else',
-      '  echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren.";',
-      'fi',
-    ].join(' ');
+      'if [ -f "$ANANTA_PROOT_WRAPPER" ] && [ -f "$ANANTA_PROOT_BIN" ] && [ -d "$ANANTA_ROOTFS" ]; then chmod 755 "$ANANTA_PROOT_WRAPPER" "$ANANTA_PROOT_BIN" 2>/dev/null || true; export HOME=/root TERM=${TERM:-xterm-256color} PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; /system/bin/sh "$ANANTA_PROOT_WRAPPER" -0 -r "$ANANTA_ROOTFS" -b /dev -b /proc -b /sys -w /root /bin/sh -l; else echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren."; fi',
+    ].join(' && ');
   }
 
   buildWorkerStartInDistroCommand(distro: string): string {
@@ -64,13 +58,8 @@ export class MobileProotService {
     return [
       this.prootResolverSnippet(),
       this.rootfsResolverSnippet(selected),
-      'if [ -f "$ANANTA_PROOT_WRAPPER" ] && [ -f "$ANANTA_PROOT_BIN" ] && [ -d "$ANANTA_ROOTFS" ]; then',
-      '  chmod 755 "$ANANTA_PROOT_WRAPPER" "$ANANTA_PROOT_BIN" 2>/dev/null || true;',
-      `  /system/bin/sh "$ANANTA_PROOT_WRAPPER" -0 -r "$ANANTA_ROOTFS" -b /dev -b /proc -b /sys -w /root /bin/sh -lc '${workerStart}';`,
-      'else',
-      '  echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren."; exit 1;',
-      'fi',
-    ].join(' ');
+      `if [ -f "$ANANTA_PROOT_WRAPPER" ] && [ -f "$ANANTA_PROOT_BIN" ] && [ -d "$ANANTA_ROOTFS" ]; then chmod 755 "$ANANTA_PROOT_WRAPPER" "$ANANTA_PROOT_BIN" 2>/dev/null || true; /system/bin/sh "$ANANTA_PROOT_WRAPPER" -0 -r "$ANANTA_ROOTFS" -b /dev -b /proc -b /sys -w /root /bin/sh -lc '${workerStart}'; else echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren."; exit 1; fi`,
+    ].join(' && ');
   }
 
   buildWorkerStartCommand(): string {
