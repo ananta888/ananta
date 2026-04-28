@@ -1148,3 +1148,24 @@ def test_run_llm_cli_command_skips_cooldown_backend_when_alternative_is_availabl
         for name, values in runtime_before.items():
             sgpt_mod._BACKEND_RUNTIME[name].clear()
             sgpt_mod._BACKEND_RUNTIME[name].update(values)
+
+
+def test_run_llm_cli_command_prefixes_openai_provider_for_opencode_model():
+    from agent.common import sgpt as sgpt_mod
+
+    with (
+        patch("agent.common.sgpt.settings") as mock_settings,
+        patch("agent.common.sgpt.run_opencode_command", return_value=(0, "ok", "")) as mock_run_opencode,
+    ):
+        mock_settings.default_provider = "openai"
+        rc, out, err, backend = sgpt_mod.run_llm_cli_command(
+            prompt="create plan",
+            backend="opencode",
+            model="gpt-4o-mini",
+        )
+
+    assert rc == 0
+    assert out == "ok"
+    assert err == ""
+    assert backend == "opencode"
+    assert mock_run_opencode.call_args.kwargs["model"] == "openai/gpt-4o-mini"

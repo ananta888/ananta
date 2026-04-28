@@ -1283,6 +1283,15 @@ def run_llm_cli_command(
     requested = (backend or "ananta-worker").strip().lower()
     candidates = _choose_candidates(requested=requested, prompt=prompt, routing_policy=routing_policy)
 
+    def _normalize_opencode_model_identifier(value: str | None) -> str | None:
+        normalized = str(value or "").strip() or None
+        if not normalized or "/" in normalized:
+            return normalized
+        provider = _get_runtime_default_provider()
+        if provider in {"openai", "anthropic", "gemini", "groq", "openrouter", "bedrock", "azure", "vertexai", "copilot"}:
+            return f"{provider}/{normalized}"
+        return normalized
+
     last_error = ""
     now = time.time()
     for name in candidates:
@@ -1296,7 +1305,7 @@ def run_llm_cli_command(
         elif name == "opencode":
             rc, out, err = run_opencode_command(
                 prompt=prompt,
-                model=model,
+                model=_normalize_opencode_model_identifier(model),
                 timeout=timeout,
                 session=session,
                 workdir=workdir,
