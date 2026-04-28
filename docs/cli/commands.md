@@ -2,6 +2,9 @@
 
 Diese Seite zeigt den **normalen Nutzerpfad** ueber `ananta ...`.
 
+Voraussetzung fuer die Befehle unten: `ananta` ist installiert. Falls der
+Befehl fehlt, zuerst `docs/setup/bootstrap-install.md` nutzen.
+
 ## Schnellstartbefehle
 
 ```bash
@@ -22,6 +25,9 @@ ananta tui --help
 ananta doctor
 ananta web
 ```
+
+Hinweis: `ananta status` sowie Goal-Befehle brauchen einen laufenden Hub und
+passende `ANANTA_BASE_URL`/`ANANTA_USER`/`ANANTA_PASSWORD` Werte.
 
 ## Hinweise zu `tui` und `web`
 
