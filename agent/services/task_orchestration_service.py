@@ -60,7 +60,7 @@ def _default_dependencies() -> TaskOrchestrationDependencies:
     return TaskOrchestrationDependencies(
         get_task_status=get_local_task_status,
         update_task_status=update_local_task_status,
-        forward_task_to_worker=forward_to_worker,
+        forward_task_to_worker=lambda *args, **kwargs: forward_to_worker(*args, **kwargs),
         repository_registry=get_repository_registry,
         routing_advisor=get_copilot_routing_advisor,
         context_policy_service=get_task_context_policy_service,

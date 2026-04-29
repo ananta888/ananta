@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.config import settings
@@ -83,11 +83,13 @@ class TaskDelegationPlanner:
         policy_decision = None
         routing_hint = None
         effective_task_kind = data.task_kind or parent_task.get("task_kind")
-        effective_required_capabilities = (
-            data.required_capabilities
-            or parent_task.get("required_capabilities")
-            or derive_required_capabilities(parent_task, effective_task_kind)
-        )
+        if getattr(data, "required_capabilities", None) is not None:
+            effective_required_capabilities = list(data.required_capabilities or [])
+        else:
+            effective_required_capabilities = (
+                parent_task.get("required_capabilities")
+                or derive_required_capabilities(parent_task, effective_task_kind)
+            )
         preferred_backend = self._preferred_backend(effective_task_kind)
 
         if not agent_url:
@@ -275,7 +277,7 @@ class WorkerExecutionContextFactory:
         if parent_profile:
             source = str(parent_context.get("profile_source") or "task_context").strip().lower() or "task_context"
             return normalize_worker_execution_profile(parent_profile), source
-        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
         runtime_cfg = agent_cfg.get("worker_runtime") if isinstance(agent_cfg.get("worker_runtime"), dict) else {}
         return normalize_worker_execution_profile(runtime_cfg.get("default_execution_profile")), "agent_default"
 
