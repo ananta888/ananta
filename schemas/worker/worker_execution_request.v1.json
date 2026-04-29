@@ -116,6 +116,14 @@
       },
       "additionalProperties": false
     },
+    "worker_profile": {
+      "type": "string",
+      "enum": ["safe", "balanced", "fast"]
+    },
+    "profile_source": {
+      "type": "string",
+      "enum": ["agent_default", "task_context", "task_override", "runtime_override"]
+    },
     "requested_outputs": {
       "type": "array",
       "items": {

@@ -55,6 +55,10 @@ from agent.services.research_context_bridge_service import get_research_context_
 from agent.services.service_registry import get_core_services
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_handler_registry import get_task_handler_registry
+from agent.services.worker_execution_profile_service import (
+    normalize_worker_execution_profile,
+    resolve_worker_execution_profile,
+)
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
@@ -247,6 +251,9 @@ class TaskScopedExecutionService:
         propose_ok: bool | None,
         execute_ok: bool | None,
         artifact_created: bool | None,
+        worker_profile: str | None = None,
+        profile_source: str | None = None,
+        policy_classification: str | None = None,
     ) -> dict:
         return {
             "run_id": str(run_id or "").strip() or None,
@@ -254,6 +261,9 @@ class TaskScopedExecutionService:
             "propose_ok": None if propose_ok is None else bool(propose_ok),
             "execute_ok": None if execute_ok is None else bool(execute_ok),
             "artifact_created": None if artifact_created is None else bool(artifact_created),
+            "worker_profile": normalize_worker_execution_profile(worker_profile),
+            "profile_source": str(profile_source or "agent_default").strip().lower() or "agent_default",
+            "policy_classification": str(policy_classification or "").strip().lower() or None,
         }
 
     @staticmethod
@@ -799,6 +809,8 @@ class TaskScopedExecutionService:
                 temperature=requested_temperature,
                 requested_backend=requested_backend,
                 agent_cfg=cfg,
+                worker_profile=worker_context_meta.get("worker_profile"),
+                profile_source=worker_context_meta.get("profile_source"),
             )
             routing = {
                 "task_kind": task_kind,
@@ -923,6 +935,9 @@ class TaskScopedExecutionService:
                     propose_ok=True,
                     execute_ok=None,
                     artifact_created=None,
+                    worker_profile=worker_context_meta.get("worker_profile"),
+                    profile_source=worker_context_meta.get("profile_source"),
+                    policy_classification=str(((main_res.get("routing") or {}).get("reason")) or ""),
                 ),
             },
         )
@@ -1189,6 +1204,8 @@ class TaskScopedExecutionService:
                 temperature=requested_temperature,
                 requested_backend="auto",
                 agent_cfg=cfg,
+                worker_profile=worker_context_meta.get("worker_profile"),
+                profile_source=worker_context_meta.get("profile_source"),
             ),
         }
         if session_payload:
@@ -2345,9 +2362,16 @@ class TaskScopedExecutionService:
         tid: str | None = None,
         base_prompt: str | None = None,
     ) -> dict:
+        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         if execution_context:
             execution_context["allowed_tools"] = normalize_allowed_tools(execution_context.get("allowed_tools"))
+            profile, profile_source = resolve_worker_execution_profile(
+                worker_execution_context=execution_context,
+                agent_cfg=agent_cfg,
+            )
+            execution_context["worker_profile"] = profile
+            execution_context["profile_source"] = profile_source
             return execution_context
         bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
         bundle = None
@@ -2364,8 +2388,14 @@ class TaskScopedExecutionService:
                 bundle = resolved_bundle
         if bundle is None:
             return {}
+        profile, profile_source = resolve_worker_execution_profile(
+            worker_execution_context={},
+            agent_cfg=agent_cfg,
+        )
         return {
             "context_bundle_id": bundle.id,
+            "worker_profile": profile,
+            "profile_source": profile_source,
             "context": {
                 "context_text": bundle.context_text,
                 "chunks": list(bundle.chunks or []),
@@ -2665,6 +2695,8 @@ class TaskScopedExecutionService:
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
+        worker_profile = normalize_worker_execution_profile(execution_context.get("worker_profile"))
+        profile_source = str(execution_context.get("profile_source") or "agent_default").strip().lower() or "agent_default"
         tool_definitions = self._tool_definitions_for_task(
             task,
             tool_definitions_resolver=tool_definitions_resolver,
@@ -2736,6 +2768,9 @@ class TaskScopedExecutionService:
                 "Tool-Scope fuer diesen Task (nur diese Tools verwenden): "
                 + ", ".join(str(item) for item in allowed_tools)
             )
+        prompt_sections.append(
+            f"Worker-Ausfuehrungsprofil: {worker_profile} (source={profile_source})."
+        )
         if expected_output_schema and not compact_profile:
             prompt_sections.append(
                 "Erwartetes Output-Schema (Kurzfassung): "
@@ -2777,6 +2812,8 @@ class TaskScopedExecutionService:
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
             "allowed_tools": allowed_tools,
             "expected_output_schema": expected_output_schema,
+            "worker_profile": worker_profile,
+            "profile_source": profile_source,
             "workspace": {
                 "requested": workspace_payload or None,
                 "workspace_dir": str(workspace_context.workspace_dir),
@@ -2852,9 +2889,19 @@ class TaskScopedExecutionService:
         temperature: float | None = None,
         requested_backend: str = "auto",
         agent_cfg: dict | None = None,
+        worker_profile: str | None = None,
+        profile_source: str | None = None,
     ) -> dict:
         backend = str(backend_used or "").strip().lower()
         requested = str(requested_backend or "auto").strip().lower()
+        normalized_profile = normalize_worker_execution_profile(worker_profile)
+        normalized_profile_source = str(profile_source or "agent_default").strip().lower() or "agent_default"
+        cfg = agent_cfg if isinstance(agent_cfg, dict) else ((current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {})
+        runtime_cfg = cfg.get("worker_runtime") if isinstance(cfg.get("worker_runtime"), dict) else {}
+        native_runtime_cfg = runtime_cfg.get("native_worker_runtime") if isinstance(runtime_cfg.get("native_worker_runtime"), dict) else {}
+        runtime_path = None
+        if backend == "ananta-worker":
+            runtime_path = "native_worker_pipeline" if bool(native_runtime_cfg.get("enabled", False)) else "sgpt_fallback_proxy"
         dimensions = {
             "requested_backend": requested or "auto",
             "execution_backend": backend or requested or "sgpt",
@@ -2867,8 +2914,10 @@ class TaskScopedExecutionService:
             "remote_hub": False,
             "instance_id": None,
             "max_hops": None,
+            "worker_profile": normalized_profile,
+            "profile_source": normalized_profile_source,
+            "worker_runtime_path": runtime_path,
         }
-        cfg = agent_cfg if isinstance(agent_cfg, dict) else ((current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {})
         if backend == "codex":
             runtime_cfg = resolve_codex_runtime_config() if has_app_context() else {}
             dimensions.update(

@@ -37,3 +37,25 @@ def test_shell_policy_cannot_loosen_hub_approval_requirement() -> None:
     decision = classify_command(command="echo hi", policy=POLICY, hub_policy_decision="approval_required")
     assert decision.classification == "approval_required"
     assert decision.required_approval is True
+
+
+def test_shell_policy_balanced_auto_allows_readonly_git_diagnostic() -> None:
+    decision = classify_command(
+        command="git status",
+        policy=POLICY,
+        hub_policy_decision="allow",
+        execution_profile="balanced",
+    )
+    assert decision.classification == "safe"
+    assert decision.required_approval is False
+
+
+def test_shell_policy_safe_profile_keeps_unknown_command_guarded() -> None:
+    decision = classify_command(
+        command="git status",
+        policy=POLICY,
+        hub_policy_decision="allow",
+        execution_profile="safe",
+    )
+    assert decision.classification == "unknown"
+    assert decision.required_approval is True

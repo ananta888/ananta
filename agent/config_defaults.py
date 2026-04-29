@@ -332,6 +332,11 @@ def build_default_agent_config() -> dict:
         "worker_runtime": {
             "workspace_root": None,
             "workspace_reuse_mode": "goal_worker",
+            "default_execution_profile": "balanced",
+            "native_worker_runtime": {
+                "enabled": True,
+                "fallback_backend": "sgpt",
+            },
         },
         "research_backend": {
             "provider": "deerflow",

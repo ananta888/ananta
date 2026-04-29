@@ -15,6 +15,7 @@ VERIFY_SCHEMA = ROOT / "schemas" / "worker" / "verification_artifact.v1.json"
 WORKSPACE_SCHEMA = ROOT / "schemas" / "worker" / "workspace_constraints.v1.json"
 LOOP_STATE_SCHEMA = ROOT / "schemas" / "worker" / "worker_loop_state.v1.json"
 PROGRESS_EVENT_SCHEMA = ROOT / "schemas" / "worker" / "worker_progress_event.v1.json"
+PROFILE_SCHEMA = ROOT / "schemas" / "worker" / "worker_execution_profile.v1.json"
 
 
 def _load(path: Path) -> dict:
@@ -53,8 +54,17 @@ def test_worker_artifact_schemas_validate_examples() -> None:
         (VERIFY_SCHEMA, {"schema": "verification_artifact.v1", "task_id": "t", "status": "passed", "checks": [{"check_id": "smoke", "status": "passed"}], "evidence_refs": ["out.log"]}),
         (RESULT_SCHEMA, {"schema": "worker_execution_result.v1", "task_id": "t", "trace_id": "tr", "status": "completed", "artifacts": [{"artifact_type": "patch_artifact", "artifact_ref": "patch:1"}]}),
         (WORKSPACE_SCHEMA, {"schema": "workspace_constraints.v1", "constraint_id": "wc-1", "allowed_roots": ["."], "writable_output_paths": ["ci-artifacts"], "max_files": 100, "max_bytes": 100000, "allowed_commands": ["pytest -q"], "allow_main_tree_apply": False}),
+        (PROFILE_SCHEMA, {
+            "schema": "worker_execution_profile.v1",
+            "profile": "balanced",
+            "profile_source": "agent_default",
+            "policy": {"auto_allow_readonly_diagnostics": True, "allowlist_mode": "balanced"},
+            "budgets": {"max_iterations": 4, "max_patch_attempts": 4, "max_runtime_seconds": 420},
+            "context_limits": {"max_files": 12, "max_bytes": 120000, "max_prompt_context_chars": 8000},
+            "approval_behavior": {"enforce_hub_tokens": True, "guarded_root_requires_token": True}
+        }),
         (PROGRESS_EVENT_SCHEMA, {"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "plan", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "planned", "emitted_at": "2026-01-01T00:00:00+00:00"}),
-        (LOOP_STATE_SCHEMA, {"schema": "worker_loop_state.v1", "task_id": "t", "trace_id": "tr", "context_hash": "ctx", "policy_state": "allow", "phase": "summarize", "iteration": 1, "patch_attempts": 1, "status": "completed", "stop_reason": "goal_reached", "artifacts": ["patch:1"], "events": [{"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "summarize", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "done", "emitted_at": "2026-01-01T00:00:00+00:00"}]}),
+        (LOOP_STATE_SCHEMA, {"schema": "worker_loop_state.v1", "task_id": "t", "trace_id": "tr", "context_hash": "ctx", "execution_profile": "balanced", "policy_state": "allow", "phase": "summarize", "iteration": 1, "patch_attempts": 1, "status": "completed", "stop_reason": "goal_reached", "artifacts": ["patch:1"], "events": [{"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "summarize", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "done", "emitted_at": "2026-01-01T00:00:00+00:00"}]}),
     ]
     for schema_path, payload in examples:
         schema = _load(schema_path)

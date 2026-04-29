@@ -42,3 +42,21 @@ def test_file_selection_respects_byte_limit() -> None:
     )
     assert result["status"] == "ok"
     assert [item["path"] for item in result["selected_files"]] == ["small.py"]
+
+
+def test_file_selection_uses_profile_defaults_when_limits_missing() -> None:
+    result = select_candidate_files(
+        context_envelope={
+            "retrieval_refs": [
+                {"path": "a.py", "score": 0.9},
+                {"path": "b.py", "score": 0.8},
+                {"path": "c.py", "score": 0.7},
+            ],
+            "file_sizes": {"a.py": 50000, "b.py": 50000, "c.py": 50000},
+        },
+        execution_profile="safe",
+    )
+    assert result["execution_profile"] == "safe"
+    assert result["usage_limits"]["max_files"] == 8
+    assert result["usage_limits"]["max_bytes"] == 80000
+    assert [item["path"] for item in result["selected_files"]] == ["a.py"]

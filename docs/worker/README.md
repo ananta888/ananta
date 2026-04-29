@@ -15,6 +15,15 @@ The Hub remains the control plane for planning, policy, approval, and verificati
 - `test_run`
 - `verify`
 
+## Execution profiles
+
+- `safe`
+- `balanced` (default)
+- `fast`
+
+Profile beeinflussen Budgets und Friktion, aber deaktivieren keine harten Invarianten.
+Siehe `docs/worker/execution_profiles.md`.
+
 ## Safety boundaries
 
 1. No unbounded repository execution context.

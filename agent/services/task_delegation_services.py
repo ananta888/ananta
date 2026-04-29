@@ -15,6 +15,7 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.services.task_execution_policy_service import normalize_allowed_tools
+from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
 
 
@@ -171,6 +172,15 @@ class WorkerExecutionContextFactory:
             goal_id=parent_task.get("goal_id"),
             context_policy=context_policy,
         )
+        resolved_profile, profile_source = self._resolve_execution_profile(
+            parent_task=parent_task,
+            request_data=data,
+        )
+        context_policy = {
+            **dict(context_policy or {}),
+            "worker_profile": resolved_profile,
+            "worker_profile_source": profile_source,
+        }
         expected_output_schema = dict(data.expected_output_schema or {})
         allowed_tools = normalize_allowed_tools(data.allowed_tools)
         routing_decision_payload = worker_contract_service.build_routing_decision(
@@ -181,6 +191,8 @@ class WorkerExecutionContextFactory:
             selection=plan.selection,
             preferred_backend=plan.preferred_backend,
         )
+        routing_decision_payload["worker_profile"] = resolved_profile
+        routing_decision_payload["profile_source"] = profile_source
         if plan.routing_hint:
             routing_decision_payload["copilot_hint"] = dict(plan.routing_hint)
         routing_decision = RoutingDecision(routing_decision_payload)
@@ -252,6 +264,20 @@ class WorkerExecutionContextFactory:
             worker_execution_context=worker_execution_context,
             delegation_payload=delegation_payload,
         )
+
+    @staticmethod
+    def _resolve_execution_profile(*, parent_task: dict[str, Any], request_data: Any) -> tuple[str, str]:
+        requested = str(getattr(request_data, "worker_profile", None) or getattr(request_data, "execution_profile", None) or "").strip()
+        if requested:
+            return normalize_worker_execution_profile(requested), "task_override"
+        parent_context = dict(parent_task.get("worker_execution_context") or {})
+        parent_profile = str(parent_context.get("worker_profile") or parent_context.get("execution_profile") or "").strip()
+        if parent_profile:
+            source = str(parent_context.get("profile_source") or "task_context").strip().lower() or "task_context"
+            return normalize_worker_execution_profile(parent_profile), source
+        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        runtime_cfg = agent_cfg.get("worker_runtime") if isinstance(agent_cfg.get("worker_runtime"), dict) else {}
+        return normalize_worker_execution_profile(runtime_cfg.get("default_execution_profile")), "agent_default"
 
     @staticmethod
     def _context_query(*, parent_task: dict[str, Any], data: Any) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from agent.models import WorkerExecutionContextContract, WorkerRoutingDecisionContract
 from agent.services.worker_routing_policy_utils import derive_research_specialization
 from agent.services.task_execution_policy_service import normalize_allowed_tools
+from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 
 class WorkerContractService:
@@ -19,6 +20,11 @@ class WorkerContractService:
         preferred_backend: str | None = None,
     ) -> dict:
         normalized_required = [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()]
+        normalized_profile = normalize_worker_execution_profile(
+            ((selection.metadata if hasattr(selection, "metadata") and isinstance(selection.metadata, dict) else {}) or {}).get(
+                "worker_profile"
+            )
+        )
         reasons = list(getattr(selection, "reasons", None) or (["manual_override"] if agent_url else ["no_worker_available"]))
         return WorkerRoutingDecisionContract(
             worker_url=agent_url,
@@ -31,6 +37,16 @@ class WorkerContractService:
             required_capabilities=normalized_required,
             research_specialization=derive_research_specialization(None, task_kind, normalized_required),
             preferred_backend=str(preferred_backend or "").strip() or None,
+            worker_profile=normalized_profile,
+            profile_source=(
+                str(
+                    ((selection.metadata if hasattr(selection, "metadata") and isinstance(selection.metadata, dict) else {}) or {}).get(
+                        "profile_source"
+                    )
+                    or ""
+                ).strip()
+                or None
+            ),
         ).model_dump()
 
     def build_execution_context(
@@ -45,6 +61,15 @@ class WorkerContractService:
         expected_output_schema: dict | None,
         routing_decision: dict | None,
     ) -> dict:
+        context_policy_payload = dict(
+            context_policy
+            or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy")
+            or {}
+        )
+        normalized_profile = normalize_worker_execution_profile(
+            context_policy_payload.get("worker_profile"),
+        )
+        profile_source = str(context_policy_payload.get("worker_profile_source") or "agent_default").strip().lower() or "agent_default"
         return WorkerExecutionContextContract(
             instructions=instructions,
             context_bundle_id=getattr(context_bundle, "id", None),
@@ -54,15 +79,13 @@ class WorkerContractService:
                 "token_estimate": int(getattr(context_bundle, "token_estimate", 0) or 0),
                 "bundle_metadata": dict(getattr(context_bundle, "bundle_metadata", None) or {}),
             },
-            context_policy=dict(
-                context_policy
-                or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy")
-                or {}
-            ),
+            context_policy=context_policy_payload,
             workspace=dict(workspace or {}),
             artifact_sync=dict(artifact_sync or {}),
             allowed_tools=normalize_allowed_tools(allowed_tools),
             expected_output_schema=dict(expected_output_schema or {}),
+            worker_profile=normalized_profile,
+            profile_source=profile_source,
             routing=dict(routing_decision or {}) or None,
         ).model_dump()
 
@@ -81,6 +104,9 @@ class WorkerContractService:
             "task_kind": str(task_kind or "").strip() or None,
             "required_capabilities": [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()],
             "context_policy": dict(context_policy or {}),
+            "worker_profile": normalize_worker_execution_profile(dict(context_policy or {}).get("worker_profile")),
+            "profile_source": str(dict(context_policy or {}).get("worker_profile_source") or "agent_default").strip().lower()
+            or "agent_default",
         }
 
 

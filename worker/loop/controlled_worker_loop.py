@@ -3,7 +3,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from worker.loop.budgets import WorkerLoopBudgets
+from worker.core.execution_profile import normalize_execution_profile
+from worker.loop.budgets import WorkerLoopBudgets, budgets_for_profile
 from worker.loop.progress_events import build_progress_event
 from worker.loop.stop_conditions import should_stop_loop
 
@@ -17,8 +18,10 @@ def run_controlled_worker_loop(
     approval_ref: dict[str, Any] | None,
     iteration_outcomes: list[dict[str, Any]],
     budgets: WorkerLoopBudgets | None = None,
+    execution_profile: str | None = "balanced",
 ) -> dict[str, Any]:
-    bounded_budgets = budgets or WorkerLoopBudgets()
+    normalized_profile = normalize_execution_profile(execution_profile)
+    bounded_budgets = budgets or budgets_for_profile(normalized_profile)
     bounded_budgets.validate()
     started = time.monotonic()
     state = {
@@ -26,6 +29,7 @@ def run_controlled_worker_loop(
         "task_id": str(task_id).strip(),
         "trace_id": str(trace_id).strip(),
         "context_hash": str(context_hash).strip(),
+        "execution_profile": normalized_profile,
         "policy_state": str(policy_decision).strip().lower() or "allow",
         "phase": "observe",
         "iteration": 0,
@@ -42,7 +46,7 @@ def run_controlled_worker_loop(
             phase="observe",
             iteration=0,
             artifact_refs=[],
-            detail="Loop started.",
+            detail=f"Loop started (profile={normalized_profile}).",
         )
     )
 

@@ -95,3 +95,29 @@ def test_policy_denied_path_does_not_execute_git_apply(monkeypatch, tmp_path: Pa
             approval=None,
         )
     assert calls == []
+
+
+def test_guarded_roots_require_approval_even_when_policy_allows(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir(parents=True, exist_ok=True)
+    _init_git_repo(repo)
+
+    (repo / "app.txt").write_text("v2\n", encoding="utf-8")
+    patch_artifact = build_unified_diff(repository_root=repo).as_artifact(
+        task_id="AW-T08",
+        capability_id="worker.patch.apply",
+        risk_classification="critical",
+    )
+    _run(["git", "checkout", "--", "app.txt"], cwd=repo)
+
+    with pytest.raises(PermissionError, match="approval_required"):
+        apply_patch_artifact(
+            repository_root=repo,
+            patch_artifact=patch_artifact,
+            task_id="AW-T08",
+            capability_id="worker.patch.apply",
+            context_hash="ctx-1",
+            policy_decision="allow",
+            guarded_roots=["app.txt"],
+            approval=None,
+        )

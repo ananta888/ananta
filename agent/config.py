@@ -144,6 +144,10 @@ class Settings(BaseSettings):
     sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
     sgpt_execution_backend: str = Field(default="ananta-worker", validation_alias="SGPT_EXECUTION_BACKEND")
+    worker_default_execution_profile: str = Field(
+        default="balanced",
+        validation_alias="WORKER_DEFAULT_EXECUTION_PROFILE",
+    )
     codex_path: str = Field(default="codex", validation_alias="CODEX_PATH")
     codex_default_model: Optional[str] = Field(default="gpt-5-codex", validation_alias="CODEX_DEFAULT_MODEL")
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
@@ -294,6 +298,15 @@ class Settings(BaseSettings):
         val = (v or "").strip().lower() or "standard_32k"
         if val not in allowed:
             raise ValueError(f"RAG_DEFAULT_WINDOW_PROFILE muss einer der folgenden Werte sein: {sorted(allowed)}")
+        return val
+
+    @field_validator("worker_default_execution_profile")
+    @classmethod
+    def validate_worker_default_execution_profile(cls, v: str) -> str:
+        allowed = {"safe", "balanced", "fast"}
+        val = (v or "").strip().lower() or "balanced"
+        if val not in allowed:
+            raise ValueError(f"WORKER_DEFAULT_EXECUTION_PROFILE muss einer der folgenden Werte sein: {sorted(allowed)}")
         return val
 
     model_config = SettingsConfigDict(

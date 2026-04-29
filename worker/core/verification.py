@@ -1,8 +1,24 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
+from worker.core.degraded import build_degraded_state
+
 _STATUS_ORDER = ("failed", "degraded", "inconclusive", "skipped", "passed")
+_SCHEMA_ROOT = Path(__file__).resolve().parents[2] / "schemas" / "worker"
+_SCHEMA_FILES = {
+    "worker_execution_request.v1": "worker_execution_request.v1.json",
+    "worker_execution_result.v1": "worker_execution_result.v1.json",
+    "worker_execution_profile.v1": "worker_execution_profile.v1.json",
+    "patch_artifact.v1": "patch_artifact.v1.json",
+    "command_plan_artifact.v1": "command_plan_artifact.v1.json",
+    "test_result_artifact.v1": "test_result_artifact.v1.json",
+    "verification_artifact.v1": "verification_artifact.v1.json",
+}
 
 
 def _normalize_status(status: str) -> str:
@@ -88,3 +104,38 @@ def build_verification_artifact(
         "checks": checks,
         "evidence_refs": deduplicated_evidence,
     }
+
+
+def validate_worker_schema_payload(*, schema_name: str, payload: dict[str, Any]) -> None:
+    schema_key = str(schema_name or "").strip()
+    file_name = _SCHEMA_FILES.get(schema_key)
+    if not file_name:
+        raise ValueError(f"unknown_worker_schema:{schema_key or '<missing>'}")
+    schema = json.loads((_SCHEMA_ROOT / file_name).read_text(encoding="utf-8"))
+    errors = list(Draft202012Validator(schema).iter_errors(dict(payload or {})))
+    if not errors:
+        return
+    first = errors[0]
+    path = ".".join(str(item) for item in first.path) or "<root>"
+    raise ValueError(f"schema_invalid:{schema_key}:{path}:{first.message}")
+
+
+def validate_worker_schema_or_degraded(
+    *,
+    schema_name: str,
+    payload: dict[str, Any],
+    direction: str,
+) -> tuple[bool, dict[str, Any] | None]:
+    try:
+        validate_worker_schema_payload(schema_name=schema_name, payload=payload)
+        return True, None
+    except ValueError as exc:
+        return False, build_degraded_state(
+            state="schema_invalid",
+            machine_reason="schema_validation_failed",
+            details={
+                "schema_name": str(schema_name or "").strip(),
+                "direction": str(direction or "").strip() or "unknown",
+                "error": str(exc),
+            },
+        )

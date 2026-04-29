@@ -20,6 +20,7 @@ from agent.services.remote_federation_policy_service import get_remote_federatio
 from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
+from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.template_variable_registry import (
     build_template_variable_registry_payload,
     resolve_allowed_template_variables,
@@ -221,9 +222,16 @@ def set_config():
         workspace_reuse_mode = str(worker_runtime_cfg.get("workspace_reuse_mode") or "goal_worker").strip().lower() or "goal_worker"
         if workspace_reuse_mode not in {"task", "goal_worker"}:
             return api_response(status="error", message="invalid_worker_workspace_reuse_mode", code=400)
+        current_worker_runtime = current_cfg.get("worker_runtime") if isinstance(current_cfg.get("worker_runtime"), dict) else {}
+        default_execution_profile = normalize_worker_execution_profile(
+            worker_runtime_cfg.get("default_execution_profile")
+            or current_worker_runtime.get("default_execution_profile")
+            or "balanced"
+        )
         new_cfg["worker_runtime"] = {
             "workspace_root": workspace_root or None,
             "workspace_reuse_mode": workspace_reuse_mode,
+            "default_execution_profile": default_execution_profile,
         }
     for key in ("role_model_overrides", "template_model_overrides", "task_kind_model_overrides"):
         if key not in new_cfg:

@@ -9,6 +9,22 @@ DEGRADED_STATES = {
     "missing_git_repo": "Working directory is not a valid git repository.",
     "denied_policy": "Policy denied execution for this action.",
     "missing_approval": "Approval is required before execution can continue.",
+    "schema_invalid": "Worker artifact schema validation failed.",
+    "budget_exhausted": "Execution stopped because runtime budgets were exhausted.",
+    "unsafe_command": "Command or instruction was blocked as unsafe.",
+    "prompt_injection_blocked": "Artifact-sourced instructions were blocked by prompt-injection guardrails.",
+}
+
+_MACHINE_REASON_ALIASES = {
+    "policy_denied": "policy_denied",
+    "denied_policy": "policy_denied",
+    "approval_required": "hub_approval_token_missing",
+    "missing_approval": "hub_approval_token_missing",
+    "schema_invalid": "schema_invalid",
+    "schema_validation_failed": "schema_invalid",
+    "budget_exhausted": "budget_exhausted",
+    "unsafe_command": "unsafe_command",
+    "prompt_injection_blocked": "prompt_injection_blocked",
 }
 
 
@@ -39,10 +55,18 @@ def build_degraded_state(
     normalized_state = str(state).strip()
     if normalized_state not in DEGRADED_STATES:
         normalized_state = "unavailable_external_tool"
+    normalized_reason = normalize_machine_reason(str(machine_reason or "").strip() or normalized_state)
     degraded = DegradedState(
         state=normalized_state,
         readable_message=DEGRADED_STATES[normalized_state],
-        machine_reason=str(machine_reason or "").strip() or normalized_state,
+        machine_reason=normalized_reason,
         details=dict(details or {}),
     )
     return degraded.as_dict()
+
+
+def normalize_machine_reason(machine_reason: str) -> str:
+    normalized = str(machine_reason or "").strip().lower()
+    if not normalized:
+        return "unavailable_external_tool"
+    return _MACHINE_REASON_ALIASES.get(normalized, normalized)

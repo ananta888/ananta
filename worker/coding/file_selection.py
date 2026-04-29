@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from worker.core.execution_profile import file_selection_limits_for_profile, normalize_execution_profile
+
 
 @dataclass(frozen=True)
 class FileSelectionLimits:
@@ -21,8 +23,16 @@ def select_candidate_files(
     context_envelope: dict[str, Any],
     explicit_files: list[str] | None = None,
     limits: FileSelectionLimits | None = None,
+    execution_profile: str | None = "balanced",
 ) -> dict[str, Any]:
-    bounded_limits = limits or FileSelectionLimits()
+    normalized_profile = normalize_execution_profile(execution_profile)
+    bounded_limits = limits
+    if bounded_limits is None:
+        profile_limits = file_selection_limits_for_profile(normalized_profile)
+        bounded_limits = FileSelectionLimits(
+            max_files=int(profile_limits["max_files"]),
+            max_bytes=int(profile_limits["max_bytes"]),
+        )
     bounded_limits.validate()
     explicit = [str(item).strip() for item in list(explicit_files or []) if str(item).strip()]
     retrieval_refs = [item for item in list(context_envelope.get("retrieval_refs") or []) if isinstance(item, dict)]
@@ -51,6 +61,7 @@ def select_candidate_files(
                 for path in selected_explicit
             ],
             "usage_limits": {"max_files": bounded_limits.max_files, "max_bytes": bounded_limits.max_bytes},
+            "execution_profile": normalized_profile,
         }
 
     weighted_refs = sorted(
@@ -105,6 +116,7 @@ def select_candidate_files(
             "selected_files": selected_files,
             "usage": {"selected_file_count": len(selected_files), "selected_total_bytes": total_bytes},
             "usage_limits": {"max_files": bounded_limits.max_files, "max_bytes": bounded_limits.max_bytes},
+            "execution_profile": normalized_profile,
         }
 
     return {
@@ -113,4 +125,5 @@ def select_candidate_files(
         "selected_files": selected_files,
         "usage": {"selected_file_count": len(selected_files), "selected_total_bytes": total_bytes},
         "usage_limits": {"max_files": bounded_limits.max_files, "max_bytes": bounded_limits.max_bytes},
+        "execution_profile": normalized_profile,
     }

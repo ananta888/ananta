@@ -4,11 +4,16 @@ import json
 import re
 import shlex
 from dataclasses import dataclass
+
+from worker.core.execution_profile import normalize_execution_profile
 from pathlib import Path
 from typing import Any
 
 _ABSOLUTE_RM_PATTERN = re.compile(r"\brm\s+-rf\s+/\b")
 _FORK_BOMB_PATTERN = re.compile(r":\s*\(\)\s*\{")
+_SHELL_CHAIN_PATTERN = re.compile(r"(?:&&|\|\||[|;<>])")
+_READ_ONLY_GIT_SUBCOMMANDS = {"status", "diff", "show", "log", "branch", "rev-parse", "ls-files"}
+_READ_ONLY_DIAGNOSTIC_BINARIES = {"ls", "pwd", "whoami", "id", "cat", "head", "tail", "wc", "grep"}
 
 
 @dataclass(frozen=True)
@@ -47,7 +52,9 @@ def classify_command(
     command: str,
     policy: dict[str, Any],
     hub_policy_decision: str = "allow",
+    execution_profile: str | None = "balanced",
 ) -> CommandPolicyDecision:
+    profile = normalize_execution_profile(execution_profile)
     cmd = str(command or "").strip()
     if not cmd:
         classification = "unknown"
@@ -93,8 +100,28 @@ def classify_command(
         classification = "safe"
         return CommandPolicyDecision(classification, "command_allowlisted", False, _risk_for_classification(classification))
 
+    if hub_decision == "allow" and profile in {"balanced", "fast"} and _is_readonly_diagnostic(cmd, parts):
+        classification = "safe"
+        return CommandPolicyDecision(classification, "readonly_diagnostic_auto_allow", False, _risk_for_classification(classification))
+
     if hub_decision == "approval_required":
         classification = "approval_required"
         return CommandPolicyDecision(classification, "hub_requires_approval", True, _risk_for_classification(classification))
     classification = "unknown"
     return CommandPolicyDecision(classification, "command_not_classified", True, _risk_for_classification(classification))
+
+
+def _is_readonly_diagnostic(command: str, parts: list[str]) -> bool:
+    if not parts:
+        return False
+    if _SHELL_CHAIN_PATTERN.search(command):
+        return False
+    binary = str(parts[0] or "").strip().lower()
+    if binary in _READ_ONLY_DIAGNOSTIC_BINARIES:
+        return True
+    if binary == "git":
+        if len(parts) < 2:
+            return False
+        subcommand = str(parts[1] or "").strip().lower()
+        return subcommand in _READ_ONLY_GIT_SUBCOMMANDS
+    return False

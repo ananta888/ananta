@@ -35,6 +35,8 @@ Each routing decision should be stored with:
 - `selected_worker_id` (or `hub`)
 - `candidate_count`
 - `policy_checks[]` with `rule_id`, `result`, `reason`
+- `worker_profile`, `profile_source`
+- `policy_classification_summary`
 - `fallback_reason` when hub executes
 - `timestamp`
 

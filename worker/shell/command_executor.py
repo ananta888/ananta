@@ -109,11 +109,17 @@ def execute_command_plan(
     approval: dict[str, Any] | None = None,
     timeout_seconds: int = 120,
     environment: dict[str, str] | None = None,
+    execution_profile: str | None = "balanced",
 ) -> dict[str, Any]:
     command = str(command_plan_artifact.get("command") or "").strip()
     if not command:
         raise ValueError("command_missing")
-    command_decision = classify_command(command=command, policy=shell_policy, hub_policy_decision=hub_policy_decision)
+    command_decision = classify_command(
+        command=command,
+        policy=shell_policy,
+        hub_policy_decision=hub_policy_decision,
+        execution_profile=execution_profile,
+    )
     if command_decision.classification == "denied":
         raise PermissionError("policy_denied")
     if _needs_approval(hub_policy_decision, command_decision.required_approval):
@@ -157,7 +163,8 @@ def execute_command_plan(
         "output_summary": (
             f"Execution status={status}, duration_ms={duration_ms}, "
             f"working_directory={str(cwd.relative_to(repository_root.resolve()) or '.')}, "
-            f"environment_keys={','.join(sorted(_bounded_environment(environment).keys()))}"
+            f"environment_keys={','.join(sorted(_bounded_environment(environment).keys()))}, "
+            f"execution_profile={str(execution_profile or 'balanced').strip().lower() or 'balanced'}"
         ),
         "failure_hints": [],
     }
