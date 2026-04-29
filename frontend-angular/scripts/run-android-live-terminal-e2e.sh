@@ -26,6 +26,14 @@ if ! command -v emulator >/dev/null 2>&1; then
   exit 1
 fi
 
+cleanup_stale_avd_locks() {
+  local avd_home="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+  local avd_dir="$avd_home/${AVD_NAME}.avd"
+  if [[ -d "$avd_dir" ]]; then
+    find "$avd_dir" -maxdepth 1 \( -name '*.lock' -o -name '*.lock/' \) -exec rm -rf {} + 2>/dev/null || true
+  fi
+}
+
 ensure_avd() {
   if avdmanager list avd | grep -q "Name: ${AVD_NAME}$"; then
     return
@@ -44,6 +52,7 @@ ensure_avd() {
 }
 
 ensure_avd
+cleanup_stale_avd_locks
 
 if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
   echo "Starte Emulator $AVD_NAME..."

@@ -235,6 +235,7 @@ services:
     ports: !reset []
 
   android-e2e:
+    profiles: ["android-runner"]
     build:
       context: ./frontend-angular
       dockerfile: docker/Dockerfile.android-e2e
