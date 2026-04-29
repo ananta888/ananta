@@ -144,8 +144,8 @@ def execute_command_plan(
         )
         status = "passed" if completed.returncode == 0 else "failed"
         exit_code = int(completed.returncode)
-        stdout_value = completed.stdout or ""
-        stderr_value = completed.stderr or ""
+        stdout_value = completed.stdout or "<empty>"
+        stderr_value = completed.stderr or "<empty>"
     except subprocess.TimeoutExpired as exc:
         status = "degraded"
         exit_code = 124

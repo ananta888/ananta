@@ -127,10 +127,10 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
         command_plan = build_command_plan_artifact(
             task_id=tid,
             capability_id="worker.command.plan",
-            command='python -c "print(7)"',
+            command="echo 7",
             explanation="native test",
             expected_effects=["print output"],
-            policy={"allowlist": ["python"], "approval_required_commands": ["rm"], "denylist_tokens": ["rm -rf /"]},
+            policy={"allowlist": ["echo"], "approval_required_commands": ["rm"], "denylist_tokens": ["rm -rf /"]},
             hub_policy_decision="allow",
             execution_profile="balanced",
         )
@@ -140,7 +140,7 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
             description="Native execute",
             last_proposal={
                 "reason": "native command",
-                "command": 'python -c "print(7)"',
+                "command": "echo 7",
                 "backend": "ananta-worker",
                 "routing": {
                     "task_kind": "ops",
