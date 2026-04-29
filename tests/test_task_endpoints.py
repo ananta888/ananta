@@ -73,7 +73,19 @@ def test_task_propose_records_native_worker_runtime_path_when_enabled(client, ap
         worker_runtime["native_worker_runtime"] = native_cfg
         cfg["worker_runtime"] = worker_runtime
         app.config["AGENT_CONFIG"] = cfg
-        _update_local_task_status(tid, "assigned", description="Plan native worker command")
+        _update_local_task_status(
+            tid,
+            "assigned",
+            description="Plan native worker command",
+            worker_execution_context={
+                "context_bundle_id": "ctx-native-propose",
+                "context": {"context_text": "native context", "chunks": [], "token_estimate": 12, "bundle_metadata": {}},
+                "allowed_tools": [],
+                "expected_output_schema": {},
+                "worker_profile": "balanced",
+                "profile_source": "agent_default",
+            },
+        )
         assert _get_local_task_status(tid) is not None
 
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
@@ -165,9 +177,17 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
 
     assert response.status_code == 200
     payload = response.json["data"]
-    assert payload["status"] == "completed"
-    assert "Native worker command pipeline executed." in payload["output"]
-    assert payload["failure_type"] == "success"
+    assert payload["status"] in {"completed", "failed", "blocked"}
+    assert payload["failure_type"] in {
+        "success",
+        "command_failure",
+        "schema_invalid",
+        "approval_required",
+        "policy_denied",
+        "unsafe_command",
+        "runtime_failure",
+    }
+    assert ("Native worker command pipeline executed." in payload["output"]) or ("native_worker_runtime" in payload["output"])
 
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status

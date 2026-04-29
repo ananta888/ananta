@@ -43,7 +43,7 @@ for file in "${compose_files[@]}"; do
 done
 
 usage() {
-  cat <<'EOF'
+  cat <<'EOF_USAGE'
 Usage:
   scripts/compose-test-stack.sh up
   scripts/compose-test-stack.sh up-live
@@ -57,6 +57,7 @@ Usage:
   scripts/compose-test-stack.sh run-backend-live-llm-test [args...]
   scripts/compose-test-stack.sh run-frontend-test [args...]
   scripts/compose-test-stack.sh run-frontend-live-llm-test [args...]
+  scripts/compose-test-stack.sh run-android-e2e [args...]
 
 Env:
   ANANTA_USE_WSL_VULKAN=1   Default. Includes docker-compose.ollama-wsl.yml.
@@ -68,7 +69,7 @@ Env:
 Safety:
   - 'down' keeps Docker volumes (including ollama_data).
   - 'clean' removes test-stack volumes except ollama_data.
-EOF
+EOF_USAGE
 }
 
 remove_non_ollama_volumes() {
@@ -158,6 +159,9 @@ case "$cmd" in
     ;;
   run-frontend-live-llm-test)
     "${compose_cmd[@]}" run --rm frontend-live-llm-test "$@"
+    ;;
+  run-android-e2e)
+    "${compose_cmd[@]}" run --rm android-e2e "$@"
     ;;
   ""|-h|--help|help)
     usage
