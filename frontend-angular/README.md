@@ -67,6 +67,28 @@ Das macht:
 1. Angular Build (`npm run build:android`)
 2. Web-Assets in das native Android-Projekt synchronisieren (`npm run cap:sync`)
 
+### Debug-APK direkt per CLI (ARM64/Proot Host)
+Auf ARM64-Hosts (z. B. Android/Termux-Proot) kann Gradle ein x86_64-`aapt2` laden. Dann muss `aapt2` via qemu uebersteuert werden:
+
+```bash
+cd frontend-angular
+npm run android:prepare
+
+AAPT2_BIN="$(find /root/.gradle/caches -type f -path '*aapt2-*-linux/aapt2' | head -n 1)"
+cat >/tmp/aapt2 <<EOF
+#!/usr/bin/env sh
+export QEMU_LD_PREFIX=/usr/x86_64-linux-gnu
+exec qemu-x86_64 "$AAPT2_BIN" "$@"
+EOF
+chmod +x /tmp/aapt2
+
+cd android
+./gradlew :app:assembleDebug --no-daemon -Pandroid.aapt2FromMavenOverride=/tmp/aapt2
+```
+
+APK-Pfad:
+`frontend-angular/android/app/build/outputs/apk/debug/app-debug.apk`
+
 ### Android Studio öffnen
 ```bash
 npm run cap:open:android
