@@ -17,6 +17,7 @@ npm run test:e2e:live
 npm run test:e2e:compose
 npm run test:e2e:live:compose
 npm run test:e2e:android:terminal
+npm run test:e2e:android:terminal:bootstrap
 ```
 
 Wichtige E2E-Umgebungsvariablen:
@@ -44,6 +45,11 @@ $env:RUN_LIVE_LLM_TESTS="1"; $env:LIVE_LLM_PROVIDER="ollama"; $env:OLLAMA_URL="h
 Android-Emulator (echtes APK/E2E fuer Live-Terminal):
 ```bash
 ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal
+```
+
+Vollautomatisch (SDK/AVD installieren + Stack starten + Test ausfuehren):
+```bash
+ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal:bootstrap
 ```
 
 Wichtige Variablen dafuer:

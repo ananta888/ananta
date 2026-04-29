@@ -31,6 +31,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:android:terminal": "bash ./scripts/run-android-live-terminal-e2e.sh",
+    "test:e2e:android:terminal:bootstrap": "bash ./scripts/bootstrap-and-run-android-live-terminal-e2e.sh",
     "cap:sync": "npx cap sync android",
     "cap:copy": "npx cap copy android",
     "cap:open:android": "npx cap open android",
