@@ -109,6 +109,35 @@ class WorkerContractService:
             or "agent_default",
         }
 
+    def build_standalone_task_contract(
+        self,
+        *,
+        task_id: str,
+        goal: str,
+        command: str,
+        worker_profile: str | None,
+        trace_id: str,
+        capability_id: str,
+        context_hash: str,
+        files: list[str] | None = None,
+        diffs: list[str] | None = None,
+    ) -> dict:
+        normalized_profile = normalize_worker_execution_profile(worker_profile)
+        return {
+            "schema": "standalone_task_contract.v1",
+            "task_id": str(task_id or "").strip(),
+            "goal": str(goal or "").strip(),
+            "command": str(command or "").strip(),
+            "worker_profile": normalized_profile,
+            "files": [str(item).strip() for item in list(files or []) if str(item).strip()],
+            "diffs": [str(item).strip() for item in list(diffs or []) if str(item).strip()],
+            "control_manifest": {
+                "trace_id": str(trace_id or "").strip(),
+                "capability_id": str(capability_id or "").strip(),
+                "context_hash": str(context_hash or "").strip(),
+            },
+        }
+
 
 worker_contract_service = WorkerContractService()
 
