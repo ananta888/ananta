@@ -37,7 +37,8 @@ fi
 
 compose_files+=("docker-compose.test.yml")
 
-compose_cmd=(docker compose)
+docker_cli=(docker --config "${DOCKER_CONFIG:-$HOME/.docker}")
+compose_cmd=("${docker_cli[@]}" compose)
 for file in "${compose_files[@]}"; do
   compose_cmd+=(-f "$file")
 done
