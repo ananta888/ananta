@@ -176,7 +176,7 @@ case "$cmd" in
     "${compose_cmd[@]}" run --rm frontend-live-llm-test "$@"
     ;;
   run-android-e2e)
-    "${compose_cmd[@]}" run --rm android-e2e "$@"
+    "${compose_cmd[@]}" run --rm --no-deps android-e2e "$@"
     ;;
   ""|-h|--help|help)
     usage
