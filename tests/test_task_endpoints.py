@@ -71,6 +71,12 @@ def test_task_propose_records_native_worker_runtime_path_when_enabled(client, ap
         native_cfg = dict(worker_runtime.get("native_worker_runtime") or {})
         native_cfg["enabled"] = True
         worker_runtime["native_worker_runtime"] = native_cfg
+        worker_runtime["semantic_output_correction"] = {
+            "enabled": True,
+            "similarity_threshold": 0.88,
+            "embedding_provider": {"provider": "local", "dimensions": 12},
+            "fields": {"risk_classification": {"enabled": True, "candidates": ["low", "medium", "high", "critical"]}},
+        }
         cfg["worker_runtime"] = worker_runtime
         app.config["AGENT_CONFIG"] = cfg
         _update_local_task_status(
@@ -104,8 +110,11 @@ def test_task_propose_records_native_worker_runtime_path_when_enabled(client, ap
         task = _get_local_task_status(tid)
         proposal = dict(task.get("last_proposal") or {})
         native_runtime = dict((proposal.get("worker_context") or {}).get("native_runtime") or {})
+        semantic_policy = dict((proposal.get("worker_context") or {}).get("semantic_output_correction") or {})
         assert native_runtime.get("runtime_path") == "native_worker_pipeline"
         assert ((native_runtime.get("command_plan_artifact") or {}).get("schema")) == "command_plan_artifact.v1"
+        assert semantic_policy.get("enabled") is True
+        assert dict(semantic_policy.get("embedding_provider") or {}).get("provider") == "local"
 
 
 def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, app, admin_auth_header, tmp_path):
