@@ -229,6 +229,7 @@ def set_config():
             or "balanced"
         )
         semantic_output_correction = None
+        todo_contract = None
         if "semantic_output_correction" in worker_runtime_cfg:
             raw_semantic = worker_runtime_cfg.get("semantic_output_correction")
             if raw_semantic is None:
@@ -303,6 +304,14 @@ def set_config():
                         }
                     },
                 }
+        if "todo_contract" in worker_runtime_cfg:
+            raw_todo_contract = worker_runtime_cfg.get("todo_contract")
+            if raw_todo_contract is None:
+                todo_contract = shared.normalize_worker_todo_contract_config({"enabled": False})
+            elif not isinstance(raw_todo_contract, dict):
+                return api_response(status="error", message="invalid_worker_todo_contract", code=400)
+            else:
+                todo_contract = shared.normalize_worker_todo_contract_config(raw_todo_contract)
         new_cfg["worker_runtime"] = {
             "workspace_root": workspace_root or None,
             "workspace_reuse_mode": workspace_reuse_mode,
@@ -310,6 +319,8 @@ def set_config():
         }
         if semantic_output_correction is not None:
             new_cfg["worker_runtime"]["semantic_output_correction"] = semantic_output_correction
+        if todo_contract is not None:
+            new_cfg["worker_runtime"]["todo_contract"] = todo_contract
     for key in ("role_model_overrides", "template_model_overrides", "task_kind_model_overrides"):
         if key not in new_cfg:
             continue

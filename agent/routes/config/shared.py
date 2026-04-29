@@ -16,7 +16,6 @@ from agent.llm_benchmarks import (
 from agent.llm_integration import _list_lmstudio_candidates
 from agent.local_llm_backends import resolve_local_openai_backend
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
-from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
@@ -258,6 +257,43 @@ def opencode_runtime_settings_summary(cfg: dict) -> dict:
     }
 
 
+def normalize_worker_todo_contract_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+
+    def _clamp_int(raw, *, default: int, minimum: int, maximum: int) -> int:
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    executor_kind = str(payload.get("default_executor_kind") or "ananta_worker").strip().lower() or "ananta_worker"
+    if executor_kind not in {"ananta_worker", "opencode", "openai_codex_cli", "custom"}:
+        executor_kind = "ananta_worker"
+    execution_mode = str(payload.get("execution_mode") or "assistant_execute").strip().lower() or "assistant_execute"
+    if execution_mode not in {"command_execute", "assistant_execute", "plan_only"}:
+        execution_mode = "assistant_execute"
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "planner_llm_enabled": bool(payload.get("planner_llm_enabled", True)),
+        "planner_llm_timeout_seconds": _clamp_int(
+            payload.get("planner_llm_timeout_seconds"), default=12, minimum=2, maximum=120
+        ),
+        "planner_llm_retry_attempts": _clamp_int(
+            payload.get("planner_llm_retry_attempts"), default=1, minimum=1, maximum=5
+        ),
+        "max_tasks": _clamp_int(payload.get("max_tasks"), default=6, minimum=1, maximum=20),
+        "max_steps": _clamp_int(payload.get("max_steps"), default=30, minimum=1, maximum=200),
+        "enforce_artifacts": bool(payload.get("enforce_artifacts", True)),
+        "default_executor_kind": executor_kind,
+        "execution_mode": execution_mode,
+        "provider": str(payload.get("provider") or "").strip() or None,
+        "model": str(payload.get("model") or "").strip() or None,
+        "base_url": str(payload.get("base_url") or "").strip() or None,
+        "api_key": str(payload.get("api_key") or "").strip() or None,
+    }
+
+
 def normalize_worker_runtime_config(value: dict | None) -> dict:
     payload = dict(value or {})
     workspace_root = payload.get("workspace_root")
@@ -266,10 +302,12 @@ def normalize_worker_runtime_config(value: dict | None) -> dict:
     if workspace_reuse_mode not in {"task", "goal_worker"}:
         workspace_reuse_mode = "goal_worker"
     default_execution_profile = normalize_worker_execution_profile(payload.get("default_execution_profile"))
+    todo_contract = normalize_worker_todo_contract_config(payload.get("todo_contract"))
     return {
         "workspace_root": workspace_root or None,
         "workspace_reuse_mode": workspace_reuse_mode,
         "default_execution_profile": default_execution_profile,
+        "todo_contract": todo_contract,
     }
 
 
@@ -282,6 +320,7 @@ def worker_runtime_settings_summary(cfg: dict) -> dict:
             "workspace_root": "worker_runtime.workspace_root",
             "workspace_reuse_mode": "worker_runtime.workspace_reuse_mode",
             "default_execution_profile": "worker_runtime.default_execution_profile",
+            "todo_contract": "worker_runtime.todo_contract",
         },
     }
 

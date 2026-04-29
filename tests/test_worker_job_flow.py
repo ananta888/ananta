@@ -134,6 +134,36 @@ class TestWorkerJobFlow:
                     "context_policy": dict(context_policy or {}),
                 }
 
+            def build_worker_todo_contract(self, **kwargs):
+                return {
+                    "schema": "worker_todo_contract.v1",
+                    "task_id": kwargs["task_id"],
+                    "goal_id": kwargs["goal_id"],
+                    "trace_id": kwargs["trace_id"],
+                    "worker": {
+                        "executor_kind": kwargs["executor_kind"],
+                        "worker_profile": kwargs["worker_profile"],
+                        "profile_source": kwargs["profile_source"],
+                    },
+                    "todo": {
+                        "version": kwargs.get("todo_version", "1.0"),
+                        "track": kwargs.get("track", "worker_subplan"),
+                        "tasks": list(kwargs.get("tasks") or []),
+                    },
+                    "execution": {
+                        "mode": kwargs.get("mode", "assistant_execute"),
+                        "allowed_tools": list(kwargs.get("allowed_tools") or []),
+                        "enforce_artifacts": bool(kwargs.get("enforce_artifacts", True)),
+                        "max_steps": int(kwargs.get("max_steps") or 20),
+                    },
+                    "control_manifest": {
+                        "trace_id": kwargs["trace_id"],
+                        "capability_id": kwargs["capability_id"],
+                        "context_hash": kwargs["context_hash"],
+                    },
+                    "expected_result_schema": "worker_todo_result.v1",
+                }
+
         class FakeAgentRegistryService:
             def build_directory_entry(self, *, agent, timeout, now=None):
                 return {
@@ -232,6 +262,8 @@ class TestWorkerJobFlow:
         assert task.worker_execution_context["context_bundle_id"] == bundle.id
         assert task.worker_execution_context["kind"] == "worker_execution_context"
         assert task.worker_execution_context["version"] == "v1"
+        assert task.worker_execution_context["todo_contract"]["schema"] == "worker_todo_contract.v1"
+        assert task.worker_execution_context["todo_contract_generation"]["enabled"] is True
         assert task.worker_execution_context["context_policy"]["mode"] == "full"
         assert task.worker_execution_context["routing"]["matched_roles"] == ["planner"]
         workspace_meta = task.worker_execution_context["workspace"]

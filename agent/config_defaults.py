@@ -1,7 +1,6 @@
 import logging
 import json
 import os
-from typing import Any
 from flask import Flask
 from agent.config import settings
 from agent.model_selection import normalize_legacy_model_name
@@ -333,6 +332,21 @@ def build_default_agent_config() -> dict:
             "workspace_root": None,
             "workspace_reuse_mode": "goal_worker",
             "default_execution_profile": "balanced",
+            "todo_contract": {
+                "enabled": True,
+                "planner_llm_enabled": True,
+                "planner_llm_timeout_seconds": 12,
+                "planner_llm_retry_attempts": 1,
+                "max_tasks": 6,
+                "max_steps": 30,
+                "enforce_artifacts": True,
+                "default_executor_kind": "ananta_worker",
+                "execution_mode": "assistant_execute",
+                "provider": None,
+                "model": None,
+                "base_url": None,
+                "api_key": None,
+            },
             "codecompass_retrieval": {
                 "codecompass_fts": bool(settings.codecompass_fts_enabled),
                 "codecompass_vector": bool(settings.codecompass_vector_enabled),
