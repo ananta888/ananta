@@ -48,6 +48,7 @@ SCRIPT
 
 start_stack() {
   export ANANTA_USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-0}"
+  "$ROOT_DIR/scripts/compose-test-stack.sh" down || true
   "$ROOT_DIR/scripts/compose-test-stack.sh" up-live
 }
 
