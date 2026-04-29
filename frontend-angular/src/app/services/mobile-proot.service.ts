@@ -91,6 +91,7 @@ export class MobileProotService {
       'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; fi',
       'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi',
       'ANANTA_ROOTFS="$ANANTA_PROOT_RUNTIME/distros/$ANANTA_DISTRO/rootfs"',
+      'if [ -d "$ANANTA_ROOTFS" ] && [ ! -e "$ANANTA_ROOTFS/bin" ] && [ ! -e "$ANANTA_ROOTFS/usr/bin" ]; then for child in "$ANANTA_ROOTFS"/*; do if [ -d "$child" ] && { [ -e "$child/bin" ] || [ -e "$child/usr/bin" ]; }; then ANANTA_ROOTFS="$child"; break; fi; done; fi',
     ].join(' && ');
   }
 
