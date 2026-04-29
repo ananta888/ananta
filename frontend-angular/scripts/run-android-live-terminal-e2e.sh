@@ -45,10 +45,18 @@ ensure_avd() {
   fi
 
   echo "Erstelle AVD ${AVD_NAME} (${ANDROID_IMAGE})..."
-  echo "no" | avdmanager create avd \
+  local out
+  if ! out="$(echo "no" | avdmanager create avd \
     --name "$AVD_NAME" \
     --package "$ANDROID_IMAGE" \
-    --abi "$ANDROID_IMAGE_VENDOR/$ANDROID_ABI"
+    --abi "$ANDROID_IMAGE_VENDOR/$ANDROID_ABI" 2>&1)"; then
+    if echo "$out" | grep -qi "already exists"; then
+      echo "AVD ${AVD_NAME} existiert bereits; fahre fort."
+    else
+      echo "$out"
+      exit 1
+    fi
+  fi
 }
 
 ensure_avd
