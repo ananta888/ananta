@@ -2,7 +2,7 @@
   "version": 1,
   "owner": "ananta",
   "track": "worker_sandbox_balanced_execution",
-  "purpose": "Develop a pragmatic worker safety model for sandboxed, artifact-scoped execution: keep only non-negotiable invariants hard, reduce unnecessary friction, and provide explicit profiles (safe, balanced, fast) that preserve hub ownership, traceability and reliability.",
+  "purpose": "Develop a pragmatic worker safety model for sandboxed, artifact-scoped execution: keep only non-negotiable invariants hard, reduce unnecessary friction, and provide explicit profiles (safe, balanced, fast) that preserve hub ownership, traceability and reliability. Execution is fully automated with no interactive user-in-the-loop steps.",
   "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
@@ -11,6 +11,7 @@
     "Worker runs in a sandbox/worktree and does not own orchestration decisions.",
     "Hub prepares bounded context/artifacts and remains control-plane owner.",
     "Worker returns artifacts/results back to hub; mutation paths remain policy-governed.",
+    "Execution is fully automated: no manual user prompts, confirmations or runtime interventions.",
     "Sandbox isolation alone is insufficient against prompt-injection-style instruction poisoning and hidden quality drift."
   ],
   "mandatory_invariants": [
@@ -20,7 +21,7 @@
     "Complete traceability fields (trace_id, task_id, capability_id, context_hash, policy_decision_ref)."
   ],
   "relaxable_controls": [
-    "Lower approval friction for low-risk commands inside sandbox profile.",
+    "Lower automated policy-gate friction for low-risk commands inside sandbox profile.",
     "More aggressive auto-repair loop in fast profile with bounded retries.",
     "Reduced default-deny surface for read-only and deterministic diagnostic commands.",
     "Adaptive context/file selection limits instead of one rigid global limit."
@@ -39,6 +40,7 @@
     "Native worker path is integrated end-to-end for propose/execute/verify flow where configured.",
     "Worker profile selection and policy decisions are visible in task history and read models.",
     "Prompt-injection-like artifact inputs are explicitly degraded/blocked with machine-readable reasons.",
+    "No execution path requires interactive user action; all gating is machine-decided by policy and contracts.",
     "Regression and e2e tests cover safe, balanced and fast profiles."
   ],
   "milestones": [
@@ -86,7 +88,7 @@
       "acceptance_criteria": [
         "ADR defines hard invariants vs relaxable controls for sandboxed worker execution.",
         "ADR defines profile intent: safe, balanced, fast.",
-        "ADR confirms hub remains policy/approval owner.",
+        "ADR confirms hub remains policy and automated approval owner.",
         "ADR includes migration strategy from current strict defaults."
       ]
     },
@@ -116,7 +118,7 @@
       "expected_files": ["schemas/worker/worker_execution_profile.v1.json", "docs/worker/execution_profiles.md", "tests/worker/test_worker_contract_schemas.py"],
       "acceptance_criteria": [
         "Schema defines safe/balanced/fast profile fields for policy and budgets.",
-        "Schema supports explicit approval behavior knobs by risk class.",
+        "Schema supports explicit automated policy-gate behavior by risk class without interactive prompts.",
         "Contract tests validate profile examples."
       ]
     },
@@ -147,13 +149,13 @@
       "acceptance_criteria": [
         "Policy classification uses execution profile and command risk class.",
         "Low-risk read/diagnostic commands can be auto-allow in balanced profile.",
-        "Destructive or ambiguous commands remain denied or approval-required across all profiles.",
+        "Destructive or ambiguous commands remain denied or require hub-issued approval tokens across all profiles, without user interaction.",
         "Tests cover profile deltas and unchanged deny behavior."
       ]
     },
     {
       "id": "WSB-T06",
-      "title": "Profile-aware patch apply approval semantics implement",
+      "title": "Profile-aware patch apply gating semantics implement",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
@@ -161,9 +163,9 @@
       "depends_on": ["WSB-T03"],
       "expected_files": ["worker/coding/patch_apply.py", "tests/worker/test_patch_apply_approval.py"],
       "acceptance_criteria": [
-        "Patch apply remains approval-bound when mutating guarded roots.",
-        "Profile controls only bounded low-risk sandbox semantics without bypassing approval bindings.",
-        "Approval binding checks (task_id/capability_id/context_hash/hash) remain mandatory."
+        "Patch apply remains policy-bound when mutating guarded roots.",
+        "Profile controls only bounded low-risk sandbox semantics without bypassing hub-issued automated approval bindings.",
+        "Automated approval binding checks (task_id/capability_id/context_hash/hash) remain mandatory."
       ]
     },
     {
@@ -266,7 +268,7 @@
       "depends_on": ["WSB-T11"],
       "expected_files": ["worker/core/degraded.py", "docs/worker/degraded_reasons.md", "tests/worker/test_worker_degradation.py"],
       "acceptance_criteria": [
-        "Reason taxonomy distinguishes policy denied, approval missing, schema invalid, budget exhausted and unsafe command.",
+        "Reason taxonomy distinguishes policy denied, hub approval token missing, schema invalid, budget exhausted and unsafe command.",
         "Reason names are stable and machine-readable.",
         "Docs map reasons to operator actions."
       ]
@@ -328,6 +330,7 @@
       "acceptance_criteria": [
         "Native balanced worker path is rollout-gated by config flag/profile switch.",
         "Fallback path remains selectable for recovery.",
+        "No rollout mode introduces interactive user approval dependencies at runtime.",
         "Rollback procedure is documented and tested at config level."
       ]
     },
@@ -343,7 +346,8 @@
       "acceptance_criteria": [
         "Runbook explains when to use safe, balanced and fast profiles.",
         "Docs include troubleshooting for blocked/degraded outcomes by profile.",
-        "Docs explain that sandbox != no policy and why hard invariants remain mandatory."
+        "Docs explain that sandbox != no policy and why hard invariants remain mandatory.",
+        "Docs state that the worker execution flow is fully automated and user intervention is not part of runtime control."
       ]
     }
   ],
@@ -357,7 +361,7 @@
   ],
   "critical_path_tasks": ["WSB-T01", "WSB-T03", "WSB-T05", "WSB-T06", "WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12", "WSB-T16"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T11:20:00+02:00",
+    "updated_at": "2026-04-29T11:31:00+02:00",
     "total": 18,
     "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
     "progress_percent_done": 0.0,
@@ -369,6 +373,7 @@
   "summary_notes": [
     "The worker can be significantly less strict in sandbox mode, but only after hard invariants are isolated and preserved.",
     "Balanced should become the practical default for developer productivity, with safe and fast as explicit operational choices.",
+    "The target operating model is explicitly no-user-in-loop: decisions are policy-driven and machine-enforced.",
     "This track intentionally focuses on policy-calibration and native path integration, not broad architecture refactors."
   ]
 }
