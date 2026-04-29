@@ -6,9 +6,30 @@ from typing import Any
 from worker.retrieval.retrieval_contract import VALID_CHANNELS, normalize_channel_name
 
 _TASK_WEIGHTS = {
-    "bugfix": {"dense": 0.5, "lexical": 0.3, "symbol": 0.2},
-    "feature": {"dense": 0.4, "lexical": 0.2, "symbol": 0.4},
-    "bootstrap": {"dense": 0.3, "lexical": 0.5, "symbol": 0.2},
+    "bugfix": {
+        "dense": 0.28,
+        "lexical": 0.2,
+        "symbol": 0.14,
+        "codecompass_fts": 0.2,
+        "codecompass_vector": 0.1,
+        "codecompass_graph": 0.08,
+    },
+    "feature": {
+        "dense": 0.24,
+        "lexical": 0.16,
+        "symbol": 0.2,
+        "codecompass_fts": 0.18,
+        "codecompass_vector": 0.12,
+        "codecompass_graph": 0.1,
+    },
+    "bootstrap": {
+        "dense": 0.2,
+        "lexical": 0.22,
+        "symbol": 0.12,
+        "codecompass_fts": 0.2,
+        "codecompass_vector": 0.14,
+        "codecompass_graph": 0.12,
+    },
 }
 
 _PROFILE_MULTIPLIER = {
@@ -52,7 +73,7 @@ def merge_rank_candidates(
         key = str(candidate.get("content_hash") or candidate.get("path") or "")
         if not key:
             continue
-        weight = float(task_weights.get(channel) or 0.0)
+        weight = float(task_weights.get(channel) or 0.08)
         contribution = float(candidate.get("normalized_score") or 0.0) * weight * profile_multiplier
         existing = merged.get(key)
         if existing is None:
@@ -68,4 +89,3 @@ def merge_rank_candidates(
         existing["channel_contributions"] = contributions
     ranked = sorted(merged.values(), key=lambda item: float(item.get("final_score") or 0.0), reverse=True)
     return ranked[: max(1, int(top_k))]
-

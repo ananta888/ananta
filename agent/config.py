@@ -179,6 +179,13 @@ class Settings(BaseSettings):
     rag_compact_budget_tokens: int = Field(default=12000, validation_alias="RAG_COMPACT_BUDGET_TOKENS")
     rag_standard_budget_tokens: int = Field(default=32000, validation_alias="RAG_STANDARD_BUDGET_TOKENS")
     rag_full_budget_tokens: int = Field(default=64000, validation_alias="RAG_FULL_BUDGET_TOKENS")
+    codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
+    codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
+    codecompass_graph_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_GRAPH_ENABLED")
+    codecompass_relation_expansion_enabled: bool = Field(
+        default=False,
+        validation_alias="CODECOMPASS_RELATION_EXPANSION_ENABLED",
+    )
 
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
