@@ -28,6 +28,18 @@
           "default": null,
           "title": "Preferred Backend"
         },
+        "profile_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile Source"
+        },
         "reasons": {
           "items": {
             "type": "string"
@@ -75,6 +87,18 @@
           ],
           "default": null,
           "title": "Task Kind"
+        },
+        "worker_profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Profile"
         },
         "worker_url": {
           "anyOf": [
@@ -150,6 +174,18 @@
       "title": "Kind",
       "type": "string"
     },
+    "profile_source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Profile Source"
+    },
     "routing": {
       "anyOf": [
         {
@@ -165,6 +201,18 @@
       "default": "v1",
       "title": "Version",
       "type": "string"
+    },
+    "worker_profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worker Profile"
     },
     "workspace": {
       "additionalProperties": true,
