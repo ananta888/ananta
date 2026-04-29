@@ -15,6 +15,7 @@ ANDROID_API_LEVEL="${ANANTA_ANDROID_API_LEVEL:-35}"
 ANDROID_ABI="${ANANTA_ANDROID_ABI:-x86_64}"
 ANDROID_IMAGE_VENDOR="${ANANTA_ANDROID_IMAGE_VENDOR:-google_apis}"
 ANDROID_IMAGE="system-images;android-${ANDROID_API_LEVEL};${ANDROID_IMAGE_VENDOR};${ANDROID_ABI}"
+SKIP_EMULATOR_START="${ANANTA_ANDROID_SKIP_EMULATOR_START:-0}"
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "adb nicht gefunden. Android SDK Platform-Tools installieren."
@@ -59,13 +60,15 @@ ensure_avd() {
   fi
 }
 
-ensure_avd
-cleanup_stale_avd_locks
+if [[ "$SKIP_EMULATOR_START" != "1" ]]; then
+  ensure_avd
+  cleanup_stale_avd_locks
 
-if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
-  echo "Starte Emulator $AVD_NAME..."
-  # shellcheck disable=SC2086
-  nohup emulator -avd "$AVD_NAME" $EMULATOR_ARGS >/tmp/ananta-android-emulator.log 2>&1 &
+  if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
+    echo "Starte Emulator $AVD_NAME..."
+    # shellcheck disable=SC2086
+    nohup emulator -avd "$AVD_NAME" $EMULATOR_ARGS >/tmp/ananta-android-emulator.log 2>&1 &
+  fi
 fi
 
 echo "Warte auf Emulator $EMULATOR_SERIAL..."
