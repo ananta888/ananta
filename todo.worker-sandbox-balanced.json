@@ -45,6 +45,9 @@
     "Worker uses incremental retrieval/indexing so only relevant context chunks are loaded per step, not the full repository by default.",
     "Worker maintains a task-local plan artifact (plan.md or equivalent structured form) and executes steps iteratively with bounded budgets.",
     "Worker can run as a standalone package/CLI with file and diff artifacts plus a minimal control manifest, without requiring the full ananta stack.",
+    "Hybrid retrieval (dense, lexical, symbol) is available with deterministic fallbacks and measurable quality/latency targets.",
+    "Planner supports explicit state-machine transitions, dependency-aware step graphs and automatic re-planning on verifiable triggers.",
+    "Checkpoint/resume can recover interrupted runs without losing traceability or violating policy decisions.",
     "No execution path requires interactive user action; all gating is machine-decided by policy and contracts.",
     "Regression and e2e tests cover safe, balanced and fast profiles."
   ],
@@ -89,6 +92,18 @@
       "id": "WSB-M7",
       "title": "Standalone worker packaging and runtime",
       "task_ids": ["WSB-T23", "WSB-T24", "WSB-T25", "WSB-T26"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M8",
+      "title": "Advanced indexing and retrieval parity",
+      "task_ids": ["WSB-T27", "WSB-T28", "WSB-T29", "WSB-T30", "WSB-T31", "WSB-T32", "WSB-T33"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M9",
+      "title": "Advanced planning and execution control",
+      "task_ids": ["WSB-T34", "WSB-T35", "WSB-T36", "WSB-T37", "WSB-T38", "WSB-T39", "WSB-T40"],
       "status": "todo"
     }
   ],
@@ -486,39 +501,253 @@
         "Standalone mode emits the same critical trace/degradation semantics as hub mode.",
         "Docs list constraints, migration path and compatibility expectations between standalone and hub execution."
       ]
+    },
+    {
+      "id": "WSB-T27",
+      "title": "Hybrid retrieval architecture contract define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T19"],
+      "expected_files": ["schemas/worker/retrieval_pipeline_contract.v1.json", "worker/retrieval/retrieval_contract.py", "docs/worker/retrieval_and_indexing.md"],
+      "acceptance_criteria": [
+        "Contract defines dense, lexical and symbol retrieval channels with deterministic merge behavior.",
+        "Pipeline contract defines fallback order when a retriever channel is unavailable.",
+        "Contract schema enforces channel-level score metadata and provenance fields."
+      ]
+    },
+    {
+      "id": "WSB-T28",
+      "title": "Language-aware and AST-assisted chunking strategy implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T27"],
+      "expected_files": ["worker/retrieval/chunking.py", "worker/retrieval/chunk_metadata.py", "tests/worker/test_retrieval_indexing.py", "tests/worker/test_chunking_strategy.py"],
+      "acceptance_criteria": [
+        "Chunking supports code-aware boundaries (symbols, functions, classes) and robust fallback for unknown file types.",
+        "Chunk metadata includes symbol names, language, byte-range and stable content hash.",
+        "Chunking output is deterministic for identical input content and configuration."
+      ]
+    },
+    {
+      "id": "WSB-T29",
+      "title": "Commit-aware incremental index invalidation and rebuild add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WSB-T20", "WSB-T28"],
+      "expected_files": ["worker/retrieval/index_builder.py", "worker/retrieval/index_store.py", "worker/retrieval/index_state.py", "tests/worker/test_retrieval_indexing.py"],
+      "acceptance_criteria": [
+        "Indexer computes changed/deleted/renamed file sets from content hashes and commit/worktree deltas.",
+        "Invalidation removes stale chunks and symbol records without requiring full re-index in the common case.",
+        "Index state persists retrieval model version and embedding model version to prevent cross-version contamination."
+      ]
+    },
+    {
+      "id": "WSB-T30",
+      "title": "Hybrid retrieval merge and rank calibration implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T27", "WSB-T29"],
+      "expected_files": ["worker/retrieval/retrieval_service.py", "worker/retrieval/ranking.py", "tests/worker/test_rag_file_selection.py", "tests/worker/test_retrieval_ranking.py"],
+      "acceptance_criteria": [
+        "Dense, lexical and symbol retrieval candidates are merged with score normalization and deduplication by content hash.",
+        "Ranking logic exposes tunable weights by task type and worker profile.",
+        "Selected contexts include machine-readable rationale (channel contribution and final score)."
+      ]
+    },
+    {
+      "id": "WSB-T31",
+      "title": "Reranker integration and query rewriting pipeline add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T30"],
+      "expected_files": ["worker/retrieval/query_rewrite.py", "worker/retrieval/reranker.py", "worker/retrieval/retrieval_service.py", "tests/worker/test_retrieval_ranking.py"],
+      "acceptance_criteria": [
+        "Query rewriting expands technical synonyms and symbol aliases without altering security constraints.",
+        "Optional reranker can be enabled/disabled by profile and falls back to baseline ranking when unavailable.",
+        "Pipeline records pre-rewrite and post-rewrite query forms in trace metadata."
+      ]
+    },
+    {
+      "id": "WSB-T32",
+      "title": "Retrieval evaluation harness and benchmark corpus add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T31"],
+      "expected_files": ["tests/benchmarks/retrieval/test_retrieval_benchmark.py", "data_test/retrieval_benchmark/", "docs/worker/retrieval_and_indexing.md"],
+      "acceptance_criteria": [
+        "Benchmark harness computes Recall@k, MRR and Top-k hit-rate for representative worker tasks.",
+        "Benchmark corpus includes at least greenfield bootstrap, refactor and bugfix retrieval scenarios.",
+        "Benchmark output is machine-readable and suitable for CI regression checks."
+      ]
+    },
+    {
+      "id": "WSB-T33",
+      "title": "Retrieval SLO guardrails and cache strategy add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T32", "WSB-T15"],
+      "expected_files": ["worker/retrieval/cache.py", "agent/services/task_scoped_execution_service.py", "docs/autonomous-platform-slos.md"],
+      "acceptance_criteria": [
+        "SLO guardrails define retrieval latency budgets and quality floor alarms per profile.",
+        "Cache strategy includes invalidation rules tied to index version, model version and content hash.",
+        "Metrics separate cache hit quality drift from retriever ranking regressions."
+      ]
+    },
+    {
+      "id": "WSB-T34",
+      "title": "Planner state-machine contract and persistence add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T22"],
+      "expected_files": ["schemas/worker/planner_state_contract.v1.json", "worker/planning/planner_state.py", "worker/core/plan_artifact.py", "tests/worker/test_planner_state_machine.py"],
+      "acceptance_criteria": [
+        "Planner state machine defines explicit states: draft, ready, executing, verifying, replanning, complete, failed.",
+        "Invalid state transitions are rejected with machine-readable reasons and trace references.",
+        "Plan state persists across worker restarts for the same task context."
+      ]
+    },
+    {
+      "id": "WSB-T35",
+      "title": "Dependency-aware step graph planner implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T34"],
+      "expected_files": ["worker/planning/step_graph.py", "worker/planning/planner.py", "tests/worker/test_planner_step_graph.py", "docs/worker/plan_and_execution_flow.md"],
+      "acceptance_criteria": [
+        "Planner emits a DAG of steps with explicit dependencies, required tools and expected artifacts per step.",
+        "Scheduler executes only ready steps whose dependencies are satisfied.",
+        "Cycle detection rejects invalid plans with explicit diagnostics."
+      ]
+    },
+    {
+      "id": "WSB-T36",
+      "title": "Step-level budget and policy gate scheduler add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WSB-T35", "WSB-T07", "WSB-T05"],
+      "expected_files": ["worker/planning/step_scheduler.py", "worker/loop/budgets.py", "worker/shell/command_policy.py", "tests/worker/test_planner_step_scheduler.py"],
+      "acceptance_criteria": [
+        "Each step has independent budgets for tokens, runtime, command count and patch attempts.",
+        "Policy denied outcomes transition the step and planner state deterministically without silent retries.",
+        "Budget exhaustion emits explicit stop_reason at step and overall run level."
+      ]
+    },
+    {
+      "id": "WSB-T37",
+      "title": "Automatic replan rules and failure taxonomy integrate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T36", "WSB-T13"],
+      "expected_files": ["worker/planning/replan_policy.py", "worker/core/degraded.py", "tests/e2e/worker/test_controlled_loop_flow.py", "tests/worker/test_planner_replan.py"],
+      "acceptance_criteria": [
+        "Replan triggers are explicit (verification failure, missing artifact, policy denial, budget exhaustion) and profile-aware.",
+        "Replan attempts are bounded and tracked separately from execution attempts.",
+        "Failure taxonomy maps to deterministic final outcomes: degraded, blocked or failed."
+      ]
+    },
+    {
+      "id": "WSB-T38",
+      "title": "Checkpoint/resume execution engine add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T37"],
+      "expected_files": ["worker/planning/checkpoint_store.py", "worker/loop/controlled_worker_loop.py", "tests/worker/test_planner_checkpoint_resume.py", "docs/worker/plan_and_execution_flow.md"],
+      "acceptance_criteria": [
+        "Checkpoint captures planner state, completed steps, pending steps and budget counters.",
+        "Resume restores execution from last consistent checkpoint without replaying completed side-effecting steps.",
+        "Checkpoint metadata includes trace identifiers and policy snapshot references."
+      ]
+    },
+    {
+      "id": "WSB-T39",
+      "title": "Planner observability and plan-diff audit trail add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WSB-T38", "WSB-T14"],
+      "expected_files": ["agent/services/task_scoped_execution_service.py", "worker/planning/plan_diff.py", "docs/worker-routing-policy-explainability.md", "tests/worker/test_planner_observability.py"],
+      "acceptance_criteria": [
+        "Each replan emits a machine-readable plan diff showing added, removed and reprioritized steps.",
+        "Observability payload links plan changes to triggering events and policy decisions.",
+        "Task history supports chronological replay of plan evolution."
+      ]
+    },
+    {
+      "id": "WSB-T40",
+      "title": "End-to-end planning and retrieval parity test suite add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WSB-T33", "WSB-T39", "WSB-T26"],
+      "expected_files": ["tests/e2e/worker/test_retrieval_planning_parity.py", "data_test_e2e/worker_planning_parity/", "docs/worker/standalone_mode.md", "docs/worker/retrieval_and_indexing.md"],
+      "acceptance_criteria": [
+        "E2E suite validates parity-critical flows in both hub-integrated and standalone modes.",
+        "Suite covers at least bugfix, feature extension and new-project bootstrap trajectories.",
+        "Results include retrieval quality and planning convergence indicators for regression tracking."
+      ]
     }
   ],
   "execution_order_summary": [
     "Define profile contract and hard invariants first.",
     "Introduce embedding/index contracts and incremental indexing before broad retrieval usage.",
+    "Implement hybrid retrieval channels (dense, lexical, symbol) with deterministic merge and fallback behavior.",
+    "Add retrieval ranking/reranking, benchmark harnesses and SLO guardrails before relying on retrieval-heavy flows.",
     "Implement profile-aware command/patch/budget controls before runtime wiring.",
     "Integrate budgeted retrieval and reranking to keep context minimal and relevant per step.",
     "Integrate native worker path into task-scoped execution with explicit routing metadata.",
     "Define standalone boundary contracts and extract hub-specific integrations behind adapters.",
     "Harden schema validation and artifact-sourced prompt handling against injection patterns.",
-    "Add task-local plan artifact support for iterative planning and stepwise automated execution.",
+    "Expand planning from simple step list to state-machine plus dependency graph with explicit replan policies.",
+    "Add checkpoint/resume and plan-diff observability for deterministic long-running autonomous execution.",
     "Provide standalone CLI/container entrypoints that run the same core loop non-interactively.",
-    "Add full profile matrix tests before enabling rollout by default.",
+    "Add full profile matrix tests plus retrieval/planning parity suites before enabling rollout by default.",
     "Ship docs and operational guidance together with configuration flags."
   ],
-  "critical_path_tasks": ["WSB-T01", "WSB-T03", "WSB-T05", "WSB-T06", "WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12", "WSB-T16", "WSB-T19", "WSB-T20", "WSB-T21", "WSB-T22", "WSB-T23", "WSB-T24", "WSB-T25"],
+  "critical_path_tasks": ["WSB-T01", "WSB-T03", "WSB-T05", "WSB-T06", "WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12", "WSB-T16", "WSB-T19", "WSB-T20", "WSB-T21", "WSB-T22", "WSB-T23", "WSB-T24", "WSB-T25", "WSB-T27", "WSB-T28", "WSB-T29", "WSB-T30", "WSB-T31", "WSB-T32", "WSB-T34", "WSB-T35", "WSB-T36", "WSB-T37", "WSB-T38", "WSB-T39"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T11:39:00+02:00",
-    "total": 26,
-    "by_status": {"todo": 26, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
+    "updated_at": "2026-04-29T12:01:00+02:00",
+    "total": 40,
+    "by_status": {"todo": 40, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 13, "P1": 11, "P2": 2, "P3": 0},
-    "by_risk": {"low": 4, "medium": 11, "high": 7, "critical": 4},
-    "critical_path": {"total": 16, "done": 0, "remaining": 16},
-    "milestones": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_priority": {"P0": 21, "P1": 16, "P2": 3, "P3": 0},
+    "by_risk": {"low": 6, "medium": 15, "high": 13, "critical": 6},
+    "critical_path": {"total": 28, "done": 0, "remaining": 28},
+    "milestones": {"total": 9, "todo": 9, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "summary_notes": [
     "The worker can be significantly less strict in sandbox mode, but only after hard invariants are isolated and preserved.",
     "Balanced should become the practical default for developer productivity, with safe and fast as explicit operational choices.",
     "The target operating model is explicitly no-user-in-loop: decisions are policy-driven and machine-enforced.",
     "Retrieval should be incremental and index-driven (embedding-backed), so the LLM receives only relevant context instead of full repository payloads.",
-    "Planning should be explicit and stepwise via a task-local plan artifact that is updated automatically during execution.",
+    "Retrieval is now specified as hybrid (dense, lexical, symbol) with ranking, reranking, benchmarks and SLO guardrails.",
+    "Planning is now specified as state-machine and dependency-graph based with bounded replan, checkpoint/resume and plan-diff auditability.",
     "The worker should be consumable standalone via stable contracts and adapters, while preserving one shared core execution loop.",
-    "This track intentionally focuses on policy-calibration and native path integration, not broad architecture refactors."
+    "This expanded track targets parity-grade autonomous behavior without violating hub-worker architecture boundaries."
   ]
 }
