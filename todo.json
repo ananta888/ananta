@@ -1,338 +1,627 @@
 {
-  "version": 1,
-  "owner": "ananta",
-  "track": "core_boundary_plugin_architecture",
-  "purpose": "Implement and enforce the core-boundary/provider-plugin architecture described in docs/decisions/ADR-core-boundary-and-provider-plugins.md so Ananta can grow integrations such as Blender, KiCad, FreeCAD, workflow automation providers, MCP, Evolver, DeerFlow and worker backends without turning the Hub/Core into a Medusa.",
-  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
-  "core_allowed_concepts": [
-    "Task",
-    "Goal",
-    "Plan",
-    "PlanNode",
-    "Artifact",
-    "Capability",
-    "Policy",
-    "Approval",
-    "Audit",
-    "Worker",
-    "Adapter/Provider contracts",
-    "Runtime profile"
+  "schema_version": "1.0",
+  "title": "Ananta Test Coverage and CI Workflow Roadmap",
+  "purpose": "Track missing tests, coverage improvements and CI workflow split so quality increases without making GitHub Actions too slow or expensive.",
+  "principles": [
+    "Keep push and pull_request CI fast enough for normal development.",
+    "Run expensive E2E, chaos, security-abuse and performance tests in separate manual or scheduled workflows.",
+    "Prefer deterministic local mocks in normal CI; use real providers only in opt-in smoke workflows.",
+    "Never hide important tests by disabling them; isolate heavy or flaky flows with explicit workflow names and timeouts.",
+    "Every high-risk autonomous-agent capability needs negative tests, not only happy-path tests."
   ],
-  "core_forbidden_direct_knowledge": [
-    "Blender scene internals",
-    "KiCad netlist internals",
-    "FreeCAD constraint internals",
-    "n8n/Node-RED/Activepieces workflow internals",
-    "GitHub/Jira/Confluence provider internals",
-    "OpenCode/Aider/Copilot-specific execution details",
-    "Evolver/DeerFlow provider-specific result internals"
+  "ci_policy": {
+    "standard_ci": {
+      "trigger": ["push", "pull_request"],
+      "target_runtime_minutes": "10-20",
+      "allowed_cost": "low",
+      "must_include": [
+        "backend smoke tests",
+        "backend deep non-heavy tests",
+        "frontend lint",
+        "frontend unit tests",
+        "frontend build",
+        "VS Code extension lint/test/build/package",
+        "compose config validation",
+        "release reproducibility gate without image build",
+        "documentation link checks"
+      ],
+      "must_avoid": [
+        "large Docker image rebuilds unless cached and necessary",
+        "full browser E2E on every small pull request",
+        "real paid LLM calls",
+        "long-running RAG load tests",
+        "chaos tests",
+        "network-dependent external-provider tests"
+      ]
+    },
+    "main_branch_ci": {
+      "trigger": ["push to main"],
+      "target_runtime_minutes": "20-40",
+      "allowed_cost": "medium",
+      "must_include": [
+        "standard_ci",
+        "compose E2E",
+        "isolated backend integration flows",
+        "artifact upload for failed E2E"
+      ]
+    },
+    "manual_heavy_ci": {
+      "trigger": ["workflow_dispatch", "pull_request label full-ci"],
+      "target_runtime_minutes": "30-90",
+      "allowed_cost": "medium-high",
+      "must_include": [
+        "full compose E2E",
+        "browser golden-path E2E",
+        "coverage report generation",
+        "security abuse tests",
+        "migration upgrade scenarios",
+        "multi-agent concurrency and race tests"
+      ]
+    },
+    "scheduled_ci": {
+      "trigger": ["nightly", "weekly"],
+      "target_runtime_minutes": "60-120",
+      "allowed_cost": "controlled",
+      "must_include": [
+        "dependency audit",
+        "full coverage report",
+        "slow integration tests",
+        "chaos and timeout tests",
+        "release-candidate image gate",
+        "optional live LLM smoke with strict token limits"
+      ]
+    }
+  },
+  "recommended_workflows": [
+    {
+      "name": "Quality And Docs",
+      "file": ".github/workflows/quality-and-docs.yml",
+      "trigger": ["push", "pull_request", "workflow_dispatch"],
+      "cost_class": "low-medium",
+      "purpose": "Fast and broad default CI for normal development.",
+      "jobs": [
+        "backend-checks",
+        "backend-smoke",
+        "backend-autonomous-flow",
+        "frontend-build",
+        "vscode-extension",
+        "compose-config",
+        "release-gate",
+        "docs-links",
+        "todo-validation"
+      ],
+      "notes": "Keep this workflow mostly fast. Compose E2E may stay only on main, workflow_dispatch or full-ci label."
+    },
+    {
+      "name": "Backend Isolated Flows",
+      "file": ".github/workflows/backend-isolated-flows.yml",
+      "trigger": ["push", "pull_request", "workflow_dispatch"],
+      "cost_class": "medium",
+      "purpose": "Run heavier backend E2E/integration/RAG-load tests separately from the deep sweep.",
+      "jobs": ["isolated-flows"],
+      "notes": "If this gets too slow, split into autonomous-flows, research-flows and webhook-flows."
+    },
+    {
+      "name": "Coverage Report",
+      "file": ".github/workflows/coverage.yml",
+      "trigger": ["workflow_dispatch", "schedule weekly", "pull_request label coverage"],
+      "cost_class": "medium",
+      "purpose": "Generate backend and frontend coverage artifacts without slowing every PR.",
+      "jobs": [
+        "backend-coverage",
+        "frontend-coverage",
+        "coverage-summary"
+      ],
+      "todo": true
+    },
+    {
+      "name": "Security Abuse Tests",
+      "file": ".github/workflows/security-abuse.yml",
+      "trigger": ["workflow_dispatch", "schedule nightly", "pull_request label security-ci"],
+      "cost_class": "medium",
+      "purpose": "Run prompt-injection, tool-abuse, secret-leak and command-injection tests.",
+      "jobs": [
+        "agent-tool-abuse-tests",
+        "secret-redaction-tests",
+        "authz-matrix-tests"
+      ],
+      "todo": true
+    },
+    {
+      "name": "Full Compose E2E",
+      "file": ".github/workflows/full-compose-e2e.yml",
+      "trigger": ["workflow_dispatch", "push to main", "pull_request label full-ci"],
+      "cost_class": "medium-high",
+      "purpose": "Run full Docker Compose browser and API E2E with artifacts on failure.",
+      "jobs": [
+        "compose-build",
+        "compose-start",
+        "playwright-golden-paths",
+        "compose-logs-artifact"
+      ],
+      "todo": true
+    },
+    {
+      "name": "Chaos And Timeout Tests",
+      "file": ".github/workflows/chaos-timeout.yml",
+      "trigger": ["workflow_dispatch", "schedule weekly"],
+      "cost_class": "high",
+      "purpose": "Validate failures, timeouts, worker crashes, backend interruptions and partial state recovery.",
+      "jobs": [
+        "worker-timeout-tests",
+        "redis-down-tests",
+        "db-reconnect-tests",
+        "autopilot-crash-recovery-tests"
+      ],
+      "todo": true
+    },
+    {
+      "name": "Live Provider Smoke",
+      "file": ".github/workflows/live-llm-smoke.yml",
+      "trigger": ["workflow_dispatch", "schedule nightly", "pull_request label live-llm"],
+      "cost_class": "paid-low-controlled",
+      "purpose": "Run one minimal hosted LLM request with strict token and timeout limits.",
+      "jobs": ["openai-mini-smoke"],
+      "notes": "Keep this tiny and opt-in. Do not run broad paid-provider tests on normal PRs."
+    }
   ],
-  "non_goals": [
-    "Do not remove existing useful integrations just because they are not perfect yet.",
-    "Do not build a heavy plugin marketplace or dynamic code-loading system in this track.",
-    "Do not move policy, approval, audit or task state into providers.",
-    "Do not make optional providers required for local-dev startup or core tests.",
-    "Do not allow provider-specific code to bypass Hub-owned capabilities and policy checks."
-  ],
-  "success_criteria": [
-    "Provider-specific logic lives behind explicit provider interfaces and factories/registries.",
-    "Core startup and core tests pass with optional providers disabled or missing.",
-    "Domain graph providers output provider-neutral DomainGraphArtifact objects.",
-    "Workflow automation providers output provider-neutral WorkflowIntegrationRunArtifact objects.",
-    "Worker execution providers output provider-neutral WorkerResult/Patch/Artifact contracts.",
-    "Research/evolution providers output provider-neutral run/proposal artifacts.",
-    "Release gate detects obvious provider-specific imports leaking into core modules.",
-    "Docs explain how to add a provider without touching core orchestration."
-  ],
-  "milestones": [
-    {"id": "CBP-M1", "title": "Boundary inventory and contracts", "task_ids": ["CBP-T01", "CBP-T02", "CBP-T03"], "status": "done"},
-    {"id": "CBP-M2", "title": "Provider registries and mock providers", "task_ids": ["CBP-T04", "CBP-T05", "CBP-T06", "CBP-T17"], "status": "done"},
-    {"id": "CBP-M3", "title": "Provider-neutral artifacts", "task_ids": ["CBP-T08", "CBP-T09", "CBP-T10"], "status": "done"},
-    {"id": "CBP-M4", "title": "Core import enforcement", "task_ids": ["CBP-T11", "CBP-T12", "CBP-T13"], "status": "done"},
-    {"id": "CBP-M5", "title": "Docs and migration path", "task_ids": ["CBP-T14", "CBP-T15", "CBP-T16"], "status": "done"}
-  ],
-  "tasks": [
+  "todo_groups": [
     {
-      "id": "CBP-T01",
-      "title": "Provider coupling inventory add",
-      "status": "done",
+      "id": "coverage-reporting",
       "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": [],
-      "expected_files": ["docs/architecture/provider-coupling-inventory.md"],
-      "acceptance_criteria": [
-        "Inventory lists current direct references/imports to provider-specific systems in core-ish modules.",
-        "Inventory covers Blender/FreeCAD/KiCad, workflow automation, worker execution backends, MCP, Evolver, DeerFlow and Git provider integrations where present.",
-        "Inventory classifies each coupling as acceptable adapter code, suspicious core leak or deferred/unknown.",
-        "Inventory proposes target provider family for each suspicious coupling."
+      "status": "todo",
+      "goal": "Add explicit backend and frontend coverage reporting.",
+      "why": "Green tests show behavior is covered somewhere, but not which source modules are uncovered.",
+      "tasks": [
+        {
+          "id": "coverage-backend-pytest-cov",
+          "title": "Add pytest-cov backend coverage command",
+          "files": ["requirements-dev.lock", "pyproject.toml", ".github/workflows/coverage.yml"],
+          "suggested_command": "pytest tests --cov=agent --cov-report=term-missing --cov-report=xml",
+          "ci": "manual_or_weekly",
+          "cost_class": "medium",
+          "acceptance": [
+            "CI uploads coverage.xml as artifact",
+            "summary shows total backend coverage",
+            "coverage job does not block normal PRs initially"
+          ]
+        },
+        {
+          "id": "coverage-frontend-vitest",
+          "title": "Add frontend Vitest coverage command",
+          "files": ["frontend-angular/package.json", ".github/workflows/coverage.yml"],
+          "suggested_command": "npm run test:unit -- --coverage",
+          "ci": "manual_or_weekly",
+          "cost_class": "medium",
+          "acceptance": [
+            "frontend coverage artifact is uploaded",
+            "coverage summary is visible in job logs",
+            "normal frontend-build remains fast"
+          ]
+        },
+        {
+          "id": "coverage-thresholds-later",
+          "title": "Introduce coverage thresholds after baseline is known",
+          "ci": "manual_then_standard",
+          "cost_class": "low",
+          "acceptance": [
+            "initial thresholds are realistic and do not cause noisy failures",
+            "critical modules get higher thresholds than UI glue code"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T02",
-      "title": "Core package boundary definition add",
-      "status": "done",
+      "id": "security-abuse-tests",
       "priority": "P0",
-      "risk": "medium",
-      "blocking": true,
-      "depends_on": ["CBP-T01"],
-      "expected_files": ["docs/architecture/core-boundary.md", "tests/test_core_boundary_definition.py"],
-      "acceptance_criteria": [
-        "Document defines which packages/modules count as Core, Provider Interface, Provider Implementation and Client Adapter.",
-        "Document explicitly maps existing modules into those zones where feasible.",
-        "Tests or static checks can read the boundary configuration.",
-        "Boundary definition is conservative and does not require immediate full migration."
+      "status": "todo",
+      "goal": "Expand negative tests for autonomous agent safety boundaries.",
+      "why": "The highest risk is not normal behavior; it is unsafe LLM/tool behavior, privilege bypass and secret leakage.",
+      "workflow": "Security Abuse Tests",
+      "ci": "manual_or_nightly_or_label_security-ci",
+      "tasks": [
+        {
+          "id": "prompt-injection-tool-blocking",
+          "title": "Prompt injection must not bypass blocked tools",
+          "suggested_test_file": "tests/test_prompt_injection_tool_policy.py",
+          "cost_class": "low",
+          "acceptance": [
+            "LLM output asking to ignore policy is rejected",
+            "forbidden shell commands are blocked before execution",
+            "policy decision is logged with reason"
+          ]
+        },
+        {
+          "id": "secret-redaction-boundaries",
+          "title": "Secrets must not leak into logs, artifacts or LLM prompts",
+          "suggested_test_file": "tests/test_secret_redaction_boundaries.py",
+          "cost_class": "low",
+          "acceptance": [
+            "environment-like secrets are redacted",
+            "API tokens are redacted",
+            "artifact metadata does not expose secret values",
+            "LLM prompt construction redacts sensitive fields"
+          ]
+        },
+        {
+          "id": "command-injection-shell-bridges",
+          "title": "Command injection attempts are blocked in shell/sgpt/opencode bridges",
+          "suggested_test_file": "tests/test_command_injection_boundaries.py",
+          "cost_class": "low-medium",
+          "acceptance": [
+            "semicolon and pipe injection are rejected where commands should be structured",
+            "path traversal in command arguments is blocked",
+            "unsafe generated commands require review or are rejected"
+          ]
+        },
+        {
+          "id": "ssrf-research-webhook",
+          "title": "SSRF-like URLs are rejected or sandboxed in research and webhook paths",
+          "suggested_test_file": "tests/test_ssrf_boundaries.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "localhost/private-network URLs are blocked where external fetch is possible",
+            "file:// and metadata-service URLs are blocked",
+            "blocked attempts are auditable"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T03",
-      "title": "Provider interface package skeleton add",
-      "status": "done",
+      "id": "authz-role-matrix",
       "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CBP-T02"],
-      "expected_files": ["agent/providers/__init__.py", "agent/providers/interfaces.py", "tests/test_provider_interfaces.py"],
-      "acceptance_criteria": [
-        "Adds stable interfaces/protocols for provider registration and health/status reporting.",
-        "Interfaces are provider-neutral and do not import n8n, Blender, KiCad, FreeCAD, OpenCode or similar provider-specific packages.",
-        "Includes common ProviderDescriptor fields: provider_id, provider_family, capabilities, risk_class, enabled_by_default=false.",
-        "Tests verify interface objects can be imported without optional provider dependencies."
+      "status": "todo",
+      "goal": "Add explicit authorization matrix tests for all important endpoints.",
+      "why": "Agent platforms need exact role boundaries: anonymous, user, admin, hub, worker.",
+      "workflow": "Security Abuse Tests",
+      "ci": "manual_or_nightly_then_standard_for_fast_subset",
+      "tasks": [
+        {
+          "id": "endpoint-role-matrix",
+          "title": "Generate endpoint x role permission matrix tests",
+          "suggested_test_file": "tests/test_authorization_matrix.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "anonymous cannot access protected endpoints",
+            "user cannot perform admin actions",
+            "worker cannot perform hub-only actions",
+            "admin-only endpoints are documented by test table"
+          ]
+        },
+        {
+          "id": "token-claims-boundary",
+          "title": "Invalid or escalated token claims are rejected",
+          "suggested_test_file": "tests/test_token_claim_boundaries.py",
+          "cost_class": "low",
+          "acceptance": [
+            "modified role claim fails verification",
+            "expired token fails",
+            "wrong audience/issuer fails if configured"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T04",
-      "title": "Generic provider registry add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CBP-T03"],
-      "expected_files": ["agent/providers/registry.py", "tests/test_provider_registry.py"],
-      "acceptance_criteria": [
-        "Registry supports registering provider descriptors and provider factories by family.",
-        "Unknown providers are disabled/unavailable by default.",
-        "Registry can report missing optional dependency as degraded instead of failing core startup.",
-        "Registry supports injected mock providers for tests.",
-        "Tests cover disabled provider, missing dependency, registered mock and unknown provider."
-      ]
-    },
-    {
-      "id": "CBP-T05",
-      "title": "DomainGraphProvider interface add",
-      "status": "done",
+      "id": "multi-agent-race-tests",
       "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["CBP-T04"],
-      "expected_files": ["agent/providers/domain_graph.py", "schemas/artifacts/domain_graph_artifact.v1.json", "tests/test_domain_graph_provider_contract.py"],
-      "acceptance_criteria": [
-        "Defines provider-neutral interface for graph ingestion from Blender/FreeCAD/KiCad-like sources.",
-        "Interface returns DomainGraphArtifact-compatible payload plus provenance/warnings.",
-        "No Blender/KiCad/FreeCAD-specific import appears in core/interface module.",
-        "Mock provider test proves core can consume DomainGraphArtifact without real domain tool installed."
+      "status": "todo",
+      "goal": "Test concurrency, leases and duplicate work prevention.",
+      "why": "Race conditions are likely in multi-agent orchestration and can cause duplicate execution or lost state.",
+      "workflow": "Chaos And Timeout Tests",
+      "ci": "manual_or_weekly",
+      "tasks": [
+        {
+          "id": "double-claim-same-task",
+          "title": "Two workers must not claim the same task",
+          "suggested_test_file": "tests/test_worker_claim_races.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "parallel claim requests produce exactly one winner",
+            "loser receives deterministic conflict/empty result",
+            "task history contains one claim event"
+          ]
+        },
+        {
+          "id": "lease-expiry-reclaim",
+          "title": "Expired leases can be reclaimed safely",
+          "suggested_test_file": "tests/test_lease_reclaim_flow.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "expired lease is not treated as active",
+            "new worker can reclaim",
+            "old worker completion after expiry is rejected or reconciled"
+          ]
+        },
+        {
+          "id": "parallel-autopilot-ticks",
+          "title": "Parallel autopilot ticks do not duplicate dispatch",
+          "suggested_test_file": "tests/test_autopilot_race_conditions.py",
+          "cost_class": "medium-high",
+          "acceptance": [
+            "concurrent tick_once calls do not create duplicate execution",
+            "locking or idempotency behavior is visible in assertions"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T06",
-      "title": "WorkflowProvider interface align with workflow adapter todo",
-      "status": "done",
+      "id": "failure-and-timeout-tests",
       "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["CBP-T04", "todo.n8n-integration.json:WFA-T04"],
-      "expected_files": ["agent/providers/workflow.py", "tests/test_workflow_provider_contract.py"],
-      "acceptance_criteria": [
-        "Defines provider-neutral workflow provider interface compatible with workflow automation adapter layer.",
-        "n8n/generic webhook provider can later implement the interface without changing core.",
-        "Interface supports dry-run, callback correlation and provider status.",
-        "Tests use mock provider only."
+      "status": "todo",
+      "goal": "Add failure-mode tests for workers, research backends, shell and LLM output.",
+      "why": "The system must fail closed and recover cleanly from partial failures.",
+      "workflow": "Chaos And Timeout Tests",
+      "ci": "manual_or_weekly",
+      "tasks": [
+        {
+          "id": "worker-timeout",
+          "title": "Worker timeout marks task safely and does not hang CI",
+          "suggested_test_file": "tests/test_worker_timeout_recovery.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "timeout produces bounded failure state",
+            "task remains retryable or escalated",
+            "no background thread hangs after test"
+          ]
+        },
+        {
+          "id": "invalid-llm-json",
+          "title": "Invalid LLM JSON is handled safely",
+          "suggested_test_file": "tests/test_invalid_llm_output_handling.py",
+          "cost_class": "low",
+          "acceptance": [
+            "invalid JSON does not crash planner",
+            "repair fallback is bounded",
+            "unsafe fallback does not execute tools"
+          ]
+        },
+        {
+          "id": "research-backend-timeout",
+          "title": "Research backend timeout is bounded and auditable",
+          "suggested_test_file": "tests/test_research_backend_timeouts.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "CLI timeout is enforced",
+            "partial artifact is not treated as verified",
+            "review remains required after uncertain research result"
+          ]
+        },
+        {
+          "id": "shell-session-crash",
+          "title": "Shell session crash does not corrupt task state",
+          "suggested_test_file": "tests/test_shell_session_failure_recovery.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "crashed shell marks execution failed",
+            "task history includes failure reason",
+            "subsequent execution can create a fresh session"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T08",
-      "title": "Provider-neutral artifact contract inventory add",
-      "status": "done",
+      "id": "migration-upgrade-tests",
       "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["CBP-T03"],
-      "expected_files": ["docs/architecture/provider-artifact-contracts.md"],
-      "acceptance_criteria": [
-        "Document maps each provider family to neutral artifact contracts: DomainGraphArtifact, WorkflowIntegrationRunArtifact, WorkerResultArtifact, PatchArtifact, EvolutionProposalArtifact.",
-        "Document identifies missing schemas or schema gaps.",
-        "Document states provider-specific raw payloads must be stored behind metadata/raw_payload fields only when safe and redacted."
+      "status": "todo",
+      "goal": "Test realistic upgrade scenarios from older persisted states.",
+      "why": "Users may keep tasks, artifacts, configs and memory entries across releases.",
+      "workflow": "Manual Heavy CI",
+      "ci": "manual_or_release_candidate",
+      "tasks": [
+        {
+          "id": "old-config-upgrade",
+          "title": "Old config documents upgrade to current config model",
+          "suggested_test_file": "tests/test_upgrade_old_config.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "missing new config keys get safe defaults",
+            "old values are preserved",
+            "unsafe defaults are not introduced"
+          ]
+        },
+        {
+          "id": "old-task-read-model-upgrade",
+          "title": "Old task records still render in current read models",
+          "suggested_test_file": "tests/test_upgrade_task_read_models.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "old task without new fields does not crash read model",
+            "new fields have sensible defaults",
+            "frontend contract baseline is still satisfied"
+          ]
+        },
+        {
+          "id": "artifact-memory-upgrade",
+          "title": "Old artifact and memory records remain queryable",
+          "suggested_test_file": "tests/test_upgrade_artifact_memory.py",
+          "cost_class": "medium",
+          "acceptance": [
+            "old artifacts can be listed",
+            "old extracted documents can be searched or skipped safely",
+            "old memory entries do not break task detail views"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T09",
-      "title": "Provider artifact redaction utility add",
-      "status": "done",
+      "id": "frontend-golden-path-e2e",
       "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["CBP-T08"],
-      "expected_files": ["agent/providers/redaction.py", "tests/test_provider_redaction.py"],
-      "acceptance_criteria": [
-        "Utility redacts secret-looking keys and configured secret refs from provider payloads before logging/artifact storage.",
-        "Utility is provider-neutral and can be used by workflow/domain/worker providers.",
-        "Tests cover nested dict/list redaction and no-op safe payloads."
+      "status": "todo",
+      "goal": "Add explicit Playwright golden paths for core user journeys.",
+      "why": "Frontend unit tests are good, but they do not prove real dashboard flows work in a browser against the stack.",
+      "workflow": "Full Compose E2E",
+      "ci": "main_or_manual_or_full-ci_label",
+      "tasks": [
+        {
+          "id": "login-dashboard-goal-flow",
+          "title": "Login, open dashboard, create goal and see resulting tasks",
+          "suggested_test_file": "frontend-angular/tests/golden-path-goal.spec.ts",
+          "cost_class": "medium-high",
+          "acceptance": [
+            "user can log in",
+            "dashboard loads without console errors",
+            "guided goal or quick goal can be submitted",
+            "created task appears in UI"
+          ]
+        },
+        {
+          "id": "review-governance-flow",
+          "title": "Governance and review information is visible for tasks/goals",
+          "suggested_test_file": "frontend-angular/tests/golden-path-governance.spec.ts",
+          "cost_class": "medium-high",
+          "acceptance": [
+            "policy decision appears in UI",
+            "verification state appears in UI",
+            "blocked or review-required state is understandable"
+          ]
+        },
+        {
+          "id": "offline-error-state-flow",
+          "title": "Frontend displays useful errors when hub/API is unavailable",
+          "suggested_test_file": "frontend-angular/tests/error-states.spec.ts",
+          "cost_class": "medium",
+          "acceptance": [
+            "network failure does not crash UI",
+            "user sees actionable error",
+            "retry is possible"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T10",
-      "title": "Provider provenance metadata standard add",
-      "status": "done",
+      "id": "compose-and-release-hardening",
       "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["CBP-T08"],
-      "expected_files": ["agent/providers/provenance.py", "tests/test_provider_provenance.py"],
-      "acceptance_criteria": [
-        "Defines standard provider provenance fields: provider_id, provider_family, provider_version, external_ref, source_ref, run_id, trace_id.",
-        "Provenance helper can be embedded in artifact metadata consistently.",
-        "Tests verify deterministic provenance construction and safe missing fields."
+      "status": "todo",
+      "goal": "Keep full-stack and release tests useful without making every PR expensive.",
+      "workflow": "Full Compose E2E / Nightly And RC Validation",
+      "ci": "main_or_manual_or_scheduled",
+      "tasks": [
+        {
+          "id": "compose-log-artifacts",
+          "title": "Always upload compose logs on E2E failure",
+          "cost_class": "low",
+          "acceptance": [
+            "docker compose logs are uploaded",
+            "frontend Playwright traces are uploaded",
+            "backend health endpoint output is included"
+          ]
+        },
+        {
+          "id": "release-image-gate-manual",
+          "title": "Keep release image build gate manual or RC-only",
+          "cost_class": "high",
+          "acceptance": [
+            "normal PRs do not build all release images",
+            "workflow_dispatch can run full image gate",
+            "RC tags run image gate automatically"
+          ]
+        },
+        {
+          "id": "docker-pull-smoke",
+          "title": "After GHCR push, verify docker pull and container start",
+          "suggested_workflow": ".github/workflows/container-pull-smoke.yml",
+          "cost_class": "medium",
+          "acceptance": [
+            "docker pull ghcr.io/ananta888/ananta-quickstart-no-ollama:<tag> succeeds",
+            "container starts",
+            "health endpoint responds"
+          ]
+        }
       ]
     },
     {
-      "id": "CBP-T11",
-      "title": "Core forbidden import checker add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": ["CBP-T02"],
-      "expected_files": ["scripts/check_core_provider_boundaries.py", "tests/test_core_provider_boundary_checker.py"],
-      "acceptance_criteria": [
-        "Checker flags provider-specific imports or strings in configured core modules when they are not allowlisted.",
-        "Checker starts with warning/report mode to avoid breaking migration prematurely.",
-        "Checker has allowlist for legitimate provider interface modules.",
-        "Tests include synthetic violation for Blender/n8n/OpenCode-style imports."
-      ]
-    },
-    {
-      "id": "CBP-T12",
-      "title": "Release gate provider boundary check add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["CBP-T11"],
-      "expected_files": ["scripts/run_release_gate.py", "tests/test_release_gate_provider_boundaries.py"],
-      "acceptance_criteria": [
-        "Release gate can run provider boundary checker in report or strict mode.",
-        "Core release gate passes without optional provider dependencies installed.",
-        "Failure message points to ADR-core-boundary-and-provider-plugins.md and provider interface package.",
-        "Tests cover report mode and strict mode."
-      ]
-    },
-    {
-      "id": "CBP-T13",
-      "title": "Disabled optional provider startup test add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": ["CBP-T04"],
-      "expected_files": ["tests/smoke/test_core_starts_without_optional_providers.py"],
-      "acceptance_criteria": [
-        "Smoke test verifies core app/import path starts with optional providers disabled/missing.",
-        "Test explicitly covers workflow automation, domain graph and external worker providers disabled.",
-        "Test fails if optional provider dependency becomes required for local-dev/core startup."
-      ]
-    },
-    {
-      "id": "CBP-T14",
-      "title": "Provider implementation layout docs add",
-      "status": "done",
+      "id": "test-inventory-and-docs",
       "priority": "P2",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["CBP-T03", "CBP-T04"],
-      "expected_files": ["docs/development/provider-plugin-guide.md"],
-      "acceptance_criteria": [
-        "Docs explain where provider interfaces, provider implementations, schemas and tests belong.",
-        "Docs include minimal mock provider example.",
-        "Docs include rules for disabled-by-default, dry-run, redaction and policy gating.",
-        "Docs warn against direct imports in core modules."
-      ]
-    },
-    {
-      "id": "CBP-T15",
-      "title": "Existing integration tracks cross-reference ADR add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "low",
-      "blocking": false,
-      "depends_on": ["CBP-T14"],
-      "expected_files": ["todo.n8n-integration.json", "todo.kritis.json", "docs/decisions/ADR-core-boundary-and-provider-plugins.md"],
-      "acceptance_criteria": [
-        "Workflow automation todo references provider boundary ADR and generic provider registry.",
-        "KRITIS/worker-hardening track references worker provider boundaries and provider-neutral worker todo/result contracts where external workers are relevant.",
-        "ADR relationship section remains accurate."
-      ]
-    },
-    {
-      "id": "CBP-T16",
-      "title": "Medusa risk checklist add",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["CBP-T14"],
-      "expected_files": ["docs/architecture/medusa-risk-checklist.md"],
-      "acceptance_criteria": [
-        "Checklist helps evaluate every new integration before implementation.",
-        "Checklist asks: can this provider be disabled without breaking core? does it have a neutral artifact? does it bypass policy? does it require optional deps?",
-        "Checklist is referenced by provider plugin guide and ADR."
-      ]
-    },
-    {
-      "id": "CBP-T17",
-      "title": "Worker executor provider dispatch bridge add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": ["CBP-T04"],
-      "expected_files": ["agent/providers/worker_execution.py", "agent/providers/registry.py", "tests/test_worker_execution_provider_dispatch.py"],
-      "acceptance_criteria": [
-        "Bridges worker_todo_contract executor_kind values (ananta_worker/opencode/openai_codex_cli/custom) to provider registry dispatch without coupling core code to backend-specific modules.",
-        "Unknown or unavailable executor providers stay disabled/degraded by default and do not break core startup.",
-        "Dispatch keeps Hub policy/capability context mandatory before execution.",
-        "Tests use mock provider implementations and verify provider-neutral worker_todo_result handling."
+      "status": "todo",
+      "goal": "Make test coverage understandable for maintainers and contributors.",
+      "ci": "standard_or_docs_only",
+      "tasks": [
+        {
+          "id": "testing-doc-matrix",
+          "title": "Document test categories and when each workflow runs",
+          "files": ["docs/testing.md", "README.md"],
+          "cost_class": "low",
+          "acceptance": [
+            "standard CI vs manual CI is documented",
+            "expensive workflows are documented",
+            "local commands are listed"
+          ]
+        },
+        {
+          "id": "workflow-badges",
+          "title": "Add useful CI badges to README",
+          "files": ["README.md"],
+          "cost_class": "low",
+          "acceptance": [
+            "Quality And Docs badge exists",
+            "Live LLM Smoke badge exists if useful",
+            "Backend Isolated Flows badge exists if kept separate"
+          ]
+        },
+        {
+          "id": "test-count-summary",
+          "title": "Add CI summary with collected test counts",
+          "cost_class": "low",
+          "acceptance": [
+            "backend-checks prints collected test count",
+            "frontend-build prints unit test count",
+            "isolated flow workflow prints test count"
+          ]
+        }
       ]
     }
   ],
-  "execution_order_summary": [
-    "Inventory existing provider coupling first.",
-    "Define core/provider/client package boundaries.",
-    "Add provider-neutral interfaces and registry with mock providers.",
-    "Add provider-neutral artifact/provenance/redaction helpers.",
-    "Add boundary checker and disabled-provider startup smoke tests.",
-    "Document provider plugin layout and Medusa risk checklist.",
-    "Cross-reference existing workflow, domain graph, worker and planning tracks.",
-    "Bridge already-shipped worker todo/result contracts into provider registry dispatch."
+  "manual_workflow_candidates": [
+    {
+      "workflow": "coverage.yml",
+      "reason": "Coverage is useful but can slow CI; run weekly or manually until thresholds are stable.",
+      "recommended_trigger": ["workflow_dispatch", "weekly schedule", "label coverage"]
+    },
+    {
+      "workflow": "security-abuse.yml",
+      "reason": "Security abuse tests may grow large and include many negative scenarios; run nightly or on security-sensitive PRs.",
+      "recommended_trigger": ["workflow_dispatch", "nightly schedule", "label security-ci"]
+    },
+    {
+      "workflow": "chaos-timeout.yml",
+      "reason": "Chaos tests intentionally simulate failures and can be slow/flaky if run on every PR.",
+      "recommended_trigger": ["workflow_dispatch", "weekly schedule"]
+    },
+    {
+      "workflow": "full-compose-e2e.yml",
+      "reason": "Full Docker/browser tests are expensive but necessary before releases and after main merges.",
+      "recommended_trigger": ["workflow_dispatch", "push main", "label full-ci"]
+    },
+    {
+      "workflow": "container-pull-smoke.yml",
+      "reason": "Validates published artifacts and GHCR images after release or RC push.",
+      "recommended_trigger": ["workflow_dispatch", "tag push", "release published"]
+    }
   ],
-  "critical_path_tasks": ["CBP-T01", "CBP-T02", "CBP-T03", "CBP-T04", "CBP-T11", "CBP-T13"],
-  "tasks_status_summary": {
-    "updated_at": "2026-04-29T18:19:15+02:00",
-    "total": 16,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 16, "deferred": 0},
-    "progress_percent_done": 100.0,
-    "by_priority": {"P0": 6, "P1": 7, "P2": 3, "P3": 0},
-    "by_risk": {"low": 2, "medium": 6, "high": 7, "critical": 1},
-    "critical_path": {"total": 6, "done": 6, "remaining": 0},
-    "milestones": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5}
+  "quality_targets": {
+    "short_term": [
+      "All current tests green in CI",
+      "Coverage workflow exists and uploads artifacts",
+      "Backend isolated flows visible as separate workflow",
+      "Security abuse test file group started"
+    ],
+    "medium_term": [
+      "Backend coverage threshold introduced for critical modules",
+      "Frontend golden-path Playwright tests cover first-run and goal creation",
+      "Race condition tests cover task claiming and lease expiry",
+      "Upgrade tests cover old config and old task records"
+    ],
+    "long_term": [
+      "Release candidate workflow includes full compose E2E, coverage, security abuse and image pull smoke",
+      "Chaos workflow validates failure recovery weekly",
+      "Security-sensitive code paths have negative tests as default requirement"
+    ]
   },
-  "summary_notes": [
-    "This track protects Ananta from Medusa growth while still allowing many integrations.",
-    "The highest-value early tasks are boundary inventory, provider interfaces, registry, forbidden-import checker and disabled-provider startup smoke.",
-    "Do not overbuild dynamic plugin loading yet; simple explicit provider registries are enough.",
-    "Blender/KiCad/FreeCAD, workflow automation, external workers and research/evolution providers should all pass through this architecture.",
-    "WCR-T30 decision (2026-04-29): worker-specific CodeCompass retrieval implementation remains in dedicated worker tracks and is not promoted into this global architecture track.",
-    "CBP-T07 was removed as already implemented through worker_todo_contract/worker_todo_result and hub delegation wiring; remaining provider-registry dispatch gap is tracked as CBP-T17."
+  "notes": [
+    "Do not move all heavy workflows into the default Quality And Docs workflow. That makes normal development too slow and expensive.",
+    "Prefer labels such as full-ci, security-ci, coverage and live-llm for opt-in PR expansion.",
+    "Use strict timeouts and faulthandler_timeout for integration tests to avoid silent hangs.",
+    "If a test is valuable but slow, isolate it. Do not delete it just to make CI green.",
+    "Paid provider tests must use tiny prompts, tiny output limits, one retry at most and explicit secret checks."
   ]
 }
