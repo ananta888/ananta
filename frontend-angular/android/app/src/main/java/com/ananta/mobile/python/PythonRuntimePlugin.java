@@ -47,9 +47,12 @@ public class PythonRuntimePlugin extends Plugin {
     private static final int MAX_SESSION_OUTPUT_CHARS = 200_000;
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
     private static final String PROOT_BIN_FILE = "proot-rs";
+    private static final String PROOT_CLASSIC_FILE = "proot-classic";
     private static final String PROOT_WRAPPER_FILE = "proot";
+    private static final String PROOT_CLASSIC_EMBEDDED_LIB_FILE = "libprootclassic.so";
     private static final String PROOT_EMBEDDED_LIB_FILE = "libprootrs.so";
     private static final String PROOT_RS_RELEASE_URL = "https://github.com/proot-me/proot-rs/releases/download/v0.1.0/proot-rs-v0.1.0-aarch64-linux-android.tar.gz";
+    private static final String PROOT_CLASSIC_RELEASE_URL = "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-aarch64-static";
     private static final String PROOT_DISTRO_RELEASE_API = "https://api.github.com/repos/termux/proot-distro/releases/latest";
     private static final String PROOT_DISTRO_PLUGIN_BASE = "https://raw.githubusercontent.com/termux/proot-distro/master/distro-plugins/";
 
@@ -306,9 +309,16 @@ public class PythonRuntimePlugin extends Plugin {
                 JSObject result = new JSObject();
                 File runtimeRoot = runtimeRootDir();
                 File prootWrapper = new File(runtimeRoot, "bin/" + PROOT_WRAPPER_FILE);
+                File classicProotBinary = new File(runtimeRoot, "bin/" + PROOT_CLASSIC_FILE);
                 File runtimeProotBinary = new File(runtimeRoot, "bin/" + PROOT_BIN_FILE);
+                File embeddedClassicBinary = embeddedNativeClassicProotBinary();
                 File embeddedProotBinary = embeddedNativeProotBinary();
-                File selectedProotBinary = resolveProotBinaryCandidate(runtimeProotBinary, embeddedProotBinary);
+                File selectedProotBinary = resolveProotBinaryCandidate(
+                    embeddedClassicBinary,
+                    embeddedProotBinary,
+                    classicProotBinary,
+                    runtimeProotBinary
+                );
                 File distroRoot = new File(runtimeRoot, "distros");
                 JSArray distros = new JSArray();
                 File[] entries = distroRoot.listFiles();
@@ -327,7 +337,12 @@ public class PythonRuntimePlugin extends Plugin {
                 result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
                 result.put("prootPath", prootWrapper.getAbsolutePath());
                 result.put("prootBinaryPath", selectedProotBinary != null ? selectedProotBinary.getAbsolutePath() : "");
-                result.put("prootBinarySource", isEmbeddedBinary(selectedProotBinary, embeddedProotBinary) ? "embedded-native-lib" : "runtime-files");
+                result.put("prootBinarySource", resolveProotBinarySource(
+                    selectedProotBinary,
+                    embeddedClassicBinary,
+                    embeddedProotBinary,
+                    classicProotBinary
+                ));
                 boolean prootExists = prootWrapper.exists() && selectedProotBinary != null && selectedProotBinary.exists();
                 result.put("prootExists", prootExists);
                 ProotProbeResult probe = new ProotProbeResult(false, "Runtime nicht installiert.");
@@ -356,10 +371,59 @@ public class PythonRuntimePlugin extends Plugin {
             try {
                 String url = String.valueOf(call.getString("prootUrl", PROOT_RS_RELEASE_URL)).trim();
                 if (url.isEmpty()) url = PROOT_RS_RELEASE_URL;
+                String classicUrl = String.valueOf(call.getString("prootClassicUrl", PROOT_CLASSIC_RELEASE_URL)).trim();
+                if (classicUrl.isEmpty()) classicUrl = PROOT_CLASSIC_RELEASE_URL;
                 notifyProotProgress("runtime", "preparing", "Runtime-Installation gestartet.", -1, -1, null);
 
                 File runtimeRoot = runtimeRootDir();
                 File binDir = ensureDir(runtimeRoot, "bin");
+                File tmpDir = ensureDir(runtimeRoot, "tmp");
+                File embeddedClassicBinary = embeddedNativeClassicProotBinary();
+                if (isUsableBinary(embeddedClassicBinary)) {
+                    createProotWrapper(binDir, embeddedClassicBinary);
+                    ProotProbeResult probe = probeProotWrapper(new File(binDir, PROOT_WRAPPER_FILE));
+                    JSObject result = new JSObject();
+                    result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
+                    result.put("prootPath", new File(binDir, PROOT_WRAPPER_FILE).getAbsolutePath());
+                    result.put("prootBinaryPath", embeddedClassicBinary.getAbsolutePath());
+                    result.put("prootBinarySource", "embedded-classic-native-lib");
+                    result.put("alreadyInstalled", true);
+                    result.put("runnable", probe.runnable);
+                    result.put("probeMessage", probe.message);
+                    String doneMessage = probe.runnable
+                        ? "Runtime bereit (APK-embedded classic proot)."
+                        : "Runtime vorhanden (APK-embedded classic proot), aber nicht startbar.";
+                    notifyProotProgress("runtime", "done", doneMessage, -1, -1, null);
+                    call.resolve(result);
+                    return;
+                }
+
+                File classicBinary = new File(binDir, PROOT_CLASSIC_FILE);
+                if (!isUsableBinary(classicBinary)) {
+                    File classicDownload = new File(tmpDir, "proot-classic-aarch64-static");
+                    notifyProotProgress("runtime", "downloading", "Klassische proot Runtime wird geladen.", 0, -1, null);
+                    downloadToFile(classicUrl, classicDownload, "runtime");
+                    copyFile(classicDownload, classicBinary);
+                    if (!classicBinary.setExecutable(true, false)) {
+                        throw new IOException("Could not mark classic proot binary executable.");
+                    }
+                }
+                createProotWrapper(binDir, classicBinary);
+                ProotProbeResult classicProbe = probeProotWrapper(new File(binDir, PROOT_WRAPPER_FILE));
+                if (classicProbe.runnable) {
+                    JSObject result = new JSObject();
+                    result.put("runtimeRoot", runtimeRoot.getAbsolutePath());
+                    result.put("prootPath", new File(binDir, PROOT_WRAPPER_FILE).getAbsolutePath());
+                    result.put("prootBinaryPath", classicBinary.getAbsolutePath());
+                    result.put("prootBinarySource", "classic-static");
+                    result.put("alreadyInstalled", true);
+                    result.put("runnable", true);
+                    result.put("probeMessage", classicProbe.message);
+                    notifyProotProgress("runtime", "done", "Runtime bereit (klassisches proot).", -1, -1, null);
+                    call.resolve(result);
+                    return;
+                }
+
                 File embeddedProotBinary = embeddedNativeProotBinary();
                 if (isUsableBinary(embeddedProotBinary)) {
                     createProotWrapper(binDir, embeddedProotBinary);
@@ -402,7 +466,6 @@ public class PythonRuntimePlugin extends Plugin {
                     return;
                 }
 
-                File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File downloadTarget = new File(tmpDir, "proot-rs.tar.gz");
                 downloadToFile(url, downloadTarget, "runtime");
                 notifyProotProgress("runtime", "extracting", "Runtime wird entpackt.", -1, -1, null);
@@ -629,7 +692,13 @@ public class PythonRuntimePlugin extends Plugin {
         File binDir = new File(runtimeRootDir(), "bin");
         File wrapper = new File(binDir, PROOT_WRAPPER_FILE);
         File runtimeBinary = new File(binDir, PROOT_BIN_FILE);
-        File selectedBinary = resolveProotBinaryCandidate(runtimeBinary, embeddedNativeProotBinary());
+        File classicBinary = new File(binDir, PROOT_CLASSIC_FILE);
+        File selectedBinary = resolveProotBinaryCandidate(
+            embeddedNativeClassicProotBinary(),
+            embeddedNativeProotBinary(),
+            classicBinary,
+            runtimeBinary
+        );
         if (!wrapper.exists() || !wrapper.canExecute() || selectedBinary == null || !selectedBinary.exists()) {
             throw new IOException("Proot runtime is not installed. Install runtime first.");
         }
@@ -659,10 +728,36 @@ public class PythonRuntimePlugin extends Plugin {
         return candidate.exists() ? candidate : null;
     }
 
-    private File resolveProotBinaryCandidate(File runtimeBinary, File embeddedBinary) {
+    private File embeddedNativeClassicProotBinary() {
+        Context context = getContext();
+        if (context == null || context.getApplicationInfo() == null) return null;
+        String nativeDir = String.valueOf(context.getApplicationInfo().nativeLibraryDir == null ? "" : context.getApplicationInfo().nativeLibraryDir).trim();
+        if (nativeDir.isEmpty()) return null;
+        File candidate = new File(nativeDir, PROOT_CLASSIC_EMBEDDED_LIB_FILE);
+        return candidate.exists() ? candidate : null;
+    }
+
+    private File resolveProotBinaryCandidate(File embeddedClassicBinary, File embeddedBinary, File classicBinary, File runtimeBinary) {
+        if (isUsableBinary(embeddedClassicBinary)) return embeddedClassicBinary;
         if (isUsableBinary(embeddedBinary)) return embeddedBinary;
+        if (isUsableBinary(classicBinary)) return classicBinary;
         if (isUsableBinary(runtimeBinary)) return runtimeBinary;
         return null;
+    }
+
+    private String resolveProotBinarySource(File selected, File embeddedClassic, File embeddedRs, File classicRuntime) {
+        if (isEmbeddedBinary(selected, embeddedClassic)) return "embedded-classic-native-lib";
+        if (isEmbeddedBinary(selected, embeddedRs)) return "embedded-native-lib";
+        if (selected != null && classicRuntime != null) {
+            try {
+                if (selected.getCanonicalPath().equals(classicRuntime.getCanonicalPath())) {
+                    return "classic-runtime-files";
+                }
+            } catch (IOException ignored) {
+                if (selected.getAbsolutePath().equals(classicRuntime.getAbsolutePath())) return "classic-runtime-files";
+            }
+        }
+        return "runtime-files";
     }
 
     private boolean isUsableBinary(File file) {
