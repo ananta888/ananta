@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -351,6 +353,74 @@ class RetrievalService:
                 }
             )
         return trace
+
+    @staticmethod
+    def _trace_context_hash(
+        *,
+        query: str,
+        chunks: list[ContextChunk],
+        manifest_hash: str,
+    ) -> str:
+        selected_records: list[str] = []
+        for chunk in chunks:
+            metadata = dict(chunk.metadata or {})
+            selected_records.append(
+                str(metadata.get("record_id") or metadata.get("chunk_id") or chunk.source or "").strip()
+            )
+        payload = {
+            "query": str(query or ""),
+            "selected_records": selected_records,
+            "manifest_hash": str(manifest_hash or ""),
+        }
+        serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    def _build_retrieval_trace(
+        self,
+        *,
+        query: str,
+        strategy: dict[str, object],
+        chunks: list[ContextChunk],
+    ) -> dict[str, object]:
+        selected_chunk_counts_by_channel = self._engine_contributions(chunks)
+        enabled_channels = sorted(str(key) for key in selected_chunk_counts_by_channel.keys())
+        source_policy = dict(strategy.get("source_policy") or {})
+        effective = [str(item).strip() for item in list(source_policy.get("effective") or []) if str(item).strip()]
+        source_channel_map = {
+            "repo": "repository_map",
+            "artifact": "knowledge_index",
+            "wiki": "knowledge_index",
+            "task_memory": "result_memory",
+        }
+        degraded_channels = sorted(
+            {
+                source_channel_map[source_type]
+                for source_type in effective
+                if source_channel_map.get(source_type) and source_channel_map[source_type] not in selected_chunk_counts_by_channel
+            }
+        )
+        manifest_hash = ""
+        for chunk in chunks:
+            metadata = dict(chunk.metadata or {})
+            manifest_hash = str(metadata.get("source_manifest_hash") or metadata.get("manifest_hash") or "").strip()
+            if manifest_hash:
+                break
+        fusion = dict(strategy.get("fusion") or {})
+        expansion = dict(fusion.get("expansion") or {})
+        context_hash = self._trace_context_hash(query=query, chunks=chunks, manifest_hash=manifest_hash)
+        trace_id = f"retrieval-{context_hash[:16]}"
+        return {
+            "trace_id": trace_id,
+            "enabled_channels": enabled_channels,
+            "degraded_channels": degraded_channels,
+            "seed_counts": {"graph_seed_count": int(expansion.get("seed_count") or 0)},
+            "graph_expansion_counts": {"expanded_nodes": int(expansion.get("expanded_count") or 0)},
+            "final_chunk_count": len(chunks),
+            "context_hash": context_hash,
+            "manifest_hash": manifest_hash,
+            "selected_chunk_counts_by_channel": selected_chunk_counts_by_channel,
+            "channel_latency_ms": {},
+        }
 
     def _memory_candidates(
         self,
@@ -723,9 +793,11 @@ class RetrievalService:
             )
         context_text = "\n\n".join(context_lines)
         safe_strategy = self._redact_nested(strategy, orchestrator=orchestrator)
+        retrieval_trace = dict(safe_strategy.get("retrieval_trace") or {})
         return {
             "query": query,
             "strategy": safe_strategy,
+            "retrieval_trace": retrieval_trace,
             "policy_version": orchestrator.context_manager.policy_version,
             "chunks": serialized_chunks,
             "context_text": context_text,
@@ -877,6 +949,11 @@ class RetrievalService:
             ],
             "final_ranked_sources": self._final_merge_trace(merged),
         }
+        strategy["retrieval_trace"] = self._build_retrieval_trace(
+            query=query,
+            strategy=strategy,
+            chunks=merged,
+        )
         metric_task_kind = self._normalize_task_kind(task_kind) or "unknown"
         metric_bundle_mode = "standard_32k"
         outcome = "with_knowledge" if knowledge_chunks else "without_knowledge"

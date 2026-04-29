@@ -361,3 +361,22 @@ def test_retrieval_service_smoke_repo_and_wiki_sources_preserve_citations(monkey
     assert wiki_citation.get("article_title") == "Payment retries"
     assert wiki_citation.get("section_title") == "Timeout handling"
     assert {"wiki"} in knowledge.scope_calls
+
+
+def test_retrieval_service_emits_codecompass_retrieval_trace_shape():
+    knowledge = _FakeKnowledgeIndexRetrievalService()
+    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service._orchestrator = _FakeOrchestrator()
+    service._signature = service._config_signature()
+
+    payload = service.retrieve_context("timeout")
+
+    trace = dict(payload.get("retrieval_trace") or {})
+    assert trace.get("trace_id")
+    assert trace.get("context_hash")
+    assert trace.get("selected_chunk_counts_by_channel")
+    assert trace.get("final_chunk_count") == len(payload.get("chunks") or [])
+    assert trace.get("enabled_channels")
+    assert isinstance(trace.get("degraded_channels"), list)
+    strategy_trace = dict((payload.get("strategy") or {}).get("retrieval_trace") or {})
+    assert strategy_trace.get("trace_id") == trace.get("trace_id")

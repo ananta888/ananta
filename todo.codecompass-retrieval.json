@@ -78,7 +78,7 @@
       "id": "CHR-M5",
       "title": "Fusion, Bundles, Benchmarks, Rollout",
       "task_ids": ["CHR-T14", "CHR-T15", "CHR-T16", "CHR-T17", "CHR-T18"],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -334,7 +334,7 @@
     {
       "id": "CHR-T15",
       "title": "Hub ContextBundle harmonisieren (letzter Integrationsschritt)",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -430,16 +430,16 @@
     "CHR-T15"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T14:58:00+02:00",
+    "updated_at": "2026-04-29T17:20:00+02:00",
     "total": 18,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 17,
+      "done": 18,
       "deferred": 0
     },
-    "progress_percent_done": 94.4,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 11,
       "P1": 6,
@@ -454,20 +454,20 @@
     },
     "critical_path": {
       "total": 11,
-      "done": 10,
-      "remaining": 1
+      "done": 11,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "summary_notes": [
     "Der Track ist jetzt auf den realen, worker-zentrierten Implementierungsstand normalisiert.",
     "Hub-und-Worker-Erweiterungen sind kein Architekturkonflikt, wenn Ownership strikt bleibt (Hub steuert, Worker fuehrt aus).",
-    "Offen ist bewusst nur noch die Hub-ContextBundle-Harmonisierung (CHR-T15) als letzter Integrationsschnitt."
+    "Die Hub-ContextBundle-Harmonisierung (CHR-T15) ist abgeschlossen; der Track ist damit vollstaendig umgesetzt."
   ]
 }
