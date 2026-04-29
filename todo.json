@@ -539,7 +539,7 @@
         "coverage-frontend-vitest",
         "coverage-thresholds-later"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M2",
@@ -560,7 +560,7 @@
         "research-backend-timeout",
         "shell-session-crash"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M4",
@@ -570,7 +570,7 @@
         "old-task-read-model-upgrade",
         "artifact-memory-upgrade"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M5",
@@ -618,7 +618,7 @@
     {
       "id": "coverage-thresholds-later",
       "title": "Introduce coverage thresholds after baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -673,7 +673,7 @@
     {
       "id": "parallel-autopilot-ticks",
       "title": "Avoid duplicate dispatch on concurrent autopilot ticks",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -684,7 +684,7 @@
     {
       "id": "research-backend-timeout",
       "title": "Ensure research backend timeout remains bounded and auditable",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -695,7 +695,7 @@
     {
       "id": "shell-session-crash",
       "title": "Ensure shell crash does not corrupt orchestration state",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -706,7 +706,7 @@
     {
       "id": "old-config-upgrade",
       "title": "Validate legacy config upgrade compatibility",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -728,7 +728,7 @@
     {
       "id": "artifact-memory-upgrade",
       "title": "Validate legacy artifact and memory compatibility",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -803,12 +803,12 @@
   "tasks_status_summary": {
     "total": 18,
     "by_status": {
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 12
+      "done": 18
     },
-    "progress_percent_done": 66.67,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 3,
       "P1": 11,
@@ -823,15 +823,15 @@
     },
     "critical_path": {
       "total": 5,
-      "done": 4,
-      "remaining": 1
+      "done": 5,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 6
     }
   },
   "execution_stage_summary": {
@@ -843,8 +843,8 @@
           "coverage-thresholds-later"
         ],
         "total": 3,
-        "done": 2,
-        "todo": 1,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -868,8 +868,8 @@
           "shell-session-crash"
         ],
         "total": 5,
-        "done": 2,
-        "todo": 3,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -880,8 +880,8 @@
           "artifact-memory-upgrade"
         ],
         "total": 3,
-        "done": 1,
-        "todo": 2,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -914,6 +914,7 @@
     "Removed already-implemented items (security boundary tests, frontend golden-path E2E coverage, compose log artifact upload, release image gate split, testing guide matrix).",
     "Roadmap now contains open items only and aligns with current workflow filenames.",
     "Task-track summary fields were restored for consistency checks and stage progress accounting.",
-    "Updated after codebase validation pass: removed worker-timeout (covered), added CI depth doc alignment task."
+    "Updated after codebase validation pass: removed worker-timeout (covered), added CI depth doc alignment task.",
+    "All tracked roadmap tasks are now marked done after implementation and targeted .venv pytest validation."
   ]
 }

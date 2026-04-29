@@ -189,3 +189,22 @@ def test_managed_session_chunk_ring_buffer_preserves_progress(monkeypatch):
         assert next_offset == 4
     finally:
         session.close()
+
+
+def test_managed_session_restart_after_bridge_crash_returns_fresh_session(app):
+    from agent.services.live_terminal_session_service import LiveTerminalSessionService
+
+    service = LiveTerminalSessionService()
+    session = service.ensure_session("cli-crash-restart")
+    try:
+        # Simulate a crashed shell bridge.
+        session.bridge.close()
+        crash_result = service.restart("cli-crash-restart")
+        assert crash_result["ok"] is True
+        assert crash_result["restarted"] is True
+        rc, out, err = session.run_command("echo healthy", timeout=10)
+        assert rc == 0
+        assert "healthy" in out
+        assert err == ""
+    finally:
+        service.close_session("cli-crash-restart")

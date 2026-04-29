@@ -1,4 +1,5 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,36 @@ def test_autopilot_start_status_stop(client, app, monkeypatch):
         assert stop_res.json["data"]["running"] is False
     finally:
         autonomous_loop.stop(persist=False)
+
+
+def test_parallel_autopilot_ticks_do_not_duplicate_dispatch(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    task_repo.save(TaskDB(id="tick-race-1", title="Tick Race Task", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-race:5001", name="worker-race", role="worker", token="tok", status="online"))
+
+    responses = [
+        {"status": "success", "data": {"reason": "run", "command": "echo ok"}},
+        {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}},
+    ]
+
+    def _fake_forward(*_args, **_kwargs):
+        time.sleep(0.05)
+        return responses.pop(0)
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+
+    with app.app_context():
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            r1 = pool.submit(autonomous_loop.tick_once)
+            r2 = pool.submit(autonomous_loop.tick_once)
+            res = [r1.result(), r2.result()]
+
+    reasons = {item.get("reason") for item in res}
+    assert "tick_already_in_progress" in reasons
+    assert any(item.get("dispatched") == 1 for item in res)
+    updated = task_repo.get_by_id("tick-race-1")
+    assert updated is not None
+    assert updated.status in {"todo", "assigned", "in_progress", "completed", "failed"}
 
 
 def test_autopilot_tick_without_workers_marks_reason(client, app, monkeypatch):

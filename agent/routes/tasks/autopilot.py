@@ -60,6 +60,7 @@ def _task_dependencies(task: Any) -> list[str]:
 class AutonomousLoopManager:
     def __init__(self):
         self._lock = threading.Lock()
+        self._tick_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self.running = False
@@ -337,13 +338,18 @@ class AutonomousLoopManager:
         if not has_app_context() and self._app is not None:
             with self._app.app_context():
                 return self.tick_once()
-        return execute_autopilot_tick(
-            loop=self,
-            services=_services(),
-            append_trace_event=_append_trace_event,
-            task_dependencies=_task_dependencies,
-            update_local_task_status=_update_local_task_status,
-        )
+        if not self._tick_lock.acquire(blocking=False):
+            return {"dispatched": 0, "reason": "tick_already_in_progress"}
+        try:
+            return execute_autopilot_tick(
+                loop=self,
+                services=_services(),
+                append_trace_event=_append_trace_event,
+                task_dependencies=_task_dependencies,
+                update_local_task_status=_update_local_task_status,
+            )
+        finally:
+            self._tick_lock.release()
 
     def _run_loop(self):
         app = self._app

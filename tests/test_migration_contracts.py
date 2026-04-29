@@ -42,3 +42,33 @@ def test_legacy_task_api_remains_usable_when_goal_flags_are_disabled(client, app
 
     detail = client.get(f"/tasks/{task_id}", headers=admin_auth_header)
     assert detail.status_code == 200
+
+
+def test_legacy_config_missing_new_keys_gets_safe_defaults(client, app, admin_auth_header):
+    app.config["AGENT_CONFIG"] = {"llm_backend": "openai", "command_timeout": 30}
+
+    response = client.get("/config", headers=admin_auth_header)
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["llm_backend"] == "openai"
+    assert payload["command_timeout"] == 30
+    assert isinstance(payload.get("effective_policy_profile"), dict)
+
+
+def test_legacy_artifact_memory_entries_remain_readable(client, admin_auth_header):
+    from agent.db_models import MemoryEntryDB
+    from agent.repository import memory_entry_repo
+
+    memory_entry_repo.save(
+        MemoryEntryDB(
+            task_id="LEGACY-MEM-1",
+            title="Legacy summary",
+            content="legacy content",
+            memory_metadata={"structured_summary": {"changed_files": ["agent/routes/tasks.py"]}},
+        )
+    )
+
+    items = [item.model_dump() for item in memory_entry_repo.get_by_task("LEGACY-MEM-1")]
+    entry = next((item for item in items if item.get("task_id") == "LEGACY-MEM-1"), None)
+    assert entry is not None
+    assert entry.get("title") == "Legacy summary"

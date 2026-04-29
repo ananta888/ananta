@@ -380,6 +380,11 @@ def test_task_evolution_analyze_reports_external_provider_failure_code(client, a
     assert response.json["data"]["error_code"] == "provider_timeout"
     assert response.json["data"]["retryable"] is True
     assert response.json["data"]["error_type"] == "EvolverTimeoutError"
+    task_after = task_repo.get_by_id("T-EVO-DOWN")
+    assert task_after is not None
+    # Timeout must not be interpreted as verified successful research output.
+    assert task_after.status == "failed"
+    assert str((task_after.verification_status or {}).get("verification_status") or "").lower() != "verified"
 
 
 def test_task_evolution_validate_and_apply_fail_closed_for_analyze_only_evolver(client, app, admin_auth_header):

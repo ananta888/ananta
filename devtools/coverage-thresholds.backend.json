@@ -1,0 +1,8 @@
+{
+  "global_min_percent": 60.0,
+  "package_min_percent": {
+    "agent.routes.tasks": 70.0,
+    "agent.services": 65.0
+  }
+}
+

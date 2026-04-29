@@ -27,6 +27,8 @@ jobs:
           pip install -r requirements-dev.lock
       - name: Run backend coverage
         run: pytest tests --cov=agent --cov-report=term-missing --cov-report=xml
+      - name: Validate backend coverage thresholds
+        run: python devtools/check_backend_coverage_thresholds.py --coverage-xml coverage.xml --thresholds devtools/coverage-thresholds.backend.json
       - name: Upload backend coverage artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -65,4 +67,3 @@ jobs:
     steps:
       - name: Coverage summary
         run: echo "Coverage artifacts generated for backend and frontend."
-
