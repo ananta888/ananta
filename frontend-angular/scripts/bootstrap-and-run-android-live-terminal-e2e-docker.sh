@@ -20,6 +20,32 @@ prepare_docker_config() {
 JSON
 }
 
+prepare_docker_credential_stub() {
+  local helper_dir="${ANANTA_DOCKER_HELPER_DIR:-/tmp/ananta-docker-helpers}"
+  mkdir -p "$helper_dir"
+  cat > "$helper_dir/docker-credential-secretservice" <<'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+cmd="${1:-}"
+case "$cmd" in
+  get)
+    echo '{"Username":"","Secret":""}'
+    ;;
+  list)
+    echo '{}'
+    ;;
+  store|erase)
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+SCRIPT
+  chmod +x "$helper_dir/docker-credential-secretservice"
+  export PATH="$helper_dir:$PATH"
+}
+
 start_stack() {
   export ANANTA_USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-0}"
   "$ROOT_DIR/scripts/compose-test-stack.sh" up-live
@@ -31,6 +57,7 @@ stop_stack() {
 
 main() {
   prepare_docker_config
+  prepare_docker_credential_stub
   trap 'if [[ "$AUTO_SHUTDOWN_STACK" == "1" ]]; then stop_stack; fi' EXIT
 
   start_stack
