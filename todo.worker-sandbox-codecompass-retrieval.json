@@ -1,0 +1,754 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "worker_sandbox_codecompass_retrieval_followup",
+  "purpose": "Follow-up roadmap that builds on todo.worker-sandbox-balanced.json and adds CodeCompass-specific hybrid retrieval capabilities: structured CodeCompass outputs, FTS/BM25, embedding/vector search, graph expansion and relation-aware context assembly for worker execution. This file is intentionally a second todo and must not replace the worker sandbox balanced roadmap.",
+  "parent_todo": {
+    "path": "todo.worker-sandbox-balanced.json",
+    "track": "worker_sandbox_balanced_execution",
+    "relationship": "extension_track",
+    "relevant_parent_milestones": [
+      "WSB-M6 Incremental retrieval and planning loop",
+      "WSB-M8 Advanced indexing and retrieval parity",
+      "WSB-M9 Advanced planning and execution control"
+    ],
+    "relevant_parent_tasks": [
+      "WSB-T19 Embedding provider abstraction and index contract add",
+      "WSB-T20 Incremental repository indexing strategy implement",
+      "WSB-T21 Budgeted retrieval and reranking pipeline integrate",
+      "WSB-T27 Hybrid retrieval architecture contract define",
+      "WSB-T28 Language-aware and AST-assisted chunking strategy implement",
+      "WSB-T29 Commit-aware incremental index invalidation and rebuild add",
+      "WSB-T30 Hybrid retrieval merge and rank calibration implement",
+      "WSB-T31 Reranker integration and query rewriting pipeline add",
+      "WSB-T32 Retrieval evaluation harness and benchmark corpus add",
+      "WSB-T33 Retrieval SLO guardrails and cache strategy add"
+    ],
+    "rule": "This todo may depend on and refine WSB retrieval tasks, but it must not duplicate or rewrite the worker profile, sandbox, policy, approval, standalone runtime or command execution tasks."
+  },
+  "related_todo_files": [
+    {
+      "path": "todo.worker-sandbox-balanced.json",
+      "role": "parent worker/sandbox roadmap",
+      "handling_rule": "Do not edit or override worker execution contracts here. This file adds CodeCompass retrieval detail on top."
+    },
+    {
+      "path": "todo.codecompass-retrieval.json",
+      "role": "detailed hub-side CodeCompass hybrid retrieval roadmap",
+      "handling_rule": "Reuse its retrieval-engine details where possible. This worker follow-up defines how those capabilities are consumed by the worker sandbox flow."
+    },
+    {
+      "path": "todo.json",
+      "role": "main/global backlog",
+      "handling_rule": "Do not copy these tasks into main todo until parent worker track stabilizes."
+    }
+  ],
+  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Make the worker use CodeCompass as a high-quality context source without moving retrieval ownership into the worker execution backend. CodeCompass should improve worker task success through structured context, exact lexical hits, semantic search and graph-based neighborhood expansion.",
+  "core_principle": "The worker receives bounded, explainable context. It does not own global repository indexing, graph traversal policy or retrieval governance unless explicitly running in standalone mode with the same contracts.",
+  "target_architecture": {
+    "hub_mode": [
+      "Hub receives task/goal/prompt.",
+      "ContextManager/RagService/RetrievalService selects and builds context.",
+      "CodeCompass outputs feed FTS/BM25, vector and graph engines.",
+      "ContextBundleService creates compact grounded prompt plus provenance.",
+      "Worker sandbox receives task-local context and executes plan/patch/test/verify.",
+      "Worker returns artifacts/results/trace; hub records retrieval provenance and execution trace."
+    ],
+    "standalone_worker_mode": [
+      "Standalone worker receives workspace plus control manifest.",
+      "Standalone worker may build or load local CodeCompass-derived indexes inside sandbox.",
+      "Same contracts for chunks, vectors, FTS records, graph edges and provenance apply.",
+      "Standalone output includes retrieval trace, context manifest and artifacts."
+    ],
+    "separation_of_responsibilities": {
+      "codecompass_rag_helper": [
+        "Extracts structure from source files.",
+        "Produces index/details/context/embedding/relations/graph JSONL outputs.",
+        "Does not decide worker execution policy."
+      ],
+      "retrieval_layer": [
+        "Builds/searches FTS/BM25 index.",
+        "Builds/searches structured vector store.",
+        "Loads/traverses graph nodes and edges.",
+        "Normalizes relation edges and performs graph expansion.",
+        "Scores, deduplicates, reranks and budgets context."
+      ],
+      "worker_layer": [
+        "Consumes context bundle.",
+        "Plans and executes bounded steps.",
+        "Produces diffs, artifacts, verification outputs and degraded reasons.",
+        "Does not silently fetch unbounded repository context."
+      ]
+    }
+  },
+  "current_state_assumptions": [
+    "todo.worker-sandbox-balanced.json already contains generic worker retrieval/indexing tasks WSB-T19..WSB-T33.",
+    "Ananta already has a hub-side ContextManagerService/RagService/RetrievalService path for grounded prompts.",
+    "KnowledgeIndexRetrievalService already reads CodeCompass index.jsonl, details.jsonl and relations.jsonl with custom lexical scoring.",
+    "SemanticSearchEngine already exists through LlamaIndex, but not necessarily as structured CodeCompass embedding.jsonl indexing.",
+    "CodeCompass graph_nodes.jsonl and graph_edges.jsonl are generated by rag-helper but are not yet clearly used for graph traversal in retrieval.",
+    "The worker sandbox track is active, so this roadmap must avoid broad worker contract churn."
+  ],
+  "non_goals": [
+    "Do not replace todo.worker-sandbox-balanced.json.",
+    "Do not move hub-owned policy, approval, routing or audit into CodeCompass.",
+    "Do not require external embedding services for worker startup.",
+    "Do not force OpenCode or ananta-worker to implement their own repository retrieval.",
+    "Do not remove existing lexical KnowledgeIndexRetrievalService scoring before benchmarks prove the replacement is better.",
+    "Do not send full repository dumps to the worker as a shortcut.",
+    "Do not make graph expansion unbounded or opaque.",
+    "Do not break existing use_hybrid_context=true execution path."
+  ],
+  "success_criteria": [
+    "Worker sandbox receives CodeCompass-enriched context through the existing context bundle path.",
+    "CodeCompass FTS/BM25 finds exact classes, methods, annotations, XML tags, SQL names, errors and config keys.",
+    "CodeCompass vector search indexes embedding.jsonl as structured records with metadata preserved.",
+    "Graph expansion can add bounded parent/child/call/dependency/JPA/Spring/XML neighborhood context.",
+    "Relation-aware context explains why adjacent records were selected.",
+    "Worker context budgets prevent graph/vector retrieval from flooding prompts.",
+    "Fallback works when FTS, vector or graph engines are missing/degraded.",
+    "Benchmarks compare baseline knowledge_index scoring against FTS, vector, graph and full hybrid modes.",
+    "All output is traceable: task_id, trace_id, context_hash, selected engines, source records and expansion path.",
+    "The parent worker sandbox track can continue independently without this file changing its core safety model."
+  ],
+  "milestones": [
+    {
+      "id": "WCR-M1",
+      "title": "Alignment with parent worker roadmap",
+      "task_ids": ["WCR-T01", "WCR-T02", "WCR-T03", "WCR-T04"],
+      "status": "todo"
+    },
+    {
+      "id": "WCR-M2",
+      "title": "CodeCompass output contracts for worker retrieval",
+      "task_ids": ["WCR-T05", "WCR-T06", "WCR-T07", "WCR-T08"],
+      "status": "todo"
+    },
+    {
+      "id": "WCR-M3",
+      "title": "FTS/BM25 exact retrieval",
+      "task_ids": ["WCR-T09", "WCR-T10", "WCR-T11", "WCR-T12"],
+      "status": "todo"
+    },
+    {
+      "id": "WCR-M4",
+      "title": "Structured vector retrieval over CodeCompass embeddings",
+      "task_ids": ["WCR-T13", "WCR-T14", "WCR-T15", "WCR-T16"],
+      "status": "todo"
+    },
+    {
+      "id": "WCR-M5",
+      "title": "Graph and relation expansion",
+      "task_ids": ["WCR-T17", "WCR-T18", "WCR-T19", "WCR-T20", "WCR-T21"],
+      "status": "todo"
+    },
+    {
+      "id": "WCR-M6",
+      "title": "Worker context bundle integration",
+      "task_ids": ["WCR-T22", "WCR-T23", "WCR-T24", "WCR-T25"],
+      "status": "todo"
+    },
+    {
+      "id": "WCR-M7",
+      "title": "Benchmarks, rollout and observability",
+      "task_ids": ["WCR-T26", "WCR-T27", "WCR-T28", "WCR-T29", "WCR-T30"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WCR-T01",
+      "title": "Map CodeCompass follow-up to worker sandbox tasks",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": [],
+      "parent_links": ["WSB-T19", "WSB-T20", "WSB-T21", "WSB-T27", "WSB-T30"],
+      "expected_files": ["docs/architecture/codecompass-worker-retrieval-alignment.md"],
+      "acceptance_criteria": [
+        "Document exactly which WSB tasks this follow-up extends.",
+        "State that this file is a second todo and not a replacement for todo.worker-sandbox-balanced.json.",
+        "Map CodeCompass FTS/vector/graph work to WSB retrieval/indexing tasks.",
+        "Identify which tasks are hub-mode only and which are relevant to standalone worker mode."
+      ]
+    },
+    {
+      "id": "WCR-T02",
+      "title": "Define worker-safe CodeCompass ownership boundaries",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T01"],
+      "parent_links": ["WSB-T01", "WSB-T23", "WSB-T24"],
+      "expected_files": ["docs/architecture/codecompass-worker-boundaries.md"],
+      "acceptance_criteria": [
+        "Define what the hub retrieval layer owns in hub mode.",
+        "Define what standalone worker mode may own locally.",
+        "Explicitly forbid execution backends from owning global retrieval policy.",
+        "Document allowed integration seams: ContextBundleService, RetrievalService, worker context manifest."
+      ]
+    },
+    {
+      "id": "WCR-T03",
+      "title": "Add CodeCompass retrieval feature flag matrix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T02"],
+      "parent_links": ["WSB-T17", "WSB-T33"],
+      "expected_files": ["agent/config.py", ".env.example", "docs/operations/codecompass-worker-retrieval-flags.md", "tests/test_codecompass_worker_retrieval_flags.py"],
+      "acceptance_criteria": [
+        "Flags exist for codecompass_fts, codecompass_vector, codecompass_graph and codecompass_relation_expansion.",
+        "Each flag can be enabled independently.",
+        "Default behavior remains safe and does not require external embedding services.",
+        "Flag diagnostics show disabled, ready, degraded and missing_dependency states.",
+        "Tests prove worker execution still starts when all CodeCompass flags are disabled."
+      ]
+    },
+    {
+      "id": "WCR-T04",
+      "title": "Define CodeCompass context trust and redaction rules",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WCR-T02"],
+      "parent_links": ["WSB-T11", "WSB-T12"],
+      "expected_files": ["docs/security/codecompass-context-trust-model.md", "tests/test_codecompass_context_redaction.py"],
+      "acceptance_criteria": [
+        "Document that CodeCompass-derived context is untrusted input to the worker prompt.",
+        "Prompt-injection-like instructions inside comments, docs, XML or generated context are treated as data, not commands.",
+        "Sensitive tokens in CodeCompass-derived content are redacted before worker prompts.",
+        "Tests cover hostile comments embedded in retrieved source snippets."
+      ]
+    },
+    {
+      "id": "WCR-T05",
+      "title": "Create CodeCompass output manifest contract for worker retrieval",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["WCR-T01"],
+      "parent_links": ["WSB-T19", "WSB-T27"],
+      "expected_files": ["schemas/worker/codecompass_output_manifest.v1.json", "docs/contracts/codecompass-output-manifest.md", "tests/test_codecompass_output_manifest_schema.py"],
+      "acceptance_criteria": [
+        "Schema defines available CodeCompass output files and their hashes/mtimes.",
+        "Schema supports index, details, context, embedding, relations, graph_nodes and graph_edges JSONL files.",
+        "Schema includes codecompass_version, profile_name, source_scope and generated_at fields.",
+        "Tests validate complete, partial and missing-output manifests."
+      ]
+    },
+    {
+      "id": "WCR-T06",
+      "title": "Implement CodeCompass output reader shared by hub and standalone worker",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T05"],
+      "parent_links": ["WSB-T20", "WSB-T23"],
+      "expected_files": ["worker/retrieval/codecompass_output_reader.py", "agent/services/codecompass_output_reader.py", "tests/test_codecompass_output_reader_shared.py"],
+      "acceptance_criteria": [
+        "Reader can load CodeCompass outputs from a hub KnowledgeIndex output_dir.",
+        "Reader can load CodeCompass outputs from a standalone worker workspace path.",
+        "Reader tolerates missing optional outputs and malformed JSONL lines with degraded diagnostics.",
+        "Reader yields records with consistent provenance metadata.",
+        "No hub database import is required for standalone reader use."
+      ]
+    },
+    {
+      "id": "WCR-T07",
+      "title": "Normalize CodeCompass records into retrieval documents",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["WCR-T06"],
+      "parent_links": ["WSB-T28"],
+      "expected_files": ["worker/retrieval/codecompass_document_normalizer.py", "tests/test_codecompass_document_normalizer.py"],
+      "acceptance_criteria": [
+        "Normalize index/details/context/embedding/relations records into a common RetrievalDocument shape.",
+        "Preserve record_id, kind, file, parent_id, role_labels, importance_score and generated_code when present.",
+        "Produce separate text fields for symbol, path, summary, content, relation and focus text.",
+        "Deterministic document hash is stable across identical records."
+      ]
+    },
+    {
+      "id": "WCR-T08",
+      "title": "Add CodeCompass cache invalidation metadata",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WCR-T05", "WCR-T07"],
+      "parent_links": ["WSB-T29", "WSB-T33"],
+      "expected_files": ["worker/retrieval/codecompass_cache_state.py", "tests/test_codecompass_cache_state.py"],
+      "acceptance_criteria": [
+        "Cache state includes output manifest hash, CodeCompass profile, retrieval engine version and embedding model version.",
+        "Cache invalidates when output files or model versions change.",
+        "Cache invalidation is independent for FTS, vector and graph stores.",
+        "Tests cover changed manifest, changed embedding model and deleted output file."
+      ]
+    },
+    {
+      "id": "WCR-T09",
+      "title": "Implement CodeCompass FTS/BM25 storage",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T07", "WCR-T08"],
+      "parent_links": ["WSB-T27", "WSB-T30"],
+      "expected_files": ["worker/retrieval/codecompass_fts_store.py", "tests/test_codecompass_fts_store.py"],
+      "acceptance_criteria": [
+        "Use SQLite FTS5 when available.",
+        "Index normalized fields: symbol_text, path_text, kind_text, summary_text, content_text, relation_text, focus_text.",
+        "Store source metadata outside the FTS table for stable provenance.",
+        "Support rebuild and incremental refresh based on CodeCompass cache state.",
+        "Report degraded state when FTS5 is unavailable without failing worker startup."
+      ]
+    },
+    {
+      "id": "WCR-T10",
+      "title": "Implement CodeCompass exact-symbol query parsing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WCR-T09"],
+      "parent_links": ["WSB-T31"],
+      "expected_files": ["worker/retrieval/codecompass_query_parser.py", "tests/test_codecompass_query_parser.py"],
+      "acceptance_criteria": [
+        "Parser detects Java class names, method names, fully qualified names, XML tag names, property keys and error tokens.",
+        "Parser emits exact-symbol, phrase and broad-token query forms.",
+        "Parser does not execute or trust query content as commands.",
+        "Tests cover Java, Spring, JPA, XML, YAML/properties and stacktrace queries."
+      ]
+    },
+    {
+      "id": "WCR-T11",
+      "title": "Implement CodeCompass FTS retrieval engine",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T09", "WCR-T10"],
+      "parent_links": ["WSB-T30"],
+      "expected_files": ["worker/retrieval/codecompass_fts_engine.py", "tests/test_codecompass_fts_engine.py"],
+      "acceptance_criteria": [
+        "Engine returns ContextChunk-compatible records with engine='codecompass_fts'.",
+        "BM25 score and field boost breakdown are included in metadata.",
+        "Exact symbol/path hits are boosted above broad content hits.",
+        "Engine supports task_kind and retrieval_intent weighting.",
+        "Tests verify expected ranking for exact class, method, annotation, config key and XML tag queries."
+      ]
+    },
+    {
+      "id": "WCR-T12",
+      "title": "Wire CodeCompass FTS into worker retrieval pipeline as optional channel",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WCR-T11", "WCR-T03"],
+      "parent_links": ["WSB-T21", "WSB-T30"],
+      "expected_files": ["worker/retrieval/retrieval_service.py", "tests/test_worker_codecompass_fts_channel.py"],
+      "acceptance_criteria": [
+        "FTS channel can be enabled independently in worker retrieval config.",
+        "When disabled/unavailable, worker retrieval falls back to existing lexical/symbol channels.",
+        "Selected FTS chunks appear in retrieval trace and context bundle provenance.",
+        "Tests verify no backend execution contract changes are required."
+      ]
+    },
+    {
+      "id": "WCR-T13",
+      "title": "Implement structured embedding.jsonl loader for vector indexing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["WCR-T06", "WCR-T07"],
+      "parent_links": ["WSB-T19", "WSB-T27"],
+      "expected_files": ["worker/retrieval/codecompass_embedding_loader.py", "tests/test_codecompass_embedding_loader.py"],
+      "acceptance_criteria": [
+        "Loader uses embedding_text as primary vector text.",
+        "Loader preserves structured metadata rather than treating JSONL as one raw document.",
+        "Records without embedding_text are skipped with diagnostic count.",
+        "Metadata includes id, kind, file, parent_id, role_labels, importance_score, source_scope and profile_name when available."
+      ]
+    },
+    {
+      "id": "WCR-T14",
+      "title": "Implement swappable embedding provider for CodeCompass vectors",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T13"],
+      "parent_links": ["WSB-T19"],
+      "expected_files": ["worker/retrieval/embedding_provider.py", "worker/retrieval/codecompass_vector_store.py", "tests/test_codecompass_embedding_provider.py"],
+      "acceptance_criteria": [
+        "Embedding provider abstraction supports fake/test provider, local provider and OpenAI-compatible endpoint configuration.",
+        "No external embedding service is required for tests.",
+        "Embedding model name and dimension are recorded in index metadata.",
+        "Provider failures degrade vector channel without failing FTS or graph retrieval."
+      ]
+    },
+    {
+      "id": "WCR-T15",
+      "title": "Implement structured CodeCompass vector store",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T14", "WCR-T08"],
+      "parent_links": ["WSB-T20", "WSB-T29"],
+      "expected_files": ["worker/retrieval/codecompass_vector_store.py", "tests/test_codecompass_vector_store.py"],
+      "acceptance_criteria": [
+        "Vector store indexes one vector per CodeCompass embedding record.",
+        "Vector store preserves record metadata for later graph expansion.",
+        "Vector store supports rebuild when embedding model version or output manifest changes.",
+        "Vector store exposes top_k search with scores and source metadata.",
+        "Tests use deterministic fake vectors."
+      ]
+    },
+    {
+      "id": "WCR-T16",
+      "title": "Add CodeCompass vector retrieval channel",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["WCR-T15", "WCR-T03"],
+      "parent_links": ["WSB-T30", "WSB-T31"],
+      "expected_files": ["worker/retrieval/codecompass_vector_engine.py", "tests/test_worker_codecompass_vector_channel.py"],
+      "acceptance_criteria": [
+        "Engine returns ContextChunk-compatible records with engine='codecompass_vector'.",
+        "Vector metadata includes record_id, kind, file, vector_score, model_name and source manifest hash.",
+        "Task profiles can boost vector results for fuzzy semantic queries and architecture analysis.",
+        "Vector channel is optional and has clear degraded diagnostics."
+      ]
+    },
+    {
+      "id": "WCR-T17",
+      "title": "Implement CodeCompass graph store loader",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T06", "WCR-T08"],
+      "parent_links": ["WSB-T27", "WSB-T30"],
+      "expected_files": ["worker/retrieval/codecompass_graph_store.py", "tests/test_codecompass_graph_store.py"],
+      "acceptance_criteria": [
+        "Load graph_nodes.jsonl and graph_edges.jsonl when present.",
+        "Index nodes by id, file, kind, name/symbol and record_id when available.",
+        "Index outgoing and incoming edges by node id and edge type.",
+        "Protect traversal against cycles and oversized expansions.",
+        "Missing graph files degrade graph channel without disabling FTS/vector retrieval."
+      ]
+    },
+    {
+      "id": "WCR-T18",
+      "title": "Normalize relations.jsonl into graph edges",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T17"],
+      "parent_links": ["WSB-T28", "WSB-T30"],
+      "expected_files": ["worker/retrieval/codecompass_relation_normalizer.py", "tests/test_codecompass_relation_normalizer.py"],
+      "acceptance_criteria": [
+        "Normalize relation records into edge type, source id, target id/resolved target, confidence and provenance.",
+        "Support relations such as child_of_file, child_of_type, declares_method, calls_probable_target, injects_dependency, field_type_uses, extends, implements, JPA relations, transactional_boundary and declares_bean.",
+        "Unresolved relations are kept as low-confidence textual relation candidates.",
+        "Tests cover resolved, unresolved and malformed relation records."
+      ]
+    },
+    {
+      "id": "WCR-T19",
+      "title": "Implement bounded graph expansion profiles",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WCR-T17", "WCR-T18"],
+      "parent_links": ["WSB-T21", "WSB-T30"],
+      "expected_files": ["worker/retrieval/codecompass_graph_expansion.py", "tests/test_codecompass_graph_expansion.py"],
+      "acceptance_criteria": [
+        "Implement expansion profiles: bugfix_local, refactor_navigation, architecture_review, config_integration.",
+        "Each profile defines allowed edge types, max depth, max nodes and per-kind budget.",
+        "Method seeds can expand to parent type, called probable targets and used types.",
+        "Type seeds can expand to file parent, important members, injected dependencies and extends/implements.",
+        "Config/XML seeds can expand to related runtime/config edges when available.",
+        "Expansion is deterministic and bounded."
+      ]
+    },
+    {
+      "id": "WCR-T20",
+      "title": "Add graph-expanded context chunk builder",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["WCR-T19"],
+      "parent_links": ["WSB-T21"],
+      "expected_files": ["worker/retrieval/codecompass_graph_context.py", "tests/test_codecompass_graph_context.py"],
+      "acceptance_criteria": [
+        "Graph expansion returns compact context chunks, not raw full graph dumps.",
+        "Each chunk includes expanded_from, relation_path and expansion_reason metadata.",
+        "Content is clipped and redacted before prompt assembly.",
+        "Tests verify source seed and expanded neighbor grouping."
+      ]
+    },
+    {
+      "id": "WCR-T21",
+      "title": "Add relation-aware context explanation strings",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WCR-T20"],
+      "parent_links": ["WSB-T30", "WSB-T31"],
+      "expected_files": ["worker/retrieval/codecompass_context_explainer.py", "tests/test_codecompass_context_explainer.py"],
+      "acceptance_criteria": [
+        "Generate short explanations such as selected because this method calls target X or selected because this class injects Y.",
+        "Explanations are machine-readable and human-readable.",
+        "Explanations are included in retrieval trace and optionally in context bundle metadata.",
+        "No explanation includes huge raw source blobs."
+      ]
+    },
+    {
+      "id": "WCR-T22",
+      "title": "Extend worker context bundle contract with CodeCompass provenance",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T11", "WCR-T16", "WCR-T20"],
+      "parent_links": ["WSB-T21", "WSB-T30"],
+      "expected_files": ["schemas/worker/worker_context_bundle.v1.json", "docs/contracts/worker-context-bundle-contract.md", "tests/test_worker_context_bundle_codecompass.py"],
+      "acceptance_criteria": [
+        "Context bundle schema supports codecompass provenance fields.",
+        "Fields include engine, record_id, file, kind, score, expanded_from, relation_path and manifest_hash.",
+        "Workers can consume context_text without understanding all metadata.",
+        "Metadata is preserved for trace/audit."
+      ]
+    },
+    {
+      "id": "WCR-T23",
+      "title": "Integrate CodeCompass channels into worker retrieval merge",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WCR-T12", "WCR-T16", "WCR-T20", "WCR-T22"],
+      "parent_links": ["WSB-T30"],
+      "expected_files": ["worker/retrieval/retrieval_service.py", "worker/retrieval/ranking.py", "tests/test_worker_codecompass_hybrid_merge.py"],
+      "acceptance_criteria": [
+        "Merge supports codecompass_fts, codecompass_vector and codecompass_graph channels.",
+        "Scores are normalized across channels.",
+        "Deduplication merges same record from FTS/vector/graph without losing provenance.",
+        "Graph expansion happens after seed retrieval and before final context budgeting.",
+        "Final ranking includes channel contribution breakdown."
+      ]
+    },
+    {
+      "id": "WCR-T24",
+      "title": "Apply worker profile budgets to CodeCompass retrieval",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["WCR-T23"],
+      "parent_links": ["WSB-T08", "WSB-T21", "WSB-T33"],
+      "expected_files": ["worker/retrieval/codecompass_budgeting.py", "tests/test_codecompass_worker_budgeting.py"],
+      "acceptance_criteria": [
+        "safe, balanced and fast profiles map to different retrieval depth and expansion budgets.",
+        "safe profile favors exact and minimal context.",
+        "balanced profile uses FTS + vector + bounded graph expansion.",
+        "fast profile may use broader search but remains bounded.",
+        "Budget exhaustion produces explicit degraded reason."
+      ]
+    },
+    {
+      "id": "WCR-T25",
+      "title": "Add grounded prompt assembly rules for CodeCompass context",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["WCR-T22", "WCR-T24"],
+      "parent_links": ["WSB-T12", "WSB-T21"],
+      "expected_files": ["worker/coding/prompt_assembly.py", "tests/test_codecompass_grounded_prompt_assembly.py"],
+      "acceptance_criteria": [
+        "Prompt assembly groups seed and graph-expanded neighbor chunks compactly.",
+        "Prompt clearly separates trusted task instructions from untrusted retrieved code/docs/context.",
+        "Prompt includes minimal provenance labels without overwhelming the model.",
+        "Hostile instructions inside retrieved code/comments remain quoted as data."
+      ]
+    },
+    {
+      "id": "WCR-T26",
+      "title": "Build CodeCompass Java/Spring/XML retrieval benchmark fixture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["WCR-T07"],
+      "parent_links": ["WSB-T32"],
+      "expected_files": ["tests/benchmarks/codecompass_worker/fixtures/java_spring_xml/", "tests/benchmarks/codecompass_worker/test_fixture_manifest.py"],
+      "acceptance_criteria": [
+        "Fixture includes Java service/controller/repository/entity classes.",
+        "Fixture includes Spring/JPA annotations and XML/properties configuration.",
+        "Fixture includes expected target records for bugfix, refactor, architecture and config queries.",
+        "Fixture includes generated CodeCompass-like JSONL outputs or a deterministic generator."
+      ]
+    },
+    {
+      "id": "WCR-T27",
+      "title": "Benchmark baseline vs CodeCompass hybrid retrieval",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WCR-T23", "WCR-T26"],
+      "parent_links": ["WSB-T32"],
+      "expected_files": ["tests/benchmarks/codecompass_worker/test_codecompass_hybrid_retrieval_benchmark.py", "docs/benchmarks/codecompass-worker-retrieval.md"],
+      "acceptance_criteria": [
+        "Compare baseline lexical knowledge_index, FTS only, vector only, FTS+vector, graph-expanded and full hybrid modes.",
+        "Report Recall@k, MRR, selected token count, latency and explanation coverage.",
+        "Benchmarks do not require external LLM or external embedding service.",
+        "Results are machine-readable for CI trend checks."
+      ]
+    },
+    {
+      "id": "WCR-T28",
+      "title": "Add retrieval trace and observability fields",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WCR-T23"],
+      "parent_links": ["WSB-T14", "WSB-T15", "WSB-T33"],
+      "expected_files": ["worker/retrieval/retrieval_trace.py", "agent/services/task_scoped_execution_service.py", "tests/test_codecompass_retrieval_trace.py"],
+      "acceptance_criteria": [
+        "Trace includes enabled channels, degraded channels, seed counts, graph expansion counts and final chunk count.",
+        "Trace includes context_hash and manifest_hash.",
+        "Metrics distinguish FTS/vector/graph latency and selected chunk counts.",
+        "Worker result links execution output to retrieval trace id."
+      ]
+    },
+    {
+      "id": "WCR-T29",
+      "title": "Document rollout and fallback plan for CodeCompass worker retrieval",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WCR-T27", "WCR-T28"],
+      "parent_links": ["WSB-T17", "WSB-T18"],
+      "expected_files": ["docs/operations/codecompass-worker-retrieval-rollout.md"],
+      "acceptance_criteria": [
+        "Document rollout stages: disabled, FTS only, FTS+vector, FTS+vector+graph, full hybrid default candidate.",
+        "Document rollback by feature flag.",
+        "Document expected behavior for missing embedding provider, missing graph outputs and stale indexes.",
+        "Document how to validate worker success using benchmark and trace metrics."
+      ]
+    },
+    {
+      "id": "WCR-T30",
+      "title": "Decide whether to promote CodeCompass retrieval tasks into parent todo",
+      "status": "deferred",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WCR-T29"],
+      "parent_links": ["WSB-T32", "WSB-T33"],
+      "expected_files": ["todo.worker-sandbox-balanced.json", "todo.codecompass-retrieval.json", "todo.json"],
+      "acceptance_criteria": [
+        "After parent worker track stabilizes, decide whether selected WCR tasks should be copied/promoted into todo.worker-sandbox-balanced.json.",
+        "Do not promote tasks before worker interface churn has settled.",
+        "If promoted, keep this file as historical detail or mark superseded explicitly."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "First align with todo.worker-sandbox-balanced.json and freeze ownership boundaries.",
+    "Define CodeCompass output/manifest/document contracts that both hub mode and standalone worker mode can consume.",
+    "Add FTS/BM25 exact retrieval first because it is deterministic and low-dependency.",
+    "Add structured embedding/vector retrieval without requiring external providers for tests or startup.",
+    "Add bounded graph/relation expansion from CodeCompass nodes/edges/relations.",
+    "Merge FTS/vector/graph channels under worker retrieval budgets and context bundle provenance.",
+    "Benchmark before making full hybrid retrieval a default."
+  ],
+  "critical_path_tasks": [
+    "WCR-T01",
+    "WCR-T02",
+    "WCR-T03",
+    "WCR-T05",
+    "WCR-T06",
+    "WCR-T07",
+    "WCR-T09",
+    "WCR-T11",
+    "WCR-T13",
+    "WCR-T14",
+    "WCR-T15",
+    "WCR-T17",
+    "WCR-T18",
+    "WCR-T19",
+    "WCR-T22",
+    "WCR-T23",
+    "WCR-T26",
+    "WCR-T27"
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-29T00:00:00+02:00",
+    "total": 30,
+    "by_status": {
+      "todo": 29,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0,
+      "deferred": 1
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 11,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 10,
+      "high": 14,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 18,
+      "done": 0,
+      "remaining": 18
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "This is deliberately a second todo building on todo.worker-sandbox-balanced.json.",
+    "The worker sandbox roadmap already has generic hybrid retrieval tasks; this file specializes them for CodeCompass/rag-helper outputs.",
+    "Best target design: CodeCompass for structure, FTS/BM25 for exact names, embeddings for semantic similarity and graph expansion for relationships.",
+    "Retrieval should produce bounded context for the worker, not become unbounded worker-side repository scanning.",
+    "Implement FTS first, vector second, graph third, fusion/benchmarks before default rollout."
+  ]
+}
