@@ -102,16 +102,15 @@ def test_rag_service_compact_policy_trims_chunks_and_hides_context_text():
     assert "context_text" not in bundle
     assert bundle["chunk_count"] == 2
     assert len(bundle["chunks"]) == 2
-    assert bundle["context_policy"] == {
-        "mode": "compact",
-        "include_context_text": False,
-        "max_chunks": 2,
-        "total_budget_tokens": 12000,
-        "window_profile": "standard_32k",
-        "bundle_strategy": "minimal",
-        "explainability_level": "minimal",
-        "chunk_text_style": "compressed_snippets",
-    }
+    assert bundle["context_policy"]["mode"] == "compact"
+    assert bundle["context_policy"]["include_context_text"] is False
+    assert bundle["context_policy"]["max_chunks"] == 2
+    assert bundle["context_policy"]["total_budget_tokens"] == 12000
+    assert bundle["context_policy"]["window_profile"] == "standard_32k"
+    assert bundle["context_policy"]["bundle_strategy"] == "minimal"
+    assert bundle["context_policy"]["explainability_level"] == "minimal"
+    assert bundle["context_policy"]["chunk_text_style"] == "compressed_snippets"
+    assert isinstance(bundle["context_policy"].get("source_prioritization_rules"), list)
     assert bundle["why_this_context"]["mode"] == "compact"
     assert isinstance(bundle["selection_trace"], dict)
 
@@ -131,16 +130,15 @@ def test_rag_service_standard_policy_records_effective_context_policy():
     bundle = service.retrieve_context_bundle("find docs", include_context_text=True, max_chunks=4, policy_mode="standard")
 
     assert bundle["context_text"] == "ctx"
-    assert bundle["context_policy"] == {
-        "mode": "standard",
-        "include_context_text": True,
-        "max_chunks": 4,
-        "total_budget_tokens": 32000,
-        "window_profile": "standard_32k",
-        "bundle_strategy": "balanced",
-        "explainability_level": "balanced",
-        "chunk_text_style": "balanced_snippets",
-    }
+    assert bundle["context_policy"]["mode"] == "standard"
+    assert bundle["context_policy"]["include_context_text"] is True
+    assert bundle["context_policy"]["max_chunks"] == 4
+    assert bundle["context_policy"]["total_budget_tokens"] == 32000
+    assert bundle["context_policy"]["window_profile"] == "standard_32k"
+    assert bundle["context_policy"]["bundle_strategy"] == "balanced"
+    assert bundle["context_policy"]["explainability_level"] == "balanced"
+    assert bundle["context_policy"]["chunk_text_style"] == "balanced_snippets"
+    assert isinstance(bundle["context_policy"].get("source_prioritization_rules"), list)
 
 
 def test_rag_service_full_mode_keeps_detailed_explainability_profile():
