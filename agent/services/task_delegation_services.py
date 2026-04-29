@@ -15,6 +15,7 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.services.task_execution_policy_service import normalize_allowed_tools
+from agent.services.worker_todo_planner_service import get_worker_todo_planner_service
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
 
@@ -243,6 +244,21 @@ class WorkerExecutionContextFactory:
             expected_output_schema=expected_output_schema,
             routing_decision=routing_decision.as_dict(),
         )
+        worker_todo_contract_bundle = self._build_worker_todo_contract(
+            request=request,
+            plan=plan,
+            subtask_id=subtask_id,
+            context_bundle=context_bundle,
+            worker_profile=resolved_profile,
+            profile_source=profile_source,
+            worker_workspace=worker_workspace,
+            worker_contract_service=worker_contract_service,
+            allowed_tools=allowed_tools,
+            expected_output_schema=expected_output_schema,
+        )
+        if worker_todo_contract_bundle:
+            worker_execution_context["todo_contract"] = dict(worker_todo_contract_bundle.get("contract") or {})
+            worker_execution_context["todo_contract_generation"] = dict(worker_todo_contract_bundle.get("generation") or {})
         delegation_payload = self._delegation_payload(
             request=request,
             plan=plan,
@@ -291,6 +307,41 @@ class WorkerExecutionContextFactory:
                 str(data.subtask_description or "").strip(),
             ]
             if item
+        )
+
+    @staticmethod
+    def _build_worker_todo_contract(
+        *,
+        request: DelegationRequest,
+        plan: TaskDelegationPlan,
+        subtask_id: str,
+        context_bundle,
+        worker_profile: str,
+        profile_source: str,
+        worker_workspace: dict[str, Any],
+        worker_contract_service,
+        allowed_tools: list[str],
+        expected_output_schema: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        parent_task = request.parent_task
+        data = request.data
+        workspace_dir = None
+        if isinstance(worker_workspace, dict):
+            workspace_dir = str(worker_workspace.get("workspace_dir") or "").strip() or None
+        return get_worker_todo_planner_service().build_delegation_todo_contract(
+            worker_contract_service=worker_contract_service,
+            subtask_id=subtask_id,
+            parent_task=parent_task,
+            subtask_description=str(data.subtask_description or "").strip(),
+            task_kind=plan.effective_task_kind,
+            required_capabilities=plan.effective_required_capabilities,
+            worker_profile=worker_profile,
+            profile_source=profile_source,
+            allowed_tools=allowed_tools,
+            expected_output_schema=expected_output_schema,
+            target_worker=plan.agent_url,
+            context_bundle_id=getattr(context_bundle, "id", None),
+            workspace_dir=workspace_dir,
         )
 
     @staticmethod

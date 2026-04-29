@@ -1216,6 +1216,44 @@ def test_set_config_accepts_worker_semantic_output_correction_policy(client, adm
     assert dict(semantic_cfg.get("embedding_provider") or {}).get("provider") == "local"
 
 
+def test_set_config_accepts_worker_todo_contract_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    bad = client.post("/config", json={"worker_runtime": {"todo_contract": "on"}}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_worker_todo_contract"
+
+    ok = client.post(
+        "/config",
+        json={
+            "worker_runtime": {
+                "todo_contract": {
+                    "enabled": True,
+                    "planner_llm_enabled": True,
+                    "planner_llm_timeout_seconds": 9,
+                    "planner_llm_retry_attempts": 2,
+                    "max_tasks": 5,
+                    "max_steps": 40,
+                    "enforce_artifacts": True,
+                    "default_executor_kind": "opencode",
+                    "execution_mode": "assistant_execute",
+                }
+            }
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    worker_runtime = ((cfg.json.get("data") or {}).get("worker_runtime") or {})
+    todo_cfg = dict(worker_runtime.get("todo_contract") or {})
+    assert todo_cfg.get("enabled") is True
+    assert todo_cfg.get("planner_llm_enabled") is True
+    assert todo_cfg.get("planner_llm_timeout_seconds") == 9
+    assert todo_cfg.get("planner_llm_retry_attempts") == 2
+    assert todo_cfg.get("default_executor_kind") == "opencode"
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 

@@ -3,12 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 AUTO_SHUTDOWN_STACK="${ANANTA_ANDROID_AUTO_SHUTDOWN_STACK:-1}"
+AVD_NAME="${ANANTA_ANDROID_AVD_NAME:-ananta-api35}"
+EMULATOR_SERIAL="${ANANTA_ANDROID_EMULATOR_SERIAL:-emulator-5554}"
+HOST_EMULATOR_ARGS="${ANANTA_HOST_ANDROID_EMULATOR_ARGS:--no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save -gpu swiftshader_indirect -memory 1536 -cores 2 -no-metrics}"
 
 prepare_docker_config() {
   export DOCKER_CONFIG="${ANANTA_DOCKER_CONFIG_DIR:-/tmp/ananta-docker-config}"
   export DOCKER_AUTH_CONFIG='{"auths":{}}'
-
-  # BuildKit is more resilient for large contexts on WSL mounts.
   export DOCKER_BUILDKIT=1
   export COMPOSE_DOCKER_CLI_BUILD=1
 
@@ -46,6 +47,25 @@ SCRIPT
   export PATH="$helper_dir:$PATH"
 }
 
+start_host_emulator() {
+  if ! command -v adb >/dev/null 2>&1 || ! command -v emulator >/dev/null 2>&1; then
+    echo "Fehlt adb/emulator auf dem Host. Bitte Android SDK Platform-Tools + Emulator installieren."
+    exit 1
+  fi
+
+  if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
+    echo "Starte Host-Emulator $AVD_NAME..."
+    # shellcheck disable=SC2086
+    nohup emulator -avd "$AVD_NAME" $HOST_EMULATOR_ARGS >/tmp/ananta-host-android-emulator.log 2>&1 &
+  fi
+
+  echo "Warte auf Host-Emulator $EMULATOR_SERIAL..."
+  adb wait-for-device
+  until adb -s "$EMULATOR_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' | grep -q "1"; do
+    sleep 2
+  done
+}
+
 start_stack() {
   export ANANTA_USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-0}"
   "$ROOT_DIR/scripts/compose-test-stack.sh" down || true
@@ -59,6 +79,7 @@ stop_stack() {
 main() {
   prepare_docker_config
   prepare_docker_credential_stub
+  start_host_emulator
   trap 'if [[ "$AUTO_SHUTDOWN_STACK" == "1" ]]; then stop_stack; fi' EXIT
 
   start_stack

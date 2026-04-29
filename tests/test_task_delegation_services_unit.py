@@ -1,7 +1,5 @@
 from types import SimpleNamespace
 
-import pytest
-
 from agent.services.task_delegation_services import (
     DelegationRequest,
     RoutingDecision,
@@ -122,6 +120,36 @@ class _WorkerContractService:
             "routing": dict(kwargs["routing_decision"]),
         }
 
+    def build_worker_todo_contract(self, **kwargs):
+        return {
+            "schema": "worker_todo_contract.v1",
+            "task_id": kwargs["task_id"],
+            "goal_id": kwargs["goal_id"],
+            "trace_id": kwargs["trace_id"],
+            "worker": {
+                "executor_kind": kwargs["executor_kind"],
+                "worker_profile": kwargs["worker_profile"],
+                "profile_source": kwargs["profile_source"],
+            },
+            "todo": {
+                "version": kwargs.get("todo_version", "1.0"),
+                "track": kwargs.get("track", "worker_subplan"),
+                "tasks": list(kwargs.get("tasks") or []),
+            },
+            "execution": {
+                "mode": kwargs.get("mode", "assistant_execute"),
+                "allowed_tools": list(kwargs.get("allowed_tools") or []),
+                "enforce_artifacts": bool(kwargs.get("enforce_artifacts", True)),
+                "max_steps": int(kwargs.get("max_steps") or 20),
+            },
+            "control_manifest": {
+                "trace_id": kwargs["trace_id"],
+                "capability_id": kwargs["capability_id"],
+                "context_hash": kwargs["context_hash"],
+            },
+            "expected_result_schema": "worker_todo_result.v1",
+        }
+
 
 def _request(**overrides):
     data = SimpleNamespace(
@@ -217,6 +245,8 @@ def test_worker_execution_context_factory_builds_context_job_workspace_and_paylo
     assert bundle.expected_output_schema == {"type": "object"}
     assert bundle.routing_decision.as_dict()["copilot_hint"]["preferred_worker_url"] == "http://planner:5000"
     assert bundle.worker_execution_context["workspace"]["scope_mode"] == "goal_worker"
+    assert bundle.worker_execution_context["todo_contract"]["schema"] == "worker_todo_contract.v1"
+    assert bundle.worker_execution_context["todo_contract_generation"]["enabled"] is True
     assert bundle.delegation_payload["parent_task_id"] == "parent-1"
     assert bundle.delegation_payload["context_bundle_policy"]["mode"] == "standard"
     assert worker_jobs.context_calls[0]["query"] == "Parent Parent description Create a plan"
