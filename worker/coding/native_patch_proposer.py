@@ -5,6 +5,9 @@ import json
 from typing import Any
 
 from worker.core.model_provider import WorkerModelProvider
+from worker.coding.semantic_output_correction import correct_semantic_enum_fields
+
+_RISK_CLASSIFICATIONS: set[str] = {"low", "medium", "high", "critical"}
 
 
 def _safe_json_parse(text: str) -> dict[str, Any] | None:
@@ -23,6 +26,7 @@ def propose_patch_with_model(
     capability_id: str,
     base_ref: str = "HEAD",
     prompt_template_version: str = "worker_coding_prompt_v1",
+    semantic_correction_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if model_provider is None:
         return {
@@ -47,9 +51,16 @@ def propose_patch_with_model(
         }
     patch_text = str(parsed.get("patch") or "")
     if patch_text.strip():
+        normalized_payload, correction_report = correct_semantic_enum_fields(
+            payload={"risk_classification": str(parsed.get("risk_classification") or "high").strip().lower() or "high"},
+            policy=semantic_correction_policy,
+        )
+        risk_classification = str(normalized_payload.get("risk_classification") or "high").strip().lower() or "high"
+        if risk_classification not in _RISK_CLASSIFICATIONS:
+            risk_classification = "high"
         patch_hash = hashlib.sha256(patch_text.encode("utf-8")).hexdigest()
         changed_files = [str(item).strip() for item in list(parsed.get("changed_files") or []) if str(item).strip()]
-        return {
+        response = {
             "status": "ok",
             "mode": "patch_artifact",
             "llm_used": True,
@@ -62,10 +73,13 @@ def propose_patch_with_model(
                 "patch": patch_text,
                 "patch_hash": patch_hash,
                 "changed_files": changed_files,
-                "risk_classification": str(parsed.get("risk_classification") or "high"),
+                "risk_classification": risk_classification,
                 "expected_effects": [str(item).strip() for item in list(parsed.get("expected_effects") or []) if str(item).strip()],
             },
         }
+        if correction_report is not None:
+            response["semantic_correction"] = correction_report
+        return response
     edit_plan = list(parsed.get("edit_plan") or [])
     if edit_plan:
         return {

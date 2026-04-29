@@ -228,11 +228,88 @@ def set_config():
             or current_worker_runtime.get("default_execution_profile")
             or "balanced"
         )
+        semantic_output_correction = None
+        if "semantic_output_correction" in worker_runtime_cfg:
+            raw_semantic = worker_runtime_cfg.get("semantic_output_correction")
+            if raw_semantic is None:
+                semantic_output_correction = {"enabled": False}
+            elif not isinstance(raw_semantic, dict):
+                return api_response(status="error", message="invalid_worker_semantic_output_correction", code=400)
+            else:
+                provider_cfg = raw_semantic.get("embedding_provider")
+                if provider_cfg is None:
+                    provider_cfg = {}
+                if not isinstance(provider_cfg, dict):
+                    return api_response(status="error", message="invalid_worker_semantic_output_embedding_provider", code=400)
+                fields_cfg = raw_semantic.get("fields")
+                if fields_cfg is None:
+                    fields_cfg = {}
+                if not isinstance(fields_cfg, dict):
+                    return api_response(status="error", message="invalid_worker_semantic_output_fields", code=400)
+                risk_cfg = fields_cfg.get("risk_classification")
+                if risk_cfg is None:
+                    risk_cfg = {}
+                if not isinstance(risk_cfg, dict):
+                    return api_response(status="error", message="invalid_worker_semantic_output_risk_field", code=400)
+
+                def _bounded_float(value: object, *, default: float, minimum: float, maximum: float) -> float:
+                    try:
+                        parsed = float(value) if value is not None else default
+                    except (TypeError, ValueError):
+                        parsed = default
+                    return max(minimum, min(maximum, parsed))
+
+                def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
+                    try:
+                        parsed = int(value) if value is not None else default
+                    except (TypeError, ValueError):
+                        parsed = default
+                    return max(minimum, min(maximum, parsed))
+
+                risk_candidates = [
+                    str(item).strip().lower()
+                    for item in list(risk_cfg.get("candidates") or ["low", "medium", "high", "critical"])
+                    if str(item).strip()
+                ]
+                deduped_risk_candidates: list[str] = []
+                seen_risk: set[str] = set()
+                for item in risk_candidates:
+                    if item not in seen_risk:
+                        seen_risk.add(item)
+                        deduped_risk_candidates.append(item)
+                semantic_output_correction = {
+                    "enabled": bool(raw_semantic.get("enabled", False)),
+                    "similarity_threshold": _bounded_float(
+                        raw_semantic.get("similarity_threshold"),
+                        default=0.9,
+                        minimum=0.5,
+                        maximum=1.0,
+                    ),
+                    "min_margin": _bounded_float(raw_semantic.get("min_margin"), default=0.03, minimum=0.0, maximum=1.0),
+                    "lexical_weight": _bounded_float(raw_semantic.get("lexical_weight"), default=0.35, minimum=0.0, maximum=1.0),
+                    "embedding_provider": {
+                        "provider": str(provider_cfg.get("provider") or "local").strip().lower() or "local",
+                        "dimensions": _bounded_int(provider_cfg.get("dimensions"), default=12, minimum=4, maximum=4096),
+                        "model_version": str(provider_cfg.get("model_version") or "").strip() or None,
+                        "base_url": str(provider_cfg.get("base_url") or "").strip() or None,
+                        "api_key": str(provider_cfg.get("api_key") or "").strip() or None,
+                        "model": str(provider_cfg.get("model") or "").strip() or None,
+                        "timeout_seconds": _bounded_int(provider_cfg.get("timeout_seconds"), default=20, minimum=1, maximum=120),
+                    },
+                    "fields": {
+                        "risk_classification": {
+                            "enabled": bool(risk_cfg.get("enabled", True)),
+                            "candidates": deduped_risk_candidates or ["low", "medium", "high", "critical"],
+                        }
+                    },
+                }
         new_cfg["worker_runtime"] = {
             "workspace_root": workspace_root or None,
             "workspace_reuse_mode": workspace_reuse_mode,
             "default_execution_profile": default_execution_profile,
         }
+        if semantic_output_correction is not None:
+            new_cfg["worker_runtime"]["semantic_output_correction"] = semantic_output_correction
     for key in ("role_model_overrides", "template_model_overrides", "task_kind_model_overrides"):
         if key not in new_cfg:
             continue

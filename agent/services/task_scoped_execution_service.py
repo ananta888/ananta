@@ -131,6 +131,68 @@ class TaskScopedExecutionService:
             parsed = default
         return max(minimum, min(maximum, parsed))
 
+    @staticmethod
+    def _bounded_float(value: object, *, default: float, minimum: float, maximum: float) -> float:
+        try:
+            parsed = float(value) if value is not None else default
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    @classmethod
+    def _resolve_worker_semantic_output_correction_policy(cls, agent_cfg: dict | None) -> dict:
+        cfg = dict(agent_cfg or {})
+        runtime_cfg = cfg.get("worker_runtime") if isinstance(cfg.get("worker_runtime"), dict) else {}
+        raw_policy = runtime_cfg.get("semantic_output_correction")
+        raw_policy = dict(raw_policy) if isinstance(raw_policy, dict) else {}
+        if not raw_policy:
+            return {}
+        provider_cfg = raw_policy.get("embedding_provider")
+        provider_cfg = dict(provider_cfg) if isinstance(provider_cfg, dict) else {}
+        fields_cfg = raw_policy.get("fields")
+        fields_cfg = dict(fields_cfg) if isinstance(fields_cfg, dict) else {}
+        risk_cfg = fields_cfg.get("risk_classification")
+        risk_cfg = dict(risk_cfg) if isinstance(risk_cfg, dict) else {}
+        risk_candidates = [
+            str(item).strip().lower()
+            for item in list(risk_cfg.get("candidates") or ["low", "medium", "high", "critical"])
+            if str(item).strip()
+        ]
+        deduped_risk_candidates: list[str] = []
+        seen_candidates: set[str] = set()
+        for item in risk_candidates:
+            if item not in seen_candidates:
+                seen_candidates.add(item)
+                deduped_risk_candidates.append(item)
+        provider = str(provider_cfg.get("provider") or "local").strip().lower() or "local"
+        policy = {
+            "enabled": bool(raw_policy.get("enabled", False)),
+            "similarity_threshold": cls._bounded_float(
+                raw_policy.get("similarity_threshold"),
+                default=0.9,
+                minimum=0.5,
+                maximum=1.0,
+            ),
+            "min_margin": cls._bounded_float(raw_policy.get("min_margin"), default=0.03, minimum=0.0, maximum=1.0),
+            "lexical_weight": cls._bounded_float(raw_policy.get("lexical_weight"), default=0.35, minimum=0.0, maximum=1.0),
+            "embedding_provider": {
+                "provider": provider,
+                "dimensions": cls._bounded_int(provider_cfg.get("dimensions"), default=12, minimum=4, maximum=4096),
+                "model_version": str(provider_cfg.get("model_version") or "").strip() or None,
+                "base_url": str(provider_cfg.get("base_url") or "").strip() or None,
+                "api_key": str(provider_cfg.get("api_key") or "").strip() or None,
+                "model": str(provider_cfg.get("model") or "").strip() or None,
+                "timeout_seconds": cls._bounded_int(provider_cfg.get("timeout_seconds"), default=20, minimum=1, maximum=120),
+            },
+            "fields": {
+                "risk_classification": {
+                    "enabled": bool(risk_cfg.get("enabled", True)),
+                    "candidates": deduped_risk_candidates or ["low", "medium", "high", "critical"],
+                }
+            },
+        }
+        return policy
+
     @classmethod
     def _resolve_interactive_context_profile(cls, agent_cfg: dict | None, *, retry: bool = False) -> dict:
         cfg = dict(agent_cfg or {})
@@ -2509,9 +2571,12 @@ class TaskScopedExecutionService:
         base_prompt: str | None = None,
     ) -> dict:
         agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+        semantic_policy = self._resolve_worker_semantic_output_correction_policy(agent_cfg)
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         if execution_context:
             execution_context["allowed_tools"] = normalize_allowed_tools(execution_context.get("allowed_tools"))
+            if semantic_policy and not isinstance(execution_context.get("semantic_output_correction"), dict):
+                execution_context["semantic_output_correction"] = semantic_policy
             profile, profile_source = resolve_worker_execution_profile(
                 worker_execution_context=execution_context,
                 agent_cfg=agent_cfg,
@@ -2538,7 +2603,7 @@ class TaskScopedExecutionService:
             worker_execution_context={},
             agent_cfg=agent_cfg,
         )
-        return {
+        resolved_context = {
             "context_bundle_id": bundle.id,
             "worker_profile": profile,
             "profile_source": profile_source,
@@ -2549,6 +2614,9 @@ class TaskScopedExecutionService:
                 "bundle_metadata": dict(bundle.bundle_metadata or {}),
             },
         }
+        if semantic_policy:
+            resolved_context["semantic_output_correction"] = semantic_policy
+        return resolved_context
 
     def _tool_definitions_for_task(
         self,
@@ -2859,6 +2927,11 @@ class TaskScopedExecutionService:
         workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
         allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
+        semantic_output_correction = (
+            dict(execution_context.get("semantic_output_correction") or {})
+            if isinstance(execution_context.get("semantic_output_correction"), dict)
+            else {}
+        )
         worker_profile = normalize_worker_execution_profile(execution_context.get("worker_profile"))
         profile_source = str(execution_context.get("profile_source") or "agent_default").strip().lower() or "agent_default"
         tool_definitions = self._tool_definitions_for_task(
@@ -2976,6 +3049,7 @@ class TaskScopedExecutionService:
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
             "allowed_tools": allowed_tools,
             "expected_output_schema": expected_output_schema,
+            "semantic_output_correction": semantic_output_correction if semantic_output_correction else None,
             "worker_profile": worker_profile,
             "profile_source": profile_source,
             "workspace": {

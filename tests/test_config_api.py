@@ -1177,6 +1177,45 @@ def test_set_config_validates_worker_runtime_workspace_reuse_mode(client, admin_
     assert worker_runtime.get("workspace_reuse_mode") == "goal_worker"
 
 
+def test_set_config_accepts_worker_semantic_output_correction_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    bad = client.post("/config", json={"worker_runtime": {"semantic_output_correction": "on"}}, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json["message"] == "invalid_worker_semantic_output_correction"
+
+    ok = client.post(
+        "/config",
+        json={
+            "worker_runtime": {
+                "semantic_output_correction": {
+                    "enabled": True,
+                    "similarity_threshold": 0.87,
+                    "min_margin": 0.01,
+                    "lexical_weight": 0.5,
+                    "embedding_provider": {"provider": "local", "dimensions": 16},
+                    "fields": {
+                        "risk_classification": {
+                            "enabled": True,
+                            "candidates": ["low", "medium", "high", "critical"],
+                        }
+                    },
+                }
+            }
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    worker_runtime = ((cfg.json.get("data") or {}).get("worker_runtime") or {})
+    semantic_cfg = dict(worker_runtime.get("semantic_output_correction") or {})
+    assert semantic_cfg.get("enabled") is True
+    assert semantic_cfg.get("similarity_threshold") == 0.87
+    assert semantic_cfg.get("lexical_weight") == 0.5
+    assert dict(semantic_cfg.get("embedding_provider") or {}).get("provider") == "local"
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 
