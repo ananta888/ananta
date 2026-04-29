@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-VALID_CHANNELS = ("dense", "lexical", "symbol")
+VALID_CHANNELS = ("dense", "lexical", "symbol", "codecompass_fts", "codecompass_vector", "codecompass_graph")
 DEFAULT_FALLBACK_ORDER = ("dense", "lexical", "symbol")
 
 
@@ -26,4 +26,3 @@ def validate_pipeline_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "fallback_order": fallback_order,
         "weights": {normalize_channel_name(key): float(value) for key, value in dict(payload.get("weights") or {}).items()},
     }
-

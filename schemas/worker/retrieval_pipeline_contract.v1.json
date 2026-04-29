@@ -9,13 +9,13 @@
     "channels": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "enum": ["dense", "lexical", "symbol"] },
+      "items": { "type": "string", "enum": ["dense", "lexical", "symbol", "codecompass_fts", "codecompass_vector", "codecompass_graph"] },
       "uniqueItems": true
     },
     "fallback_order": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "enum": ["dense", "lexical", "symbol"] },
+      "items": { "type": "string", "enum": ["dense", "lexical", "symbol", "codecompass_fts", "codecompass_vector", "codecompass_graph"] },
       "uniqueItems": true
     },
     "weights": {
@@ -25,4 +25,3 @@
   },
   "additionalProperties": false
 }
-

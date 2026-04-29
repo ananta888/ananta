@@ -20,6 +20,7 @@ _SCHEMA_FILES = {
     "verification_artifact.v1": "verification_artifact.v1.json",
     "retrieval_index_entry.v1": "retrieval_index_contract.v1.json",
     "retrieval_pipeline_contract.v1": "retrieval_pipeline_contract.v1.json",
+    "codecompass_output_manifest.v1": "codecompass_output_manifest.v1.json",
     "standalone_task_contract.v1": "standalone_task_contract.v1.json",
     "planner_state_contract.v1": "planner_state_contract.v1.json",
 }

@@ -119,19 +119,19 @@
       "id": "WCR-M1",
       "title": "Alignment with parent worker roadmap",
       "task_ids": ["WCR-T01", "WCR-T02", "WCR-T03", "WCR-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCR-M2",
       "title": "CodeCompass output contracts for worker retrieval",
       "task_ids": ["WCR-T05", "WCR-T06", "WCR-T07", "WCR-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCR-M3",
       "title": "FTS/BM25 exact retrieval",
       "task_ids": ["WCR-T09", "WCR-T10", "WCR-T11", "WCR-T12"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCR-M4",
@@ -162,7 +162,7 @@
     {
       "id": "WCR-T01",
       "title": "Map CodeCompass follow-up to worker sandbox tasks",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -179,7 +179,7 @@
     {
       "id": "WCR-T02",
       "title": "Define worker-safe CodeCompass ownership boundaries",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -196,7 +196,7 @@
     {
       "id": "WCR-T03",
       "title": "Add CodeCompass retrieval feature flag matrix",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -214,7 +214,7 @@
     {
       "id": "WCR-T04",
       "title": "Define CodeCompass context trust and redaction rules",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -231,7 +231,7 @@
     {
       "id": "WCR-T05",
       "title": "Create CodeCompass output manifest contract for worker retrieval",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -248,7 +248,7 @@
     {
       "id": "WCR-T06",
       "title": "Implement CodeCompass output reader shared by hub and standalone worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -266,7 +266,7 @@
     {
       "id": "WCR-T07",
       "title": "Normalize CodeCompass records into retrieval documents",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -283,7 +283,7 @@
     {
       "id": "WCR-T08",
       "title": "Add CodeCompass cache invalidation metadata",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -300,7 +300,7 @@
     {
       "id": "WCR-T09",
       "title": "Implement CodeCompass FTS/BM25 storage",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -318,7 +318,7 @@
     {
       "id": "WCR-T10",
       "title": "Implement CodeCompass exact-symbol query parsing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": false,
@@ -335,7 +335,7 @@
     {
       "id": "WCR-T11",
       "title": "Implement CodeCompass FTS retrieval engine",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -353,7 +353,7 @@
     {
       "id": "WCR-T12",
       "title": "Wire CodeCompass FTS into worker retrieval pipeline as optional channel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -709,16 +709,16 @@
     "WCR-T27"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T00:00:00+02:00",
+    "updated_at": "2026-04-29T13:46:00+02:00",
     "total": 30,
     "by_status": {
-      "todo": 29,
+      "todo": 17,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0,
+      "done": 12,
       "deferred": 1
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 40.0,
     "by_priority": {
       "P0": 18,
       "P1": 11,
@@ -733,15 +733,15 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 0,
-      "remaining": 18
+      "done": 8,
+      "remaining": 10
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 4,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "summary_notes": [
@@ -749,6 +749,7 @@
     "The worker sandbox roadmap already has generic hybrid retrieval tasks; this file specializes them for CodeCompass/rag-helper outputs.",
     "Best target design: CodeCompass for structure, FTS/BM25 for exact names, embeddings for semantic similarity and graph expansion for relationships.",
     "Retrieval should produce bounded context for the worker, not become unbounded worker-side repository scanning.",
-    "Implement FTS first, vector second, graph third, fusion/benchmarks before default rollout."
+    "Implement FTS first, vector second, graph third, fusion/benchmarks before default rollout.",
+    "WCR-M1 bis WCR-M3 sind umgesetzt: Alignment/Boundaries/Flags/Trust-Modell, Manifest+Reader+Normalizer+Cache-State sowie FTS Parser/Store/Engine/Wiring."
   ]
 }

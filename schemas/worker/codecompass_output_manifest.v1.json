@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_output_manifest.v1.json",
+  "title": "Ananta CodeCompass Output Manifest v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "codecompass_version",
+    "profile_name",
+    "source_scope",
+    "generated_at",
+    "output_dir",
+    "outputs"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass_output_manifest.v1" },
+    "codecompass_version": { "type": "string", "minLength": 1 },
+    "profile_name": { "type": "string", "minLength": 1 },
+    "source_scope": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "manifest_hash": { "type": "string", "minLength": 1 },
+    "output_dir": { "type": "string", "minLength": 1 },
+    "outputs": {
+      "type": "object",
+      "required": ["index", "details", "context", "embedding", "relations", "graph_nodes", "graph_edges"],
+      "properties": {
+        "index": { "$ref": "#/$defs/outputFileOrNull" },
+        "details": { "$ref": "#/$defs/outputFileOrNull" },
+        "context": { "$ref": "#/$defs/outputFileOrNull" },
+        "embedding": { "$ref": "#/$defs/outputFileOrNull" },
+        "relations": { "$ref": "#/$defs/outputFileOrNull" },
+        "graph_nodes": { "$ref": "#/$defs/outputFileOrNull" },
+        "graph_edges": { "$ref": "#/$defs/outputFileOrNull" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "outputFileOrNull": {
+      "anyOf": [{ "$ref": "#/$defs/outputFile" }, { "type": "null" }]
+    },
+    "outputFile": {
+      "type": "object",
+      "required": ["path", "sha256", "mtime", "record_count"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "minLength": 1 },
+        "mtime": { "type": "number" },
+        "record_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+

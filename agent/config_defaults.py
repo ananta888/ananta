@@ -333,6 +333,12 @@ def build_default_agent_config() -> dict:
             "workspace_root": None,
             "workspace_reuse_mode": "goal_worker",
             "default_execution_profile": "balanced",
+            "codecompass_retrieval": {
+                "codecompass_fts": bool(settings.codecompass_fts_enabled),
+                "codecompass_vector": bool(settings.codecompass_vector_enabled),
+                "codecompass_graph": bool(settings.codecompass_graph_enabled),
+                "codecompass_relation_expansion": bool(settings.codecompass_relation_expansion_enabled),
+            },
             "native_worker_runtime": {
                 "enabled": True,
                 "fallback_backend": "sgpt",
