@@ -1,0 +1,5 @@
+{"id":"rel:method-controller-calls-service","relation":"calls_probable_target","source_id":"method:PaymentController.handlePayment","target_id":"method:PaymentService.retryTimeout","confidence":0.95}
+{"id":"rel:service-injects-repository","relation":"injects_dependency","source_id":"type:PaymentService","target_id":"type:PaymentRepository","confidence":0.9}
+{"id":"rel:service-transactional-boundary","relation":"transactional_boundary","source_id":"method:PaymentService.retryTimeout","target_symbol":"@Transactional"}
+{"id":"rel:config-declares-bean","relation":"declares_bean","source_id":"type:AppConfig","target_id":"xml:bean.paymentService","confidence":0.8}
+

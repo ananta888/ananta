@@ -1,0 +1,7 @@
+{"id":"method:PaymentService.retryTimeout","kind":"java_method","file":"src/PaymentService.java","embedding_text":"retry timeout transactional payment service method using repository","role_labels":["service"],"importance_score":2.0}
+{"id":"method:PaymentController.handlePayment","kind":"java_method","file":"src/PaymentController.java","embedding_text":"controller endpoint delegates to payment service retry timeout","role_labels":["controller"],"importance_score":1.6}
+{"id":"type:PaymentRepository","kind":"java_type","file":"src/PaymentRepository.java","embedding_text":"repository persistence lookup by id for payment entity","role_labels":["repository"],"importance_score":1.3}
+{"id":"type:AppConfig","kind":"java_type","file":"src/config/AppConfig.java","embedding_text":"spring configuration with bean wiring for payment repository","role_labels":["config"],"importance_score":1.1}
+{"id":"config:application.payment.retry.timeout","kind":"config_property","file":"src/main/resources/application.properties","embedding_text":"configuration property payment retry timeout value"}
+{"id":"xml:bean.paymentService","kind":"xml_tag","file":"src/main/resources/spring-context.xml","embedding_text":"xml bean definition paymentService class com.example.payment.PaymentService"}
+

@@ -79,7 +79,7 @@
   "summary_notes": [
     "This parent file was restored to repair follow-up track references.",
     "WSB task IDs are preserved as stable linkage targets for extension tracks.",
-    "Core intent remains: bounded, auditable worker execution with profile-aware retrieval and planning."
+    "Core intent remains: bounded, auditable worker execution with profile-aware retrieval and planning.",
+    "WCR-T30 decision (2026-04-29): CodeCompass follow-up tasks are not promoted into this parent track; linkage stays via parent_links."
   ]
 }
-

@@ -1,0 +1,54 @@
+{
+  "schema": "codecompass_worker_fixture_manifest.v1",
+  "name": "java_spring_xml",
+  "description": "Deterministic Java/Spring/XML retrieval fixture for CodeCompass benchmark modes.",
+  "source_files": [
+    "src/PaymentController.java",
+    "src/PaymentService.java",
+    "src/PaymentRepository.java",
+    "src/PaymentEntity.java",
+    "src/config/AppConfig.java",
+    "src/main/resources/application.properties",
+    "src/main/resources/spring-context.xml"
+  ],
+  "queries": [
+    {
+      "id": "bugfix-timeout-retry",
+      "task_kind": "bugfix",
+      "retrieval_intent": "exact_symbol",
+      "query": "Where is retryTimeout implemented and which controller calls it?",
+      "expected_record_ids": ["method:PaymentService.retryTimeout", "method:PaymentController.handlePayment"]
+    },
+    {
+      "id": "refactor-repository-dependency",
+      "task_kind": "refactor",
+      "retrieval_intent": "fuzzy_semantic",
+      "query": "Find service and repository wiring for payment persistence",
+      "expected_record_ids": ["type:PaymentService", "type:PaymentRepository"]
+    },
+    {
+      "id": "architecture-transaction-boundary",
+      "task_kind": "architecture",
+      "retrieval_intent": "architecture",
+      "query": "Show transactional boundary and dependency injection path",
+      "expected_record_ids": ["method:PaymentService.retryTimeout", "type:PaymentService", "type:AppConfig"]
+    },
+    {
+      "id": "config-timeout-property",
+      "task_kind": "config",
+      "retrieval_intent": "config_lookup",
+      "query": "Where is payment.retry.timeout configured in properties and XML?",
+      "expected_record_ids": ["config:application.payment.retry.timeout", "xml:bean.paymentService"]
+    }
+  ],
+  "generated_outputs": {
+    "index": "generated/index.jsonl",
+    "details": "generated/details.jsonl",
+    "context": "generated/context.jsonl",
+    "embedding": "generated/embedding.jsonl",
+    "relations": "generated/relations.jsonl",
+    "graph_nodes": "generated/graph_nodes.jsonl",
+    "graph_edges": "generated/graph_edges.jsonl"
+  }
+}
+

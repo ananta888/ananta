@@ -1,0 +1,4 @@
+{"id":"ctx:retry-timeout","kind":"snippet","file":"src/PaymentService.java","content":"retryTimeout is transactional and loads PaymentEntity via PaymentRepository.findById"}
+{"id":"ctx:config-timeout","kind":"snippet","file":"src/main/resources/application.properties","content":"payment.retry.timeout=2500"}
+{"id":"ctx:xml-beans","kind":"snippet","file":"src/main/resources/spring-context.xml","content":"paymentService and paymentController are declared as beans"}
+

@@ -330,6 +330,7 @@
     "This track protects Ananta from Medusa growth while still allowing many integrations.",
     "The highest-value early tasks are boundary inventory, provider interfaces, registry, forbidden-import checker and disabled-provider startup smoke.",
     "Do not overbuild dynamic plugin loading yet; simple explicit provider registries are enough.",
-    "Blender/KiCad/FreeCAD, workflow automation, external workers and research/evolution providers should all pass through this architecture."
+    "Blender/KiCad/FreeCAD, workflow automation, external workers and research/evolution providers should all pass through this architecture.",
+    "WCR-T30 decision (2026-04-29): worker-specific CodeCompass retrieval implementation remains in dedicated worker tracks and is not promoted into this global architecture track."
   ]
 }

@@ -18,6 +18,7 @@ PROGRESS_EVENT_SCHEMA = ROOT / "schemas" / "worker" / "worker_progress_event.v1.
 PROFILE_SCHEMA = ROOT / "schemas" / "worker" / "worker_execution_profile.v1.json"
 RETRIEVAL_INDEX_SCHEMA = ROOT / "schemas" / "worker" / "retrieval_index_contract.v1.json"
 RETRIEVAL_PIPELINE_SCHEMA = ROOT / "schemas" / "worker" / "retrieval_pipeline_contract.v1.json"
+WORKER_CONTEXT_BUNDLE_SCHEMA = ROOT / "schemas" / "worker" / "worker_context_bundle.v1.json"
 STANDALONE_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "standalone_task_contract.v1.json"
 PLANNER_STATE_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "planner_state_contract.v1.json"
 
@@ -85,6 +86,30 @@ def test_worker_artifact_schemas_validate_examples() -> None:
             "channels": ["dense", "lexical", "symbol"],
             "fallback_order": ["dense", "lexical", "symbol"],
             "weights": {"dense": 0.5, "lexical": 0.3, "symbol": 0.2}
+        }),
+        (WORKER_CONTEXT_BUNDLE_SCHEMA, {
+            "schema": "worker_context_bundle.v1",
+            "bundle_type": "worker_execution_context",
+            "query": "retry timeout payment",
+            "context_text": "selected context",
+            "chunk_count": 1,
+            "token_estimate": 12,
+            "chunks": [
+                {
+                    "engine": "codecompass_fts",
+                    "source": "src/PaymentService.java",
+                    "content": "retry timeout logic",
+                    "score": 1.2,
+                    "metadata": {
+                        "record_id": "method:PaymentService.retryTimeout",
+                        "record_kind": "java_method",
+                        "file": "src/PaymentService.java",
+                        "source_manifest_hash": "mh-1"
+                    }
+                }
+            ],
+            "context_policy": {"mode": "balanced"},
+            "selection_trace": {"fusion": {"mode": "deterministic_v2"}}
         }),
         (STANDALONE_CONTRACT_SCHEMA, {
             "schema": "standalone_task_contract.v1",
