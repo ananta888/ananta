@@ -11,6 +11,10 @@ USERNAME="${ANANTA_E2E_ADMIN_USER:-admin}"
 PASSWORD="${ANANTA_E2E_ADMIN_PASSWORD:-AnantaAdminPassword123!}"
 HOST_PORTS="${ANANTA_ANDROID_REVERSE_PORTS:-4200 5500 5501 5502 11434}"
 EMULATOR_ARGS="${ANANTA_ANDROID_EMULATOR_ARGS:--no-snapshot-load -netdelay none -netspeed full}"
+ANDROID_API_LEVEL="${ANANTA_ANDROID_API_LEVEL:-35}"
+ANDROID_ABI="${ANANTA_ANDROID_ABI:-x86_64}"
+ANDROID_IMAGE_VENDOR="${ANANTA_ANDROID_IMAGE_VENDOR:-google_apis}"
+ANDROID_IMAGE="system-images;android-${ANDROID_API_LEVEL};${ANDROID_IMAGE_VENDOR};${ANDROID_ABI}"
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "adb nicht gefunden. Android SDK Platform-Tools installieren."
@@ -21,6 +25,25 @@ if ! command -v emulator >/dev/null 2>&1; then
   echo "emulator binary nicht gefunden. Android SDK Emulator installieren."
   exit 1
 fi
+
+ensure_avd() {
+  if avdmanager list avd | grep -q "Name: ${AVD_NAME}$"; then
+    return
+  fi
+
+  if ! command -v avdmanager >/dev/null 2>&1; then
+    echo "avdmanager nicht gefunden; kann AVD nicht automatisch erstellen."
+    exit 1
+  fi
+
+  echo "Erstelle AVD ${AVD_NAME} (${ANDROID_IMAGE})..."
+  echo "no" | avdmanager create avd \
+    --name "$AVD_NAME" \
+    --package "$ANDROID_IMAGE" \
+    --abi "$ANDROID_IMAGE_VENDOR/$ANDROID_ABI"
+}
+
+ensure_avd
 
 if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
   echo "Starte Emulator $AVD_NAME..."
