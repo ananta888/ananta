@@ -22,7 +22,7 @@ import { NotificationService } from '../services/notification.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
 
 const TERMINAL_LOW_LATENCY_STORAGE_KEY = 'ananta.terminal.low-latency';
-const TERMINAL_OUTPUT_MIRROR_ENABLED = false;
+const TERMINAL_OUTPUT_MIRROR_ENABLED = true;
 
 type TerminalButtonKeySpec = {
   key: string;
@@ -82,6 +82,25 @@ type TerminalButtonKeySpec = {
       border-radius: 999px;
       border: 1px solid var(--border);
     }
+    .terminal-copy-panel {
+      border-top: 1px solid var(--border);
+      background: var(--card-bg);
+      padding: 8px;
+    }
+    .terminal-copy-panel summary {
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      color: var(--muted-text);
+    }
+    .terminal-copy-panel textarea {
+      margin-top: 8px;
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      font-size: 12px;
+    }
     @media (max-width: 900px) {
       .terminal-host {
         min-height: 240px;
@@ -108,6 +127,9 @@ type TerminalButtonKeySpec = {
         <button class="button-outline" (click)="clear()">Leeren</button>
         <button class="button-outline" type="button" (click)="toggleLowLatencyMode()">
           {{ lowLatencyMode ? 'Low Latency an' : 'Low Latency aus' }}
+        </button>
+        <button class="button-outline" type="button" (click)="copyTerminalOutput()" [disabled]="!outputBuffer">
+          Ausgabe kopieren
         </button>
         @if (mode === 'interactive') {
           <div class="terminal-control-row">
@@ -136,6 +158,12 @@ type TerminalButtonKeySpec = {
         }
       </div>
       <div #terminalHost class="terminal-host" aria-label="Terminal output" (click)="focusTerminal()"></div>
+      @if (outputBuffer) {
+        <details class="terminal-copy-panel">
+          <summary>Kopierbare Ausgabe</summary>
+          <textarea [value]="outputBuffer" readonly aria-label="Kopierbare Terminal-Ausgabe"></textarea>
+        </details>
+      }
     </div>
     @if (outputMirrorEnabled) {
       <pre data-testid="terminal-output-buffer" style="display:none;">{{outputBuffer}}</pre>
@@ -375,6 +403,21 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     } catch {}
     this.fitToContainer(true);
     this.notifications.info(this.lowLatencyMode ? 'Low-Latency-Terminalmodus aktiviert.' : 'Low-Latency-Terminalmodus deaktiviert.');
+  }
+
+  async copyTerminalOutput(): Promise<void> {
+    const text = this.outputBuffer.trim();
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        this.notifications.success('Terminal-Ausgabe kopiert.');
+        return;
+      }
+      this.notifications.info('Kopieren ueber "Kopierbare Ausgabe" unten.');
+    } catch {
+      this.notifications.info('Kopieren ueber "Kopierbare Ausgabe" unten.');
+    }
   }
 
   sendSpecialInput(sequence: string): void {
