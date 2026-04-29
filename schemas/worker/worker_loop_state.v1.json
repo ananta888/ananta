@@ -22,6 +22,7 @@
     "task_id": { "type": "string", "minLength": 1 },
     "trace_id": { "type": "string", "minLength": 1 },
     "context_hash": { "type": "string", "minLength": 1 },
+    "execution_profile": { "type": "string", "enum": ["safe", "balanced", "fast"] },
     "policy_state": { "type": "string", "enum": ["allow", "deny", "approval_required", "default_deny"] },
     "phase": { "type": "string", "enum": ["observe", "plan", "patch", "test", "inspect", "repair", "retest", "summarize"] },
     "iteration": { "type": "integer", "minimum": 0 },

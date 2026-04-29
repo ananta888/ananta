@@ -49,3 +49,17 @@ def test_command_planner_handles_malformed_request() -> None:
     )
     assert artifact["required_approval"] is True
     assert artifact["risk_classification"] == "critical"
+
+
+def test_command_planner_balanced_profile_marks_readonly_git_as_low_risk() -> None:
+    artifact = build_command_plan_artifact(
+        task_id="T1",
+        capability_id="worker.command.plan",
+        command="git status",
+        explanation="Inspect repo status",
+        expected_effects=["No mutation."],
+        policy=POLICY,
+        execution_profile="balanced",
+    )
+    assert artifact["required_approval"] is False
+    assert artifact["risk_classification"] == "low"

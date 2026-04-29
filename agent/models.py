@@ -464,6 +464,8 @@ class WorkerRoutingDecisionContract(SQLModel):
     required_capabilities: List[str] = Field(default_factory=list)
     research_specialization: Optional[str] = None
     preferred_backend: Optional[str] = None
+    worker_profile: Optional[str] = None
+    profile_source: Optional[str] = None
 
 
 class WorkerExecutionContextContract(SQLModel):
@@ -477,6 +479,8 @@ class WorkerExecutionContextContract(SQLModel):
     artifact_sync: dict = Field(default_factory=dict)
     allowed_tools: List[str] = Field(default_factory=list)
     expected_output_schema: dict = Field(default_factory=dict)
+    worker_profile: Optional[str] = None
+    profile_source: Optional[str] = None
     routing: Optional[WorkerRoutingDecisionContract] = None
 
 

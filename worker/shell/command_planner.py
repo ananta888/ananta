@@ -16,6 +16,7 @@ def build_command_plan_artifact(
     working_directory: str = ".",
     policy: dict[str, Any],
     hub_policy_decision: str = "allow",
+    execution_profile: str | None = "balanced",
 ) -> dict[str, Any]:
     normalized_command = str(command).strip()
     normalized_explanation = str(explanation).strip()
@@ -33,7 +34,12 @@ def build_command_plan_artifact(
             "working_directory": str(working_directory).strip() or ".",
             "expected_effects": ["No execution; request rejected as malformed."],
         }
-    decision = classify_command(command=normalized_command, policy=policy, hub_policy_decision=hub_policy_decision)
+    decision = classify_command(
+        command=normalized_command,
+        policy=policy,
+        hub_policy_decision=hub_policy_decision,
+        execution_profile=execution_profile,
+    )
     return {
         "schema": "command_plan_artifact.v1",
         "task_id": str(task_id).strip(),

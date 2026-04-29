@@ -17,6 +17,7 @@ from agent.llm_integration import _list_lmstudio_candidates
 from agent.local_llm_backends import resolve_local_openai_backend
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
 from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config
+from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
 _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = 64
@@ -264,9 +265,11 @@ def normalize_worker_runtime_config(value: dict | None) -> dict:
     workspace_reuse_mode = str(payload.get("workspace_reuse_mode") or "goal_worker").strip().lower() or "goal_worker"
     if workspace_reuse_mode not in {"task", "goal_worker"}:
         workspace_reuse_mode = "goal_worker"
+    default_execution_profile = normalize_worker_execution_profile(payload.get("default_execution_profile"))
     return {
         "workspace_root": workspace_root or None,
         "workspace_reuse_mode": workspace_reuse_mode,
+        "default_execution_profile": default_execution_profile,
     }
 
 
@@ -278,6 +281,7 @@ def worker_runtime_settings_summary(cfg: dict) -> dict:
         "source": {
             "workspace_root": "worker_runtime.workspace_root",
             "workspace_reuse_mode": "worker_runtime.workspace_reuse_mode",
+            "default_execution_profile": "worker_runtime.default_execution_profile",
         },
     }
 

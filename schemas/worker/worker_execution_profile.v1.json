@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_execution_profile.v1.json",
+  "title": "Ananta Worker Execution Profile v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "profile",
+    "profile_source",
+    "policy",
+    "budgets",
+    "context_limits",
+    "approval_behavior"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "worker_execution_profile.v1" },
+    "profile": { "type": "string", "enum": ["safe", "balanced", "fast"] },
+    "profile_source": {
+      "type": "string",
+      "enum": ["agent_default", "task_context", "task_override", "runtime_override"]
+    },
+    "policy": {
+      "type": "object",
+      "required": ["auto_allow_readonly_diagnostics", "allowlist_mode"],
+      "properties": {
+        "auto_allow_readonly_diagnostics": { "type": "boolean" },
+        "allowlist_mode": { "type": "string", "enum": ["strict", "balanced", "relaxed"] }
+      },
+      "additionalProperties": false
+    },
+    "budgets": {
+      "type": "object",
+      "required": ["max_iterations", "max_patch_attempts", "max_runtime_seconds"],
+      "properties": {
+        "max_iterations": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "max_patch_attempts": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "max_runtime_seconds": { "type": "integer", "minimum": 1, "maximum": 7200 }
+      },
+      "additionalProperties": false
+    },
+    "context_limits": {
+      "type": "object",
+      "required": ["max_files", "max_bytes", "max_prompt_context_chars"],
+      "properties": {
+        "max_files": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "max_bytes": { "type": "integer", "minimum": 1024, "maximum": 10000000 },
+        "max_prompt_context_chars": { "type": "integer", "minimum": 256, "maximum": 200000 }
+      },
+      "additionalProperties": false
+    },
+    "approval_behavior": {
+      "type": "object",
+      "required": ["enforce_hub_tokens", "guarded_root_requires_token"],
+      "properties": {
+        "enforce_hub_tokens": { "type": "boolean" },
+        "guarded_root_requires_token": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

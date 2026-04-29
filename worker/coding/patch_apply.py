@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from worker.core.execution_profile import normalize_execution_profile
+
 
 def _run_git(args: list[str], *, cwd: Path, input_text: str | None = None) -> str:
     completed = subprocess.run(
@@ -33,6 +35,24 @@ def _validate_patch_artifact(patch_artifact: dict[str, Any]) -> None:
     actual_hash = hashlib.sha256(patch.encode("utf-8")).hexdigest()
     if actual_hash != expected_hash:
         raise ValueError("patch_hash_mismatch")
+    for changed in list(patch_artifact.get("changed_files") or []):
+        normalized = str(changed or "").strip()
+        if not normalized:
+            continue
+        if normalized.startswith("/") or normalized.startswith("..") or "/../" in normalized:
+            raise PermissionError("unsafe_patch_target_path")
+
+
+def _requires_guarded_root_approval(*, patch_artifact: dict[str, Any], guarded_roots: list[str] | None) -> bool:
+    guarded = [str(item).strip().strip("/") for item in list(guarded_roots or []) if str(item).strip()]
+    if not guarded:
+        return False
+    changed_files = [str(path).strip().lstrip("/") for path in list(patch_artifact.get("changed_files") or []) if str(path).strip()]
+    for changed in changed_files:
+        for root in guarded:
+            if changed == root or changed.startswith(f"{root}/"):
+                return True
+    return False
 
 
 def _validate_approval_binding(
@@ -67,10 +87,26 @@ def apply_patch_artifact(
     context_hash: str,
     policy_decision: str,
     approval: dict[str, Any] | None = None,
+    execution_profile: str | None = "balanced",
+    guarded_roots: list[str] | None = None,
 ) -> dict[str, Any]:
     normalized_policy = str(policy_decision or "").strip().lower()
+    _ = normalize_execution_profile(execution_profile)
     if normalized_policy == "deny":
         raise PermissionError("policy_denied")
+    _validate_patch_artifact(patch_artifact)
+    guarded_root_needs_approval = _requires_guarded_root_approval(
+        patch_artifact=patch_artifact,
+        guarded_roots=guarded_roots,
+    )
+    if guarded_root_needs_approval:
+        _validate_approval_binding(
+            approval=approval,
+            patch_artifact=patch_artifact,
+            task_id=task_id,
+            capability_id=capability_id,
+            context_hash=context_hash,
+        )
     if _approval_required(normalized_policy):
         _validate_approval_binding(
             approval=approval,
@@ -79,7 +115,6 @@ def apply_patch_artifact(
             capability_id=capability_id,
             context_hash=context_hash,
         )
-    _validate_patch_artifact(patch_artifact)
     patch = str(patch_artifact.get("patch") or "")
     repo = repository_root.resolve()
     _run_git(["apply", "--whitespace=nowarn", "-"], cwd=repo, input_text=patch)

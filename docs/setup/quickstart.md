@@ -35,6 +35,7 @@ ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-d
 # Standard: interne Ananta-Worker-Ausfuehrung
 python -m pip install shell-gpt
 export SGPT_EXECUTION_BACKEND=ananta-worker
+export WORKER_DEFAULT_EXECUTION_PROFILE=balanced
 
 # Alternative: OpenCode
 npm i -g opencode-ai
@@ -42,6 +43,7 @@ export SGPT_EXECUTION_BACKEND=opencode
 ```
 
 Hinweis: `--llm-backend` aus `ananta init` waehlt den Inferenz-Provider (z. B. LM Studio/Ollama). `SGPT_EXECUTION_BACKEND` waehlt das lokale CLI-Ausfuehrungsbackend.
+`WORKER_DEFAULT_EXECUTION_PROFILE` waehlt den Worker-Profilstandard (`safe|balanced|fast`).
 
 ## 2) Startpfad waehlen
 
