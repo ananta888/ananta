@@ -24,37 +24,35 @@ need_cmd() {
 }
 
 ensure_host_dependencies() {
-  local missing=()
-  local required=(curl unzip java node npm python3 rg)
+  local required=(curl unzip node npm python3 rg)
   for cmd in "${required[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
-      missing+=("$cmd")
+      echo "Fehlt: $cmd"
+      exit 1
     fi
   done
-  if [[ "${#missing[@]}" -eq 0 ]]; then
+
+  if command -v java >/dev/null 2>&1; then
     return
   fi
 
-  if [[ "${ANANTA_AUTO_APT_INSTALL:-1}" != "1" ]]; then
-    echo "Fehlende Tools: ${missing[*]}"
-    echo "Setze ANANTA_AUTO_APT_INSTALL=1 oder installiere die Tools manuell."
+  if [[ "${ANANTA_AUTO_JAVA_INSTALL:-1}" != "1" ]]; then
+    echo "Fehlt: java (setze ANANTA_AUTO_JAVA_INSTALL=1 fuer auto-download)."
     exit 1
   fi
 
-  if ! command -v sudo >/dev/null 2>&1; then
-    echo "sudo fehlt; automatische Paketinstallation nicht moeglich."
-    exit 1
+  local toolchain_root="${HOME}/.ananta/toolchain"
+  local jdk_root="${toolchain_root}/jdk-17"
+  local jdk_tar="/tmp/ananta-jdk17.tar.gz"
+  mkdir -p "$toolchain_root"
+  if [[ ! -x "${jdk_root}/bin/java" ]]; then
+    curl -fsSL "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse" -o "$jdk_tar"
+    rm -rf "$jdk_root"
+    mkdir -p "$jdk_root"
+    tar -xzf "$jdk_tar" -C "$jdk_root" --strip-components=1
   fi
-
-  sudo apt-get update
-  sudo apt-get install -y \
-    curl \
-    unzip \
-    openjdk-17-jdk \
-    nodejs \
-    npm \
-    python3 \
-    ripgrep
+  export JAVA_HOME="$jdk_root"
+  export PATH="$JAVA_HOME/bin:$PATH"
 }
 
 install_cmdline_tools_if_missing() {
