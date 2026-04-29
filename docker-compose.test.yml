@@ -233,3 +233,49 @@ services:
       - /app/node_modules
       - /ms-playwright
     ports: !reset []
+
+  android-e2e:
+    build:
+      context: ./frontend-angular
+      dockerfile: docker/Dockerfile.android-e2e
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    shm_size: "2gb"
+    working_dir: /workspace/frontend-angular
+    environment:
+      ANANTA_ANDROID_AVD_NAME: "${ANANTA_ANDROID_AVD_NAME:-ananta-api35}"
+      ANANTA_ANDROID_EMULATOR_SERIAL: "${ANANTA_ANDROID_EMULATOR_SERIAL:-emulator-5554}"
+      ANANTA_ANDROID_REVERSE_PORTS: "${ANANTA_ANDROID_REVERSE_PORTS:-4200 5500 5501 5502 11434}"
+      ANANTA_ANDROID_EMULATOR_ARGS: "${ANANTA_ANDROID_EMULATOR_ARGS:--no-window -no-audio -gpu swiftshader_indirect -accel on}"
+      ANANTA_E2E_ADMIN_USER: "${INITIAL_ADMIN_USER:-admin}"
+      ANANTA_E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      E2E_FRONTEND_URL: "http://angular-frontend:4200"
+      E2E_HUB_URL: "http://ai-agent-hub:5000"
+      E2E_ALPHA_URL: "http://ai-agent-alpha:5000"
+      E2E_BETA_URL: "http://ai-agent-beta:5000"
+      E2E_HUB_AGENT_TOKEN: "${AGENT_TOKEN_HUB}"
+      E2E_ALPHA_AGENT_TOKEN: "${AGENT_TOKEN_ALPHA}"
+      E2E_BETA_AGENT_TOKEN: "${AGENT_TOKEN_BETA}"
+      OLLAMA_URL: "http://ollama:11434/api/generate"
+      OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
+    depends_on:
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      autoimport:
+        condition: service_started
+    volumes:
+      - ./:/workspace
+      - android_avd_cache:/root/.android/avd
+    command: bash -lc "npm install && npm run test:e2e:android:terminal"
+
+volumes:
+  android_avd_cache:

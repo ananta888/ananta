@@ -1,0 +1,61 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    ANDROID_SDK_ROOT=/opt/android-sdk \
+    ANDROID_HOME=/opt/android-sdk \
+    PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/emulator:/usr/local/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    ANANTA_ANDROID_API_LEVEL=35 \
+    ANANTA_ANDROID_ABI=x86_64 \
+    ANANTA_ANDROID_IMAGE_VENDOR=google_apis
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    curl \
+    git \
+    jq \
+    libasound2 \
+    libdbus-1-3 \
+    libfontconfig1 \
+    libglib2.0-0 \
+    libgl1 \
+    libnss3 \
+    libpulse0 \
+    libstdc++6 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxi6 \
+    libxkbcommon0 \
+    libxrandr2 \
+    openjdk-17-jdk \
+    python3 \
+    python3-venv \
+    ripgrep \
+    unzip \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /usr/local/node \
+    && curl -fsSL "https://nodejs.org/dist/v20.19.5/node-v20.19.5-linux-x64.tar.xz" -o /tmp/node.tar.xz \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local/node --strip-components=1 \
+    && rm -f /tmp/node.tar.xz \
+    && node --version \
+    && npm --version
+
+RUN mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools" \
+    && curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" -o /tmp/cmdline-tools.zip \
+    && unzip -q /tmp/cmdline-tools.zip -d /tmp/android-cmdline \
+    && mv /tmp/android-cmdline/cmdline-tools "${ANDROID_SDK_ROOT}/cmdline-tools/latest" \
+    && rm -rf /tmp/cmdline-tools.zip /tmp/android-cmdline \
+    && yes | sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --licenses >/dev/null \
+    && sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" \
+      "platform-tools" \
+      "emulator" \
+      "platforms;android-${ANANTA_ANDROID_API_LEVEL}" \
+      "system-images;android-${ANANTA_ANDROID_API_LEVEL};${ANANTA_ANDROID_IMAGE_VENDOR};${ANANTA_ANDROID_ABI}"
+
+WORKDIR /workspace/frontend-angular

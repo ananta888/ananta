@@ -10,6 +10,7 @@ EMULATOR_SERIAL="${ANANTA_ANDROID_EMULATOR_SERIAL:-emulator-5554}"
 USERNAME="${ANANTA_E2E_ADMIN_USER:-admin}"
 PASSWORD="${ANANTA_E2E_ADMIN_PASSWORD:-AnantaAdminPassword123!}"
 HOST_PORTS="${ANANTA_ANDROID_REVERSE_PORTS:-4200 5500 5501 5502 11434}"
+EMULATOR_ARGS="${ANANTA_ANDROID_EMULATOR_ARGS:--no-snapshot-load -netdelay none -netspeed full}"
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "adb nicht gefunden. Android SDK Platform-Tools installieren."
@@ -23,7 +24,8 @@ fi
 
 if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
   echo "Starte Emulator $AVD_NAME..."
-  nohup emulator -avd "$AVD_NAME" -no-snapshot-load -netdelay none -netspeed full >/tmp/ananta-android-emulator.log 2>&1 &
+  # shellcheck disable=SC2086
+  nohup emulator -avd "$AVD_NAME" $EMULATOR_ARGS >/tmp/ananta-android-emulator.log 2>&1 &
 fi
 
 echo "Warte auf Emulator $EMULATOR_SERIAL..."

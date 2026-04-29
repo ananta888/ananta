@@ -52,6 +52,11 @@ Vollautomatisch (SDK/AVD installieren + Stack starten + Test ausfuehren):
 ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal:bootstrap
 ```
 
+Docker-Variante (Android-SDK/Emulator im Container-Image vorinstalliert, Source zur Laufzeit gemountet):
+```bash
+ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal:bootstrap:docker
+```
+
 Wichtige Variablen dafuer:
 - `ANANTA_ANDROID_AVD_NAME` (Default: `ananta-api35`)
 - `ANANTA_ANDROID_EMULATOR_SERIAL` (Default: `emulator-5554`)
