@@ -1,0 +1,374 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "worker_sandbox_balanced_execution",
+  "purpose": "Develop a pragmatic worker safety model for sandboxed, artifact-scoped execution: keep only non-negotiable invariants hard, reduce unnecessary friction, and provide explicit profiles (safe, balanced, fast) that preserve hub ownership, traceability and reliability.",
+  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Make the ananta worker noticeably more productive in sandbox mode while preserving core guarantees: schema-valid artifacts, bounded execution, policy visibility and audit-grade traceability.",
+  "background_assumptions": [
+    "Worker runs in a sandbox/worktree and does not own orchestration decisions.",
+    "Hub prepares bounded context/artifacts and remains control-plane owner.",
+    "Worker returns artifacts/results back to hub; mutation paths remain policy-governed.",
+    "Sandbox isolation alone is insufficient against prompt-injection-style instruction poisoning and hidden quality drift."
+  ],
+  "mandatory_invariants": [
+    "Strict schema validation for inbound and outbound artifacts.",
+    "Capability and command allowlist enforcement by risk class.",
+    "Hard budgets for iterations, runtime, file count and byte volume.",
+    "Complete traceability fields (trace_id, task_id, capability_id, context_hash, policy_decision_ref)."
+  ],
+  "relaxable_controls": [
+    "Lower approval friction for low-risk commands inside sandbox profile.",
+    "More aggressive auto-repair loop in fast profile with bounded retries.",
+    "Reduced default-deny surface for read-only and deterministic diagnostic commands.",
+    "Adaptive context/file selection limits instead of one rigid global limit."
+  ],
+  "non_goals": [
+    "Do not remove hub-owned policy/approval/audit ownership.",
+    "Do not allow worker-to-worker orchestration.",
+    "Do not permit unbounded repository execution context.",
+    "Do not silently treat degraded or denied outcomes as success.",
+    "Do not make optional external adapters required for baseline worker path."
+  ],
+  "success_criteria": [
+    "Balanced profile becomes the default and measurably reduces blocked-but-safe executions.",
+    "Safe profile retains current strict behavior for sensitive environments.",
+    "Fast profile remains bounded and auditable, never bypassing hard invariants.",
+    "Native worker path is integrated end-to-end for propose/execute/verify flow where configured.",
+    "Worker profile selection and policy decisions are visible in task history and read models.",
+    "Prompt-injection-like artifact inputs are explicitly degraded/blocked with machine-readable reasons.",
+    "Regression and e2e tests cover safe, balanced and fast profiles."
+  ],
+  "milestones": [
+    {
+      "id": "WSB-M1",
+      "title": "Safety baseline and profile contract",
+      "task_ids": ["WSB-T01", "WSB-T02", "WSB-T03", "WSB-T04"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M2",
+      "title": "Policy and budget profile implementation",
+      "task_ids": ["WSB-T05", "WSB-T06", "WSB-T07", "WSB-T08"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M3",
+      "title": "Native runtime integration and control surfaces",
+      "task_ids": ["WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M4",
+      "title": "Observability and hardened error signaling",
+      "task_ids": ["WSB-T13", "WSB-T14", "WSB-T15"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M5",
+      "title": "Testing, rollout and documentation",
+      "task_ids": ["WSB-T16", "WSB-T17", "WSB-T18"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WSB-T01",
+      "title": "Worker strictness decision record add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": [],
+      "expected_files": ["docs/decisions/ADR-worker-sandbox-balanced-execution.md"],
+      "acceptance_criteria": [
+        "ADR defines hard invariants vs relaxable controls for sandboxed worker execution.",
+        "ADR defines profile intent: safe, balanced, fast.",
+        "ADR confirms hub remains policy/approval owner.",
+        "ADR includes migration strategy from current strict defaults."
+      ]
+    },
+    {
+      "id": "WSB-T02",
+      "title": "Mandatory invariant checklist for worker paths add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T01"],
+      "expected_files": ["docs/architecture/worker_invariants_checklist.md", "tests/worker/test_worker_trace_metadata.py"],
+      "acceptance_criteria": [
+        "Checklist covers schema gate, allowlist, budgets and trace metadata requirements.",
+        "Checklist is referenced by worker docs and release flow.",
+        "Existing trace tests confirm required metadata remains enforced for execution-capable modes."
+      ]
+    },
+    {
+      "id": "WSB-T03",
+      "title": "Worker profile schema and contract add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T01"],
+      "expected_files": ["schemas/worker/worker_execution_profile.v1.json", "docs/worker/execution_profiles.md", "tests/worker/test_worker_contract_schemas.py"],
+      "acceptance_criteria": [
+        "Schema defines safe/balanced/fast profile fields for policy and budgets.",
+        "Schema supports explicit approval behavior knobs by risk class.",
+        "Contract tests validate profile examples."
+      ]
+    },
+    {
+      "id": "WSB-T04",
+      "title": "Runtime default profile config add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["agent/config_defaults.py", "agent/config.py", "docs/setup/quickstart.md"],
+      "acceptance_criteria": [
+        "Balanced profile is default for local developer flow.",
+        "Safe profile can be selected explicitly for stricter governance.",
+        "Fast profile is opt-in and clearly marked as higher risk."
+      ]
+    },
+    {
+      "id": "WSB-T05",
+      "title": "Profile-aware command policy classification implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["worker/shell/command_policy.py", "worker/shell/command_planner.py", "tests/worker/test_shell_command_policy.py"],
+      "acceptance_criteria": [
+        "Policy classification uses execution profile and command risk class.",
+        "Low-risk read/diagnostic commands can be auto-allow in balanced profile.",
+        "Destructive or ambiguous commands remain denied or approval-required across all profiles.",
+        "Tests cover profile deltas and unchanged deny behavior."
+      ]
+    },
+    {
+      "id": "WSB-T06",
+      "title": "Profile-aware patch apply approval semantics implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["worker/coding/patch_apply.py", "tests/worker/test_patch_apply_approval.py"],
+      "acceptance_criteria": [
+        "Patch apply remains approval-bound when mutating guarded roots.",
+        "Profile controls only bounded low-risk sandbox semantics without bypassing approval bindings.",
+        "Approval binding checks (task_id/capability_id/context_hash/hash) remain mandatory."
+      ]
+    },
+    {
+      "id": "WSB-T07",
+      "title": "Controlled loop budgets become profile-driven",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["worker/loop/budgets.py", "worker/loop/controlled_worker_loop.py", "tests/worker/test_controlled_worker_loop.py"],
+      "acceptance_criteria": [
+        "Safe/balanced/fast map to distinct max_iterations, patch_attempts and runtime budgets.",
+        "Budget exhaustion remains explicit stop_reason.",
+        "Fast profile increases throughput but never unbounds runtime."
+      ]
+    },
+    {
+      "id": "WSB-T08",
+      "title": "Profile-aware file and context limits implement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["worker/coding/file_selection.py", "worker/coding/prompt_assembly.py", "tests/worker/test_rag_file_selection.py", "tests/worker/test_coding_prompt_assembly.py"],
+      "acceptance_criteria": [
+        "Profile controls file count and byte budget in selection stage.",
+        "Oversize input remains degraded with explicit reason.",
+        "Prompt assembly keeps redaction and max-context boundaries."
+      ]
+    },
+    {
+      "id": "WSB-T09",
+      "title": "Native worker execution path integrate into task-scoped runtime",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WSB-T05", "WSB-T06", "WSB-T07"],
+      "expected_files": ["agent/services/task_scoped_execution_service.py", "agent/services/tool_routing_service.py", "agent/services/worker_contract_service.py"],
+      "acceptance_criteria": [
+        "ananta-worker path executes native worker stages for propose/execute/verify when profile enabled.",
+        "SGPT proxy fallback remains available but no longer the only ananta-worker behavior.",
+        "Routing metadata clearly indicates native vs fallback path."
+      ]
+    },
+    {
+      "id": "WSB-T10",
+      "title": "Worker profile propagation in routing and execution context add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T09"],
+      "expected_files": ["agent/services/worker_contract_service.py", "agent/services/task_execution_policy_service.py", "agent/models.py"],
+      "acceptance_criteria": [
+        "Execution context includes selected worker profile and profile source.",
+        "Task history and routing record preserve profile for observability.",
+        "Unknown profile values are rejected or normalized explicitly."
+      ]
+    },
+    {
+      "id": "WSB-T11",
+      "title": "Artifact schema validation gate on worker ingress/egress add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["worker/core/verification.py", "worker/core/degraded.py", "tests/worker/test_worker_contract_schemas.py"],
+      "acceptance_criteria": [
+        "Inbound artifacts are validated before execution attempts.",
+        "Outbound artifacts are validated before returning to hub.",
+        "Validation failures return explicit degraded state and machine reason."
+      ]
+    },
+    {
+      "id": "WSB-T12",
+      "title": "Prompt-injection hardening for artifact-sourced context add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["WSB-T11"],
+      "expected_files": ["worker/coding/prompt_assembly.py", "worker/core/redaction.py", "tests/e2e/worker/test_denied_command_flow.py"],
+      "acceptance_criteria": [
+        "Artifact instructions conflicting with hub policy are ignored or degraded.",
+        "Dangerous command synthesis patterns from context are blocked before execution planning.",
+        "E2E test demonstrates explicit blocked/degraded response for injected hostile instructions."
+      ]
+    },
+    {
+      "id": "WSB-T13",
+      "title": "Worker degraded reason taxonomy refine",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T11"],
+      "expected_files": ["worker/core/degraded.py", "docs/worker/degraded_reasons.md", "tests/worker/test_worker_degradation.py"],
+      "acceptance_criteria": [
+        "Reason taxonomy distinguishes policy denied, approval missing, schema invalid, budget exhausted and unsafe command.",
+        "Reason names are stable and machine-readable.",
+        "Docs map reasons to operator actions."
+      ]
+    },
+    {
+      "id": "WSB-T14",
+      "title": "Profile and policy observability fields extend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T10"],
+      "expected_files": ["agent/services/task_scoped_execution_service.py", "docs/worker-routing-policy-explainability.md"],
+      "acceptance_criteria": [
+        "Trace/routing payload includes worker_profile, profile_source and policy_classification summary.",
+        "Read-model fields support operator explanation of profile-driven behavior.",
+        "No backward-incompatible removal of existing routing fields."
+      ]
+    },
+    {
+      "id": "WSB-T15",
+      "title": "Metrics for profile effectiveness and failure modes add",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WSB-T14"],
+      "expected_files": ["agent/services/task_scoped_execution_service.py", "docs/autonomous-platform-slos.md"],
+      "acceptance_criteria": [
+        "Metrics include block-rate, degrade-rate, approval-rate and success-rate by worker profile.",
+        "Metrics distinguish policy-denied from runtime failure.",
+        "SLO docs mention profile-level interpretation."
+      ]
+    },
+    {
+      "id": "WSB-T16",
+      "title": "Profile regression test matrix add",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T05", "WSB-T06", "WSB-T07", "WSB-T11"],
+      "expected_files": ["tests/worker/test_command_execution_approval.py", "tests/worker/test_controlled_worker_loop.py", "tests/e2e/worker/test_controlled_loop_flow.py"],
+      "acceptance_criteria": [
+        "Tests cover safe, balanced and fast profile behavior for commands, loops and gating.",
+        "Critical deny cases are invariant across profiles.",
+        "Balanced profile demonstrates lower friction for explicitly low-risk sandbox commands."
+      ]
+    },
+    {
+      "id": "WSB-T17",
+      "title": "Rollout guardrails and feature flags add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T09", "WSB-T16"],
+      "expected_files": ["agent/config_defaults.py", "docs/evolution-rollout.md"],
+      "acceptance_criteria": [
+        "Native balanced worker path is rollout-gated by config flag/profile switch.",
+        "Fallback path remains selectable for recovery.",
+        "Rollback procedure is documented and tested at config level."
+      ]
+    },
+    {
+      "id": "WSB-T18",
+      "title": "Worker profile operations runbook update",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WSB-T17"],
+      "expected_files": ["docs/agent-operations-runbook.md", "docs/worker/README.md", "docs/worker/adapter_configuration.md"],
+      "acceptance_criteria": [
+        "Runbook explains when to use safe, balanced and fast profiles.",
+        "Docs include troubleshooting for blocked/degraded outcomes by profile.",
+        "Docs explain that sandbox != no policy and why hard invariants remain mandatory."
+      ]
+    }
+  ],
+  "execution_order_summary": [
+    "Define profile contract and hard invariants first.",
+    "Implement profile-aware command/patch/budget controls before runtime wiring.",
+    "Integrate native worker path into task-scoped execution with explicit routing metadata.",
+    "Harden schema validation and artifact-sourced prompt handling against injection patterns.",
+    "Add full profile matrix tests before enabling rollout by default.",
+    "Ship docs and operational guidance together with configuration flags."
+  ],
+  "critical_path_tasks": ["WSB-T01", "WSB-T03", "WSB-T05", "WSB-T06", "WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12", "WSB-T16"],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-29T11:20:00+02:00",
+    "total": 18,
+    "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 9, "P1": 7, "P2": 2, "P3": 0},
+    "by_risk": {"low": 3, "medium": 7, "high": 4, "critical": 4},
+    "critical_path": {"total": 9, "done": 0, "remaining": 9},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "The worker can be significantly less strict in sandbox mode, but only after hard invariants are isolated and preserved.",
+    "Balanced should become the practical default for developer productivity, with safe and fast as explicit operational choices.",
+    "This track intentionally focuses on policy-calibration and native path integration, not broad architecture refactors."
+  ]
+}
