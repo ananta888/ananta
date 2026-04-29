@@ -72,6 +72,10 @@ class TaskRoutingContract(SQLModel):
     effective_backend: Optional[str] = None
     requested_backend: Optional[str] = None
     execution_backend: Optional[str] = None
+    worker_runtime_path: Optional[str] = None
+    worker_profile: Optional[str] = None
+    profile_source: Optional[str] = None
+    policy_classification_summary: Optional[str] = None
     execution_mode: Optional[str] = None
     inference_provider: Optional[str] = None
     inference_model: Optional[str] = None

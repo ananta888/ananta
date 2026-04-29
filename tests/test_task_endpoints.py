@@ -61,6 +61,126 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
             assert ((t.get("verification_status") or {}).get("execution_routing") or {}).get("execution_backend")
 
 
+def test_task_propose_records_native_worker_runtime_path_when_enabled(client, app, admin_auth_header):
+    tid = "T-NATIVE-PROPOSE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        worker_runtime = dict(cfg.get("worker_runtime") or {})
+        native_cfg = dict(worker_runtime.get("native_worker_runtime") or {})
+        native_cfg["enabled"] = True
+        worker_runtime["native_worker_runtime"] = native_cfg
+        cfg["worker_runtime"] = worker_runtime
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="Plan native worker command")
+        assert _get_local_task_status(tid) is not None
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
+        mock_cli.return_value = (0, '{"reason":"native plan","command":"python -c \\"print(1)\\""}', "", "ananta-worker")
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "run bounded diagnostics"}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.json["data"]
+    routing = payload.get("routing") or {}
+    assert routing.get("worker_runtime_path") == "native_worker_pipeline"
+    assert routing.get("policy_classification_summary")
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        proposal = dict(task.get("last_proposal") or {})
+        native_runtime = dict((proposal.get("worker_context") or {}).get("native_runtime") or {})
+        assert native_runtime.get("runtime_path") == "native_worker_pipeline"
+        assert ((native_runtime.get("command_plan_artifact") or {}).get("schema")) == "command_plan_artifact.v1"
+
+
+def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, app, admin_auth_header, tmp_path):
+    tid = "T-NATIVE-EXECUTE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+        from worker.shell.command_planner import build_command_plan_artifact
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["worker_runtime"] = {
+            **dict(cfg.get("worker_runtime") or {}),
+            "workspace_root": str(tmp_path),
+            "native_worker_runtime": {
+                **dict(((cfg.get("worker_runtime") or {}).get("native_worker_runtime") or {})),
+                "enabled": True,
+            },
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        command_plan = build_command_plan_artifact(
+            task_id=tid,
+            capability_id="worker.command.plan",
+            command='python -c "print(7)"',
+            explanation="native test",
+            expected_effects=["print output"],
+            policy={"allowlist": ["python"], "approval_required_commands": ["rm"], "denylist_tokens": ["rm -rf /"]},
+            hub_policy_decision="allow",
+            execution_profile="balanced",
+        )
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="Native execute",
+            last_proposal={
+                "reason": "native command",
+                "command": 'python -c "print(7)"',
+                "backend": "ananta-worker",
+                "routing": {
+                    "task_kind": "ops",
+                    "reason": "native_worker",
+                    "worker_runtime_path": "native_worker_pipeline",
+                    "worker_profile": "balanced",
+                    "profile_source": "agent_default",
+                    "policy_classification_summary": "safe:command_allowlisted",
+                },
+                "trace": {"trace_id": "trace-native-exec", "policy_version": "v1"},
+                "worker_context": {
+                    "worker_profile": "balanced",
+                    "profile_source": "agent_default",
+                    "native_runtime": {
+                        "runtime_path": "native_worker_pipeline",
+                        "context_hash": "ctx-native-exec",
+                        "command_plan_artifact": command_plan,
+                    },
+                },
+            },
+            worker_execution_context={
+                "workspace": {
+                    "task_id": tid,
+                    "scope_key": "scope-native-exec",
+                    "worker_job_id": "job-native-exec",
+                }
+            },
+        )
+        assert _get_local_task_status(tid) is not None
+
+    with patch("agent.shell.PersistentShell.execute") as shell_exec:
+        response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+        assert shell_exec.call_count == 0
+
+    assert response.status_code == 200
+    payload = response.json["data"]
+    assert payload["status"] == "completed"
+    assert "Native worker command pipeline executed." in payload["output"]
+    assert payload["failure_type"] == "success"
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        task = _get_local_task_status(tid)
+        latest = (task.get("history") or [])[-1]
+        repair_meta = dict(latest.get("execution_repair") or {})
+        assert repair_meta.get("runtime_path") == "native_worker_pipeline"
+        metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
+        assert metrics.get("worker_profile") == "balanced"
+        assert metrics.get("profile_source") == "agent_default"
+
+
 def test_task_specific_endpoints_old_path_fail(client, admin_auth_header):
     """Verifiziert, dass die alten Pfade nicht mehr funktionieren (404)."""
     tid = "T-123456"
