@@ -48,6 +48,10 @@ SCRIPT
 }
 
 start_host_emulator() {
+  if [[ -x "/tmp/android-sdk/platform-tools/adb" && -x "/tmp/android-sdk/emulator/emulator" ]]; then
+    export PATH="/tmp/android-sdk/platform-tools:/tmp/android-sdk/emulator:$PATH"
+  fi
+
   if ! command -v adb >/dev/null 2>&1 || ! command -v emulator >/dev/null 2>&1; then
     echo "Fehlt adb/emulator auf dem Host. Bitte Android SDK Platform-Tools + Emulator installieren."
     exit 1
