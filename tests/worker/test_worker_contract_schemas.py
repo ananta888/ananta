@@ -20,6 +20,8 @@ RETRIEVAL_INDEX_SCHEMA = ROOT / "schemas" / "worker" / "retrieval_index_contract
 RETRIEVAL_PIPELINE_SCHEMA = ROOT / "schemas" / "worker" / "retrieval_pipeline_contract.v1.json"
 WORKER_CONTEXT_BUNDLE_SCHEMA = ROOT / "schemas" / "worker" / "worker_context_bundle.v1.json"
 STANDALONE_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "standalone_task_contract.v1.json"
+WORKER_TODO_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "worker_todo_contract.v1.json"
+WORKER_TODO_RESULT_SCHEMA = ROOT / "schemas" / "worker" / "worker_todo_result.v1.json"
 PLANNER_STATE_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "planner_state_contract.v1.json"
 
 
@@ -120,6 +122,80 @@ def test_worker_artifact_schemas_validate_examples() -> None:
             "files": ["src/a.py"],
             "diffs": [],
             "control_manifest": {"trace_id": "tr", "capability_id": "worker.command.execute", "context_hash": "ctx"}
+        }),
+        (WORKER_TODO_CONTRACT_SCHEMA, {
+            "schema": "worker_todo_contract.v1",
+            "task_id": "t",
+            "goal_id": "g-1",
+            "trace_id": "tr",
+            "worker": {
+                "executor_kind": "ananta_worker",
+                "worker_profile": "balanced",
+                "profile_source": "task_context"
+            },
+            "todo": {
+                "version": "1.0",
+                "track": "worker-subplan",
+                "tasks": [
+                    {
+                        "id": "todo-1",
+                        "title": "Implement bounded change",
+                        "instructions": "Update module and return artifacts.",
+                        "status": "todo",
+                        "depends_on": [],
+                        "allowed_tools": ["bash", "view"],
+                        "expected_artifacts": [{"kind": "patch_artifact", "required": True}],
+                        "acceptance_criteria": ["Patch generated", "Verification evidence returned"],
+                        "metadata": {}
+                    }
+                ]
+            },
+            "execution": {
+                "mode": "assistant_execute",
+                "runner_prompt": "Execute todo contract in bounded sandbox.",
+                "allowed_tools": ["bash"],
+                "enforce_artifacts": True,
+                "max_steps": 10
+            },
+            "control_manifest": {"trace_id": "tr", "capability_id": "worker.command.execute", "context_hash": "ctx"},
+            "expected_result_schema": "worker_todo_result.v1",
+            "schema_refs": {
+                "todo_schema": "https://ananta.local/schemas/todo.schema.json",
+                "todo_track_schema": "https://ananta.local/schemas/todo.track.schema.json",
+                "todo_result_schema": "https://ananta.local/schemas/worker/worker_todo_result.v1.json"
+            }
+        }),
+        (WORKER_TODO_RESULT_SCHEMA, {
+            "schema": "worker_todo_result.v1",
+            "task_id": "t",
+            "trace_id": "tr",
+            "status": "completed",
+            "reason": "executed",
+            "worker_profile": "balanced",
+            "executor_kind": "ananta_worker",
+            "summary": {
+                "total_items": 1,
+                "completed_items": 1,
+                "failed_items": 0,
+                "blocked_items": 0,
+                "pending_items": 0
+            },
+            "item_results": [
+                {
+                    "item_id": "todo-1",
+                    "status": "completed",
+                    "reason": "executed",
+                    "artifacts": ["artifact:patch_artifact:todo-1"],
+                    "notes": []
+                }
+            ],
+            "artifacts": [
+                {"artifact_type": "command_plan_artifact", "artifact_ref": "command:todo"}
+            ],
+            "verification": {
+                "passed": True,
+                "checks": [{"check_id": "policy_decision", "status": "passed", "detail": "ok"}]
+            }
         }),
         (PLANNER_STATE_CONTRACT_SCHEMA, {
             "schema": "planner_state_contract.v1",

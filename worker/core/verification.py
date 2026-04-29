@@ -23,6 +23,8 @@ _SCHEMA_FILES = {
     "codecompass_output_manifest.v1": "codecompass_output_manifest.v1.json",
     "worker_context_bundle.v1": "worker_context_bundle.v1.json",
     "standalone_task_contract.v1": "standalone_task_contract.v1.json",
+    "worker_todo_contract.v1": "worker_todo_contract.v1.json",
+    "worker_todo_result.v1": "worker_todo_result.v1.json",
     "planner_state_contract.v1": "planner_state_contract.v1.json",
 }
 

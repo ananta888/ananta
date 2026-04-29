@@ -39,3 +39,45 @@ def test_standalone_runtime_executes_core_loop_with_ports() -> None:
     assert result["worker_profile"] == "balanced"
     assert result["artifacts"][0]["schema"] == "command_plan_artifact.v1"
 
+
+def test_standalone_runtime_executes_worker_todo_contract() -> None:
+    runtime = StandaloneRuntime(policy_port=_Policy(), trace_port=_Trace(), artifact_port=_Artifacts())
+    result = runtime.run(
+        task_contract={
+            "schema": "worker_todo_contract.v1",
+            "task_id": "task-todo-1",
+            "goal_id": "goal-1",
+            "trace_id": "trace-1",
+            "worker": {
+                "executor_kind": "ananta_worker",
+                "worker_profile": "balanced",
+                "profile_source": "task_context",
+            },
+            "todo": {
+                "version": "1.0",
+                "track": "worker-subplan",
+                "tasks": [
+                    {
+                        "id": "todo-1",
+                        "title": "Apply fix",
+                        "instructions": "Patch module and run targeted tests.",
+                        "status": "todo",
+                        "expected_artifacts": [{"kind": "patch_artifact", "required": True}],
+                        "acceptance_criteria": ["Patch returned"],
+                    }
+                ],
+            },
+            "execution": {"mode": "assistant_execute", "runner_prompt": "Execute todo."},
+            "control_manifest": {
+                "trace_id": "trace-1",
+                "capability_id": "worker.command.execute",
+                "context_hash": "ctx-1",
+            },
+            "expected_result_schema": "worker_todo_result.v1",
+        },
+        workspace_dir=".",
+    )
+    assert result["schema"] == "worker_todo_result.v1"
+    assert result["status"] == "completed"
+    assert result["summary"]["completed_items"] == 1
+    assert result["item_results"][0]["item_id"] == "todo-1"
