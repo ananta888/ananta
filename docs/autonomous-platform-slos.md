@@ -11,6 +11,10 @@
 - Human intervention ratio
 - Delegation throughput per worker
 - Routing correctness by task type
+- Worker profile success-rate (`safe|balanced|fast`)
+- Worker profile block-rate vs. policy-denied outcomes
+- Worker profile degrade-rate (schema/policy/runtime)
+- Worker profile approval-rate (hub token required/used)
 
 ## Reporting
 Expose metrics in dashboard read-model and trace endpoints.

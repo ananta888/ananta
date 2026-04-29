@@ -50,9 +50,11 @@ from agent.services.domain_action_router import DomainActionRouter
 from agent.services.domain_policy_loader import DomainPolicyLoader
 from agent.services.domain_policy_service import DomainPolicyService
 from agent.services.domain_registry import DomainRegistry
+from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
+from agent.services.task_execution_service import LocalExecutionResult
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.worker_execution_profile_service import (
@@ -433,6 +435,18 @@ class TaskScopedExecutionService:
         tool_calls = request_data.tool_calls
         reason = "Direkte Ausführung"
         used_last_proposal = False
+        proposal_meta = dict(task.get("last_proposal") or {})
+        proposal_routing = dict(proposal_meta.get("routing") or {})
+        proposal_worker_context = dict(proposal_meta.get("worker_context") or {})
+        worker_profile = normalize_worker_execution_profile(
+            proposal_worker_context.get("worker_profile") or proposal_routing.get("worker_profile")
+        )
+        profile_source = str(
+            proposal_worker_context.get("profile_source") or proposal_routing.get("profile_source") or "agent_default"
+        ).strip().lower() or "agent_default"
+        policy_classification_summary = str(
+            proposal_routing.get("policy_classification_summary") or proposal_routing.get("reason") or ""
+        ).strip().lower() or None
 
         if not command and not tool_calls:
             proposal = task.get("last_proposal")
@@ -480,39 +494,79 @@ class TaskScopedExecutionService:
             policy_version=((task.get("last_proposal", {}) or {}).get("trace") or {}).get("policy_version"),
             metadata={"task_id": tid},
         )
-        execution_run = get_core_services().task_execution_service.execute_local_step(
-            tid=tid,
-            task=task,
-            command=command,
-            tool_calls=tool_calls,
-            execution_policy=execution_policy,
-            guard_cfg=agent_cfg,
-            working_directory=str(workspace_ctx.workspace_dir),
-            pipeline=pipeline,
-            exec_started_at=exec_started_at,
-        )
+        native_artifact_refs: list[dict] = []
         execution_repair_meta: dict | None = None
-        if used_last_proposal and cli_runner and self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type):
-            repaired_execution = self._attempt_repaired_execute_after_meta_block(
+        if self._should_use_native_worker_runtime(proposal_meta=proposal_meta, agent_cfg=agent_cfg, command=command):
+            append_stage(
+                pipeline,
+                name="native_worker_execute",
+                status="ok",
+                metadata={"runtime_path": "native_worker_pipeline"},
+            )
+            native_execution = get_native_worker_runtime_service().execute_and_verify_command(
                 tid=tid,
                 task=task,
-                task_kind=task_kind,
-                command=command,
-                execution_output=execution_run.output,
-                execution_policy=execution_policy,
+                command=str(command or ""),
+                trace_id=str(((proposal_meta.get("trace") or {}).get("trace_id") or f"native-exec-{tid}")),
+                worker_profile=worker_profile,
+                profile_source=profile_source,
+                timeout_seconds=int(execution_policy.timeout_seconds),
+                workspace_dir=workspace_ctx.workspace_dir,
+                native_runtime_payload=(proposal_worker_context.get("native_runtime") if isinstance(proposal_worker_context.get("native_runtime"), dict) else {}),
                 agent_cfg=agent_cfg,
-                cli_runner=cli_runner,
-                tool_definitions_resolver=tool_definitions_resolver,
-                pipeline=pipeline,
-                workspace_dir=str(workspace_ctx.workspace_dir),
-                exec_started_at=exec_started_at,
             )
-            if repaired_execution:
-                command = repaired_execution["command"]
-                tool_calls = repaired_execution["tool_calls"]
-                reason = repaired_execution["reason"]
-                execution_run = repaired_execution["execution_run"]
-                execution_repair_meta = repaired_execution["repair_meta"]
+            execution_run = LocalExecutionResult(
+                output=str(native_execution.get("output") or ""),
+                exit_code=int(native_execution.get("exit_code") or 1),
+                retries_used=0,
+                failure_type=str(native_execution.get("failure_type") or "native_worker_runtime"),
+                retry_history=[],
+                status=str(native_execution.get("status") or "failed"),
+                loop_signals=[],
+                loop_detection=None,
+                approval_decision=dict(native_execution.get("approval_decision") or {}),
+            )
+            native_artifact_refs = [ref for ref in list(native_execution.get("artifact_refs") or []) if isinstance(ref, dict)]
+            execution_repair_meta = {
+                "native_worker_runtime": dict(native_execution.get("native_runtime") or {}),
+                "runtime_path": "native_worker_pipeline",
+            }
+            native_policy_summary = str(native_execution.get("policy_classification_summary") or "").strip().lower() or None
+            if native_policy_summary:
+                policy_classification_summary = native_policy_summary
+        else:
+            execution_run = get_core_services().task_execution_service.execute_local_step(
+                tid=tid,
+                task=task,
+                command=command,
+                tool_calls=tool_calls,
+                execution_policy=execution_policy,
+                guard_cfg=agent_cfg,
+                pipeline=pipeline,
+                exec_started_at=exec_started_at,
+                working_directory=str(workspace_ctx.workspace_dir),
+            )
+            if used_last_proposal and cli_runner and self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type):
+                repaired_execution = self._attempt_repaired_execute_after_meta_block(
+                    tid=tid,
+                    task=task,
+                    task_kind=task_kind,
+                    command=command,
+                    execution_output=execution_run.output,
+                    execution_policy=execution_policy,
+                    agent_cfg=agent_cfg,
+                    cli_runner=cli_runner,
+                    tool_definitions_resolver=tool_definitions_resolver,
+                    pipeline=pipeline,
+                    workspace_dir=str(workspace_ctx.workspace_dir),
+                    exec_started_at=exec_started_at,
+                )
+                if repaired_execution:
+                    command = repaired_execution["command"]
+                    tool_calls = repaired_execution["tool_calls"]
+                    reason = repaired_execution["reason"]
+                    execution_run = repaired_execution["execution_run"]
+                    execution_repair_meta = repaired_execution["repair_meta"]
         after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
         changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
         meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
@@ -523,6 +577,7 @@ class TaskScopedExecutionService:
             changed_rel_paths=changed_files,
             sync_cfg=workspace_ctx.artifact_sync,
         )
+        combined_artifact_refs = [*list(workspace_artifact_refs or []), *list(native_artifact_refs or [])]
         execution_duration_ms = int((time.time() - exec_started_at) * 1000)
         proposal_meta = task.get("last_proposal", {}) or {}
         trace = build_trace_record(
@@ -564,12 +619,13 @@ class TaskScopedExecutionService:
             trace=trace,
             pipeline={**pipeline, "trace_id": trace["trace_id"]},
             execution_policy=execution_policy,
-            artifact_refs=workspace_artifact_refs or None,
+            artifact_refs=combined_artifact_refs or None,
             extra_history={
                 "workspace_changed_files": changed_files,
                 "workspace_meaningful_changed_files": meaningful_changed_files,
                 "workspace_dir": str(workspace_ctx.workspace_dir),
                 "workspace_artifact_count": len(workspace_artifact_refs),
+                "native_artifact_count": len(native_artifact_refs),
                 "loop_signals": execution_run.loop_signals,
                 "loop_detection": execution_run.loop_detection,
                 "approval_decision": execution_run.approval_decision,
@@ -580,6 +636,9 @@ class TaskScopedExecutionService:
                     propose_ok=True,
                     execute_ok=execution_run.status == "completed",
                     artifact_created=bool(meaningful_changed_files),
+                    worker_profile=worker_profile,
+                    profile_source=profile_source,
+                    policy_classification=policy_classification_summary,
                 ),
             },
         )
@@ -816,6 +875,7 @@ class TaskScopedExecutionService:
                 "task_kind": task_kind,
                 "effective_backend": effective_backend,
                 "reason": routing_reason,
+                "policy_classification_summary": str(routing_reason or "").strip().lower() or None,
                 "required_capabilities": required_capabilities,
                 "research_specialization": derive_research_specialization(task, task_kind, required_capabilities),
                 **routing_dimensions,
@@ -1196,6 +1256,7 @@ class TaskScopedExecutionService:
             "task_kind": task_kind,
             "effective_backend": effective_backend,
             "reason": routing_reason,
+            "policy_classification_summary": str(routing_reason or "").strip().lower() or None,
             "required_capabilities": required_capabilities,
             "research_specialization": research_specialization,
             **self._routing_dimensions(
@@ -1240,6 +1301,9 @@ class TaskScopedExecutionService:
                     propose_ok=False,
                     execute_ok=None,
                     artifact_created=None,
+                    worker_profile=worker_context_meta.get("worker_profile"),
+                    profile_source=worker_context_meta.get("profile_source"),
+                    policy_classification=str(routing_reason or "").strip().lower() or None,
                 )
                 self._update_task_flow_metrics(tid=tid, task=task, flow_metrics=flow_metrics)
                 return TaskScopedRouteResponse(
@@ -1313,6 +1377,9 @@ class TaskScopedExecutionService:
                         propose_ok=True,
                         execute_ok=None,
                         artifact_created=None,
+                        worker_profile=worker_context_meta.get("worker_profile"),
+                        profile_source=worker_context_meta.get("profile_source"),
+                        policy_classification=str(routing_reason or "").strip().lower() or None,
                     ),
                 },
             )
@@ -1395,6 +1462,9 @@ class TaskScopedExecutionService:
                         propose_ok=True,
                         execute_ok=None,
                         artifact_created=None,
+                        worker_profile=worker_context_meta.get("worker_profile"),
+                        profile_source=worker_context_meta.get("profile_source"),
+                        policy_classification=str(routing_reason or "").strip().lower() or None,
                     ),
                 },
             )
@@ -1454,6 +1524,26 @@ class TaskScopedExecutionService:
                     "model": repaired.get("model"),
                 }
                 command, tool_calls = self._extract_structured_action_fields(raw_res)
+        policy_classification_summary = str(routing_reason or "").strip().lower() or None
+        if backend_used == "ananta-worker" and self._native_worker_runtime_enabled(cfg):
+            native_plan = get_native_worker_runtime_service().prepare_native_command_plan(
+                tid=tid,
+                task=task,
+                command=command,
+                reason=reason,
+                worker_profile=worker_context_meta.get("worker_profile"),
+                profile_source=worker_context_meta.get("profile_source"),
+                trace_id=str((session_payload or {}).get("id") or ""),
+                context_bundle_id=worker_context_meta.get("context_bundle_id"),
+                agent_cfg=cfg,
+            )
+            worker_context_meta.update(dict(native_plan.get("worker_context_updates") or {}))
+            runtime_path = str(native_plan.get("runtime_path") or "").strip().lower()
+            if runtime_path:
+                routing["worker_runtime_path"] = runtime_path
+            policy_classification_summary = str(native_plan.get("policy_classification_summary") or policy_classification_summary or "").strip().lower() or None
+            if policy_classification_summary:
+                routing["policy_classification_summary"] = policy_classification_summary
         append_stage(
             pipeline,
             name="parse",
@@ -1515,6 +1605,9 @@ class TaskScopedExecutionService:
                     propose_ok=True,
                     execute_ok=None,
                     artifact_created=None,
+                    worker_profile=worker_context_meta.get("worker_profile"),
+                    profile_source=worker_context_meta.get("profile_source"),
+                    policy_classification=policy_classification_summary,
                 ),
             },
         )
@@ -1641,6 +1734,9 @@ class TaskScopedExecutionService:
                     propose_ok=True,
                     execute_ok=status == "completed",
                     artifact_created=bool(meaningful_changed_files),
+                    worker_profile=((proposal_meta.get("worker_context") or {}).get("worker_profile") or (proposal_meta.get("routing") or {}).get("worker_profile")),
+                    profile_source=((proposal_meta.get("worker_context") or {}).get("profile_source") or (proposal_meta.get("routing") or {}).get("profile_source")),
+                    policy_classification=str(((proposal_meta.get("routing") or {}).get("policy_classification_summary") or (proposal_meta.get("routing") or {}).get("reason") or "")),
                 ),
             },
         )
@@ -1734,6 +1830,9 @@ class TaskScopedExecutionService:
                     propose_ok=True,
                     execute_ok=True,
                     artifact_created=bool(artifact_ref),
+                    worker_profile=((proposal.get("worker_context") or {}).get("worker_profile") or (proposal.get("routing") or {}).get("worker_profile")),
+                    profile_source=((proposal.get("worker_context") or {}).get("profile_source") or (proposal.get("routing") or {}).get("profile_source")),
+                    policy_classification=str(((proposal.get("routing") or {}).get("policy_classification_summary") or (proposal.get("routing") or {}).get("reason") or "")),
                 ),
             },
         )
@@ -2445,6 +2544,23 @@ class TaskScopedExecutionService:
         runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
         mode = str(runtime_cfg.get("interactive_launch_mode") or "run").strip().lower()
         return mode if mode in {"run", "tui"} else "run"
+
+    @staticmethod
+    def _native_worker_runtime_enabled(agent_cfg: dict | None) -> bool:
+        runtime_cfg = (agent_cfg or {}).get("worker_runtime") if isinstance((agent_cfg or {}).get("worker_runtime"), dict) else {}
+        native_cfg = runtime_cfg.get("native_worker_runtime") if isinstance(runtime_cfg.get("native_worker_runtime"), dict) else {}
+        return bool(native_cfg.get("enabled", False))
+
+    def _should_use_native_worker_runtime(self, *, proposal_meta: dict | None, agent_cfg: dict | None, command: str | None) -> bool:
+        if not str(command or "").strip():
+            return False
+        if not self._native_worker_runtime_enabled(agent_cfg):
+            return False
+        proposal = dict(proposal_meta or {})
+        backend = str(proposal.get("backend") or "").strip().lower()
+        routing = dict(proposal.get("routing") or {})
+        runtime_path = str(routing.get("worker_runtime_path") or "").strip().lower()
+        return backend == "ananta-worker" and runtime_path == "native_worker_pipeline"
 
     def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
         task_record = get_repository_registry().task_repo.get_by_id(tid)
