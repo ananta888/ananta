@@ -17,6 +17,15 @@ ANDROID_IMAGE_VENDOR="${ANANTA_ANDROID_IMAGE_VENDOR:-google_apis}"
 ANDROID_IMAGE="system-images;android-${ANDROID_API_LEVEL};${ANDROID_IMAGE_VENDOR};${ANDROID_ABI}"
 SKIP_EMULATOR_START="${ANANTA_ANDROID_SKIP_EMULATOR_START:-0}"
 
+# Best-effort host fallbacks for local SDK/JDK installs used in this project.
+if [[ -x "/tmp/ananta-toolchain/jdk-17/bin/java" && -z "${JAVA_HOME:-}" ]]; then
+  export JAVA_HOME="/tmp/ananta-toolchain/jdk-17"
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+if [[ -d "/tmp/android-sdk" ]]; then
+  export PATH="/tmp/android-sdk/cmdline-tools/latest/bin:/tmp/android-sdk/platform-tools:/tmp/android-sdk/emulator:$PATH"
+fi
+
 if ! command -v adb >/dev/null 2>&1; then
   echo "adb nicht gefunden. Android SDK Platform-Tools installieren."
   exit 1
