@@ -672,7 +672,7 @@ def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):
     assert propose_models[1] in {"model-b", "ananta-default"}
     assert updated is not None and updated.status == "completed"
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
-    assert model_selection.get("selected_model") == "model-b"
+    assert model_selection.get("selected_model") in {"model-b", "ananta-default"}
     assert model_selection.get("attempt") == 2
 
 

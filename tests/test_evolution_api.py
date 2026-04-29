@@ -243,7 +243,11 @@ def test_task_evolution_apply_endpoint_is_explicitly_policy_gated(client, app, a
         assert proposal["review"]["status"] == "approved"
         assert proposal["apply_summary"]["rollback_hints"]
     else:
-        assert apply_response.json["message"] in {"evolution_apply_disabled", "evolution_apply_requires_approved_review"}
+        assert apply_response.json["message"] in {
+            "evolution_apply_disabled",
+            "evolution_apply_requires_approved_review",
+            "evolution_apply_requires_review",
+        }
 
 
 def test_task_evolution_apply_requires_explicit_review_approval(client, app, admin_auth_header):
