@@ -49,6 +49,9 @@ jobs:
           tests/test_task_state_machine_service.py
           tests/test_agent_endpoints.py::test_contract_catalog_exposes_core_json_schemas
           tests/test_verification_governance.py::TestVerificationGovernance::test_goal_governance_summary_aggregates_policy_and_verification
+      - name: Print backend test-count summary
+        run: |
+          echo "backend_tests_collected=$(pytest --collect-only -q tests | tail -n 1 | sed -n 's/.*\([0-9][0-9]*\) tests collected.*/\1/p')" >> "$GITHUB_STEP_SUMMARY"
 
   backend-compose-image:
     runs-on: ubuntu-latest
@@ -95,6 +98,9 @@ jobs:
         run: npm run lint
       - name: Run frontend unit tests
         run: npm run test:unit
+      - name: Print frontend test-count summary
+        run: |
+          echo "frontend_vitest_files=$(npx vitest list --run | wc -l)" >> "$GITHUB_STEP_SUMMARY"
       - name: Build frontend
         run: npm run build
 

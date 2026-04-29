@@ -278,3 +278,64 @@ def test_orchestration_read_model_exposes_task_dependency_neighborhood(client, a
     assert downstream.id in (neighborhood.get("downstream") or [])
     assert sibling.id in (neighborhood.get("siblings") or [])
     assert upstream.id in (neighborhood.get("related") or [])
+
+
+def test_orchestration_claim_conflict_returns_single_winner(client, auth_header):
+    create = client.post(
+        "/tasks/orchestration/ingest",
+        json={"id": "CLAIM-RACE-1", "description": "race claim validation", "source": "agent", "created_by": "test"},
+        headers=auth_header,
+    )
+    assert create.status_code == 200
+
+    first = client.post(
+        "/tasks/orchestration/claim",
+        json={"task_id": "CLAIM-RACE-1", "agent_url": "http://alpha:5001", "lease_seconds": 60, "idempotency_key": "race-1"},
+        headers=auth_header,
+    )
+    second = client.post(
+        "/tasks/orchestration/claim",
+        json={"task_id": "CLAIM-RACE-1", "agent_url": "http://beta:5002", "lease_seconds": 60, "idempotency_key": "race-2"},
+        headers=auth_header,
+    )
+
+    assert first.status_code == 200
+    assert first.json["data"]["claimed"] is True
+    assert second.status_code == 409
+    assert second.json["message"] == "task_already_leased"
+
+
+def test_orchestration_lease_expiry_allows_reclaim(client, auth_header):
+    create = client.post(
+        "/tasks/orchestration/ingest",
+        json={"id": "CLAIM-LEASE-1", "description": "lease reclaim validation", "source": "agent", "created_by": "test"},
+        headers=auth_header,
+    )
+    assert create.status_code == 200
+
+    first = client.post(
+        "/tasks/orchestration/claim",
+        json={"task_id": "CLAIM-LEASE-1", "agent_url": "http://alpha:5001", "lease_seconds": 10, "idempotency_key": "lease-1"},
+        headers=auth_header,
+    )
+    assert first.status_code == 200
+
+    from agent.repository import task_repo
+
+    task = task_repo.get_by_id("CLAIM-LEASE-1")
+    assert task is not None
+    history = list(task.history or [])
+    lease_event = next(item for item in history if item.get("event_type") == "task_claimed")
+    details = dict(lease_event.get("details") or {})
+    details["lease_until"] = 0
+    lease_event["details"] = details
+    task.history = history
+    task_repo.save(task)
+
+    reclaim = client.post(
+        "/tasks/orchestration/claim",
+        json={"task_id": "CLAIM-LEASE-1", "agent_url": "http://beta:5002", "lease_seconds": 60, "idempotency_key": "lease-2"},
+        headers=auth_header,
+    )
+    assert reclaim.status_code == 200
+    assert reclaim.json["data"]["claimed"] is True

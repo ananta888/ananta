@@ -28,7 +28,7 @@
       ],
       "must_avoid": [
         "full browser E2E on every PR",
-        "full image build gates on every PR",
+        "full release image publish/push gates on every PR",
         "real paid LLM calls in default CI",
         "chaos and long-running concurrency tests"
       ]
@@ -92,8 +92,9 @@
       "jobs": [
         "backend-checks",
         "backend-smoke",
-        "backend-autonomous-flow",
+        "backend-compose-image",
         "frontend-build",
+        "eclipse-runtime-headless",
         "vscode-extension",
         "compose-config",
         "release-gate",
@@ -131,7 +132,7 @@
         "frontend-coverage",
         "coverage-summary"
       ],
-      "todo": true
+      "todo": false
     },
     {
       "name": "Security Abuse Split",
@@ -147,7 +148,7 @@
         "agent-tool-abuse-tests",
         "authz-matrix-tests"
       ],
-      "todo": true
+      "todo": false
     },
     {
       "name": "E2E Compose",
@@ -162,7 +163,7 @@
         "e2e-compose"
       ],
       "todo": true,
-      "notes": "Workflow exists; pending trigger expansion to main and full-ci label."
+      "notes": "Workflow exists; trigger policy now includes main and full-ci label."
     },
     {
       "name": "Chaos And Timeout Tests",
@@ -178,7 +179,7 @@
         "race-condition-tests",
         "failure-recovery-tests"
       ],
-      "todo": true
+      "todo": false
     },
     {
       "name": "Container Pull Smoke",
@@ -193,7 +194,7 @@
       "jobs": [
         "pull-and-smoke"
       ],
-      "todo": true
+      "todo": false
     },
     {
       "name": "Live Provider Smoke",
@@ -314,15 +315,6 @@
           ]
         },
         {
-          "id": "worker-timeout",
-          "title": "Worker timeout handling remains bounded and retry-safe",
-          "acceptance": [
-            "timeout transitions task into bounded failure state",
-            "task remains retryable or escalated explicitly",
-            "test does not leave hanging background work"
-          ]
-        },
-        {
           "id": "research-backend-timeout",
           "title": "Research backend timeout is bounded and auditable",
           "acceptance": [
@@ -432,6 +424,15 @@
             "frontend pipeline prints unit test count summary",
             "isolated flow workflow prints a test-count signal"
           ]
+        },
+        {
+          "id": "ci-depth-strategy-doc-alignment",
+          "title": "Align CI depth strategy docs with actual workflow split",
+          "acceptance": [
+            "CI depth docs match current workflow triggers and ownership",
+            "e2e-compose trigger policy is documented at workflow boundaries",
+            "no stale workflow-location statements remain"
+          ]
         }
       ]
     }
@@ -507,7 +508,7 @@
     "docs/testing.md already documents workflow/test categories; this roadmap keeps only remaining docs tasks.",
     "Keep heavy workflows opt-in or scheduled to protect contributor feedback loop speed."
   ],
-  "version": 2,
+  "version": 3,
   "owner": "ananta888/ananta",
   "track": "test_coverage_ci_roadmap_open_items",
   "goal": "Close remaining CI and test roadmap gaps while preserving fast default development feedback loops.",
@@ -547,7 +548,7 @@
         "security-abuse-workflow-split",
         "endpoint-role-matrix"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M3",
@@ -556,7 +557,6 @@
         "double-claim-same-task",
         "lease-expiry-reclaim",
         "parallel-autopilot-ticks",
-        "worker-timeout",
         "research-backend-timeout",
         "shell-session-crash"
       ],
@@ -579,23 +579,24 @@
         "docker-pull-smoke",
         "e2e-compose-main-trigger"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M6",
       "title": "CI visibility signals",
       "task_ids": [
         "workflow-badges",
-        "test-count-summary"
+        "test-count-summary",
+        "ci-depth-strategy-doc-alignment"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "coverage-backend-pytest-cov",
       "title": "Add backend coverage workflow job and artifact upload",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -606,7 +607,7 @@
     {
       "id": "coverage-frontend-vitest",
       "title": "Add frontend coverage workflow job and artifact upload",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -628,7 +629,7 @@
     {
       "id": "security-abuse-workflow-split",
       "title": "Create dedicated security-abuse workflow",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -639,7 +640,7 @@
     {
       "id": "endpoint-role-matrix",
       "title": "Add endpoint x role authorization matrix tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -650,7 +651,7 @@
     {
       "id": "double-claim-same-task",
       "title": "Prevent duplicate claim winner in parallel task claims",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -661,7 +662,7 @@
     {
       "id": "lease-expiry-reclaim",
       "title": "Allow safe reclaim after lease expiry",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -678,17 +679,6 @@
       "acceptance_criteria": [
         "concurrent tick calls do not duplicate execution",
         "idempotency or lock behavior is asserted"
-      ]
-    },
-    {
-      "id": "worker-timeout",
-      "title": "Ensure worker timeout handling stays bounded and recoverable",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "timeout maps to bounded failure state",
-        "task can be retried or explicitly escalated"
       ]
     },
     {
@@ -727,7 +717,7 @@
     {
       "id": "old-task-read-model-upgrade",
       "title": "Validate legacy task read model compatibility",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -749,7 +739,7 @@
     {
       "id": "docker-pull-smoke",
       "title": "Add post-release GHCR pull and start smoke test workflow",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -760,7 +750,7 @@
     {
       "id": "workflow-badges",
       "title": "Add CI workflow badges in README",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "acceptance_criteria": [
@@ -771,7 +761,7 @@
     {
       "id": "test-count-summary",
       "title": "Add collected test-count summary to CI logs",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "acceptance_criteria": [
@@ -782,12 +772,24 @@
     {
       "id": "e2e-compose-main-trigger",
       "title": "Expand compose E2E trigger policy to main and full-ci label",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
         "compose E2E runs on main branch updates or equivalent protected trigger",
         "compose E2E can be requested by PR full-ci label"
+      ]
+    },
+    {
+      "id": "ci-depth-strategy-doc-alignment",
+      "title": "Align CI depth docs with actual workflow topology",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "docs/ci-test-depth-strategy.md reflects current workflows and triggers",
+        "optional deep checks are documented at their actual workflow files",
+        "no documentation claims e2e-compose is in quality-and-docs when it is not"
       ]
     }
   ],
@@ -795,42 +797,41 @@
     "coverage-backend-pytest-cov",
     "endpoint-role-matrix",
     "double-claim-same-task",
-    "worker-timeout",
     "old-config-upgrade",
     "docker-pull-smoke"
   ],
   "tasks_status_summary": {
     "total": 18,
     "by_status": {
-      "todo": 18,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 0
-    },
-    "progress_percent_done": 0.0,
-    "by_priority": {
-      "P0": 3,
-      "P1": 12,
-      "P2": 3,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 2,
-      "medium": 7,
-      "high": 8,
-      "critical": 1
-    },
-    "critical_path": {
-      "total": 6,
-      "done": 0,
-      "remaining": 6
-    },
-    "milestones": {
-      "total": 6,
       "todo": 6,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 12
+    },
+    "progress_percent_done": 66.67,
+    "by_priority": {
+      "P0": 3,
+      "P1": 11,
+      "P2": 4,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 7,
+      "high": 7,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 5,
+      "done": 4,
+      "remaining": 1
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 3
     }
   },
   "execution_stage_summary": {
@@ -842,8 +843,8 @@
           "coverage-thresholds-later"
         ],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 2,
+        "todo": 1,
         "in_progress": 0,
         "blocked": 0
       },
@@ -853,8 +854,8 @@
           "endpoint-role-matrix"
         ],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -863,13 +864,12 @@
           "double-claim-same-task",
           "lease-expiry-reclaim",
           "parallel-autopilot-ticks",
-          "worker-timeout",
           "research-backend-timeout",
           "shell-session-crash"
         ],
-        "total": 6,
-        "done": 0,
-        "todo": 6,
+        "total": 5,
+        "done": 2,
+        "todo": 3,
         "in_progress": 0,
         "blocked": 0
       },
@@ -880,8 +880,8 @@
           "artifact-memory-upgrade"
         ],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 1,
+        "todo": 2,
         "in_progress": 0,
         "blocked": 0
       },
@@ -891,19 +891,20 @@
           "e2e-compose-main-trigger"
         ],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
       "TEST-M6": {
         "scope_task_ids": [
           "workflow-badges",
-          "test-count-summary"
+          "test-count-summary",
+          "ci-depth-strategy-doc-alignment"
         ],
-        "total": 2,
-        "done": 0,
-        "todo": 2,
+        "total": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       }
@@ -912,6 +913,7 @@
   "summary_notes": [
     "Removed already-implemented items (security boundary tests, frontend golden-path E2E coverage, compose log artifact upload, release image gate split, testing guide matrix).",
     "Roadmap now contains open items only and aligns with current workflow filenames.",
-    "Task-track summary fields were restored for consistency checks and stage progress accounting."
+    "Task-track summary fields were restored for consistency checks and stage progress accounting.",
+    "Updated after codebase validation pass: removed worker-timeout (covered), added CI depth doc alignment task."
   ]
 }
