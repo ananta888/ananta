@@ -2,7 +2,7 @@
   "version": 1,
   "owner": "ananta",
   "track": "worker_sandbox_balanced_execution",
-  "purpose": "Develop a pragmatic worker safety model for sandboxed, artifact-scoped execution: keep only non-negotiable invariants hard, reduce unnecessary friction, and provide explicit profiles (safe, balanced, fast) that preserve hub ownership, traceability and reliability. Execution is fully automated with no interactive user-in-the-loop steps.",
+  "purpose": "Develop a pragmatic worker safety model for sandboxed, artifact-scoped execution: keep only non-negotiable invariants hard, reduce unnecessary friction, and provide explicit profiles (safe, balanced, fast) that preserve hub ownership, traceability and reliability. Execution is fully automated with no interactive user-in-the-loop steps and uses incremental retrieval plus stepwise planning instead of full-repository prompt dumps.",
   "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
@@ -11,6 +11,7 @@
     "Worker runs in a sandbox/worktree and does not own orchestration decisions.",
     "Hub prepares bounded context/artifacts and remains control-plane owner.",
     "Worker returns artifacts/results back to hub; mutation paths remain policy-governed.",
+    "Primary payload model is files and diffs; small manifests carry only control metadata and contracts.",
     "Execution is fully automated: no manual user prompts, confirmations or runtime interventions.",
     "Sandbox isolation alone is insufficient against prompt-injection-style instruction poisoning and hidden quality drift."
   ],
@@ -31,7 +32,8 @@
     "Do not allow worker-to-worker orchestration.",
     "Do not permit unbounded repository execution context.",
     "Do not silently treat degraded or denied outcomes as success.",
-    "Do not make optional external adapters required for baseline worker path."
+    "Do not make optional external adapters required for baseline worker path.",
+    "Do not split core behavior into incompatible hub and standalone implementations."
   ],
   "success_criteria": [
     "Balanced profile becomes the default and measurably reduces blocked-but-safe executions.",
@@ -40,6 +42,9 @@
     "Native worker path is integrated end-to-end for propose/execute/verify flow where configured.",
     "Worker profile selection and policy decisions are visible in task history and read models.",
     "Prompt-injection-like artifact inputs are explicitly degraded/blocked with machine-readable reasons.",
+    "Worker uses incremental retrieval/indexing so only relevant context chunks are loaded per step, not the full repository by default.",
+    "Worker maintains a task-local plan artifact (plan.md or equivalent structured form) and executes steps iteratively with bounded budgets.",
+    "Worker can run as a standalone package/CLI with file and diff artifacts plus a minimal control manifest, without requiring the full ananta stack.",
     "No execution path requires interactive user action; all gating is machine-decided by policy and contracts.",
     "Regression and e2e tests cover safe, balanced and fast profiles."
   ],
@@ -72,6 +77,18 @@
       "id": "WSB-M5",
       "title": "Testing, rollout and documentation",
       "task_ids": ["WSB-T16", "WSB-T17", "WSB-T18"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M6",
+      "title": "Incremental retrieval and planning loop",
+      "task_ids": ["WSB-T19", "WSB-T20", "WSB-T21", "WSB-T22"],
+      "status": "todo"
+    },
+    {
+      "id": "WSB-M7",
+      "title": "Standalone worker packaging and runtime",
+      "task_ids": ["WSB-T23", "WSB-T24", "WSB-T25", "WSB-T26"],
       "status": "todo"
     }
   ],
@@ -349,31 +366,159 @@
         "Docs explain that sandbox != no policy and why hard invariants remain mandatory.",
         "Docs state that the worker execution flow is fully automated and user intervention is not part of runtime control."
       ]
+    },
+    {
+      "id": "WSB-T19",
+      "title": "Embedding provider abstraction and index contract add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T03"],
+      "expected_files": ["worker/retrieval/index_contract.py", "worker/retrieval/embedding_provider.py", "schemas/worker/retrieval_index_contract.v1.json", "docs/worker/retrieval_and_indexing.md"],
+      "acceptance_criteria": [
+        "Index contract defines chunk metadata, embedding version, source path and content hash fields.",
+        "Embedding provider is abstraction-based so local/open-source and hosted providers can be swapped without core loop changes.",
+        "Contract validation rejects stale or malformed index entries explicitly."
+      ]
+    },
+    {
+      "id": "WSB-T20",
+      "title": "Incremental repository indexing strategy implement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T19"],
+      "expected_files": ["worker/retrieval/index_builder.py", "worker/retrieval/chunking.py", "worker/retrieval/index_store.py", "tests/worker/test_retrieval_indexing.py"],
+      "acceptance_criteria": [
+        "Indexing supports bootstrap plus incremental refresh by changed files/content hash.",
+        "Chunking strategy is deterministic and language-aware where available.",
+        "Repository-wide full-context send is disabled by default in favor of indexed retrieval."
+      ]
+    },
+    {
+      "id": "WSB-T21",
+      "title": "Budgeted retrieval and reranking pipeline integrate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T20", "WSB-T08"],
+      "expected_files": ["worker/coding/file_selection.py", "worker/coding/prompt_assembly.py", "worker/retrieval/retrieval_service.py", "tests/worker/test_rag_file_selection.py"],
+      "acceptance_criteria": [
+        "Retrieval pipeline ranks candidates by task relevance and enforces profile-specific file/byte/token budgets.",
+        "Context expansion is iterative: retrieve, attempt step, verify, then retrieve more only when needed.",
+        "Trace includes retrieval decisions (selected paths/chunks and exclusion reasons) for auditability."
+      ]
+    },
+    {
+      "id": "WSB-T22",
+      "title": "Task-local plan artifact and stepwise execution loop add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T21", "WSB-T07"],
+      "expected_files": ["worker/loop/controlled_worker_loop.py", "worker/core/plan_artifact.py", "tests/e2e/worker/test_controlled_loop_flow.py", "docs/worker/plan_and_execution_flow.md"],
+      "acceptance_criteria": [
+        "Worker creates and updates a task-local plan artifact (plan.md or machine-readable equivalent) during execution.",
+        "Execution progresses step-by-step against the current plan with explicit step state transitions.",
+        "Plan updates are automatic and non-interactive; no user confirmation is required during runtime."
+      ]
+    },
+    {
+      "id": "WSB-T23",
+      "title": "Standalone mode boundary contract define",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "blocking": true,
+      "depends_on": ["WSB-T01", "WSB-T03"],
+      "expected_files": ["schemas/worker/standalone_task_contract.v1.json", "docs/worker/standalone_mode.md", "worker/core/ports.py"],
+      "acceptance_criteria": [
+        "Boundary between worker core and hub integration is explicitly defined via ports/contracts.",
+        "Standalone contract supports file and diff payloads with minimal control metadata.",
+        "Core runtime path does not require hub database/session internals."
+      ]
+    },
+    {
+      "id": "WSB-T24",
+      "title": "Hub integration adapters refactor behind worker ports",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["WSB-T23", "WSB-T09"],
+      "expected_files": ["worker/core/ports.py", "worker/runtime/standalone_runtime.py", "agent/services/worker_contract_service.py", "tests/worker/test_standalone_runtime.py"],
+      "acceptance_criteria": [
+        "Worker core loop depends on abstractions, not direct hub service imports.",
+        "Existing hub-integrated runtime remains supported via adapters.",
+        "Standalone runtime executes the same core loop with injected policy/trace interfaces."
+      ]
+    },
+    {
+      "id": "WSB-T25",
+      "title": "Standalone CLI and container runtime add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["WSB-T24", "WSB-T21"],
+      "expected_files": ["worker/cli/standalone_worker_cli.py", "Dockerfile.worker-standalone", "docs/worker/standalone_quickstart.md", "Makefile"],
+      "acceptance_criteria": [
+        "CLI executes fully non-interactive against a workspace plus control manifest.",
+        "CLI supports safe/balanced/fast profiles and retrieval/index configuration.",
+        "Run output includes machine-readable result and artifact manifest (diffs, traces, degraded reasons)."
+      ]
+    },
+    {
+      "id": "WSB-T26",
+      "title": "Standalone compatibility and e2e flow tests add",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "blocking": false,
+      "depends_on": ["WSB-T25", "WSB-T16"],
+      "expected_files": ["tests/e2e/worker/test_standalone_worker_flow.py", "data_test_e2e/worker_standalone/", "docs/worker/standalone_mode.md"],
+      "acceptance_criteria": [
+        "Tests cover both greenfield project bootstrap and existing-project continuation flows.",
+        "Standalone mode emits the same critical trace/degradation semantics as hub mode.",
+        "Docs list constraints, migration path and compatibility expectations between standalone and hub execution."
+      ]
     }
   ],
   "execution_order_summary": [
     "Define profile contract and hard invariants first.",
+    "Introduce embedding/index contracts and incremental indexing before broad retrieval usage.",
     "Implement profile-aware command/patch/budget controls before runtime wiring.",
+    "Integrate budgeted retrieval and reranking to keep context minimal and relevant per step.",
     "Integrate native worker path into task-scoped execution with explicit routing metadata.",
+    "Define standalone boundary contracts and extract hub-specific integrations behind adapters.",
     "Harden schema validation and artifact-sourced prompt handling against injection patterns.",
+    "Add task-local plan artifact support for iterative planning and stepwise automated execution.",
+    "Provide standalone CLI/container entrypoints that run the same core loop non-interactively.",
     "Add full profile matrix tests before enabling rollout by default.",
     "Ship docs and operational guidance together with configuration flags."
   ],
-  "critical_path_tasks": ["WSB-T01", "WSB-T03", "WSB-T05", "WSB-T06", "WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12", "WSB-T16"],
+  "critical_path_tasks": ["WSB-T01", "WSB-T03", "WSB-T05", "WSB-T06", "WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12", "WSB-T16", "WSB-T19", "WSB-T20", "WSB-T21", "WSB-T22", "WSB-T23", "WSB-T24", "WSB-T25"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T11:31:00+02:00",
-    "total": 18,
-    "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
+    "updated_at": "2026-04-29T11:39:00+02:00",
+    "total": 26,
+    "by_status": {"todo": 26, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 9, "P1": 7, "P2": 2, "P3": 0},
-    "by_risk": {"low": 3, "medium": 7, "high": 4, "critical": 4},
-    "critical_path": {"total": 9, "done": 0, "remaining": 9},
-    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_priority": {"P0": 13, "P1": 11, "P2": 2, "P3": 0},
+    "by_risk": {"low": 4, "medium": 11, "high": 7, "critical": 4},
+    "critical_path": {"total": 16, "done": 0, "remaining": 16},
+    "milestones": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "summary_notes": [
     "The worker can be significantly less strict in sandbox mode, but only after hard invariants are isolated and preserved.",
     "Balanced should become the practical default for developer productivity, with safe and fast as explicit operational choices.",
     "The target operating model is explicitly no-user-in-loop: decisions are policy-driven and machine-enforced.",
+    "Retrieval should be incremental and index-driven (embedding-backed), so the LLM receives only relevant context instead of full repository payloads.",
+    "Planning should be explicit and stepwise via a task-local plan artifact that is updated automatically during execution.",
+    "The worker should be consumable standalone via stable contracts and adapters, while preserving one shared core execution loop.",
     "This track intentionally focuses on policy-calibration and native path integration, not broad architecture refactors."
   ]
 }
