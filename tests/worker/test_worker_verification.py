@@ -64,6 +64,39 @@ def test_schema_validation_passes_for_valid_worker_request() -> None:
     )
 
 
+def test_schema_validation_passes_for_valid_worker_todo_contract() -> None:
+    validate_worker_schema_payload(
+        schema_name="worker_todo_contract.v1",
+        payload={
+            "schema": "worker_todo_contract.v1",
+            "task_id": "AW-TODO-1",
+            "goal_id": "G1",
+            "trace_id": "tr-1",
+            "worker": {
+                "executor_kind": "ananta_worker",
+                "worker_profile": "balanced",
+                "profile_source": "task_context",
+            },
+            "todo": {
+                "version": "1.0",
+                "track": "worker-subplan",
+                "tasks": [
+                    {
+                        "id": "todo-1",
+                        "title": "Prepare change",
+                        "instructions": "Implement requested fix and return patch artifact.",
+                        "status": "todo",
+                        "acceptance_criteria": ["Patch created"],
+                    }
+                ],
+            },
+            "execution": {"mode": "assistant_execute", "runner_prompt": "Run worker todo contract"},
+            "control_manifest": {"trace_id": "tr-1", "capability_id": "worker.command.execute", "context_hash": "ctx-1"},
+            "expected_result_schema": "worker_todo_result.v1",
+        },
+    )
+
+
 def test_schema_validation_returns_degraded_payload_on_invalid_input() -> None:
     ok, degraded = validate_worker_schema_or_degraded(
         schema_name="worker_execution_request.v1",

@@ -19,6 +19,9 @@
 }
 ```
 
+Optional (Hub -> Worker Subplan) kann statt `standalone_task_contract.v1` ein
+`worker_todo_contract.v1` mit feingranularen Todo-Items verwendet werden.
+
 ## 2) CLI ausführen
 
 ```bash
@@ -36,3 +39,4 @@ Ausgabe enthält:
 - `artifacts` (maschinenlesbare Artefaktliste)
 - `trace_events` (chronologische Laufzeitereignisse)
 
+Für `worker_todo_contract.v1` folgt `result` dem Schema `worker_todo_result.v1`.

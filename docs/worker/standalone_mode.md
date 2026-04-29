@@ -7,8 +7,10 @@ Standalone erlaubt die Nutzung des Workers ohne kompletten Hub-Stack, mit stabil
 ## Boundary Contract
 
 - Eingabe: `standalone_task_contract.v1`
+- Optional für Hub->Worker-Subplans: `worker_todo_contract.v1` (feingranulare Todo-Liste je Worker)
 - Minimale Kontrollfelder: `trace_id`, `capability_id`, `context_hash`
 - Payload bleibt artefaktzentriert (`files`, `diffs`, `command`)
+- Ergebnis für Todo-Subplans: `worker_todo_result.v1` (Item-Status, Artefakte, Verifikation)
 
 ## Architektur
 
@@ -21,4 +23,3 @@ Standalone erlaubt die Nutzung des Workers ohne kompletten Hub-Stack, mit stabil
 - Gleiche degradierte Gründe und Tracesemantik wie im integrierten Modus
 - Migration: Hub-Modus <-> Standalone über denselben Core-Loop
 - Kein User-in-the-loop zur Laufzeit
-

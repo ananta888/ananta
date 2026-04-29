@@ -138,6 +138,144 @@ class WorkerContractService:
             },
         }
 
+    def build_worker_todo_contract(
+        self,
+        *,
+        task_id: str,
+        goal_id: str,
+        trace_id: str,
+        capability_id: str,
+        context_hash: str,
+        executor_kind: str,
+        worker_profile: str | None,
+        tasks: list[dict] | None,
+        track: str = "worker_subplan",
+        todo_version: str = "1.0",
+        parent_task_id: str | None = None,
+        profile_source: str = "task_context",
+        target_worker: str | None = None,
+        milestones: list[dict] | None = None,
+        status_scale: list[str] | None = None,
+        priority_scale: list[str] | None = None,
+        risk_scale: list[str] | None = None,
+        command: str | None = None,
+        runner_prompt: str | None = None,
+        mode: str = "assistant_execute",
+        workspace_dir: str | None = None,
+        allowed_tools: list[str] | None = None,
+        enforce_artifacts: bool = True,
+        max_steps: int = 20,
+    ) -> dict:
+        normalized_profile = normalize_worker_execution_profile(worker_profile)
+        normalized_executor = str(executor_kind or "").strip().lower() or "custom"
+        if normalized_executor not in {"ananta_worker", "opencode", "openai_codex_cli", "custom"}:
+            normalized_executor = "custom"
+        normalized_profile_source = str(profile_source or "task_context").strip().lower() or "task_context"
+        if normalized_profile_source not in {"agent_default", "task_context", "task_override", "runtime_override"}:
+            normalized_profile_source = "task_context"
+        normalized_tasks: list[dict] = []
+        for item in list(tasks or []):
+            if not isinstance(item, dict):
+                continue
+            task_item_id = str(item.get("id") or "").strip()
+            title = str(item.get("title") or "").strip()
+            instructions = str(item.get("instructions") or item.get("description") or "").strip()
+            if not task_item_id or not title or not instructions:
+                continue
+            normalized_expected_artifacts = []
+            for artifact in list(item.get("expected_artifacts") or []):
+                if not isinstance(artifact, dict):
+                    continue
+                kind = str(artifact.get("kind") or "").strip()
+                if not kind:
+                    continue
+                normalized_expected_artifacts.append(
+                    {
+                        "kind": kind,
+                        "required": bool(artifact.get("required", True)),
+                        **({"description": str(artifact.get("description")).strip()} if str(artifact.get("description") or "").strip() else {}),
+                    }
+                )
+            normalized_tasks.append(
+                {
+                    "id": task_item_id,
+                    "title": title,
+                    "instructions": instructions,
+                    "status": str(item.get("status") or "todo").strip().lower() or "todo",
+                    **({"priority": str(item.get("priority")).strip()} if str(item.get("priority") or "").strip() else {}),
+                    **({"risk": str(item.get("risk")).strip()} if str(item.get("risk") or "").strip() else {}),
+                    "depends_on": [str(dep).strip() for dep in list(item.get("depends_on") or item.get("dependencies") or []) if str(dep).strip()],
+                    "allowed_tools": normalize_allowed_tools(item.get("allowed_tools") or allowed_tools),
+                    "expected_artifacts": normalized_expected_artifacts,
+                    "acceptance_criteria": [
+                        str(criterion).strip()
+                        for criterion in list(item.get("acceptance_criteria") or item.get("acceptance") or [])
+                        if str(criterion).strip()
+                    ]
+                    or ["Task requirements satisfied and expected artifacts returned."],
+                    "metadata": dict(item.get("metadata") or {}),
+                }
+            )
+        if not normalized_tasks:
+            normalized_tasks = [
+                {
+                    "id": f"{str(task_id or '').strip()}:execute",
+                    "title": "Execute delegated task contract",
+                    "instructions": "Execute the delegated task and return required artifacts.",
+                    "status": "todo",
+                    "depends_on": [],
+                    "allowed_tools": normalize_allowed_tools(allowed_tools),
+                    "expected_artifacts": [],
+                    "acceptance_criteria": ["Execution completed and response schema filled."],
+                    "metadata": {},
+                }
+            ]
+        normalized_mode = str(mode or "assistant_execute").strip().lower() or "assistant_execute"
+        if normalized_mode not in {"command_execute", "assistant_execute", "plan_only"}:
+            normalized_mode = "assistant_execute"
+        return {
+            "schema": "worker_todo_contract.v1",
+            "task_id": str(task_id or "").strip(),
+            "goal_id": str(goal_id or "").strip(),
+            **({"parent_task_id": str(parent_task_id).strip()} if str(parent_task_id or "").strip() else {}),
+            "trace_id": str(trace_id or "").strip(),
+            "worker": {
+                "executor_kind": normalized_executor,
+                "worker_profile": normalized_profile,
+                "profile_source": normalized_profile_source,
+                **({"target_worker": str(target_worker).strip()} if str(target_worker or "").strip() else {}),
+            },
+            "todo": {
+                "version": str(todo_version or "1.0").strip() or "1.0",
+                "track": str(track or "worker_subplan").strip() or "worker_subplan",
+                "status_scale": list(status_scale or ["todo", "in_progress", "blocked", "done"]),
+                "priority_scale": list(priority_scale or ["critical", "high", "medium", "low"]),
+                "risk_scale": list(risk_scale or ["high", "medium", "low"]),
+                "milestones": [dict(item) for item in list(milestones or []) if isinstance(item, dict)],
+                "tasks": normalized_tasks,
+            },
+            "execution": {
+                "mode": normalized_mode,
+                **({"command": str(command).strip()} if str(command or "").strip() else {}),
+                **({"runner_prompt": str(runner_prompt).strip()} if str(runner_prompt or "").strip() else {}),
+                **({"workspace_dir": str(workspace_dir).strip()} if str(workspace_dir or "").strip() else {}),
+                "allowed_tools": normalize_allowed_tools(allowed_tools),
+                "enforce_artifacts": bool(enforce_artifacts),
+                "max_steps": max(1, min(int(max_steps or 1), 200)),
+            },
+            "control_manifest": {
+                "trace_id": str(trace_id or "").strip(),
+                "capability_id": str(capability_id or "").strip(),
+                "context_hash": str(context_hash or "").strip(),
+            },
+            "expected_result_schema": "worker_todo_result.v1",
+            "schema_refs": {
+                "todo_schema": "https://ananta.local/schemas/todo.schema.json",
+                "todo_track_schema": "https://ananta.local/schemas/todo.track.schema.json",
+                "todo_result_schema": "https://ananta.local/schemas/worker/worker_todo_result.v1.json",
+            },
+        }
+
 
 worker_contract_service = WorkerContractService()
 

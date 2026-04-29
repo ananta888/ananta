@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_todo_result.v1.json",
+  "title": "Ananta Worker Todo Result v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "task_id",
+    "trace_id",
+    "status",
+    "worker_profile",
+    "executor_kind",
+    "summary",
+    "item_results",
+    "artifacts",
+    "verification"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "worker_todo_result.v1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "blocked",
+        "degraded",
+        "approval_required"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worker_profile": {
+      "type": "string",
+      "enum": [
+        "safe",
+        "balanced",
+        "fast"
+      ]
+    },
+    "executor_kind": {
+      "type": "string",
+      "enum": [
+        "ananta_worker",
+        "opencode",
+        "openai_codex_cli",
+        "custom"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_items",
+        "completed_items",
+        "failed_items",
+        "blocked_items",
+        "pending_items"
+      ],
+      "properties": {
+        "total_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending_items": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "item_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "status",
+          "artifacts"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "blocked",
+              "pending",
+              "skipped"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact_type",
+          "artifact_ref"
+        ],
+        "properties": {
+          "artifact_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "passed",
+        "checks"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "check_id",
+              "status"
+            ],
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "skipped"
+                ]
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
