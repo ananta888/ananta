@@ -1,333 +1,338 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "bootstrap_installers_and_in_system_update",
-  "purpose": "Provide simple one-file bootstrap installers for Windows 11, Ubuntu/Linux and macOS plus an in-system `ananta update` command. The goal is easy OSS onboarding without requiring users to manually understand venv, editable installs or Docker before they can run `ananta`.",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "track": "core_boundary_plugin_architecture",
+  "purpose": "Implement and enforce the core-boundary/provider-plugin architecture described in docs/decisions/ADR-core-boundary-and-provider-plugins.md so Ananta can grow integrations such as Blender, KiCad, FreeCAD, workflow automation providers, MCP, Evolver, DeerFlow and worker backends without turning the Hub/Core into a Medusa.",
+  "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
+  "core_allowed_concepts": [
+    "Task",
+    "Goal",
+    "Plan",
+    "PlanNode",
+    "Artifact",
+    "Capability",
+    "Policy",
+    "Approval",
+    "Audit",
+    "Worker",
+    "Adapter/Provider contracts",
+    "Runtime profile"
+  ],
+  "core_forbidden_direct_knowledge": [
+    "Blender scene internals",
+    "KiCad netlist internals",
+    "FreeCAD constraint internals",
+    "n8n/Node-RED/Activepieces workflow internals",
+    "GitHub/Jira/Confluence provider internals",
+    "OpenCode/Aider/Copilot-specific execution details",
+    "Evolver/DeerFlow provider-specific result internals"
+  ],
   "non_goals": [
-    "Do not silently install Docker, Podman, Ollama or paid/cloud providers.",
-    "Do not overwrite user config, secrets or local repository changes without explicit confirmation.",
-    "Do not make bootstrap scripts a second runtime configuration system; they should delegate to `ananta init` and runtime profiles.",
-    "Do not require global Python package installation when a local venv is sufficient.",
-    "Do not execute arbitrary remote code beyond the explicitly downloaded installer script without showing what is happening."
+    "Do not remove existing useful integrations just because they are not perfect yet.",
+    "Do not build a heavy plugin marketplace or dynamic code-loading system in this track.",
+    "Do not move policy, approval, audit or task state into providers.",
+    "Do not make optional providers required for local-dev startup or core tests.",
+    "Do not allow provider-specific code to bypass Hub-owned capabilities and policy checks."
   ],
   "success_criteria": [
-    "Windows users can download one PowerShell script and get a working `ananta` command.",
-    "Ubuntu/Linux and macOS users can download one Bash script and get a working `ananta` command.",
-    "Installers are idempotent: rerunning updates or repairs an existing install instead of corrupting it.",
-    "`ananta update` updates the checked-out project, refreshes dependencies and runs a smoke check.",
-    "Local-dev remains the default and does not require Docker.",
-    "Docs show safe download-and-run and safer download-inspect-run variants."
+    "Provider-specific logic lives behind explicit provider interfaces and factories/registries.",
+    "Core startup and core tests pass with optional providers disabled or missing.",
+    "Domain graph providers output provider-neutral DomainGraphArtifact objects.",
+    "Workflow automation providers output provider-neutral WorkflowIntegrationRunArtifact objects.",
+    "Worker execution providers output provider-neutral WorkerResult/Patch/Artifact contracts.",
+    "Research/evolution providers output provider-neutral run/proposal artifacts.",
+    "Release gate detects obvious provider-specific imports leaking into core modules.",
+    "Docs explain how to add a provider without touching core orchestration."
   ],
   "milestones": [
-    {
-      "id": "BOOT-M1",
-      "title": "One-file bootstrap installers",
-      "task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"],
-      "status": "done"
-    },
-    {
-      "id": "BOOT-M2",
-      "title": "In-system update command",
-      "task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"],
-      "status": "done"
-    },
-    {
-      "id": "BOOT-M3",
-      "title": "Docs and smoke tests",
-      "task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"],
-      "status": "done"
-    }
+    {"id": "CBP-M1", "title": "Boundary inventory and contracts", "task_ids": ["CBP-T01", "CBP-T02", "CBP-T03"], "status": "done"},
+    {"id": "CBP-M2", "title": "Provider registries and mock providers", "task_ids": ["CBP-T04", "CBP-T05", "CBP-T06", "CBP-T17"], "status": "done"},
+    {"id": "CBP-M3", "title": "Provider-neutral artifacts", "task_ids": ["CBP-T08", "CBP-T09", "CBP-T10"], "status": "done"},
+    {"id": "CBP-M4", "title": "Core import enforcement", "task_ids": ["CBP-T11", "CBP-T12", "CBP-T13"], "status": "done"},
+    {"id": "CBP-M5", "title": "Docs and migration path", "task_ids": ["CBP-T14", "CBP-T15", "CBP-T16"], "status": "done"}
   ],
   "tasks": [
     {
-      "id": "BOOT-T01",
-      "title": "Windows PowerShell bootstrap installer add",
+      "id": "CBP-T01",
+      "title": "Provider coupling inventory add",
       "status": "done",
       "priority": "P0",
-      "risk": "high",
+      "risk": "medium",
       "blocking": true,
       "depends_on": [],
-      "expected_files": [
-        "scripts/install-ananta.ps1",
-        "tests/test_bootstrap_docs.py"
-      ],
+      "expected_files": ["docs/architecture/provider-coupling-inventory.md"],
       "acceptance_criteria": [
-        "Script supports Windows 11 PowerShell.",
-        "Script checks for Python and Git and prints actionable install hints if missing.",
-        "Script clones or updates the Ananta repository into a user-visible install directory.",
-        "Script creates or reuses a local .venv and runs `pip install -e .`.",
-        "Script verifies `ananta --help` and prints next commands.",
-        "Script does not require Docker and does not install Docker automatically."
+        "Inventory lists current direct references/imports to provider-specific systems in core-ish modules.",
+        "Inventory covers Blender/FreeCAD/KiCad, workflow automation, worker execution backends, MCP, Evolver, DeerFlow and Git provider integrations where present.",
+        "Inventory classifies each coupling as acceptable adapter code, suspicious core leak or deferred/unknown.",
+        "Inventory proposes target provider family for each suspicious coupling."
       ]
     },
     {
-      "id": "BOOT-T02",
-      "title": "Linux and macOS Bash bootstrap installer add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [],
-      "expected_files": [
-        "scripts/install-ananta.sh",
-        "tests/test_bootstrap_docs.py"
-      ],
-      "acceptance_criteria": [
-        "Script supports Ubuntu/Debian-style Linux and macOS/Darwin.",
-        "Script detects OS via uname and prints platform-specific hints for missing Python/Git.",
-        "Script clones or updates the Ananta repository into a user-visible install directory.",
-        "Script creates or reuses a local .venv and runs `pip install -e .`.",
-        "Script verifies `ananta --help` and prints next commands.",
-        "Script does not require Docker/Podman and does not install them automatically."
-      ]
-    },
-    {
-      "id": "BOOT-T03",
-      "title": "Installer options and idempotency add",
+      "id": "CBP-T02",
+      "title": "Core package boundary definition add",
       "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
-      "depends_on": ["BOOT-T01", "BOOT-T02"],
-      "expected_files": [
-        "scripts/install-ananta.ps1",
-        "scripts/install-ananta.sh"
-      ],
+      "depends_on": ["CBP-T01"],
+      "expected_files": ["docs/architecture/core-boundary.md", "tests/test_core_boundary_definition.py"],
       "acceptance_criteria": [
-        "Installers support install directory override.",
-        "Installers support branch/tag override with safe defaults to main.",
-        "Installers detect existing clone and update it safely.",
-        "Installers refuse or warn on dirty working tree unless explicit force/update flag is used.",
-        "Installers can be rerun without duplicating venvs or breaking existing config."
+        "Document defines which packages/modules count as Core, Provider Interface, Provider Implementation and Client Adapter.",
+        "Document explicitly maps existing modules into those zones where feasible.",
+        "Tests or static checks can read the boundary configuration.",
+        "Boundary definition is conservative and does not require immediate full migration."
       ]
     },
     {
-      "id": "BOOT-T04",
-      "title": "Post-install init handoff add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": ["BOOT-T03", "todo.unified-cli.json:CLI-T03"],
-      "expected_files": [
-        "scripts/install-ananta.ps1",
-        "scripts/install-ananta.sh",
-        "docs/setup/bootstrap-install.md"
-      ],
-      "acceptance_criteria": [
-        "Installers offer or print `ananta init` as the next step.",
-        "Installers show examples for local-dev Ollama and OpenAI-compatible setup.",
-        "Installers do not store API keys themselves.",
-        "Installers clearly distinguish install from runtime initialization."
-      ]
-    },
-    {
-      "id": "BOOT-T05",
-      "title": "ananta update command add",
+      "id": "CBP-T03",
+      "title": "Provider interface package skeleton add",
       "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
-      "depends_on": ["todo.unified-cli.json:CLI-T01"],
-      "expected_files": [
-        "agent/cli/update.py",
-        "agent/cli/main.py",
-        "tests/test_ananta_update_command.py"
-      ],
+      "depends_on": ["CBP-T02"],
+      "expected_files": ["agent/providers/__init__.py", "agent/providers/interfaces.py", "tests/test_provider_interfaces.py"],
       "acceptance_criteria": [
-        "`ananta update` exists and supports `--help`.",
-        "Command detects the Ananta install directory and current git branch/commit.",
-        "Command refuses to update dirty working trees unless an explicit flag is used.",
-        "Command fetches/pulls the configured branch/tag safely.",
-        "Command refreshes Python dependencies in the active or detected venv.",
-        "Command runs `ananta --help` or equivalent smoke check after update."
+        "Adds stable interfaces/protocols for provider registration and health/status reporting.",
+        "Interfaces are provider-neutral and do not import n8n, Blender, KiCad, FreeCAD, OpenCode or similar provider-specific packages.",
+        "Includes common ProviderDescriptor fields: provider_id, provider_family, capabilities, risk_class, enabled_by_default=false.",
+        "Tests verify interface objects can be imported without optional provider dependencies."
       ]
     },
     {
-      "id": "BOOT-T06",
-      "title": "Update rollback and checkpoint guidance add",
+      "id": "CBP-T04",
+      "title": "Generic provider registry add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CBP-T03"],
+      "expected_files": ["agent/providers/registry.py", "tests/test_provider_registry.py"],
+      "acceptance_criteria": [
+        "Registry supports registering provider descriptors and provider factories by family.",
+        "Unknown providers are disabled/unavailable by default.",
+        "Registry can report missing optional dependency as degraded instead of failing core startup.",
+        "Registry supports injected mock providers for tests.",
+        "Tests cover disabled provider, missing dependency, registered mock and unknown provider."
+      ]
+    },
+    {
+      "id": "CBP-T05",
+      "title": "DomainGraphProvider interface add",
       "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
-      "depends_on": ["BOOT-T05"],
-      "expected_files": [
-        "agent/cli/update.py",
-        "docs/setup/ananta_update.md",
-        "tests/test_ananta_update_command.py"
-      ],
+      "depends_on": ["CBP-T04"],
+      "expected_files": ["agent/providers/domain_graph.py", "schemas/artifacts/domain_graph_artifact.v1.json", "tests/test_domain_graph_provider_contract.py"],
       "acceptance_criteria": [
-        "Update records previous commit before changing refs.",
-        "Update prints rollback command or provides `--rollback-to <sha>` if feasible.",
-        "Update never deletes config, runtime profiles, secrets or user data.",
-        "Tests cover clean update, dirty tree refusal and smoke failure reporting."
+        "Defines provider-neutral interface for graph ingestion from Blender/FreeCAD/KiCad-like sources.",
+        "Interface returns DomainGraphArtifact-compatible payload plus provenance/warnings.",
+        "No Blender/KiCad/FreeCAD-specific import appears in core/interface module.",
+        "Mock provider test proves core can consume DomainGraphArtifact without real domain tool installed."
       ]
     },
     {
-      "id": "BOOT-T07",
-      "title": "Installer update path unify",
+      "id": "CBP-T06",
+      "title": "WorkflowProvider interface align with workflow adapter todo",
       "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
-      "depends_on": ["BOOT-T03", "BOOT-T05"],
-      "expected_files": [
-        "scripts/install-ananta.ps1",
-        "scripts/install-ananta.sh",
-        "docs/setup/bootstrap-install.md"
-      ],
+      "depends_on": ["CBP-T04", "todo.n8n-integration.json:WFA-T04"],
+      "expected_files": ["agent/providers/workflow.py", "tests/test_workflow_provider_contract.py"],
       "acceptance_criteria": [
-        "Rerunning the installer on an existing install either delegates to `ananta update` or follows the same safe update rules.",
-        "Installer and `ananta update` agree on install path, branch/tag and venv behavior.",
-        "Both paths produce similar success/failure messages.",
-        "Docs explain when to rerun installer versus use `ananta update`."
+        "Defines provider-neutral workflow provider interface compatible with workflow automation adapter layer.",
+        "n8n/generic webhook provider can later implement the interface without changing core.",
+        "Interface supports dry-run, callback correlation and provider status.",
+        "Tests use mock provider only."
       ]
     },
     {
-      "id": "BOOT-T08",
-      "title": "Bootstrap install docs add",
+      "id": "CBP-T08",
+      "title": "Provider-neutral artifact contract inventory add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CBP-T03"],
+      "expected_files": ["docs/architecture/provider-artifact-contracts.md"],
+      "acceptance_criteria": [
+        "Document maps each provider family to neutral artifact contracts: DomainGraphArtifact, WorkflowIntegrationRunArtifact, WorkerResultArtifact, PatchArtifact, EvolutionProposalArtifact.",
+        "Document identifies missing schemas or schema gaps.",
+        "Document states provider-specific raw payloads must be stored behind metadata/raw_payload fields only when safe and redacted."
+      ]
+    },
+    {
+      "id": "CBP-T09",
+      "title": "Provider artifact redaction utility add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["CBP-T08"],
+      "expected_files": ["agent/providers/redaction.py", "tests/test_provider_redaction.py"],
+      "acceptance_criteria": [
+        "Utility redacts secret-looking keys and configured secret refs from provider payloads before logging/artifact storage.",
+        "Utility is provider-neutral and can be used by workflow/domain/worker providers.",
+        "Tests cover nested dict/list redaction and no-op safe payloads."
+      ]
+    },
+    {
+      "id": "CBP-T10",
+      "title": "Provider provenance metadata standard add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CBP-T08"],
+      "expected_files": ["agent/providers/provenance.py", "tests/test_provider_provenance.py"],
+      "acceptance_criteria": [
+        "Defines standard provider provenance fields: provider_id, provider_family, provider_version, external_ref, source_ref, run_id, trace_id.",
+        "Provenance helper can be embedded in artifact metadata consistently.",
+        "Tests verify deterministic provenance construction and safe missing fields."
+      ]
+    },
+    {
+      "id": "CBP-T11",
+      "title": "Core forbidden import checker add",
       "status": "done",
       "priority": "P0",
+      "risk": "critical",
+      "blocking": true,
+      "depends_on": ["CBP-T02"],
+      "expected_files": ["scripts/check_core_provider_boundaries.py", "tests/test_core_provider_boundary_checker.py"],
+      "acceptance_criteria": [
+        "Checker flags provider-specific imports or strings in configured core modules when they are not allowlisted.",
+        "Checker starts with warning/report mode to avoid breaking migration prematurely.",
+        "Checker has allowlist for legitimate provider interface modules.",
+        "Tests include synthetic violation for Blender/n8n/OpenCode-style imports."
+      ]
+    },
+    {
+      "id": "CBP-T12",
+      "title": "Release gate provider boundary check add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["CBP-T11"],
+      "expected_files": ["scripts/run_release_gate.py", "tests/test_release_gate_provider_boundaries.py"],
+      "acceptance_criteria": [
+        "Release gate can run provider boundary checker in report or strict mode.",
+        "Core release gate passes without optional provider dependencies installed.",
+        "Failure message points to ADR-core-boundary-and-provider-plugins.md and provider interface package.",
+        "Tests cover report mode and strict mode."
+      ]
+    },
+    {
+      "id": "CBP-T13",
+      "title": "Disabled optional provider startup test add",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "blocking": true,
+      "depends_on": ["CBP-T04"],
+      "expected_files": ["tests/smoke/test_core_starts_without_optional_providers.py"],
+      "acceptance_criteria": [
+        "Smoke test verifies core app/import path starts with optional providers disabled/missing.",
+        "Test explicitly covers workflow automation, domain graph and external worker providers disabled.",
+        "Test fails if optional provider dependency becomes required for local-dev/core startup."
+      ]
+    },
+    {
+      "id": "CBP-T14",
+      "title": "Provider implementation layout docs add",
+      "status": "done",
+      "priority": "P2",
       "risk": "low",
-      "blocking": true,
-      "depends_on": ["BOOT-T01", "BOOT-T02", "BOOT-T04"],
-      "expected_files": [
-        "docs/setup/bootstrap-install.md",
-        "README.md"
-      ],
-      "acceptance_criteria": [
-        "Docs show Windows 11 one-command install and safer download-inspect-run variant.",
-        "Docs show Ubuntu/Linux one-command install and safer download-inspect-run variant.",
-        "Docs show macOS one-command install and safer download-inspect-run variant.",
-        "Docs state that local-dev does not require Docker.",
-        "Docs include next steps: `ananta init`, `ananta doctor`, `ananta status`."
-      ]
-    },
-    {
-      "id": "BOOT-T09",
-      "title": "Bootstrap smoke tests add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
       "blocking": false,
-      "depends_on": ["BOOT-T01", "BOOT-T02", "BOOT-T05"],
-      "expected_files": [
-        "tests/smoke/test_bootstrap_installers.py",
-        "tests/test_ananta_update_command.py"
-      ],
+      "depends_on": ["CBP-T03", "CBP-T04"],
+      "expected_files": ["docs/development/provider-plugin-guide.md"],
       "acceptance_criteria": [
-        "Smoke validates installer scripts are present, executable where applicable and contain expected safety checks.",
-        "Smoke validates docs reference real script paths.",
-        "Update command tests do not require network access by default and use mocked git/subprocess calls.",
-        "Release gate can include bootstrap smoke without actually installing from the network."
+        "Docs explain where provider interfaces, provider implementations, schemas and tests belong.",
+        "Docs include minimal mock provider example.",
+        "Docs include rules for disabled-by-default, dry-run, redaction and policy gating.",
+        "Docs warn against direct imports in core modules."
       ]
     },
     {
-      "id": "BOOT-T10",
-      "title": "Quickstart simplify around bootstrap installers",
+      "id": "CBP-T15",
+      "title": "Existing integration tracks cross-reference ADR add",
       "status": "done",
-      "priority": "P1",
+      "priority": "P2",
       "risk": "low",
       "blocking": false,
-      "depends_on": ["BOOT-T08"],
-      "expected_files": [
-        "README.md",
-        "docs/setup/quickstart.md"
-      ],
+      "depends_on": ["CBP-T14"],
+      "expected_files": ["todo.n8n-integration.json", "todo.kritis.json", "docs/decisions/ADR-core-boundary-and-provider-plugins.md"],
       "acceptance_criteria": [
-        "Quickstart offers bootstrap installer path before manual venv instructions.",
-        "Manual venv/pip install remains documented for developers.",
-        "Docker Compose quickstart is clearly marked as UI/full-stack path, not required for CLI install.",
-        "Examples remain short and copy-pasteable."
+        "Workflow automation todo references provider boundary ADR and generic provider registry.",
+        "KRITIS/worker-hardening track references worker provider boundaries and provider-neutral worker todo/result contracts where external workers are relevant.",
+        "ADR relationship section remains accurate."
+      ]
+    },
+    {
+      "id": "CBP-T16",
+      "title": "Medusa risk checklist add",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "blocking": false,
+      "depends_on": ["CBP-T14"],
+      "expected_files": ["docs/architecture/medusa-risk-checklist.md"],
+      "acceptance_criteria": [
+        "Checklist helps evaluate every new integration before implementation.",
+        "Checklist asks: can this provider be disabled without breaking core? does it have a neutral artifact? does it bypass policy? does it require optional deps?",
+        "Checklist is referenced by provider plugin guide and ADR."
+      ]
+    },
+    {
+      "id": "CBP-T17",
+      "title": "Worker executor provider dispatch bridge add",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "blocking": false,
+      "depends_on": ["CBP-T04"],
+      "expected_files": ["agent/providers/worker_execution.py", "agent/providers/registry.py", "tests/test_worker_execution_provider_dispatch.py"],
+      "acceptance_criteria": [
+        "Bridges worker_todo_contract executor_kind values (ananta_worker/opencode/openai_codex_cli/custom) to provider registry dispatch without coupling core code to backend-specific modules.",
+        "Unknown or unavailable executor providers stay disabled/degraded by default and do not break core startup.",
+        "Dispatch keeps Hub policy/capability context mandatory before execution.",
+        "Tests use mock provider implementations and verify provider-neutral worker_todo_result handling."
       ]
     }
   ],
   "execution_order_summary": [
-    "Build one-file installers first: PowerShell for Windows, Bash for Linux/macOS.",
-    "Add idempotency and safe existing-install handling before promoting the installer in README.",
-    "Add `ananta update` as the normal in-system update path.",
-    "Document safe install, update, rollback and local-dev without Docker.",
-    "Add smoke tests that validate scripts and command dispatch without network-dependent installs."
+    "Inventory existing provider coupling first.",
+    "Define core/provider/client package boundaries.",
+    "Add provider-neutral interfaces and registry with mock providers.",
+    "Add provider-neutral artifact/provenance/redaction helpers.",
+    "Add boundary checker and disabled-provider startup smoke tests.",
+    "Document provider plugin layout and Medusa risk checklist.",
+    "Cross-reference existing workflow, domain graph, worker and planning tracks.",
+    "Bridge already-shipped worker todo/result contracts into provider registry dispatch."
   ],
-  "dependency_policy": {
-    "depends_on_allows": ["same_track_task_id", "external_track_reference"],
-    "external_reference_format_examples": ["todo.unified-cli.json:CLI-T01", "todo.unified-cli.json:CLI-T03"],
-    "note": "Cross-track dependencies are intentional and must be resolved by owning tracks before milestone completion."
-  },
-  "critical_path_tasks": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T05", "BOOT-T08"],
+  "critical_path_tasks": ["CBP-T01", "CBP-T02", "CBP-T03", "CBP-T04", "CBP-T11", "CBP-T13"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-26T11:27:29+02:00",
-    "total": 10,
-    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 10},
+    "updated_at": "2026-04-29T18:19:15+02:00",
+    "total": 16,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 16, "deferred": 0},
     "progress_percent_done": 100.0,
-    "by_priority": {"P0": 6, "P1": 4, "P2": 0, "P3": 0},
-    "by_risk": {"low": 2, "medium": 4, "high": 4, "critical": 0},
-    "critical_path": {"total": 5, "done": 5, "remaining": 0},
-    "milestones": {"total": 3, "todo": 0, "in_progress": 0, "blocked": 0, "done": 3}
-  },
-  "execution_stage_summary": {
-    "updated_at": "2026-04-26T11:27:29+02:00",
-    "stages": {
-      "BOOT-M1": {"title": "One-file bootstrap installers", "scope_task_ids": ["BOOT-T01", "BOOT-T02", "BOOT-T03", "BOOT-T04"], "total": 4, "done": 4, "todo": 0, "in_progress": 0, "blocked": 0},
-      "BOOT-M2": {"title": "In-system update command", "scope_task_ids": ["BOOT-T05", "BOOT-T06", "BOOT-T07"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0},
-      "BOOT-M3": {"title": "Docs and smoke tests", "scope_task_ids": ["BOOT-T08", "BOOT-T09", "BOOT-T10"], "total": 3, "done": 3, "todo": 0, "in_progress": 0, "blocked": 0}
-    }
+    "by_priority": {"P0": 6, "P1": 7, "P2": 3, "P3": 0},
+    "by_risk": {"low": 2, "medium": 6, "high": 7, "critical": 1},
+    "critical_path": {"total": 6, "done": 6, "remaining": 0},
+    "milestones": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5}
   },
   "summary_notes": [
-    "This track is about install/update UX, not Ananta runtime architecture.",
-    "The installers should make `ananta` available quickly, then hand off to `ananta init` for runtime configuration.",
-    "Windows needs a PowerShell installer; Ubuntu/Linux and macOS can share a Bash installer with platform detection.",
-    "`ananta update` should be safe, visible and reversible enough for local OSS users.",
-    "Cross-track references to unified CLI tasks are explicit prerequisites, not dangling dependencies."
-  ],
-  "analysis_checks": {
-    "checked_at": "2026-04-26T11:27:29+02:00",
-    "internal_consistency": "corrected_and_extended",
-    "notes": [
-      "Task status counters, milestone counters and critical-path counters are internally consistent.",
-      "All tasks are covered exactly once by milestone task_ids.",
-      "Two dependencies intentionally target external track IDs (todo.unified-cli.json:CLI-T01/CLI-T03).",
-      "Added execution_stage_summary for milestone-level progress visibility.",
-      "Completed BOOT-T01 to BOOT-T10 with installer scripts, ananta update command, docs updates, and smoke/unit coverage."
-    ]
-  },
-  "end_summaries": [
-    {
-      "summary_id": "BOOT-S1",
-      "title": "Analysis result",
-      "items": [
-        "Track structure is coherent: 10 tasks, 3 milestones, and clear acceptance criteria per task.",
-        "Implementation is complete across installers, update command, docs, and smoke tests."
-      ]
-    },
-    {
-      "summary_id": "BOOT-S2",
-      "title": "Corrections",
-      "items": [
-        "Refreshed tasks_status_summary and execution_stage_summary timestamps to completion time.",
-        "Updated all milestone/task statuses to done and aligned counters to 100% completion."
-      ]
-    },
-    {
-      "summary_id": "BOOT-S3",
-      "title": "Improvements and extensions",
-      "items": [
-        "Added execution_stage_summary with per-milestone total/done/todo/in_progress/blocked counters.",
-        "Extended summary_notes with explicit clarification for external prerequisite dependencies.",
-        "Added analysis_checks for repeatable quality review and consistency evidence."
-      ]
-    },
-    {
-      "summary_id": "BOOT-S4",
-      "title": "End status",
-      "items": [
-        "Current state: 10 tasks (0 todo, 0 in_progress, 0 blocked, 10 done).",
-        "Milestones: 3 total (0 todo, 0 in_progress, 0 blocked, 3 done).",
-        "Critical path: 5 total, 5 done, 0 remaining."
-      ]
-    }
+    "This track protects Ananta from Medusa growth while still allowing many integrations.",
+    "The highest-value early tasks are boundary inventory, provider interfaces, registry, forbidden-import checker and disabled-provider startup smoke.",
+    "Do not overbuild dynamic plugin loading yet; simple explicit provider registries are enough.",
+    "Blender/KiCad/FreeCAD, workflow automation, external workers and research/evolution providers should all pass through this architecture.",
+    "WCR-T30 decision (2026-04-29): worker-specific CodeCompass retrieval implementation remains in dedicated worker tracks and is not promoted into this global architecture track.",
+    "CBP-T07 was removed as already implemented through worker_todo_contract/worker_todo_result and hub delegation wiring; remaining provider-registry dispatch gap is tracked as CBP-T17."
   ]
 }
