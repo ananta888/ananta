@@ -23,7 +23,9 @@ The following jobs provide useful context but should not block every small chang
 - architecture diagram rendering
 - expensive browser diagnostics
 
-In `.github/workflows/quality-and-docs.yml`, `e2e-compose` and `architecture-diagrams` run on push/manual workflow runs and on pull requests labeled `full-ci`. This keeps ordinary pull requests focused on required merge gates while preserving an explicit opt-in path for deeper validation.
+`architecture-diagrams` runs in `.github/workflows/quality-and-docs.yml` only on push/manual runs and on pull requests labeled `full-ci`.
+`e2e-compose` runs in `.github/workflows/e2e-compose.yml` on weekly schedule, manual trigger, pushes to `main`, and pull requests labeled `full-ci`.
+This keeps ordinary pull requests focused on required merge gates while preserving an explicit opt-in path for deeper validation.
 
 They can become required later when their failure rate and runtime are predictable.
 

@@ -1,0 +1,63 @@
+name: Container Pull Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to validate"
+        required: false
+        default: ""
+  release:
+    types: [published]
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  pull-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Resolve image tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pull quickstart image
+        run: docker pull ghcr.io/${{ github.repository_owner }}/ananta-quickstart-no-ollama:${{ steps.tag.outputs.tag }}
+      - name: Start container and run health check
+        run: |
+          docker rm -f ananta-smoke >/dev/null 2>&1 || true
+          docker run -d --name ananta-smoke -p 5000:5000 \
+            -e INITIAL_ADMIN_PASSWORD=test-admin-password \
+            -e SECRET_KEY=test-secret-key-with-at-least-thirty-two-chars \
+            -e AGENT_TOKEN_HUB=hub-token \
+            -e AGENT_TOKEN_ALPHA=alpha-token \
+            -e AGENT_TOKEN_BETA=beta-token \
+            -e AGENT_TOKEN_GAMMA=gamma-token \
+            -e AGENT_TOKEN_DELTA=delta-token \
+            ghcr.io/${{ github.repository_owner }}/ananta-quickstart-no-ollama:${{ steps.tag.outputs.tag }}
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5000/health >/dev/null; then
+              echo "health endpoint ok"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "health endpoint failed"
+          docker logs ananta-smoke || true
+          exit 1
+      - name: Cleanup
+        if: always()
+        run: docker rm -f ananta-smoke >/dev/null 2>&1 || true
+

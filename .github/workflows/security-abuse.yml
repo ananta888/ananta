@@ -1,0 +1,57 @@
+name: Security Abuse Split
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "11 1 * * *"
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  agent-tool-abuse-tests:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'security-ci'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Install backend test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Run abuse/security boundary tests
+        run: >
+          pytest -q
+          tests/test_security_boundary_attacks.py
+          tests/test_no_policy_bypass.py
+          tests/test_tool_guardrails.py
+          tests/test_shell_security.py
+
+  authz-matrix-tests:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'security-ci'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Install backend test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Run role and authorization matrix tests
+        run: >
+          pytest -q
+          tests/test_auth_scenarios.py
+          tests/test_admin_auth.py
+          tests/test_security_policy_regression.py
+          tests/test_endpoint_role_matrix.py
+

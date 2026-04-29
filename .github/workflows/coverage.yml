@@ -1,0 +1,68 @@
+name: Coverage Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 6"
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-coverage:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Run backend coverage
+        run: pytest tests --cov=agent --cov-report=term-missing --cov-report=xml
+      - name: Upload backend coverage artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-backend-coverage
+          path: coverage.xml
+          retention-days: 7
+
+  frontend-coverage:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend-angular
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.5"
+          cache: npm
+          cache-dependency-path: frontend-angular/package-lock.json
+      - run: npm ci
+      - name: Run frontend unit coverage
+        run: npm run test:unit -- --coverage
+      - name: Upload frontend coverage artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-frontend-coverage
+          path: frontend-angular/coverage/**
+          retention-days: 7
+
+  coverage-summary:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
+    needs: [backend-coverage, frontend-coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coverage summary
+        run: echo "Coverage artifacts generated for backend and frontend."
+
