@@ -115,5 +115,12 @@ Future controlled apply should add:
 - policy decisions tied to proposal risk,
 - E2E tests for failed apply and rollback paths.
 
+## Worker profile rollout (safe/balanced/fast)
+
+- Start with `WORKER_DEFAULT_EXECUTION_PROFILE=safe` in sensitive environments.
+- Promote to `balanced` as operational default after regression matrix is green.
+- Keep `fast` opt-in behind config flags and monitor degrade/block deltas.
+- Native runtime path should remain rollback-safe via fallback path (`sgpt_fallback_proxy`).
+
 Do not introduce worker-to-worker orchestration for apply. Workers may execute
 delegated work, but the hub owns the task queue, policy decision and audit path.

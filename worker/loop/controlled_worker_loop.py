@@ -4,9 +4,11 @@ import time
 from typing import Any
 
 from worker.core.execution_profile import normalize_execution_profile
+from worker.core.plan_artifact import build_plan_artifact, update_plan_step_state
 from worker.loop.budgets import WorkerLoopBudgets, budgets_for_profile
 from worker.loop.progress_events import build_progress_event
 from worker.loop.stop_conditions import should_stop_loop
+from worker.planning.checkpoint_store import PlannerCheckpointStore
 
 
 def run_controlled_worker_loop(
@@ -19,6 +21,7 @@ def run_controlled_worker_loop(
     iteration_outcomes: list[dict[str, Any]],
     budgets: WorkerLoopBudgets | None = None,
     execution_profile: str | None = "balanced",
+    checkpoint_store_path: str | None = None,
 ) -> dict[str, Any]:
     normalized_profile = normalize_execution_profile(execution_profile)
     bounded_budgets = budgets or budgets_for_profile(normalized_profile)
@@ -38,7 +41,18 @@ def run_controlled_worker_loop(
         "stop_reason": "",
         "artifacts": [],
         "events": [],
+        "plan_artifact": build_plan_artifact(
+            task_id=task_id,
+            profile=normalized_profile,
+            steps=[
+                {"step_id": "plan", "title": "Plan bounded patch attempt", "state": "ready"},
+                {"step_id": "patch", "title": "Propose patch artifact", "depends_on": ["plan"], "state": "draft"},
+                {"step_id": "test", "title": "Execute test command", "depends_on": ["patch"], "state": "draft"},
+                {"step_id": "summarize", "title": "Persist final outcome", "depends_on": ["test"], "state": "draft"},
+            ],
+        ),
     }
+    checkpoint_store = PlannerCheckpointStore(path=checkpoint_store_path) if checkpoint_store_path else None
     state["events"].append(
         build_progress_event(
             task_id=task_id,
@@ -84,6 +98,11 @@ def run_controlled_worker_loop(
         outcome = dict(iteration_outcomes[iteration - 1]) if iteration - 1 < len(iteration_outcomes) else {}
         state["iteration"] = iteration
         state["phase"] = "plan"
+        state["plan_artifact"] = update_plan_step_state(
+            plan_artifact=state["plan_artifact"],
+            step_id="plan",
+            state="executing",
+        )
         state["events"].append(
             build_progress_event(
                 task_id=task_id,
@@ -95,6 +114,11 @@ def run_controlled_worker_loop(
         )
 
         state["phase"] = "patch"
+        state["plan_artifact"] = update_plan_step_state(
+            plan_artifact=state["plan_artifact"],
+            step_id="patch",
+            state="executing",
+        )
         state["patch_attempts"] = int(state["patch_attempts"]) + 1
         patch_ref = str(outcome.get("patch_ref") or f"patch:iter-{iteration}")
         state["artifacts"].append(patch_ref)
@@ -110,6 +134,11 @@ def run_controlled_worker_loop(
         )
 
         state["phase"] = "test"
+        state["plan_artifact"] = update_plan_step_state(
+            plan_artifact=state["plan_artifact"],
+            step_id="test",
+            state="executing",
+        )
         test_status = str(outcome.get("test_status") or "failed").strip().lower()
         test_ref = str(outcome.get("test_ref") or f"test:iter-{iteration}")
         state["artifacts"].append(test_ref)
@@ -126,6 +155,11 @@ def run_controlled_worker_loop(
 
         if test_status == "passed":
             state["phase"] = "summarize"
+            state["plan_artifact"] = update_plan_step_state(
+                plan_artifact=state["plan_artifact"],
+                step_id="summarize",
+                state="done",
+            )
             state["status"] = "completed"
             state["stop_reason"] = "goal_reached"
             state["events"].append(
@@ -196,6 +230,29 @@ def run_controlled_worker_loop(
                 detail="Prepared repair artifact for next iteration.",
             )
         )
+        if checkpoint_store is not None:
+            checkpoint_store.save(
+                payload={
+                    "schema": "worker_planner_checkpoint.v1",
+                    "task_id": state["task_id"],
+                    "trace_id": state["trace_id"],
+                    "completed_steps": [
+                        step.get("step_id")
+                        for step in list(state["plan_artifact"].get("steps") or [])
+                        if str(step.get("state") or "") == "done"
+                    ],
+                    "pending_steps": [
+                        step.get("step_id")
+                        for step in list(state["plan_artifact"].get("steps") or [])
+                        if str(step.get("state") or "") != "done"
+                    ],
+                    "budget_counters": {
+                        "iterations_used": int(state["iteration"]),
+                        "patch_attempts": int(state["patch_attempts"]),
+                    },
+                    "policy_snapshot_ref": f"policy:{state['policy_state']}",
+                }
+            )
 
     if state["status"] == "running":
         state["status"] = "stopped"

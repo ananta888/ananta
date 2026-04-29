@@ -14,6 +14,7 @@ def test_prompt_assembly_redacts_tokens_and_bounds_context() -> None:
         forbidden_actions=["no direct apply"],
         context_hash="ctx-1",
         context_chunks=["secret sk-1234567890ABCDEFG", "x" * 100],
+        retrieval_trace={"query_original": "fix auth", "selected_paths": ["src/a.py"]},
         max_context_chars=50,
     )
     prompt = result["prompt"]
@@ -23,6 +24,7 @@ def test_prompt_assembly_redacts_tokens_and_bounds_context() -> None:
     assert metadata["context_hash"] == "ctx-1"
     assert metadata["bounded_context_chars"] <= 50
     assert metadata["execution_profile"] == "balanced"
+    assert metadata["retrieval_trace_present"] is True
 
 
 def test_prompt_assembly_blocks_injection_like_context_chunks() -> None:

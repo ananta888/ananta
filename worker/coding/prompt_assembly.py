@@ -44,6 +44,7 @@ def assemble_coding_prompt(
     forbidden_actions: list[str],
     context_hash: str,
     context_chunks: list[str] | None = None,
+    retrieval_trace: dict[str, Any] | None = None,
     prompt_template_version: str = "worker_coding_prompt_v1",
     max_context_chars: int | None = None,
     execution_profile: str | None = "balanced",
@@ -83,6 +84,7 @@ def assemble_coding_prompt(
     task_text = _redact(str(task))
     expected_schema_text = _redact(str(expected_output_schema))
     context_text = "\n".join(f"- {chunk}" for chunk in bounded_chunks)
+    retrieval_summary = _redact(str(dict(retrieval_trace or {}))) if retrieval_trace else "- none"
     guardrail_summary = (
         f"- blocked_context_chunks={len(blocked_chunks)}"
         if blocked_chunks
@@ -99,6 +101,7 @@ def assemble_coding_prompt(
         f"Expected output schema:\n{expected_schema_text}\n\n"
         f"Forbidden actions:\n{chr(10).join(forbidden_lines) if forbidden_lines else '- none'}\n\n"
         f"Bounded context (max {bounded_context_limit} chars):\n{context_text if context_text else '- none'}\n\n"
+        f"Retrieval trace:\n{retrieval_summary}\n\n"
         f"Context guardrails:\n{guardrail_summary}\n\n"
         "Never assume unbounded full-repo context."
     )
@@ -115,5 +118,6 @@ def assemble_coding_prompt(
             "blocked_context_chunks": len(blocked_chunks),
             "context_guard_status": "degraded" if blocked_chunks else "ok",
             "blocked_context_reasons": sorted({str(item.get("reason") or "") for item in blocked_chunks if item.get("reason")}),
+            "retrieval_trace_present": bool(retrieval_trace),
         },
     }

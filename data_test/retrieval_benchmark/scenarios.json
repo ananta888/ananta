@@ -1,0 +1,9 @@
+{
+  "schema": "retrieval_benchmark_scenarios.v1",
+  "scenarios": [
+    {"name": "greenfield_bootstrap", "query": "create project scaffold", "expected_paths": ["scaffold.py"]},
+    {"name": "refactor", "query": "refactor auth flow", "expected_paths": ["auth.py"]},
+    {"name": "bugfix", "query": "fix failing test", "expected_paths": ["tests/test_app.py"]}
+  ]
+}
+

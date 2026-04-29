@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/retrieval_pipeline_contract.v1.json",
+  "title": "Ananta Worker Retrieval Pipeline Contract v1",
+  "type": "object",
+  "required": ["schema", "channels", "fallback_order"],
+  "properties": {
+    "schema": { "type": "string", "const": "retrieval_pipeline_contract.v1" },
+    "channels": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "enum": ["dense", "lexical", "symbol"] },
+      "uniqueItems": true
+    },
+    "fallback_order": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "enum": ["dense", "lexical", "symbol"] },
+      "uniqueItems": true
+    },
+    "weights": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0.0 }
+    }
+  },
+  "additionalProperties": false
+}
+

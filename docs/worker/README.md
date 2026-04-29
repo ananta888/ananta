@@ -45,3 +45,9 @@ Siehe `docs/worker/execution_profiles.md`.
 - External adapters are optional and may be unavailable.
 - Autonomous loop is budgeted and intentionally conservative.
 - Native flow assumes deterministic testable artifacts; it does not guarantee semantic correctness without verification evidence.
+
+## Advanced flows
+
+- Retrieval/indexing: `docs/worker/retrieval_and_indexing.md`
+- Plan/state-machine flow: `docs/worker/plan_and_execution_flow.md`
+- Standalone mode: `docs/worker/standalone_mode.md` and `docs/worker/standalone_quickstart.md`

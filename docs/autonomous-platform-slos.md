@@ -15,6 +15,10 @@
 - Worker profile block-rate vs. policy-denied outcomes
 - Worker profile degrade-rate (schema/policy/runtime)
 - Worker profile approval-rate (hub token required/used)
+- Retrieval latency and cache-hit rate by worker profile
+- Retrieval quality floor (`Recall@k`, `MRR`, `Top-k hit-rate`) by profile
+- Planner convergence rate (replan count until complete/degraded)
+- Plan-diff event count and replay completeness
 
 ## Reporting
 Expose metrics in dashboard read-model and trace endpoints.
