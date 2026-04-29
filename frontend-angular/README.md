@@ -16,6 +16,7 @@ npm run test:e2e:lite
 npm run test:e2e:live
 npm run test:e2e:compose
 npm run test:e2e:live:compose
+npm run test:e2e:android:terminal
 ```
 
 Wichtige E2E-Umgebungsvariablen:
@@ -39,6 +40,17 @@ $env:E2E_REUSE_SERVER="1"; npm run test:e2e
 $env:E2E_LITE_TIMEOUT_MINUTES="35"; npm run test:e2e:lite
 $env:RUN_LIVE_LLM_TESTS="1"; $env:LIVE_LLM_PROVIDER="ollama"; $env:OLLAMA_URL="http://localhost:11434/api/generate"; npm run test:e2e:live
 ```
+
+Android-Emulator (echtes APK/E2E fuer Live-Terminal):
+```bash
+ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal
+```
+
+Wichtige Variablen dafuer:
+- `ANANTA_ANDROID_AVD_NAME` (Default: `ananta-api35`)
+- `ANANTA_ANDROID_EMULATOR_SERIAL` (Default: `emulator-5554`)
+- `ANANTA_E2E_ADMIN_USER` / `ANANTA_E2E_ADMIN_PASSWORD`
+- `ANANTA_ANDROID_REVERSE_PORTS` (Default: `4200 5500 5501 5502 11434`)
 
 ## Hinweise
 - Standard-CI fuehrt regulaeere Playwright-Tests aus.
