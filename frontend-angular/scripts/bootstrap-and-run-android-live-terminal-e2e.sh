@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend-angular"
 
-ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}"
+ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/tmp/android-sdk}}"
 export ANDROID_SDK_ROOT
 export ANDROID_HOME="$ANDROID_SDK_ROOT"
 export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH"
@@ -24,7 +24,7 @@ need_cmd() {
 }
 
 ensure_host_dependencies() {
-  local required=(curl unzip node npm python3 rg)
+  local required=(curl node npm python3 rg)
   for cmd in "${required[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       echo "Fehlt: $cmd"
@@ -41,7 +41,7 @@ ensure_host_dependencies() {
     exit 1
   fi
 
-  local toolchain_root="${HOME}/.ananta/toolchain"
+  local toolchain_root="${ANANTA_TOOLCHAIN_ROOT:-/tmp/ananta-toolchain}"
   local jdk_root="${toolchain_root}/jdk-17"
   local jdk_tar="/tmp/ananta-jdk17.tar.gz"
   mkdir -p "$toolchain_root"
@@ -61,7 +61,7 @@ install_cmdline_tools_if_missing() {
   fi
 
   need_cmd curl
-  need_cmd unzip
+  need_cmd python3
   mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
   local tmp_zip="/tmp/android-commandlinetools.zip"
   local unpack_dir="/tmp/android-commandlinetools"
@@ -88,7 +88,10 @@ install_cmdline_tools_if_missing() {
     exit 1
   fi
 
-  unzip -q "$tmp_zip" -d "$unpack_dir"
+  python3 - <<PY
+import zipfile
+zipfile.ZipFile("$tmp_zip").extractall("$unpack_dir")
+PY
   rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
   mv "$unpack_dir/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
 }
