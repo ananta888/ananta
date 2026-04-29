@@ -56,25 +56,25 @@
       "id": "WSB-M1",
       "title": "Safety baseline and profile contract",
       "task_ids": ["WSB-T01", "WSB-T02", "WSB-T03", "WSB-T04"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WSB-M2",
       "title": "Policy and budget profile implementation",
       "task_ids": ["WSB-T05", "WSB-T06", "WSB-T07", "WSB-T08"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WSB-M3",
       "title": "Native runtime integration and control surfaces",
       "task_ids": ["WSB-T09", "WSB-T10", "WSB-T11", "WSB-T12"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WSB-M4",
       "title": "Observability and hardened error signaling",
       "task_ids": ["WSB-T13", "WSB-T14", "WSB-T15"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WSB-M5",
@@ -111,7 +111,7 @@
     {
       "id": "WSB-T01",
       "title": "Worker strictness decision record add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -127,7 +127,7 @@
     {
       "id": "WSB-T02",
       "title": "Mandatory invariant checklist for worker paths add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -142,7 +142,7 @@
     {
       "id": "WSB-T03",
       "title": "Worker profile schema and contract add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -157,7 +157,7 @@
     {
       "id": "WSB-T04",
       "title": "Runtime default profile config add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -172,7 +172,7 @@
     {
       "id": "WSB-T05",
       "title": "Profile-aware command policy classification implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -188,7 +188,7 @@
     {
       "id": "WSB-T06",
       "title": "Profile-aware patch apply gating semantics implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -203,7 +203,7 @@
     {
       "id": "WSB-T07",
       "title": "Controlled loop budgets become profile-driven",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -218,7 +218,7 @@
     {
       "id": "WSB-T08",
       "title": "Profile-aware file and context limits implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -233,7 +233,7 @@
     {
       "id": "WSB-T09",
       "title": "Native worker execution path integrate into task-scoped runtime",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -248,7 +248,7 @@
     {
       "id": "WSB-T10",
       "title": "Worker profile propagation in routing and execution context add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -263,7 +263,7 @@
     {
       "id": "WSB-T11",
       "title": "Artifact schema validation gate on worker ingress/egress add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -278,7 +278,7 @@
     {
       "id": "WSB-T12",
       "title": "Prompt-injection hardening for artifact-sourced context add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -293,7 +293,7 @@
     {
       "id": "WSB-T13",
       "title": "Worker degraded reason taxonomy refine",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -308,7 +308,7 @@
     {
       "id": "WSB-T14",
       "title": "Profile and policy observability fields extend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -323,7 +323,7 @@
     {
       "id": "WSB-T15",
       "title": "Metrics for profile effectiveness and failure modes add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
