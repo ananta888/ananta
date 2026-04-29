@@ -202,6 +202,12 @@ Negative / Cost:
 
 Future todos and implementations must avoid direct provider coupling in core modules.
 
+Operational references:
+
+- `docs/development/provider-plugin-guide.md`
+- `docs/architecture/medusa-risk-checklist.md`
+- `config/core_provider_boundary.json`
+
 Release gates should eventually detect:
 
 - provider-specific imports in core packages

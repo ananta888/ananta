@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "zones": {
+    "core": [
+      "agent/routes",
+      "agent/services",
+      "agent/runtime_policy.py",
+      "agent/runtime_profiles.py",
+      "agent/config_defaults.py"
+    ],
+    "provider_interface": [
+      "agent/providers/interfaces.py",
+      "agent/providers/registry.py",
+      "agent/providers/domain_graph.py",
+      "agent/providers/workflow.py",
+      "agent/providers/worker_execution.py",
+      "agent/providers/redaction.py",
+      "agent/providers/provenance.py"
+    ],
+    "provider_implementation": [
+      "agent/services/workflow_providers",
+      "worker/adapters"
+    ],
+    "client_adapter": [
+      "agent/routes",
+      "agent/cli"
+    ]
+  },
+  "core_modules_for_checks": [
+    "agent/providers/interfaces.py",
+    "agent/providers/registry.py",
+    "agent/providers/redaction.py",
+    "agent/providers/provenance.py"
+  ],
+  "allowlist_import_prefixes": [
+    "__future__",
+    "dataclasses",
+    "typing",
+    "agent.providers"
+  ],
+  "allowlist_string_patterns": [
+    "provider_family",
+    "provider_id",
+    "risk_class"
+  ],
+  "forbidden_terms": [
+    "blender",
+    "freecad",
+    "kicad",
+    "n8n",
+    "node-red",
+    "activepieces",
+    "huginn",
+    "windmill",
+    "opencode",
+    "aider",
+    "codex",
+    "mcp",
+    "evolver",
+    "deerflow",
+    "jira",
+    "confluence"
+  ]
+}

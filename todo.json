@@ -47,17 +47,17 @@
     "Docs explain how to add a provider without touching core orchestration."
   ],
   "milestones": [
-    {"id": "CBP-M1", "title": "Boundary inventory and contracts", "task_ids": ["CBP-T01", "CBP-T02", "CBP-T03"], "status": "todo"},
-    {"id": "CBP-M2", "title": "Provider registries and mock providers", "task_ids": ["CBP-T04", "CBP-T05", "CBP-T06", "CBP-T17"], "status": "todo"},
-    {"id": "CBP-M3", "title": "Provider-neutral artifacts", "task_ids": ["CBP-T08", "CBP-T09", "CBP-T10"], "status": "todo"},
-    {"id": "CBP-M4", "title": "Core import enforcement", "task_ids": ["CBP-T11", "CBP-T12", "CBP-T13"], "status": "todo"},
-    {"id": "CBP-M5", "title": "Docs and migration path", "task_ids": ["CBP-T14", "CBP-T15", "CBP-T16"], "status": "todo"}
+    {"id": "CBP-M1", "title": "Boundary inventory and contracts", "task_ids": ["CBP-T01", "CBP-T02", "CBP-T03"], "status": "done"},
+    {"id": "CBP-M2", "title": "Provider registries and mock providers", "task_ids": ["CBP-T04", "CBP-T05", "CBP-T06", "CBP-T17"], "status": "done"},
+    {"id": "CBP-M3", "title": "Provider-neutral artifacts", "task_ids": ["CBP-T08", "CBP-T09", "CBP-T10"], "status": "done"},
+    {"id": "CBP-M4", "title": "Core import enforcement", "task_ids": ["CBP-T11", "CBP-T12", "CBP-T13"], "status": "done"},
+    {"id": "CBP-M5", "title": "Docs and migration path", "task_ids": ["CBP-T14", "CBP-T15", "CBP-T16"], "status": "done"}
   ],
   "tasks": [
     {
       "id": "CBP-T01",
       "title": "Provider coupling inventory add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -73,7 +73,7 @@
     {
       "id": "CBP-T02",
       "title": "Core package boundary definition add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -89,7 +89,7 @@
     {
       "id": "CBP-T03",
       "title": "Provider interface package skeleton add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -105,7 +105,7 @@
     {
       "id": "CBP-T04",
       "title": "Generic provider registry add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -122,7 +122,7 @@
     {
       "id": "CBP-T05",
       "title": "DomainGraphProvider interface add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -138,7 +138,7 @@
     {
       "id": "CBP-T06",
       "title": "WorkflowProvider interface align with workflow adapter todo",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -154,7 +154,7 @@
     {
       "id": "CBP-T08",
       "title": "Provider-neutral artifact contract inventory add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -169,7 +169,7 @@
     {
       "id": "CBP-T09",
       "title": "Provider artifact redaction utility add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -184,7 +184,7 @@
     {
       "id": "CBP-T10",
       "title": "Provider provenance metadata standard add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -199,7 +199,7 @@
     {
       "id": "CBP-T11",
       "title": "Core forbidden import checker add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -215,7 +215,7 @@
     {
       "id": "CBP-T12",
       "title": "Release gate provider boundary check add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -231,7 +231,7 @@
     {
       "id": "CBP-T13",
       "title": "Disabled optional provider startup test add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -246,7 +246,7 @@
     {
       "id": "CBP-T14",
       "title": "Provider implementation layout docs add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -262,7 +262,7 @@
     {
       "id": "CBP-T15",
       "title": "Existing integration tracks cross-reference ADR add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -277,7 +277,7 @@
     {
       "id": "CBP-T16",
       "title": "Medusa risk checklist add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -292,7 +292,7 @@
     {
       "id": "CBP-T17",
       "title": "Worker executor provider dispatch bridge add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -318,14 +318,14 @@
   ],
   "critical_path_tasks": ["CBP-T01", "CBP-T02", "CBP-T03", "CBP-T04", "CBP-T11", "CBP-T13"],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T00:00:00+02:00",
+    "updated_at": "2026-04-29T18:19:15+02:00",
     "total": 16,
-    "by_status": {"todo": 16, "in_progress": 0, "blocked": 0, "done": 0, "deferred": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 16, "deferred": 0},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 6, "P1": 7, "P2": 3, "P3": 0},
     "by_risk": {"low": 2, "medium": 6, "high": 7, "critical": 1},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6},
-    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 6, "done": 6, "remaining": 0},
+    "milestones": {"total": 5, "todo": 0, "in_progress": 0, "blocked": 0, "done": 5}
   },
   "summary_notes": [
     "This track protects Ananta from Medusa growth while still allowing many integrations.",

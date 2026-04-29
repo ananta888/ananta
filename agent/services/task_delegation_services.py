@@ -8,6 +8,12 @@ from flask import current_app, has_app_context
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.config import settings
+from agent.providers.registry import GenericProviderRegistry
+from agent.providers.worker_execution import (
+    WorkerExecutionRequest,
+    WorkerExecutorDispatchBridge,
+    register_default_worker_execution_descriptors,
+)
 from agent.research_backend import resolve_research_backend_config
 from agent.routes.tasks.orchestration_policy import (
     derive_required_capabilities,
@@ -328,7 +334,7 @@ class WorkerExecutionContextFactory:
         workspace_dir = None
         if isinstance(worker_workspace, dict):
             workspace_dir = str(worker_workspace.get("workspace_dir") or "").strip() or None
-        return get_worker_todo_planner_service().build_delegation_todo_contract(
+        todo_contract_bundle = get_worker_todo_planner_service().build_delegation_todo_contract(
             worker_contract_service=worker_contract_service,
             subtask_id=subtask_id,
             parent_task=parent_task,
@@ -343,6 +349,34 @@ class WorkerExecutionContextFactory:
             context_bundle_id=getattr(context_bundle, "id", None),
             workspace_dir=workspace_dir,
         )
+        if not isinstance(todo_contract_bundle, dict):
+            return todo_contract_bundle
+        contract = dict(todo_contract_bundle.get("contract") or {})
+        generation = dict(todo_contract_bundle.get("generation") or {})
+        executor_kind = str(((contract.get("worker") or {}).get("executor_kind") or "custom")).strip().lower() or "custom"
+        registry = GenericProviderRegistry()
+        register_default_worker_execution_descriptors(registry)
+        bridge = WorkerExecutorDispatchBridge(registry)
+        dispatch_result = bridge.dispatch(
+            executor_kind=executor_kind,
+            request=WorkerExecutionRequest(
+                task_id=subtask_id,
+                worker_job={},
+                context_bundle={},
+                allowed_tools=list(allowed_tools or []),
+                expected_output_schema=dict(expected_output_schema or {}),
+                policy_context={},
+                executor_kind=executor_kind,
+            ),
+            enable_provider=False,
+        )
+        generation["executor_dispatch"] = {
+            "status": dispatch_result.status,
+            "reason": dispatch_result.reason,
+            "executor_kind": executor_kind,
+            "provider_id": str((dispatch_result.result_payload or {}).get("provider_id") or executor_kind),
+        }
+        return {"contract": contract, "generation": generation}
 
     @staticmethod
     def _delegation_payload(
