@@ -57,6 +57,16 @@ start_host_emulator() {
     exit 1
   fi
 
+  if [[ ! -w /dev/kvm ]]; then
+    echo "KVM nicht nutzbar fuer aktuellen Benutzer (/dev/kvm). Bitte: sudo gpasswd -a $USER kvm und neu anmelden."
+    exit 1
+  fi
+
+  if ! adb start-server >/dev/null 2>&1; then
+    echo "adb start-server fehlgeschlagen. Bitte Host-ADB-Rechte/Umgebung pruefen."
+    exit 1
+  fi
+
   if ! adb devices | grep -q "$EMULATOR_SERIAL"; then
     echo "Starte Host-Emulator $AVD_NAME..."
     # shellcheck disable=SC2086
@@ -69,6 +79,7 @@ start_host_emulator() {
     sleep 2
   done
 }
+
 
 start_stack() {
   export ANANTA_USE_WSL_VULKAN="${ANANTA_USE_WSL_VULKAN:-0}"
