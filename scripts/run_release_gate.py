@@ -127,6 +127,17 @@ def main() -> int:
         help="Override/add pytest test target for docs drift checks (repeatable).",
     )
     parser.add_argument(
+        "--provider-boundary-check",
+        choices=("off", "report", "strict"),
+        default="off",
+        help="Run core/provider boundary checker: off (default), report (non-blocking), or strict (blocking).",
+    )
+    parser.add_argument(
+        "--provider-boundary-config",
+        default="config/core_provider_boundary.json",
+        help="Config path for core/provider boundary checker.",
+    )
+    parser.add_argument(
         "--skip-security-invariants",
         action="store_true",
         help="Skip OSS security invariant checks (not recommended for merge readiness).",
@@ -173,6 +184,19 @@ def main() -> int:
     if not planning_cleanup_ok:
         print(f"planning_cleanup_error={planning_cleanup_reason}")
         return 1
+
+    if args.provider_boundary_check != "off":
+        boundary_command = [
+            python_exec,
+            "scripts/check_core_provider_boundaries.py",
+            "--mode",
+            args.provider_boundary_check,
+            "--config",
+            args.provider_boundary_config,
+        ]
+        boundary_result = subprocess.run(boundary_command, cwd=str(ROOT), check=False)
+        if boundary_result.returncode != 0 and args.provider_boundary_check == "strict":
+            return boundary_result.returncode
 
     if not args.skip_security_invariants:
         security_command = [

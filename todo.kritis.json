@@ -3,6 +3,12 @@
   "owner": "ananta",
   "track": "kritis_hardening_program",
   "purpose": "Large-scale KRITIS hardening program for Ananta with immediate focus on auditability, central mutation gating and write approvals, followed by safety/stability controls and infrastructure-grade isolation and RBAC.",
+  "cross_track_references": [
+    "docs/decisions/ADR-core-boundary-and-provider-plugins.md",
+    "todo.json:CBP-T17",
+    "schemas/worker/worker_todo_contract.v1.json",
+    "schemas/worker/worker_todo_result.v1.json"
+  ],
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "goal": "Ananta should become suitable for higher-trust and KRITIS-like environments by enforcing auditable LLM interactions, central mutation gating, explicit write approvals, secure retrieval filtering, deterministic workflow control, hardened execution isolation and enterprise-grade role handling.",

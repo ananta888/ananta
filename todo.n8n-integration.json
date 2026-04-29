@@ -3,6 +3,12 @@
   "owner": "ananta",
   "track": "workflow_automation_adapter_layer",
   "purpose": "Create a generic, optional Workflow Automation Adapter layer for external automation engines such as n8n, Node-RED, Activepieces, Huginn, Windmill, Temporal-style workflow services or simple webhook runners. n8n is only the first/reference provider. Ananta Hub remains owner of policy, approval, state, audit, task planning and artifact verification.",
+  "cross_track_references": [
+    "docs/decisions/ADR-core-boundary-and-provider-plugins.md",
+    "todo.json:CBP-T04",
+    "todo.json:CBP-T11",
+    "docs/development/provider-plugin-guide.md"
+  ],
   "status_scale": ["todo", "in_progress", "blocked", "done", "deferred"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
