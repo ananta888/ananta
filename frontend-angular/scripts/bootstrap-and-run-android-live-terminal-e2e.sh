@@ -101,7 +101,9 @@ PY
 ensure_android_sdk() {
   install_cmdline_tools_if_missing
   chmod +x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/"* || true
+  set +o pipefail
   yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
+  set -o pipefail
   sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
     "platform-tools" \
     "emulator" \
