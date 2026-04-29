@@ -1,41 +1,42 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "title": "Ananta Test Coverage and CI Workflow Roadmap",
-  "purpose": "Track missing tests, coverage improvements and CI workflow split so quality increases without making GitHub Actions too slow or expensive.",
+  "purpose": "Track missing tests, CI workflow hardening, and quality visibility without slowing the default development loop.",
   "principles": [
     "Keep push and pull_request CI fast enough for normal development.",
-    "Run expensive E2E, chaos, security-abuse and performance tests in separate manual or scheduled workflows.",
-    "Prefer deterministic local mocks in normal CI; use real providers only in opt-in smoke workflows.",
-    "Never hide important tests by disabling them; isolate heavy or flaky flows with explicit workflow names and timeouts.",
-    "Every high-risk autonomous-agent capability needs negative tests, not only happy-path tests."
+    "Run expensive E2E, chaos, and upgrade tests in isolated workflows.",
+    "Prefer deterministic local mocks in default CI; keep paid live-provider checks opt-in.",
+    "Do not disable valuable tests; isolate heavy checks with explicit workflows and strict timeouts.",
+    "Focus roadmap scope on open work only and remove already implemented tasks."
   ],
   "ci_policy": {
     "standard_ci": {
-      "trigger": ["push", "pull_request"],
+      "trigger": [
+        "push",
+        "pull_request"
+      ],
       "target_runtime_minutes": "10-20",
       "allowed_cost": "low",
       "must_include": [
         "backend smoke tests",
-        "backend deep non-heavy tests",
-        "frontend lint",
-        "frontend unit tests",
+        "backend non-heavy regression tests",
+        "frontend lint and unit tests",
         "frontend build",
-        "VS Code extension lint/test/build/package",
         "compose config validation",
         "release reproducibility gate without image build",
-        "documentation link checks"
+        "docs link checks"
       ],
       "must_avoid": [
-        "large Docker image rebuilds unless cached and necessary",
-        "full browser E2E on every small pull request",
-        "real paid LLM calls",
-        "long-running RAG load tests",
-        "chaos tests",
-        "network-dependent external-provider tests"
+        "full browser E2E on every PR",
+        "full image build gates on every PR",
+        "real paid LLM calls in default CI",
+        "chaos and long-running concurrency tests"
       ]
     },
     "main_branch_ci": {
-      "trigger": ["push to main"],
+      "trigger": [
+        "push to main"
+      ],
       "target_runtime_minutes": "20-40",
       "allowed_cost": "medium",
       "must_include": [
@@ -46,25 +47,30 @@
       ]
     },
     "manual_heavy_ci": {
-      "trigger": ["workflow_dispatch", "pull_request label full-ci"],
+      "trigger": [
+        "workflow_dispatch",
+        "pull_request label full-ci"
+      ],
       "target_runtime_minutes": "30-90",
       "allowed_cost": "medium-high",
       "must_include": [
-        "full compose E2E",
-        "browser golden-path E2E",
+        "compose E2E",
         "coverage report generation",
-        "security abuse tests",
+        "security workflow split",
         "migration upgrade scenarios",
         "multi-agent concurrency and race tests"
       ]
     },
     "scheduled_ci": {
-      "trigger": ["nightly", "weekly"],
+      "trigger": [
+        "nightly",
+        "weekly"
+      ],
       "target_runtime_minutes": "60-120",
       "allowed_cost": "controlled",
       "must_include": [
         "dependency audit",
-        "full coverage report",
+        "coverage report",
         "slow integration tests",
         "chaos and timeout tests",
         "release-candidate image gate",
@@ -76,9 +82,13 @@
     {
       "name": "Quality And Docs",
       "file": ".github/workflows/quality-and-docs.yml",
-      "trigger": ["push", "pull_request", "workflow_dispatch"],
+      "trigger": [
+        "push",
+        "pull_request",
+        "workflow_dispatch"
+      ],
       "cost_class": "low-medium",
-      "purpose": "Fast and broad default CI for normal development.",
+      "purpose": "Fast default CI for normal development.",
       "jobs": [
         "backend-checks",
         "backend-smoke",
@@ -89,24 +99,33 @@
         "release-gate",
         "docs-links",
         "todo-validation"
-      ],
-      "notes": "Keep this workflow mostly fast. Compose E2E may stay only on main, workflow_dispatch or full-ci label."
+      ]
     },
     {
       "name": "Backend Isolated Flows",
       "file": ".github/workflows/backend-isolated-flows.yml",
-      "trigger": ["push", "pull_request", "workflow_dispatch"],
+      "trigger": [
+        "push",
+        "pull_request",
+        "workflow_dispatch"
+      ],
       "cost_class": "medium",
-      "purpose": "Run heavier backend E2E/integration/RAG-load tests separately from the deep sweep.",
-      "jobs": ["isolated-flows"],
-      "notes": "If this gets too slow, split into autonomous-flows, research-flows and webhook-flows."
+      "purpose": "Run heavier backend integration paths outside the default CI set.",
+      "jobs": [
+        "isolated-flows"
+      ],
+      "todo": false
     },
     {
       "name": "Coverage Report",
       "file": ".github/workflows/coverage.yml",
-      "trigger": ["workflow_dispatch", "schedule weekly", "pull_request label coverage"],
+      "trigger": [
+        "workflow_dispatch",
+        "schedule weekly",
+        "pull_request label coverage"
+      ],
       "cost_class": "medium",
-      "purpose": "Generate backend and frontend coverage artifacts without slowing every PR.",
+      "purpose": "Generate backend and frontend coverage artifacts without slowing each PR.",
       "jobs": [
         "backend-coverage",
         "frontend-coverage",
@@ -115,54 +134,81 @@
       "todo": true
     },
     {
-      "name": "Security Abuse Tests",
+      "name": "Security Abuse Split",
       "file": ".github/workflows/security-abuse.yml",
-      "trigger": ["workflow_dispatch", "schedule nightly", "pull_request label security-ci"],
+      "trigger": [
+        "workflow_dispatch",
+        "schedule nightly",
+        "pull_request label security-ci"
+      ],
       "cost_class": "medium",
-      "purpose": "Run prompt-injection, tool-abuse, secret-leak and command-injection tests.",
+      "purpose": "Isolate heavy negative security tests from default CI.",
       "jobs": [
         "agent-tool-abuse-tests",
-        "secret-redaction-tests",
         "authz-matrix-tests"
       ],
       "todo": true
     },
     {
-      "name": "Full Compose E2E",
-      "file": ".github/workflows/full-compose-e2e.yml",
-      "trigger": ["workflow_dispatch", "push to main", "pull_request label full-ci"],
-      "cost_class": "medium-high",
-      "purpose": "Run full Docker Compose browser and API E2E with artifacts on failure.",
-      "jobs": [
-        "compose-build",
-        "compose-start",
-        "playwright-golden-paths",
-        "compose-logs-artifact"
+      "name": "E2E Compose",
+      "file": ".github/workflows/e2e-compose.yml",
+      "trigger": [
+        "workflow_dispatch",
+        "schedule weekly"
       ],
-      "todo": true
+      "cost_class": "medium-high",
+      "purpose": "Run Docker Compose browser/API E2E and upload artifacts.",
+      "jobs": [
+        "e2e-compose"
+      ],
+      "todo": true,
+      "notes": "Workflow exists; pending trigger expansion to main and full-ci label."
     },
     {
       "name": "Chaos And Timeout Tests",
       "file": ".github/workflows/chaos-timeout.yml",
-      "trigger": ["workflow_dispatch", "schedule weekly"],
+      "trigger": [
+        "workflow_dispatch",
+        "schedule weekly"
+      ],
       "cost_class": "high",
-      "purpose": "Validate failures, timeouts, worker crashes, backend interruptions and partial state recovery.",
+      "purpose": "Validate timeout handling, recovery, and multi-agent race boundaries.",
       "jobs": [
         "worker-timeout-tests",
-        "redis-down-tests",
-        "db-reconnect-tests",
-        "autopilot-crash-recovery-tests"
+        "race-condition-tests",
+        "failure-recovery-tests"
+      ],
+      "todo": true
+    },
+    {
+      "name": "Container Pull Smoke",
+      "file": ".github/workflows/container-pull-smoke.yml",
+      "trigger": [
+        "workflow_dispatch",
+        "tag push",
+        "release published"
+      ],
+      "cost_class": "medium",
+      "purpose": "Verify published GHCR image pull/start/health after release.",
+      "jobs": [
+        "pull-and-smoke"
       ],
       "todo": true
     },
     {
       "name": "Live Provider Smoke",
       "file": ".github/workflows/live-llm-smoke.yml",
-      "trigger": ["workflow_dispatch", "schedule nightly", "pull_request label live-llm"],
+      "trigger": [
+        "workflow_dispatch",
+        "schedule nightly",
+        "pull_request label live-llm"
+      ],
       "cost_class": "paid-low-controlled",
-      "purpose": "Run one minimal hosted LLM request with strict token and timeout limits.",
-      "jobs": ["openai-mini-smoke"],
-      "notes": "Keep this tiny and opt-in. Do not run broad paid-provider tests on normal PRs."
+      "purpose": "One minimal hosted LLM request with strict token and timeout limits.",
+      "jobs": [
+        "openai-mini-smoke"
+      ],
+      "todo": false
     }
   ],
   "todo_groups": [
@@ -171,230 +217,127 @@
       "priority": "P0",
       "status": "todo",
       "goal": "Add explicit backend and frontend coverage reporting.",
-      "why": "Green tests show behavior is covered somewhere, but not which source modules are uncovered.",
+      "why": "Current CI is broad but still lacks a dedicated coverage workflow and baseline reporting output.",
+      "workflow": "Coverage Report",
       "tasks": [
         {
           "id": "coverage-backend-pytest-cov",
-          "title": "Add pytest-cov backend coverage command",
-          "files": ["requirements-dev.lock", "pyproject.toml", ".github/workflows/coverage.yml"],
+          "title": "Add backend coverage workflow job and artifact upload",
           "suggested_command": "pytest tests --cov=agent --cov-report=term-missing --cov-report=xml",
-          "ci": "manual_or_weekly",
-          "cost_class": "medium",
           "acceptance": [
-            "CI uploads coverage.xml as artifact",
-            "summary shows total backend coverage",
-            "coverage job does not block normal PRs initially"
+            "coverage.xml is uploaded as artifact",
+            "terminal summary includes total backend coverage",
+            "job remains outside mandatory PR blocking until baseline is stable"
           ]
         },
         {
           "id": "coverage-frontend-vitest",
-          "title": "Add frontend Vitest coverage command",
-          "files": ["frontend-angular/package.json", ".github/workflows/coverage.yml"],
+          "title": "Add frontend unit coverage execution and artifact upload",
           "suggested_command": "npm run test:unit -- --coverage",
-          "ci": "manual_or_weekly",
-          "cost_class": "medium",
           "acceptance": [
             "frontend coverage artifact is uploaded",
-            "coverage summary is visible in job logs",
-            "normal frontend-build remains fast"
+            "coverage summary appears in logs",
+            "default frontend-build path stays fast"
           ]
         },
         {
           "id": "coverage-thresholds-later",
-          "title": "Introduce coverage thresholds after baseline is known",
-          "ci": "manual_then_standard",
-          "cost_class": "low",
+          "title": "Introduce realistic coverage thresholds after baseline",
           "acceptance": [
-            "initial thresholds are realistic and do not cause noisy failures",
-            "critical modules get higher thresholds than UI glue code"
+            "thresholds are based on measured baseline",
+            "critical backend modules get stricter gates than glue code"
           ]
         }
       ]
     },
     {
-      "id": "security-abuse-tests",
+      "id": "authz-and-security-workflows",
       "priority": "P0",
       "status": "todo",
-      "goal": "Expand negative tests for autonomous agent safety boundaries.",
-      "why": "The highest risk is not normal behavior; it is unsafe LLM/tool behavior, privilege bypass and secret leakage.",
-      "workflow": "Security Abuse Tests",
-      "ci": "manual_or_nightly_or_label_security-ci",
+      "goal": "Close remaining authz matrix and security-workflow split gaps.",
+      "why": "Security tests exist, but workflow separation and explicit endpoint-role matrix coverage are still open.",
+      "workflow": "Security Abuse Split",
       "tasks": [
         {
-          "id": "prompt-injection-tool-blocking",
-          "title": "Prompt injection must not bypass blocked tools",
-          "suggested_test_file": "tests/test_prompt_injection_tool_policy.py",
-          "cost_class": "low",
+          "id": "security-abuse-workflow-split",
+          "title": "Create dedicated security-abuse workflow using existing negative tests",
           "acceptance": [
-            "LLM output asking to ignore policy is rejected",
-            "forbidden shell commands are blocked before execution",
-            "policy decision is logged with reason"
+            "workflow file exists and runs selected negative tests",
+            "workflow supports nightly and label-based execution",
+            "default PR CI runtime is not impacted"
           ]
         },
-        {
-          "id": "secret-redaction-boundaries",
-          "title": "Secrets must not leak into logs, artifacts or LLM prompts",
-          "suggested_test_file": "tests/test_secret_redaction_boundaries.py",
-          "cost_class": "low",
-          "acceptance": [
-            "environment-like secrets are redacted",
-            "API tokens are redacted",
-            "artifact metadata does not expose secret values",
-            "LLM prompt construction redacts sensitive fields"
-          ]
-        },
-        {
-          "id": "command-injection-shell-bridges",
-          "title": "Command injection attempts are blocked in shell/sgpt/opencode bridges",
-          "suggested_test_file": "tests/test_command_injection_boundaries.py",
-          "cost_class": "low-medium",
-          "acceptance": [
-            "semicolon and pipe injection are rejected where commands should be structured",
-            "path traversal in command arguments is blocked",
-            "unsafe generated commands require review or are rejected"
-          ]
-        },
-        {
-          "id": "ssrf-research-webhook",
-          "title": "SSRF-like URLs are rejected or sandboxed in research and webhook paths",
-          "suggested_test_file": "tests/test_ssrf_boundaries.py",
-          "cost_class": "medium",
-          "acceptance": [
-            "localhost/private-network URLs are blocked where external fetch is possible",
-            "file:// and metadata-service URLs are blocked",
-            "blocked attempts are auditable"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "authz-role-matrix",
-      "priority": "P0",
-      "status": "todo",
-      "goal": "Add explicit authorization matrix tests for all important endpoints.",
-      "why": "Agent platforms need exact role boundaries: anonymous, user, admin, hub, worker.",
-      "workflow": "Security Abuse Tests",
-      "ci": "manual_or_nightly_then_standard_for_fast_subset",
-      "tasks": [
         {
           "id": "endpoint-role-matrix",
-          "title": "Generate endpoint x role permission matrix tests",
-          "suggested_test_file": "tests/test_authorization_matrix.py",
-          "cost_class": "medium",
+          "title": "Add explicit endpoint x role authorization matrix tests",
           "acceptance": [
-            "anonymous cannot access protected endpoints",
-            "user cannot perform admin actions",
-            "worker cannot perform hub-only actions",
-            "admin-only endpoints are documented by test table"
-          ]
-        },
-        {
-          "id": "token-claims-boundary",
-          "title": "Invalid or escalated token claims are rejected",
-          "suggested_test_file": "tests/test_token_claim_boundaries.py",
-          "cost_class": "low",
-          "acceptance": [
-            "modified role claim fails verification",
-            "expired token fails",
-            "wrong audience/issuer fails if configured"
+            "anonymous is denied for protected endpoints",
+            "user role cannot perform admin actions",
+            "worker identity cannot perform hub-admin actions",
+            "table-driven tests document expected role behavior"
           ]
         }
       ]
     },
     {
-      "id": "multi-agent-race-tests",
+      "id": "concurrency-and-timeout-tests",
       "priority": "P1",
       "status": "todo",
-      "goal": "Test concurrency, leases and duplicate work prevention.",
-      "why": "Race conditions are likely in multi-agent orchestration and can cause duplicate execution or lost state.",
+      "goal": "Add deterministic race and timeout regression tests.",
+      "why": "Multi-agent orchestration is vulnerable to duplicate claims and timeout corruption without explicit tests.",
       "workflow": "Chaos And Timeout Tests",
-      "ci": "manual_or_weekly",
       "tasks": [
         {
           "id": "double-claim-same-task",
-          "title": "Two workers must not claim the same task",
-          "suggested_test_file": "tests/test_worker_claim_races.py",
-          "cost_class": "medium",
+          "title": "Ensure two workers cannot claim the same task simultaneously",
           "acceptance": [
             "parallel claim requests produce exactly one winner",
-            "loser receives deterministic conflict/empty result",
-            "task history contains one claim event"
+            "loser receives deterministic conflict response",
+            "task history stores only one claim event"
           ]
         },
         {
           "id": "lease-expiry-reclaim",
-          "title": "Expired leases can be reclaimed safely",
-          "suggested_test_file": "tests/test_lease_reclaim_flow.py",
-          "cost_class": "medium",
+          "title": "Ensure expired leases can be reclaimed safely",
           "acceptance": [
             "expired lease is not treated as active",
-            "new worker can reclaim",
-            "old worker completion after expiry is rejected or reconciled"
+            "new worker can reclaim after expiry",
+            "late completion from expired lease is rejected or reconciled"
           ]
         },
         {
           "id": "parallel-autopilot-ticks",
-          "title": "Parallel autopilot ticks do not duplicate dispatch",
-          "suggested_test_file": "tests/test_autopilot_race_conditions.py",
-          "cost_class": "medium-high",
+          "title": "Ensure concurrent autopilot ticks do not duplicate dispatch",
           "acceptance": [
-            "concurrent tick_once calls do not create duplicate execution",
-            "locking or idempotency behavior is visible in assertions"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "failure-and-timeout-tests",
-      "priority": "P1",
-      "status": "todo",
-      "goal": "Add failure-mode tests for workers, research backends, shell and LLM output.",
-      "why": "The system must fail closed and recover cleanly from partial failures.",
-      "workflow": "Chaos And Timeout Tests",
-      "ci": "manual_or_weekly",
-      "tasks": [
-        {
-          "id": "worker-timeout",
-          "title": "Worker timeout marks task safely and does not hang CI",
-          "suggested_test_file": "tests/test_worker_timeout_recovery.py",
-          "cost_class": "medium",
-          "acceptance": [
-            "timeout produces bounded failure state",
-            "task remains retryable or escalated",
-            "no background thread hangs after test"
+            "concurrent tick_once calls do not duplicate execution",
+            "locking or idempotency behavior is asserted"
           ]
         },
         {
-          "id": "invalid-llm-json",
-          "title": "Invalid LLM JSON is handled safely",
-          "suggested_test_file": "tests/test_invalid_llm_output_handling.py",
-          "cost_class": "low",
+          "id": "worker-timeout",
+          "title": "Worker timeout handling remains bounded and retry-safe",
           "acceptance": [
-            "invalid JSON does not crash planner",
-            "repair fallback is bounded",
-            "unsafe fallback does not execute tools"
+            "timeout transitions task into bounded failure state",
+            "task remains retryable or escalated explicitly",
+            "test does not leave hanging background work"
           ]
         },
         {
           "id": "research-backend-timeout",
           "title": "Research backend timeout is bounded and auditable",
-          "suggested_test_file": "tests/test_research_backend_timeouts.py",
-          "cost_class": "medium",
           "acceptance": [
-            "CLI timeout is enforced",
-            "partial artifact is not treated as verified",
-            "review remains required after uncertain research result"
+            "timeout is enforced",
+            "partial result is not treated as verified",
+            "review remains required on uncertain result"
           ]
         },
         {
           "id": "shell-session-crash",
-          "title": "Shell session crash does not corrupt task state",
-          "suggested_test_file": "tests/test_shell_session_failure_recovery.py",
-          "cost_class": "medium",
+          "title": "Shell session crash cannot corrupt task state",
           "acceptance": [
-            "crashed shell marks execution failed",
-            "task history includes failure reason",
-            "subsequent execution can create a fresh session"
+            "crash marks execution failed with explicit reason",
+            "task history captures failure context",
+            "subsequent execution can start a fresh session"
           ]
         }
       ]
@@ -403,169 +346,91 @@
       "id": "migration-upgrade-tests",
       "priority": "P1",
       "status": "todo",
-      "goal": "Test realistic upgrade scenarios from older persisted states.",
-      "why": "Users may keep tasks, artifacts, configs and memory entries across releases.",
+      "goal": "Test upgrade behavior against older persisted structures.",
+      "why": "Legacy task/config/artifact records must remain readable across releases.",
       "workflow": "Manual Heavy CI",
-      "ci": "manual_or_release_candidate",
       "tasks": [
         {
           "id": "old-config-upgrade",
-          "title": "Old config documents upgrade to current config model",
-          "suggested_test_file": "tests/test_upgrade_old_config.py",
-          "cost_class": "medium",
+          "title": "Validate old config upgrades to current model safely",
           "acceptance": [
-            "missing new config keys get safe defaults",
-            "old values are preserved",
-            "unsafe defaults are not introduced"
+            "missing new keys get safe defaults",
+            "legacy values are preserved where compatible",
+            "unsafe implicit defaults are not introduced"
           ]
         },
         {
           "id": "old-task-read-model-upgrade",
-          "title": "Old task records still render in current read models",
-          "suggested_test_file": "tests/test_upgrade_task_read_models.py",
-          "cost_class": "medium",
+          "title": "Validate old task records render in current read models",
           "acceptance": [
-            "old task without new fields does not crash read model",
-            "new fields have sensible defaults",
-            "frontend contract baseline is still satisfied"
+            "legacy records without new fields do not crash",
+            "new fields receive deterministic defaults",
+            "frontend read model contract remains satisfied"
           ]
         },
         {
           "id": "artifact-memory-upgrade",
-          "title": "Old artifact and memory records remain queryable",
-          "suggested_test_file": "tests/test_upgrade_artifact_memory.py",
-          "cost_class": "medium",
+          "title": "Validate old artifact and memory records remain queryable",
           "acceptance": [
-            "old artifacts can be listed",
-            "old extracted documents can be searched or skipped safely",
-            "old memory entries do not break task detail views"
+            "legacy artifacts can still be listed",
+            "legacy extracted docs are handled safely",
+            "legacy memory entries do not break detail views"
           ]
         }
       ]
     },
     {
-      "id": "frontend-golden-path-e2e",
+      "id": "compose-release-hardening",
       "priority": "P1",
       "status": "todo",
-      "goal": "Add explicit Playwright golden paths for core user journeys.",
-      "why": "Frontend unit tests are good, but they do not prove real dashboard flows work in a browser against the stack.",
-      "workflow": "Full Compose E2E",
-      "ci": "main_or_manual_or_full-ci_label",
+      "goal": "Close release-adjacent runtime validation gaps.",
+      "why": "Release pipelines should verify pull/start behavior on published images and strengthen main-branch compose signal.",
+      "workflow": "E2E Compose / Container Pull Smoke",
       "tasks": [
-        {
-          "id": "login-dashboard-goal-flow",
-          "title": "Login, open dashboard, create goal and see resulting tasks",
-          "suggested_test_file": "frontend-angular/tests/golden-path-goal.spec.ts",
-          "cost_class": "medium-high",
-          "acceptance": [
-            "user can log in",
-            "dashboard loads without console errors",
-            "guided goal or quick goal can be submitted",
-            "created task appears in UI"
-          ]
-        },
-        {
-          "id": "review-governance-flow",
-          "title": "Governance and review information is visible for tasks/goals",
-          "suggested_test_file": "frontend-angular/tests/golden-path-governance.spec.ts",
-          "cost_class": "medium-high",
-          "acceptance": [
-            "policy decision appears in UI",
-            "verification state appears in UI",
-            "blocked or review-required state is understandable"
-          ]
-        },
-        {
-          "id": "offline-error-state-flow",
-          "title": "Frontend displays useful errors when hub/API is unavailable",
-          "suggested_test_file": "frontend-angular/tests/error-states.spec.ts",
-          "cost_class": "medium",
-          "acceptance": [
-            "network failure does not crash UI",
-            "user sees actionable error",
-            "retry is possible"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "compose-and-release-hardening",
-      "priority": "P1",
-      "status": "todo",
-      "goal": "Keep full-stack and release tests useful without making every PR expensive.",
-      "workflow": "Full Compose E2E / Nightly And RC Validation",
-      "ci": "main_or_manual_or_scheduled",
-      "tasks": [
-        {
-          "id": "compose-log-artifacts",
-          "title": "Always upload compose logs on E2E failure",
-          "cost_class": "low",
-          "acceptance": [
-            "docker compose logs are uploaded",
-            "frontend Playwright traces are uploaded",
-            "backend health endpoint output is included"
-          ]
-        },
-        {
-          "id": "release-image-gate-manual",
-          "title": "Keep release image build gate manual or RC-only",
-          "cost_class": "high",
-          "acceptance": [
-            "normal PRs do not build all release images",
-            "workflow_dispatch can run full image gate",
-            "RC tags run image gate automatically"
-          ]
-        },
         {
           "id": "docker-pull-smoke",
-          "title": "After GHCR push, verify docker pull and container start",
-          "suggested_workflow": ".github/workflows/container-pull-smoke.yml",
-          "cost_class": "medium",
+          "title": "After GHCR publish, verify docker pull, start, and health",
           "acceptance": [
-            "docker pull ghcr.io/ananta888/ananta-quickstart-no-ollama:<tag> succeeds",
-            "container starts",
-            "health endpoint responds"
+            "docker pull ghcr.io/<owner>/ananta-quickstart-no-ollama:<tag> succeeds",
+            "container starts with expected runtime env",
+            "health endpoint responds successfully"
+          ]
+        },
+        {
+          "id": "e2e-compose-main-trigger",
+          "title": "Expand compose E2E trigger policy for main and full-ci label",
+          "acceptance": [
+            "workflow supports push-to-main or equivalent protected branch signal",
+            "workflow supports full-ci label trigger for PRs",
+            "expansion does not regress normal PR runtime budget"
           ]
         }
       ]
     },
     {
-      "id": "test-inventory-and-docs",
+      "id": "docs-and-ci-signals",
       "priority": "P2",
       "status": "todo",
-      "goal": "Make test coverage understandable for maintainers and contributors.",
-      "ci": "standard_or_docs_only",
+      "goal": "Improve quick visibility of CI health and test surface size.",
+      "why": "Maintainers need immediate workflow and test-count visibility from README and CI logs.",
+      "workflow": "Quality And Docs",
       "tasks": [
         {
-          "id": "testing-doc-matrix",
-          "title": "Document test categories and when each workflow runs",
-          "files": ["docs/testing.md", "README.md"],
-          "cost_class": "low",
-          "acceptance": [
-            "standard CI vs manual CI is documented",
-            "expensive workflows are documented",
-            "local commands are listed"
-          ]
-        },
-        {
           "id": "workflow-badges",
-          "title": "Add useful CI badges to README",
-          "files": ["README.md"],
-          "cost_class": "low",
+          "title": "Add useful CI workflow badges to README",
           "acceptance": [
             "Quality And Docs badge exists",
-            "Live LLM Smoke badge exists if useful",
-            "Backend Isolated Flows badge exists if kept separate"
+            "Backend Isolated Flows badge exists",
+            "optional smoke badge can be included where stable"
           ]
         },
         {
           "id": "test-count-summary",
-          "title": "Add CI summary with collected test counts",
-          "cost_class": "low",
+          "title": "Print collected backend/frontend test counts in CI summaries",
           "acceptance": [
-            "backend-checks prints collected test count",
-            "frontend-build prints unit test count",
-            "isolated flow workflow prints test count"
+            "backend pipeline prints collected test count summary",
+            "frontend pipeline prints unit test count summary",
+            "isolated flow workflow prints a test-count signal"
           ]
         }
       ]
@@ -574,54 +439,479 @@
   "manual_workflow_candidates": [
     {
       "workflow": "coverage.yml",
-      "reason": "Coverage is useful but can slow CI; run weekly or manually until thresholds are stable.",
-      "recommended_trigger": ["workflow_dispatch", "weekly schedule", "label coverage"]
+      "reason": "Coverage is valuable but can slow PR CI; run weekly or manually until thresholds stabilize.",
+      "recommended_trigger": [
+        "workflow_dispatch",
+        "weekly schedule",
+        "label coverage"
+      ]
     },
     {
       "workflow": "security-abuse.yml",
-      "reason": "Security abuse tests may grow large and include many negative scenarios; run nightly or on security-sensitive PRs.",
-      "recommended_trigger": ["workflow_dispatch", "nightly schedule", "label security-ci"]
+      "reason": "Heavy negative security scenarios should run nightly or on explicitly labeled PRs.",
+      "recommended_trigger": [
+        "workflow_dispatch",
+        "nightly schedule",
+        "label security-ci"
+      ]
     },
     {
       "workflow": "chaos-timeout.yml",
-      "reason": "Chaos tests intentionally simulate failures and can be slow/flaky if run on every PR.",
-      "recommended_trigger": ["workflow_dispatch", "weekly schedule"]
+      "reason": "Race and timeout simulations are expensive and not ideal for every PR.",
+      "recommended_trigger": [
+        "workflow_dispatch",
+        "weekly schedule"
+      ]
     },
     {
-      "workflow": "full-compose-e2e.yml",
-      "reason": "Full Docker/browser tests are expensive but necessary before releases and after main merges.",
-      "recommended_trigger": ["workflow_dispatch", "push main", "label full-ci"]
+      "workflow": "e2e-compose.yml",
+      "reason": "Full Docker browser checks are expensive but valuable on main and before releases.",
+      "recommended_trigger": [
+        "workflow_dispatch",
+        "push main",
+        "label full-ci"
+      ]
     },
     {
       "workflow": "container-pull-smoke.yml",
-      "reason": "Validates published artifacts and GHCR images after release or RC push.",
-      "recommended_trigger": ["workflow_dispatch", "tag push", "release published"]
+      "reason": "Validates publishability and runtime viability of release artifacts.",
+      "recommended_trigger": [
+        "workflow_dispatch",
+        "tag push",
+        "release published"
+      ]
     }
   ],
   "quality_targets": {
     "short_term": [
-      "All current tests green in CI",
-      "Coverage workflow exists and uploads artifacts",
-      "Backend isolated flows visible as separate workflow",
-      "Security abuse test file group started"
+      "Coverage workflow exists and uploads backend/frontend artifacts",
+      "Security-abuse split workflow exists",
+      "Container pull smoke workflow exists",
+      "README includes useful CI badges"
     ],
     "medium_term": [
-      "Backend coverage threshold introduced for critical modules",
-      "Frontend golden-path Playwright tests cover first-run and goal creation",
-      "Race condition tests cover task claiming and lease expiry",
-      "Upgrade tests cover old config and old task records"
+      "Coverage thresholds are introduced after baseline",
+      "Race and timeout tests cover claim, lease, and crash paths",
+      "Migration tests replace current scaffold-only contract",
+      "Compose E2E trigger policy includes main and full-ci label"
     ],
     "long_term": [
-      "Release candidate workflow includes full compose E2E, coverage, security abuse and image pull smoke",
-      "Chaos workflow validates failure recovery weekly",
-      "Security-sensitive code paths have negative tests as default requirement"
+      "Release-candidate validation includes pull smoke and migration checks",
+      "Weekly chaos workflow validates failure recovery",
+      "Security-sensitive code paths have explicit negative-test ownership"
     ]
   },
   "notes": [
-    "Do not move all heavy workflows into the default Quality And Docs workflow. That makes normal development too slow and expensive.",
-    "Prefer labels such as full-ci, security-ci, coverage and live-llm for opt-in PR expansion.",
-    "Use strict timeouts and faulthandler_timeout for integration tests to avoid silent hangs.",
-    "If a test is valuable but slow, isolate it. Do not delete it just to make CI green.",
-    "Paid provider tests must use tiny prompts, tiny output limits, one retry at most and explicit secret checks."
+    "Already implemented roadmap items were removed from this file to keep execution focus.",
+    "Security boundary and golden-path E2E coverage already exists in current test suites.",
+    "docs/testing.md already documents workflow/test categories; this roadmap keeps only remaining docs tasks.",
+    "Keep heavy workflows opt-in or scheduled to protect contributor feedback loop speed."
+  ],
+  "version": 2,
+  "owner": "ananta888/ananta",
+  "track": "test_coverage_ci_roadmap_open_items",
+  "goal": "Close remaining CI and test roadmap gaps while preserving fast default development feedback loops.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "TEST-M1",
+      "title": "Coverage foundation",
+      "task_ids": [
+        "coverage-backend-pytest-cov",
+        "coverage-frontend-vitest",
+        "coverage-thresholds-later"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TEST-M2",
+      "title": "Security workflow and role matrix",
+      "task_ids": [
+        "security-abuse-workflow-split",
+        "endpoint-role-matrix"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TEST-M3",
+      "title": "Concurrency and timeout hardening",
+      "task_ids": [
+        "double-claim-same-task",
+        "lease-expiry-reclaim",
+        "parallel-autopilot-ticks",
+        "worker-timeout",
+        "research-backend-timeout",
+        "shell-session-crash"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TEST-M4",
+      "title": "Migration and upgrade contracts",
+      "task_ids": [
+        "old-config-upgrade",
+        "old-task-read-model-upgrade",
+        "artifact-memory-upgrade"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TEST-M5",
+      "title": "Compose and release runtime checks",
+      "task_ids": [
+        "docker-pull-smoke",
+        "e2e-compose-main-trigger"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "TEST-M6",
+      "title": "CI visibility signals",
+      "task_ids": [
+        "workflow-badges",
+        "test-count-summary"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "coverage-backend-pytest-cov",
+      "title": "Add backend coverage workflow job and artifact upload",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "coverage.xml artifact is uploaded",
+        "backend coverage summary appears in logs"
+      ]
+    },
+    {
+      "id": "coverage-frontend-vitest",
+      "title": "Add frontend coverage workflow job and artifact upload",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "frontend coverage artifact is uploaded",
+        "coverage summary appears in logs"
+      ]
+    },
+    {
+      "id": "coverage-thresholds-later",
+      "title": "Introduce coverage thresholds after baseline",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "thresholds are based on measured baseline",
+        "critical modules use stricter thresholds"
+      ]
+    },
+    {
+      "id": "security-abuse-workflow-split",
+      "title": "Create dedicated security-abuse workflow",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "security-abuse workflow exists",
+        "workflow runs nightly and on label trigger"
+      ]
+    },
+    {
+      "id": "endpoint-role-matrix",
+      "title": "Add endpoint x role authorization matrix tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "anonymous, user, worker, admin role expectations are table-tested",
+        "forbidden actions fail deterministically"
+      ]
+    },
+    {
+      "id": "double-claim-same-task",
+      "title": "Prevent duplicate claim winner in parallel task claims",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "parallel claim race yields exactly one winner",
+        "loser gets deterministic conflict response"
+      ]
+    },
+    {
+      "id": "lease-expiry-reclaim",
+      "title": "Allow safe reclaim after lease expiry",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "expired lease can be reclaimed",
+        "late completion from expired lease is handled safely"
+      ]
+    },
+    {
+      "id": "parallel-autopilot-ticks",
+      "title": "Avoid duplicate dispatch on concurrent autopilot ticks",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "concurrent tick calls do not duplicate execution",
+        "idempotency or lock behavior is asserted"
+      ]
+    },
+    {
+      "id": "worker-timeout",
+      "title": "Ensure worker timeout handling stays bounded and recoverable",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "timeout maps to bounded failure state",
+        "task can be retried or explicitly escalated"
+      ]
+    },
+    {
+      "id": "research-backend-timeout",
+      "title": "Ensure research backend timeout remains bounded and auditable",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "timeout is enforced",
+        "partial output is not treated as verified"
+      ]
+    },
+    {
+      "id": "shell-session-crash",
+      "title": "Ensure shell crash does not corrupt orchestration state",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "shell crash is recorded with explicit failure reason",
+        "new execution can use a fresh session"
+      ]
+    },
+    {
+      "id": "old-config-upgrade",
+      "title": "Validate legacy config upgrade compatibility",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "legacy config keys upgrade with safe defaults",
+        "compatible legacy values are preserved"
+      ]
+    },
+    {
+      "id": "old-task-read-model-upgrade",
+      "title": "Validate legacy task read model compatibility",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "legacy task records render without crashes",
+        "missing fields get deterministic defaults"
+      ]
+    },
+    {
+      "id": "artifact-memory-upgrade",
+      "title": "Validate legacy artifact and memory compatibility",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "legacy artifacts remain listable",
+        "legacy memory entries remain readable in detail views"
+      ]
+    },
+    {
+      "id": "docker-pull-smoke",
+      "title": "Add post-release GHCR pull and start smoke test workflow",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "published image can be pulled by tag",
+        "container starts and health endpoint responds"
+      ]
+    },
+    {
+      "id": "workflow-badges",
+      "title": "Add CI workflow badges in README",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "README includes quality workflow badge",
+        "README includes isolated flow badge"
+      ]
+    },
+    {
+      "id": "test-count-summary",
+      "title": "Add collected test-count summary to CI logs",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": [
+        "backend and frontend pipelines print test-count summary",
+        "isolated flow workflow reports test count signal"
+      ]
+    },
+    {
+      "id": "e2e-compose-main-trigger",
+      "title": "Expand compose E2E trigger policy to main and full-ci label",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "compose E2E runs on main branch updates or equivalent protected trigger",
+        "compose E2E can be requested by PR full-ci label"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "coverage-backend-pytest-cov",
+    "endpoint-role-matrix",
+    "double-claim-same-task",
+    "worker-timeout",
+    "old-config-upgrade",
+    "docker-pull-smoke"
+  ],
+  "tasks_status_summary": {
+    "total": 18,
+    "by_status": {
+      "todo": 18,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 3,
+      "P1": 12,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 7,
+      "high": 8,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 0,
+      "remaining": 6
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "execution_stage_summary": {
+    "stages": {
+      "TEST-M1": {
+        "scope_task_ids": [
+          "coverage-backend-pytest-cov",
+          "coverage-frontend-vitest",
+          "coverage-thresholds-later"
+        ],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M2": {
+        "scope_task_ids": [
+          "security-abuse-workflow-split",
+          "endpoint-role-matrix"
+        ],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M3": {
+        "scope_task_ids": [
+          "double-claim-same-task",
+          "lease-expiry-reclaim",
+          "parallel-autopilot-ticks",
+          "worker-timeout",
+          "research-backend-timeout",
+          "shell-session-crash"
+        ],
+        "total": 6,
+        "done": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M4": {
+        "scope_task_ids": [
+          "old-config-upgrade",
+          "old-task-read-model-upgrade",
+          "artifact-memory-upgrade"
+        ],
+        "total": 3,
+        "done": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M5": {
+        "scope_task_ids": [
+          "docker-pull-smoke",
+          "e2e-compose-main-trigger"
+        ],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "TEST-M6": {
+        "scope_task_ids": [
+          "workflow-badges",
+          "test-count-summary"
+        ],
+        "total": 2,
+        "done": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+  "summary_notes": [
+    "Removed already-implemented items (security boundary tests, frontend golden-path E2E coverage, compose log artifact upload, release image gate split, testing guide matrix).",
+    "Roadmap now contains open items only and aligns with current workflow filenames.",
+    "Task-track summary fields were restored for consistency checks and stage progress accounting."
   ]
 }
