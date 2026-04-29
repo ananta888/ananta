@@ -488,6 +488,7 @@
     "The current KnowledgeIndexRetrievalService is already FTS-like through custom lexical scoring, but adding SQLite FTS5/BM25 would make it faster, persistent and more standard.",
     "The current LlamaIndex semantic engine is real, but it is not yet a structured CodeCompass embedding.jsonl vector index with preserved record metadata.",
     "The largest missing value is graph expansion: use CodeCompass relations/nodes/edges to expand from a seed method/type/config record to its relevant neighborhood.",
-    "OpenCode and ananta-worker should remain execution backends. Retrieval and context construction should stay in the hub-owned context layer."
+    "OpenCode and ananta-worker should remain execution backends. Retrieval and context construction should stay in the hub-owned context layer.",
+    "WCR-T30 decision (2026-04-29): keep this CHR roadmap as historical/specialized detail; no automatic promotion into parent/global todo tracks."
   ]
 }

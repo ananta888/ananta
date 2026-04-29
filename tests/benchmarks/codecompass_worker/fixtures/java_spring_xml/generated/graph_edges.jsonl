@@ -1,0 +1,6 @@
+{"source":"method:PaymentController.handlePayment","target":"method:PaymentService.retryTimeout","type":"calls_probable_target","confidence":0.95}
+{"source":"method:PaymentService.retryTimeout","target":"type:PaymentService","type":"child_of_type","confidence":1.0}
+{"source":"type:PaymentService","target":"type:PaymentRepository","type":"injects_dependency","confidence":0.9}
+{"source":"type:AppConfig","target":"xml:bean.paymentService","type":"declares_bean","confidence":0.8}
+{"source":"xml:bean.paymentService","target":"type:PaymentService","type":"implements","confidence":0.7}
+

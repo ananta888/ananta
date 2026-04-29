@@ -37,6 +37,8 @@ fi
 
 compose_files+=("docker-compose.test.yml")
 
+ANANTA_COMPOSE_BUILD="${ANANTA_COMPOSE_BUILD:-0}"
+
 docker_cli=(docker --config "${DOCKER_CONFIG:-$HOME/.docker}")
 compose_cmd=("${docker_cli[@]}" compose)
 for file in "${compose_files[@]}"; do
@@ -118,13 +120,25 @@ remove_non_ollama_volumes() {
 
 case "$cmd" in
   up)
-    "${compose_cmd[@]}" up -d --build
+    if [[ "$ANANTA_COMPOSE_BUILD" == "1" ]]; then
+      "${compose_cmd[@]}" up -d --build
+    else
+      "${compose_cmd[@]}" up -d
+    fi
     ;;
   up-live)
-    "${compose_cmd[@]}" up -d --build
+    if [[ "$ANANTA_COMPOSE_BUILD" == "1" ]]; then
+      "${compose_cmd[@]}" up -d --build
+    else
+      "${compose_cmd[@]}" up -d
+    fi
     ;;
   up-distributed)
-    "${compose_cmd[@]}" up -d --build
+    if [[ "$ANANTA_COMPOSE_BUILD" == "1" ]]; then
+      "${compose_cmd[@]}" up -d --build
+    else
+      "${compose_cmd[@]}" up -d
+    fi
     ;;
   down)
     "${compose_cmd[@]}" down --remove-orphans

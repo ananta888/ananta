@@ -8,9 +8,9 @@ prepare_docker_config() {
   export DOCKER_CONFIG="${ANANTA_DOCKER_CONFIG_DIR:-/tmp/ananta-docker-config}"
   export DOCKER_AUTH_CONFIG='{"auths":{}}'
 
-  # Force legacy build path to avoid buildx/secretservice credential-helper path in WSL.
-  export DOCKER_BUILDKIT=0
-  export COMPOSE_DOCKER_CLI_BUILD=0
+  # BuildKit is more resilient for large contexts on WSL mounts.
+  export DOCKER_BUILDKIT=1
+  export COMPOSE_DOCKER_CLI_BUILD=1
 
   mkdir -p "$DOCKER_CONFIG"
   cat > "$DOCKER_CONFIG/config.json" <<'JSON'

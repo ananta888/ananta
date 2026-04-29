@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_context_bundle.v1.json",
+  "title": "Ananta Worker Context Bundle v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "bundle_type",
+    "query",
+    "chunk_count",
+    "chunks"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "worker_context_bundle.v1" },
+    "bundle_type": { "type": "string", "enum": ["retrieval_context", "worker_execution_context"] },
+    "query": { "type": "string", "minLength": 1 },
+    "context_text": { "type": "string" },
+    "chunk_count": { "type": "integer", "minimum": 0 },
+    "token_estimate": { "type": "integer", "minimum": 0 },
+    "chunks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["engine", "source", "content", "score", "metadata"],
+        "properties": {
+          "engine": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "content": { "type": "string" },
+          "score": { "type": "number" },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "record_id": { "type": "string" },
+              "record_kind": { "type": "string" },
+              "file": { "type": "string" },
+              "vector_score": { "type": "number" },
+              "expanded_from": { "type": "string" },
+              "relation_path": { "type": "string" },
+              "source_manifest_hash": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "context_policy": { "type": "object", "additionalProperties": true },
+    "explainability": { "type": "object", "additionalProperties": true },
+    "selection_trace": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}
+

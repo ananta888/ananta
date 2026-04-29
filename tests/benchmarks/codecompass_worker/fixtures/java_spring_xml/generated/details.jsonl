@@ -1,0 +1,4 @@
+{"id":"method:PaymentService.retryTimeout","kind":"java_method","file":"src/PaymentService.java","content":"@Transactional public String retryTimeout() { PaymentEntity entity = paymentRepository.findById(\"p-1\"); return entity.status(); }","member_names":["retryTimeout","paymentRepository"],"importance_score":3.0}
+{"id":"method:PaymentController.handlePayment","kind":"java_method","file":"src/PaymentController.java","content":"@PostMapping(\"/payment\") public String handlePayment() { return paymentService.retryTimeout(); }","member_names":["handlePayment","paymentService"],"importance_score":2.0}
+{"id":"type:AppConfig","kind":"java_type","file":"src/config/AppConfig.java","content":"@Configuration @Bean public PaymentRepository paymentRepository() { return new PaymentRepository(); }","member_names":["paymentRepository"],"importance_score":1.5}
+

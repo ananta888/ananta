@@ -137,25 +137,25 @@
       "id": "WCR-M4",
       "title": "Structured vector retrieval over CodeCompass embeddings",
       "task_ids": ["WCR-T13", "WCR-T14", "WCR-T15", "WCR-T16"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCR-M5",
       "title": "Graph and relation expansion",
       "task_ids": ["WCR-T17", "WCR-T18", "WCR-T19", "WCR-T20", "WCR-T21"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCR-M6",
       "title": "Worker context bundle integration",
       "task_ids": ["WCR-T22", "WCR-T23", "WCR-T24", "WCR-T25"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCR-M7",
       "title": "Benchmarks, rollout and observability",
       "task_ids": ["WCR-T26", "WCR-T27", "WCR-T28", "WCR-T29", "WCR-T30"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -370,7 +370,7 @@
     {
       "id": "WCR-T13",
       "title": "Implement structured embedding.jsonl loader for vector indexing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -387,7 +387,7 @@
     {
       "id": "WCR-T14",
       "title": "Implement swappable embedding provider for CodeCompass vectors",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -404,7 +404,7 @@
     {
       "id": "WCR-T15",
       "title": "Implement structured CodeCompass vector store",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -422,7 +422,7 @@
     {
       "id": "WCR-T16",
       "title": "Add CodeCompass vector retrieval channel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -439,7 +439,7 @@
     {
       "id": "WCR-T17",
       "title": "Implement CodeCompass graph store loader",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -457,7 +457,7 @@
     {
       "id": "WCR-T18",
       "title": "Normalize relations.jsonl into graph edges",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -474,7 +474,7 @@
     {
       "id": "WCR-T19",
       "title": "Implement bounded graph expansion profiles",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -493,7 +493,7 @@
     {
       "id": "WCR-T20",
       "title": "Add graph-expanded context chunk builder",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -510,7 +510,7 @@
     {
       "id": "WCR-T21",
       "title": "Add relation-aware context explanation strings",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -527,7 +527,7 @@
     {
       "id": "WCR-T22",
       "title": "Extend worker context bundle contract with CodeCompass provenance",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -544,7 +544,7 @@
     {
       "id": "WCR-T23",
       "title": "Integrate CodeCompass channels into worker retrieval merge",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -562,7 +562,7 @@
     {
       "id": "WCR-T24",
       "title": "Apply worker profile budgets to CodeCompass retrieval",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -580,7 +580,7 @@
     {
       "id": "WCR-T25",
       "title": "Add grounded prompt assembly rules for CodeCompass context",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -597,7 +597,7 @@
     {
       "id": "WCR-T26",
       "title": "Build CodeCompass Java/Spring/XML retrieval benchmark fixture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -614,7 +614,7 @@
     {
       "id": "WCR-T27",
       "title": "Benchmark baseline vs CodeCompass hybrid retrieval",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -631,7 +631,7 @@
     {
       "id": "WCR-T28",
       "title": "Add retrieval trace and observability fields",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -648,7 +648,7 @@
     {
       "id": "WCR-T29",
       "title": "Document rollout and fallback plan for CodeCompass worker retrieval",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "blocking": false,
@@ -665,7 +665,7 @@
     {
       "id": "WCR-T30",
       "title": "Decide whether to promote CodeCompass retrieval tasks into parent todo",
-      "status": "deferred",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -709,16 +709,16 @@
     "WCR-T27"
   ],
   "tasks_status_summary": {
-    "updated_at": "2026-04-29T13:46:00+02:00",
+    "updated_at": "2026-04-29T14:54:00+02:00",
     "total": 30,
     "by_status": {
-      "todo": 17,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 12,
-      "deferred": 1
+      "done": 30,
+      "deferred": 0
     },
-    "progress_percent_done": 40.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 18,
       "P1": 11,
@@ -733,15 +733,15 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 8,
-      "remaining": 10
+      "done": 18,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 7
     }
   },
   "summary_notes": [
@@ -750,6 +750,8 @@
     "Best target design: CodeCompass for structure, FTS/BM25 for exact names, embeddings for semantic similarity and graph expansion for relationships.",
     "Retrieval should produce bounded context for the worker, not become unbounded worker-side repository scanning.",
     "Implement FTS first, vector second, graph third, fusion/benchmarks before default rollout.",
-    "WCR-M1 bis WCR-M3 sind umgesetzt: Alignment/Boundaries/Flags/Trust-Modell, Manifest+Reader+Normalizer+Cache-State sowie FTS Parser/Store/Engine/Wiring."
+    "WCR-M1 bis WCR-M3 sind umgesetzt: Alignment/Boundaries/Flags/Trust-Modell, Manifest+Reader+Normalizer+Cache-State sowie FTS Parser/Store/Engine/Wiring.",
+    "WCR-M4 bis WCR-M7 sind umgesetzt: Structured Vector/Graph Expansion/Context Bundle Contract/Hybrid Merge/Budgeting/Prompt Assembly/Benchmarks/Trace/Rollout.",
+    "T30 decision: no task promotion into parent/global tracks yet; keep this follow-up track as dedicated implementation detail and preserve cross-links."
   ]
 }

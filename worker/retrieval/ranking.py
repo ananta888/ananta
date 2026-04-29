@@ -70,7 +70,14 @@ def merge_rank_candidates(
         channel = str(candidate.get("channel") or "dense")
         if channel not in VALID_CHANNELS:
             continue
-        key = str(candidate.get("content_hash") or candidate.get("path") or "")
+        metadata = dict(candidate.get("metadata") or {})
+        key = str(
+            candidate.get("record_id")
+            or metadata.get("record_id")
+            or candidate.get("content_hash")
+            or candidate.get("path")
+            or ""
+        )
         if not key:
             continue
         weight = float(task_weights.get(channel) or 0.08)

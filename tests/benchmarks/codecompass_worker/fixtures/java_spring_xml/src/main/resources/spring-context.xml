@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans>
+  <bean id="paymentService" class="com.example.payment.PaymentService"/>
+  <bean id="paymentController" class="com.example.payment.PaymentController"/>
+</beans>
+

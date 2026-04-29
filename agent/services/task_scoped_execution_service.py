@@ -288,6 +288,34 @@ class TaskScopedExecutionService:
         }
 
     @staticmethod
+    def _extract_retrieval_trace_link(context_payload: dict | None) -> dict[str, str | None]:
+        payload = dict(context_payload or {})
+        metadata = dict(payload.get("bundle_metadata") or {})
+        retrieval_trace = dict(metadata.get("retrieval_trace") or {})
+        selection_trace = dict(metadata.get("selection_trace") or {})
+        trace_id = str(
+            retrieval_trace.get("trace_id")
+            or selection_trace.get("retrieval_trace_id")
+            or selection_trace.get("trace_id")
+            or ""
+        ).strip() or None
+        context_hash = str(
+            retrieval_trace.get("context_hash")
+            or metadata.get("context_hash")
+            or ""
+        ).strip() or None
+        manifest_hash = str(
+            retrieval_trace.get("manifest_hash")
+            or metadata.get("manifest_hash")
+            or ""
+        ).strip() or None
+        return {
+            "retrieval_trace_id": trace_id,
+            "retrieval_context_hash": context_hash,
+            "retrieval_manifest_hash": manifest_hash,
+        }
+
+    @staticmethod
     def _update_task_flow_metrics(
         *,
         tid: str,
@@ -2806,6 +2834,7 @@ class TaskScopedExecutionService:
     ) -> tuple[str, dict]:
         execution_context = self._get_worker_execution_context(task, tid=tid, base_prompt=base_prompt)
         context_payload = dict(execution_context.get("context") or {})
+        retrieval_trace_link = self._extract_retrieval_trace_link(context_payload)
         context_text = str(context_payload.get("context_text") or "").strip()
         context_profile_payload = dict(context_profile or {})
         compact_profile = bool(context_profile_payload.get("compact"))
@@ -2958,6 +2987,9 @@ class TaskScopedExecutionService:
             },
             "context_chunk_count": len(context_payload.get("chunks") or []),
             "has_context_text": bool(context_text),
+            "retrieval_trace_id": retrieval_trace_link["retrieval_trace_id"],
+            "retrieval_context_hash": retrieval_trace_link["retrieval_context_hash"],
+            "retrieval_manifest_hash": retrieval_trace_link["retrieval_manifest_hash"],
             "instruction_layers": stack_diagnostics,
             "research_context": {
                 "artifact_ids": list((research_context or {}).get("artifact_ids") or []),
