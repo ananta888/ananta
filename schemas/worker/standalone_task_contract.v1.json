@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/standalone_task_contract.v1.json",
+  "title": "Ananta Worker Standalone Task Contract v1",
+  "type": "object",
+  "required": ["schema", "task_id", "goal", "command", "worker_profile", "files", "diffs", "control_manifest"],
+  "properties": {
+    "schema": { "type": "string", "const": "standalone_task_contract.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "goal": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "worker_profile": { "type": "string", "enum": ["safe", "balanced", "fast"] },
+    "files": { "type": "array", "items": { "type": "string" } },
+    "diffs": { "type": "array", "items": { "type": "string" } },
+    "control_manifest": {
+      "type": "object",
+      "required": ["trace_id", "capability_id", "context_hash"],
+      "properties": {
+        "trace_id": { "type": "string", "minLength": 1 },
+        "capability_id": { "type": "string", "minLength": 1 },
+        "context_hash": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
+

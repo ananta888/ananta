@@ -18,6 +18,8 @@ Experimental adapters (`copilot_cli`, `opencode`) are never enabled by default.
 2. Adapter patch output must become `patch_artifact.v1` before apply.
 3. Command suggestions must flow through `worker.command.plan` + `worker.command.execute`.
 4. Approval-required actions cannot be downgraded by adapter logic.
+5. Sandbox execution does not bypass schema/policy/trace invariants.
+6. Runtime control is non-interactive; no user-in-the-loop approvals.
 
 ## Practical notes
 

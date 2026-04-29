@@ -16,6 +16,10 @@ WORKSPACE_SCHEMA = ROOT / "schemas" / "worker" / "workspace_constraints.v1.json"
 LOOP_STATE_SCHEMA = ROOT / "schemas" / "worker" / "worker_loop_state.v1.json"
 PROGRESS_EVENT_SCHEMA = ROOT / "schemas" / "worker" / "worker_progress_event.v1.json"
 PROFILE_SCHEMA = ROOT / "schemas" / "worker" / "worker_execution_profile.v1.json"
+RETRIEVAL_INDEX_SCHEMA = ROOT / "schemas" / "worker" / "retrieval_index_contract.v1.json"
+RETRIEVAL_PIPELINE_SCHEMA = ROOT / "schemas" / "worker" / "retrieval_pipeline_contract.v1.json"
+STANDALONE_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "standalone_task_contract.v1.json"
+PLANNER_STATE_CONTRACT_SCHEMA = ROOT / "schemas" / "worker" / "planner_state_contract.v1.json"
 
 
 def _load(path: Path) -> dict:
@@ -62,6 +66,42 @@ def test_worker_artifact_schemas_validate_examples() -> None:
             "budgets": {"max_iterations": 4, "max_patch_attempts": 4, "max_runtime_seconds": 420},
             "context_limits": {"max_files": 12, "max_bytes": 120000, "max_prompt_context_chars": 8000},
             "approval_behavior": {"enforce_hub_tokens": True, "guarded_root_requires_token": True}
+        }),
+        (RETRIEVAL_INDEX_SCHEMA, {
+            "schema": "retrieval_index_entry.v1",
+            "chunk_id": "src/a.py:0:10:h",
+            "path": "src/a.py",
+            "text": "def a(): pass",
+            "language": "python",
+            "symbol_name": "a",
+            "start_byte": 0,
+            "end_byte": 12,
+            "source_hash": "abc123",
+            "embedding_version": "hash-v1",
+            "embedding": [0.1, 0.2]
+        }),
+        (RETRIEVAL_PIPELINE_SCHEMA, {
+            "schema": "retrieval_pipeline_contract.v1",
+            "channels": ["dense", "lexical", "symbol"],
+            "fallback_order": ["dense", "lexical", "symbol"],
+            "weights": {"dense": 0.5, "lexical": 0.3, "symbol": 0.2}
+        }),
+        (STANDALONE_CONTRACT_SCHEMA, {
+            "schema": "standalone_task_contract.v1",
+            "task_id": "t",
+            "goal": "run tests",
+            "command": "pytest -q",
+            "worker_profile": "balanced",
+            "files": ["src/a.py"],
+            "diffs": [],
+            "control_manifest": {"trace_id": "tr", "capability_id": "worker.command.execute", "context_hash": "ctx"}
+        }),
+        (PLANNER_STATE_CONTRACT_SCHEMA, {
+            "schema": "planner_state_contract.v1",
+            "task_id": "t",
+            "state": "ready",
+            "trace_ref": "trace:t",
+            "updated_at": "2026-01-01T00:00:00+00:00"
         }),
         (PROGRESS_EVENT_SCHEMA, {"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "plan", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "planned", "emitted_at": "2026-01-01T00:00:00+00:00"}),
         (LOOP_STATE_SCHEMA, {"schema": "worker_loop_state.v1", "task_id": "t", "trace_id": "tr", "context_hash": "ctx", "execution_profile": "balanced", "policy_state": "allow", "phase": "summarize", "iteration": 1, "patch_attempts": 1, "status": "completed", "stop_reason": "goal_reached", "artifacts": ["patch:1"], "events": [{"schema": "worker_progress_event.v1", "task_id": "t", "trace_id": "tr", "phase": "summarize", "iteration": 1, "artifact_refs": ["patch:1"], "detail": "done", "emitted_at": "2026-01-01T00:00:00+00:00"}]}),

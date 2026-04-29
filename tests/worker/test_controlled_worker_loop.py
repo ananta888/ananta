@@ -24,6 +24,7 @@ def test_controlled_loop_completes_after_repair_iteration() -> None:
     assert result["stop_reason"] == "goal_reached"
     assert result["execution_profile"] == "balanced"
     assert any(event["phase"] == "repair" for event in result["events"])
+    assert result["plan_artifact"]["schema"] == "worker_plan_artifact.v1"
 
 
 def test_controlled_loop_stops_on_missing_approval() -> None:
@@ -50,3 +51,18 @@ def test_profile_budgets_are_distinct_and_bounded() -> None:
     fast = budgets_for_profile("fast")
     assert safe.max_iterations < fast.max_iterations
     assert safe.max_runtime_seconds < fast.max_runtime_seconds
+
+
+def test_controlled_loop_writes_checkpoint_when_configured(tmp_path) -> None:
+    checkpoint = tmp_path / "checkpoint.json"
+    run_controlled_worker_loop(
+        task_id="AW-T38",
+        trace_id="tr-38",
+        context_hash="ctx-38",
+        policy_decision="allow",
+        approval_ref={"approval_id": "a-38", "status": "approved"},
+        iteration_outcomes=[{"test_status": "failed", "made_progress": True}],
+        budgets=WorkerLoopBudgets(max_iterations=1, max_patch_attempts=2, max_runtime_seconds=120),
+        checkpoint_store_path=str(checkpoint),
+    )
+    assert checkpoint.exists()

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/planner_state_contract.v1.json",
+  "title": "Ananta Worker Planner State Contract v1",
+  "type": "object",
+  "required": ["schema", "task_id", "state", "trace_ref"],
+  "properties": {
+    "schema": { "type": "string", "const": "planner_state_contract.v1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "state": {
+      "type": "string",
+      "enum": ["draft", "ready", "executing", "verifying", "replanning", "complete", "failed"]
+    },
+    "trace_ref": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}
+

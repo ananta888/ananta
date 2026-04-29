@@ -256,6 +256,9 @@ class TaskScopedExecutionService:
         worker_profile: str | None = None,
         profile_source: str | None = None,
         policy_classification: str | None = None,
+        retrieval_cache_hit: bool | None = None,
+        retrieval_latency_ms: int | None = None,
+        retrieval_quality_score: float | None = None,
     ) -> dict:
         return {
             "run_id": str(run_id or "").strip() or None,
@@ -266,6 +269,22 @@ class TaskScopedExecutionService:
             "worker_profile": normalize_worker_execution_profile(worker_profile),
             "profile_source": str(profile_source or "agent_default").strip().lower() or "agent_default",
             "policy_classification": str(policy_classification or "").strip().lower() or None,
+            "retrieval_cache_hit": None if retrieval_cache_hit is None else bool(retrieval_cache_hit),
+            "retrieval_latency_ms": None if retrieval_latency_ms is None else int(retrieval_latency_ms),
+            "retrieval_quality_score": None if retrieval_quality_score is None else float(retrieval_quality_score),
+        }
+
+    @staticmethod
+    def _build_planner_observability_payload(
+        *,
+        trigger: str | None,
+        policy_decision_ref: str | None,
+        plan_diff: dict | None,
+    ) -> dict:
+        return {
+            "trigger": str(trigger or "").strip().lower() or "unknown",
+            "policy_decision_ref": str(policy_decision_ref or "").strip() or None,
+            "plan_diff": dict(plan_diff or {}),
         }
 
     @staticmethod

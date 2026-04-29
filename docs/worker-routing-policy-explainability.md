@@ -38,6 +38,7 @@ Each routing decision should be stored with:
 - `worker_profile`, `profile_source`
 - `worker_runtime_path` (`native_worker_pipeline` vs `sgpt_fallback_proxy`)
 - `policy_classification_summary`
+- `planner_trigger` and `plan_diff_ref` for replan events
 - `fallback_reason` when hub executes
 - `timestamp`
 

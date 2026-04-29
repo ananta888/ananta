@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from worker.core.execution_profile import file_selection_limits_for_profile, normalize_execution_profile
+from worker.retrieval.retrieval_service import HybridRetrievalService
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ def select_candidate_files(
     )
 
     selected_files: list[dict[str, Any]] = []
+    excluded_refs: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
     total_bytes = 0
     for ref in weighted_refs:
@@ -82,8 +84,10 @@ def select_candidate_files(
             estimated_size = 0
         projected_bytes = total_bytes + estimated_size
         if len(selected_files) >= bounded_limits.max_files:
+            excluded_refs.append({"path": path, "reason": "max_files_limit"})
             break
         if projected_bytes > bounded_limits.max_bytes:
+            excluded_refs.append({"path": path, "reason": "max_bytes_limit"})
             continue
         selected_files.append(
             {
@@ -116,6 +120,7 @@ def select_candidate_files(
             "selected_files": selected_files,
             "usage": {"selected_file_count": len(selected_files), "selected_total_bytes": total_bytes},
             "usage_limits": {"max_files": bounded_limits.max_files, "max_bytes": bounded_limits.max_bytes},
+            "excluded_refs": excluded_refs,
             "execution_profile": normalized_profile,
         }
 
@@ -125,5 +130,50 @@ def select_candidate_files(
         "selected_files": selected_files,
         "usage": {"selected_file_count": len(selected_files), "selected_total_bytes": total_bytes},
         "usage_limits": {"max_files": bounded_limits.max_files, "max_bytes": bounded_limits.max_bytes},
+        "excluded_refs": excluded_refs,
         "execution_profile": normalized_profile,
     }
+
+
+def select_candidate_files_from_hybrid_retrieval(
+    *,
+    query: str,
+    channel_results: dict[str, list[dict[str, Any]]],
+    context_envelope: dict[str, Any],
+    limits: FileSelectionLimits | None = None,
+    execution_profile: str | None = "balanced",
+    task_type: str = "bugfix",
+) -> dict[str, Any]:
+    service = HybridRetrievalService()
+    retrieval = service.retrieve(
+        query=query,
+        pipeline_contract={"channels": ["dense", "lexical", "symbol"], "fallback_order": ["dense", "lexical", "symbol"]},
+        channel_results=channel_results,
+        task_type=task_type,
+        profile=str(execution_profile or "balanced"),
+        top_k=24,
+    )
+    refs = []
+    for item in list(retrieval.get("selected") or []):
+        refs.append(
+            {
+                "path": item.get("path"),
+                "symbol": item.get("symbol_name"),
+                "source_id": f"hybrid:{item.get('channel')}",
+                "retrieval_kind": item.get("channel"),
+                "score": item.get("final_score"),
+                "reason": "hybrid_ranked",
+            }
+        )
+    result = select_candidate_files(
+        context_envelope={**dict(context_envelope or {}), "retrieval_refs": refs},
+        limits=limits,
+        execution_profile=execution_profile,
+    )
+    result["retrieval_trace"] = {
+        "query_original": retrieval.get("query_original"),
+        "query_rewritten": retrieval.get("query_rewritten"),
+        "selected_paths": [item.get("path") for item in list(retrieval.get("selected") or [])],
+        "exclusion_reasons": [item.get("reason") for item in list(result.get("excluded_refs") or [])],
+    }
+    return result

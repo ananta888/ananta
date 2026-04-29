@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from worker.coding.file_selection import FileSelectionLimits, select_candidate_files
+from worker.coding.file_selection import FileSelectionLimits, select_candidate_files, select_candidate_files_from_hybrid_retrieval
 
 
 def test_file_selection_prefers_ranked_refs_with_provenance() -> None:
@@ -60,3 +60,19 @@ def test_file_selection_uses_profile_defaults_when_limits_missing() -> None:
     assert result["usage_limits"]["max_files"] == 8
     assert result["usage_limits"]["max_bytes"] == 80000
     assert [item["path"] for item in result["selected_files"]] == ["a.py"]
+
+
+def test_file_selection_from_hybrid_retrieval_adds_trace_data() -> None:
+    result = select_candidate_files_from_hybrid_retrieval(
+        query="fix auth bug",
+        channel_results={
+            "dense": [{"path": "src/auth.py", "content_hash": "h1", "score": 0.9, "text": "auth bug fix"}],
+            "lexical": [{"path": "tests/test_auth.py", "content_hash": "h2", "score": 0.8, "text": "auth test"}],
+            "symbol": [],
+        },
+        context_envelope={"file_sizes": {"src/auth.py": 200, "tests/test_auth.py": 200}},
+        execution_profile="balanced",
+    )
+    assert result["status"] == "ok"
+    assert result["retrieval_trace"]["query_original"] == "fix auth bug"
+    assert result["retrieval_trace"]["selected_paths"]
