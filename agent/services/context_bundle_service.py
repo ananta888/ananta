@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 
 from agent.common.redaction import redact
@@ -89,6 +91,22 @@ def resolve_context_bundle_policy(value: dict | None) -> dict[str, object]:
         "max_chunks": max_chunks,
         "total_budget_tokens": total_budget_tokens,
     }
+
+
+def _compute_context_hash(*, query: str, chunks: list[dict], manifest_hash: str) -> str:
+    record_refs: list[str] = []
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        metadata = dict(chunk.get("metadata") or {})
+        record_refs.append(str(metadata.get("record_id") or metadata.get("chunk_id") or "").strip())
+    payload = {
+        "query": str(query or ""),
+        "record_refs": record_refs,
+        "manifest_hash": str(manifest_hash or ""),
+    }
+    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 class ContextBundleService:
@@ -385,6 +403,11 @@ class ContextBundleService:
                 if value and value not in collection_names:
                     collection_names.append(value)
             if source:
+                expanded_from = str(metadata.get("expanded_from") or "").strip() or None
+                relation_path = str(metadata.get("relation_path") or "").strip() or None
+                source_manifest_hash = (
+                    str(metadata.get("source_manifest_hash") or metadata.get("manifest_hash") or "").strip() or None
+                )
                 sources.append(
                     {
                         "engine": engine,
@@ -397,6 +420,9 @@ class ContextBundleService:
                         "artifact_id": artifact_id,
                         "knowledge_index_id": knowledge_index_id,
                         "collection_names": self._redact_debug_value(metadata.get("collection_names") or []),
+                        "expanded_from": expanded_from,
+                        "relation_path": relation_path,
+                        "source_manifest_hash": source_manifest_hash,
                     }
                 )
 
@@ -493,9 +519,49 @@ class ContextBundleService:
                     "record_kind": item.get("record_kind"),
                     "source_type": item.get("source_type"),
                     "collection_names": item.get("collection_names"),
+                    "expanded_from": item.get("expanded_from"),
+                    "relation_path": item.get("relation_path"),
+                    "source_manifest_hash": item.get("source_manifest_hash"),
                 }
             )
         return {**dict(explainability or {}), "sources": filtered_sources, "source_count": len(filtered_sources)}
+
+    def _build_retrieval_trace(
+        self,
+        *,
+        query: str,
+        chunks: list[dict],
+        strategy: dict[str, object],
+        payload_trace: dict[str, object] | None,
+    ) -> dict[str, object]:
+        if isinstance(payload_trace, dict) and payload_trace:
+            return dict(payload_trace)
+        strategy_trace = strategy.get("retrieval_trace")
+        if isinstance(strategy_trace, dict) and strategy_trace:
+            return dict(strategy_trace)
+        selected_chunk_counts_by_channel: dict[str, int] = {}
+        manifest_hash = ""
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            engine = str(chunk.get("engine") or "unknown").strip() or "unknown"
+            selected_chunk_counts_by_channel[engine] = selected_chunk_counts_by_channel.get(engine, 0) + 1
+            metadata = dict(chunk.get("metadata") or {})
+            if not manifest_hash:
+                manifest_hash = str(metadata.get("source_manifest_hash") or metadata.get("manifest_hash") or "").strip()
+        context_hash = _compute_context_hash(query=query, chunks=chunks, manifest_hash=manifest_hash)
+        return {
+            "trace_id": f"retrieval-{context_hash[:16]}",
+            "enabled_channels": sorted(selected_chunk_counts_by_channel.keys()),
+            "degraded_channels": [],
+            "seed_counts": {"graph_seed_count": 0},
+            "graph_expansion_counts": {"expanded_nodes": 0},
+            "final_chunk_count": len(chunks),
+            "context_hash": context_hash,
+            "manifest_hash": manifest_hash,
+            "selected_chunk_counts_by_channel": selected_chunk_counts_by_channel,
+            "channel_latency_ms": {},
+        }
 
     def _build_why_this_context(
         self,
@@ -645,6 +711,18 @@ class ContextBundleService:
             compaction=compaction,
         )
         payload["budget"] = budget_model
+        retrieval_trace = self._build_retrieval_trace(
+            query=str(payload.get("query") or ""),
+            chunks=list(payload.get("chunks") or []),
+            strategy=strategy,
+            payload_trace=payload.get("retrieval_trace") if isinstance(payload.get("retrieval_trace"), dict) else None,
+        )
+        payload["retrieval_trace"] = retrieval_trace
+        explainability = dict(payload.get("explainability") or {})
+        explainability["channel_contributions"] = dict(
+            retrieval_trace.get("selected_chunk_counts_by_channel") or explainability.get("channel_contributions") or {}
+        )
+        payload["explainability"] = explainability
         fusion = dict(strategy.get("fusion") or {})
         dedupe = dict(fusion.get("dedupe") or {})
         candidate_counts = dict(fusion.get("candidate_counts") or {})
@@ -661,6 +739,9 @@ class ContextBundleService:
                 "version": compaction.get("version"),
                 "dropped_reasons": dict(compaction.get("dropped_reasons") or {}),
             },
+            "retrieval_trace_id": retrieval_trace.get("trace_id"),
+            "context_hash": retrieval_trace.get("context_hash"),
+            "manifest_hash": retrieval_trace.get("manifest_hash"),
         }
         payload["selection_trace"] = self._redact_debug_value(payload["selection_trace"])
         payload["context_policy"] = {
