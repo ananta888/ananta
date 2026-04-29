@@ -46,8 +46,8 @@ export class MobileProotService {
   buildLoginCommand(distro: string): string {
     this.setSelectedDistro(distro);
     return [
-      this.prootResolverSnippet(),
       this.rootfsResolverSnippet(),
+      this.prootResolverSnippet(),
       'if [ -f "$ANANTA_PROOT_WRAPPER" ] && [ -d "$ANANTA_ROOTFS" ]; then chmod 755 "$ANANTA_PROOT_WRAPPER" 2>/dev/null || true; if [ -n "$ANANTA_PROOT_BIN" ]; then chmod 755 "$ANANTA_PROOT_BIN" 2>/dev/null || true; fi; export HOME=/root TERM=${TERM:-xterm-256color} PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; ANANTA_WORKDIR="/"; if [ -d "$ANANTA_ROOTFS/root" ]; then ANANTA_WORKDIR="/root"; fi; ANANTA_LOGIN_SHELL=""; for s in /bin/sh /usr/bin/sh /bin/bash /usr/bin/bash /bin/ash /usr/bin/ash; do if /system/bin/sh "$ANANTA_PROOT_WRAPPER" -r "$ANANTA_ROOTFS" -b /dev:/dev -b /proc:/proc -b /sys:/sys -w "$ANANTA_WORKDIR" -- "$s" -lc "exit 0" >/dev/null 2>&1; then ANANTA_LOGIN_SHELL="$s"; break; fi; done; if [ -z "$ANANTA_LOGIN_SHELL" ]; then echo "keine startbare Login-Shell im rootfs gefunden ($ANANTA_ROOTFS)"; exit 1; fi; /system/bin/sh "$ANANTA_PROOT_WRAPPER" -r "$ANANTA_ROOTFS" -b /dev:/dev -b /proc:/proc -b /sys:/sys -w "$ANANTA_WORKDIR" -- "$ANANTA_LOGIN_SHELL" -l; else echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren."; fi',
     ].join(' && ');
   }
@@ -56,8 +56,8 @@ export class MobileProotService {
     const selected = this.normalizeDistro(distro);
     const workerStart = this.workerStartSnippet();
     return [
-      this.prootResolverSnippet(),
       this.rootfsResolverSnippet(selected),
+      this.prootResolverSnippet(),
       `if [ -f "$ANANTA_PROOT_WRAPPER" ] && [ -d "$ANANTA_ROOTFS" ]; then chmod 755 "$ANANTA_PROOT_WRAPPER" 2>/dev/null || true; if [ -n "$ANANTA_PROOT_BIN" ]; then chmod 755 "$ANANTA_PROOT_BIN" 2>/dev/null || true; fi; ANANTA_WORKDIR="/"; if [ -d "$ANANTA_ROOTFS/root" ]; then ANANTA_WORKDIR="/root"; fi; ANANTA_LOGIN_SHELL=""; for s in /bin/sh /usr/bin/sh /bin/bash /usr/bin/bash /bin/ash /usr/bin/ash; do if /system/bin/sh "$ANANTA_PROOT_WRAPPER" -r "$ANANTA_ROOTFS" -b /dev:/dev -b /proc:/proc -b /sys:/sys -w "$ANANTA_WORKDIR" -- "$s" -lc "exit 0" >/dev/null 2>&1; then ANANTA_LOGIN_SHELL="$s"; break; fi; done; if [ -z "$ANANTA_LOGIN_SHELL" ]; then echo "keine startbare Shell im rootfs gefunden ($ANANTA_ROOTFS)"; exit 1; fi; /system/bin/sh "$ANANTA_PROOT_WRAPPER" -r "$ANANTA_ROOTFS" -b /dev:/dev -b /proc:/proc -b /sys:/sys -w "$ANANTA_WORKDIR" -- "$ANANTA_LOGIN_SHELL" -lc '${workerStart}'; else echo "proot runtime oder rootfs fehlt. Bitte Runtime + Distro installieren."; exit 1; fi`,
     ].join(' && ');
   }
@@ -73,7 +73,6 @@ export class MobileProotService {
 
   private prootResolverSnippet(): string {
     return [
-      this.runtimeRootResolverSnippet(),
       'ANANTA_PROOT_WRAPPER="$ANANTA_PROOT_RUNTIME/bin/proot"',
       'ANANTA_PROOT_BIN="$ANANTA_PROOT_RUNTIME/bin/proot-rs"; if [ ! -f "$ANANTA_PROOT_BIN" ]; then ANANTA_PROOT_BIN=""; fi',
     ].join(' && ');
@@ -87,6 +86,10 @@ export class MobileProotService {
     const distro = this.normalizeDistro(selectedDistro || this.getSelectedDistro());
     return [
       `ANANTA_DISTRO="${distro}"`,
+      'ANANTA_PROOT_RUNTIME=""',
+      'for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -f "$d/bin/proot" ] && [ -d "$d/distros/$ANANTA_DISTRO/rootfs" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done',
+      'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; fi',
+      'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi',
       'ANANTA_ROOTFS="$ANANTA_PROOT_RUNTIME/distros/$ANANTA_DISTRO/rootfs"',
     ].join(' && ');
   }
