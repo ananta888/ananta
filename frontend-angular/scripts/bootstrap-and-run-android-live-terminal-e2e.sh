@@ -94,10 +94,13 @@ zipfile.ZipFile("$tmp_zip").extractall("$unpack_dir")
 PY
   rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
   mv "$unpack_dir/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+  chmod +x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/"* || true
+  chmod +x "$ANDROID_SDK_ROOT/cmdline-tools/latest/lib/"*.jar || true
 }
 
 ensure_android_sdk() {
   install_cmdline_tools_if_missing
+  chmod +x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/"* || true
   yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
   sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
     "platform-tools" \
