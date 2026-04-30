@@ -79,6 +79,89 @@ public class LiveTerminalAndroidE2ETest {
     }
 
     @Test
+    public void internalWorkerLiveTerminalConfirmsUbuntuIsUsableAndLoggedIn() throws InterruptedException {
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "seed auth and route to agents",
+            "localStorage.setItem('ananta.user.token'," + jsLiteral(arg("ananta.e2e.token", "ananta-e2e-token")) + ");"
+                + "if(!(window.location.pathname||'').includes('/agents')){window.location.assign('/agents');}"
+                + "return true;"
+        );
+
+        waitForTrue(
+            "agents page loaded",
+            "return (window.location.pathname||'').includes('/agents') && document.querySelectorAll('.card').length > 0;"
+        );
+
+        waitForTrue(
+            "open internal worker terminal",
+            "return (function(){"
+                + "var cards=document.querySelectorAll('.card');"
+                + "for(var i=0;i<cards.length;i++){"
+                + "  var card=cards[i];"
+                + "  var strong=card.querySelector('strong');"
+                + "  if(!strong){continue;}"
+                + "  var name=(strong.textContent||'').trim().toLowerCase();"
+                + "  var cardText=(card.textContent||'').toLowerCase();"
+                + "  var isWorker=name.indexOf('worker')>=0 || cardText.indexOf('(worker)')>=0;"
+                + "  var isInternal=cardText.indexOf('(intern)')>=0;"
+                + "  if(!isWorker || !isInternal){continue;}"
+                + "  var buttons=card.querySelectorAll('button');"
+                + "  for(var j=0;j<buttons.length;j++){"
+                + "    var label=(buttons[j].textContent||'').toLowerCase();"
+                + "    if(label.indexOf('terminal')>=0){buttons[j].click();return true;}"
+                + "  }"
+                + "}"
+                + "return false;"
+                + "})();"
+        );
+
+        waitForTrue(
+            "panel terminal tab loaded",
+            "return (window.location.pathname||'').indexOf('/panel/')>=0 "
+                + "&& Array.from(document.querySelectorAll('h3')).some(function(el){return (el.textContent||'').indexOf('Live Terminal')>=0;});"
+        );
+        waitForTrue(
+            "embedded worker terminal connected",
+            "var out=document.querySelector(\"[data-testid='terminal-output-buffer']\");"
+                + "return !!out && (out.textContent||'').indexOf('connected: embedded-interactive')>=0;"
+        );
+
+        runIfPresent(
+            "send ubuntu verification command",
+            "return (function(){"
+                + "var input=document.querySelector(\"input[aria-label='Terminal-Befehl']\");"
+                + "if(!input){return false;}"
+                + "input.focus();"
+                + "input.value=\"printf 'ANANTA_E2E_UBUNTU_CHECK:'; "
+                + "if [ -f /etc/os-release ]; then . /etc/os-release; echo \\\"${ID:-unknown}\\\"; else echo no_os_release; fi; "
+                + "printf 'ANANTA_E2E_WHOAMI:'; whoami 2>/dev/null || id -un 2>/dev/null || echo unknown\";"
+                + "input.dispatchEvent(new Event('input',{bubbles:true}));"
+                + "var buttons=document.querySelectorAll('button');"
+                + "for(var i=0;i<buttons.length;i++){"
+                + "  var label=(buttons[i].textContent||'').trim().toLowerCase();"
+                + "  if(label==='senden' && !buttons[i].disabled){buttons[i].click();return true;}"
+                + "}"
+                + "return false;"
+                + "})();"
+        );
+
+        waitForTrueWithRetry(
+            "worker terminal confirms ubuntu session",
+            "var out=document.querySelector(\"[data-testid='terminal-output-buffer']\");"
+                + "var text=String((out&&out.textContent)||'');"
+                + "if(text.indexOf('ANANTA_E2E_UBUNTU_CHECK:')>=0 && text.indexOf('ANANTA_E2E_UBUNTU_CHECK:ubuntu')<0){"
+                + "  throw new Error('Unexpected Ubuntu marker: ' + text.slice(-1200));"
+                + "}"
+                + "return text.indexOf('ANANTA_E2E_UBUNTU_CHECK:ubuntu')>=0 && text.indexOf('ANANTA_E2E_WHOAMI:')>=0;",
+            90,
+            1_000L
+        );
+    }
+
+    @Test
     public void ubuntuProotIsUsableFromInstalledApp() throws InterruptedException {
         String smokeCommand =
             "ANANTA_PROOT_RUNTIME=\"proot-runtime\"; "
