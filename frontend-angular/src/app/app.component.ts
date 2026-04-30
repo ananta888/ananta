@@ -75,13 +75,13 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         }
       }
     </header>
-    @if (auth.user$ | async; as user) {
-      @if (isAndroidNative) {
-        <nav
-          id="primary-navigation"
-          class="android-fullscreen-menu"
-          [class.open]="shell.mobileNavOpen()"
-          aria-label="Hauptnavigation">
+    @if (isAndroidNative) {
+      <nav
+        id="primary-navigation"
+        class="android-fullscreen-menu"
+        [class.open]="shell.mobileNavOpen()"
+        aria-label="Hauptnavigation">
+        @if (auth.user$ | async; as user) {
           @for (group of navGroups(user.role); track group.label) {
             <span class="nav-group-label">{{ group.label }}</span>
             @for (item of group.items; track item.path) {
@@ -91,13 +91,17 @@ import { PythonRuntimeService } from './services/python-runtime.service';
               }
             }
           }
-        </nav>
-        @if (shell.mobileNavOpen()) {
-          <div class="mobile-nav-backdrop open" (click)="closeMobileNav()" aria-hidden="true"></div>
+        } @else {
+          <span class="nav-group-label">Navigation</span>
+          <a routerLink="/dashboard" (click)="closeMobileNav()">Dashboard</a>
+          <a routerLink="/agents" (click)="closeMobileNav()">Agenten</a>
         }
+      </nav>
+      @if (shell.mobileNavOpen()) {
+        <div class="mobile-nav-backdrop open" (click)="closeMobileNav()" aria-hidden="true"></div>
       }
     }
-    @if (isAndroidNative && (auth.user$ | async)) {
+    @if (isAndroidNative) {
       <button
         type="button"
         class="android-edge-toggle"
