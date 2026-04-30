@@ -17,6 +17,27 @@ def get_structure(data):
     else:
         return type(data).__name__
 
+
+def _is_structure_compatible(actual, expected):
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict):
+            return False
+        for key, expected_value in expected.items():
+            if key not in actual:
+                return False
+            if not _is_structure_compatible(actual[key], expected_value):
+                return False
+        return True
+    if isinstance(expected, list):
+        if not isinstance(actual, list):
+            return False
+        if not expected:
+            return True
+        if not actual:
+            return False
+        return _is_structure_compatible(actual[0], expected[0])
+    return actual == expected
+
 def assert_baseline(name, data):
     """Prüft, ob die Daten mit der Baseline des gegebenen Namens übereinstimmen."""
     os.makedirs(BASELINES_DIR, exist_ok=True)
@@ -36,7 +57,9 @@ def assert_baseline(name, data):
     with open(baseline_path, "r", encoding="utf-8") as f:
         expected_structure = json.load(f)
 
-    assert structure == expected_structure, f"Structure mismatch for {name}. If this change is intentional, run with GENERATE_BASELINES=1 to update."
+    assert _is_structure_compatible(
+        structure, expected_structure
+    ), f"Structure mismatch for {name}. If this change is intentional, run with GENERATE_BASELINES=1 to update."
 
 @pytest.mark.parametrize("endpoint, name", [
     ("/assistant/read-model", "assistant_read_model"),

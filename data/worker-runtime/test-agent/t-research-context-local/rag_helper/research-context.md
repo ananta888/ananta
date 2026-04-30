@@ -1,5 +1,5 @@
 Artefakt-Kontext:
-- Artifact 116277a5-5d95-4981-a50a-ac47109f8285 (README.md):
+- Artifact 307a49cb-50cc-4c03-8c15-ddd9c9a3d3ab (README.md):
 # Hello
 artifact body
 

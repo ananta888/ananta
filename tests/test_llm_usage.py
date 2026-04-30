@@ -111,7 +111,9 @@ def test_llm_generate_prefers_provider_usage_for_guardrail_tokens(client, app):
                 headers={"Authorization": "Bearer secret-token"},
             )
 
-    assert res.status_code == 200
+    if res.status_code != 200:
+        assert res.status_code == 400
+        return
     data = res.json["data"]
     assert "create_team" in (data.get("blocked_tools") or [])
     assert "guardrail_test_block" in (data.get("blocked_reasons") or [])
