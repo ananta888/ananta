@@ -81,20 +81,14 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         class="android-fullscreen-menu"
         [class.open]="shell.mobileNavOpen()"
         aria-label="Hauptnavigation">
-        @if (auth.user$ | async; as user) {
-          @for (group of navGroups(user.role); track group.label) {
-            <span class="nav-group-label">{{ group.label }}</span>
-            @for (item of group.items; track item.path) {
-              <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
-              @if (shell.mode() === 'advanced' && item.expertOnly) {
-                <span class="nav-expert-label">Experte</span>
-              }
+        @for (group of navGroups((auth.user$ | async)?.role); track group.label) {
+          <span class="nav-group-label">{{ group.label }}</span>
+          @for (item of group.items; track item.path) {
+            <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
+            @if (shell.mode() === 'advanced' && item.expertOnly) {
+              <span class="nav-expert-label">Experte</span>
             }
           }
-        } @else {
-          <span class="nav-group-label">Navigation</span>
-          <a routerLink="/dashboard" (click)="closeMobileNav()">Dashboard</a>
-          <a routerLink="/agents" (click)="closeMobileNav()">Agenten</a>
         }
       </nav>
       @if (shell.mobileNavOpen()) {
