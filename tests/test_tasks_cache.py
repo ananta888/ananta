@@ -25,24 +25,24 @@ def app():
 def test_task_cache_consistency(app):
     with app.app_context():
         # 1. Update Task
-        _update_local_task_status("t1", "started", title="test task")
+        _update_local_task_status("t1", "created", title="test task")
 
         # 2. Check Cache
         status = _get_local_task_status("t1")
         assert status is not None
-        assert status["status"] == "started"
+        assert status["status"] == "created"
         assert status["title"] == "test task"
 
         # 3. Direkt in DB schreiben (simuliert anderen Prozess)
         from agent.repository import task_repo
 
         task = task_repo.get_by_id("t1")
-        task.status = "externally_updated"
+        task.status = "updated"
         task_repo.save(task)
 
         # 4. Check Cache
         status = _get_local_task_status("t1")
-        assert status["status"] == "externally_updated"
+        assert status["status"] == "updated"
 
 
 def test_atomic_updates(app):

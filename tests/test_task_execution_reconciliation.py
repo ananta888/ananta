@@ -38,7 +38,7 @@ def test_reconcile_marks_stuck_worker_execution_blocked(app):
         task = task_repo.get_by_id("reconcile-stuck-1")
 
         assert snapshot["decisions"]
-        assert task.status == "blocked"
+        assert task.status == "blocked_by_dependency"
         assert task.verification_status["execution_reconciliation"]["issue_code"] == "stuck_execution"
         assert task.verification_status["execution_reconciliation"]["details"]["worker_offline"] is True
         assert any((entry.get("event_type") == "task_reconciled") for entry in (task.history or []))

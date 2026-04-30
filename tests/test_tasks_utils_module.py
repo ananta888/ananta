@@ -1,6 +1,5 @@
 import time
 
-from agent.db_models import TaskDB
 from agent.routes.tasks import utils as task_utils
 
 
@@ -14,32 +13,20 @@ def test_get_local_task_status_returns_none_when_missing(monkeypatch):
     assert task_utils._get_local_task_status("T-missing") is None
 
 
-def test_update_local_task_status_creates_and_saves_task(monkeypatch):
-    saved = {}
-    notified = []
+def test_update_local_task_status_delegates_to_runtime_service(monkeypatch):
+    captured = {}
 
-    class StubRepo:
-        @staticmethod
-        def get_by_id(_tid):
-            return None
+    def _fake_update_local_task_status(tid, status, **kwargs):
+        captured["tid"] = tid
+        captured["status"] = status
+        captured["kwargs"] = dict(kwargs)
 
-        @staticmethod
-        def save(task):
-            saved["task"] = task
-            return task
-
-    monkeypatch.setattr(task_utils, "task_repo", StubRepo())
-    monkeypatch.setattr(task_utils, "_notify_task_update", lambda tid: notified.append(tid))
-
+    monkeypatch.setattr(task_utils, "update_local_task_status", _fake_update_local_task_status)
     task_utils._update_local_task_status("T-1", "in_progress", title="Test task")
 
-    task = saved["task"]
-    assert isinstance(task, TaskDB)
-    assert task.id == "T-1"
-    assert task.status == "in_progress"
-    assert task.title == "Test task"
-    assert task.updated_at <= time.time()
-    assert notified == ["T-1"]
+    assert captured["tid"] == "T-1"
+    assert captured["status"] == "in_progress"
+    assert captured["kwargs"]["title"] == "Test task"
 
 
 def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
