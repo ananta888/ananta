@@ -153,7 +153,10 @@ public class LiveTerminalAndroidE2ETest {
             "var out=document.querySelector(\"[data-testid='terminal-output-buffer']\");"
                 + "var text=String((out&&out.textContent)||'');"
                 + "if(text.indexOf('ANANTA_E2E_UBUNTU_CHECK:')>=0 && text.indexOf('ANANTA_E2E_UBUNTU_CHECK:ubuntu')<0){"
-                + "  throw new Error('Unexpected Ubuntu marker: ' + text.slice(-1200));"
+                + "  throw new Error('FATAL_E2E:Unexpected Ubuntu marker: ' + text.slice(-1200));"
+                + "}"
+                + "if(text.indexOf('proot login fehlgeschlagen')>=0 || text.indexOf('execve(\"/usr/bin/bash\"): Permission denied')>=0){"
+                + "  throw new Error('FATAL_E2E:' + text.slice(-1200));"
                 + "}"
                 + "return text.indexOf('ANANTA_E2E_UBUNTU_CHECK:ubuntu')>=0 && text.indexOf('ANANTA_E2E_WHOAMI:')>=0;",
             90,
@@ -166,7 +169,7 @@ public class LiveTerminalAndroidE2ETest {
         String smokeCommand =
             "ANANTA_PROOT_RUNTIME=\"proot-runtime\"; "
                 + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then ANANTA_PROOT_RUNTIME=\"$(pwd)/proot-runtime\"; fi; "
-                + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do "
+                + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime; do "
                 + "if [ -d \"$d\" ]; then ANANTA_PROOT_RUNTIME=\"$d\"; break; fi; done; fi; "
                 + "[ -n \"$ANANTA_PROOT_RUNTIME\" ] || { echo ANANTA_RUNTIME_MISSING; exit 11; }; "
                 + "ANANTA_APK_PATH=\"$(pm path com.ananta.mobile | sed -n '1s/^package://p')\"; "
@@ -257,6 +260,11 @@ public class LiveTerminalAndroidE2ETest {
                 );
                 return;
             } catch (RuntimeException ex) {
+                if (isFatalE2EException(ex)) {
+                    AssertionError fatal = new AssertionError("Fatal E2E error while waiting for: " + step);
+                    fatal.initCause(ex);
+                    throw fatal;
+                }
                 lastRuntime = ex;
             } catch (AssertionError ex) {
                 lastAssertion = ex;
@@ -276,6 +284,11 @@ public class LiveTerminalAndroidE2ETest {
 
     private void runIfPresent(String step, String scriptExpression) throws InterruptedException {
         waitForTrue(step, scriptExpression);
+    }
+
+    private boolean isFatalE2EException(RuntimeException ex) {
+        String message = String.valueOf(ex == null ? "" : ex.getMessage());
+        return message.contains("FATAL_E2E:");
     }
 
     private static String jsLiteral(String value) {
