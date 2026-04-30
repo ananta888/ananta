@@ -685,6 +685,11 @@ public class PythonRuntimePlugin extends Plugin {
 
     private void applyShellEnvironment(ProcessBuilder builder, File workingDir) {
         Map<String, String> env = builder.environment();
+        // Prevent Chaquopy's Python 3.11 env from leaking into proot sessions running Python 3.13
+        env.remove("PYTHONPATH");
+        env.remove("PYTHONHOME");
+        env.remove("PYTHONDONTWRITEBYTECODE");
+        env.remove("PYTHONSTARTUP");
         String path = workingDir.getAbsolutePath();
         env.put("HOME", path);
         env.put("PWD", path);
