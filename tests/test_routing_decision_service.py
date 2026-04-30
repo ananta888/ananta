@@ -58,3 +58,17 @@ def test_provider_catalog_decision_blocks_remote_hub_when_policy_disallows_it():
 
     assert decision["available_for_routing"] is False
     assert decision["reason"] == "remote_hub_fallback_disabled"
+
+
+def test_routing_decision_chain_includes_context_policy_scope_step():
+    service = get_routing_decision_service()
+
+    chain = service.build_decision_chain(
+        cfg={},
+        task_kind="research",
+        requested={},
+        effective={"provider": "openai", "model": "gpt-4o", "llm_scope": "external_cloud_allowed"},
+        sources={"provider_source": "agent_config.default_provider", "model_source": "agent_config.default_model"},
+    )
+
+    assert any(step.get("step") == "context_policy_scope" for step in list(chain.get("steps") or []))

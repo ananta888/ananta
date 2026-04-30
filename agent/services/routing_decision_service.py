@@ -155,6 +155,16 @@ class RoutingDecisionService:
                     "details": dict(execution_backend),
                 }
             )
+        llm_scope = str((effective or {}).get("llm_scope") or "").strip().lower()
+        if llm_scope:
+            steps.append(
+                {
+                    "step": "context_policy_scope",
+                    "decision": "selected",
+                    "reason": "llm scope resolved for context filtering",
+                    "details": {"llm_scope": llm_scope, "default_deny": True},
+                }
+            )
 
         return RoutingDecisionChain(
             policy_version="routing-decision-v1",
