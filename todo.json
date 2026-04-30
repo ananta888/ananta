@@ -1,203 +1,31 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "freecad_integration",
-  "purpose": "Introduce a controlled FreeCAD integration for Ananta with strong correctness and safety constraints. Focus initially on inspection, planning and export rather than direct mutation.",
-  "status_scale": [
-    "todo",
-    "in_progress",
-    "blocked",
-    "done"
-  ],
-  "priority_scale": [
-    "P0",
-    "P1",
-    "P2",
-    "P3"
-  ],
-  "risk_scale": [
-    "low",
-    "medium",
-    "high",
-    "critical"
-  ],
-  "goal": "Provide FreeCAD context inspection, model analysis, export planning and macro planning through Ananta with approval and audit, without unsafe automatic model modification.",
+  "track": "kicad_integration",
+  "purpose": "Introduce a controlled KiCad integration focused on correctness, validation and planning. PCB and schematic modifications must be highly restricted.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "goal": "Provide project inspection, ERC/DRC planning, BOM/export planning and safe artifact generation for KiCad projects under strict policy and audit control.",
   "non_goals": [
-    "No uncontrolled macro execution.",
-    "No automatic constraint editing without approval.",
-    "No runtime_mvp claim without reproducible smoke evidence.",
-    "No bypass of generic domain foundation."
+    "No automatic PCB routing.",
+    "No silent schematic modification.",
+    "No manufacturing export execution without approval.",
+    "No runtime_mvp claim without verifiable CLI/plugin evidence."
   ],
   "milestones": [
-    {
-      "id": "FC-M1",
-      "title": "Foundation",
-      "task_ids": [
-        "FC-T01",
-        "FC-T02",
-        "FC-T03"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "FC-M2",
-      "title": "Context and planning",
-      "task_ids": [
-        "FC-T04",
-        "FC-T05",
-        "FC-T06"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "FC-M3",
-      "title": "Controlled execution",
-      "task_ids": [
-        "FC-T07",
-        "FC-T08"
-      ],
-      "status": "done"
-    }
+    {"id": "KC-M1", "title": "Foundation", "task_ids": ["KC-T01", "KC-T02", "KC-T03"], "status": "todo"},
+    {"id": "KC-M2", "title": "Analysis and planning", "task_ids": ["KC-T04", "KC-T05", "KC-T06"], "status": "todo"},
+    {"id": "KC-M3", "title": "Controlled execution", "task_ids": ["KC-T07", "KC-T08"], "status": "todo"}
   ],
   "tasks": [
-    {
-      "id": "FC-T01",
-      "title": "FreeCAD context schema define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high"
-    },
-    {
-      "id": "FC-T02",
-      "title": "FreeCAD RAG profiles define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high"
-    },
-    {
-      "id": "FC-T03",
-      "title": "FreeCAD policy pack add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical"
-    },
-    {
-      "id": "FC-T04",
-      "title": "Model inspection service",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high"
-    },
-    {
-      "id": "FC-T05",
-      "title": "Export plan service",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium"
-    },
-    {
-      "id": "FC-T06",
-      "title": "Macro planning (dry-run)",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical"
-    },
-    {
-      "id": "FC-T07",
-      "title": "Approval-gated macro execution",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical"
-    },
-    {
-      "id": "FC-T08",
-      "title": "Audit and verification artifacts",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high"
-    }
-  ],
-  "status": "done",
-  "updated_at": "2026-04-30",
-  "tasks_status_summary": {
-    "updated_at": "2026-04-30",
-    "total": 8,
-    "by_status": {
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 8
-    },
-    "progress_percent_done": 100.0,
-    "by_priority": {
-      "P0": 6,
-      "P1": 2,
-      "P2": 0,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 0,
-      "medium": 1,
-      "high": 4,
-      "critical": 3
-    },
-    "critical_path": {
-      "total": 7,
-      "done": 7,
-      "remaining": 0
-    },
-    "milestones": {
-      "total": 3,
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 3
-    }
-  },
-  "todos": [
-    {
-      "id": "FC-M1",
-      "status": "done",
-      "tasks": [
-        "FC-T01",
-        "FC-T02",
-        "FC-T03"
-      ]
-    },
-    {
-      "id": "FC-M2",
-      "status": "done",
-      "tasks": [
-        "FC-T04",
-        "FC-T05",
-        "FC-T06"
-      ]
-    },
-    {
-      "id": "FC-M3",
-      "status": "done",
-      "tasks": [
-        "FC-T07",
-        "FC-T08"
-      ]
-    }
-  ],
-  "critical_path_tasks": [
-    "FC-T01",
-    "FC-T02",
-    "FC-T03",
-    "FC-T04",
-    "FC-T06",
-    "FC-T07",
-    "FC-T08"
-  ],
-  "execution_order_summary": [
-    "Stage 1: define schema, RAG profiles and policy pack.",
-    "Stage 2: implement inspection and export/macro planning services.",
-    "Stage 3: add approval-gated execution and verification artifacts."
-  ],
-  "summary_notes": [
-    "Consistency sync for freecad track performed on 2026-04-30 (status, milestones, tasks_status_summary, todos fallback).",
-    "All freecad track tasks completed and retained as done on 2026-04-30."
+    {"id": "KC-T01", "title": "KiCad context schema define", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "KC-T02", "title": "KiCad RAG profiles define", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "KC-T03", "title": "KiCad policy pack add", "status": "todo", "priority": "P0", "risk": "critical"},
+    {"id": "KC-T04", "title": "ERC/DRC planning service", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "KC-T05", "title": "BOM and export planning", "status": "todo", "priority": "P0", "risk": "medium"},
+    {"id": "KC-T06", "title": "Project inspection service", "status": "todo", "priority": "P0", "risk": "high"},
+    {"id": "KC-T07", "title": "Approval-gated export execution", "status": "todo", "priority": "P1", "risk": "critical"},
+    {"id": "KC-T08", "title": "Audit and verification artifacts", "status": "todo", "priority": "P1", "risk": "high"}
   ]
 }
