@@ -92,6 +92,14 @@ try {
     }
 
     & $venvPython -m pip install --upgrade pip
+    if (Test-Path "requirements.lock") {
+        & $venvPython -m pip install -r requirements.lock
+    } elseif (Test-Path "requirements.txt") {
+        & $venvPython -m pip install -r requirements.txt
+    }
+    if (Test-Path "requirements-dev.lock") {
+        & $venvPython -m pip install -r requirements-dev.lock
+    }
     & $venvPython -m pip install -e .
     & $venvPython -m agent.cli.main --help | Out-Null
     if ($LASTEXITCODE -ne 0) {

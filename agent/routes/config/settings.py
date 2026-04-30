@@ -84,6 +84,11 @@ def set_config():
         if not governance_service.is_supported_platform_mode(requested_mode):
             return api_response(status="error", message="invalid_platform_mode", code=400)
         new_cfg["platform_mode"] = governance_service.normalize_platform_mode(requested_mode)
+    if "auth_provider" in new_cfg:
+        requested_auth_provider = str(new_cfg.get("auth_provider") or "").strip().lower() or "local"
+        if requested_auth_provider not in {"local", "oidc_bff"}:
+            return api_response(status="error", message="invalid_auth_provider", code=400)
+        new_cfg["auth_provider"] = requested_auth_provider
     if "governance_mode" in new_cfg:
         requested = str(new_cfg.get("governance_mode") or "").strip().lower()
         if requested and requested not in governance_mode_catalog():

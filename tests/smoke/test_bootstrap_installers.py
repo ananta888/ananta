@@ -21,12 +21,14 @@ def test_bootstrap_installers_include_safety_checks_and_smoke() -> None:
 
     assert "set -euo pipefail" in sh
     assert "git status --porcelain" in sh
+    assert "pip install -r requirements.lock" in sh
     assert "pip install -e ." in sh
     assert "agent.cli.main --help" in sh
     assert "--allow-dirty" in sh
 
     assert "git status --porcelain" in ps1
     assert "-m venv" in ps1
+    assert "pip install -r requirements.lock" in ps1
     assert "pip install -e ." in ps1
     assert "agent.cli.main --help" in ps1
     assert "-AllowDirty" in ps1

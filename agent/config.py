@@ -94,6 +94,7 @@ class Settings(BaseSettings):
     evolver_version: str = Field(default="unknown", validation_alias="EVOLVER_VERSION")
 
     # Security
+    auth_provider: str = Field(default="local", validation_alias="AUTH_PROVIDER")
     vault_url: Optional[str] = Field(default=None, validation_alias="VAULT_URL")
     vault_token: Optional[str] = Field(default=None, validation_alias="VAULT_TOKEN")
     vault_mount_point: str = Field(default="secret", validation_alias="VAULT_MOUNT_POINT")
@@ -314,6 +315,15 @@ class Settings(BaseSettings):
         val = (v or "").strip().lower() or "balanced"
         if val not in allowed:
             raise ValueError(f"WORKER_DEFAULT_EXECUTION_PROFILE muss einer der folgenden Werte sein: {sorted(allowed)}")
+        return val
+
+    @field_validator("auth_provider")
+    @classmethod
+    def validate_auth_provider(cls, v: str) -> str:
+        allowed = {"local", "oidc_bff"}
+        val = (v or "").strip().lower() or "local"
+        if val not in allowed:
+            raise ValueError(f"AUTH_PROVIDER muss einer der folgenden Werte sein: {sorted(allowed)}")
         return val
 
     model_config = SettingsConfigDict(

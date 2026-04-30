@@ -24,6 +24,7 @@ def build_default_agent_config() -> dict:
     return {
         "default_provider": settings.default_provider,
         "default_model": settings.default_model,
+        "auth_provider": settings.auth_provider,
         "opencode_default_model": opencode_default_model,
         "provider": settings.default_provider,
         "model": settings.default_model,

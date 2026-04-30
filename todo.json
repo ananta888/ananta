@@ -25,7 +25,8 @@
   "summary_notes": [
     "Abgeschlossene Aufgaben wurden aus dieser Datei entfernt.",
     "Nur derzeit offene oder laufende Tasks sind enthalten.",
-    "Konsistenzfelder sind auf aktuelle Taskdaten synchronisiert."
+    "Konsistenzfelder sind auf aktuelle Taskdaten synchronisiert.",
+    "Alle aktuell geplanten Aufgaben sind erledigt und auf done gesetzt."
   ],
   "milestones": [
     {
@@ -36,7 +37,7 @@
         "T-SEC-002",
         "T-TEST-001"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TEST-M2",
@@ -45,7 +46,7 @@
         "T-TEST-002",
         "T-CONTRACT-001"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TEST-M3",
@@ -55,14 +56,14 @@
         "T-ARCH-001",
         "T-DOC-001"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "T-SEC-001",
       "title": "Flaky LLM-Routing-Test robust machen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -74,7 +75,7 @@
     {
       "id": "T-SEC-002",
       "title": "OIDC/BFF Zielbild fuer sichere Browser-Sessions vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "acceptance_criteria": [
@@ -86,7 +87,7 @@
     {
       "id": "T-TEST-001",
       "title": "Read-Model-Baselines deterministic halten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -98,7 +99,7 @@
     {
       "id": "T-TEST-002",
       "title": "TODO-Track-Tests auf aktuelles Format absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -110,7 +111,7 @@
     {
       "id": "T-BUILD-001",
       "title": "Lokale Installer auf Lockfiles ausrichten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -122,7 +123,7 @@
     {
       "id": "T-ARCH-001",
       "title": "Service-Route-Grenzen weiter entkoppeln",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -134,7 +135,7 @@
     {
       "id": "T-CONTRACT-001",
       "title": "Contract-Tests gegen reale Responses konsolidieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "acceptance_criteria": [
@@ -146,7 +147,7 @@
     {
       "id": "T-DOC-001",
       "title": "Security- und Governance-Entscheidungen dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -164,12 +165,12 @@
   "tasks_status_summary": {
     "total": 8,
     "by_status": {
-      "todo": 7,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 0,
       "P1": 3,
@@ -184,15 +185,15 @@
     },
     "critical_path": {
       "total": 3,
-      "done": 0,
-      "remaining": 3
+      "done": 3,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "execution_stage_summary": {
@@ -204,9 +205,9 @@
           "T-TEST-001"
         ],
         "total": 3,
-        "done": 0,
-        "todo": 2,
-        "in_progress": 1,
+        "done": 3,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       },
       "TEST-M2": {
@@ -215,8 +216,8 @@
           "T-CONTRACT-001"
         ],
         "total": 2,
-        "done": 0,
-        "todo": 2,
+        "done": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -227,8 +228,8 @@
           "T-DOC-001"
         ],
         "total": 3,
-        "done": 0,
-        "todo": 3,
+        "done": 3,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
