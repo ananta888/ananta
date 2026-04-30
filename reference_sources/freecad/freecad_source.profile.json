@@ -1,0 +1,11 @@
+{
+  "source": "repo",
+  "ref": "freecad-source",
+  "allowed_globs": [
+    "**/*.py",
+    "**/*.h",
+    "**/*.cpp"
+  ],
+  "usage": "engine_reference",
+  "license_notes": "Respect FreeCAD source licenses."
+}

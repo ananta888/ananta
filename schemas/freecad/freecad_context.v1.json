@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/freecad/freecad_context.v1.json",
+  "type": "object",
+  "required": [
+    "document",
+    "objects",
+    "provenance"
+  ],
+  "properties": {
+    "document": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "boolean"
+          },
+          "volume": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "selection": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "source",
+        "captured_at"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "captured_at": {
+          "type": "string"
+        },
+        "redaction": {
+          "type": "boolean"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_objects": {
+          "type": "integer"
+        },
+        "max_payload_bytes": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

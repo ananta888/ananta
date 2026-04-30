@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/freecad/freecad_audit_event.v1.json",
+  "type": "object",
+  "required": [
+    "event_type",
+    "capability",
+    "correlation_id",
+    "status"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string"
+    },
+    "capability": {
+      "type": "string"
+    },
+    "correlation_id": {
+      "type": "string"
+    },
+    "approval_id": {
+      "type": "string"
+    },
+    "script_hash": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "goal_id": {
+      "type": "string"
+    },
+    "trace_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

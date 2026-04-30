@@ -1,0 +1,51 @@
+{
+  "version": "1",
+  "default": "deny",
+  "classes": {
+    "read_only": [
+      "freecad.document.read",
+      "freecad.model.inspect",
+      "freecad.export.plan",
+      "freecad.macro.plan"
+    ],
+    "mutating": [
+      "freecad.model.mutate",
+      "freecad.macro.execute"
+    ]
+  },
+  "rules": [
+    {
+      "capability": "freecad.document.read",
+      "decision": "allow"
+    },
+    {
+      "capability": "freecad.model.inspect",
+      "decision": "allow"
+    },
+    {
+      "capability": "freecad.export.plan",
+      "decision": "allow"
+    },
+    {
+      "capability": "freecad.macro.plan",
+      "decision": "allow"
+    },
+    {
+      "capability": "freecad.model.mutate",
+      "decision": "confirm_required",
+      "requires_approval": true
+    },
+    {
+      "capability": "freecad.macro.execute",
+      "decision": "deny",
+      "requires_approval": true
+    }
+  ],
+  "path_controls": {
+    "allowed_export_roots": [
+      "/tmp",
+      "./artifacts"
+    ],
+    "deny_outside_allowed_roots": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "source": "examples",
+  "ref": "freecad-macro-examples",
+  "allowed_globs": [
+    "**/*.FCMacro",
+    "**/*.py"
+  ],
+  "usage": "macro_patterns",
+  "license_notes": "Use curated examples only."
+}

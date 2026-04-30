@@ -37,7 +37,7 @@
         "FC-T02",
         "FC-T03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FC-M2",
@@ -47,7 +47,7 @@
         "FC-T05",
         "FC-T06"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FC-M3",
@@ -56,79 +56,79 @@
         "FC-T07",
         "FC-T08"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "FC-T01",
       "title": "FreeCAD context schema define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high"
     },
     {
       "id": "FC-T02",
       "title": "FreeCAD RAG profiles define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high"
     },
     {
       "id": "FC-T03",
       "title": "FreeCAD policy pack add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical"
     },
     {
       "id": "FC-T04",
       "title": "Model inspection service",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high"
     },
     {
       "id": "FC-T05",
       "title": "Export plan service",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium"
     },
     {
       "id": "FC-T06",
       "title": "Macro planning (dry-run)",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical"
     },
     {
       "id": "FC-T07",
       "title": "Approval-gated macro execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical"
     },
     {
       "id": "FC-T08",
       "title": "Audit and verification artifacts",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high"
     }
   ],
-  "status": "todo",
+  "status": "done",
   "updated_at": "2026-04-30",
   "tasks_status_summary": {
     "updated_at": "2026-04-30",
     "total": 8,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 6,
       "P1": 2,
@@ -143,21 +143,21 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 0,
-      "remaining": 7
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "todos": [
     {
       "id": "FC-M1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "FC-T01",
         "FC-T02",
@@ -166,7 +166,7 @@
     },
     {
       "id": "FC-M2",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "FC-T04",
         "FC-T05",
@@ -175,7 +175,7 @@
     },
     {
       "id": "FC-M3",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "FC-T07",
         "FC-T08"
@@ -197,6 +197,7 @@
     "Stage 3: add approval-gated execution and verification artifacts."
   ],
   "summary_notes": [
-    "Consistency sync for freecad track performed on 2026-04-30 (status, milestones, tasks_status_summary, todos fallback)."
+    "Consistency sync for freecad track performed on 2026-04-30 (status, milestones, tasks_status_summary, todos fallback).",
+    "All freecad track tasks completed and retained as done on 2026-04-30."
   ]
 }
