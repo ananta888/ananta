@@ -44,6 +44,9 @@ import java.util.zip.GZIPInputStream;
         }
 )
 public class VoxtralOfflinePlugin extends Plugin {
+    private static final long DEFAULT_MIN_FREE_BYTES = 512L * 1024L * 1024L;
+    private static final long LIVE_SESSION_MAX_SECONDS = 120L;
+    private static final String MODEL_EXTENSION = ".gguf";
     private static final List<String> RUNNER_CANDIDATE_NAMES = Arrays.asList(
             "voxtral4b-main",
             "voxtral-stream-cli",
@@ -233,6 +236,18 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Runner file not found: " + runnerPath);
             return;
         }
+        if (!isCompatibleModelFile(modelFile)) {
+            call.reject("Model must be a .gguf file.");
+            return;
+        }
+        if (!isRunnerCandidate(runnerFile.getName())) {
+            call.reject("Runner binary is not a supported Voxtral/llama candidate.");
+            return;
+        }
+        if (!hasEnoughStorageForModel(modelFile, DEFAULT_MIN_FREE_BYTES)) {
+            call.reject("Not enough free storage for model execution safety margin.");
+            return;
+        }
         File executableRunnerFile;
         try {
             executableRunnerFile = prepareRunnerForExecution(runnerFile);
@@ -337,6 +352,18 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Runner file not found: " + runnerPath);
             return;
         }
+        if (!isCompatibleModelFile(modelFile)) {
+            call.reject("Model must be a .gguf file.");
+            return;
+        }
+        if (!isRunnerCandidate(runnerFile.getName())) {
+            call.reject("Runner binary is not a supported Voxtral/llama candidate.");
+            return;
+        }
+        if (!hasEnoughStorageForModel(modelFile, DEFAULT_MIN_FREE_BYTES)) {
+            call.reject("Not enough free storage for model execution safety margin.");
+            return;
+        }
         File executableRunnerFile;
         try {
             executableRunnerFile = prepareRunnerForExecution(runnerFile);
@@ -358,7 +385,11 @@ public class VoxtralOfflinePlugin extends Plugin {
         lastModelPath = modelPath;
         lastRunnerPath = runnerPath;
 
-        liveThread = new Thread(() -> runLiveLoop(liveDir, modelFile, executableRunnerFile, sampleRate, chunkSeconds), "voxtral-live-loop");
+        long startedAtMs = System.currentTimeMillis();
+        liveThread = new Thread(
+                () -> runLiveLoop(liveDir, modelFile, executableRunnerFile, sampleRate, chunkSeconds, startedAtMs),
+                "voxtral-live-loop"
+        );
         liveThread.start();
 
         JSObject result = new JSObject();
@@ -432,9 +463,13 @@ public class VoxtralOfflinePlugin extends Plugin {
             File model = new File(modelPath);
             result.put("modelExists", model.exists());
             result.put("modelBytes", model.exists() ? model.length() : 0);
+            result.put("modelCompatible", model.exists() && isCompatibleModelFile(model));
+            result.put("estimatedRequiredBytes", model.exists() ? Math.max(DEFAULT_MIN_FREE_BYTES, model.length() + (128L * 1024L * 1024L)) : DEFAULT_MIN_FREE_BYTES);
         } else {
             result.put("modelExists", false);
             result.put("modelBytes", 0);
+            result.put("modelCompatible", false);
+            result.put("estimatedRequiredBytes", DEFAULT_MIN_FREE_BYTES);
         }
 
         if (runnerPath != null && !runnerPath.isBlank()) {
@@ -450,9 +485,11 @@ public class VoxtralOfflinePlugin extends Plugin {
             }
             result.put("runnerExists", runner.exists());
             result.put("runnerExecutable", executable);
+            result.put("runnerCompatible", isRunnerCandidate(runner.getName()));
         } else {
             result.put("runnerExists", false);
             result.put("runnerExecutable", false);
+            result.put("runnerCompatible", false);
         }
 
         call.resolve(result);
@@ -484,8 +521,18 @@ public class VoxtralOfflinePlugin extends Plugin {
         super.handleOnDestroy();
     }
 
-    private void runLiveLoop(File liveDir, File modelFile, File runnerFile, int sampleRate, int chunkSeconds) {
+    private void runLiveLoop(File liveDir, File modelFile, File runnerFile, int sampleRate, int chunkSeconds, long startedAtMs) {
         while (isLiveRunning) {
+            long elapsedSeconds = (System.currentTimeMillis() - startedAtMs) / 1000L;
+            if (elapsedSeconds >= LIVE_SESSION_MAX_SECONDS) {
+                JSObject event = new JSObject();
+                event.put("message", "Live transcription stopped after safety limit (" + LIVE_SESSION_MAX_SECONDS + "s).");
+                notifyListeners("voxtralLiveError", event);
+                synchronized (recordingLock) {
+                    isLiveRunning = false;
+                }
+                break;
+            }
             File chunkFile = new File(liveDir, "chunk_" + System.currentTimeMillis() + ".wav");
             try {
                 recordSingleChunk(chunkFile, sampleRate, chunkSeconds);
@@ -825,6 +872,19 @@ public class VoxtralOfflinePlugin extends Plugin {
         String name = baseName.toLowerCase();
         if (RUNNER_CANDIDATE_NAMES.contains(name)) return true;
         return name.contains("voxtral") || name.equals("llama-cli");
+    }
+
+    private boolean isCompatibleModelFile(File modelFile) {
+        String name = modelFile.getName().toLowerCase();
+        return name.endsWith(MODEL_EXTENSION);
+    }
+
+    private boolean hasEnoughStorageForModel(File modelFile, long safetyFloorBytes) {
+        File filesDir = getContext().getFilesDir();
+        StatFs statFs = new StatFs(filesDir.getAbsolutePath());
+        long availableBytes = statFs.getAvailableBytes();
+        long estimatedNeeded = Math.max(safetyFloorBytes, modelFile.length() + (128L * 1024L * 1024L));
+        return availableBytes >= estimatedNeeded;
     }
 
     private void skipFully(InputStream input, long bytes) throws IOException {
