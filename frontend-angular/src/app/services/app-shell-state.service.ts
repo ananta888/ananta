@@ -21,6 +21,7 @@ export class AppShellStateService {
     this.mobile.init();
     this.darkMode.set(this.applyStoredTheme());
     this.mode.set(this.applyStoredMode());
+    this.ensureDistroDefault();
     this.updateRouteContext();
     this.router.events.pipe(filter(event => event instanceof NavigationEnd)).subscribe(() => this.updateRouteContext());
   }
@@ -56,7 +57,14 @@ export class AppShellStateService {
 
   private applyStoredMode(): AppShellMode {
     const stored = localStorage.getItem('ananta.shell.mode');
-    return stored === 'advanced' ? 'advanced' : 'simple';
+    if (stored === 'advanced') return 'advanced';
+    if (stored === 'simple') return 'simple';
+    // Android native defaults to advanced (all nav items visible)
+    if (this.mobile.isNative) {
+      localStorage.setItem('ananta.shell.mode', 'advanced');
+      return 'advanced';
+    }
+    return 'simple';
   }
 
   private applyStoredTheme(): boolean {
@@ -68,6 +76,14 @@ export class AppShellStateService {
     const enabled = stored === 'true';
     this.applyThemeClass(enabled);
     return enabled;
+  }
+
+  private ensureDistroDefault(): void {
+    if (!this.mobile.isNative) return;
+    const key = 'ananta.mobile.proot.distro';
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, 'ubuntu');
+    }
   }
 
   private applyThemeClass(enabled: boolean): void {
