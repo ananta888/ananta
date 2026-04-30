@@ -616,7 +616,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
       }
       const initialCommand = String(this.embeddedInitialCommand || '').trim();
       const started = await this.pythonRuntime.openShellSession({
-        shell: 'sh',
+        shell: '/system/bin/sh',
         ...(initialCommand ? { initialCommand } : {}),
       });
       this.embeddedSessionId = started.sessionId;

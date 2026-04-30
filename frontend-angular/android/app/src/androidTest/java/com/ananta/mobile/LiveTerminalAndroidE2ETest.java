@@ -38,6 +38,7 @@ public class LiveTerminalAndroidE2ETest {
         runIfPresent(
             "seed auth and route to agents",
             "localStorage.setItem('ananta.user.token'," + jsLiteral(arg("ananta.e2e.token", "ananta-e2e-token")) + ");"
+                + "localStorage.setItem('ananta.mobile.proot.distro','ubuntu');"
                 + "if(!(window.location.pathname||'').includes('/agents')){window.location.assign('/agents');}"
                 + "return true;"
         );
