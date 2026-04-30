@@ -157,6 +157,14 @@ if [[ ! -x "$VENV_PY" ]]; then
 fi
 
 "$VENV_PY" -m pip install --upgrade pip
+if [[ -f "requirements.lock" ]]; then
+  "$VENV_PY" -m pip install -r requirements.lock
+elif [[ -f "requirements.txt" ]]; then
+  "$VENV_PY" -m pip install -r requirements.txt
+fi
+if [[ -f "requirements-dev.lock" ]]; then
+  "$VENV_PY" -m pip install -r requirements-dev.lock
+fi
 "$VENV_PY" -m pip install -e .
 "$VENV_PY" -m agent.cli.main --help >/dev/null
 

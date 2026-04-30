@@ -988,6 +988,21 @@ def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_to
     assert data["terminal_policy"]["allowed_roles"] == ["operator"]
 
 
+def test_set_config_validates_auth_provider(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    invalid = client.post("/config", json={"auth_provider": "oidc"}, headers=headers)
+    assert invalid.status_code == 400
+    assert invalid.json["message"] == "invalid_auth_provider"
+
+    ok = client.post("/config", json={"auth_provider": "oidc_bff"}, headers=headers)
+    assert ok.status_code == 200
+
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    assert (cfg.json.get("data") or {}).get("auth_provider") == "oidc_bff"
+
+
 def test_set_config_validates_routing_fallback_policy(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
 
