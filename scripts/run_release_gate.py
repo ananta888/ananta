@@ -157,6 +157,13 @@ def main() -> int:
     parser.add_argument("--skip-cli-smoke", action="store_true", help="Skip unified CLI smoke checks.")
     parser.add_argument("--cli-smoke-test", default="tests/smoke/test_unified_cli_smoke.py")
     parser.add_argument(
+        "--workflow-runtime-claimed",
+        action="store_true",
+        help="Run workflow adapter smoke checks when workflow automation is part of release claim.",
+    )
+    parser.add_argument("--skip-workflow-smoke", action="store_true", help="Skip workflow adapter smoke checks.")
+    parser.add_argument("--workflow-smoke-test", default="tests/smoke/test_workflow_integration_smoke.py")
+    parser.add_argument(
         "--tdd-runtime-claimed",
         action="store_true",
         help="Run TDD tiny-repo smoke checks when TDD blueprint runtime is part of release claim.",
@@ -246,6 +253,18 @@ def main() -> int:
         cli_smoke_result = subprocess.run(cli_smoke_command, cwd=str(ROOT), check=False)
         if cli_smoke_result.returncode != 0:
             return cli_smoke_result.returncode
+
+    if args.workflow_runtime_claimed and not args.skip_workflow_smoke:
+        workflow_smoke_command = [
+            python_exec,
+            "-m",
+            "pytest",
+            "-q",
+            args.workflow_smoke_test,
+        ]
+        workflow_smoke_result = subprocess.run(workflow_smoke_command, cwd=str(ROOT), check=False)
+        if workflow_smoke_result.returncode != 0:
+            return workflow_smoke_result.returncode
 
     if args.tdd_runtime_claimed and not args.skip_tdd_smoke:
         tdd_smoke_command = [

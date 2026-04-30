@@ -528,3 +528,7 @@ Linting:
 - `docs/template-variable-registry.md`
 - `docs/template-variable-migration-notes.md`
 - `docs/responsible-agent-development-manifesto.md`
+
+## Optional Workflow Automation Adapters
+
+Workflow automation (n8n/generic webhook/mock) is optional and disabled by default. Hub policy/approval/audit remain authoritative.

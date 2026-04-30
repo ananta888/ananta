@@ -93,7 +93,7 @@
         "WFA-T02",
         "WFA-T03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WFA-M2",
@@ -103,7 +103,7 @@
         "WFA-T05",
         "WFA-T06"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WFA-M3",
@@ -114,7 +114,7 @@
         "WFA-T09",
         "WFA-T10"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WFA-M4",
@@ -124,7 +124,7 @@
         "WFA-T12",
         "WFA-T13"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WFA-M5",
@@ -135,14 +135,14 @@
         "WFA-T16",
         "WFA-T17"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "WFA-T01",
       "title": "Workflow adapter boundary ADR add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -162,7 +162,7 @@
     {
       "id": "WFA-T02",
       "title": "Workflow UX learnings document add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "blocking": false,
@@ -181,7 +181,7 @@
     {
       "id": "WFA-T03",
       "title": "Optional workflow runtime profile add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -203,7 +203,7 @@
     {
       "id": "WFA-T04",
       "title": "Provider-neutral workflow descriptor schema add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -225,7 +225,7 @@
     {
       "id": "WFA-T05",
       "title": "Workflow registry service add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -247,7 +247,7 @@
     {
       "id": "WFA-T06",
       "title": "Workflow capabilities map to Ananta policy add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -270,7 +270,7 @@
     {
       "id": "WFA-T07",
       "title": "Workflow execution request model add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": true,
@@ -293,7 +293,7 @@
     {
       "id": "WFA-T08",
       "title": "Provider-neutral workflow execution adapter add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "blocking": true,
@@ -316,7 +316,7 @@
     {
       "id": "WFA-T09",
       "title": "Workflow callback receiver add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": true,
@@ -338,7 +338,7 @@
     {
       "id": "WFA-T10",
       "title": "Provider-neutral IntegrationRunArtifact mapping add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -360,7 +360,7 @@
     {
       "id": "WFA-T11",
       "title": "Workflow credential boundary document add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -381,7 +381,7 @@
     {
       "id": "WFA-T12",
       "title": "Workflow audit event coverage add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -404,7 +404,7 @@
     {
       "id": "WFA-T13",
       "title": "Workflow callback token and signature verification add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "blocking": true,
@@ -426,7 +426,7 @@
     {
       "id": "WFA-T14",
       "title": "Generic webhook/mock provider add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "blocking": true,
@@ -449,7 +449,7 @@
     {
       "id": "WFA-T15",
       "title": "n8n reference provider add",
-      "status": "deferred",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "blocking": false,
@@ -470,7 +470,7 @@
     {
       "id": "WFA-T16",
       "title": "Workflow notification dogfood descriptor add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "blocking": false,
@@ -493,7 +493,7 @@
     {
       "id": "WFA-T17",
       "title": "Workflow integration docs and smoke checks add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -545,13 +545,13 @@
     "updated_at": "2026-04-30",
     "total": 17,
     "by_status": {
-      "todo": 16,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0,
-      "deferred": 1
+      "done": 17,
+      "deferred": 0
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 6,
       "P1": 7,
@@ -566,15 +566,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 0,
-      "remaining": 10
+      "done": 10,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0,
+      "done": 5,
       "deferred": 0
     }
   },
@@ -585,14 +585,15 @@
     "The first implementation should be dry-run and mock-friendly so tests do not require a live workflow engine.",
     "Write/admin workflows must stay explicit, policy-gated and approval-bound.",
     "This track pairs naturally with MCP/external tool policy work but remains optional for OSS local-dev.",
-    "Consistency fields (tasks_status_summary, todos, execution_stage_summary, milestone status) synchronized on 2026-04-30."
+    "Consistency fields (tasks_status_summary, todos, execution_stage_summary, milestone status) synchronized on 2026-04-30.",
+    "All WFA tasks were completed and retained as done on 2026-04-30."
   ],
-  "status": "in_progress",
+  "status": "done",
   "updated_at": "2026-04-30",
   "todos": [
     {
       "id": "WFA-M1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "WFA-T01",
         "WFA-T02",
@@ -601,7 +602,7 @@
     },
     {
       "id": "WFA-M2",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "WFA-T04",
         "WFA-T05",
@@ -610,7 +611,7 @@
     },
     {
       "id": "WFA-M3",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "WFA-T07",
         "WFA-T08",
@@ -620,7 +621,7 @@
     },
     {
       "id": "WFA-M4",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "WFA-T11",
         "WFA-T12",
@@ -629,7 +630,7 @@
     },
     {
       "id": "WFA-M5",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "WFA-T14",
         "WFA-T15",
