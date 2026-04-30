@@ -109,8 +109,40 @@ public class LiveTerminalAndroidE2ETest {
         runIfPresent(
             "seed auth and route to agents",
             "localStorage.setItem('ananta.user.token'," + jsLiteral(arg("ananta.e2e.token", "ananta-e2e-token")) + ");"
+                + "localStorage.setItem('ananta.mobile.proot.distro','ubuntu');"
                 + "if(!(window.location.pathname||'').includes('/agents')){window.location.assign('/agents');}"
                 + "return true;"
+        );
+
+        runIfPresent(
+            "ensure ubuntu distro installed",
+            "window.__anantaDistroSetup='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var p=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!p){window.__anantaDistroSetup='ERR:NO_PLUGIN';return;}"
+                + "    var status=await p.getProotRuntimeStatus();"
+                + "    var distros=(status && Array.isArray(status.distros)) ? status.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaDistroSetup='INSTALLING';"
+                + "      await p.installProotDistro({distro:'ubuntu'});"
+                + "    }"
+                + "    window.__anantaDistroSetup='OK';"
+                + "  }catch(e){"
+                + "    window.__anantaDistroSetup='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "ubuntu distro ready",
+            "var v=String(window.__anantaDistroSetup||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v==='OK';",
+            600,
+            1_000L
         );
 
         waitForTrue(
@@ -238,7 +270,11 @@ public class LiveTerminalAndroidE2ETest {
                 + "    var distros=(status && Array.isArray(status.distros)) ? status.distros : [];"
                 + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
                 + "    if(!runtimeOk){window.__anantaProotSmoke='ERR:RUNTIME_NOT_READY';return;}"
-                + "    if(!ubuntuOk){window.__anantaProotSmoke='ERR:UBUNTU_NOT_INSTALLED';return;}"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaProotSmoke='INSTALLING_UBUNTU';"
+                + "      await p.installProotDistro({distro:'ubuntu'});"
+                + "      window.__anantaProotSmoke='UBUNTU_INSTALLED';"
+                + "    }"
                 + "    window.__anantaProotSmoke='RUN_SMOKE';"
                 + "    var res=await p.runShellCommand({command:" + jsLiteral(smokeCommand) + ",timeoutSeconds:120});"
                 + "    var out=(res && res.output) ? String(res.output) : '';"
@@ -253,7 +289,7 @@ public class LiveTerminalAndroidE2ETest {
         waitForTrueWithRetry(
             "proot smoke finished",
             "var v=String(window.__anantaProotSmoke||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
-            360,
+            600,
             1_000L
         );
         runIfPresent(
